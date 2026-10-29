@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -137,10 +137,27 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     </div>
   `,
   styles: [`
-    .login-wrapper {
+    :host {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
       height: 100vh;
-      min-height: 100vh;
-      max-height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      z-index: 1;
+    }
+    .login-wrapper {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      max-height: 100%;
       position: relative;
       display: flex;
       align-items: center;
@@ -150,7 +167,10 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         radial-gradient(circle at 50% 20%, #1e3a8a 0%, #0b1329 65%, #030712 100%),
         radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
       background-size: 100% 100%, 28px 28px;
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
       padding: 10px 16px;
       box-sizing: border-box;
     }
@@ -419,9 +439,58 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; color: #dc2626 !important; }
       span { flex: 1; line-height: 1.3; }
     }
+
+    @media (max-width: 480px) {
+      .login-wrapper {
+        padding: 6px 12px;
+      }
+      .login-card {
+        padding: 14px 16px 12px;
+        border-radius: 16px;
+      }
+      .brand-logo-box {
+        width: 38px;
+        height: 38px;
+        margin-bottom: 6px;
+        .brand-icon {
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
+        }
+      }
+      .brand-title {
+        font-size: 1.15rem;
+        margin-bottom: 4px;
+      }
+      .subtitle-badge {
+        padding: 2px 6px;
+        margin-bottom: 3px;
+      }
+      .subtitle-text {
+        font-size: 0.72rem;
+      }
+      .module-tags-row {
+        font-size: 0.68rem;
+        gap: 4px;
+      }
+      .submit-btn {
+        height: 38px;
+        font-size: 0.88rem;
+      }
+      .or-divider {
+        margin: 6px 0;
+      }
+      .create-tenant-btn {
+        height: 36px;
+        font-size: 0.8rem !important;
+      }
+      .security-footer {
+        margin-top: 6px;
+      }
+    }
   `]
 })
-export class LoginComponent implements OnInit {
+export class LoginComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog, { optional: true });
   loginForm: FormGroup;
   hidePassword = true;
@@ -444,6 +513,12 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Lock body and html scrolling on mobile while on login screen
+    try {
+      document.body.classList.add('login-page-active');
+      document.documentElement.classList.add('login-page-active');
+    } catch (_) {}
+
     // Immediately close any open modal dialogs or popups upon entering login
     try {
       this.dialog?.closeAll();
@@ -459,6 +534,14 @@ export class LoginComponent implements OnInit {
     } else if (reason === 'kicked_out') {
       this.sessionNotice = 'Your account was logged in from another browser or device. This session has been terminated.';
     }
+  }
+
+  ngOnDestroy(): void {
+    // Release mobile viewport lock upon leaving login screen
+    try {
+      document.body.classList.remove('login-page-active');
+      document.documentElement.classList.remove('login-page-active');
+    } catch (_) {}
   }
 
   onTenantCodeInput(event: Event): void {

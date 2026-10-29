@@ -46,6 +46,19 @@ html, body {
   --erp-primary-light: #eff6ff;
 }
 
+// Mobile viewport lock when on login screen (prevents rubber-band / unwanted vertical scrolling)
+html.login-page-active,
+body.login-page-active,
+html:has(app-login),
+body:has(app-login) {
+  overflow: hidden !important;
+  height: 100% !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 // Global Typography Enforcement (excluding mat-icon)
 body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
 .mat-typography, .mat-mdc-button, .mat-mdc-card, .mat-mdc-table, .mat-mdc-dialog-container,

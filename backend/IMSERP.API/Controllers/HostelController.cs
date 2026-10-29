@@ -2,6 +2,7 @@ using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
+using IMSERP.API.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -657,8 +658,7 @@ public class HostelController : ControllerBase
         [FromQuery] int pageSize = 10)
     {
         var tenantId = _currentUser.TenantId;
-        var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
-        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone);
+        var now = IstTimeZoneHelper.NowIst;
 
         var baseQuery = _db.HostelGatePasses
             .AsNoTracking()
@@ -825,8 +825,7 @@ public class HostelController : ControllerBase
         pass.WardenApprovalStatus = status;
         if (status == "Completed")
         {
-            var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
-            pass.ActualReturnDate = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone);
+            pass.ActualReturnDate = IstTimeZoneHelper.NowIst;
 
             // Auto-flip today's roll call attendance from GatePass to Present since student is back
             var today = pass.ActualReturnDate.Value.Date;
@@ -1099,8 +1098,7 @@ public class HostelController : ControllerBase
         var dateOnly = punchDateTime.Date;
         var shift = dto.Shift ?? "Night";
 
-        var indiaTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.SpecifyKind(punchDateTime, DateTimeKind.Utc), "India Standard Time");
+        var indiaTime = IstTimeZoneHelper.UtcToIst(punchDateTime);
         var punchTimeStr = indiaTime.ToString("HH:mm");
 
         var record = await _db.HostelAttendances.FirstOrDefaultAsync(a =>

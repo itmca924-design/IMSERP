@@ -6232,14 +6232,14 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
               <tr *ngFor="let row of rows; let i = index" [class.absent-row]="row.isAbsent">
                 <td class="col-sno-data text-center">{{i + 1}}</td>
                 <td class="col-name-data">
-                  <div class="name-row-flex">
-                    <span class="name-bold">{{row.studentName}}</span>
+                  <div class="name-bold">{{row.studentName}}</div>
+                  <div class="name-meta-row">
+                    <span class="sub-roll" *ngIf="row.rollNumber">Roll: {{row.rollNumber}}</span>
                     <button type="button" class="row-wa-badge-btn hide-on-print" (click)="sendIndividualStudentWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName">
                       <mat-icon>chat</mat-icon>
                       <span>WhatsApp</span>
                     </button>
                   </div>
-                  <div class="sub-roll" *ngIf="row.rollNumber">Roll: {{row.rollNumber}}</div>
                 </td>
                 <td class="col-class-data text-center">{{row.className || reportHeader?.className || data.className}}</td>
 
@@ -6872,26 +6872,38 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       letter-spacing: 0.3px;
       text-transform: uppercase;
     }
-    .col-sno { width: 4%; }
-    .col-name { width: 14%; text-align: left !important; }
-    .col-class { width: 5%; }
-    .col-cw { width: 27%; }
-    .col-cw-rem { width: 11%; text-align: center; }
+    .col-sno { width: 3.5%; }
+    .col-name { width: 16.5%; text-align: left !important; }
+    .col-class { width: 6%; }
+    .col-cw { width: 26%; }
+    .col-cw-rem { width: 10%; text-align: center; }
     .col-hw { width: 26%; }
-    .col-hw-rem { width: 13%; text-align: center; }
+    .col-hw-rem { width: 12%; text-align: center; }
 
     .text-center { text-align: center; }
     .col-sno-data { font-weight: 800; color: #1e293b; text-align: center; }
     .col-name-data { text-align: left; }
-    .name-bold { font-weight: 800; color: #0f172a; font-size: 13px; word-break: break-word; }
-    .sub-roll { font-size: 11px; color: #64748b; font-weight: 600; }
-    .col-class-data { font-weight: 700; color: #1e3a8a; text-align: center; }
-    .name-row-flex {
+    .name-bold {
+      font-weight: 800;
+      color: #0f172a;
+      font-size: 12.5px;
+      line-height: 1.35;
+      word-break: normal !important;
+      overflow-wrap: break-word;
+      hyphens: manual;
+      margin-bottom: 3px;
+      letter-spacing: 0.2px;
+    }
+    .name-meta-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 3px;
     }
+    .sub-roll { font-size: 11px; color: #64748b; font-weight: 600; }
+    .col-class-data { font-weight: 700; color: #1e3a8a; text-align: center; }
     .row-wa-btn {
       width: 24px;
       height: 24px;
@@ -7643,13 +7655,13 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             letter-spacing: 0.3px !important;
             text-transform: uppercase !important;
           }
-          .col-sno { width: 4% !important; }
-          .col-name { width: 14% !important; text-align: left !important; }
-          .col-class { width: 5% !important; }
-          .col-cw { width: 27% !important; }
-          .col-cw-rem { width: 11% !important; text-align: center !important; }
+          .col-sno { width: 3.5% !important; }
+          .col-name { width: 16.5% !important; text-align: left !important; }
+          .col-class { width: 6% !important; }
+          .col-cw { width: 26% !important; }
+          .col-cw-rem { width: 10% !important; text-align: center !important; }
           .col-hw { width: 26% !important; }
-          .col-hw-rem { width: 13% !important; text-align: center !important; }
+          .col-hw-rem { width: 12% !important; text-align: center !important; }
           .col-rem-data { text-align: center; vertical-align: middle !important; font-size: 10.5px !important; padding: 3px 4px !important; }
           .rem-content { display: flex !important; flex-direction: column !important; gap: 3px !important; align-items: center !important; justify-content: center !important; width: 100% !important; }
           .rem-text-badge {
@@ -7693,7 +7705,15 @@ export class DailyDiaryReportDialogComponent implements OnInit {
           .text-center { text-align: center !important; }
           .col-sno-data { font-weight: 800 !important; color: #1e293b !important; text-align: center !important; }
           .col-name-data { text-align: left !important; }
-          .name-bold { font-weight: 800 !important; color: #0f172a !important; font-size: 11.5px !important; word-break: break-word !important; }
+          .name-bold {
+            font-weight: 800 !important;
+            color: #0f172a !important;
+            font-size: 11px !important;
+            line-height: 1.3 !important;
+            word-break: normal !important;
+            overflow-wrap: break-word !important;
+            margin-bottom: 2px !important;
+          }
           .sub-roll { font-size: 10px !important; color: #64748b !important; font-weight: 600 !important; }
           .col-class-data { font-weight: 700 !important; color: #1e3a8a !important; text-align: center !important; }
           .col-work-data { text-align: left !important; }

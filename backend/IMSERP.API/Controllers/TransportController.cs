@@ -1,6 +1,7 @@
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.API.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -517,7 +518,7 @@ public class TransportController : ControllerBase
             DateTime? droppedAt = att?.DroppedAt;
             string? lastUpdatedFormatted = null;
 
-            var istTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            var istTimeZone = IstTimeZoneHelper.Zone;
             if (droppedAt.HasValue)
             {
                 var istDrop = TimeZoneInfo.ConvertTimeFromUtc(droppedAt.Value, istTimeZone);
@@ -679,7 +680,7 @@ public class TransportController : ControllerBase
              t.PassengerName.ToLower() == dto.PassengerName.ToLower()));
 
         var nowUtc = DateTime.UtcNow;
-        var istTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        var istTimeZone = IstTimeZoneHelper.Zone;
         var nowIst = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, istTimeZone);
         var timeStr = nowIst.ToString("hh:mm tt");
 
@@ -810,7 +811,7 @@ public class TransportController : ControllerBase
     public async Task<ActionResult<LiveTransportFleetTrackerDto>> GetLiveTracker()
     {
         var today = DateTime.UtcNow.Date;
-        var istTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        var istTimeZone = IstTimeZoneHelper.Zone;
         var nowIst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istTimeZone);
 
         var routes = await _db.TransportRoutes.AsNoTracking()
@@ -939,7 +940,7 @@ public class TransportController : ControllerBase
         }
 
         var today = DateTime.UtcNow.Date;
-        var istTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        var istTimeZone = IstTimeZoneHelper.Zone;
 
         var morningAtt = await _db.TransportAttendances.AsNoTracking().FirstOrDefaultAsync(t =>
             t.StudentId == studentId && t.AttendanceDate == today && t.DepartureType == "Morning");

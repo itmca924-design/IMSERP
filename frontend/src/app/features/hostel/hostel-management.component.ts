@@ -1664,17 +1664,13 @@ const API_BASE = environment.apiBaseUrl;
 
       @media (max-width: 1199px) and (min-width: 768px) {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      @media (max-width: 767px) and (min-width: 480px) {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
       }
 
-      @media (max-width: 479px) {
-        grid-template-columns: 1fr;
+      @media (max-width: 767px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
+        margin-bottom: 14px;
       }
 
       .kpi-card {
@@ -1721,6 +1717,11 @@ const API_BASE = environment.apiBaseUrl;
           align-items: center;
           gap: 10px;
 
+          @media (max-width: 600px) {
+            padding: 8px 10px !important;
+            gap: 8px;
+          }
+
           .kpi-icon-wrap {
             width: 38px;
             height: 38px;
@@ -1730,10 +1731,23 @@ const API_BASE = environment.apiBaseUrl;
             align-items: center;
             justify-content: center;
 
+            @media (max-width: 600px) {
+              width: 32px;
+              height: 32px;
+              min-width: 32px;
+              border-radius: 8px;
+            }
+
             mat-icon {
               font-size: 20px;
               width: 20px;
               height: 20px;
+
+              @media (max-width: 600px) {
+                font-size: 17px;
+                width: 17px;
+                height: 17px;
+              }
             }
           }
 
@@ -1752,6 +1766,11 @@ const API_BASE = environment.apiBaseUrl;
               align-items: center;
               gap: 4px;
 
+              @media (max-width: 600px) {
+                font-size: 16px;
+                line-height: 1.1;
+              }
+
               .pct-badge {
                 font-size: 10px;
                 font-weight: 700;
@@ -1760,6 +1779,11 @@ const API_BASE = environment.apiBaseUrl;
                 padding: 1px 5px;
                 border-radius: 10px;
                 line-height: 1.2;
+
+                @media (max-width: 600px) {
+                  font-size: 9px;
+                  padding: 1px 4px;
+                }
               }
             }
 
@@ -1773,6 +1797,12 @@ const API_BASE = environment.apiBaseUrl;
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
+
+              @media (max-width: 600px) {
+                font-size: 9.5px;
+                letter-spacing: 0.2px;
+                margin-top: 1px;
+              }
             }
           }
         }
