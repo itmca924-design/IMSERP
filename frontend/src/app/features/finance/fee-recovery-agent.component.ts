@@ -35,6 +35,7 @@ import {
 import { RecordPromiseDialogComponent } from './dialogs/record-promise-dialog.component';
 import { EditNudgeMessageDialogComponent } from './dialogs/edit-nudge-message-dialog.component';
 import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.component';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-fee-recovery-agent',
@@ -246,9 +247,9 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
                     <th class="cb-col"></th>
                     <th mat-sort-header="student" class="sortable-th">Student Details</th>
                     <th mat-sort-header="class" class="sortable-th">Class / Batch</th>
-                    <th mat-sort-header="overdue" class="text-right sortable-th">Overdue Balance</th>
+                    <th mat-sort-header="overdue" class="text-right sortable-th">Overdue</th>
                     <th mat-sort-header="delay" class="sortable-th">Delay</th>
-                    <th mat-sort-header="risk" class="sortable-th">AI Risk Assessment</th>
+                    <th mat-sort-header="risk" class="sortable-th">AI Risk</th>
                     <th mat-sort-header="action" class="sortable-th">Action Plan</th>
                     <th mat-sort-header="status" class="sortable-th">Commitment</th>
                     <th class="text-center actions-th" matTooltip="Action Menu">
@@ -266,7 +267,20 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
                     <td class="student-cell">
                       <div class="student-info-box">
                         <div class="stu-avatar">
-                          <mat-icon>person</mat-icon>
+                          <img
+                            *ngIf="p.profilePhoto"
+                            [src]="getPhotoUrl(p.profilePhoto)"
+                            [alt]="p.studentName"
+                            class="stu-img"
+                            (error)="p.profilePhoto = undefined"
+                          />
+                          <div
+                            *ngIf="!p.profilePhoto"
+                            class="stu-initials"
+                            [style.background]="getAvatarGradient(p.studentName)"
+                          >
+                            {{ getInitials(p.studentName) }}
+                          </div>
                         </div>
                         <div class="stu-details">
                           <span class="stu-name">{{ p.studentName }}</span>
@@ -282,7 +296,7 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
                           {{ getDivisionPillLabel(p) }}
                         </span>
                         <span class="c-name">{{ p.className || 'General Class' }}</span>
-                        <span class="b-name" *ngIf="p.batchName">• {{ p.batchName }}</span>
+                        <span class="b-name" *ngIf="p.batchName" [matTooltip]="p.batchName">• {{ p.batchName }}</span>
                       </div>
                     </td>
 
@@ -816,24 +830,42 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
       }
     }
 
-    /* Responsive Table */
+    /* Responsive Table - Clean Fit Without Horizontal Scrollbar on Desktop */
     .table-responsive {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       width: 100%;
+
+      @media (min-width: 1024px) {
+        overflow-x: hidden;
+      }
+
+      &::-webkit-scrollbar {
+        height: 4px;
+      }
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
     }
 
     .agent-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
 
       th {
         background: #f8fafc;
         color: #475569;
         font-weight: 700;
         text-align: left;
-        padding: 12px 14px;
+        padding: 9px 8px;
         border-bottom: 2px solid #e2e8f0;
         white-space: nowrap;
 
@@ -849,7 +881,7 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
       }
 
       td {
-        padding: 12px 14px;
+        padding: 8px 8px;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
       }
@@ -863,8 +895,11 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
       }
 
       .cb-col {
-        width: 40px;
+        width: 36px;
+        min-width: 36px;
+        max-width: 36px;
         text-align: center;
+        padding: 8px 4px !important;
       }
 
       .text-right {
@@ -875,59 +910,83 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
     .student-info-box {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
 
       .stu-avatar {
-        width: 36px;
-        height: 36px;
+        width: 34px;
+        height: 34px;
         border-radius: 8px;
-        background: #eff6ff;
-        color: #2563eb;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        overflow: hidden;
+        background: #eff6ff;
+
+        img.stu-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 8px;
+        }
+
+        .stu-initials {
+          width: 100%;
+          height: 100%;
+          color: #ffffff;
+          font-weight: 700;
+          font-size: 0.75rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 8px;
+          letter-spacing: 0.5px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
 
         mat-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
         }
       }
 
       .stu-details {
         display: flex;
         flex-direction: column;
+        min-width: 0;
 
         .stu-name {
           font-weight: 700;
           color: #0f172a;
+          white-space: nowrap;
         }
 
         .stu-roll {
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: #64748b;
+          white-space: nowrap;
         }
 
         .stu-parent {
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: #15803d;
           font-weight: 600;
           white-space: nowrap !important;
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          margin-top: 2px;
+          margin-top: 1px;
 
           .phone-icon {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             line-height: 1;
             flex-shrink: 0;
           }
 
           .phone-num {
             white-space: nowrap !important;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
           }
         }
       }
@@ -936,9 +995,10 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
     .class-batch-badge {
       display: flex;
       flex-direction: column;
-      font-size: 0.8rem;
-      .c-name { font-weight: 600; color: #1e293b; }
-      .b-name { color: #64748b; font-size: 0.75rem; }
+      font-size: 0.78rem;
+      max-width: 160px;
+      .c-name { font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .b-name { color: #64748b; font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
       .division-pill {
         font-size: 0.65rem;
@@ -1070,10 +1130,10 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
     }
 
     .actions-th {
-      width: 54px;
-      min-width: 54px;
+      width: 42px;
+      min-width: 42px;
       text-align: center !important;
-      padding: 10px 8px !important;
+      padding: 8px 4px !important;
 
       .th-action-icon {
         font-size: 18px;
@@ -1091,13 +1151,13 @@ import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.comp
     .actions-col {
       white-space: nowrap;
       text-align: center !important;
-      width: 54px;
-      min-width: 54px;
-      padding: 8px !important;
+      width: 42px;
+      min-width: 42px;
+      padding: 6px 4px !important;
 
       .action-more-btn {
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
         min-width: 32px;
         min-height: 32px;
         padding: 0;
@@ -1817,6 +1877,45 @@ export class FeeRecoveryAgentComponent implements OnInit {
   getDivisionPillClass(item: { isSchoolStudent?: boolean; isCoachingStudent?: boolean; divisionTag?: string }): string {
     const tag = this.getDivisionPillLabel(item).toLowerCase();
     return `div-pill-${tag}`;
+  }
+
+  getPhotoUrl(path?: string | null): string | null {
+    if (!path || typeof path !== 'string') return null;
+    const trimmed = path.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('data:image/') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${environment.apiBaseUrl}${cleanPath}`;
+  }
+
+  getInitials(name?: string | null): string {
+    if (!name) return 'S';
+    const clean = name.replace(/[()[\]{}_-]/g, ' ').replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    const parts = clean.split(/\s+/).filter((p) => p.length > 0);
+    if (parts.length === 0) return 'S';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  getAvatarGradient(name?: string | null): string {
+    const gradients = [
+      'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+      'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+      'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+      'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+      'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+      'linear-gradient(135deg, #06b6d4 0%, #0e7490 100%)',
+      'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)'
+    ];
+    if (!name) return gradients[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % gradients.length;
+    return gradients[index];
   }
 }
 type RunFeeRecoveryAnalysisRequestDto = RunAnalysisRequest;
