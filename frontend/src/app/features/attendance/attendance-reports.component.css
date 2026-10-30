@@ -108,7 +108,8 @@
 
 /* Person Cell */
 .person-name-cell { display:flex; align-items:center; gap:10px; }
-.avatar-circle { width:36px; height:36px; border-radius:50%; background:#e0f2fe; color:#0284c7; font-weight:700; font-size:.88rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.avatar-circle { width:36px; height:36px; border-radius:50%; background:#e0f2fe; color:#0284c7; font-weight:700; font-size:.88rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; border:1px solid #cbd5e1; }
+.avatar-circle .avatar-img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
 .name-bold { font-weight:700; color:#0f172a; display:block; font-size:.9rem; }
 .role-sub { font-size:.74rem; color:#64748b; display:block; }
 .code-badge { display:inline-block; white-space:nowrap; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:2px 6px; border-radius:5px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.72rem; font-weight:700; letter-spacing:.2px; }

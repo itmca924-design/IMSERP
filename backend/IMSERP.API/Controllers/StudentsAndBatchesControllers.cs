@@ -849,7 +849,8 @@ public class StudentsController : ControllerBase
                 student.IsSchoolStudent,
                 student.IsCoachingStudent,
                 elapsedWorkingDaysForStudent,
-                student.JoiningDate != default ? student.JoiningDate.ToString("yyyy-MM-dd") : null
+                student.JoiningDate != default ? student.JoiningDate.ToString("yyyy-MM-dd") : null,
+                student.ProfilePhoto
             );
         }).ToList();
 

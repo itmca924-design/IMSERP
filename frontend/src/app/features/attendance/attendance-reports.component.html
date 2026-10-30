@@ -284,7 +284,10 @@
             <tr class="person-main-row" [class.expanded-row]="isExpanded(row.personId)" [ngClass]="getAttendanceRowClass(row.attendancePercentage)">
               <td>
                 <div class="person-name-cell">
-                  <div class="avatar-circle">{{ getInitials(row.personName) }}</div>
+                  <div class="avatar-circle">
+                    <img *ngIf="row.photoUrl || row.profilePhoto" [src]="getPhotoUrl(row.photoUrl || row.profilePhoto)" [alt]="row.personName" class="avatar-img" (error)="row.photoUrl = null; row.profilePhoto = null" />
+                    <span *ngIf="!row.photoUrl && !row.profilePhoto">{{ getInitials(row.personName) }}</span>
+                  </div>
                   <div>
                     <div class="name-line">
                       <span class="name-bold">{{ row.personName }}</span>

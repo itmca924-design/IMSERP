@@ -36,6 +36,8 @@ interface ReportRow {
   isCoachingStudent?: boolean;
   elapsedWorkingDays?: number;
   joiningDate?: string | null;
+  photoUrl?: string | null;
+  profilePhoto?: string | null;
 }
 
 interface AttendanceReport {
@@ -550,6 +552,14 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     if (!name) return 'ST';
     const p = name.trim().split(/\s+/);
     return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : (name).slice(0,2).toUpperCase();
+  }
+
+  getPhotoUrl(path?: string | null): string {
+    if (!path) return '';
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    const base = (this.api || '').endsWith('/') ? this.api.slice(0, -1) : this.api;
+    const cleanPath = path.startsWith('/') ? path : '/' + path;
+    return `${base}${cleanPath}`;
   }
 
   resetDailyCaches(): void {
