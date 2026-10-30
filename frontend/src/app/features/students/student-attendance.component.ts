@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -506,7 +506,7 @@ interface CalendarDay {
 
       <!-- School Class & Section Filter -->
       <ng-container *ngIf="singleStreamFilter === 'school'">
-        <mat-form-field appearance="outline" class="single-class-select" [matTooltip]="isTeacherClassLocked ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
+        <mat-form-field appearance="outline" class="single-class-select" subscriptSizing="dynamic" [matTooltip]="isTeacherClassLocked ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
           <mat-label>Select Class <span *ngIf="isTeacherClassLocked">🔒</span></mat-label>
           <mat-select [(ngModel)]="singleSelectedClassId" (selectionChange)="onSingleClassChanged()" [disabled]="isTeacherClassLocked">
             <mat-option value="" *ngIf="!isTeacherClassLocked">All Classes</mat-option>
@@ -514,7 +514,7 @@ interface CalendarDay {
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="single-section-select" *ngIf="singleSelectedClassId && singleClassSections.length > 0" [matTooltip]="isTeacherSectionLocked ? '🔒 Assigned section locked' : ''">
+        <mat-form-field appearance="outline" class="single-section-select" subscriptSizing="dynamic" *ngIf="singleSelectedClassId && singleClassSections.length > 0" [matTooltip]="isTeacherSectionLocked ? '🔒 Assigned section locked' : ''">
           <mat-label>Section <span *ngIf="isTeacherSectionLocked">🔒</span></mat-label>
           <mat-select [(ngModel)]="singleSelectedSectionId" (selectionChange)="onSingleSectionChanged()" [disabled]="isTeacherSectionLocked">
             <mat-option value="" *ngIf="!isTeacherSectionLocked">All Sections</mat-option>
@@ -525,7 +525,7 @@ interface CalendarDay {
 
       <!-- Coaching Batch Filter with Academic Class Cascade -->
       <ng-container *ngIf="singleStreamFilter === 'coaching'">
-        <mat-form-field appearance="outline" class="single-class-select" *ngIf="hasSchool">
+        <mat-form-field appearance="outline" class="single-class-select" subscriptSizing="dynamic" *ngIf="hasSchool">
           <mat-label>Academic Class</mat-label>
           <mat-select [(ngModel)]="singleSelectedCoachingClassId" (selectionChange)="onSingleCoachingClassChanged()">
             <mat-option value="">All Academic Classes</mat-option>
@@ -533,7 +533,7 @@ interface CalendarDay {
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="single-batch-select">
+        <mat-form-field appearance="outline" class="single-batch-select" subscriptSizing="dynamic">
           <mat-label>Select Batch</mat-label>
           <mat-select [(ngModel)]="singleSelectedBatchId" (selectionChange)="onSingleBatchChanged()">
             <mat-option value="">All Batches</mat-option>
@@ -542,11 +542,48 @@ interface CalendarDay {
         </mat-form-field>
       </ng-container>
 
-      <!-- Student Selector Dropdown -->
-      <mat-form-field appearance="outline" class="student-select">
-        <mat-label>Select Student ({{ filteredSingleStudents.length }})</mat-label>
-        <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentChanged()">
-          <mat-option *ngFor="let student of filteredSingleStudents" [value]="student.id">
+      <!-- Student Selector Dropdown with in-dropdown search -->
+      <mat-form-field appearance="outline" class="student-select" subscriptSizing="dynamic">
+        <mat-label>Select Student ({{ singleStudentSearchQuery ? (searchedSingleStudents.length + ' / ' + filteredSingleStudents.length) : filteredSingleStudents.length }})</mat-label>
+        <mat-select
+          [(ngModel)]="selectedStudentId"
+          (selectionChange)="onStudentChanged()"
+          panelClass="single-student-select-panel"
+          (opened)="focusStudentSearch()"
+          (closed)="singleStudentSearchQuery = ''"
+        >
+          <!-- Sticky Search Box inside dropdown -->
+          <mat-option disabled class="dropdown-search-option">
+            <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+              <mat-icon class="search-box-icon">search</mat-icon>
+              <input
+                #singleStudentSearchInput
+                type="text"
+                class="search-inner-input"
+                placeholder="Search student by name, roll, admission..."
+                [(ngModel)]="singleStudentSearchQuery"
+                [ngModelOptions]="{standalone: true}"
+                (click)="$event.stopPropagation()"
+                (mousedown)="$event.stopPropagation()"
+                (keydown)="$event.stopPropagation()"
+              />
+              <button
+                type="button"
+                class="clear-mini-btn"
+                *ngIf="singleStudentSearchQuery"
+                (click)="singleStudentSearchQuery = ''; $event.stopPropagation()"
+                (mousedown)="$event.stopPropagation()"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </mat-option>
+
+          <mat-option disabled *ngIf="searchedSingleStudents.length === 0 && singleStudentSearchQuery" class="no-results-option">
+            No student matches "{{ singleStudentSearchQuery }}"
+          </mat-option>
+
+          <mat-option *ngFor="let student of searchedSingleStudents" [value]="student.id">
             {{ getStudentDisplayRoll(student) }} - {{ student.studentName }} {{ getStudentDisplayGroup(student) }}
           </mat-option>
         </mat-select>
@@ -1674,11 +1711,11 @@ interface CalendarDay {
 
     /* Tab 2 Single Student Styles */
     .selector-card, .period-card {
-      display: flex; flex-direction: row !important; flex-wrap: nowrap !important;
-      align-items: center; gap: 16px; padding: 10px 18px; border-radius: 10px;
-      min-height: 78px; box-sizing: border-box;
+      display: flex; flex-direction: row; flex-wrap: wrap;
+      align-items: center; gap: 14px; padding: 10px 18px; border-radius: 10px;
+      min-height: auto; box-sizing: border-box;
     }
-    .selector-card { margin-bottom: 16px; flex-wrap: wrap !important; }
+    .selector-card { margin-bottom: 16px; }
     .selector-icon { font-size: 28px; width: 28px; height: 28px; flex: 0 0 28px; }
     .stream-pill-toggle {
       display: inline-flex; background: #f1f5f9; border-radius: 8px; padding: 3px; gap: 3px; flex-shrink: 0;
@@ -1691,10 +1728,10 @@ interface CalendarDay {
     .stream-pill.active {
       background: #ffffff; color: #2563eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    .single-class-select { flex: 1 1 200px; min-width: 170px; margin: 0; }
-    .single-section-select { flex: 1 1 160px; min-width: 130px; margin: 0; }
-    .single-batch-select { flex: 1 1 220px; min-width: 180px; margin: 0; }
-    .student-select { flex: 2 1 280px; min-width: 220px; margin: 0; }
+    .single-class-select { flex: 1 1 200px; min-width: 170px; height: auto; margin: 0; }
+    .single-section-select { flex: 1 1 160px; min-width: 130px; height: auto; margin: 0; }
+    .single-batch-select { flex: 1 1 220px; min-width: 180px; height: auto; margin: 0; }
+    .student-select { flex: 2 1 280px; min-width: 220px; height: auto; margin: 0; }
     .period-card { justify-content: space-between; min-height: 82px; margin-bottom: 8px; }
     .period-student { display: flex; align-items: center; gap: 10px; color: #2563eb; flex: 1 1 auto; min-width: 180px; }
     .period-student mat-icon { font-size: 28px; width: 28px; height: 28px; }
@@ -2413,6 +2450,35 @@ interface CalendarDay {
         width: 100% !important;
         min-width: 100% !important;
       }
+      .selector-card {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        min-height: auto !important;
+        gap: 10px !important;
+        padding: 12px 14px !important;
+      }
+      .selector-icon { display: none !important; }
+      .stream-pill-toggle {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: stretch !important;
+        box-sizing: border-box !important;
+      }
+      .stream-pill-toggle .stream-pill {
+        flex: 1 1 0 !important;
+        text-align: center !important;
+      }
+      .single-class-select,
+      .single-section-select,
+      .single-batch-select,
+      .student-select {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+      }
       .date-controls {
         width: 100%;
         display: flex;
@@ -2543,8 +2609,36 @@ interface CalendarDay {
       }
     }
     @media (max-width: 600px) {
-      .page-header, .selector-card { align-items: stretch; flex-direction: column !important; flex-wrap: nowrap !important; }
-      .student-select { min-width: 0; width: 100%; }
+      .page-header, .selector-card {
+        align-items: stretch !important;
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        min-height: auto !important;
+        gap: 10px !important;
+        padding: 12px !important;
+      }
+      .selector-icon { display: none !important; }
+      .stream-pill-toggle {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: stretch !important;
+        box-sizing: border-box !important;
+      }
+      .stream-pill-toggle .stream-pill {
+        flex: 1 1 0 !important;
+        text-align: center !important;
+      }
+      .single-class-select,
+      .single-section-select,
+      .single-batch-select,
+      .student-select {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+      }
       .period-student { flex-basis: auto; }
       .calendar-grid { gap: 4px; }
       .day-cell { min-height: 54px; padding: 3px 1px; }
@@ -2614,6 +2708,89 @@ interface CalendarDay {
       .tab-btn .tab-text strong { font-size: 0.82rem; }
       .tab-btn .tab-text small { font-size: 0.68rem; }
     }
+
+    ::ng-deep .single-student-select-panel {
+      max-height: 420px !important;
+
+      .dropdown-search-option {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
+        background: #ffffff !important;
+        padding: 8px 10px 6px 10px !important;
+        height: auto !important;
+        min-height: 48px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        cursor: default !important;
+        opacity: 1 !important;
+        line-height: normal !important;
+        box-sizing: border-box !important;
+
+        .mdc-list-item__primary-text {
+          width: 100% !important;
+        }
+
+        .dropdown-search-box {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 6px 10px;
+          width: 100%;
+          box-sizing: border-box;
+          transition: border-color 0.2s, box-shadow 0.2s;
+
+          &:focus-within {
+            border-color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+          }
+
+          .search-box-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #64748b;
+            flex-shrink: 0;
+          }
+
+          .search-inner-input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 0.85rem;
+            color: #0f172a;
+            width: 100%;
+            flex: 1;
+            font-family: inherit;
+          }
+
+          .clear-mini-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px;
+            mat-icon { font-size: 16px; width: 16px; height: 16px; }
+            &:hover { color: #475569; }
+          }
+        }
+      }
+
+      .no-results-option {
+        font-style: italic;
+        color: #94a3b8 !important;
+        font-size: 0.85rem;
+        padding: 12px 16px !important;
+        text-align: center;
+        cursor: default !important;
+      }
+    }
   `]
 })
 export class StudentAttendanceComponent implements OnInit {
@@ -2681,6 +2858,8 @@ export class StudentAttendanceComponent implements OnInit {
   singleSelectedSectionId = '';
   singleClassSections: SchoolSectionDto[] = [];
   singleSelectedBatchId = '';
+  singleStudentSearchQuery = '';
+  @ViewChild('singleStudentSearchInput') singleStudentSearchInput?: ElementRef<HTMLInputElement>;
   records: StudentAttendance[] = [];
   holidays: HolidayDto[] = [];
   calendarDays: CalendarDay[] = [];
@@ -3719,6 +3898,7 @@ export class StudentAttendanceComponent implements OnInit {
   }
 
   syncSingleSelectedStudent(): void {
+    this.singleStudentSearchQuery = '';
     const list = this.filteredSingleStudents;
     const currentStillMatches = list.some(s => s.id === this.selectedStudentId);
     if (!currentStillMatches) {
@@ -3732,6 +3912,27 @@ export class StudentAttendanceComponent implements OnInit {
       this.summary = null;
       this.buildCalendar();
     }
+  }
+
+  focusStudentSearch(): void {
+    setTimeout(() => {
+      this.singleStudentSearchInput?.nativeElement?.focus();
+    }, 120);
+  }
+
+  get searchedSingleStudents(): StudentItem[] {
+    const list = this.filteredSingleStudents;
+    const q = (this.singleStudentSearchQuery || '').trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(s => {
+      const name = (s.studentName || '').toLowerCase();
+      const roll = (s.rollNumber || '').toLowerCase();
+      const sRoll = (s.schoolRollNumber || '').toLowerCase();
+      const adm = (s.admissionNumber || '').toLowerCase();
+      const cName = (s.className || '').toLowerCase();
+      const bName = (s.batchName || '').toLowerCase();
+      return name.includes(q) || roll.includes(q) || sRoll.includes(q) || adm.includes(q) || cName.includes(q) || bName.includes(q);
+    });
   }
 
   get filteredSingleStudents(): StudentItem[] {

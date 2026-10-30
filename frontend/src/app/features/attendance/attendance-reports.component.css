@@ -1447,20 +1447,29 @@
 .status-hd { background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
 .status-h { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
 
-.act-time {
+.act-time,
+.act-duration {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
+  white-space: nowrap;
 }
 
 .act-clock {
-  font-size: 14px !important;
-  width: 14px !important;
-  height: 14px !important;
-  color: #64748b;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  line-height: 16px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  overflow: visible !important;
+  color: #475569;
+  flex-shrink: 0;
 }
 
 .act-meta-line {
