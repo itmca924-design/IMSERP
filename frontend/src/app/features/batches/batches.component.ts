@@ -189,11 +189,13 @@ import { CoachingService } from '../../core/services/coaching.service';
             <ng-container matColumnDef="subject">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="subject"> Subjects Covered </th>
               <td mat-cell *matCellDef="let element">
-                <mat-chip-set>
-                  <mat-chip-option *ngFor="let s of getSubjectChips(element.subject)" [selectable]="false" selected color="primary" class="subject-badge-chip">
-                    {{ s }}
-                  </mat-chip-option>
-                </mat-chip-set>
+                <div class="compact-subjects-wrap" [matTooltip]="element.subject || 'No subjects assigned'" matTooltipPosition="above">
+                  <span *ngFor="let s of getVisibleSubjects(element.subject)" class="compact-subject-badge">{{ s }}</span>
+                  <span class="more-subjects-badge" *ngIf="getRemainingSubjectCount(element.subject) > 0">
+                    +{{ getRemainingSubjectCount(element.subject) }} more
+                  </span>
+                  <span class="unassigned-tag" *ngIf="!element.subject">-</span>
+                </div>
               </td>
             </ng-container>
 
@@ -219,12 +221,18 @@ import { CoachingService } from '../../core/services/coaching.service';
 
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="text-right action-th-col">
-                <mat-icon class="header-action-icon" matTooltip="Batch Actions">settings</mat-icon>
+                Actions
               </th>
               <td mat-cell *matCellDef="let element" class="text-right action-td-col">
                 <div class="row-actions-group">
-                  <button mat-icon-button class="routine-quick-btn" (click)="openBatchRoutine(element)" matTooltip="Configure Timetable & Lecture Routine (रूटीन व टाइमिंग सेट करें)">
+                  <button mat-icon-button class="quick-action-btn edit-btn" (click)="openBatchModal(element)" matTooltip="Edit Batch & Timing (बैच विवरण व टाइमिंग बदलें)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button class="quick-action-btn routine-btn" (click)="openBatchRoutine(element)" matTooltip="Configure Timetable & Lecture Routine (रूटीन व टाइमिंग)">
                     <mat-icon>calendar_view_week</mat-icon>
+                  </button>
+                  <button mat-icon-button class="quick-action-btn roll-btn" (click)="openRollSequencer(element)" matTooltip="Sequence Roll Numbers (रोल नंबर क्रमबद्ध करें)">
+                    <mat-icon>format_list_numbered</mat-icon>
                   </button>
                   <button mat-icon-button [matMenuTriggerFor]="batchMenu" class="action-menu-btn" matTooltip="More Actions">
                     <mat-icon>more_vert</mat-icon>
@@ -479,45 +487,103 @@ import { CoachingService } from '../../core/services/coaching.service';
     .text-right {
       text-align: right;
     }
-    .action-th-col {
-      width: 60px;
+    .action-th-col,
+    .action-td-col {
+      position: sticky;
+      right: 0;
+      background: #ffffff;
+      z-index: 2;
+      box-shadow: -3px 0 6px rgba(0, 0, 0, 0.05);
+      min-width: 155px;
       text-align: right;
-      padding-right: 14px;
-      .header-action-icon {
-        font-size: 19px;
-        width: 19px;
-        height: 19px;
-        color: #64748b;
-        vertical-align: middle;
-      }
+      padding-right: 12px;
+    }
+    .mat-mdc-header-cell.action-th-col {
+      background: #f8fafc;
+      z-index: 3;
+      font-weight: 700;
+      color: #475569;
     }
     .row-actions-group {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
     }
-    .routine-quick-btn {
-      color: #2563eb;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 6px;
-      width: 32px;
-      height: 32px;
-      line-height: 32px;
+    .quick-action-btn {
+      width: 30px;
+      height: 30px;
+      line-height: 30px;
       padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      border-radius: 6px;
+      border: 1px solid transparent;
       transition: all 0.2s ease;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; line-height: 18px; }
-      &:hover {
-        background: #2563eb;
-        color: #ffffff;
-        box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+      mat-icon { font-size: 16px; width: 16px; height: 16px; line-height: 16px; }
+
+      &.edit-btn {
+        color: #2563eb;
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        &:hover { background: #2563eb; color: #ffffff; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
+      }
+      &.routine-btn {
+        color: #059669;
+        background: #ecfdf5;
+        border-color: #a7f3d0;
+        &:hover { background: #059669; color: #ffffff; box-shadow: 0 2px 6px rgba(5,150,105,0.3); }
+      }
+      &.roll-btn {
+        color: #7c3aed;
+        background: #f5f3ff;
+        border-color: #ddd6fe;
+        &:hover { background: #7c3aed; color: #ffffff; box-shadow: 0 2px 6px rgba(124,58,237,0.3); }
       }
     }
+    .compact-subjects-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      cursor: help;
+    }
+    .compact-subject-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      white-space: nowrap;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .more-subjects-badge {
+      display: inline-block;
+      padding: 3px 7px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px dashed #cbd5e1;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
     .action-menu-btn {
+      width: 30px;
+      height: 30px;
+      line-height: 30px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       color: #64748b;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
       &:hover {
         color: #1e293b;
         background-color: #f1f5f9;
@@ -807,6 +873,15 @@ export class BatchesComponent implements OnInit {
     return subjectStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
   }
 
+  getVisibleSubjects(subjectStr?: string): string[] {
+    return this.getSubjectChips(subjectStr).slice(0, 2);
+  }
+
+  getRemainingSubjectCount(subjectStr?: string): number {
+    const chips = this.getSubjectChips(subjectStr);
+    return Math.max(0, chips.length - 2);
+  }
+
   formatRoomDisplay(roomNumber?: string | null): string {
     if (!roomNumber) return '';
     const trimmed = roomNumber.trim();
@@ -818,13 +893,18 @@ export class BatchesComponent implements OnInit {
 
   isCombinedBatch(b: any): boolean {
     if (!b?.classId) return true;
-    return !!(b?.name && b.name.match(/class\s*\d+.*(?:to|-).*\d+/i));
+    const n = (b?.name || '').toLowerCase();
+    return !!(b?.name && (b.name.match(/class\s*\d+.*(?:to|-).*\d+/i) || n.includes(' to ') || n.includes('to class') || n.includes('combined')));
   }
 
   getBatchClassDisplay(b: any): string {
     const rangeMatch = (b?.name || '').match(/class\s*(\d+)(?:st|nd|rd|th)?\s*(?:to|-)\s*(?:class\s*)?(\d+)(?:st|nd|rd|th)?/i);
     if (rangeMatch) {
-      return `Combined (${rangeMatch[1]}th - ${rangeMatch[2]}th)`;
+      const from = rangeMatch[1];
+      const to = rangeMatch[2];
+      const fromSfx = from === '1' ? '1st' : (from === '2' ? '2nd' : (from === '3' ? '3rd' : `${from}th`));
+      const toSfx = to === '1' ? '1st' : (to === '2' ? '2nd' : (to === '3' ? '3rd' : `${to}th`));
+      return `Combined (${fromSfx} - ${toSfx})`;
     }
     return b?.className || 'Combined (All Classes)';
   }

@@ -48,9 +48,12 @@ public class StudentsController : ControllerBase
     }
 
     public static TeacherAttendanceStatus EvaluateStudentSmartAttendanceStatus(
-        TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime, AttendanceSettings? settings = null, string? scopeOrShift = null)
+        TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime, AttendanceSettings? settings = null, string? scopeOrShift = null, string? customStartTime = null, string? customEndTime = null)
     {
-        if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
+        if (declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
+            return declaredStatus;
+
+        if (declaredStatus == TeacherAttendanceStatus.Absent && (string.IsNullOrWhiteSpace(inTime) || string.IsNullOrWhiteSpace(outTime)))
             return declaredStatus;
 
         if (string.IsNullOrWhiteSpace(inTime))
@@ -62,13 +65,17 @@ public class StudentsController : ControllerBase
 
         var isCoaching = string.Equals(scopeOrShift, "coaching", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase) ||
-                         string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase);
+                         string.Equals(scopeOrShift, "coaching_afternoon", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "morning", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "evening", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "afternoon", StringComparison.OrdinalIgnoreCase);
 
         // Dynamic Shift Inference: If scopeOrShift not specified, infer coaching vs school based on check-in timing
         // Coaching in India typically operates in early morning (< 07:30 AM / 450m) or late afternoon/evening (>= 15:30 / 930m)
         if (!isCoaching && string.IsNullOrWhiteSpace(scopeOrShift))
         {
-            if (inMin.Value < 450 || inMin.Value >= 930)
+            if (inMin.Value < 450 || inMin.Value >= 930 || (!string.IsNullOrWhiteSpace(customStartTime) && !string.IsNullOrWhiteSpace(customEndTime)))
             {
                 isCoaching = true;
             }
@@ -80,12 +87,28 @@ public class StudentsController : ControllerBase
 
         if (isCoaching)
         {
-            if (string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase) || inMin.Value >= 720)
+            if (!string.IsNullOrWhiteSpace(customStartTime) && !string.IsNullOrWhiteSpace(customEndTime))
+            {
+                // Batch-specific custom timing
+                shiftStartMin = ParseTimeToMinutes(customStartTime) ?? 420;
+                shiftEndMin = ParseTimeToMinutes(customEndTime) ?? 600;
+                graceMinutes = string.Equals(scopeOrShift, "evening", StringComparison.OrdinalIgnoreCase) || inMin.Value >= 930
+                    ? (settings?.CoachingEveningGraceMinutes ?? 15)
+                    : (settings?.CoachingMorningGraceMinutes ?? 15);
+            }
+            else if (string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase) || string.Equals(scopeOrShift, "evening", StringComparison.OrdinalIgnoreCase) || inMin.Value >= 930)
             {
                 // Coaching Evening Shift
                 shiftStartMin = ParseTimeToMinutes(settings?.CoachingEveningStartTime ?? "16:00") ?? 960;
                 shiftEndMin = ParseTimeToMinutes(settings?.CoachingEveningEndTime ?? "19:00") ?? 1140;
                 graceMinutes = settings?.CoachingEveningGraceMinutes ?? 15;
+            }
+            else if (string.Equals(scopeOrShift, "coaching_afternoon", StringComparison.OrdinalIgnoreCase) || string.Equals(scopeOrShift, "afternoon", StringComparison.OrdinalIgnoreCase) || (inMin.Value >= 690 && inMin.Value < 930))
+            {
+                // Coaching Afternoon Shift
+                shiftStartMin = 720;
+                shiftEndMin = 900;
+                graceMinutes = settings?.CoachingMorningGraceMinutes ?? 15;
             }
             else
             {
@@ -98,8 +121,8 @@ public class StudentsController : ControllerBase
         else
         {
             // School Shift (Daytime)
-            shiftStartMin = ParseTimeToMinutes(settings?.StudentShiftStartTime ?? "08:00") ?? 480;
-            shiftEndMin = ParseTimeToMinutes(settings?.StudentShiftEndTime ?? "14:00") ?? 840;
+            shiftStartMin = ParseTimeToMinutes(customStartTime ?? settings?.StudentShiftStartTime ?? "08:00") ?? 480;
+            shiftEndMin = ParseTimeToMinutes(customEndTime ?? settings?.StudentShiftEndTime ?? "14:00") ?? 840;
             graceMinutes = settings?.StudentGracePeriodMinutes ?? 15;
         }
 
@@ -160,13 +183,50 @@ public class StudentsController : ControllerBase
             }
         }
 
+        if (declaredStatus == TeacherAttendanceStatus.HalfDay)
+        {
+            return TeacherAttendanceStatus.HalfDay;
+        }
+
         // Punctuality detection based on check-in arrival time
-        if (inMin.Value > lateCutoffMin)
+        if (inMin.Value > lateCutoffMin || declaredStatus == TeacherAttendanceStatus.Late)
         {
             return TeacherAttendanceStatus.Late;
         }
 
         return TeacherAttendanceStatus.Present;
+    }
+
+    private static (string ScopeOrShift, string? CustomStartTime, string? CustomEndTime) ResolveRecordEvaluationContext(
+        StudentAttendance attendance, Student student, string? requestedStream = null)
+    {
+        bool isSchoolRecord = string.Equals(requestedStream, "school", StringComparison.OrdinalIgnoreCase)
+            || attendance.CaptureSource == "ManualSchoolBulk"
+            || attendance.CaptureSource == "School"
+            || attendance.CaptureSource == "SchoolManual"
+            || attendance.CaptureSource == "ManualSchool";
+
+        bool isCoachingRecord = !isSchoolRecord && (
+            string.Equals(requestedStream, "coaching", StringComparison.OrdinalIgnoreCase)
+            || attendance.CaptureSource == "ManualBulk"
+            || attendance.CaptureSource == "Coaching"
+            || attendance.CaptureSource == "CoachingManual"
+            || attendance.CaptureSource == "ManualCoaching"
+            || (student.IsCoachingStudent && !student.IsSchoolStudent)
+            || (student.Batch != null && !string.IsNullOrWhiteSpace(student.Batch.StartTime) && string.Equals(attendance.CheckInTime, student.Batch.StartTime, StringComparison.OrdinalIgnoreCase))
+        );
+
+        if (isCoachingRecord)
+        {
+            return (student.Batch?.Shift ?? "coaching", student.Batch?.StartTime, student.Batch?.EndTime);
+        }
+
+        if (isSchoolRecord || student.IsSchoolStudent)
+        {
+            return ("school", null, null);
+        }
+
+        return (student.Batch?.Shift ?? "coaching", student.Batch?.StartTime, student.Batch?.EndTime);
     }
 
     private static int? ParseTimeToMinutes(string timeStr)
@@ -192,14 +252,16 @@ public class StudentsController : ControllerBase
         return hour * 60 + minute;
     }
 
-    private static StudentAttendanceDto MapStudentAttendance(StudentAttendance attendance, Student student, AttendanceSettings? settings = null)
+    private static StudentAttendanceDto MapStudentAttendance(StudentAttendance attendance, Student student, AttendanceSettings? settings = null, string? stream = null)
     {
         var rawDt = attendance.CapturedAt ?? (attendance.CreatedAt != default ? attendance.CreatedAt : (DateTime?)null);
         DateTime? capturedUtc = rawDt.HasValue
             ? DateTime.SpecifyKind(rawDt.Value, DateTimeKind.Utc)
             : null;
 
-        var effStatus = EvaluateStudentSmartAttendanceStatus(attendance.Status, attendance.CheckInTime, attendance.CheckOutTime, settings);
+        var (scopeOrShift, customStart, customEnd) = ResolveRecordEvaluationContext(attendance, student, stream);
+        var effStatus = EvaluateStudentSmartAttendanceStatus(
+            attendance.Status, attendance.CheckInTime, attendance.CheckOutTime, settings, scopeOrShift, customStart, customEnd);
 
         return new(
             attendance.Id,
@@ -542,7 +604,7 @@ public class StudentsController : ControllerBase
         if (month == 0) month = DateTime.UtcNow.Month;
         if (year == 0) year = DateTime.UtcNow.Year;
 
-        var student = await _dbContext.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _dbContext.Students.AsNoTracking().Include(s => s.Batch).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { message = "Student not found." });
 
         var query = _dbContext.StudentAttendances.AsNoTracking()
@@ -569,7 +631,7 @@ public class StudentsController : ControllerBase
         var records = await query.OrderBy(a => a.AttendanceDate).ToListAsync();
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
 
-        return Ok(records.Select(a => MapStudentAttendance(a, student, attSettings)));
+        return Ok(records.Select(a => MapStudentAttendance(a, student, attSettings, stream)));
     }
 
     private async Task<Student?> ResolveCurrentStudentAsync()
@@ -800,11 +862,11 @@ public class StudentsController : ControllerBase
                 }
             }
 
-            string effectiveScope = !string.IsNullOrWhiteSpace(stream)
-                ? stream
-                : (student.IsCoachingStudent && !student.IsSchoolStudent ? "coaching" : "school");
-
-            var evaluatedStatuses = targetRecords.Select(r => EvaluateStudentSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime, attSettings, effectiveScope)).ToList();
+            var evaluatedStatuses = targetRecords.Select(r =>
+            {
+                var (scopeOrShift, customStart, customEnd) = ResolveRecordEvaluationContext(r, student, stream);
+                return EvaluateStudentSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime, attSettings, scopeOrShift, customStart, customEnd);
+            }).ToList();
             var present = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Present);
             var recordedAbsent = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Absent);
             var absent = recordedAbsent;
@@ -932,7 +994,7 @@ public class StudentsController : ControllerBase
         if (month == 0) month = DateTime.UtcNow.Month;
         if (year == 0) year = DateTime.UtcNow.Year;
 
-        var student = await _dbContext.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _dbContext.Students.AsNoTracking().Include(s => s.Batch).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { message = "Student not found." });
 
         var monthStart = new DateTime(year, month, 1);
@@ -961,8 +1023,11 @@ public class StudentsController : ControllerBase
         var records = await query.ToListAsync();
 
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
-        string effectiveScope = student.IsCoachingStudent && !student.IsSchoolStudent ? "coaching" : "school";
-        var evaluatedStatuses = records.Select(a => EvaluateStudentSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime, attSettings, effectiveScope)).ToList();
+        var evaluatedStatuses = records.Select(a =>
+        {
+            var (scopeOrShift, customStart, customEnd) = ResolveRecordEvaluationContext(a, student, stream);
+            return EvaluateStudentSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime, attSettings, scopeOrShift, customStart, customEnd);
+        }).ToList();
 
         int present = evaluatedStatuses.Count(s => s == TeacherAttendanceStatus.Present);
         int absent = evaluatedStatuses.Count(s => s == TeacherAttendanceStatus.Absent);
@@ -1055,7 +1120,7 @@ public class StudentsController : ControllerBase
         if (!await IsManualAttendanceAllowedAsync())
             return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
 
-        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _dbContext.Students.Include(s => s.Batch).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { message = "Student not found." });
         if (!TryParseAttendanceStatus(dto.Status, out var status))
             return BadRequest(new { message = "Invalid attendance status." });
@@ -1103,14 +1168,22 @@ public class StudentsController : ControllerBase
                 ? "ManualSchoolBulk"
                 : (student.IsCoachingStudent && !student.IsSchoolStudent ? "ManualBulk" : "Manual"));
 
-        string effectiveScope = targetSource == "ManualBulk" ? "coaching" : "school";
+        bool isCoachingScope = targetSource == "ManualBulk"
+            || (targetSource == "Manual" && student.Batch != null && !string.IsNullOrWhiteSpace(student.Batch.StartTime) && string.Equals(dto.CheckInTime, student.Batch.StartTime, StringComparison.OrdinalIgnoreCase));
+        string effectiveScope = isCoachingScope ? (student.Batch?.Shift ?? "coaching") : "school";
+        string? customStart = isCoachingScope ? student.Batch?.StartTime : null;
+        string? customEnd = isCoachingScope ? student.Batch?.EndTime : null;
+
+        string? inTime = (status == TeacherAttendanceStatus.Absent || status == TeacherAttendanceStatus.Holiday || status == TeacherAttendanceStatus.Leave) ? null : dto.CheckInTime;
+        string? outTime = (status == TeacherAttendanceStatus.Absent || status == TeacherAttendanceStatus.Holiday || status == TeacherAttendanceStatus.Leave) ? null : dto.CheckOutTime;
+
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
-        status = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings, effectiveScope);
+        status = EvaluateStudentSmartAttendanceStatus(status, inTime, outTime, attSettings, effectiveScope, customStart, customEnd);
 
         record.Status = status;
         record.Remarks = dto.Remarks;
-        record.CheckInTime = dto.CheckInTime;
-        record.CheckOutTime = dto.CheckOutTime;
+        record.CheckInTime = inTime;
+        record.CheckOutTime = outTime;
         record.MarkedBy = _currentUser.UserId.ToString();
         record.CaptureSource = targetSource;
         record.BiometricDeviceId = null;
@@ -1118,7 +1191,7 @@ public class StudentsController : ControllerBase
         record.CapturedAt ??= DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
 
-        return Ok(MapStudentAttendance(record, student, attSettings));
+        return Ok(MapStudentAttendance(record, student, attSettings, dto.Stream));
     }
 
     [HttpPost("{id}/attendance/multi-dates")]
@@ -1131,7 +1204,7 @@ public class StudentsController : ControllerBase
         if (!await IsManualAttendanceAllowedAsync())
             return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
 
-        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _dbContext.Students.Include(s => s.Batch).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { message = "Student not found." });
         if (!TryParseAttendanceStatus(dto.Status, out var status))
             return BadRequest(new { message = "Invalid attendance status." });
@@ -1170,19 +1243,26 @@ public class StudentsController : ControllerBase
                 ? "ManualSchoolBulk"
                 : (student.IsCoachingStudent && !student.IsSchoolStudent ? "ManualBulk" : "Manual"));
 
-        string effectiveScope = targetSource == "ManualBulk" ? "coaching" : "school";
+        bool isCoachingScope = targetSource == "ManualBulk"
+            || (targetSource == "Manual" && student.Batch != null && !string.IsNullOrWhiteSpace(student.Batch.StartTime) && string.Equals(dto.CheckInTime, student.Batch.StartTime, StringComparison.OrdinalIgnoreCase));
+        string effectiveScope = isCoachingScope ? (student.Batch?.Shift ?? "coaching") : "school";
+        string? customStart = isCoachingScope ? student.Batch?.StartTime : null;
+        string? customEnd = isCoachingScope ? student.Batch?.EndTime : null;
+
+        string? inTime = (status == TeacherAttendanceStatus.Absent || status == TeacherAttendanceStatus.Holiday || status == TeacherAttendanceStatus.Leave) ? null : dto.CheckInTime;
+        string? outTime = (status == TeacherAttendanceStatus.Absent || status == TeacherAttendanceStatus.Holiday || status == TeacherAttendanceStatus.Leave) ? null : dto.CheckOutTime;
 
         foreach (var date in validDates)
         {
-            var effectiveStatus = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings, effectiveScope);
+            var effectiveStatus = EvaluateStudentSmartAttendanceStatus(status, inTime, outTime, attSettings, effectiveScope, customStart, customEnd);
 
             if (existingMap.TryGetValue(date, out var record))
             {
                 if (!canCorrect) continue; // cannot edit existing without correction permission
                 record.Status = effectiveStatus;
                 record.Remarks = dto.Remarks;
-                record.CheckInTime = dto.CheckInTime;
-                record.CheckOutTime = dto.CheckOutTime;
+                record.CheckInTime = inTime;
+                record.CheckOutTime = outTime;
                 record.MarkedBy = _currentUser.UserId.ToString();
                 record.CaptureSource = targetSource;
                 record.CapturedAt ??= DateTime.UtcNow;
@@ -1197,8 +1277,8 @@ public class StudentsController : ControllerBase
                     AttendanceDate = date,
                     Status = effectiveStatus,
                     Remarks = dto.Remarks,
-                    CheckInTime = dto.CheckInTime,
-                    CheckOutTime = dto.CheckOutTime,
+                    CheckInTime = inTime,
+                    CheckOutTime = outTime,
                     MarkedBy = _currentUser.UserId.ToString(),
                     CaptureSource = targetSource,
                     CreatedAt = DateTime.UtcNow,
@@ -1222,7 +1302,7 @@ public class StudentsController : ControllerBase
         if (!await IsManualAttendanceAllowedAsync())
             return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric Only." });
 
-        var student = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _dbContext.Students.Include(s => s.Batch).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) return NotFound(new { message = "Student not found." });
 
         if (dto.Days == null || dto.Days.Count == 0)
@@ -1276,6 +1356,11 @@ public class StudentsController : ControllerBase
                 ? "ManualSchoolBulk"
                 : (student.IsCoachingStudent && !student.IsSchoolStudent ? "ManualBulk" : "Manual"));
 
+        bool isCoachingScope = targetSource == "ManualBulk";
+        string effectiveScope = isCoachingScope ? (student.Batch?.Shift ?? "coaching") : "school";
+        string? customStart = isCoachingScope ? student.Batch?.StartTime : null;
+        string? customEnd = isCoachingScope ? student.Batch?.EndTime : null;
+
         foreach (var day in dto.Days)
         {
             var date = day.Date.Date;
@@ -1294,14 +1379,13 @@ public class StudentsController : ControllerBase
             if (leaveDates.Contains(date)) continue;
 
             var status = day.IsPresent ? TeacherAttendanceStatus.Present : TeacherAttendanceStatus.Absent;
-            string? inTime = day.IsPresent ? (day.CheckInTime ?? dto.DefaultCheckInTime ?? attSettings?.StudentShiftStartTime ?? "08:00") : null;
-            string? outTime = day.IsPresent ? (day.CheckOutTime ?? dto.DefaultCheckOutTime ?? attSettings?.StudentShiftEndTime ?? "14:00") : null;
+            string? inTime = day.IsPresent ? (day.CheckInTime ?? dto.DefaultCheckInTime ?? customStart ?? attSettings?.StudentShiftStartTime ?? "08:00") : null;
+            string? outTime = day.IsPresent ? (day.CheckOutTime ?? dto.DefaultCheckOutTime ?? customEnd ?? attSettings?.StudentShiftEndTime ?? "14:00") : null;
             string? remarks = day.Remarks ?? (day.IsPresent ? "Manual Monthly Register (Present)" : "Manual Monthly Register (Absent)");
 
             if (day.IsPresent)
             {
-                string effectiveScope = targetSource == "ManualBulk" ? "coaching" : "school";
-                status = EvaluateStudentSmartAttendanceStatus(status, inTime, outTime, attSettings, effectiveScope);
+                status = EvaluateStudentSmartAttendanceStatus(status, inTime, outTime, attSettings, effectiveScope, customStart, customEnd);
             }
 
             if (existingMap.TryGetValue(date, out var existing))
@@ -1383,6 +1467,7 @@ public class StudentsController : ControllerBase
                 .ToDictionaryAsync(a => a.StudentId)
             : new Dictionary<Guid, StudentAttendance>();
 
+        var batch = await _dbContext.Batches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batchId);
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
 
         var result = students.Select(s =>
@@ -1390,7 +1475,7 @@ public class StudentsController : ControllerBase
             existingRecords.TryGetValue(s.Id, out var att);
             DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
             DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
-            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, "coaching").ToString() : "Present";
+            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, batch?.Shift ?? "coaching", batch?.StartTime, batch?.EndTime).ToString() : "Present";
             return new BatchAttendanceStudentRowDto(
                 s.Id,
                 s.StudentName,
@@ -1457,7 +1542,7 @@ public class StudentsController : ControllerBase
             if (student.JoiningDate != default && date < student.JoiningDate.Date) continue; // skip prior to admission
             if (!TryParseAttendanceStatus(item.Status, out var status)) continue;
 
-            status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings, "coaching");
+            status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings, batch.Shift ?? "coaching", batch.StartTime, batch.EndTime);
 
             if (status == TeacherAttendanceStatus.Present) presentCount++;
             else if (status == TeacherAttendanceStatus.Absent) absentCount++;
@@ -5110,7 +5195,10 @@ public class BatchesController : ControllerBase
                 b.Class != null ? b.Class.Name : null,
                 b.MentorTeacherId,
                 b.MentorTeacher != null ? b.MentorTeacher.FullName : null,
-                b.MentorTeacher != null ? b.MentorTeacher.PhoneNumber : null
+                b.MentorTeacher != null ? b.MentorTeacher.PhoneNumber : null,
+                b.Shift ?? "Morning",
+                b.StartTime,
+                b.EndTime
             )).ToListAsync();
 
         return Ok(list);
@@ -5187,7 +5275,10 @@ public class BatchesController : ControllerBase
                 b.Class != null ? b.Class.Name : null,
                 b.MentorTeacherId,
                 b.MentorTeacher != null ? b.MentorTeacher.FullName : null,
-                b.MentorTeacher != null ? b.MentorTeacher.PhoneNumber : null
+                b.MentorTeacher != null ? b.MentorTeacher.PhoneNumber : null,
+                b.Shift ?? "Morning",
+                b.StartTime,
+                b.EndTime
             )).ToListAsync();
 
         return Ok(new PagedResult<BatchDto>(items, totalCount, pageNumber, pageSize));
@@ -5225,7 +5316,10 @@ public class BatchesController : ControllerBase
             batch.Class?.Name,
             batch.MentorTeacherId,
             batch.MentorTeacher?.FullName,
-            batch.MentorTeacher?.PhoneNumber
+            batch.MentorTeacher?.PhoneNumber,
+            batch.Shift ?? "Morning",
+            batch.StartTime,
+            batch.EndTime
         ));
     }
 
@@ -5249,7 +5343,10 @@ public class BatchesController : ControllerBase
             Name = dto.Name,
             Subject = dto.Subject,
             AcademicYear = dto.AcademicYear,
-            StandardMonthlyFee = dto.StandardMonthlyFee
+            StandardMonthlyFee = dto.StandardMonthlyFee,
+            Shift = !string.IsNullOrWhiteSpace(dto.Shift) ? dto.Shift : "Morning",
+            StartTime = dto.StartTime,
+            EndTime = dto.EndTime
         };
 
         _dbContext.Batches.Add(batch);
@@ -5281,7 +5378,10 @@ public class BatchesController : ControllerBase
             className,
             batch.MentorTeacherId,
             mentorTeacher?.FullName,
-            mentorTeacher?.PhoneNumber
+            mentorTeacher?.PhoneNumber,
+            batch.Shift ?? "Morning",
+            batch.StartTime,
+            batch.EndTime
         ));
     }
 
@@ -5299,6 +5399,9 @@ public class BatchesController : ControllerBase
         batch.RoomId = dto.RoomId;
         batch.ClassId = dto.ClassId;
         batch.MentorTeacherId = dto.MentorTeacherId;
+        if (!string.IsNullOrWhiteSpace(dto.Shift)) batch.Shift = dto.Shift;
+        batch.StartTime = dto.StartTime;
+        batch.EndTime = dto.EndTime;
 
         await _dbContext.SaveChangesAsync();
 
@@ -5329,8 +5432,37 @@ public class BatchesController : ControllerBase
             className,
             batch.MentorTeacherId,
             mentorTeacher?.FullName,
-            mentorTeacher?.PhoneNumber
+            mentorTeacher?.PhoneNumber,
+            batch.Shift ?? "Morning",
+            batch.StartTime,
+            batch.EndTime
         ));
+    }
+
+    [HttpPut("timings/bulk")]
+    public async Task<IActionResult> UpdateBatchTimingsBulk([FromBody] List<UpdateBatchTimingDto> batchTimings)
+    {
+        if (batchTimings == null || !batchTimings.Any())
+            return BadRequest(new { message = "No batch timing records provided." });
+
+        var batchIds = batchTimings.Select(b => b.BatchId).Distinct().ToList();
+        var batches = await _dbContext.Batches
+            .Where(b => batchIds.Contains(b.Id) && b.TenantId == _currentUser.TenantId)
+            .ToListAsync();
+
+        foreach (var b in batches)
+        {
+            var update = batchTimings.FirstOrDefault(x => x.BatchId == b.Id);
+            if (update != null)
+            {
+                if (!string.IsNullOrWhiteSpace(update.Shift)) b.Shift = update.Shift;
+                b.StartTime = update.StartTime;
+                b.EndTime = update.EndTime;
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return Ok(new { message = "Batch timings updated successfully.", count = batches.Count });
     }
 
     [HttpPut("{id}/mentor")]
@@ -5382,7 +5514,10 @@ public class BatchesController : ControllerBase
             batch.Class?.Name,
             batch.MentorTeacherId,
             mentorTeacher?.FullName,
-            mentorTeacher?.PhoneNumber
+            mentorTeacher?.PhoneNumber,
+            batch.Shift ?? "Morning",
+            batch.StartTime,
+            batch.EndTime
         ));
     }
 

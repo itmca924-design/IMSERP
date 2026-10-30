@@ -334,7 +334,7 @@ public class AttendanceController : ControllerBase
 
         if (personType == "student")
         {
-            var student = await _db.Students.FirstOrDefaultAsync(s => s.BiometricUserId == dto.BiometricUserId);
+            var student = await _db.Students.Include(s => s.Batch).FirstOrDefaultAsync(s => s.BiometricUserId == dto.BiometricUserId);
             if (student == null)
             {
                 eventLog.Status = "Failed";
@@ -375,15 +375,17 @@ public class AttendanceController : ControllerBase
 
             // Solution B: Smart attendance evaluation for student biometric punch
             string shiftScope = student.IsCoachingStudent && !student.IsSchoolStudent
-                ? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning")
-                : (student.IsSchoolStudent ? "school" : (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning"));
+                ? (student.Batch?.Shift ?? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning"))
+                : (student.IsSchoolStudent ? "school" : (student.Batch?.Shift ?? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning")));
 
             record.Status = StudentsController.EvaluateStudentSmartAttendanceStatus(
                 TeacherAttendanceStatus.Present,
                 record.CheckInTime,
                 record.CheckOutTime,
                 settings,
-                shiftScope);
+                shiftScope,
+                shiftScope != "school" ? student.Batch?.StartTime : null,
+                shiftScope != "school" ? student.Batch?.EndTime : null);
 
             // If student had approved leave on this date, update remarks noting turnstile attendance
             var approvedStudentLeave = await _db.StudentLeaves.FirstOrDefaultAsync(l =>
@@ -955,6 +957,7 @@ public class AttendanceController : ControllerBase
 
         // Check Student first (by Biometric ID, Admission No, Roll No, Coaching Roll No, or RFID Card No)
         var student = await _db.Students.IgnoreQueryFilters()
+            .Include(s => s.Batch)
             .FirstOrDefaultAsync(s => s.TenantId == resolvedTenantId &&
                 (s.BiometricUserId == punchId ||
                  s.AdmissionNumber == punchId ||
@@ -1002,15 +1005,17 @@ public class AttendanceController : ControllerBase
 
             // Solution B: Smart attendance evaluation for student Hikvision punch
             string shiftScope = student.IsCoachingStudent && !student.IsSchoolStudent
-                ? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning")
-                : (student.IsSchoolStudent ? "school" : (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning"));
+                ? (student.Batch?.Shift ?? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning"))
+                : (student.IsSchoolStudent ? "school" : (student.Batch?.Shift ?? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning")));
 
             record.Status = StudentsController.EvaluateStudentSmartAttendanceStatus(
                 TeacherAttendanceStatus.Present,
                 record.CheckInTime,
                 record.CheckOutTime,
                 settings,
-                shiftScope);
+                shiftScope,
+                shiftScope != "school" ? student.Batch?.StartTime : null,
+                shiftScope != "school" ? student.Batch?.EndTime : null);
 
             eventLog.Status = "Processed";
             eventLog.AttendanceId = record.Id;

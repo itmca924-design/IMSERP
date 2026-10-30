@@ -169,14 +169,14 @@ import { environment } from '../../../environments/environment';
 
               <!-- If School Stream -->
               <div class="cascade-row" *ngIf="borrowerStream === 'School'">
-                <mat-form-field appearance="outline" class="cascade-field">
+                <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
                   <mat-label>School Class (कक्षा)</mat-label>
                   <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
                     <mat-option value="">-- All School Classes --</mat-option>
                     <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
                   </mat-select>
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="cascade-field" *ngIf="availableSections.length > 0">
+                <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic" *ngIf="availableSections.length > 0">
                   <mat-label>Section (सेक्शन)</mat-label>
                   <mat-select [(ngModel)]="selectedSectionId">
                     <mat-option value="">-- All Sections --</mat-option>
@@ -187,14 +187,14 @@ import { environment } from '../../../environments/environment';
 
               <!-- If Coaching Stream: Academic Class ➔ Coaching Batch Cascade -->
               <div class="cascade-row" *ngIf="borrowerStream === 'Coaching'">
-                <mat-form-field appearance="outline" class="cascade-field">
+                <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
                   <mat-label>Academic Class (कक्षा)</mat-label>
                   <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassChange()">
                     <mat-option value="">-- All Classes (सभी कक्षाएं) --</mat-option>
                     <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
                   </mat-select>
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="cascade-field">
+                <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
                   <mat-label>Coaching Batch (बैच)</mat-label>
                   <mat-select [(ngModel)]="selectedBatchId">
                     <mat-option value="">-- All Batches (सभी बैच) --</mat-option>
@@ -216,7 +216,7 @@ import { environment } from '../../../environments/environment';
                 </mat-form-field>
               </div>
 
-              <mat-form-field appearance="outline" class="full-width" style="margin-top: 8px;">
+              <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Select Enrolled Student ({{ displayedStudents.length }} Available)</mat-label>
                 <mat-select [(ngModel)]="issueStudentId" panelClass="batch-filter-panel">
                   <mat-option *ngFor="let s of displayedStudents" [value]="s.id">
@@ -794,7 +794,7 @@ import { environment } from '../../../environments/environment';
     .borrower-stream-pills {
       display: flex;
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 14px;
     }
     .b-stream-btn {
       flex: 1;
@@ -823,14 +823,17 @@ import { environment } from '../../../environments/environment';
     .cascade-row {
       display: flex;
       gap: 10px;
-      margin-bottom: 8px;
+      margin-bottom: 14px;
       .cascade-field {
         flex: 1;
-        margin-bottom: -16px;
+        margin-bottom: 0 !important;
       }
     }
     .student-search-bar {
-      margin-bottom: 8px;
+      margin-bottom: 14px;
+      .full-width {
+        margin-bottom: 0 !important;
+      }
     }
 
     /* Borrower Select Option & Summary Card */

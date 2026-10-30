@@ -23,6 +23,9 @@ export interface BatchDto {
   mentorTeacherId?: string | null;
   mentorTeacherName?: string | null;
   mentorTeacherPhone?: string | null;
+  shift?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
 }
 
 export interface CreateBatchDto {
@@ -35,6 +38,16 @@ export interface CreateBatchDto {
   classId?: string | null;
   courseName?: string | null;
   mentorTeacherId?: string | null;
+  shift?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+}
+
+export interface UpdateBatchTimingDto {
+  batchId: string;
+  shift?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
 }
 
 export interface PagedResult<T> {
@@ -131,5 +144,9 @@ export class BatchesService {
 
   assignBatchMentor(batchId: string, mentorTeacherId: string | null): Observable<BatchDto> {
     return this.http.put<BatchDto>(`${this.BASE_URL}/${batchId}/mentor`, { mentorTeacherId });
+  }
+
+  updateBatchTimingsBulk(items: UpdateBatchTimingDto[]): Observable<any> {
+    return this.http.put(`${this.BASE_URL}/timings/bulk`, items);
   }
 }

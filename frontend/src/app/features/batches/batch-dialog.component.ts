@@ -133,6 +133,28 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </div>
             </div>
 
+            <!-- Batch Shift & Timings Quick Bar -->
+            <div class="batch-timing-bar full-width">
+              <div class="timing-bar-left">
+                <mat-icon class="timing-bar-icon">schedule</mat-icon>
+                <span class="timing-bar-label">Batch Timing (बैच समय):</span>
+              </div>
+              <div class="timing-bar-fields">
+                <div class="time-field-box">
+                  <span class="tf-label">Start Time</span>
+                  <input type="time" formControlName="startTime" class="timing-input" />
+                </div>
+                <span class="tf-sep">➔</span>
+                <div class="time-field-box">
+                  <span class="tf-label">End Time</span>
+                  <input type="time" formControlName="endTime" class="timing-input" />
+                </div>
+                <span class="batch-dur-pill" *ngIf="getBatchCalculatedDuration()">
+                  ⏱️ {{ getBatchCalculatedDuration() }}
+                </span>
+              </div>
+            </div>
+
             <!-- Quick Add Coaching Class Inline Expansion Card -->
             <div class="quick-add-class-card full-width" *ngIf="showQuickAddClass">
               <div class="quick-add-header">
@@ -765,6 +787,89 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       }
     }
 
+    .batch-timing-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 8px 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 2px;
+      margin-bottom: 6px;
+
+      .timing-bar-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        .timing-bar-icon {
+          color: #2563eb;
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+
+        .timing-bar-label {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #334155;
+        }
+      }
+
+      .timing-bar-fields {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .time-field-box {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+
+          .tf-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #64748b;
+          }
+
+          .timing-input {
+            padding: 4px 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #1e293b;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.15s ease;
+
+            &:focus {
+              border-color: #2563eb;
+              box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+            }
+          }
+        }
+
+        .tf-sep {
+          color: #94a3b8;
+          font-weight: 600;
+          font-size: 0.8rem;
+        }
+
+        .batch-dur-pill {
+          padding: 3px 8px;
+          background: #dbeafe;
+          color: #1e40af;
+          border-radius: 12px;
+          font-size: 0.72rem;
+          font-weight: 700;
+        }
+      }
+    }
+
     .subjects-field-wrap {
       display: flex;
       flex-direction: column;
@@ -1235,9 +1340,25 @@ export class BatchDialogComponent implements OnInit {
   subjectSearchTerm = '';
   classSearchTerm = '';
   teacherSearchTerm = '';
-  selectedShift: 'Morning' | 'Evening' | 'Afternoon' = 'Evening';
+  selectedShift: 'Morning' | 'Evening' | 'Afternoon' = 'Morning';
   @ViewChild('classSearchInput') classSearchInput?: ElementRef<HTMLInputElement>;
   @ViewChild('teacherSearchInput') teacherSearchInput?: ElementRef<HTMLInputElement>;
+
+  getBatchCalculatedDuration(): string {
+    const s = this.batchForm?.get('startTime')?.value;
+    const e = this.batchForm?.get('endTime')?.value;
+    if (!s || !e) return '';
+    const sParts = s.split(':').map(Number);
+    const eParts = e.split(':').map(Number);
+    if (sParts.length < 2 || eParts.length < 2) return '';
+    let startMin = sParts[0] * 60 + sParts[1];
+    let endMin = eParts[0] * 60 + eParts[1];
+    if (endMin <= startMin) endMin += 1440;
+    const diff = endMin - startMin;
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
 
   getFilteredClasses(): SchoolClassDto[] {
     const term = (this.classSearchTerm || '').trim().toLowerCase();
@@ -1406,6 +1527,11 @@ export class BatchDialogComponent implements OnInit {
     const headerBranchId = this.authService.selectedBranchId() || this.authService.currentUser()?.branchId;
     const initialBranchId = this.data?.branchId || (!this.isEditMode ? headerBranchId : null);
 
+    const defaultShift = this.data?.shift || 'Morning';
+    this.selectedShift = (defaultShift as any);
+    const defaultStartTime = this.data?.startTime || (defaultShift === 'Evening' ? '16:00' : (defaultShift === 'Afternoon' ? '12:00' : '07:00'));
+    const defaultEndTime = this.data?.endTime || (defaultShift === 'Evening' ? '19:00' : (defaultShift === 'Afternoon' ? '15:00' : '10:00'));
+
     this.batchForm = this.fb.group({
       name: [this.data?.name || '', [Validators.required, Validators.maxLength(200)]],
       classId: [this.data?.classId || null],
@@ -1413,7 +1539,10 @@ export class BatchDialogComponent implements OnInit {
       branchId: [initialBranchId || null],
       roomId: [this.data?.roomId || null],
       mentorTeacherId: [this.data?.mentorTeacherId || null],
-      academicYear: [this.data?.academicYear || '2026-2027', [Validators.required]]
+      academicYear: [this.data?.academicYear || '2026-2027', [Validators.required]],
+      shift: [defaultShift],
+      startTime: [defaultStartTime],
+      endTime: [defaultEndTime]
     });
 
     this.loading = true;
@@ -1607,20 +1736,24 @@ export class BatchDialogComponent implements OnInit {
 
   setBatchShift(shift: 'Morning' | 'Evening' | 'Afternoon'): void {
     this.selectedShift = shift;
-    const currentName = (this.batchForm.get('name')?.value || '').trim();
-    const className = this.getSelectedClassName() || 'Coaching';
+    this.batchForm.patchValue({ shift });
+    if (shift === 'Morning') {
+      this.batchForm.patchValue({ startTime: '07:00', endTime: '10:00' });
+    } else if (shift === 'Afternoon') {
+      this.batchForm.patchValue({ startTime: '12:00', endTime: '15:00' });
+    } else if (shift === 'Evening') {
+      this.batchForm.patchValue({ startTime: '16:00', endTime: '19:00' });
+    }
 
-    if (!currentName || currentName.includes('Coaching Batch') || currentName.toLowerCase().startsWith('class')) {
+    // When editing an existing batch, NEVER overwrite the batch name!
+    if (this.isEditMode) return;
+
+    const currentName = (this.batchForm.get('name')?.value || '').trim();
+    if (!currentName) {
+      const className = this.getSelectedClassName() || 'Coaching';
       this.batchForm.patchValue({
         name: `${className} - ${shift} Coaching Batch`
       });
-    } else {
-      // Replace existing shift word if already in name
-      const updated = currentName
-        .replace(/Morning/gi, shift)
-        .replace(/Evening/gi, shift)
-        .replace(/Afternoon/gi, shift);
-      this.batchForm.patchValue({ name: updated });
     }
   }
 
@@ -1677,7 +1810,7 @@ export class BatchDialogComponent implements OnInit {
   }
 
   updateCombinedBatchName(): void {
-    if (this.isEditMode && this.data?.name && !this.data.name.includes('Coaching Batch')) return;
+    if (this.isEditMode) return;
     const fromName = this.getRangeFromClassName();
     const toName = this.getRangeToClassName();
     const shift = this.selectedShift;
@@ -1687,7 +1820,7 @@ export class BatchDialogComponent implements OnInit {
   }
 
   updateSingleBatchName(): void {
-    if (this.isEditMode && this.data?.name && !this.data.name.includes('Coaching Batch')) return;
+    if (this.isEditMode) return;
     const className = this.getSelectedClassName() || 'Class 5th';
     const shift = this.selectedShift;
     this.batchForm.patchValue({
@@ -1721,7 +1854,10 @@ export class BatchDialogComponent implements OnInit {
       branchId: formVal.branchId || null,
       roomId: formVal.roomId || null,
       classId: this.batchScope === 'single' ? (formVal.classId || null) : null,
-      mentorTeacherId: formVal.mentorTeacherId || null
+      mentorTeacherId: formVal.mentorTeacherId || null,
+      shift: formVal.shift || this.selectedShift || 'Morning',
+      startTime: formVal.startTime || null,
+      endTime: formVal.endTime || null
     };
 
     if (this.isEditMode && this.data?.id) {

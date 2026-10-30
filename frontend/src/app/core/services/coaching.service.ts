@@ -180,6 +180,10 @@ export class CoachingService {
     return this.http.get<any[]>(`${this.BASE_URL}/batches`);
   }
 
+  updateBatchTimingsBulk(items: Array<{ batchId: string; shift?: string | null; startTime?: string | null; endTime?: string | null }>): Observable<any> {
+    return this.http.put(`${this.BASE_URL}/batches/timings/bulk`, items);
+  }
+
   getBatchAttendance(batchId: string, date?: string): Observable<any[]> {
     const params: any = {};
     if (date) params.date = date;

@@ -218,6 +218,9 @@ public class Batch
     public string Subject { get; set; } = string.Empty;
     public string AcademicYear { get; set; } = string.Empty;
     public decimal StandardMonthlyFee { get; set; }
+    public string? Shift { get; set; } = "Morning"; // Morning, Afternoon, Evening
+    public string? StartTime { get; set; } // e.g. "05:00"
+    public string? EndTime { get; set; } // e.g. "07:30"
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }

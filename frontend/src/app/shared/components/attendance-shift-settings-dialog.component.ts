@@ -2,6 +2,7 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin, of } from 'rxjs';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,6 +18,16 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
 export interface AttendanceShiftSettingsDialogData {
   initialTab?: 'teacher' | 'student' | 'coaching';
+}
+
+export interface BatchTimingRow {
+  id: string;
+  name: string;
+  className?: string | null;
+  shift: string;
+  startTime: string;
+  endTime: string;
+  isDirty?: boolean;
 }
 
 @Component({
@@ -473,6 +484,76 @@ export interface AttendanceShiftSettingsDialogData {
                   </div>
                 </div>
               </div>
+
+              <!-- INDIVIDUAL BATCH SCHEDULES SECTION -->
+              <div class="batches-schedule-section">
+                <div class="section-sub-header">
+                  <div class="sub-header-title">
+                    <mat-icon class="sec-icon">schedule</mat-icon>
+                    <div>
+                      <h4>📚 Individual Batch Schedules (विशिष्ट बैच टाइमिंग)</h4>
+                      <p>Set independent start and end times for each batch. Roll call and registers will auto-sync with these timings.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="table-full-search-bar">
+                  <mat-icon class="search-icon">search</mat-icon>
+                  <input type="text" class="quick-batch-search-full" placeholder="Search batch or class (बैच या क्लास सर्च करें)..." [(ngModel)]="batchSearchTerm">
+                  <button type="button" class="clear-search-btn" *ngIf="batchSearchTerm" (click)="batchSearchTerm = ''" title="Clear Search">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+
+                <div class="batch-timings-table-wrap table-responsive" *ngIf="batchTimings.length > 0">
+                  <table class="batch-timings-table">
+                    <thead>
+                      <tr>
+                        <th>Batch Name & Class</th>
+                        <th style="width: 140px;">Shift</th>
+                        <th style="width: 130px;">Start Time (In)</th>
+                        <th style="width: 130px;">End Time (Out)</th>
+                        <th style="width: 100px;">Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let b of getFilteredBatchTimings()">
+                        <td>
+                          <div class="batch-cell-name">
+                            <strong>{{ b.name }}</strong>
+                            <span class="batch-class-tag" *ngIf="b.className && !isCombinedBatch(b)">{{ b.className }}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <select class="custom-shift-select" [(ngModel)]="b.shift" (change)="onBatchShiftSelected(b)">
+                            <option value="Morning">☀️ Morning</option>
+                            <option value="Afternoon">🕒 Afternoon</option>
+                            <option value="Evening">🌇 Evening</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input type="time" class="custom-time-input" [(ngModel)]="b.startTime" (change)="markBatchDirty(b)" />
+                        </td>
+                        <td>
+                          <input type="time" class="custom-time-input" [(ngModel)]="b.endTime" (change)="markBatchDirty(b)" />
+                        </td>
+                        <td>
+                          <span class="batch-dur-pill">{{ calculateBatchDuration(b.startTime, b.endTime) }}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="empty-batch-notice" *ngIf="batchTimings.length === 0 && !loadingBatches">
+                  <mat-icon>info</mat-icon>
+                  <span>No active coaching batches found.</span>
+                </div>
+                <div class="empty-batch-notice" *ngIf="loadingBatches">
+                  <mat-spinner diameter="20"></mat-spinner>
+                  <span>Loading batch schedules...</span>
+                </div>
+              </div>
             </div>
           </mat-tab>
         </mat-tab-group>
@@ -870,6 +951,223 @@ export interface AttendanceShiftSettingsDialogData {
       }
     }
 
+    .batches-schedule-section {
+      margin-top: 14px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .section-sub-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+
+        .sub-header-title {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          .sec-icon {
+            color: #2563eb;
+            font-size: 24px;
+            width: 24px;
+            height: 24px;
+          }
+
+          h4 {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #1e3a8a;
+          }
+
+          p {
+            margin: 2px 0 0;
+            font-size: 0.76rem;
+            color: #64748b;
+          }
+        }
+      }
+
+      .table-full-search-bar {
+        position: relative;
+        display: flex;
+        align-items: center;
+        width: 100%;
+        margin-top: 2px;
+
+        .search-icon {
+          position: absolute;
+          left: 12px;
+          color: #64748b;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          pointer-events: none;
+        }
+
+        .quick-batch-search-full {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 9px 38px 9px 40px;
+          font-size: 0.85rem;
+          font-weight: 500;
+          border: 1.5px solid #cbd5e1;
+          border-radius: 8px;
+          outline: none;
+          background: #ffffff;
+          color: #0f172a;
+          transition: all 0.2s ease;
+
+          &:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+          }
+
+          &::placeholder {
+            color: #94a3b8;
+          }
+        }
+
+        .clear-search-btn {
+          position: absolute;
+          right: 10px;
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2px;
+
+          &:hover {
+            color: #475569;
+          }
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+        }
+      }
+
+      .batch-timings-table-wrap {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: 280px;
+
+        .batch-timings-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 0.82rem;
+
+          th {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 700;
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #cbd5e1;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+          }
+
+          td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+            white-space: nowrap;
+          }
+
+          tr:last-child td {
+            border-bottom: none;
+          }
+
+          tr:hover td {
+            background: #f8fafc;
+          }
+
+          .batch-cell-name {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+
+            strong {
+              color: #1e293b;
+            }
+
+            .batch-class-tag {
+              font-size: 0.7rem;
+              color: #64748b;
+            }
+          }
+
+          .custom-shift-select {
+            padding: 4px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            background: #ffffff;
+            color: #1e293b;
+            outline: none;
+
+            &:focus {
+              border-color: #2563eb;
+            }
+          }
+
+          .custom-time-input {
+            padding: 4px 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: #ffffff;
+            color: #1e293b;
+            outline: none;
+            width: 105px;
+
+            &:focus {
+              border-color: #2563eb;
+            }
+          }
+
+          .batch-dur-pill {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #eff6ff;
+            color: #1e40af;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+          }
+        }
+      }
+
+      .empty-batch-notice {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 16px;
+        color: #64748b;
+        font-size: 0.82rem;
+      }
+    }
+
     .dialog-actions {
       display: flex;
       align-items: center;
@@ -941,6 +1239,77 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadSettings();
+    this.loadBatches();
+  }
+
+  batchTimings: BatchTimingRow[] = [];
+  batchSearchTerm = '';
+  loadingBatches = false;
+
+  loadBatches(): void {
+    this.loadingBatches = true;
+    this.http.get<any[]>(`${this.api}/batches`).subscribe({
+      next: (batches) => {
+        this.loadingBatches = false;
+        this.batchTimings = (batches || []).map(b => ({
+          id: b.id,
+          name: b.name,
+          className: b.className,
+          shift: b.shift || 'Morning',
+          startTime: b.startTime || (b.shift === 'Evening' ? '16:00' : '07:00'),
+          endTime: b.endTime || (b.shift === 'Evening' ? '19:00' : '10:00'),
+          isDirty: false
+        }));
+      },
+      error: () => {
+        this.loadingBatches = false;
+      }
+    });
+  }
+
+  getFilteredBatchTimings(): BatchTimingRow[] {
+    const term = (this.batchSearchTerm || '').trim().toLowerCase();
+    if (!term) return this.batchTimings;
+    return this.batchTimings.filter(b =>
+      b.name.toLowerCase().includes(term) ||
+      (b.className && b.className.toLowerCase().includes(term))
+    );
+  }
+
+  onBatchShiftSelected(b: BatchTimingRow): void {
+    b.isDirty = true;
+    if (b.shift === 'Morning') {
+      b.startTime = this.settings.coachingMorningStartTime || '07:00';
+      b.endTime = this.settings.coachingMorningEndTime || '10:00';
+    } else if (b.shift === 'Afternoon') {
+      b.startTime = '12:00';
+      b.endTime = '15:00';
+    } else if (b.shift === 'Evening') {
+      b.startTime = this.settings.coachingEveningStartTime || '16:00';
+      b.endTime = this.settings.coachingEveningEndTime || '19:00';
+    }
+  }
+
+  markBatchDirty(b: BatchTimingRow): void {
+    b.isDirty = true;
+  }
+
+  calculateBatchDuration(start?: string, end?: string): string {
+    if (!start || !end) return '-';
+    const sMin = this.parseTimeToMinutes(start);
+    let eMin = this.parseTimeToMinutes(end);
+    if (sMin === null || eMin === null) return '-';
+    if (eMin <= sMin) eMin += 720;
+    const diff = eMin - sMin;
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+
+  isCombinedBatch(b: any): boolean {
+    if (!b?.name) return false;
+    const n = b.name.toLowerCase();
+    return !!b.name.match(/class\s*\d+.*(?:to|-).*\d+/i) || n.includes(' to ') || n.includes('to class') || n.includes('combined') || n.includes('all class');
   }
 
   loadSettings(): void {
@@ -1116,10 +1485,22 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
 
   saveSettings(): void {
     this.saving = true;
-    this.http.put<AttendanceSettingsDto>(`${this.api}/attendance/settings`, this.settings).subscribe({
-      next: (res) => {
+    const dirtyBatches = this.batchTimings.filter(b => b.isDirty).map(b => ({
+      batchId: b.id,
+      shift: b.shift,
+      startTime: b.startTime,
+      endTime: b.endTime
+    }));
+
+    const updateSettings$ = this.http.put<AttendanceSettingsDto>(`${this.api}/attendance/settings`, this.settings);
+    const updateBatches$ = dirtyBatches.length > 0 
+      ? this.http.put(`${this.api}/batches/timings/bulk`, dirtyBatches)
+      : of(null);
+
+    forkJoin({ settingsRes: updateSettings$, batchesRes: updateBatches$ }).subscribe({
+      next: ({ settingsRes }) => {
         this.saving = false;
-        this.dialogRef.close({ saved: true, settings: res });
+        this.dialogRef.close({ saved: true, settings: settingsRes, updatedBatchesCount: dirtyBatches.length });
       },
       error: (err) => {
         this.saving = false;

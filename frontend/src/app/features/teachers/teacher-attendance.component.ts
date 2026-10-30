@@ -1660,8 +1660,8 @@ export class TeacherAttendanceComponent implements OnInit {
 
   openShiftSettingsDialog() {
     const ref = this.dialog.open(AttendanceShiftSettingsDialogComponent, {
-      width: '680px',
-      maxWidth: '95vw',
+      width: '960px',
+      maxWidth: '96vw',
       data: { initialTab: 'teacher' }
     });
     ref.afterClosed().subscribe(res => {

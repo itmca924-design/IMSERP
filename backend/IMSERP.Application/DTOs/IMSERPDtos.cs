@@ -869,7 +869,10 @@ public record BatchDto(
     string? ClassName = null,
     Guid? MentorTeacherId = null,
     string? MentorTeacherName = null,
-    string? MentorTeacherPhone = null
+    string? MentorTeacherPhone = null,
+    string? Shift = null,
+    string? StartTime = null,
+    string? EndTime = null
 );
 
 public record CreateBatchDto(
@@ -880,7 +883,17 @@ public record CreateBatchDto(
     Guid? BranchId = null,
     Guid? RoomId = null,
     Guid? ClassId = null,
-    Guid? MentorTeacherId = null
+    Guid? MentorTeacherId = null,
+    string? Shift = null,
+    string? StartTime = null,
+    string? EndTime = null
+);
+
+public record UpdateBatchTimingDto(
+    Guid BatchId,
+    string? Shift = null,
+    string? StartTime = null,
+    string? EndTime = null
 );
 
 public record AssignBatchMentorDto(

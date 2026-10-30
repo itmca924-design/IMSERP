@@ -130,7 +130,7 @@ export interface NoticeStatsDto {
       <!-- Controls & Filter Strip -->
       <div class="controls-card">
         <div class="filter-row">
-          <mat-form-field appearance="outline" class="filter-field">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Category</mat-label>
             <mat-select [(ngModel)]="filterCategory" (selectionChange)="loadNotices()">
               <mat-option value="">All Categories</mat-option>
@@ -145,7 +145,7 @@ export interface NoticeStatsDto {
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-field">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Target Audience</mat-label>
             <mat-select [(ngModel)]="filterAudience" (selectionChange)="onAudienceFilterChange()">
               <mat-option value="">All Audiences</mat-option>
@@ -158,25 +158,25 @@ export interface NoticeStatsDto {
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-field" *ngIf="filterAudience === 'SpecificClass'">
-            <mat-label>Class</mat-label>
-            <mat-select [(ngModel)]="filterClassId" (selectionChange)="loadNotices()">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic" *ngIf="filterAudience === 'SpecificClass' || filterAudience === 'SpecificBatch'">
+            <mat-label>{{ filterAudience === 'SpecificBatch' ? 'Academic Class (कक्षा)' : 'Class' }}</mat-label>
+            <mat-select [(ngModel)]="filterClassId" (selectionChange)="onClassFilterChange()">
               <mat-option value="">All Classes</mat-option>
               <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-field" *ngIf="filterAudience === 'SpecificBatch'">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic" *ngIf="filterAudience === 'SpecificBatch'">
             <mat-label>Coaching Batch</mat-label>
             <mat-select [(ngModel)]="filterBatchId" (selectionChange)="loadNotices()">
               <mat-option value="">All Batches</mat-option>
-              <mat-option *ngFor="let b of batches" [value]="b.id">
+              <mat-option *ngFor="let b of filteredFilterBatches" [value]="b.id">
                 {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
               </mat-option>
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-field">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Priority</mat-label>
             <mat-select [(ngModel)]="filterPriority" (selectionChange)="loadNotices()">
               <mat-option value="">All Priorities</mat-option>
@@ -186,7 +186,7 @@ export interface NoticeStatsDto {
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="filter-field search-field">
+          <mat-form-field appearance="outline" class="filter-field search-field" subscriptSizing="dynamic">
             <mat-label>Search Title, Circular #, Words</mat-label>
             <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadNotices()">
           </mat-form-field>
@@ -412,7 +412,7 @@ export interface NoticeStatsDto {
     /* Controls Strip */
     .controls-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .filter-field { width: 170px; margin-bottom: -1.25em; }
+    .filter-field { width: 170px; }
     .search-field { flex: 1; min-width: 220px; }
     .chip-filter { border: 1px solid #cbd5e1; border-radius: 8px; color: #64748b; font-weight: 600; height: 42px; display: flex; align-items: center; gap: 6px; }
     .chip-filter.active-chip { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
@@ -563,8 +563,8 @@ export interface NoticeStatsDto {
       .notices-page-container { padding: 0 0 40px; gap: 14px; }
       .page-header { padding: 14px 16px; flex-direction: column; align-items: stretch; gap: 12px; }
       .header-actions { width: 100%; display: flex; flex-direction: row; align-items: center; gap: 8px; }
-      .filter-row { flex-direction: column; align-items: stretch; gap: 8px; }
-      .filter-field, .search-field { flex: none !important; width: 100% !important; min-width: 100% !important; margin-bottom: -1.25em; }
+      .filter-row { flex-direction: column; align-items: stretch; gap: 12px; }
+      .filter-field, .search-field { flex: none !important; width: 100% !important; min-width: 100% !important; margin-bottom: 0; }
       .controls-card { padding: 14px; }
       .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; width: 100%; box-sizing: border-box; }
       .stat-card { padding: 10px 10px; gap: 8px; border-radius: 10px; min-width: 0; box-sizing: border-box; }
@@ -718,7 +718,18 @@ export class SchoolNoticesComponent implements OnInit {
   ngOnInit(): void {
     this.loadClasses();
     this.loadBatches();
-    this.loadStats();
+    this.loadNotices();
+  }
+
+  get filteredFilterBatches(): BatchDto[] {
+    if (!this.filterClassId) return this.batches;
+    return this.batches.filter(b => b.classId === this.filterClassId || !b.classId);
+  }
+
+  onClassFilterChange(): void {
+    if (this.filterAudience === 'SpecificBatch') {
+      this.filterBatchId = '';
+    }
     this.loadNotices();
   }
 
@@ -1689,6 +1700,7 @@ export class NoticeFormDialogComponent implements OnInit {
 
   getBatchShift(b: any): string {
     if (!b) return '';
+    if (b.shift) return b.shift;
     const text = ((b.name || '') + ' ' + (b.subject || '')).toLowerCase();
     if (text.includes('morning')) return 'Morning';
     if (text.includes('evening')) return 'Evening';

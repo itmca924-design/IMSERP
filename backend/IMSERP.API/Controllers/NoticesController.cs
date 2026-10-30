@@ -119,7 +119,7 @@ public class NoticesController : ControllerBase
         var urgent = await query.CountAsync(n => n.Priority == "Urgent");
         var pinned = await query.CountAsync(n => n.IsPinned);
         var active = await query.CountAsync(n => n.IsActive && (!n.ExpiryDate.HasValue || n.ExpiryDate.Value.Date >= today));
-        var student = await query.CountAsync(n => n.TargetAudience == "Students" || n.TargetAudience == "All" || n.TargetAudience == "Parents");
+        var student = await query.CountAsync(n => n.TargetAudience == "Students" || n.TargetAudience == "All" || n.TargetAudience == "Parents" || n.TargetAudience == "SpecificClass" || n.TargetAudience == "SpecificBatch");
         var staff = await query.CountAsync(n => n.TargetAudience == "Teachers" || n.TargetAudience == "Staff");
 
         return Ok(new NoticeStatsDto(total, urgent, pinned, active, student, staff));

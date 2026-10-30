@@ -137,6 +137,77 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"[Startup] TeacherSalaryPayments snapshot columns patch failed: {ex.Message}");
         }
 
+        // Batch Shift & Timings columns on Batches
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('Batches') IS NOT NULL
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'Shift') ALTER TABLE Batches ADD Shift NVARCHAR(30) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'StartTime') ALTER TABLE Batches ADD StartTime NVARCHAR(10) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'EndTime') ALTER TABLE Batches ADD EndTime NVARCHAR(10) NULL;
+
+                    -- Backfill sensible defaults for existing batches without timings
+                    UPDATE Batches SET Shift = 'Morning', StartTime = '05:00', EndTime = '07:30' 
+                    WHERE (StartTime IS NULL OR StartTime = '') AND (Name LIKE '%Morning%' OR Name LIKE '%6th To 10th%');
+
+                    UPDATE Batches SET Shift = 'Evening', StartTime = '16:00', EndTime = '19:00' 
+                    WHERE (StartTime IS NULL OR StartTime = '') AND Name LIKE '%Evening%';
+
+                    UPDATE Batches SET Shift = 'Morning', StartTime = '07:00', EndTime = '10:00' 
+                    WHERE (StartTime IS NULL OR StartTime = '');
+                END");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] Batches Shift/Timing columns patch failed: {ex.Message}");
+        }
+
+        // SchoolNotices BatchId, BatchName & BranchId columns
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('SchoolNotices') IS NOT NULL
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('SchoolNotices') AND name = 'BranchId')
+                        ALTER TABLE SchoolNotices ADD BranchId UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('SchoolNotices') AND name = 'BatchId')
+                        ALTER TABLE SchoolNotices ADD BatchId UNIQUEIDENTIFIER NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('SchoolNotices') AND name = 'BatchName')
+                        ALTER TABLE SchoolNotices ADD BatchName NVARCHAR(200) NULL;
+                END
+                ELSE
+                BEGIN
+                    CREATE TABLE SchoolNotices (
+                        Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                        TenantId UNIQUEIDENTIFIER NOT NULL,
+                        BranchId UNIQUEIDENTIFIER NULL,
+                        NoticeNumber NVARCHAR(50) NOT NULL DEFAULT '',
+                        Title NVARCHAR(250) NOT NULL DEFAULT '',
+                        Content NVARCHAR(MAX) NOT NULL DEFAULT '',
+                        Category NVARCHAR(100) NOT NULL DEFAULT 'Academic',
+                        TargetAudience NVARCHAR(100) NOT NULL DEFAULT 'All',
+                        ClassId UNIQUEIDENTIFIER NULL,
+                        ClassName NVARCHAR(150) NULL,
+                        BatchId UNIQUEIDENTIFIER NULL,
+                        BatchName NVARCHAR(200) NULL,
+                        Priority NVARCHAR(50) NOT NULL DEFAULT 'Normal',
+                        PublishDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                        ExpiryDate DATETIME2 NULL,
+                        AttachmentUrl NVARCHAR(MAX) NULL,
+                        IsPinned BIT NOT NULL DEFAULT 0,
+                        IsActive BIT NOT NULL DEFAULT 1,
+                        CreatedBy NVARCHAR(150) NULL,
+                        CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                        UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                    );
+                END");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] SchoolNotices columns patch failed: {ex.Message}");
+        }
+
         // Student Absence Fine columns on AttendanceSettings
         try
         {
