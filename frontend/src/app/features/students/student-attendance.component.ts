@@ -559,7 +559,18 @@ interface CalendarDay {
         <div class="period-student">
           <mat-icon>account_circle</mat-icon>
           <div>
-            <strong>{{ selectedStudent.studentName }}</strong>
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+              <strong>{{ selectedStudent.studentName }}</strong>
+              <span class="student-type-pill combined" *ngIf="isSingleStudentCombined" matTooltip="Dual-Enrolled: Attends both School & Coaching">
+                <mat-icon>hub</mat-icon> Combined (School + Coaching)
+              </span>
+              <span class="student-type-pill coaching" *ngIf="isSingleStudentCoachingOnly" matTooltip="Coaching Student">
+                <mat-icon>menu_book</mat-icon> Coaching Student
+              </span>
+              <span class="student-type-pill school" *ngIf="isSingleStudentSchoolOnly" matTooltip="School Student">
+                <mat-icon>school</mat-icon> School Student
+              </span>
+            </div>
             <small>{{ getStudentDisplayRoll(selectedStudent) }} {{ getStudentDisplayGroup(selectedStudent) }}</small>
           </div>
         </div>
@@ -688,6 +699,19 @@ interface CalendarDay {
               <mat-icon>event_busy</mat-icon> Leave
             </button>
 
+            <!-- Shift Selector Pills for Single/Combined Student -->
+            <div class="mfb-shift-group" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
+              <button type="button" class="mfb-shift-pill morning" *ngIf="showSingleMorningShift" [class.active]="singleActiveShift === 'morning'" (click)="setSingleShift('morning')" matTooltip="Apply Coaching Morning Timings">
+                <mat-icon>wb_sunny</mat-icon> <span>🌅 Morning</span>
+              </button>
+              <button type="button" class="mfb-shift-pill school" *ngIf="showSingleSchoolShift" [class.active]="singleActiveShift === 'school'" (click)="setSingleShift('school')" matTooltip="Apply School Day Timings">
+                <mat-icon>school</mat-icon> <span>🏫 School</span>
+              </button>
+              <button type="button" class="mfb-shift-pill evening" *ngIf="showSingleEveningShift" [class.active]="singleActiveShift === 'evening'" (click)="setSingleShift('evening')" matTooltip="Apply Coaching Evening Timings">
+                <mat-icon>nights_stay</mat-icon> <span>🌆 Evening</span>
+              </button>
+            </div>
+
             <!-- Timings Inputs -->
             <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
               <label>In:</label>
@@ -697,6 +721,10 @@ interface CalendarDay {
               <label>Out:</label>
               <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
             </div>
+
+            <span class="mfb-dur-badge" *ngIf="calculateDuration(batchTargetCheckIn, batchTargetCheckOut) && batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
+              {{ calculateDuration(batchTargetCheckIn, batchTargetCheckOut) }}
+            </span>
 
             <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
           </div>
@@ -1844,6 +1872,66 @@ interface CalendarDay {
     .mfb-pill.pill-lt.active { background: #d97706; color: #fff; border-color: #f59e0b; }
     .mfb-pill.pill-hd.active { background: #7c3aed; color: #fff; border-color: #8b5cf6; }
     .mfb-pill.pill-l.active { background: #ea580c; color: #fff; border-color: #f97316; }
+    .mfb-shift-group {
+      display: inline-flex;
+      align-items: center;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 20px;
+      padding: 2px 4px;
+      gap: 3px;
+    }
+    .mfb-shift-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 16px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: transparent;
+      color: #94a3b8;
+      transition: all 0.15s ease;
+    }
+    .mfb-shift-pill mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .mfb-shift-pill:hover { color: #f1f5f9; background: rgba(255,255,255,0.08); }
+    .mfb-shift-pill.morning.active { background: #d97706; color: #ffffff; border-color: #f59e0b; box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4); }
+    .mfb-shift-pill.school.active { background: #2563eb; color: #ffffff; border-color: #3b82f6; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4); }
+    .mfb-shift-pill.evening.active { background: #7c3aed; color: #ffffff; border-color: #8b5cf6; box-shadow: 0 2px 6px rgba(124, 58, 237, 0.4); }
+    .mfb-dur-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .student-type-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .student-type-pill.combined {
+      background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;
+    }
+    .student-type-pill.coaching {
+      background: #faf5ff; color: #6b21a8; border: 1px solid #e9d5ff;
+    }
+    .student-type-pill.school {
+      background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;
+    }
+    .student-type-pill mat-icon { font-size: 13px; width: 13px; height: 13px; }
     .mfb-remarks-input {
       background: #1e293b;
       border: 1px solid #334155;
@@ -2235,6 +2323,15 @@ interface CalendarDay {
         justify-content: flex-start;
         gap: 6px;
       }
+      .mfb-shift-group {
+        display: flex;
+        flex-wrap: wrap;
+        width: auto;
+      }
+      .mfb-shift-pill {
+        padding: 3px 8px;
+        font-size: 0.68rem;
+      }
       .mfb-remarks-input { width: 100%; min-width: 0; box-sizing: border-box; }
       .mfb-right {
         display: grid;
@@ -2484,6 +2581,8 @@ interface CalendarDay {
       /* Matrix floating bar fully stacked */
       .matrix-floating-bar { padding: 10px; }
       .mfb-pill { padding: 4px 8px; font-size: 0.7rem; }
+      .mfb-shift-group { width: 100%; justify-content: flex-start; }
+      .mfb-shift-pill { padding: 3px 6px; font-size: 0.65rem; }
       /* Attendance table scroll hint */
       .table-scroll-hint { display: inline-flex !important; }
       /* Reg controls */
@@ -2596,6 +2695,57 @@ export class StudentAttendanceComponent implements OnInit {
   bulkCheckInTime = '08:00';
   bulkCheckOutTime = '14:00';
   coachingActiveShift: 'morning' | 'evening' = 'morning';
+  singleActiveShift: 'school' | 'morning' | 'evening' = 'school';
+
+  get isSingleStudentCombined(): boolean {
+    return !!(this.selectedStudent?.isSchoolStudent && this.selectedStudent?.isCoachingStudent);
+  }
+
+  get isSingleStudentCoachingOnly(): boolean {
+    return !!(this.selectedStudent?.isCoachingStudent && !this.selectedStudent?.isSchoolStudent);
+  }
+
+  get isSingleStudentSchoolOnly(): boolean {
+    return !!(this.selectedStudent?.isSchoolStudent && !this.selectedStudent?.isCoachingStudent);
+  }
+
+  get showSingleMorningShift(): boolean {
+    return !!(this.selectedStudent?.isCoachingStudent || this.singleStreamFilter === 'coaching');
+  }
+
+  get showSingleSchoolShift(): boolean {
+    return !!(this.selectedStudent?.isSchoolStudent || this.singleStreamFilter === 'school' || !this.selectedStudent?.isCoachingStudent);
+  }
+
+  get showSingleEveningShift(): boolean {
+    return !!(this.selectedStudent?.isCoachingStudent || this.singleStreamFilter === 'coaching');
+  }
+
+  setSingleShift(shift: 'school' | 'morning' | 'evening'): void {
+    this.singleActiveShift = shift;
+    if (shift === 'morning') {
+      this.batchTargetCheckIn = this.attendanceSettings?.coachingMorningStartTime || '07:00';
+      this.batchTargetCheckOut = this.attendanceSettings?.coachingMorningEndTime || '10:00';
+    } else if (shift === 'evening') {
+      this.batchTargetCheckIn = this.attendanceSettings?.coachingEveningStartTime || '16:00';
+      this.batchTargetCheckOut = this.attendanceSettings?.coachingEveningEndTime || '19:00';
+    } else {
+      this.batchTargetCheckIn = this.attendanceSettings?.studentShiftStartTime || '08:00';
+      this.batchTargetCheckOut = this.attendanceSettings?.studentShiftEndTime || '14:00';
+    }
+    this.formData.checkInTime = this.batchTargetCheckIn;
+    this.formData.checkOutTime = this.batchTargetCheckOut;
+  }
+
+  syncSingleStudentShiftDefaults(): void {
+    if (!this.selectedStudent) return;
+    if (this.isSingleStudentCoachingOnly || this.singleStreamFilter === 'coaching') {
+      const isEveningBatch = (this.selectedStudent.batchName || '').toLowerCase().includes('evening');
+      this.setSingleShift(isEveningBatch ? 'evening' : 'morning');
+    } else {
+      this.setSingleShift('school');
+    }
+  }
   summary: AttendanceSummary | null = null;
   loading = false;
   saving = false;
@@ -2886,29 +3036,35 @@ export class StudentAttendanceComponent implements OnInit {
     const inMin = this.parseTimeToMinutes(inTime);
     if (inMin === null) return declaredStatus;
 
-    const isCoaching = this.rollCallScope === 'coaching' || inMin < 450 || inMin >= 930;
+    const isCoaching = (this.activeTab === 'single' ? (this.singleActiveShift !== 'school') : (this.rollCallScope === 'coaching')) || inMin < 450 || inMin >= 930;
 
     let shiftStart: number;
     let shiftEnd: number;
     let grace: number;
 
     if (isCoaching) {
-      if (inMin >= 720) {
-        const defaultIn = this.coachingActiveShift === 'evening' && this.bulkCheckInTime ? this.bulkCheckInTime : (this.attendanceSettings?.coachingEveningStartTime || '16:00');
-        const defaultOut = this.coachingActiveShift === 'evening' && this.bulkCheckOutTime ? this.bulkCheckOutTime : (this.attendanceSettings?.coachingEveningEndTime || '19:00');
+      const activeCoachingShift = this.activeTab === 'single'
+        ? (this.singleActiveShift === 'evening' ? 'evening' : 'morning')
+        : this.coachingActiveShift;
+
+      if (inMin >= 720 || activeCoachingShift === 'evening') {
+        const defaultIn = activeCoachingShift === 'evening' && (this.activeTab === 'single' ? this.batchTargetCheckIn : this.bulkCheckInTime) ? (this.activeTab === 'single' ? this.batchTargetCheckIn : this.bulkCheckInTime) : (this.attendanceSettings?.coachingEveningStartTime || '16:00');
+        const defaultOut = activeCoachingShift === 'evening' && (this.activeTab === 'single' ? this.batchTargetCheckOut : this.bulkCheckOutTime) ? (this.activeTab === 'single' ? this.batchTargetCheckOut : this.bulkCheckOutTime) : (this.attendanceSettings?.coachingEveningEndTime || '19:00');
         shiftStart = this.parseTimeToMinutes(defaultIn) ?? 960;
         shiftEnd = this.parseTimeToMinutes(defaultOut) ?? 1140;
         grace = this.attendanceSettings?.coachingEveningGraceMinutes ?? 15;
       } else {
-        const defaultIn = this.coachingActiveShift === 'morning' && this.bulkCheckInTime ? this.bulkCheckInTime : (this.attendanceSettings?.coachingMorningStartTime || '07:00');
-        const defaultOut = this.coachingActiveShift === 'morning' && this.bulkCheckOutTime ? this.bulkCheckOutTime : (this.attendanceSettings?.coachingMorningEndTime || '10:00');
+        const defaultIn = activeCoachingShift === 'morning' && (this.activeTab === 'single' ? this.batchTargetCheckIn : this.bulkCheckInTime) ? (this.activeTab === 'single' ? this.batchTargetCheckIn : this.bulkCheckInTime) : (this.attendanceSettings?.coachingMorningStartTime || '07:00');
+        const defaultOut = activeCoachingShift === 'morning' && (this.activeTab === 'single' ? this.batchTargetCheckOut : this.bulkCheckOutTime) ? (this.activeTab === 'single' ? this.batchTargetCheckOut : this.bulkCheckOutTime) : (this.attendanceSettings?.coachingMorningEndTime || '10:00');
         shiftStart = this.parseTimeToMinutes(defaultIn) ?? 420;
         shiftEnd = this.parseTimeToMinutes(defaultOut) ?? 600;
         grace = this.attendanceSettings?.coachingMorningGraceMinutes ?? 15;
       }
     } else {
-      shiftStart = this.parseTimeToMinutes(this.bulkCheckInTime || this.attendanceSettings?.studentShiftStartTime || '08:00') ?? 480;
-      shiftEnd = this.parseTimeToMinutes(this.bulkCheckOutTime || this.attendanceSettings?.studentShiftEndTime || '14:00') ?? 840;
+      const defaultIn = this.activeTab === 'single' ? (this.batchTargetCheckIn || this.attendanceSettings?.studentShiftStartTime || '08:00') : (this.bulkCheckInTime || this.attendanceSettings?.studentShiftStartTime || '08:00');
+      const defaultOut = this.activeTab === 'single' ? (this.batchTargetCheckOut || this.attendanceSettings?.studentShiftEndTime || '14:00') : (this.bulkCheckOutTime || this.attendanceSettings?.studentShiftEndTime || '14:00');
+      shiftStart = this.parseTimeToMinutes(defaultIn) ?? 480;
+      shiftEnd = this.parseTimeToMinutes(defaultOut) ?? 840;
       grace = this.attendanceSettings?.studentGracePeriodMinutes ?? 15;
     }
 
@@ -3686,6 +3842,7 @@ export class StudentAttendanceComponent implements OnInit {
     this.selectedStudent = this.students.find(student => student.id === this.selectedStudentId);
     if (this.selectedStudent) {
       this.clearDateSelection();
+      this.syncSingleStudentShiftDefaults();
       this.loadPublicHolidaySundayPermission();
       this.loadAttendance();
     }
@@ -4357,13 +4514,17 @@ export class StudentAttendanceComponent implements OnInit {
     const effStatus = this.getStudentSmartStatus(this.batchTargetStatus, this.batchTargetCheckIn, this.batchTargetCheckOut);
     this.batchTargetStatus = effStatus;
 
+    const effStream = this.singleStreamFilter !== 'all'
+      ? this.singleStreamFilter
+      : (this.singleActiveShift === 'school' ? 'school' : 'coaching');
+
     const payload = {
       attendanceDates: dates,
       status: effStatus,
       remarks: this.batchTargetRemarks || null,
       checkInTime: effStatus !== 'Absent' && effStatus !== 'Leave' ? (this.batchTargetCheckIn || null) : null,
       checkOutTime: effStatus !== 'Absent' && effStatus !== 'Leave' ? (this.batchTargetCheckOut || null) : null,
-      stream: this.singleStreamFilter !== 'all' ? this.singleStreamFilter : null
+      stream: effStream
     };
 
     this.http.post(
@@ -4410,17 +4571,37 @@ export class StudentAttendanceComponent implements OnInit {
     const absentCount = selectableDays.length - presentCount;
 
     this.batchSavingDates = true;
+
+    const effStream = this.singleStreamFilter !== 'all'
+      ? this.singleStreamFilter
+      : (this.singleActiveShift === 'school' ? 'school' : 'coaching');
+
+    const fallbackIn = this.singleActiveShift === 'school'
+      ? (this.attendanceSettings?.studentShiftStartTime || '08:00')
+      : (this.singleActiveShift === 'morning'
+          ? (this.attendanceSettings?.coachingMorningStartTime || '07:00')
+          : (this.attendanceSettings?.coachingEveningStartTime || '16:00'));
+
+    const fallbackOut = this.singleActiveShift === 'school'
+      ? (this.attendanceSettings?.studentShiftEndTime || '14:00')
+      : (this.singleActiveShift === 'morning'
+          ? (this.attendanceSettings?.coachingMorningEndTime || '10:00')
+          : (this.attendanceSettings?.coachingEveningEndTime || '19:00'));
+
+    const activeIn = this.batchTargetCheckIn || fallbackIn;
+    const activeOut = this.batchTargetCheckOut || fallbackOut;
+
     const payload = {
       month: this.attMonth,
       year: this.attYear,
-      defaultCheckInTime: this.batchTargetCheckIn || '08:00',
-      defaultCheckOutTime: this.batchTargetCheckOut || '14:00',
-      stream: this.singleStreamFilter !== 'all' ? this.singleStreamFilter : null,
+      defaultCheckInTime: activeIn,
+      defaultCheckOutTime: activeOut,
+      stream: effStream,
       days: selectableDays.map(d => ({
         date: d.dateStr,
         isPresent: this.selectedMatrixDates.has(d.dateStr),
-        checkInTime: this.selectedMatrixDates.has(d.dateStr) ? (this.batchTargetCheckIn || '08:00') : null,
-        checkOutTime: this.selectedMatrixDates.has(d.dateStr) ? (this.batchTargetCheckOut || '14:00') : null,
+        checkInTime: this.selectedMatrixDates.has(d.dateStr) ? activeIn : null,
+        checkOutTime: this.selectedMatrixDates.has(d.dateStr) ? activeOut : null,
         remarks: this.selectedMatrixDates.has(d.dateStr) ? 'Monthly Register (Present)' : 'Monthly Register (Absent)'
       }))
     };
