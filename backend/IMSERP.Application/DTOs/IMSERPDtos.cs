@@ -825,7 +825,8 @@ public record AttendanceReportRowDto(
     bool IsCoachingStudent = false,
     int ElapsedWorkingDays = 0,
     string? JoiningDate = null,
-    string? PhotoUrl = null
+    string? PhotoUrl = null,
+    int UnmarkedDays = 0
 );
 
 
@@ -846,7 +847,8 @@ public record AttendanceReportDto(
     int ElapsedWorkingDaysInMonth = 0,
     int TotalCount = 0,
     int Page = 1,
-    int PageSize = 10
+    int PageSize = 10,
+    int TotalUnmarkedDays = 0
 );
 
 public record BatchDto(

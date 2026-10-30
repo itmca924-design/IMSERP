@@ -1690,7 +1690,7 @@ public class TeachersController : ControllerBase
                     else if (curDate < today)
                     {
                         pastUnmarkedWorkingDays++;
-                        dailyMap.Add($"{day}:A");
+                        dailyMap.Add($"{day}:-");
                     }
                     else
                     {
@@ -1721,13 +1721,12 @@ public class TeachersController : ControllerBase
                 teacherWorkingDays = Math.Max(0, totalWorkingDays - priorDays);
             }
 
-            var absent = recordedAbsent + pastUnmarkedWorkingDays;
+            var absent = recordedAbsent;
             var attendedWeighted = present + late + (half * 0.5m);
-            bool isPastMonth = year < today.Year || (year == today.Year && month < today.Month);
-            var denominator = elapsedWorkingDays > 0 ? elapsedWorkingDays : (isPastMonth ? teacherWorkingDays : 0);
-            var attendancePercentage = (denominator == 0 || attendedWeighted == 0)
-                ? 0m
-                : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
+            var markedWorkingDays = present + recordedAbsent + late + half;
+            var attendancePercentage = markedWorkingDays > 0
+                ? Math.Min(100m, Math.Round((attendedWeighted / (decimal)markedWorkingDays) * 100m, 1))
+                : 0m;
 
             return new AttendanceReportRowDto(
                 teacher.Id,
@@ -1750,7 +1749,8 @@ public class TeachersController : ControllerBase
                 false,
                 elapsedWorkingDays,
                 teacher.JoiningDate != default ? teacher.JoiningDate.ToString("yyyy-MM-dd") : null,
-                teacher.PhotoUrl
+                teacher.PhotoUrl,
+                pastUnmarkedWorkingDays
             );
         }).ToList();
 
@@ -1825,7 +1825,8 @@ public class TeachersController : ControllerBase
             monthElapsedWorkingDays,
             totalCount,
             page,
-            pageSize
+            pageSize,
+            rows.Sum(row => row.UnmarkedDays)
         ));
     }
 
@@ -4664,7 +4665,7 @@ public class TeachersController : ControllerBase
     }
 
     private static TeacherAttendanceStatus EvaluateSmartAttendanceStatus(
-        TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime, AttendanceSettings? settings = null)
+        TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime, AttendanceSettings? settings = null, string? scopeOrShift = null)
     {
         if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
             return declaredStatus;
@@ -4676,10 +4677,36 @@ public class TeachersController : ControllerBase
         if (inMin == null)
             return declaredStatus;
 
-        // Dynamic thresholds from AttendanceSettings (no hardcoding)
         int halfDayThreshold = settings?.TeacherHalfDayThresholdMinutes ?? 240;
-        int shiftStartMin = ParseTimeToMinutes(settings?.TeacherShiftStartTime ?? "08:00") ?? 480;
-        int graceMinutes = settings?.TeacherGracePeriodMinutes ?? 15;
+        int shiftStartMin;
+        int graceMinutes;
+
+        var isCoaching = string.Equals(scopeOrShift, "coaching", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase);
+
+        if (isCoaching)
+        {
+            if (string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase) || inMin.Value >= 720)
+            {
+                // Coaching Evening Shift
+                shiftStartMin = ParseTimeToMinutes(settings?.CoachingEveningStartTime ?? "16:00") ?? 960;
+                graceMinutes = settings?.CoachingEveningGraceMinutes ?? 15;
+            }
+            else
+            {
+                // Coaching Morning Shift
+                shiftStartMin = ParseTimeToMinutes(settings?.CoachingMorningStartTime ?? "07:00") ?? 420;
+                graceMinutes = settings?.CoachingMorningGraceMinutes ?? 15;
+            }
+        }
+        else
+        {
+            // School Faculty / General Shift
+            shiftStartMin = ParseTimeToMinutes(settings?.TeacherShiftStartTime ?? "08:00") ?? 480;
+            graceMinutes = settings?.TeacherGracePeriodMinutes ?? 15;
+        }
+
         int lateCutoffMin = shiftStartMin + graceMinutes;
 
         // If outTime is provided, evaluate work duration for half day

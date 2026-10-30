@@ -765,19 +765,15 @@ public class StudentsController : ControllerBase
             var evaluatedStatuses = targetRecords.Select(r => EvaluateStudentSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime, attSettings)).ToList();
             var present = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Present);
             var recordedAbsent = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Absent);
-            var absent = recordedAbsent + pastUnmarkedWorkingDays;
+            var absent = recordedAbsent;
             var late = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.Late);
             var half = evaluatedStatuses.Count(st => st == TeacherAttendanceStatus.HalfDay);
             var attendedWeighted = present + late + (half * 0.5m);
 
-            bool isPastMonth = year < today.Year || (year == today.Year && month < today.Month);
-            var denominator = elapsedWorkingDaysForStudent > 0 
-                ? elapsedWorkingDaysForStudent 
-                : (isPastMonth ? totalWorkingDaysInMonth : 0);
-
-            var attendancePercentage = (denominator == 0 || attendedWeighted == 0)
-                ? 0m
-                : Math.Min(100m, Math.Round((attendedWeighted / (decimal)denominator) * 100m, 1));
+            var markedWorkingDays = present + recordedAbsent + late + half;
+            var attendancePercentage = markedWorkingDays > 0
+                ? Math.Min(100m, Math.Round((attendedWeighted / (decimal)markedWorkingDays) * 100m, 1))
+                : 0m;
 
             string schoolClass = student.Class != null
                 ? $"{student.Class.Name}{(student.Section != null ? " - " + student.Section.Name : "")}"
@@ -850,7 +846,8 @@ public class StudentsController : ControllerBase
                 student.IsCoachingStudent,
                 elapsedWorkingDaysForStudent,
                 student.JoiningDate != default ? student.JoiningDate.ToString("yyyy-MM-dd") : null,
-                student.ProfilePhoto
+                student.ProfilePhoto,
+                pastUnmarkedWorkingDays
             );
         }).ToList();
 
@@ -878,7 +875,11 @@ public class StudentsController : ControllerBase
             isDual,
             defaultStream,
             totalWorkingDaysInMonth,
-            monthElapsedWorkingDays
+            monthElapsedWorkingDays,
+            rows.Count,
+            1,
+            rows.Count,
+            rows.Sum(row => row.UnmarkedDays)
         ));
     }
 

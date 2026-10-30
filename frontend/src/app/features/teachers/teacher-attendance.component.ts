@@ -266,6 +266,19 @@ export interface CalendarDayItem {
             <mat-icon>event_busy</mat-icon> Leave
           </button>
 
+          <!-- Quick Shift Presets (School Day Shift vs Coaching Morning vs Coaching Evening) -->
+          <div class="mfb-shift-presets" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
+            <button type="button" class="mfb-shift-btn" [class.active]="activeShiftType === 'school'" (click)="setShiftType('school')" matTooltip="Standard School / Day Shift">
+              <mat-icon>school</mat-icon> Day Shift
+            </button>
+            <button type="button" class="mfb-shift-btn morning" [class.active]="activeShiftType === 'coaching_morning'" (click)="setShiftType('coaching_morning')" matTooltip="Coaching Morning Shift">
+              <mat-icon>wb_sunny</mat-icon> Morn
+            </button>
+            <button type="button" class="mfb-shift-btn evening" [class.active]="activeShiftType === 'coaching_evening'" (click)="setShiftType('coaching_evening')" matTooltip="Coaching Evening Shift">
+              <mat-icon>nights_stay</mat-icon> Eve
+            </button>
+          </div>
+
           <!-- Timings Inputs -->
           <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
             <label>In:</label>
@@ -941,6 +954,17 @@ export interface CalendarDayItem {
     .mfb-pill.pill-lt.active { background: #d97706; color: #fff; border-color: #f59e0b; }
     .mfb-pill.pill-hd.active { background: #7c3aed; color: #fff; border-color: #8b5cf6; }
     .mfb-pill.pill-l.active { background: #ea580c; color: #fff; border-color: #f97316; }
+    .mfb-shift-presets { display: inline-flex; align-items: center; gap: 4px; background: #0f172a; padding: 2px 4px; border-radius: 8px; border: 1px solid #334155; }
+    .mfb-shift-btn {
+      display: inline-flex; align-items: center; gap: 4px; background: transparent; border: none;
+      color: #94a3b8; font-size: 0.72rem; font-weight: 700; padding: 4px 8px; border-radius: 6px;
+      cursor: pointer; transition: all 0.2s ease;
+    }
+    .mfb-shift-btn mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .mfb-shift-btn:hover { background: #1e293b; color: #f8fafc; }
+    .mfb-shift-btn.active { background: #2563eb; color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    .mfb-shift-btn.morning.active { background: #d97706; color: #ffffff; }
+    .mfb-shift-btn.evening.active { background: #7c3aed; color: #ffffff; }
     .mfb-remarks-input {
       background: #1e293b;
       border: 1px solid #334155;
@@ -1274,6 +1298,7 @@ export class TeacherAttendanceComponent implements OnInit {
   // Unified Multi-Date Matrix Selection & Floating Action Bar
   selectedMatrixDates = new Set<string>();
   batchTargetStatus: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' = 'Present';
+  activeShiftType: 'school' | 'coaching_morning' | 'coaching_evening' = 'school';
   batchTargetCheckIn = '08:00';
   batchTargetCheckOut = '17:00';
   batchTargetRemarks = '';
@@ -1293,6 +1318,20 @@ export class TeacherAttendanceComponent implements OnInit {
 
   get canManageAttendance(): boolean {
     return !this.auth.isTeacher() && (this.auth.isAdmin() || this.auth.isHR() || this.attendancePermissions.canCorrectAttendance);
+  }
+
+  setShiftType(shift: 'school' | 'coaching_morning' | 'coaching_evening'): void {
+    this.activeShiftType = shift;
+    if (shift === 'coaching_morning') {
+      this.batchTargetCheckIn = this.attendanceSettings?.coachingMorningStartTime || '07:00';
+      this.batchTargetCheckOut = this.attendanceSettings?.coachingMorningEndTime || '10:00';
+    } else if (shift === 'coaching_evening') {
+      this.batchTargetCheckIn = this.attendanceSettings?.coachingEveningStartTime || '16:00';
+      this.batchTargetCheckOut = this.attendanceSettings?.coachingEveningEndTime || '19:00';
+    } else {
+      this.batchTargetCheckIn = this.attendanceSettings?.teacherShiftStartTime || '08:00';
+      this.batchTargetCheckOut = this.attendanceSettings?.teacherShiftEndTime || '17:00';
+    }
   }
 
   // ================= UNIFIED MULTI-DATE SELECTION METHODS =================
@@ -2019,7 +2058,7 @@ export class TeacherAttendanceComponent implements OnInit {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
-  getEffectiveStatus(record?: { status?: string; checkInTime?: string; checkOutTime?: string }): 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Leave' | 'Unmarked' {
+  getEffectiveStatus(record?: { status?: string; checkInTime?: string; checkOutTime?: string; captureSource?: string }, shiftHint?: 'school' | 'coaching_morning' | 'coaching_evening'): 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Holiday' | 'Leave' | 'Unmarked' {
     if (!record || !record.status) return 'Unmarked';
     if (record.status === 'Absent' || record.status === 'Holiday' || record.status === 'WeekOff' || record.status === 'Leave') {
       return record.status === 'WeekOff' ? 'Holiday' : (record.status as any);
@@ -2028,8 +2067,28 @@ export class TeacherAttendanceComponent implements OnInit {
     const inMin = this.parseTimeToMinutes(record.checkInTime);
 
     const halfThreshold = this.attendanceSettings?.teacherHalfDayThresholdMinutes ?? 240;
-    const shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.teacherShiftStartTime || '08:00') ?? 480;
-    const graceMin = this.attendanceSettings?.teacherGracePeriodMinutes ?? 15;
+    let shiftStart = 480;
+    let graceMin = 15;
+
+    const isCoaching = shiftHint?.startsWith('coaching') ||
+                       (record.captureSource && record.captureSource.toLowerCase().includes('coaching'));
+
+    if (isCoaching) {
+      if (shiftHint === 'coaching_evening' || (inMin !== null && inMin >= 720)) {
+        // Coaching Evening Shift
+        shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.coachingEveningStartTime || '16:00') ?? 960;
+        graceMin = this.attendanceSettings?.coachingEveningGraceMinutes ?? 15;
+      } else {
+        // Coaching Morning Shift
+        shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.coachingMorningStartTime || '07:00') ?? 420;
+        graceMin = this.attendanceSettings?.coachingMorningGraceMinutes ?? 15;
+      }
+    } else {
+      // School Day Shift / General Shift
+      shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.teacherShiftStartTime || '08:00') ?? 480;
+      graceMin = this.attendanceSettings?.teacherGracePeriodMinutes ?? 15;
+    }
+
     const lateCutoff = shiftStart + graceMin;
 
     if (diff !== null && diff > 0 && diff < halfThreshold) return 'HalfDay';

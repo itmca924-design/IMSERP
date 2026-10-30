@@ -38,6 +38,7 @@ interface ReportRow {
   joiningDate?: string | null;
   photoUrl?: string | null;
   profilePhoto?: string | null;
+  unmarkedDays?: number;
 }
 
 interface AttendanceReport {
@@ -56,6 +57,7 @@ interface AttendanceReport {
   isDualEnrolled?: boolean;
   defaultStream?: string | null;
   totalCount?: number;
+  totalUnmarkedDays?: number;
 }
 
 interface DailyDayItem {
@@ -423,6 +425,18 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     });
   }
 
+  setScopeMode(mode: 'all' | 'school' | 'coaching'): void {
+    if (this.studentFilterMode === mode) return;
+    this.studentFilterMode = mode;
+    this.selectedClassId = '';
+    this.selectedSectionId = '';
+    this.classSections = [];
+    this.selectedCoachingClassId = '';
+    this.selectedBatchId = '';
+    this.pageIndex = 0;
+    this.loadReport();
+  }
+
   onFilterModeChanged(): void {
     this.selectedClassId = ''; this.selectedSectionId = ''; this.classSections = [];
     this.selectedCoachingClassId = '';
@@ -521,7 +535,9 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
 
   get overallAttendanceRate(): number {
     if (!this.report || this.report.rows.length === 0) return 0;
-    return Math.round(this.report.rows.reduce((a, r) => a + (r.attendancePercentage || 0), 0) / this.report.rows.length);
+    const activeRows = this.report.rows.filter(r => (r.presentDays + r.absentDays + r.lateDays + r.halfDays) > 0);
+    if (activeRows.length === 0) return 0;
+    return Math.round(activeRows.reduce((a, r) => a + (r.attendancePercentage || 0), 0) / activeRows.length);
   }
 
   get totalWorkingDaysInMonth(): number {
@@ -981,9 +997,9 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
             day: d,
             dayOfWeek,
             isSunday: false,
-            status: 'A',
-            label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): Absent (Unmarked)`,
-            statusText: 'Absent (Unmarked)'
+            status: '-',
+            label: `${d} ${this.months[this.selectedMonth - 1]} (${dayOfWeek}): Not Marked / No Session Held`,
+            statusText: 'Not Marked'
           });
         } else {
           daysArr.push({
@@ -1025,8 +1041,8 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
       const isToday = ymd === todayStr;
 
       const isPrior = !!(row.joiningDate && ymd < row.joiningDate.split('T')[0]);
-      const cellStatus = sun ? 'OFF' : (isH ? 'H' : (isPrior ? '-' : (isPast ? 'A' : '-')));
-      const cellText = sun ? 'Weekly Off' : (isH ? `Holiday: ${hTitle}` : (isPrior ? 'Prior to Joining' : (isPast ? 'Absent (Unmarked)' : (isToday ? 'Not Marked Yet' : 'Upcoming'))));
+      const cellStatus = sun ? 'OFF' : (isH ? 'H' : (isPrior ? '-' : '-'));
+      const cellText = sun ? 'Weekly Off' : (isH ? `Holiday: ${hTitle}` : (isPrior ? 'Prior to Joining' : (isPast ? 'Not Marked / No Session' : (isToday ? 'Not Marked Yet' : 'Upcoming'))));
 
       return {
         day: d,

@@ -19,6 +19,148 @@
 .type-btn.active .type-text strong { color:#0284c7; }
 .type-text small { font-size:.76rem; color:#64748b; }
 
+/* Division Scope Deck (Tri-Modal: Combined, School, Coaching) */
+.division-scope-deck {
+  background: linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%);
+  border: 1.5px solid #bae6fd;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.06);
+}
+
+.scope-header-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scope-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scope-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+  color: #0284c7;
+}
+
+.scope-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.scope-text strong {
+  font-size: 0.92rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.scope-text span {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.scope-badge {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.scope-badge.scope-all {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.scope-badge.scope-school {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.scope-badge.scope-coaching {
+  background: #faf5ff;
+  color: #7c3aed;
+  border: 1px solid #e9d5ff;
+}
+
+.scope-pill-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.scope-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.scope-pill-btn:hover {
+  border-color: #38bdf8;
+  background: #f0f9ff;
+  transform: translateY(-1px);
+}
+
+.scope-pill-btn.active {
+  border-color: #0284c7;
+  background: #f0f9ff;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2), 0 4px 6px -1px rgba(2, 132, 199, 0.1);
+}
+
+.scope-pill-btn mat-icon.pill-ico {
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+  color: #64748b;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.scope-pill-btn.active mat-icon.pill-ico {
+  color: #0284c7;
+}
+
+.pill-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pill-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.scope-pill-btn.active .pill-title {
+  color: #0284c7;
+}
+
+.pill-sub {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
 /* Filter Card */
 .filter-card { background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; padding:12px 16px; }
 .filters-row { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
@@ -47,13 +189,14 @@
 @keyframes spin { to{transform:rotate(360deg);} }
 
 /* KPI Cards Grid */
-.kpi-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
+.kpi-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:12px; }
 .kpi-card { background:#fff; border-radius:10px; border:1px solid #e2e8f0; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
 .kpi-icon-box { width:42px; height:42px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .kpi-icon-box mat-icon { font-size:22px; width:22px; height:22px; }
 .kpi-total .kpi-icon-box { background:#eff6ff; color:#2563eb; }
 .kpi-present .kpi-icon-box { background:#ecfdf5; color:#059669; }
 .kpi-absent .kpi-icon-box { background:#fff1f2; color:#e11d48; }
+.kpi-unmarked .kpi-icon-box { background:#f1f5f9; color:#475569; }
 .kpi-late .kpi-icon-box { background:#fffbeb; color:#d97706; }
 .kpi-avg .kpi-icon-box { background:#faf5ff; color:#7c3aed; }
 .kpi-data { display:flex; flex-direction:column; gap:2px; }
@@ -118,6 +261,7 @@
 .stat-pill { display:inline-flex; align-items:center; justify-content:center; min-width:32px; padding:2px 8px; border-radius:6px; font-size:.84rem; font-weight:700; }
 .pill-present { background:#ecfdf5; color:#059669; }
 .pill-absent { background:#fff1f2; color:#e11d48; }
+.pill-unmarked { background:#f1f5f9; color:#475569; font-weight:600; border:1px dashed #cbd5e1; }
 .pill-late { background:#fef3c7; color:#d97706; }
 .pill-half { background:#f5f3ff; color:#7c3aed; }
 .pill-off { background:#f1f5f9; color:#64748b; font-weight:600; }

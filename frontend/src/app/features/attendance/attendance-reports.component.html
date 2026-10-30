@@ -37,6 +37,50 @@
     </div>
   }
 
+  <!-- Division Scope Bar (Tri-Modal: Combined vs School vs Coaching) -->
+  @if (!isStudentOrParent && reportType === 'student') {
+    <div class="division-scope-deck no-print">
+      <div class="scope-header-strip">
+        <div class="scope-title">
+          <mat-icon class="scope-icon">hub</mat-icon>
+          <div class="scope-text">
+            <strong>Operational Scope / डिवीजन मोड:</strong>
+            <span>Single Division or Consolidated Hybrid View</span>
+          </div>
+        </div>
+        <div class="scope-badge" [ngClass]="'scope-' + studentFilterMode">
+          {{ studentFilterMode === 'all' ? '🌐 Combined Consolidated' : (studentFilterMode === 'school' ? '🏫 School Only (Single)' : '📚 Coaching Only (Single)') }}
+        </div>
+      </div>
+
+      <div class="scope-pill-group">
+        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'all'" (click)="setScopeMode('all')">
+          <mat-icon class="pill-ico">hub</mat-icon>
+          <div class="pill-body">
+            <span class="pill-title">🌐 All / Combined (Hybrid)</span>
+            <span class="pill-sub">Consolidated School &amp; Coaching</span>
+          </div>
+        </button>
+
+        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'school'" (click)="setScopeMode('school')">
+          <mat-icon class="pill-ico">domain</mat-icon>
+          <div class="pill-body">
+            <span class="pill-title">🏫 School Division (Single)</span>
+            <span class="pill-sub">Class &amp; Section Roster</span>
+          </div>
+        </button>
+
+        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'coaching'" (click)="setScopeMode('coaching')">
+          <mat-icon class="pill-ico">school</mat-icon>
+          <div class="pill-body">
+            <span class="pill-title">📚 Coaching Division (Single)</span>
+            <span class="pill-sub">Class ➔ Batches Hierarchy</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  }
+
   <!-- Filter Card -->
   <div class="filter-card no-print">
     <div class="filters-row">
@@ -83,12 +127,11 @@
       }
 
       @if (!isStudentOrParent && reportType === 'student') {
-        <div class="filter-select-wrap">
-          <label>Category:</label>
-          <select [(ngModel)]="studentFilterMode" (change)="onFilterModeChanged()">
-            <option value="all">All Students</option>
-            <option value="school">&#x1F3EB; School Classes</option>
-            <option value="coaching">&#x1F4DA; Coaching Batches</option>
+        <div class="filter-select-wrap" *ngIf="studentFilterMode === 'all'">
+          <label>Class:</label>
+          <select [(ngModel)]="selectedClassId" (change)="onClassFilterChanged()">
+            <option value="">All Academic Classes</option>
+            <option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</option>
           </select>
         </div>
         <div class="filter-select-wrap" *ngIf="studentFilterMode === 'school'">
@@ -106,7 +149,7 @@
           </select>
         </div>
         <div class="filter-select-wrap" *ngIf="studentFilterMode === 'coaching'">
-          <label>Class:</label>
+          <label>Class (कक्षा):</label>
           <select [(ngModel)]="selectedCoachingClassId" (change)="onCoachingClassFilterChanged()">
             <option value="">All Classes</option>
             <option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</option>
@@ -160,7 +203,7 @@
           {{ (elapsedWorkingDaysInMonth < totalWorkingDaysInMonth) ? (elapsedWorkingDaysInMonth + ' / ' + totalWorkingDaysInMonth + ' Days') : (totalWorkingDaysInMonth + ' Days') }}
         </span>
         <span class="kpi-val" *ngIf="!(isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher'))">
-          {{ report.totalCount ?? report.totalPeople }}
+          {{ (report.totalCount && report.totalCount > 0 ? report.totalCount : report.totalPeople) || clientTotalCount }}
         </span>
       </div>
     </div>
@@ -176,6 +219,13 @@
       <div class="kpi-data">
         <span class="kpi-label">{{ (isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher')) ? 'My Absent Days' : 'Total Absent' }}</span>
         <span class="kpi-val">{{ (isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher')) ? (report.totalAbsentDays + ' Days') : report.totalAbsentDays }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-unmarked">
+      <div class="kpi-icon-box"><mat-icon>pending_actions</mat-icon></div>
+      <div class="kpi-data">
+        <span class="kpi-label">Unmarked Days</span>
+        <span class="kpi-val">{{ (report.totalUnmarkedDays && report.totalUnmarkedDays > 0 ? report.totalUnmarkedDays : 0) }}</span>
       </div>
     </div>
     <div class="kpi-card kpi-late">
@@ -251,6 +301,7 @@
           <th class="text-center sortable-th" style="min-width:75px;" (click)="setSortColumn('halfDays')">
             <div class="th-inner th-center">Half Days <span class="sort-icon">{{ getSortIcon('halfDays') }}</span></div>
           </th>
+          <th class="text-center" style="min-width:80px;">Unmarked</th>
           <th class="text-center" style="min-width:80px;">Off/Sundays</th>
           <th class="text-center sortable-th" style="min-width:85px;" (click)="setSortColumn('totalWorkingDays')">
             <div class="th-inner th-center">Working Days <span class="sort-icon">{{ getSortIcon('totalWorkingDays') }}</span></div>
@@ -267,6 +318,7 @@
           <tr class="skeleton-row" *ngFor="let s of skeletonRows">
             <td><div class="person-name-cell"><div class="skel-avatar"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px;"><div class="skel-line skel-md"></div><div class="skel-line skel-sm"></div></div></div></td>
             <td><div class="skel-line skel-sm"></div></td>
+            <td class="text-center"><div class="skel-pill"></div></td>
             <td class="text-center"><div class="skel-pill"></div></td>
             <td class="text-center"><div class="skel-pill"></div></td>
             <td class="text-center"><div class="skel-pill"></div></td>
@@ -310,6 +362,7 @@
               <td class="text-center text-rose"><span class="stat-pill pill-absent"><strong>{{ row.absentDays }}</strong></span></td>
               <td class="text-center text-amber"><span class="stat-pill pill-late"><strong>{{ row.lateDays }}</strong></span></td>
               <td class="text-center text-purple"><span class="stat-pill pill-half"><strong>{{ row.halfDays }}</strong></span></td>
+              <td class="text-center text-slate"><span class="stat-pill pill-unmarked" [matTooltip]="(row.unmarkedDays || 0) + ' past working days with no attendance recorded'">{{ row.unmarkedDays || 0 }}</span></td>
               <td class="text-center"><span class="stat-pill pill-off">{{ row.holidayDays }}</span></td>
               <td class="text-center">
                 <span class="stat-pill pill-work" *ngIf="row.elapsedWorkingDays && row.elapsedWorkingDays < row.totalWorkingDays" [matTooltip]="row.elapsedWorkingDays + ' elapsed working days held to date (' + row.totalWorkingDays + ' total working days this month)'">
