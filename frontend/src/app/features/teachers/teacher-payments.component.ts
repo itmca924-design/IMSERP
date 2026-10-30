@@ -83,7 +83,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
   <!-- 1. INDIVIDUAL STAFF VIEW MODE -->
   <!-- ========================================================================= -->
   <div *ngIf="viewMode === 'single'" class="single-view-container">
-    <app-teacher-selector [preSelectId]="preSelectId" [activeOnly]="false" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
+    <app-teacher-selector [preSelectId]="preSelectId" [activeOnly]="true" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
 
     <div *ngIf="!selectedTeacher" class="no-selection">
       <mat-icon>person_search</mat-icon>

@@ -812,14 +812,11 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   }
 
   loadTeachers() {
-    const url = this.activeOnly
-      ? `${API_BASE}/teachers/paged?pageSize=500&sortBy=fullName&isActive=true`
-      : `${API_BASE}/teachers/paged?pageSize=500&sortBy=fullName`;
+    const url = `${API_BASE}/teachers/paged?pageSize=500&sortBy=fullName&isActive=true`;
 
     this.http.get<any>(url).subscribe({
       next: r => {
-        let raw: TeacherDto[] = r.items || [];
-        if (this.activeOnly) raw = raw.filter(t => t.isActive);
+        let raw: TeacherDto[] = (r.items || []).filter((t: TeacherDto) => t.isActive);
 
         // ── Role-based filtering ──────────────────────────────────────────
         if (this.isSelfOnlyMode) {

@@ -39,6 +39,7 @@ public class StaffPromotionsController : ControllerBase
         var query = _context.StaffPromotionIncrements
             .Include(p => p.Teacher)
             .AsNoTracking()
+            .Where(p => p.Teacher != null && p.Teacher.IsActive)
             .AsQueryable();
 
         if (teacherId.HasValue && teacherId.Value != Guid.Empty)
@@ -103,7 +104,8 @@ public class StaffPromotionsController : ControllerBase
         // Dynamic Appraisal Cycles present in the database
         var distinctCycles = await _context.StaffPromotionIncrements
             .AsNoTracking()
-            .Where(r => !string.IsNullOrWhiteSpace(r.Reason))
+            .Include(r => r.Teacher)
+            .Where(r => r.Teacher != null && r.Teacher.IsActive && !string.IsNullOrWhiteSpace(r.Reason))
             .Select(r => r.Reason!.Trim())
             .Distinct()
             .OrderBy(c => c)
@@ -194,7 +196,8 @@ public class StaffPromotionsController : ControllerBase
     {
         var cycles = await _context.StaffPromotionIncrements
             .AsNoTracking()
-            .Where(r => !string.IsNullOrWhiteSpace(r.Reason))
+            .Include(r => r.Teacher)
+            .Where(r => r.Teacher != null && r.Teacher.IsActive && !string.IsNullOrWhiteSpace(r.Reason))
             .Select(r => r.Reason!.Trim())
             .Distinct()
             .OrderBy(c => c)
@@ -208,7 +211,7 @@ public class StaffPromotionsController : ControllerBase
     {
         var dbDepts = await _context.Teachers
             .AsNoTracking()
-            .Where(t => !string.IsNullOrWhiteSpace(t.Department))
+            .Where(t => t.IsActive && !string.IsNullOrWhiteSpace(t.Department))
             .Select(t => t.Department!.Trim())
             .Distinct()
             .OrderBy(d => d)

@@ -247,7 +247,7 @@ public class TeachersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(phone))
         {
             var p = phone.Trim();
-            var q = _db.Teachers.Where(t => t.PhoneNumber == p);
+            var q = _db.Teachers.Where(t => t.IsActive && t.PhoneNumber == p);
             if (excludeId.HasValue) q = q.Where(t => t.Id != excludeId.Value);
             phoneExists = await q.AnyAsync();
         }
@@ -255,7 +255,7 @@ public class TeachersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(whatsApp))
         {
             var w = whatsApp.Trim();
-            var q = _db.Teachers.Where(t => t.WhatsAppPhone == w || t.PhoneNumber == w);
+            var q = _db.Teachers.Where(t => t.IsActive && (t.WhatsAppPhone == w || t.PhoneNumber == w));
             if (excludeId.HasValue) q = q.Where(t => t.Id != excludeId.Value);
             whatsAppExists = await q.AnyAsync();
         }
@@ -263,7 +263,7 @@ public class TeachersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(email))
         {
             var e = email.Trim().ToLower();
-            var q = _db.Teachers.Where(t => t.Email != null && t.Email.ToLower() == e);
+            var q = _db.Teachers.Where(t => t.IsActive && t.Email != null && t.Email.ToLower() == e);
             if (excludeId.HasValue) q = q.Where(t => t.Id != excludeId.Value);
             emailExists = await q.AnyAsync();
         }
@@ -272,7 +272,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<TeacherDto>>> GetTeachers([FromQuery] bool activeOnly = false, [FromQuery] string? staffType = null)
+    public async Task<ActionResult<IEnumerable<TeacherDto>>> GetTeachers([FromQuery] bool activeOnly = true, [FromQuery] string? staffType = null)
     {
         var q = _db.Teachers.AsNoTracking()
             .Include(t => t.BatchAssignments).ThenInclude(a => a.Class)
@@ -282,13 +282,11 @@ public class TeachersController : ControllerBase
             .Include(t => t.User)
             .AsSplitQuery()
             .AsQueryable();
-        if (activeOnly)
-        {
-            var settledTeacherIds = _db.TeacherFnFSettlements
-                .Where(s => s.Status == "Settled" || s.Status == "Approved" || s.Status == "Completed")
-                .Select(s => s.TeacherId);
-            q = q.Where(t => t.IsActive && !settledTeacherIds.Contains(t.Id) && (!t.LeavingDate.HasValue || t.LeavingDate.Value.Date >= DateTime.UtcNow.Date));
-        }
+
+        var settledTeacherIds = _db.TeacherFnFSettlements
+            .Where(s => s.Status == "Settled" || s.Status == "Approved" || s.Status == "Completed")
+            .Select(s => s.TeacherId);
+        q = q.Where(t => t.IsActive && t.EmploymentType != "Deleted" && !settledTeacherIds.Contains(t.Id) && (!t.LeavingDate.HasValue || t.LeavingDate.Value.Date >= DateTime.UtcNow.Date));
 
         if (!string.IsNullOrWhiteSpace(staffType) && !string.Equals(staffType, "All", StringComparison.OrdinalIgnoreCase))
         {
@@ -352,16 +350,18 @@ public class TeachersController : ControllerBase
             .Include(t => t.User)
             .AsQueryable();
 
-        if (isActive.HasValue)
+        var settledTeacherIds = _db.TeacherFnFSettlements
+            .Where(s => s.Status == "Settled" || s.Status == "Approved" || s.Status == "Completed")
+            .Select(s => s.TeacherId);
+
+        q = q.Where(t => t.EmploymentType != "Deleted");
+        if (!isActive.HasValue || isActive.Value)
         {
-            q = q.Where(t => t.IsActive == isActive.Value);
-            if (isActive.Value)
-            {
-                var settledTeacherIds = _db.TeacherFnFSettlements
-                    .Where(s => s.Status == "Settled")
-                    .Select(s => s.TeacherId);
-                q = q.Where(t => !settledTeacherIds.Contains(t.Id));
-            }
+            q = q.Where(t => t.IsActive && !settledTeacherIds.Contains(t.Id));
+        }
+        else
+        {
+            q = q.Where(t => !t.IsActive);
         }
 
         if (!string.IsNullOrWhiteSpace(staffType) && !string.Equals(staffType, "All", StringComparison.OrdinalIgnoreCase))
@@ -572,7 +572,7 @@ public class TeachersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<TeacherDto>> CreateTeacher([FromBody] CreateTeacherDto dto)
     {
-        var exists = await _db.Teachers.AnyAsync(t => t.EmployeeCode == dto.EmployeeCode.Trim());
+        var exists = await _db.Teachers.AnyAsync(t => t.IsActive && t.EmployeeCode == dto.EmployeeCode.Trim());
         if (exists) return BadRequest(new { message = "Employee code already exists." });
 
         if (!Enum.TryParse<Gender>(dto.Gender, true, out var gender))
@@ -580,7 +580,7 @@ public class TeachersController : ControllerBase
 
         // Server-side duplicate checks
         var phone = dto.PhoneNumber.Trim();
-        if (await _db.Teachers.AnyAsync(t => t.PhoneNumber == phone))
+        if (await _db.Teachers.AnyAsync(t => t.IsActive && t.PhoneNumber == phone))
         {
             return BadRequest(new { message = $"Phone number '{phone}' is already registered with another staff member." });
         }
@@ -588,7 +588,7 @@ public class TeachersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.WhatsAppPhone))
         {
             var wa = dto.WhatsAppPhone.Trim();
-            if (await _db.Teachers.AnyAsync(t => t.WhatsAppPhone == wa || t.PhoneNumber == wa))
+            if (await _db.Teachers.AnyAsync(t => t.IsActive && (t.WhatsAppPhone == wa || t.PhoneNumber == wa)))
             {
                 return BadRequest(new { message = $"WhatsApp number '{wa}' is already registered with another staff member." });
             }
@@ -597,7 +597,7 @@ public class TeachersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.Email))
         {
             var email = dto.Email.Trim().ToLower();
-            if (await _db.Teachers.AnyAsync(t => t.Email != null && t.Email.ToLower() == email))
+            if (await _db.Teachers.AnyAsync(t => t.IsActive && t.Email != null && t.Email.ToLower() == email))
             {
                 return BadRequest(new { message = $"Email '{dto.Email.Trim()}' is already registered with another staff member." });
             }
@@ -785,7 +785,45 @@ public class TeachersController : ControllerBase
     {
         var teacher = await _db.Teachers.FindAsync(id);
         if (teacher == null) return NotFound();
+
         teacher.IsActive = false;
+        teacher.EmploymentType = "Deleted";
+
+        // 1. Deactivate linked ERP User account
+        if (teacher.UserId.HasValue)
+        {
+            var user = await _db.Users.FindAsync(teacher.UserId.Value);
+            if (user != null) user.IsActive = false;
+        }
+
+        // 2. Release active batch & class assignments
+        var assignments = await _db.TeacherBatchAssignments
+            .Where(a => a.TeacherId == id && a.IsActive)
+            .ToListAsync();
+        foreach (var a in assignments) a.IsActive = false;
+
+        // 3. Unlink School Section Class Teacher references
+        var sections = await _db.SchoolSections
+            .Where(s => s.ClassTeacherId == id)
+            .ToListAsync();
+        foreach (var s in sections) s.ClassTeacherId = null;
+
+        // 4. Release Hostel, Transport, and Library allocations
+        await CleanupRelievedTeacherAllocationsAsync(id, DateTime.UtcNow.Date);
+        teacher.HostelBedId = null;
+        teacher.IsHostelResident = false;
+        teacher.TransportAllocationId = null;
+        teacher.IsTransportStaff = false;
+
+        // 5. Remove any draft/settled FnF records so deleted staff do not appear in FnF directory
+        var fnfRecords = await _db.TeacherFnFSettlements
+            .Where(s => s.TeacherId == id)
+            .ToListAsync();
+        if (fnfRecords.Count > 0)
+        {
+            _db.TeacherFnFSettlements.RemoveRange(fnfRecords);
+        }
+
         await _db.SaveChangesAsync();
         return NoContent();
     }
@@ -1364,7 +1402,7 @@ public class TeachersController : ControllerBase
             .Include(a => a.Batch)
             .Include(a => a.Class)
             .Include(a => a.Section)
-            .Where(a => a.IsActive)
+            .Where(a => a.IsActive && a.Teacher != null && a.Teacher.IsActive)
             .ToListAsync();
 
         var assignedBatchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).ToHashSet();
@@ -1494,7 +1532,7 @@ public class TeachersController : ControllerBase
 
         var paymentEntities = await _db.TeacherSalaryPayments.AsNoTracking()
             .Include(p => p.Teacher)
-            .Where(p => p.PaymentMonth == month && p.PaymentYear == year)
+            .Where(p => p.PaymentMonth == month && p.PaymentYear == year && p.Teacher != null && p.Teacher.IsActive)
             .ToListAsync();
 
         // 1. KPI Summary totals across ALL payments for this month/year
@@ -3521,7 +3559,7 @@ public class TeachersController : ControllerBase
 
         var q = _db.TeacherLeaves.AsNoTracking()
             .Include(l => l.Teacher)
-            .Where(l => l.TenantId == tenantId);
+            .Where(l => l.TenantId == tenantId && l.Teacher != null && l.Teacher.IsActive);
 
         // If Teacher is logged in, restrict to ONLY their own leaves!
         if (linkedTeacher != null)
@@ -3699,7 +3737,9 @@ public class TeachersController : ControllerBase
             linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
         }
 
-        var q = _db.TeacherLeaves.AsNoTracking().Where(l => l.TenantId == tenantId);
+        var q = _db.TeacherLeaves.AsNoTracking()
+            .Include(l => l.Teacher)
+            .Where(l => l.TenantId == tenantId && l.Teacher != null && l.Teacher.IsActive);
         if (linkedTeacher != null)
         {
             q = q.Where(l => l.TeacherId == linkedTeacher.Id);
@@ -3710,7 +3750,9 @@ public class TeachersController : ControllerBase
         var totalThisYear = await q.CountAsync(l => l.FromDate >= startOfYear);
 
         var onLeaveToday = await _db.TeacherLeaves.AsNoTracking()
+            .Include(l => l.Teacher)
             .Where(l => l.TenantId == tenantId && 
+                        l.Teacher != null && l.Teacher.IsActive &&
                         (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.PartiallyCancelled) &&
                         l.FromDate.Date <= today && l.ToDate.Date >= today &&
                         !(l.IsCancellationApproved == true && l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue &&
@@ -4408,7 +4450,7 @@ public class TeachersController : ControllerBase
         var query = _db.TeacherAttendanceRegularizations
             .AsNoTracking()
             .Include(r => r.Teacher)
-            .Where(r => r.TenantId == tenantId);
+            .Where(r => r.TenantId == tenantId && r.Teacher != null && r.Teacher.IsActive);
 
         // Security scoping: Teachers only see their own requests
         if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
@@ -5049,6 +5091,7 @@ public class TeachersController : ControllerBase
         var rawList = await _db.TeacherFnFSettlements
             .Include(s => s.Teacher)
             .AsNoTracking()
+            .Where(s => s.Teacher != null && s.Teacher.EmploymentType != "Deleted")
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
 
@@ -5299,6 +5342,7 @@ public class TeachersController : ControllerBase
             .Include(s => s.Batch)
             .Include(s => s.ClassSection)
                 .ThenInclude(cs => cs!.Class)
+            .Where(s => s.OriginalTeacher != null && s.OriginalTeacher.IsActive && s.SubstituteTeacher != null && s.SubstituteTeacher.IsActive)
             .AsNoTracking();
 
         if (date.HasValue)
@@ -5459,6 +5503,7 @@ public class TeachersController : ControllerBase
             .Include(p => p.Batch)
             .Include(p => p.ClassSection)
                 .ThenInclude(cs => cs!.Class)
+            .Where(p => p.Teacher != null && p.Teacher.IsActive)
             .AsNoTracking();
 
         if (teacherId.HasValue)

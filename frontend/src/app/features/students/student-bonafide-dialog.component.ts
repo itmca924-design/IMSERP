@@ -138,8 +138,9 @@ export interface BonafideDialogData {
       <!-- Letterhead -->
       <div class="letterhead">
         <div class="lh-logo-wrap">
-          <div class="lh-logo-circle">
-            <mat-icon class="lh-icon">account_balance</mat-icon>
+          <div class="lh-logo-circle" [class.has-custom-logo]="logoUrl && !logoFailed">
+            <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" class="lh-logo-img" alt="Institute Logo" />
+            <mat-icon *ngIf="!logoUrl || logoFailed" class="lh-icon">account_balance</mat-icon>
           </div>
         </div>
         <div class="lh-text">
@@ -386,7 +387,9 @@ export interface BonafideDialogData {
     /* Letterhead */
     .letterhead{display:flex;gap:16px;padding:20px 32px 16px;border-bottom:2px solid #1e3a8a;align-items:center}
     .lh-logo-wrap{flex-shrink:0}
-    .lh-logo-circle{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#2563eb);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(37,99,235,.3)}
+    .lh-logo-circle{width:72px;height:72px;border-radius:50%;background:transparent;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .lh-logo-circle:not(.has-custom-logo){background:linear-gradient(135deg,#1e3a8a,#2563eb);box-shadow:0 4px 12px rgba(37,99,235,.3)}
+    .lh-logo-img{width:100%;height:100%;object-fit:contain;background:transparent;display:block}
     .lh-icon{font-size:36px;width:36px;height:36px;color:#fff}
     .lh-text{flex:1;line-height:1.4}
     .lh-institution{font-size:20px;font-weight:900;color:#1e3a8a;letter-spacing:.5px;text-transform:uppercase}

@@ -1270,7 +1270,7 @@ export interface DailyDiaryReportHeader {
         </div>
 
         <!-- Student Sub-Filter Tabs Bar -->
-        <div class="student-tabs-bar" *ngIf="!loadingStudent && studentHomeworks.length > 0">
+        <div class="student-tabs-bar" *ngIf="studentHomeworks.length > 0">
           <div class="filter-pills">
             <button class="filter-tab-pill" [class.active]="studentFilterStatus === 'all'" (click)="studentFilterStatus = 'all'">
               <mat-icon>assignment</mat-icon>
@@ -1287,15 +1287,6 @@ export interface DailyDiaryReportHeader {
           </div>
         </div>
 
-        <!-- VISIBLE STUDENT LOADER -->
-        <div class="student-loading-container" *ngIf="loadingStudent">
-          <div class="student-loader-spinner"></div>
-          <div class="loader-text-box">
-            <h4>Loading Homework for Selected Student...</h4>
-            <p>Fetching assigned worksheets, instructions & submission copy status</p>
-          </div>
-        </div>
-
         <!-- Empty state for student -->
         <div class="empty-state" *ngIf="!loadingStudent && filteredStudentHomeworks.length === 0">
           <div class="empty-icon-wrap"><mat-icon>sentiment_satisfied_alt</mat-icon></div>
@@ -1304,7 +1295,7 @@ export interface DailyDiaryReportHeader {
         </div>
 
         <!-- Student Homework Cards Grid -->
-        <div class="student-hw-grid" *ngIf="!loadingStudent && filteredStudentHomeworks.length > 0">
+        <div class="student-hw-grid" *ngIf="filteredStudentHomeworks.length > 0">
           <div class="student-hw-card" *ngFor="let sh of filteredStudentHomeworks" [class.is-submitted]="sh.isSubmitted">
             <div class="student-card-header">
               <div class="header-badges">
@@ -1343,10 +1334,15 @@ export interface DailyDiaryReportHeader {
                 <span class="sub-date" [appIstDatetime]="sh.mySubmission.submissionDate"></span>
               </div>
               <div class="sub-file-row">
-                <a [href]="getFileUrl(sh.mySubmission.submissionFileUrl)" target="_blank" class="sub-file-link" [matTooltip]="sh.mySubmission.submissionFileName || 'View Solution Copy'">
+                <a *ngIf="sh.mySubmission.submissionFileUrl" [href]="getFileUrl(sh.mySubmission.submissionFileUrl)" target="_blank" class="sub-file-link" [matTooltip]="sh.mySubmission.submissionFileName || 'View Solution Copy'">
                   <mat-icon>description</mat-icon>
                   <span class="sub-filename">{{sh.mySubmission.submissionFileName || 'View Solution Copy'}}</span>
                   <mat-icon class="ext-sm">open_in_new</mat-icon>
+                </a>
+                <a *ngIf="!sh.mySubmission.submissionFileUrl" href="javascript:void(0)" (click)="openVerifiedInClassDetails(sh)" class="sub-file-link" [matTooltip]="isStudentOrParent ? 'Click to view verification details' : 'Click to open Daily Classwork & Homework Register'">
+                  <mat-icon>verified</mat-icon>
+                  <span class="sub-filename">{{sh.mySubmission.submissionFileName || 'Verified in Class'}}</span>
+                  <mat-icon class="ext-sm">{{isStudentOrParent ? 'info_outline' : 'arrow_forward'}}</mat-icon>
                 </a>
               </div>
               <div class="sub-remarks" *ngIf="sh.mySubmission.studentRemarks">
@@ -5012,22 +5008,49 @@ export class HomeworkDiaryComponent implements OnInit {
           return;
         }
 
-        const elapsed = Date.now() - startTime;
-        const remainingDelay = withMinDelay ? Math.max(0, 450 - elapsed) : 0;
-        setTimeout(() => {
-          this.studentHomeworks = items;
-          this.loadingStudent = false;
-        }, remainingDelay);
+        this.studentHomeworks = items;
+        this.loadingStudent = false;
       },
       error: () => {
-        const elapsed = Date.now() - startTime;
-        const remainingDelay = withMinDelay ? Math.max(0, 450 - elapsed) : 0;
-        setTimeout(() => {
-          this.studentHomeworks = [];
-          this.loadingStudent = false;
-        }, remainingDelay);
+        this.studentHomeworks = [];
+        this.loadingStudent = false;
       }
     });
+  }
+
+  openVerifiedInClassDetails(sh: StudentHomeworkWithSubmissionDto): void {
+    if (!this.isStudentOrParent) {
+      this.activeTab = 'teacher';
+      this.diarySubTab = 'daily-diary';
+      if (sh.assignedDate) {
+        const dt = sh.assignedDate.split('T')[0];
+        if (dt && /^\d{4}-\d{2}-\d{2}$/.test(dt)) {
+          this.diaryDate = dt;
+        }
+      }
+      if (sh.batchId) {
+        this.diaryScope = 'coaching';
+        this.diaryCoachingClassId = sh.classId || '';
+        this.diaryBatchId = sh.batchId;
+      } else if (sh.classId) {
+        this.diaryScope = 'school';
+        this.diaryClassId = sh.classId;
+        const foundClass = this.classes.find(c => c.id === sh.classId);
+        this.diarySections = foundClass?.sections || [];
+        this.diarySectionId = sh.sectionId || '';
+      }
+      this.selectedDiaryStudentId = this.selectedPreviewStudentId || '';
+      this.loadDailyDiary();
+      return;
+    }
+
+    const verifiedBy = sh.mySubmission?.reviewedByTeacherName || sh.teacherName || 'Subject Teacher';
+    const remarks = sh.mySubmission?.teacherRemarks || 'Homework copy physically checked and verified in class.';
+    this.confirmDialog.alert(
+      'Verified in Class ✓',
+      `Subject: ${sh.subjectName}\nTask: ${sh.title}\nVerified By: ${verifiedBy}\nRemarks: ${remarks}`,
+      'success'
+    );
   }
 
   get filteredItems(): StudentHomeworkDto[] {
