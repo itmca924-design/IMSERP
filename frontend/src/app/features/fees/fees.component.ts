@@ -128,13 +128,13 @@ export interface UpcomingBillingCycleInfo {
               <strong class="banner-heading">Awaiting Fee Invoicing (New Admissions)</strong>
             </div>
             <div class="banner-students-list">
-              <span class="student-item-tag clickable" *ngFor="let s of pendingStudents | slice:0:5" (click)="generateForPendingStudent(s)" matTooltip="Click to generate invoice for {{ s.studentName }} (Roll: {{ s.rollNumber }})">
-                <strong>{{ s.studentName }}</strong>
-                <span class="sub-info">({{ s.className || s.batchName || 'General' }} • Roll: {{ s.rollNumber }})</span>
+              <span class="student-item-tag clickable" *ngFor="let s of pendingStudents | slice:0:3" (click)="generateForPendingStudent(s)" matTooltip="Click to generate invoice for {{ s.studentName }} (Roll: {{ s.rollNumber }})">
+                <strong class="st-tag-name">{{ s.studentName }}</strong>
+                <span class="sub-info">({{ s.className || s.batchName || 'General' }} &bull; {{ s.rollNumber }})</span>
                 <mat-icon class="tag-click-icon">open_in_new</mat-icon>
               </span>
-              <span class="more-tag clickable" *ngIf="pendingStudents.length > 5" [matMenuTriggerFor]="pendingStudentsMenu" matTooltip="Click to view all {{ pendingStudents.length }} new admissions">
-                +{{ pendingStudents.length - 5 }} more admissions
+              <span class="more-tag clickable" *ngIf="pendingStudents.length > 3" [matMenuTriggerFor]="pendingStudentsMenu" matTooltip="Click to view all {{ pendingStudents.length }} new admissions">
+                +{{ pendingStudents.length - 3 }} more admissions
                 <mat-icon class="tag-click-icon">expand_more</mat-icon>
               </span>
             </div>
@@ -212,12 +212,12 @@ export interface UpcomingBillingCycleInfo {
               Current cycle is settled. Pre-generate {{ upcomingCycle.monthName }} monthly invoices now so automated WhatsApp fee reminders (7-day advance notice) can dispatch to parents before the due date ({{ upcomingCycle.defaultDueDate | date:'dd MMM yyyy' }}).
             </p>
             <div class="banner-students-list" *ngIf="upcomingCycle.students.length > 0">
-              <span class="student-item-tag" *ngFor="let s of upcomingCycle.students | slice:0:6" matTooltip="Awaiting {{ upcomingCycle.monthName }} Invoice">
-                <strong>{{ s.studentName }}</strong>
-                <span class="sub-info">({{ s.className || s.batchName || 'General' }} • Roll: {{ s.rollNumber }})</span>
+              <span class="student-item-tag" *ngFor="let s of upcomingCycle.students | slice:0:3" matTooltip="Awaiting {{ upcomingCycle.monthName }} Invoice">
+                <strong class="st-tag-name">{{ s.studentName }}</strong>
+                <span class="sub-info">({{ s.className || s.batchName || 'General' }} &bull; {{ s.rollNumber }})</span>
               </span>
-              <span class="more-tag" *ngIf="upcomingCycle.students.length > 6">
-                +{{ upcomingCycle.students.length - 6 }} more students
+              <span class="more-tag" *ngIf="upcomingCycle.students.length > 3">
+                +{{ upcomingCycle.students.length - 3 }} more students
               </span>
             </div>
           </div>
@@ -354,35 +354,37 @@ export interface UpcomingBillingCycleInfo {
               <th mat-header-cell *matHeaderCellDef class="col-billing-head">Billing Period / Heads</th>
               <td mat-cell *matCellDef="let inv" class="col-billing-head">
                 <div class="billing-head-container">
-                  <ng-container *ngIf="formatBillingTitle(inv.title) as ft">
-                    <span class="period-badge" [class.is-multiline]="!!ft.line2">
-                      <mat-icon class="period-icon">calendar_month</mat-icon>
-                      <span class="period-lines">
-                        <span class="period-line-1">{{ ft.line1 }}</span>
-                        <span class="period-line-2" *ngIf="ft.line2">{{ ft.line2 }}</span>
-                      </span>
-                    </span>
-                  </ng-container>
+                  <span class="period-badge" (click)="openInvoiceBreakdown(inv)">
+                    <mat-icon class="period-icon">calendar_month</mat-icon>
+                    <span class="period-single-line">{{ inv.title }}</span>
+                  </span>
                   <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
-                    <span
-                      *ngFor="let it of getSortedInvoiceItems(inv.items)"
-                      class="mini-head-chip clickable-head-chip"
-                      [ngClass]="getHeadChipClass(it.headName)"
-                      (click)="openInvoiceBreakdown(inv)"
-                      [matTooltip]="'Click to view fee breakdown: ' + it.headName + ' • ₹' + (it.amount | number:'1.0-0')">
-                      <span class="chip-title-part">{{ it.headName }}:</span>
-                      <strong class="chip-amt-part">₹{{ it.amount | number:'1.0-0' }}</strong>
-                      <span class="chip-month-tag" *ngIf="getHeadMonthNote(it, inv) as note">({{ note }})</span>
-                    </span>
-                    <button
-                      type="button"
-                      *ngIf="inv.items.length > 1"
-                      class="mini-head-breakdown-btn"
-                      (click)="openInvoiceBreakdown(inv); $event.stopPropagation()"
-                      matTooltip="Click to view full itemized breakdown ({{ inv.items.length }} fee heads)">
-                      <mat-icon class="more-ic">receipt_long</mat-icon>
-                      <span>Breakdown</span>
-                    </button>
+                    <ng-container *ngIf="getSortedInvoiceItems(inv.items) as sortedItems">
+                      <span
+                        *ngFor="let it of sortedItems.slice(0, 2)"
+                        class="mini-head-chip clickable-head-chip"
+                        [ngClass]="getHeadChipClass(it.headName)"
+                        (click)="openInvoiceBreakdown(inv)">
+                        <span class="chip-title-part">{{ it.headName }}:</span>
+                        <strong class="chip-amt-part">₹{{ it.amount | number:'1.0-0' }}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        *ngIf="sortedItems.length > 2"
+                        class="mini-head-breakdown-btn more-heads-pill"
+                        (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
+                        <mat-icon class="more-ic">receipt_long</mat-icon>
+                        <span>+{{ sortedItems.length - 2 }} More &bull; Breakdown</span>
+                      </button>
+                      <button
+                        type="button"
+                        *ngIf="sortedItems.length <= 2 && sortedItems.length > 0"
+                        class="mini-head-breakdown-btn"
+                        (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
+                        <mat-icon class="more-ic">receipt_long</mat-icon>
+                        <span>Breakdown</span>
+                      </button>
+                    </ng-container>
                   </div>
                   <div *ngIf="inv.cancellationReason" class="inv-audit-pill" [matTooltip]="inv.cancellationReason">
                     <mat-icon class="audit-icon">info</mat-icon>
@@ -949,57 +951,43 @@ export interface UpcomingBillingCycleInfo {
     .billing-head-container {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      padding: 4px 0;
+      gap: 4px;
+      padding: 2px 0;
     }
     .period-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 0.73rem;
-      font-weight: 600;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 700;
       color: #1e40af;
       background: #eff6ff;
       border: 1px solid #bfdbfe;
       padding: 2px 8px;
-      border-radius: 12px;
+      border-radius: 6px;
       width: fit-content;
-      line-height: 1.25;
+      max-width: 100%;
+      line-height: 1.3;
       white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
 
-      &.is-multiline {
-        align-items: flex-start;
-        padding: 4px 10px;
-        white-space: normal;
-        border-radius: 8px;
+      &:hover {
+        background: #dbeafe;
+        border-color: #93c5fd;
+      }
 
-        .period-icon {
-          margin-top: 2px;
-        }
-
-        .period-lines {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-          line-height: 1.35;
-        }
-
-        .period-line-1 {
-          font-weight: 700;
-          color: #1e3a8a;
-        }
-
-        .period-line-2 {
-          font-weight: 500;
-          color: #2563eb;
-        }
+      .period-single-line {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .period-icon {
         font-size: 13px;
         width: 13px;
         height: 13px;
-        color: #3b82f6;
+        color: #2563eb;
         flex-shrink: 0;
       }
     }
@@ -1008,21 +996,22 @@ export interface UpcomingBillingCycleInfo {
       flex-wrap: wrap;
       align-items: center;
       gap: 4px;
-      margin-top: 4px;
-      max-width: 480px;
+      margin-top: 1px;
+      max-width: 270px;
 
       .mini-head-chip {
-        font-size: 0.69rem;
+        font-size: 0.68rem;
         background: #f8fafc;
         color: #334155;
         border: 1px solid #e2e8f0;
-        padding: 2px 7px;
-        border-radius: 6px;
+        padding: 1px 6px;
+        border-radius: 5px;
         font-weight: 600;
         display: inline-flex;
         align-items: center;
         gap: 3px;
         white-space: nowrap;
+        max-width: 210px;
         box-shadow: 0 1px 2px rgba(0,0,0,0.02);
         cursor: pointer;
         transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
@@ -1030,11 +1019,15 @@ export interface UpcomingBillingCycleInfo {
         .chip-title-part {
           color: #475569;
           font-weight: 600;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .chip-amt-part {
           color: #0f172a;
           font-weight: 700;
+          flex-shrink: 0;
         }
 
         .chip-month-tag {
@@ -1111,18 +1104,24 @@ export interface UpcomingBillingCycleInfo {
 
       .mini-head-breakdown-btn {
         font-size: 0.68rem;
-        background: #f1f5f9;
-        color: #2563eb;
-        border: 1px dashed #cbd5e1;
-        padding: 2px 7px;
-        border-radius: 6px;
-        font-weight: 600;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        padding: 1px 7px;
+        border-radius: 5px;
+        font-weight: 700;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         gap: 3px;
         white-space: nowrap;
         transition: all 0.15s ease-in-out;
+
+        &.more-heads-pill {
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          border-color: #93c5fd;
+          color: #1e40af;
+        }
 
         .more-ic {
           font-size: 13px;
@@ -1170,30 +1169,31 @@ export interface UpcomingBillingCycleInfo {
       }
     }
     .pending-invoicing-banner {
+      position: relative;
       background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
       border: 1.5px solid #fde68a;
       border-left: 5px solid #f59e0b;
       border-radius: 10px;
       padding: 12px 18px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       flex-wrap: wrap;
       box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
       animation: fadeIn 0.25s ease-in-out;
 
       .banner-left {
         display: flex;
-        align-items: center;
-        gap: 14px;
+        align-items: flex-start;
+        gap: 12px;
         flex: 1;
-        min-width: 280px;
+        min-width: 260px;
 
         .banner-badge-icon {
-          width: 40px;
-          height: 40px;
+          width: 38px;
+          height: 38px;
           border-radius: 10px;
           background: #fef3c7;
           border: 1px solid #fcd34d;
@@ -1202,18 +1202,21 @@ export interface UpcomingBillingCycleInfo {
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          margin-top: 2px;
 
           mat-icon {
-            font-size: 22px;
-            width: 22px;
-            height: 22px;
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
           }
         }
 
         .banner-text {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 6px;
+          flex: 1;
+          min-width: 0;
 
           .banner-title-row {
             display: flex;
@@ -1230,31 +1233,42 @@ export interface UpcomingBillingCycleInfo {
               padding: 2px 7px;
               border-radius: 12px;
               text-transform: uppercase;
+              white-space: nowrap;
             }
 
             .banner-heading {
-              font-size: 0.92rem;
+              font-size: 0.9rem;
               color: #92400e;
+              line-height: 1.3;
             }
           }
 
           .banner-students-list {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
 
             .student-item-tag {
-              font-size: 0.82rem;
+              font-size: 0.78rem;
               color: #78350f;
-              background: rgba(255, 255, 255, 0.65);
-              padding: 2px 8px;
+              background: rgba(255, 255, 255, 0.75);
+              padding: 3px 8px;
               border-radius: 6px;
               border: 1px solid #fde68a;
               display: inline-flex;
               align-items: center;
               gap: 4px;
+              max-width: 100%;
+              white-space: nowrap;
+              overflow: hidden;
               transition: all 0.15s ease;
+
+              .st-tag-name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
 
               &.clickable {
                 cursor: pointer;
@@ -1272,25 +1286,29 @@ export interface UpcomingBillingCycleInfo {
                 width: 13px;
                 height: 13px;
                 color: #d97706;
+                flex-shrink: 0;
               }
 
               .sub-info {
                 color: #b45309;
-                margin-left: 4px;
-                font-size: 0.76rem;
+                font-size: 0.73rem;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
               }
             }
             .more-tag {
-              font-size: 0.78rem;
+              font-size: 0.76rem;
               font-weight: 700;
               color: #b45309;
               background: rgba(254, 243, 199, 0.9);
               border: 1px dashed #f59e0b;
-              padding: 2px 8px;
+              padding: 3px 8px;
               border-radius: 6px;
               display: inline-flex;
               align-items: center;
               gap: 3px;
+              white-space: nowrap;
               cursor: pointer;
               transition: all 0.15s ease;
 
@@ -1312,14 +1330,16 @@ export interface UpcomingBillingCycleInfo {
         .quick-gen-btn {
           font-weight: 700;
           border-radius: 8px;
-          height: 38px;
-          padding: 0 16px;
+          height: 36px;
+          padding: 0 14px;
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 6px;
           background: #d97706;
           color: #ffffff;
           box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);
+          white-space: nowrap;
           transition: all 0.15s ease;
 
           &:hover {
@@ -1333,17 +1353,19 @@ export interface UpcomingBillingCycleInfo {
         }
 
         .btn-pick-single {
-          height: 38px;
+          height: 36px;
           border-radius: 8px;
           border-color: #f59e0b;
           color: #92400e;
           background: rgba(255, 255, 255, 0.85);
           font-weight: 600;
-          font-size: 0.82rem;
+          font-size: 0.8rem;
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 4px;
           padding: 0 10px;
+          white-space: nowrap;
 
           &:hover {
             background: #ffffff;
@@ -1353,8 +1375,8 @@ export interface UpcomingBillingCycleInfo {
 
         .dismiss-btn {
           color: #92400e;
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           padding: 0;
           display: flex;
           align-items: center;
@@ -1365,21 +1387,73 @@ export interface UpcomingBillingCycleInfo {
       @media (max-width: 768px) {
         flex-direction: column;
         align-items: stretch;
-        gap: 12px;
+        padding: 12px 14px;
+        gap: 10px;
+        box-sizing: border-box;
+        overflow: hidden;
 
         .banner-left {
           min-width: 0;
           width: 100%;
+          gap: 10px;
+          padding-right: 0;
+          box-sizing: border-box;
+
+          .banner-badge-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          }
+
+          .banner-text {
+            box-sizing: border-box;
+
+            .banner-title-row {
+              padding-right: 28px;
+              box-sizing: border-box;
+            }
+
+            .banner-students-list {
+              margin-left: -42px;
+              width: calc(100% + 42px);
+              margin-top: 4px;
+              box-sizing: border-box;
+
+              .student-item-tag {
+                flex: 1 1 100%;
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+                justify-content: space-between;
+              }
+            }
+          }
         }
 
         .banner-actions {
           width: 100%;
-          justify-content: flex-end;
-          flex-wrap: wrap;
+          display: flex;
+          gap: 8px;
+          box-sizing: border-box;
 
           .quick-gen-btn {
             flex: 1;
-            min-width: 180px;
+            min-width: 0;
+            font-size: 0.76rem;
+            padding: 0 8px !important;
+          }
+
+          .btn-pick-single {
+            flex-shrink: 0;
+            font-size: 0.76rem;
+            padding: 0 8px !important;
+          }
+
+          .dismiss-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
           }
         }
       }
@@ -1470,16 +1544,17 @@ export interface UpcomingBillingCycleInfo {
     }
 
     .upcoming-cycle-banner {
+      position: relative;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border: 1.5px solid #bfdbfe;
       border-left: 5px solid #2563eb;
       border-radius: 10px;
-      padding: 14px 18px;
-      margin-bottom: 16px;
+      padding: 12px 18px;
+      margin-bottom: 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       flex-wrap: wrap;
       box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
       animation: fadeIn 0.25s ease-in-out;
@@ -1487,13 +1562,13 @@ export interface UpcomingBillingCycleInfo {
       .banner-left {
         display: flex;
         align-items: flex-start;
-        gap: 14px;
+        gap: 12px;
         flex: 1;
-        min-width: 280px;
+        min-width: 260px;
 
         .banner-badge-icon {
-          width: 42px;
-          height: 42px;
+          width: 38px;
+          height: 38px;
           border-radius: 10px;
           background: #2563eb;
           color: #ffffff;
@@ -1505,16 +1580,18 @@ export interface UpcomingBillingCycleInfo {
           margin-top: 2px;
 
           mat-icon {
-            font-size: 24px;
-            width: 24px;
-            height: 24px;
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
           }
         }
 
         .banner-text {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 5px;
+          flex: 1;
+          min-width: 0;
 
           .banner-title-row {
             display: flex;
@@ -1531,12 +1608,14 @@ export interface UpcomingBillingCycleInfo {
               padding: 2px 8px;
               border-radius: 12px;
               text-transform: uppercase;
+              white-space: nowrap;
             }
 
             .banner-heading {
-              font-size: 0.95rem;
+              font-size: 0.9rem;
               font-weight: 700;
               color: #1e3a8a;
+              line-height: 1.3;
             }
 
             .banner-badge-count {
@@ -1547,37 +1626,50 @@ export interface UpcomingBillingCycleInfo {
               font-weight: 700;
               padding: 2px 8px;
               border-radius: 12px;
+              white-space: nowrap;
             }
           }
 
           .banner-subtitle {
             color: #2563eb;
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             margin: 0;
-            line-height: 1.45;
+            line-height: 1.4;
           }
 
           .banner-students-list {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
             margin-top: 2px;
 
             .student-item-tag {
-              font-size: 0.78rem;
+              font-size: 0.76rem;
               color: #1e40af;
               background: rgba(255, 255, 255, 0.85);
-              padding: 2px 8px;
+              padding: 3px 8px;
               border-radius: 6px;
               border: 1px solid #bfdbfe;
               display: inline-flex;
               align-items: center;
               gap: 4px;
+              max-width: 100%;
+              white-space: nowrap;
+              overflow: hidden;
+
+              .st-tag-name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
 
               .sub-info {
                 color: #3b82f6;
-                font-size: 0.73rem;
+                font-size: 0.72rem;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
               }
             }
 
@@ -1586,8 +1678,9 @@ export interface UpcomingBillingCycleInfo {
               font-weight: 600;
               color: #1e40af;
               background: #dbeafe;
-              padding: 2px 7px;
+              padding: 3px 8px;
               border-radius: 6px;
+              white-space: nowrap;
             }
           }
         }
@@ -1601,14 +1694,16 @@ export interface UpcomingBillingCycleInfo {
         .quick-gen-btn {
           font-weight: 600;
           border-radius: 8px;
-          height: 38px;
-          padding: 0 16px;
+          height: 36px;
+          padding: 0 14px;
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 6px;
           background: #2563eb;
           color: #ffffff;
           box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+          white-space: nowrap;
           transition: all 0.15s ease;
 
           &:hover {
@@ -1618,8 +1713,8 @@ export interface UpcomingBillingCycleInfo {
 
         .dismiss-btn {
           color: #64748b;
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           padding: 0;
           display: flex;
           align-items: center;
@@ -1627,6 +1722,74 @@ export interface UpcomingBillingCycleInfo {
 
           &:hover {
             color: #1e293b;
+          }
+        }
+      }
+
+      @media (max-width: 768px) {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px 14px;
+        gap: 10px;
+        box-sizing: border-box;
+        overflow: hidden;
+
+        .banner-left {
+          min-width: 0;
+          width: 100%;
+          gap: 10px;
+          padding-right: 0;
+          box-sizing: border-box;
+
+          .banner-badge-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          }
+
+          .banner-text {
+            box-sizing: border-box;
+
+            .banner-title-row {
+              padding-right: 28px;
+              box-sizing: border-box;
+            }
+
+            .banner-subtitle,
+            .banner-students-list {
+              margin-left: -42px;
+              width: calc(100% + 42px);
+              box-sizing: border-box;
+            }
+
+            .banner-students-list {
+              .student-item-tag {
+                flex: 1 1 100%;
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+                justify-content: space-between;
+              }
+            }
+          }
+        }
+
+        .banner-actions {
+          width: 100%;
+          box-sizing: border-box;
+
+          .quick-gen-btn {
+            flex: 1;
+            width: 100%;
+            font-size: 0.78rem;
+            padding: 0 10px !important;
+          }
+
+          .dismiss-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
           }
         }
       }
@@ -1674,12 +1837,20 @@ export interface UpcomingBillingCycleInfo {
       .academic-row {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        font-size: 0.76rem;
+        gap: 4px;
+        font-size: 0.74rem;
         padding: 2px 7px;
         border-radius: 6px;
         width: fit-content;
+        max-width: 140px;
+        white-space: nowrap;
         line-height: 1.25;
+
+        .academic-val {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
 
         &.school-row {
           background: #eff6ff;
@@ -1733,48 +1904,63 @@ export interface UpcomingBillingCycleInfo {
     /* Compact ERP Table Cells */
     .mat-mdc-table .mat-mdc-cell,
     .mat-mdc-table .mat-mdc-header-cell {
-      padding: 7px 8px !important;
+      padding: 6px 6px !important;
+      vertical-align: middle;
+    }
+
+    .mat-mdc-table .mat-mdc-row {
+      transition: background-color 0.15s ease;
+      &:hover {
+        background-color: #f8fafc !important;
+      }
     }
 
     .select-col,
     .mat-column-select {
-      width: 36px !important;
-      min-width: 36px !important;
-      padding: 0 4px 0 8px !important;
+      width: 32px !important;
+      min-width: 32px !important;
+      padding: 0 2px 0 6px !important;
       text-align: center !important;
     }
 
     .mat-column-invoiceNumber {
       white-space: nowrap !important;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 700;
       color: #1e3a8a;
-      width: 105px;
-      min-width: 95px;
+      width: 96px;
+      min-width: 90px;
     }
 
     .mat-column-studentName {
-      min-width: 105px;
+      min-width: 95px;
+      max-width: 135px;
       .st-name-text {
         font-weight: 700;
         color: #0f172a;
-        font-size: 0.84rem;
+        font-size: 0.81rem;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 130px;
+        display: block;
       }
       .st-roll-text {
         color: #64748b;
-        font-size: 0.74rem;
+        font-size: 0.72rem;
+        white-space: nowrap;
       }
     }
 
     .mat-column-batchName {
-      min-width: 85px;
+      min-width: 82px;
+      max-width: 125px;
     }
 
     .col-billing-head,
     .mat-column-title {
-      min-width: 220px;
-      max-width: 480px;
+      min-width: 180px;
+      max-width: 270px;
       white-space: normal !important;
     }
 
@@ -1782,32 +1968,34 @@ export interface UpcomingBillingCycleInfo {
     .mat-column-paidAmount,
     .mat-column-dueAmount {
       white-space: nowrap !important;
-      min-width: 68px;
-      font-size: 0.83rem;
+      min-width: 66px;
+      font-size: 0.8rem;
+      padding-left: 4px !important;
+      padding-right: 6px !important;
     }
 
     .col-due-date,
     .mat-column-dueDate {
       white-space: nowrap !important;
-      min-width: 80px !important;
-      width: 82px;
+      min-width: 76px !important;
+      width: 78px;
 
       .due-date-pill {
         white-space: nowrap !important;
         font-weight: 500;
         color: #334155;
-        font-size: 0.78rem;
+        font-size: 0.75rem;
         display: inline-block;
       }
     }
 
     .mat-column-status {
       white-space: nowrap !important;
-      min-width: 68px !important;
+      min-width: 64px !important;
       text-align: center;
       .status-badge {
         padding: 2px 7px;
-        font-size: 0.7rem;
+        font-size: 0.69rem;
       }
     }
 

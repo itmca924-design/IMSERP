@@ -380,9 +380,9 @@ export interface BonafideDialogData {
     .purpose-filled{color:#1e3a8a;font-weight:700;border-bottom:1.5px solid #1e3a8a;padding-bottom:1px}
 
     /* Preview area */
-    .cert-preview-area{padding:24px;overflow-y:auto;flex:1;display:flex;justify-content:center}
+    .cert-preview-area{padding:24px 24px 32px;overflow-y:auto;flex:1;display:flex;justify-content:center;align-items:flex-start;box-sizing:border-box}
     /* A4 Portrait Certificate */
-    .certificate{width:680px;min-height:880px;background:#ffffff;box-shadow:0 8px 32px rgba(0,0,0,.12);border:1px solid #e2e8f0;position:relative;display:flex;flex-direction:column}
+    .certificate{width:100%;max-width:680px;min-height:840px;height:fit-content;flex-shrink:0;box-sizing:border-box;background:#ffffff;box-shadow:0 8px 32px rgba(0,0,0,.12);border:1px solid #e2e8f0;position:relative;display:flex;flex-direction:column;margin-bottom:8px}
     .cert-top-stripe{height:8px;background:linear-gradient(90deg,#1e3a8a,#2563eb,#3b82f6,#2563eb,#1e3a8a)}
     /* Letterhead */
     .letterhead{display:flex;gap:16px;padding:20px 32px 16px;border-bottom:2px solid #1e3a8a;align-items:center}
@@ -433,7 +433,8 @@ export interface BonafideDialogData {
     .digital-sign-wrapper{display:flex;align-items:flex-end;justify-content:center;height:38px;margin-bottom:2px}
     .digital-sign-img{max-height:38px;max-width:130px;object-fit:contain;display:block;mix-blend-mode:multiply}
     /* Bottom strip */
-    .cert-bottom-strip{background:#1e3a8a;color:#fff;padding:8px 32px;font-size:11px;text-align:center;opacity:.9}
+    .cert-bottom-strip{background:#1e3a8a;color:#fff;padding:10px 24px;font-size:11px;text-align:center;opacity:.95;flex-shrink:0}
+    @media (max-width: 768px){.cert-preview-area{padding:12px 12px 24px}.certificate{min-height:auto}.letterhead{padding:16px;flex-wrap:wrap}.cert-title-section{padding:14px 16px 8px}.cert-title-text{white-space:normal;text-align:center;font-size:13px}.cert-meta-bar{padding:0 16px 10px;flex-wrap:wrap;gap:6px}.cert-body{padding:8px 16px 18px}.clearance-table-box{overflow-x:auto}.cert-signatures{padding:14px 16px 20px;flex-wrap:wrap;gap:16px;justify-content:center}.sig-block{min-width:120px}}
     @media print{body *{visibility:hidden!important}.print-area,.print-area *{visibility:visible!important}.print-area{position:absolute!important;left:0!important;top:0!important;width:100%!important;background:#fff!important;box-shadow:none!important;border:none!important}.no-print{display:none!important}.certificate{box-shadow:none!important;width:100%!important;min-height:auto!important}}
   `]
 })

@@ -224,7 +224,7 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
         <div class="actions-left">
           <button mat-stroked-button type="button" class="action-btn-secondary" (click)="onOpenLedger()">
             <mat-icon>menu_book</mat-icon>
-            <span>Passbook / Ledger</span>
+            <span>Passbook</span>
           </button>
           <button mat-stroked-button type="button" class="action-btn-secondary" *ngIf="inv.status !== 'Cancelled'" (click)="onSendWhatsApp()">
             <mat-icon class="whatsapp-ic">chat</mat-icon>
@@ -418,10 +418,11 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
 
       .meta-deck-left {
         display: flex;
-        align-items: center;
-        gap: 14px;
+        align-items: flex-start;
+        gap: 12px;
         min-width: 0;
         flex: 1;
+        box-sizing: border-box;
 
         .student-avatar-box {
           width: 44px;
@@ -965,34 +966,44 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
     .dialog-actions {
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
-      padding: 12px 20px;
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
+      gap: 8px;
+      flex-wrap: nowrap;
       flex-shrink: 0;
+      width: 100%;
+      box-sizing: border-box;
 
       .actions-left, .actions-right {
         display: flex;
         align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
+        gap: 6px;
+        flex-wrap: nowrap;
+        box-sizing: border-box;
       }
 
       button {
         font-weight: 600;
         border-radius: 8px;
-        height: 38px;
-        font-size: 0.82rem;
+        height: 36px;
+        padding: 0 10px !important;
+        min-width: unset !important;
+        font-size: 0.76rem;
+        white-space: nowrap;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        justify-content: center;
+        gap: 4px;
+        box-sizing: border-box;
 
-        mat-icon {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
+        mat-icon,
+        ::ng-deep .mat-icon {
+          font-size: 16px !important;
+          width: 16px !important;
+          height: 16px !important;
+          margin: 0 4px 0 0 !important;
         }
       }
 
@@ -1043,8 +1054,8 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
       text-align: right;
     }
 
-    /* Responsive Mobile Breakpoint */
-    @media (max-width: 640px) {
+    /* Responsive Mobile & Small Tablet Breakpoint */
+    @media (max-width: 768px) {
       .dialog-header {
         padding: 12px 14px;
         gap: 10px;
@@ -1067,17 +1078,93 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
       }
 
       .meta-deck-card {
-        padding: 10px 12px;
+        padding: 12px;
         flex-direction: column;
         align-items: stretch;
+        gap: 10px;
+        box-sizing: border-box;
+
+        .meta-deck-left {
+          width: 100%;
+          gap: 10px;
+          align-items: flex-start;
+
+          .student-avatar-box {
+            width: 38px;
+            height: 38px;
+            font-size: 0.92rem;
+          }
+
+          .student-meta-details {
+            flex: 1;
+            min-width: 0;
+
+            .student-name-row {
+              min-height: 38px;
+              align-content: center;
+            }
+
+            .academic-badges-row {
+              margin-left: -48px;
+              width: calc(100% + 48px);
+              margin-top: 4px;
+              gap: 5px;
+              box-sizing: border-box;
+
+              .academic-badge {
+                font-size: 0.71rem;
+                padding: 2px 7px;
+                max-width: 100%;
+                box-sizing: border-box;
+              }
+            }
+          }
+        }
 
         .meta-deck-right {
-          align-items: flex-start;
+          align-items: center;
           flex-direction: row;
           justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 6px;
           width: 100%;
           border-top: 1px dashed #e2e8f0;
           padding-top: 8px;
+          box-sizing: border-box;
+        }
+      }
+
+      .breakdown-card {
+        .heads-table {
+          th, td {
+            padding: 8px 6px;
+          }
+          .th-num, .td-num {
+            width: 24px;
+            padding-left: 6px;
+            padding-right: 2px;
+          }
+          .head-item-cell {
+            gap: 6px;
+            .head-icon-circle {
+              width: 24px;
+              height: 24px;
+              border-radius: 6px;
+              mat-icon { font-size: 14px; width: 14px; height: 14px; }
+            }
+            .head-names .head-name {
+              font-size: 0.76rem;
+            }
+          }
+          .cycle-note-pill {
+            white-space: normal;
+            font-size: 0.66rem;
+            padding: 2px 5px;
+            line-height: 1.25;
+          }
+          .amt-val {
+            font-size: 0.8rem;
+          }
         }
       }
 
@@ -1090,16 +1177,36 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
         padding: 10px 14px;
         flex-direction: column;
         align-items: stretch;
+        gap: 8px;
 
-        .actions-left, .actions-right {
+        .actions-left {
           width: 100%;
-          display: flex;
-          flex-direction: row;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
 
           button {
-            flex: 1;
+            width: 100%;
             justify-content: center;
+          }
+        }
+
+        .actions-right {
+          width: 100%;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+
+          button {
+            flex: 1 1 calc(33.333% - 6px);
+            min-width: 80px !important;
+            justify-content: center;
+          }
+
+          .primary-action-btn {
+            flex: 1 1 100%;
+            height: 40px;
+            font-size: 0.85rem;
           }
         }
       }
