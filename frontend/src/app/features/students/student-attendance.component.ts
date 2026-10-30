@@ -553,8 +553,8 @@ interface CalendarDay {
           (closed)="singleStudentSearchQuery = ''"
         >
           <!-- Sticky Search Box inside dropdown -->
-          <mat-option disabled class="dropdown-search-option">
-            <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+          <div class="dropdown-header-container" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+            <div class="dropdown-search-box">
               <mat-icon class="search-box-icon">search</mat-icon>
               <input
                 #singleStudentSearchInput
@@ -566,6 +566,7 @@ interface CalendarDay {
                 (click)="$event.stopPropagation()"
                 (mousedown)="$event.stopPropagation()"
                 (keydown)="$event.stopPropagation()"
+                (input)="$event.stopPropagation()"
               />
               <button
                 type="button"
@@ -577,7 +578,7 @@ interface CalendarDay {
                 <mat-icon>close</mat-icon>
               </button>
             </div>
-          </mat-option>
+          </div>
 
           <mat-option disabled *ngIf="searchedSingleStudents.length === 0 && singleStudentSearchQuery" class="no-results-option">
             No student matches "{{ singleStudentSearchQuery }}"
@@ -2712,23 +2713,16 @@ interface CalendarDay {
     ::ng-deep .single-student-select-panel {
       max-height: 420px !important;
 
-      .dropdown-search-option {
+      .dropdown-header-container {
         position: sticky !important;
         top: 0 !important;
-        z-index: 10 !important;
+        z-index: 100 !important;
         background: #ffffff !important;
-        padding: 8px 10px 6px 10px !important;
-        height: auto !important;
-        min-height: 48px !important;
+        padding: 8px 12px !important;
         border-bottom: 1px solid #e2e8f0 !important;
-        cursor: default !important;
-        opacity: 1 !important;
-        line-height: normal !important;
         box-sizing: border-box !important;
-
-        .mdc-list-item__primary-text {
-          width: 100% !important;
-        }
+        display: block !important;
+        pointer-events: auto !important;
 
         .dropdown-search-box {
           display: flex;
@@ -2745,7 +2739,7 @@ interface CalendarDay {
           &:focus-within {
             border-color: #2563eb;
             background: #ffffff;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
           }
 
           .search-box-icon {
@@ -2765,6 +2759,10 @@ interface CalendarDay {
             width: 100%;
             flex: 1;
             font-family: inherit;
+            cursor: text !important;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            pointer-events: auto !important;
           }
 
           .clear-mini-btn {
@@ -3916,8 +3914,11 @@ export class StudentAttendanceComponent implements OnInit {
 
   focusStudentSearch(): void {
     setTimeout(() => {
-      this.singleStudentSearchInput?.nativeElement?.focus();
-    }, 120);
+      if (this.singleStudentSearchInput?.nativeElement) {
+        this.singleStudentSearchInput.nativeElement.focus();
+        this.singleStudentSearchInput.nativeElement.select();
+      }
+    }, 150);
   }
 
   get searchedSingleStudents(): StudentItem[] {
