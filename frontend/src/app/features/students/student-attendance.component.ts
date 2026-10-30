@@ -370,7 +370,7 @@ interface CalendarDay {
           <thead>
             <tr>
               <th style="width: 44px; text-align: center;">#</th>
-              <th style="min-width: 170px;">Student Details</th>
+              <th style="min-width: 185px;">Student Details</th>
               <th *ngIf="rollCallScope === 'school'" style="width: 130px;">Class & Section</th>
               <th style="width: 140px;">{{ rollCallScope === 'school' ? 'School Roll / Adm' : 'Roll Number' }}</th>
               <th style="width: 135px;">Parent WhatsApp</th>
@@ -383,8 +383,9 @@ interface CalendarDay {
             <tr *ngFor="let s of filteredActiveStudents; let i = index" [class.row-absent]="s.status === 'Absent'" [class.row-present]="s.status === 'Present'">
               <td class="index-cell">{{ i + 1 }}</td>
               <td class="student-cell">
-                <div class="avatar-box" [style.background]="getAvatarColor(s.studentName)">
-                  {{ getInitials(s.studentName) }}
+                <div class="avatar-box" [style.background]="!s.profilePhoto ? getAvatarColor(s.studentName) : 'transparent'">
+                  <img *ngIf="s.profilePhoto" [src]="getPhotoUrl(s.profilePhoto)" [alt]="s.studentName" class="avatar-photo" (error)="s.profilePhoto = null" />
+                  <span *ngIf="!s.profilePhoto">{{ getInitials(s.studentName) }}</span>
                 </div>
                 <div class="student-meta">
                   <span class="name">{{ s.studentName }}</span>
@@ -397,11 +398,11 @@ interface CalendarDay {
                       <span class="sub-text">Punch {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : formatCapturedTime(s.capturedAt) }}</span>
                     </span>
 
-                    <!-- Manual Roll Call Source -->
+                    <!-- Manual Roll Call Source (Single clean tooltip, no double tooltip) -->
                     <span class="sub manual-sub" *ngIf="!isBiometricAttendance(s)" [matTooltip]="'Manual roll-call entry (Saved in database at ' + formatCapturedTime(s.capturedAt) + ' IST)'">
                       <mat-icon class="saved-dot">check_circle</mat-icon>
                       <span class="sub-text">In: {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : 'Shift Time' }}</span>
-                      <span class="log-pill" *ngIf="s.capturedAt" [matTooltip]="'Saved in database at ' + formatCapturedTime(s.capturedAt)">Logged</span>
+                      <span class="log-pill" *ngIf="s.capturedAt">Logged</span>
                     </span>
                   </ng-container>
                 </div>
@@ -1428,37 +1429,68 @@ interface CalendarDay {
       width: 36px; height: 36px; border-radius: 50%; color: #ffffff;
       display: flex; align-items: center; justify-content: center;
       font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+      overflow: hidden; border: 1.5px solid #e2e8f0;
+      .avatar-photo {
+        width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;
+      }
     }
-    .student-meta { display: flex; flex-direction: column; }
-    .student-meta .name { font-weight: 600; color: #1e293b; font-size: 0.92rem; }
+    .student-meta { display: flex; flex-direction: column; min-width: 0; }
+    .student-meta .name { font-weight: 600; color: #1e293b; font-size: 0.92rem; white-space: nowrap; }
     .student-meta .sub {
       font-size: 0.72rem;
       display: inline-flex;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
       margin-top: 2px;
       cursor: help;
+      white-space: nowrap;
+      line-height: 1.2;
+
       &.manual-sub {
         color: #15803d;
-        .saved-dot { color: #16a34a; font-size: 14px; width: 14px; height: 14px; }
+        .saved-dot {
+          color: #16a34a;
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          line-height: 15px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
       }
       &.bio-sub {
         color: #1d4ed8;
         font-weight: 600;
-        .bio-dot { color: #2563eb; font-size: 14px; width: 14px; height: 14px; }
+        .bio-dot {
+          color: #2563eb;
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          line-height: 15px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+      }
+      .sub-text {
+        white-space: nowrap;
+        font-weight: 600;
       }
       .log-pill {
         background: #f1f5f9;
         color: #64748b;
         font-size: 0.65rem;
         font-weight: 600;
-        padding: 0 4px;
+        padding: 1px 5px;
         border-radius: 4px;
         border: 1px solid #e2e8f0;
-        margin-left: 2px;
+        margin-left: 3px;
+        white-space: nowrap;
       }
     }
-    .saved-dot { font-size: 14px; width: 14px; height: 14px; }
     .adm-pill {
       display: inline-block; background: #e0e7ff; color: #3730a3;
       padding: 1px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;
@@ -3996,6 +4028,14 @@ export class StudentAttendanceComponent implements OnInit {
     } catch {
       return 'Previously';
     }
+  }
+
+  getPhotoUrl(path?: string | null): string {
+    if (!path) return '';
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    const base = (API_BASE || '').endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+    const cleanPath = path.startsWith('/') ? path : '/' + path;
+    return `${base}${cleanPath}`;
   }
 
   formatTimeAmPm(timeStr?: string | null): string {
