@@ -2795,6 +2795,41 @@ app.Use(async (context, next) =>
 });
 
 app.UseCors("AllowAngular");
+
+// Rewrite /api/uploads/* to /uploads/* so Nginx /api proxy serves static uploads seamlessly,
+// and gracefully handle missing upload images without throwing 404 console errors.
+var transparentPng1x1 = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=");
+app.Use(async (context, next) =>
+{
+    var reqPath = context.Request.Path.Value ?? string.Empty;
+    if (reqPath.StartsWith("/api/uploads/", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Request.Path = reqPath.Substring(4); // "/uploads/..."
+        reqPath = context.Request.Path.Value ?? string.Empty;
+    }
+
+    if (reqPath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+    {
+        var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+        var relPath = reqPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+        var fullFilePath = Path.Combine(webRoot, relPath);
+        if (!File.Exists(fullFilePath))
+        {
+            var ext = Path.GetExtension(fullFilePath).ToLowerInvariant();
+            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp" || ext == ".gif" || ext == ".svg")
+            {
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.ContentType = "image/png";
+                context.Response.Headers["Cache-Control"] = "no-cache";
+                await context.Response.Body.WriteAsync(transparentPng1x1);
+                return;
+            }
+        }
+    }
+
+    await next();
+});
+
 app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>

@@ -950,7 +950,7 @@ public class StudentsController : ControllerBase
                 student.IsCoachingStudent,
                 elapsedWorkingDaysForStudent,
                 student.JoiningDate != default ? student.JoiningDate.ToString("yyyy-MM-dd") : null,
-                student.ProfilePhoto,
+                ImageStorageHelper.ResolveExistingFileUrl(student.ProfilePhoto, _env.ContentRootPath),
                 pastUnmarkedWorkingDays
             );
         }).ToList();
@@ -1480,7 +1480,7 @@ public class StudentsController : ControllerBase
                 s.Id,
                 s.StudentName,
                 s.RollNumber,
-                s.ProfilePhoto,
+                ImageStorageHelper.ResolveExistingFileUrl(s.ProfilePhoto, _env.ContentRootPath),
                 s.ParentWhatsAppPhone,
                 effStatus,
                 att?.Remarks,
@@ -1650,7 +1650,7 @@ public class StudentsController : ControllerBase
                 s.AdmissionNumber,
                 s.ClassName,
                 s.SectionName,
-                s.ProfilePhoto,
+                ImageStorageHelper.ResolveExistingFileUrl(s.ProfilePhoto, _env.ContentRootPath),
                 s.ParentWhatsAppPhone,
                 effStatus,
                 att?.Remarks,

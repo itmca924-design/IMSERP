@@ -103,4 +103,31 @@ public static class ImageStorageHelper
             return null;
         }
     }
+
+    public static string? ResolveExistingFileUrl(string? path, string contentRootPath)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        if (path.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+
+        var cleanRel = path.TrimStart('/');
+        if (cleanRel.StartsWith("api/uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            cleanRel = cleanRel.Substring(4); // strip "api/"
+        }
+
+        if (cleanRel.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            var fullPath = Path.Combine(contentRootPath, "wwwroot", cleanRel.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(fullPath))
+            {
+                return null;
+            }
+        }
+        return path;
+    }
 }

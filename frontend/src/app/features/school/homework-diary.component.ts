@@ -1201,29 +1201,60 @@ export interface DailyDiaryReportHeader {
             </div>
           </div>
 
-          <!-- Preview as Student (Teacher/Admin view switcher: Class -> Section -> Student) -->
+          <!-- Preview as Student (Teacher/Admin view switcher: School Class / Coaching Batch -> Student) -->
           <div class="student-preview-switcher" *ngIf="!isStudentOrParent">
             <div class="preview-badge">
               <mat-icon>school</mat-icon>
               <span>Student Preview:</span>
             </div>
 
-            <!-- Class Select -->
-            <mat-form-field appearance="outline" class="preview-select-field class-field" [matTooltip]="(isTeacher && !isAdmin && hasAssignedClass) ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
-              <mat-label>Class (कक्षा) <span *ngIf="isTeacher && !isAdmin && hasAssignedClass">🔒</span></mat-label>
-              <mat-select [(ngModel)]="previewClassId" (selectionChange)="onPreviewClassChange()" [disabled]="isTeacher && !isAdmin && hasAssignedClass">
-                <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
-              </mat-select>
-            </mat-form-field>
+            <div class="scope-pills" style="background:#dbeafe;padding:3px;border-radius:8px;display:inline-flex;gap:3px;">
+              <button type="button" class="scope-pill-btn" [class.active]="previewScope === 'school'" (click)="setPreviewScope('school')" style="padding:4px 10px;font-size:12px;">
+                <mat-icon style="font-size:15px;width:15px;height:15px;">domain</mat-icon>
+                <span>School</span>
+              </button>
+              <button type="button" class="scope-pill-btn" [class.active]="previewScope === 'coaching'" (click)="setPreviewScope('coaching')" style="padding:4px 10px;font-size:12px;">
+                <mat-icon style="font-size:15px;width:15px;height:15px;">groups</mat-icon>
+                <span>Coaching</span>
+              </button>
+            </div>
 
-            <!-- Section Select -->
-            <mat-form-field appearance="outline" class="preview-select-field section-field" *ngIf="previewSections.length > 0" [matTooltip]="(isTeacher && !isAdmin && hasAssignedSection) ? '🔒 Assigned section locked' : ''">
-              <mat-label>Section (वर्ग) <span *ngIf="isTeacher && !isAdmin && hasAssignedSection">🔒</span></mat-label>
-              <mat-select [(ngModel)]="previewSectionId" (selectionChange)="onPreviewSectionChange()" [disabled]="isTeacher && !isAdmin && hasAssignedSection">
-                <mat-option value="">All Sections</mat-option>
-                <mat-option *ngFor="let s of previewSections" [value]="s.id">{{s.name}}</mat-option>
-              </mat-select>
-            </mat-form-field>
+            <ng-container *ngIf="previewScope === 'school'">
+              <!-- Class Select -->
+              <mat-form-field appearance="outline" class="preview-select-field class-field" [matTooltip]="(isTeacher && !isAdmin && hasAssignedClass) ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
+                <mat-label>Class (कक्षा) <span *ngIf="isTeacher && !isAdmin && hasAssignedClass">🔒</span></mat-label>
+                <mat-select [(ngModel)]="previewClassId" (selectionChange)="onPreviewClassChange(true)" [disabled]="isTeacher && !isAdmin && hasAssignedClass">
+                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <!-- Section Select -->
+              <mat-form-field appearance="outline" class="preview-select-field section-field" *ngIf="previewSections.length > 0" [matTooltip]="(isTeacher && !isAdmin && hasAssignedSection) ? '🔒 Assigned section locked' : ''">
+                <mat-label>Section (वर्ग) <span *ngIf="isTeacher && !isAdmin && hasAssignedSection">🔒</span></mat-label>
+                <mat-select [(ngModel)]="previewSectionId" (selectionChange)="onPreviewSectionChange(true)" [disabled]="isTeacher && !isAdmin && hasAssignedSection">
+                  <mat-option value="">All Sections</mat-option>
+                  <mat-option *ngFor="let s of previewSections" [value]="s.id">{{s.name}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </ng-container>
+
+            <ng-container *ngIf="previewScope === 'coaching'">
+              <mat-form-field appearance="outline" class="preview-select-field class-field">
+                <mat-label>Class (कक्षा)</mat-label>
+                <mat-select [(ngModel)]="previewCoachingClassId" (selectionChange)="onPreviewCoachingClassChange(true)">
+                  <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="preview-select-field class-field">
+                <mat-label>Coaching Batch (बैच)</mat-label>
+                <mat-select [(ngModel)]="previewBatchId" (selectionChange)="onPreviewBatchChange(true)">
+                  <mat-option *ngIf="filteredPreviewBatches.length === 0" value="" disabled>No Batches Found</mat-option>
+                  <mat-option *ngFor="let b of filteredPreviewBatches" [value]="b.id">{{b.name}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </ng-container>
 
             <!-- Student Select -->
             <mat-form-field appearance="outline" class="preview-select-field student-field">
@@ -3551,12 +3582,25 @@ export class HomeworkDiaryComponent implements OnInit {
     completed: 0
   };
 
+  previewScope: 'school' | 'coaching' = 'school';
   previewClassId = '';
   previewSectionId = '';
+  previewCoachingClassId = '';
+  previewBatchId = '';
   previewSections: any[] = [];
   previewStudents: any[] = [];
   selectedPreviewStudentId = '';
   studentFilterStatus: 'all' | 'pending' | 'submitted' = 'all';
+  hasUserManuallyChangedPreview = false;
+  hasCheckedActivePreviewContext = false;
+
+  get filteredPreviewBatches(): BatchDto[] {
+    if (!this.previewCoachingClassId) {
+      return this.batches;
+    }
+    const target = this.previewCoachingClassId.toLowerCase();
+    return this.batches.filter(b => (b.classId || '').toLowerCase() === target);
+  }
 
   hasAssignedClass = false;
   hasAssignedSection = false;
@@ -3670,7 +3714,49 @@ export class HomeworkDiaryComponent implements OnInit {
     this.fetchStudentsForPreview();
   }
 
-  onPreviewClassChange(): void {
+  setPreviewScope(scope: 'school' | 'coaching'): void {
+    if (this.previewScope === scope) return;
+    this.hasUserManuallyChangedPreview = true;
+    this.previewScope = scope;
+    this.studentHomeworks = [];
+    if (scope === 'school') {
+      if (!this.previewClassId && this.classes.length > 0) {
+        this.previewClassId = this.classes[0].id;
+      }
+      const foundClass = this.classes.find(c => c.id === this.previewClassId);
+      this.previewSections = foundClass?.sections || [];
+      this.fetchStudentsForPreview(true);
+    } else {
+      const available = this.filteredPreviewBatches;
+      if (available.length > 0 && !available.some(b => b.id === this.previewBatchId)) {
+        this.previewBatchId = available[0].id;
+      }
+      this.fetchStudentsForPreview(true);
+    }
+  }
+
+  onPreviewCoachingClassChange(isManual = false): void {
+    if (isManual) this.hasUserManuallyChangedPreview = true;
+    const available = this.filteredPreviewBatches;
+    if (available.length > 0) {
+      if (!available.some(b => b.id === this.previewBatchId)) {
+        this.previewBatchId = available[0].id;
+      }
+    } else {
+      this.previewBatchId = '';
+    }
+    this.studentHomeworks = [];
+    this.fetchStudentsForPreview(true);
+  }
+
+  onPreviewBatchChange(isManual = false): void {
+    if (isManual) this.hasUserManuallyChangedPreview = true;
+    this.studentHomeworks = [];
+    this.fetchStudentsForPreview(true);
+  }
+
+  onPreviewClassChange(isManual = false): void {
+    if (isManual) this.hasUserManuallyChangedPreview = true;
     const foundClass = this.classes.find(c => c.id === this.previewClassId);
     this.previewSections = foundClass?.sections || [];
     this.previewSectionId = '';
@@ -3678,23 +3764,43 @@ export class HomeworkDiaryComponent implements OnInit {
     this.fetchStudentsForPreview(true);
   }
 
-  onPreviewSectionChange(): void {
+  onPreviewSectionChange(isManual = false): void {
+    if (isManual) this.hasUserManuallyChangedPreview = true;
     this.studentHomeworks = [];
     this.fetchStudentsForPreview(true);
   }
 
-  fetchStudentsForPreview(withMinDelay = false): void {
-    if (!this.previewClassId) return;
-    this.loadingStudent = true;
-    let url = `${API_BASE}/homework/preview-students?classId=${this.previewClassId}`;
-    if (this.previewSectionId) {
-      url += `&sectionId=${this.previewSectionId}`;
+  fetchStudentsForPreview(withMinDelay = false, preferredStudentId?: string): void {
+    let url = `${API_BASE}/homework/preview-students?`;
+    if (this.previewScope === 'coaching') {
+      if (!this.previewBatchId) {
+        this.previewStudents = [];
+        this.selectedPreviewStudentId = '';
+        this.studentHomeworks = [];
+        this.loadingStudent = false;
+        return;
+      }
+      url += `batchId=${this.previewBatchId}`;
+      if (this.previewCoachingClassId) {
+        url += `&classId=${this.previewCoachingClassId}`;
+      }
+    } else {
+      if (!this.previewClassId) return;
+      url += `classId=${this.previewClassId}`;
+      if (this.previewSectionId) {
+        url += `&sectionId=${this.previewSectionId}`;
+      }
     }
 
+    this.loadingStudent = true;
     this.http.get<any[]>(url).subscribe({
       next: r => {
         this.previewStudents = r || [];
-        if (this.previewStudents.length > 0) {
+        if (preferredStudentId && this.previewStudents.some(s => s.id === preferredStudentId)) {
+          this.selectedPreviewStudentId = preferredStudentId;
+        } else if (this.selectedDiaryStudentId && this.previewStudents.some(s => s.id === this.selectedDiaryStudentId)) {
+          this.selectedPreviewStudentId = this.selectedDiaryStudentId;
+        } else if (this.previewStudents.length > 0) {
           this.selectedPreviewStudentId = this.previewStudents[0].id;
         } else {
           this.selectedPreviewStudentId = '';
@@ -3710,6 +3816,7 @@ export class HomeworkDiaryComponent implements OnInit {
   }
 
   onPreviewStudentChange(): void {
+    this.hasUserManuallyChangedPreview = true;
     this.studentHomeworks = [];
     this.loadStudentHomework(true);
   }
@@ -3718,11 +3825,46 @@ export class HomeworkDiaryComponent implements OnInit {
     this.activeTab = tab;
     if (tab === 'student') {
       if (!this.isStudentOrParent) {
+        if (!this.hasUserManuallyChangedPreview) {
+          // Sync with Teacher View's active selection if changed
+          if (this.diarySubTab === 'worksheets') {
+            this.previewScope = this.worksheetScope;
+            if (this.worksheetScope === 'coaching' && this.filterBatchId) {
+              this.previewCoachingClassId = this.filterCoachingClassId;
+              this.previewBatchId = this.filterBatchId;
+              this.fetchStudentsForPreview(false);
+              return;
+            } else if (this.worksheetScope === 'school' && this.filterClassId) {
+              this.previewClassId = this.filterClassId;
+              const fc = this.classes.find(c => c.id === this.previewClassId);
+              this.previewSections = fc?.sections || [];
+              this.previewSectionId = this.filterSectionId || '';
+              this.fetchStudentsForPreview(false);
+              return;
+            }
+          } else {
+            this.previewScope = this.diaryScope;
+            if (this.diaryScope === 'coaching' && this.diaryBatchId) {
+              this.previewCoachingClassId = this.diaryCoachingClassId;
+              this.previewBatchId = this.diaryBatchId;
+              this.fetchStudentsForPreview(false);
+              return;
+            } else if (this.diaryScope === 'school' && this.diaryClassId) {
+              this.previewClassId = this.diaryClassId;
+              const fc = this.classes.find(c => c.id === this.previewClassId);
+              this.previewSections = fc?.sections || [];
+              this.previewSectionId = this.diarySectionId || '';
+              this.fetchStudentsForPreview(false);
+              return;
+            }
+          }
+        }
+
         if (!this.previewClassId && this.classes.length > 0) {
           this.initTeacherPreviewClass();
         } else if (this.selectedPreviewStudentId) {
           this.loadStudentHomework();
-        } else if (this.previewClassId) {
+        } else {
           this.fetchStudentsForPreview();
         }
       } else {
@@ -4786,10 +4928,94 @@ export class HomeworkDiaryComponent implements OnInit {
     const startTime = Date.now();
     this.http.get<StudentHomeworkWithSubmissionDto[]>(url).subscribe({
       next: r => {
+        let items = [...(r || [])];
+
+        // Also merge any unsaved in-memory Daily Diary tasks for this previewed student
+        if (this.selectedPreviewStudentId && this.diaryStudents?.length > 0) {
+          const inMemStudent = this.diaryStudents.find(s => s.studentId === this.selectedPreviewStudentId);
+          if (inMemStudent && !inMemStudent.isAbsent) {
+            const validCw = (inMemStudent.classWork || []).filter(t => t.task && t.task.trim().length > 0);
+            const validHw = (inMemStudent.homeWork || []).filter(t => t.task && t.task.trim().length > 0);
+            const subjects = Array.from(new Set([
+              ...validHw.map(x => (x.subject || 'General').trim()),
+              ...validCw.map(x => (x.subject || 'General').trim())
+            ]));
+            for (const subj of subjects) {
+              const sHw = validHw.filter(x => (x.subject || 'General').trim().toLowerCase() === subj.toLowerCase());
+              const sCw = validCw.filter(x => (x.subject || 'General').trim().toLowerCase() === subj.toLowerCase());
+              const hwSummary = sHw.map(x => x.task.trim()).join('; ');
+              const cwSummary = sCw.map(x => x.task.trim()).join('; ');
+              const title = hwSummary
+                ? `Daily H.W. (${this.formatDisplayDate(this.diaryDate)}): ${hwSummary}`
+                : `Daily C.W. (${this.formatDisplayDate(this.diaryDate)}): ${cwSummary}`;
+              if (!items.some(i => i.subjectName.toLowerCase() === subj.toLowerCase() && i.title === title)) {
+                const descLines: string[] = [];
+                if (hwSummary) descLines.push(`🏠 Home Work (H.W.): ${hwSummary}`);
+                if (cwSummary) descLines.push(`📝 Class Work (C.W.): ${cwSummary}`);
+                if (inMemStudent.remarks) descLines.push(`💬 Teacher Note: ${inMemStudent.remarks}`);
+                const isDone = sHw.some(x => x.status === 'Completed');
+                items.unshift({
+                  id: `${inMemStudent.studentId}-${subj}`,
+                  tenantId: '',
+                  classId: inMemStudent.classId,
+                  className: inMemStudent.className,
+                  sectionId: inMemStudent.sectionId,
+                  sectionName: inMemStudent.sectionName,
+                  batchId: inMemStudent.batchId,
+                  batchName: inMemStudent.batchName,
+                  subjectName: subj,
+                  teacherName: sHw[0]?.teacherName || sCw[0]?.teacherName || undefined,
+                  title,
+                  description: descLines.join('\n'),
+                  assignedDate: `${this.diaryDate}T09:00:00+05:30`,
+                  dueDate: `${this.diaryDate}T17:00:00+05:30`,
+                  status: isDone ? 'Completed' : 'Active',
+                  estimatedMinutes: 30,
+                  createdAt: new Date().toISOString(),
+                  isSubmitted: isDone
+                });
+              }
+            }
+          }
+        }
+
+        // If default preview student has 0 items and user hasn't manually changed the preview dropdown yet,
+        // check if another class or coaching batch has active homework/diary records so we auto-bind it.
+        if (items.length === 0 && !this.isStudentOrParent && !this.hasUserManuallyChangedPreview && !this.hasCheckedActivePreviewContext) {
+          this.hasCheckedActivePreviewContext = true;
+          this.http.get<any>(`${API_BASE}/homework/active-preview-context`).subscribe({
+            next: ctx => {
+              if (ctx && ctx.scope === 'coaching' && ctx.batchId && ctx.batchId !== this.previewBatchId) {
+                this.previewScope = 'coaching';
+                this.previewCoachingClassId = ctx.classId || '';
+                this.previewBatchId = ctx.batchId;
+                this.fetchStudentsForPreview(false, ctx.studentId || undefined);
+                return;
+              }
+              if (ctx && ctx.scope === 'school' && ctx.classId && (ctx.classId !== this.previewClassId || (ctx.studentId && ctx.studentId !== this.selectedPreviewStudentId))) {
+                this.previewScope = 'school';
+                this.previewClassId = ctx.classId;
+                const fc = this.classes.find(c => c.id === this.previewClassId);
+                this.previewSections = fc?.sections || [];
+                this.previewSectionId = ctx.sectionId || '';
+                this.fetchStudentsForPreview(false, ctx.studentId || undefined);
+                return;
+              }
+              this.studentHomeworks = items;
+              this.loadingStudent = false;
+            },
+            error: () => {
+              this.studentHomeworks = items;
+              this.loadingStudent = false;
+            }
+          });
+          return;
+        }
+
         const elapsed = Date.now() - startTime;
         const remainingDelay = withMinDelay ? Math.max(0, 450 - elapsed) : 0;
         setTimeout(() => {
-          this.studentHomeworks = r;
+          this.studentHomeworks = items;
           this.loadingStudent = false;
         }, remainingDelay);
       },

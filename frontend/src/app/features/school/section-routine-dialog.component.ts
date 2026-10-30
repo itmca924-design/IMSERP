@@ -1526,7 +1526,8 @@ export interface SectionRoutineDialogData {
     .routine-table-container {
       border: 1px solid #e2e8f0;
       border-radius: 10px;
-      overflow: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       background: #ffffff;
     }
 
@@ -1538,17 +1539,18 @@ export interface SectionRoutineDialogData {
       th {
         background: #f8fafc;
         border-bottom: 1.5px solid #e2e8f0;
-        padding: 10px 14px;
+        padding: 10px 12px;
         text-align: left;
         font-weight: 700;
         color: #475569;
         font-size: 0.76rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        white-space: nowrap;
       }
 
       td {
-        padding: 10px 14px;
+        padding: 10px 12px;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
       }
@@ -1557,21 +1559,33 @@ export interface SectionRoutineDialogData {
       tr:hover td { background: #fafafa; }
       tr.is-ct-row td { background: #f0fdf4; }
 
-      .col-slot { width: 190px; }
-      .col-subject { width: 180px; }
-      .col-teacher { min-width: 260px; }
-      .col-days { width: 300px; }
-      .col-action { width: 70px; text-align: center; }
+      .col-slot { min-width: 162px; width: 170px; white-space: nowrap; }
+      .col-subject { min-width: 130px; }
+      .col-teacher { min-width: 195px; }
+      .col-days { min-width: 190px; }
+      .col-action { width: 76px; text-align: center; white-space: nowrap; }
     }
 
     .slot-pill {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       font-weight: 700;
       color: #1e293b;
       font-size: 0.82rem;
-      mat-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
+      white-space: nowrap;
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      padding: 4px 10px;
+      border-radius: 8px;
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        flex-shrink: 0;
+        color: #2563eb;
+      }
     }
 
     .subject-tag {

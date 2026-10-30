@@ -327,6 +327,13 @@ public class HomeworkController : ControllerBase
     // =========================================================================
     // STUDENT PORTAL: VIEW ASSIGNED HOMEWORK & MY SUBMISSION
     // =========================================================================
+    private static Guid CreateDeterministicDiaryHomeworkId(Guid diaryId, string subjectName)
+    {
+        var raw = $"diary-hw:{diaryId}:{(subjectName ?? "general").Trim().ToLowerInvariant()}";
+        var hash = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(raw));
+        return new Guid(hash);
+    }
+
     [HttpGet("my-homework")]
     public async Task<ActionResult<IEnumerable<StudentHomeworkWithSubmissionDto>>> GetMyHomework([FromQuery] Guid? studentId)
     {
@@ -336,12 +343,23 @@ public class HomeworkController : ControllerBase
         if (studentId.HasValue && studentId.Value != Guid.Empty)
         {
             student = await _db.Students.AsNoTracking()
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Include(s => s.Batch)
                 .FirstOrDefaultAsync(s => s.Id == studentId.Value && s.TenantId == tenantId);
         }
 
         if (student == null)
         {
             student = await ResolveCurrentStudentAsync();
+            if (student != null && (student.Class == null && student.ClassId.HasValue))
+            {
+                student = await _db.Students.AsNoTracking()
+                    .Include(s => s.Class)
+                    .Include(s => s.Section)
+                    .Include(s => s.Batch)
+                    .FirstOrDefaultAsync(s => s.Id == student.Id && s.TenantId == tenantId);
+            }
         }
 
         // If user is Admin or Teacher previewing student portal, auto-fallback to student in assigned section or tenant
@@ -354,6 +372,9 @@ public class HomeworkController : ControllerBase
                 if (section != null)
                 {
                     student = await _db.Students.AsNoTracking()
+                        .Include(s => s.Class)
+                        .Include(s => s.Section)
+                        .Include(s => s.Batch)
                         .FirstOrDefaultAsync(s => s.SectionId == section.Id && s.TenantId == tenantId && s.IsActive != false);
                 }
             }
@@ -361,6 +382,9 @@ public class HomeworkController : ControllerBase
             if (student == null)
             {
                 student = await _db.Students.AsNoTracking()
+                    .Include(s => s.Class)
+                    .Include(s => s.Section)
+                    .Include(s => s.Batch)
                     .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.IsActive != false);
             }
         }
@@ -368,41 +392,22 @@ public class HomeworkController : ControllerBase
         if (student == null)
             return Ok(new List<StudentHomeworkWithSubmissionDto>());
 
-        var query = _db.StudentHomeworks
+        var cId = student.ClassId;
+        var sId = student.SectionId;
+        var bId = student.BatchId;
+
+        var list = await _db.StudentHomeworks
             .AsNoTracking()
             .Include(h => h.Class)
             .Include(h => h.Section)
             .Include(h => h.Batch)
             .Include(h => h.Submissions)
                 .ThenInclude(s => s.ReviewedByTeacher)
-            .Where(h => h.TenantId == tenantId);
-
-        if (student.BranchId.HasValue)
-        {
-            var branchId = student.BranchId.Value;
-            query = query.Where(h => !h.BranchId.HasValue || h.BranchId == branchId);
-        }
-
-        // Match student's class, section, batch
-        if (student.ClassId.HasValue)
-        {
-            var cId = student.ClassId.Value;
-            query = query.Where(h => !h.ClassId.HasValue || h.ClassId == cId);
-        }
-
-        if (student.SectionId.HasValue)
-        {
-            var sId = student.SectionId.Value;
-            query = query.Where(h => !h.SectionId.HasValue || h.SectionId == sId);
-        }
-
-        if (student.BatchId.HasValue)
-        {
-            var bId = student.BatchId.Value;
-            query = query.Where(h => !h.BatchId.HasValue || h.BatchId == bId);
-        }
-
-        var list = await query
+            .Where(h => h.TenantId == tenantId && (
+                (bId.HasValue && h.BatchId == bId.Value) ||
+                (cId.HasValue && !h.BatchId.HasValue && h.ClassId == cId.Value && (!h.SectionId.HasValue || !sId.HasValue || h.SectionId == sId.Value)) ||
+                (!h.ClassId.HasValue && !h.BatchId.HasValue)
+            ))
             .OrderByDescending(h => h.AssignedDate)
             .ThenByDescending(h => h.CreatedAt)
             .ToListAsync();
@@ -460,17 +465,206 @@ public class HomeworkController : ControllerBase
             );
         }).ToList();
 
+        // Also bind Daily Classwork & Homework Diary entries (DailyStudentDiaries) for this student / class / batch
+        var personalDiaries = await _db.DailyStudentDiaries
+            .AsNoTracking()
+            .Include(d => d.Class)
+            .Include(d => d.Section)
+            .Include(d => d.Batch)
+            .Where(d => d.TenantId == tenantId && d.StudentId == student.Id &&
+                        (!string.IsNullOrWhiteSpace(d.HomeWorkJson) || !string.IsNullOrWhiteSpace(d.ClassWorkJson)))
+            .OrderByDescending(d => d.DiaryDate)
+            .Take(30)
+            .ToListAsync();
+
+        var classOrBatchDiaries = await _db.DailyStudentDiaries
+            .AsNoTracking()
+            .Include(d => d.Class)
+            .Include(d => d.Section)
+            .Include(d => d.Batch)
+            .Where(d => d.TenantId == tenantId && !d.IsAbsent &&
+                        (!string.IsNullOrWhiteSpace(d.HomeWorkJson) || !string.IsNullOrWhiteSpace(d.ClassWorkJson)) &&
+                        ((cId.HasValue && d.ClassId == cId.Value && (!sId.HasValue || !d.SectionId.HasValue || d.SectionId == sId.Value)) ||
+                         (bId.HasValue && d.BatchId == bId.Value)))
+            .OrderByDescending(d => d.DiaryDate)
+            .Take(60)
+            .ToListAsync();
+
+        var effectiveDiariesByDate = new Dictionary<DateTime, DailyStudentDiary>();
+        foreach (var d in personalDiaries)
+        {
+            effectiveDiariesByDate[d.DiaryDate.Date] = d;
+        }
+        foreach (var d in classOrBatchDiaries)
+        {
+            if (!effectiveDiariesByDate.ContainsKey(d.DiaryDate.Date))
+            {
+                effectiveDiariesByDate[d.DiaryDate.Date] = d;
+            }
+        }
+
+        if (effectiveDiariesByDate.Count > 0)
+        {
+            var studentSubmissions = await _db.StudentHomeworkSubmissions
+                .AsNoTracking()
+                .Include(s => s.ReviewedByTeacher)
+                .Where(s => s.TenantId == tenantId && s.StudentId == student.Id)
+                .ToListAsync();
+            var submissionByHwId = studentSubmissions.ToDictionary(s => s.HomeworkId);
+            var existingIds = new HashSet<Guid>(result.Select(r => r.Id));
+
+            foreach (var diary in effectiveDiariesByDate.Values.OrderByDescending(d => d.DiaryDate))
+            {
+                var cwList = new List<DailySubjectTaskItem>();
+                var hwList = new List<DailySubjectTaskItem>();
+
+                if (!string.IsNullOrWhiteSpace(diary.ClassWorkJson))
+                {
+                    try { cwList = JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(diary.ClassWorkJson) ?? new(); } catch { }
+                }
+                if (!string.IsNullOrWhiteSpace(diary.HomeWorkJson))
+                {
+                    try { hwList = JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(diary.HomeWorkJson) ?? new(); } catch { }
+                }
+
+                var validCw = cwList.Where(x => !string.IsNullOrWhiteSpace(x.Task)).ToList();
+                var validHw = hwList.Where(x => !string.IsNullOrWhiteSpace(x.Task)).ToList();
+                if (validCw.Count == 0 && validHw.Count == 0) continue;
+
+                var subjects = validHw.Select(x => (x.Subject ?? "General").Trim())
+                    .Concat(validCw.Select(x => (x.Subject ?? "General").Trim()))
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                foreach (var subj in subjects)
+                {
+                    var subjHw = validHw.Where(x => string.Equals((x.Subject ?? "General").Trim(), subj, StringComparison.OrdinalIgnoreCase)).ToList();
+                    var subjCw = validCw.Where(x => string.Equals((x.Subject ?? "General").Trim(), subj, StringComparison.OrdinalIgnoreCase)).ToList();
+                    if (subjHw.Count == 0 && subjCw.Count == 0) continue;
+
+                    var detId = CreateDeterministicDiaryHomeworkId(diary.Id, subj);
+                    if (existingIds.Contains(detId)) continue;
+
+                    var primaryHw = subjHw.FirstOrDefault();
+                    var primaryCw = subjCw.FirstOrDefault();
+                    var teacherName = primaryHw?.TeacherName ?? primaryCw?.TeacherName ?? primaryHw?.CheckedByName ?? primaryCw?.CheckedByName;
+                    var teacherId = primaryHw?.TeacherId ?? primaryCw?.TeacherId ?? diary.TeacherId;
+
+                    var hwSummary = string.Join("; ", subjHw.Select(x => x.Task.Trim()));
+                    var cwSummary = string.Join("; ", subjCw.Select(x => x.Task.Trim()));
+
+                    var title = !string.IsNullOrWhiteSpace(hwSummary)
+                        ? $"Daily H.W. ({diary.DiaryDate:dd MMM yyyy}): {hwSummary}"
+                        : $"Daily C.W. ({diary.DiaryDate:dd MMM yyyy}): {cwSummary}";
+
+                    var descLines = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(hwSummary))
+                        descLines.Add($"🏠 Home Work (H.W.): {hwSummary}");
+                    if (!string.IsNullOrWhiteSpace(cwSummary))
+                        descLines.Add($"📝 Class Work (C.W.): {cwSummary}");
+                    if (!string.IsNullOrWhiteSpace(diary.TeacherRemarks))
+                        descLines.Add($"💬 Teacher Note: {diary.TeacherRemarks.Trim()}");
+
+                    var description = string.Join("\n", descLines);
+                    var assignedDate = diary.DiaryDate.Date.AddHours(9);
+                    var dueDate = diary.DiaryDate.Date.AddDays(1).AddHours(17);
+
+                    submissionByHwId.TryGetValue(detId, out var sub);
+                    StudentHomeworkSubmissionDto? subDto = null;
+                    bool isSubmitted = false;
+                    string status = "Active";
+
+                    if (sub != null)
+                    {
+                        isSubmitted = true;
+                        status = sub.Status == "Approved" ? "Completed" : "Active";
+                        subDto = new StudentHomeworkSubmissionDto(
+                            sub.Id,
+                            sub.HomeworkId,
+                            sub.StudentId,
+                            student.StudentName,
+                            student.RollNumber,
+                            student.AdmissionNumber,
+                            sub.SubmissionDate,
+                            sub.StudentRemarks,
+                            sub.SubmissionFileUrl,
+                            sub.SubmissionFileName,
+                            sub.Status,
+                            sub.TeacherRemarks,
+                            sub.GradeOrMarks,
+                            sub.ReviewedAt,
+                            sub.ReviewedByTeacher != null ? sub.ReviewedByTeacher.FullName : null
+                        );
+                    }
+                    else if (primaryHw != null && string.Equals(primaryHw.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isSubmitted = true;
+                        status = "Completed";
+                        subDto = new StudentHomeworkSubmissionDto(
+                            detId,
+                            detId,
+                            student.Id,
+                            student.StudentName,
+                            student.RollNumber,
+                            student.AdmissionNumber,
+                            primaryHw.CheckedAt ?? diary.UpdatedAt,
+                            "Checked in Daily H.W. Register",
+                            "",
+                            "Verified in Class",
+                            "Approved",
+                            primaryHw.StatusRemark ?? diary.TeacherRemarks,
+                            "✔ Checked",
+                            primaryHw.CheckedAt ?? diary.UpdatedAt,
+                            primaryHw.CheckedByName ?? teacherName
+                        );
+                    }
+
+                    result.Add(new StudentHomeworkWithSubmissionDto(
+                        detId,
+                        diary.TenantId,
+                        diary.BranchId ?? student.BranchId,
+                        diary.ClassId ?? student.ClassId,
+                        diary.Class?.Name ?? student.Class?.Name,
+                        diary.SectionId ?? student.SectionId,
+                        diary.Section?.Name ?? student.Section?.Name,
+                        diary.BatchId ?? student.BatchId,
+                        diary.Batch?.Name ?? student.Batch?.Name,
+                        null,
+                        subj,
+                        teacherId,
+                        teacherName,
+                        title,
+                        description,
+                        assignedDate,
+                        dueDate,
+                        null,
+                        null,
+                        status,
+                        30,
+                        diary.CreatedAt,
+                        isSubmitted,
+                        subDto
+                    ));
+                }
+            }
+        }
+
         return Ok(result);
     }
 
     [HttpGet("preview-students")]
-    public async Task<IActionResult> GetPreviewStudents([FromQuery] Guid? classId, [FromQuery] Guid? sectionId)
+    public async Task<IActionResult> GetPreviewStudents([FromQuery] Guid? classId, [FromQuery] Guid? sectionId, [FromQuery] Guid? batchId = null)
     {
         var tenantId = _currentUser.TenantId;
         var query = _db.Students.AsNoTracking()
             .Include(s => s.Class)
             .Include(s => s.Section)
+            .Include(s => s.Batch)
             .Where(s => s.TenantId == tenantId && s.IsActive != false);
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            query = query.Where(s => s.BatchId == batchId.Value);
 
         if (classId.HasValue && classId.Value != Guid.Empty)
             query = query.Where(s => s.ClassId == classId.Value);
@@ -485,16 +679,65 @@ public class HomeworkController : ControllerBase
             {
                 s.Id,
                 s.StudentName,
-                s.RollNumber,
+                RollNumber = s.CoachingRollNumber ?? s.SchoolRollNumber ?? s.RollNumber,
                 s.AdmissionNumber,
                 s.ClassId,
                 ClassName = s.Class != null ? s.Class.Name : null,
                 s.SectionId,
-                SectionName = s.Section != null ? s.Section.Name : null
+                SectionName = s.Section != null ? s.Section.Name : null,
+                s.BatchId,
+                BatchName = s.Batch != null ? s.Batch.Name : null
             })
             .ToListAsync();
 
         return Ok(list);
+    }
+
+    [HttpGet("active-preview-context")]
+    public async Task<IActionResult> GetActivePreviewContext()
+    {
+        var tenantId = _currentUser.TenantId;
+
+        var latestDiary = await _db.DailyStudentDiaries.AsNoTracking()
+            .Where(d => d.TenantId == tenantId && !d.IsAbsent &&
+                        (!string.IsNullOrWhiteSpace(d.HomeWorkJson) || !string.IsNullOrWhiteSpace(d.ClassWorkJson)))
+            .OrderByDescending(d => d.DiaryDate)
+            .ThenByDescending(d => d.UpdatedAt)
+            .Select(d => new { d.ClassId, d.SectionId, d.BatchId, d.StudentId })
+            .FirstOrDefaultAsync();
+
+        if (latestDiary != null && (latestDiary.ClassId.HasValue || latestDiary.BatchId.HasValue))
+        {
+            return Ok(new
+            {
+                scope = latestDiary.BatchId.HasValue ? "coaching" : "school",
+                classId = latestDiary.ClassId,
+                sectionId = latestDiary.SectionId,
+                batchId = latestDiary.BatchId,
+                studentId = latestDiary.StudentId
+            });
+        }
+
+        var latestHw = await _db.StudentHomeworks.AsNoTracking()
+            .Where(h => h.TenantId == tenantId)
+            .OrderByDescending(h => h.AssignedDate)
+            .ThenByDescending(h => h.CreatedAt)
+            .Select(h => new { h.ClassId, h.SectionId, h.BatchId })
+            .FirstOrDefaultAsync();
+
+        if (latestHw != null && (latestHw.ClassId.HasValue || latestHw.BatchId.HasValue))
+        {
+            return Ok(new
+            {
+                scope = latestHw.BatchId.HasValue ? "coaching" : "school",
+                classId = latestHw.ClassId,
+                sectionId = latestHw.SectionId,
+                batchId = latestHw.BatchId,
+                studentId = (Guid?)null
+            });
+        }
+
+        return Ok(new { scope = "school", classId = (Guid?)null, sectionId = (Guid?)null, batchId = (Guid?)null, studentId = (Guid?)null });
     }
 
     // =========================================================================
@@ -530,6 +773,70 @@ public class HomeworkController : ControllerBase
             return BadRequest(new { message = "You are not logged in as a student or your profile is not linked." });
 
         var homework = await _db.StudentHomeworks.FirstOrDefaultAsync(h => h.Id == id && h.TenantId == tenantId);
+        if (homework == null)
+        {
+            // Check if this submission is for a DailyStudentDiary task
+            var recentDiaries = await _db.DailyStudentDiaries.AsNoTracking()
+                .Where(d => d.TenantId == tenantId && (d.StudentId == student.Id || d.ClassId == student.ClassId || d.BatchId == student.BatchId))
+                .OrderByDescending(d => d.DiaryDate)
+                .Take(100)
+                .ToListAsync();
+
+            foreach (var d in recentDiaries)
+            {
+                var cwList = new List<DailySubjectTaskItem>();
+                var hwList = new List<DailySubjectTaskItem>();
+                if (!string.IsNullOrWhiteSpace(d.ClassWorkJson))
+                {
+                    try { cwList = JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(d.ClassWorkJson) ?? new(); } catch { }
+                }
+                if (!string.IsNullOrWhiteSpace(d.HomeWorkJson))
+                {
+                    try { hwList = JsonSerializer.Deserialize<List<DailySubjectTaskItem>>(d.HomeWorkJson) ?? new(); } catch { }
+                }
+                var subjects = hwList.Where(x => !string.IsNullOrWhiteSpace(x.Task)).Select(x => (x.Subject ?? "General").Trim())
+                    .Concat(cwList.Where(x => !string.IsNullOrWhiteSpace(x.Task)).Select(x => (x.Subject ?? "General").Trim()))
+                    .Distinct(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var subj in subjects)
+                {
+                    if (CreateDeterministicDiaryHomeworkId(d.Id, subj) == id)
+                    {
+                        var subjHw = hwList.Where(x => !string.IsNullOrWhiteSpace(x.Task) && string.Equals((x.Subject ?? "General").Trim(), subj, StringComparison.OrdinalIgnoreCase)).ToList();
+                        var subjCw = cwList.Where(x => !string.IsNullOrWhiteSpace(x.Task) && string.Equals((x.Subject ?? "General").Trim(), subj, StringComparison.OrdinalIgnoreCase)).ToList();
+                        var hwSummary = string.Join("; ", subjHw.Select(x => x.Task.Trim()));
+                        var cwSummary = string.Join("; ", subjCw.Select(x => x.Task.Trim()));
+                        var primary = subjHw.FirstOrDefault() ?? subjCw.FirstOrDefault();
+
+                        homework = new StudentHomework
+                        {
+                            Id = id,
+                            TenantId = tenantId,
+                            BranchId = d.BranchId ?? student.BranchId,
+                            ClassId = d.ClassId ?? student.ClassId,
+                            SectionId = d.SectionId ?? student.SectionId,
+                            BatchId = d.BatchId ?? student.BatchId,
+                            SubjectName = subj,
+                            TeacherId = primary?.TeacherId ?? d.TeacherId,
+                            TeacherName = primary?.TeacherName ?? primary?.CheckedByName,
+                            Title = !string.IsNullOrWhiteSpace(hwSummary)
+                                ? $"Daily H.W. ({d.DiaryDate:dd MMM yyyy}): {hwSummary}"
+                                : $"Daily C.W. ({d.DiaryDate:dd MMM yyyy}): {cwSummary}",
+                            Description = !string.IsNullOrWhiteSpace(hwSummary) ? $"🏠 Home Work (H.W.): {hwSummary}" : $"📝 Class Work (C.W.): {cwSummary}",
+                            AssignedDate = d.DiaryDate.Date.AddHours(9),
+                            DueDate = d.DiaryDate.Date.AddDays(1).AddHours(17),
+                            Status = "Active",
+                            EstimatedMinutes = 30,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _db.StudentHomeworks.Add(homework);
+                        break;
+                    }
+                }
+                if (homework != null) break;
+            }
+        }
+
         if (homework == null)
             return NotFound(new { message = "Homework assignment not found." });
 
