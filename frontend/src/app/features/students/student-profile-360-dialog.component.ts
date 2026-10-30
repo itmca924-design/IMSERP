@@ -1,4 +1,4 @@
-﻿import { Component, Inject, OnInit, HostListener } from '@angular/core';
+import { Component, Inject, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -137,7 +137,7 @@ const API_BASE = environment.apiBaseUrl;
         <div class="metric-pill">
           <mat-icon class="icon-fee" [class.danger]="data360.feeSummary.totalPending > 0">account_balance_wallet</mat-icon>
           <span class="metric-val" [class.danger]="data360.feeSummary.totalPending > 0" [class.good]="data360.feeSummary.totalPending === 0">
-            Γé╣{{ data360.feeSummary.totalPending | number }}
+            &#8377;{{ data360.feeSummary.totalPending | number }}
           </span>
           <span class="metric-lbl">Due Balance</span>
         </div>
@@ -180,9 +180,9 @@ const API_BASE = environment.apiBaseUrl;
           </div>
           <div class="banner-content">
             <div class="banner-title-line">
-              <span class="banner-badge" *ngIf="alert.isStarPerformer">≡ƒîƒ Star Scholar & High Achiever</span>
-              <span class="banner-badge risk" *ngIf="alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk">ΓÜá∩╕Å Early Warning Alert</span>
-              <span class="banner-badge normal" *ngIf="!alert.isStarPerformer && !alert.hasAttendanceWarning && !alert.hasExamWarning && !alert.hasAttendanceRisk && !alert.hasAcademicRisk">≡ƒôè Performance Status</span>
+              <span class="banner-badge" *ngIf="alert.isStarPerformer">Star Scholar &amp; High Achiever</span>
+              <span class="banner-badge risk" *ngIf="alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk">Early Warning Alert</span>
+              <span class="banner-badge normal" *ngIf="!alert.isStarPerformer && !alert.hasAttendanceWarning && !alert.hasExamWarning && !alert.hasAttendanceRisk && !alert.hasAcademicRisk">Performance Status</span>
               <span class="banner-summary-text">{{ alert.attendanceAlertMessage || alert.examAlertMessage || alert.performanceBadgeText || alert.alertMessage }}</span>
             </div>
             <!-- Strengths and Weaknesses Tags -->
@@ -445,17 +445,17 @@ const API_BASE = environment.apiBaseUrl;
               <div class="fee-kpi-row">
                 <div class="fee-kpi-card billed">
                   <span class="kpi-label">Total Invoiced</span>
-                  <span class="kpi-val">Γé╣{{ data360.feeSummary.totalInvoiced | number }}</span>
+                  <span class="kpi-val">&#8377;{{ data360.feeSummary.totalInvoiced | number }}</span>
                   <span class="kpi-sub">{{ data360.feeSummary.totalInvoicesCount }} Total Invoices</span>
                 </div>
                 <div class="fee-kpi-card paid">
                   <span class="kpi-label">Total Received</span>
-                  <span class="kpi-val">Γé╣{{ data360.feeSummary.totalPaid | number }}</span>
+                  <span class="kpi-val">&#8377;{{ data360.feeSummary.totalPaid | number }}</span>
                   <span class="kpi-sub">Cleared Payments</span>
                 </div>
                 <div class="fee-kpi-card due" [class.has-due]="data360.feeSummary.totalPending > 0">
                   <span class="kpi-label">Pending Dues</span>
-                  <span class="kpi-val">Γé╣{{ data360.feeSummary.totalPending | number }}</span>
+                  <span class="kpi-val">&#8377;{{ data360.feeSummary.totalPending | number }}</span>
                   <span class="kpi-sub">{{ data360.feeSummary.unpaidInvoicesCount }} Unpaid / Partial</span>
                 </div>
               </div>
@@ -482,9 +482,9 @@ const API_BASE = environment.apiBaseUrl;
                       <td class="font-mono">{{ inv.invoiceNumber }}</td>
                       <td>{{ inv.title }}</td>
                       <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
-                      <td class="text-right font-semibold">Γé╣{{ inv.totalAmount | number }}</td>
-                      <td class="text-right text-success">Γé╣{{ inv.paidAmount | number }}</td>
-                      <td class="text-right" [class.text-danger]="inv.balanceAmount > 0">Γé╣{{ inv.balanceAmount | number }}</td>
+                      <td class="text-right font-semibold">&#8377;{{ inv.totalAmount | number }}</td>
+                      <td class="text-right text-success">&#8377;{{ inv.paidAmount | number }}</td>
+                      <td class="text-right" [class.text-danger]="inv.balanceAmount > 0">&#8377;{{ inv.balanceAmount | number }}</td>
                       <td>
                         <span class="status-badge" [ngClass]="inv.status.toLowerCase()">
                           {{ inv.status }}
@@ -642,7 +642,7 @@ const API_BASE = environment.apiBaseUrl;
                     </div>
                     <div class="fac-row">
                       <span>Monthly Rent:</span>
-                      <strong>Γé╣{{ data360.facilities.monthlyBedRent | number }}/mo</strong>
+                      <strong>&#8377;{{ data360.facilities.monthlyBedRent | number }}/mo</strong>
                     </div>
                   </div>
                 </div>
@@ -861,8 +861,8 @@ const API_BASE = environment.apiBaseUrl;
                   <mat-form-field appearance="outline">
                     <mat-label>Document Type *</mat-label>
                     <mat-select [(ngModel)]="newDoc.documentType">
-                      <mat-option value="Aadhaar">Aadhaar Card (αñåαñºαñ╛αñ░ αñòαñ╛αñ░αÑìαñí)</mat-option>
-                      <mat-option value="BirthCertificate">Birth Certificate (αñ£αñ¿αÑìαñ« αñ¬αÑìαñ░αñ«αñ╛αñú αñ¬αññαÑìαñ░)</mat-option>
+                      <mat-option value="Aadhaar">Aadhaar Card</mat-option>
+                      <mat-option value="BirthCertificate">Birth Certificate</mat-option>
                       <mat-option value="TransferCertificate">Previous School TC / SLC</mat-option>
                       <mat-option value="Marksheet">Previous Class Marksheet</mat-option>
                       <mat-option value="CasteCertificate">Caste / Category Certificate</mat-option>
@@ -1036,7 +1036,7 @@ const API_BASE = environment.apiBaseUrl;
                       <div class="honor-meta">
                         <span class="honor-category-tag" [ngClass]="(ach.category || 'other').toLowerCase()">{{ ach.category }}</span>
                         <span class="level-tag" *ngIf="ach.level || ach.awardLevel">{{ ach.level || ach.awardLevel }}</span>
-                        <span class="pos-tag" *ngIf="ach.position">≡ƒÅå {{ ach.position }}</span>
+                        <span class="pos-tag" *ngIf="ach.position">{{ ach.position }}</span>
                       </div>
                     </div>
                   </div>
@@ -1107,10 +1107,10 @@ const API_BASE = environment.apiBaseUrl;
                   <div class="form-field-wrap">
                     <label>Entry Type *</label>
                     <select class="custom-input" [(ngModel)]="newDiscipline.incidentType">
-                      <option value="PositiveCommendation">≡ƒîƒ Positive Commendation (Honor)</option>
-                      <option value="MinorInfraction">ΓÜá∩╕Å Minor Infraction (Warning)</option>
-                      <option value="ModerateMisconduct">≡ƒö╢ Moderate Misconduct</option>
-                      <option value="SevereViolation">≡ƒÜ¿ Severe Violation</option>
+                      <option value="PositiveCommendation">Positive Commendation (Honor)</option>
+                      <option value="MinorInfraction">Minor Infraction (Warning)</option>
+                      <option value="ModerateMisconduct">Moderate Misconduct</option>
+                      <option value="SevereViolation">Severe Violation</option>
                     </select>
                   </div>
                   <div class="form-field-wrap">
@@ -1361,10 +1361,10 @@ const API_BASE = environment.apiBaseUrl;
                   <div class="form-field-wrap">
                     <label>Parent Satisfaction Level</label>
                     <select class="custom-input" [(ngModel)]="newPtm.satisfactionRating">
-                      <option value="HighlySatisfied">≡ƒƒó Highly Satisfied</option>
-                      <option value="Satisfied">≡ƒö╡ Satisfied</option>
-                      <option value="NeedsImprovement">≡ƒƒá Needs Improvement</option>
-                      <option value="Dissatisfied">≡ƒö┤ Dissatisfied / Escalated</option>
+                      <option value="HighlySatisfied">Highly Satisfied</option>
+                      <option value="Satisfied">Satisfied</option>
+                      <option value="NeedsImprovement">Needs Improvement</option>
+                      <option value="Dissatisfied">Dissatisfied / Escalated</option>
                     </select>
                   </div>
                   <div class="form-field-wrap full-col">
@@ -1652,7 +1652,7 @@ const API_BASE = environment.apiBaseUrl;
             <div class="tab-content-wrap">
               <div class="tab-action-header">
                 <div>
-                  <h4 class="tab-action-title">Linked Siblings &amp; Family Group (αñ¡αñ╛αñê-αñ¼αñ╣αñ¿ αñ«αÑêαñ¬αñ┐αñéαñù)</h4>
+                  <h4 class="tab-action-title">Linked Siblings &amp; Family Group</h4>
                   <p class="tab-action-sub">Link brother/sister profiles, set sibling fee discount, and track family ledger</p>
                 </div>
                 <button mat-raised-button color="primary" class="primary-gradient-btn" *ngIf="!isReadOnly" (click)="showAddSiblingForm = !showAddSiblingForm">
@@ -1689,7 +1689,7 @@ const API_BASE = environment.apiBaseUrl;
                                <span *ngIf="c.className">Class {{ c.className }}</span>
                                <span *ngIf="c.batchName"><span *ngIf="c.className"> &bull; </span>Batch {{ c.batchName }}</span>
                               <span *ngIf="c.admissionNumber"> &bull; Adm: {{ c.admissionNumber }}</span>
-                              <span *ngIf="c.parentPhone"> &bull; ≡ƒô₧ {{ c.parentPhone }}</span>
+                              <span *ngIf="c.parentPhone"> &bull; Phone: {{ c.parentPhone }}</span>
                             </div>
                           </div>
                           <button type="button" class="cand-select-btn">Select</button>
@@ -1706,7 +1706,7 @@ const API_BASE = environment.apiBaseUrl;
                         <div>
                           <strong style="color: #15803d; font-size: 0.88rem;">{{ selectedSiblingCandidate.studentName }}</strong>
                           <span style="color:#475569; font-size:12px; margin-left:8px;">
-                            ({{ selectedSiblingCandidate.className ? 'Class ' + selectedSiblingCandidate.className : '' }}{{ selectedSiblingCandidate.className && selectedSiblingCandidate.batchName ? ' ΓÇó ' : '' }}{{ selectedSiblingCandidate.batchName ? 'Batch ' + selectedSiblingCandidate.batchName : '' }}{{ !selectedSiblingCandidate.className && !selectedSiblingCandidate.batchName ? 'No class/batch' : '' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
+                            ({{ selectedSiblingCandidate.className ? 'Class ' + selectedSiblingCandidate.className : '' }}{{ selectedSiblingCandidate.className && selectedSiblingCandidate.batchName ? ' &bull; ' : '' }}{{ selectedSiblingCandidate.batchName ? 'Batch ' + selectedSiblingCandidate.batchName : '' }}{{ !selectedSiblingCandidate.className && !selectedSiblingCandidate.batchName ? 'No class/batch' : '' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
                           </span>
                         </div>
                       </div>
@@ -1717,12 +1717,12 @@ const API_BASE = environment.apiBaseUrl;
                   </div>
 
                   <div class="form-field-wrap">
-                    <label>Relationship (αñ╕αñéαñ¼αñéαñº) *</label>
+                    <label>Relationship *</label>
                     <select class="custom-input" [(ngModel)]="newSiblingRelationship">
-                      <option value="Brother">Brother (αñ¡αñ╛αñê)</option>
-                      <option value="Sister">Sister (αñ¼αñ╣αñ¿)</option>
-                      <option value="Twin">Twin (αñ£αÑüαñíαñ╝αñ╡αñ╛αñé)</option>
-                      <option value="Cousin">Cousin (αñòαñ£αñ╝αñ┐αñ¿)</option>
+                      <option value="Brother">Brother</option>
+                      <option value="Sister">Sister</option>
+                      <option value="Twin">Twin</option>
+                      <option value="Cousin">Cousin</option>
                     </select>
                   </div>
 
@@ -1775,7 +1775,7 @@ const API_BASE = environment.apiBaseUrl;
                     </div>
                     <div class="sib-badge fee-badge" [class.has-due]="sib.outstandingDues > 0">
                       <mat-icon>{{ sib.outstandingDues > 0 ? 'account_balance_wallet' : 'verified' }}</mat-icon>
-                      {{ sib.outstandingDues > 0 ? ('Pending Due: Γé╣' + (sib.outstandingDues | number)) : 'Fee Cleared (Γé╣0 Due)' }}
+                      {{ sib.outstandingDues > 0 ? ('Pending Due: ₹' + (sib.outstandingDues | number)) : 'Fee Cleared (₹0 Due)' }}
                     </div>
                   </div>
 
@@ -1829,7 +1829,7 @@ const API_BASE = environment.apiBaseUrl;
                 </div>
                 <div class="kit-kpi-card">
                   <span class="kpi-label">Total Kit Value</span>
-                  <span class="kpi-val text-primary">Γé╣{{ getTotalKitValue() | number:'1.2-2' }}</span>
+                  <span class="kpi-val text-primary">&#8377;{{ getTotalKitValue() | number:'1.2-2' }}</span>
                 </div>
               </div>
 
@@ -1855,7 +1855,7 @@ const API_BASE = environment.apiBaseUrl;
                         <span class="item-summary-pill">{{ kit.itemsSummary }}</span>
                       </td>
                       <td class="font-bold">{{ kit.totalQuantity }}</td>
-                      <td class="font-bold text-slate-800">Γé╣{{ kit.totalAmount | number:'1.2-2' }}</td>
+                      <td class="font-bold text-slate-800">&#8377;{{ kit.totalAmount | number:'1.2-2' }}</td>
                       <td>
                         <span class="badge-status" [ngClass]="{
                           'status-paid': kit.paymentStatus === 'Paid',
@@ -1916,7 +1916,7 @@ const API_BASE = environment.apiBaseUrl;
           <div class="printable-certificate-sheet" id="printCertificateArea">
             <div class="cert-inner-border">
               <div class="cert-header">
-                <div class="cert-seal-icon">≡ƒÅå</div>
+                <div class="cert-seal-icon"><mat-icon style="font-size: 36px; width: 36px; height: 36px; color: #d97706;">emoji_events</mat-icon></div>
                 <h1 class="cert-school-name">{{ data360?.student?.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE' }}</h1>
                 <h3 class="cert-heading">CERTIFICATE OF MERIT &amp; ACHIEVEMENT</h3>
                 <div class="cert-ribbon-sub">This accolade is proudly conferred upon</div>
@@ -4429,7 +4429,8 @@ const API_BASE = environment.apiBaseUrl;
         }
       }
 
-      /* ΓöÇΓöÇ TAB 13: KITS & INVENTORY ASSETS STYLES ΓöÇΓöÇ */
+      }
+      /* ── TAB 13: KITS & INVENTORY ASSETS STYLES ── */
       .kit-kpi-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -4514,7 +4515,6 @@ const API_BASE = environment.apiBaseUrl;
         color: #991b1b;
         border: 1px solid #fecaca;
       }
-    }
   `]
 })
 export class StudentProfile360DialogComponent implements OnInit {
@@ -5035,12 +5035,12 @@ export class StudentProfile360DialogComponent implements OnInit {
   }
 
   formatRating(rating?: string): string {
-    if (!rating) return '≡ƒƒó Verified Interaction';
+    if (!rating) return 'Verified Interaction';
     switch (rating) {
-      case 'HighlySatisfied': return '≡ƒƒó Highly Satisfied';
-      case 'Satisfied': return '≡ƒö╡ Satisfied';
-      case 'NeedsImprovement': return '≡ƒƒá Needs Improvement';
-      case 'Dissatisfied': return '≡ƒö┤ Dissatisfied';
+      case 'HighlySatisfied': return 'Highly Satisfied';
+      case 'Satisfied': return 'Satisfied';
+      case 'NeedsImprovement': return 'Needs Improvement';
+      case 'Dissatisfied': return 'Dissatisfied';
       default: return rating;
     }
   }
