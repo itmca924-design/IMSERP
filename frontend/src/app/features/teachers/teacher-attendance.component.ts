@@ -2116,10 +2116,10 @@ export class TeacherAttendanceComponent implements OnInit {
       if (diff < fullDayMinThreshold) return 'HalfDay';
     }
 
-    if (inMin !== null && inMin > lateCutoff && (record.status === 'Present' || record.status === 'Late')) {
+    if (inMin !== null && inMin > lateCutoff) {
       return 'Late';
     }
-    return record.status as any;
+    return 'Present';
   }
 
   onTimeChanged() {

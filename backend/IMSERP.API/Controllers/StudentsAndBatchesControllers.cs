@@ -160,17 +160,13 @@ public class StudentsController : ControllerBase
             }
         }
 
-        // Late detection based on check-in arrival time
+        // Punctuality detection based on check-in arrival time
         if (inMin.Value > lateCutoffMin)
         {
             return TeacherAttendanceStatus.Late;
         }
-        else if (inMin.Value <= lateCutoffMin && declaredStatus == TeacherAttendanceStatus.Late)
-        {
-            return TeacherAttendanceStatus.Present;
-        }
 
-        return declaredStatus;
+        return TeacherAttendanceStatus.Present;
     }
 
     private static int? ParseTimeToMinutes(string timeStr)
@@ -1390,7 +1386,7 @@ public class StudentsController : ControllerBase
             existingRecords.TryGetValue(s.Id, out var att);
             DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
             DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
-            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings).ToString() : "Present";
+            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, "coaching").ToString() : "Present";
             return new BatchAttendanceStudentRowDto(
                 s.Id,
                 s.StudentName,
@@ -1557,7 +1553,7 @@ public class StudentsController : ControllerBase
             existingRecords.TryGetValue(s.Id, out var att);
             DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
             DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
-            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings).ToString() : "Present";
+            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, "coaching").ToString() : "Present";
             return new SchoolAttendanceStudentRowDto(
                 s.Id,
                 s.StudentName,

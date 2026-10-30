@@ -2893,13 +2893,17 @@ export class StudentAttendanceComponent implements OnInit {
     let grace: number;
 
     if (isCoaching) {
-      if (this.coachingActiveShift === 'evening' || inMin >= 720) {
-        shiftStart = this.parseTimeToMinutes(this.bulkCheckInTime || this.attendanceSettings?.coachingEveningStartTime || '16:00') ?? 960;
-        shiftEnd = this.parseTimeToMinutes(this.bulkCheckOutTime || this.attendanceSettings?.coachingEveningEndTime || '19:00') ?? 1140;
+      if (inMin >= 720) {
+        const defaultIn = this.coachingActiveShift === 'evening' && this.bulkCheckInTime ? this.bulkCheckInTime : (this.attendanceSettings?.coachingEveningStartTime || '16:00');
+        const defaultOut = this.coachingActiveShift === 'evening' && this.bulkCheckOutTime ? this.bulkCheckOutTime : (this.attendanceSettings?.coachingEveningEndTime || '19:00');
+        shiftStart = this.parseTimeToMinutes(defaultIn) ?? 960;
+        shiftEnd = this.parseTimeToMinutes(defaultOut) ?? 1140;
         grace = this.attendanceSettings?.coachingEveningGraceMinutes ?? 15;
       } else {
-        shiftStart = this.parseTimeToMinutes(this.bulkCheckInTime || this.attendanceSettings?.coachingMorningStartTime || '07:00') ?? 420;
-        shiftEnd = this.parseTimeToMinutes(this.bulkCheckOutTime || this.attendanceSettings?.coachingMorningEndTime || '10:00') ?? 600;
+        const defaultIn = this.coachingActiveShift === 'morning' && this.bulkCheckInTime ? this.bulkCheckInTime : (this.attendanceSettings?.coachingMorningStartTime || '07:00');
+        const defaultOut = this.coachingActiveShift === 'morning' && this.bulkCheckOutTime ? this.bulkCheckOutTime : (this.attendanceSettings?.coachingMorningEndTime || '10:00');
+        shiftStart = this.parseTimeToMinutes(defaultIn) ?? 420;
+        shiftEnd = this.parseTimeToMinutes(defaultOut) ?? 600;
         grace = this.attendanceSettings?.coachingMorningGraceMinutes ?? 15;
       }
     } else {
@@ -2951,11 +2955,9 @@ export class StudentAttendanceComponent implements OnInit {
 
     if (inMin > lateCutoff) {
       return 'Late';
-    } else if (inMin <= lateCutoff && declaredStatus === 'Late') {
-      return 'Present';
     }
 
-    return declaredStatus;
+    return 'Present';
   }
 
   onStudentRowTimeChanged(student: BatchStudentRow): void {

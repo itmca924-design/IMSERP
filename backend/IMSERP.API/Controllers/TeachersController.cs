@@ -4777,17 +4777,13 @@ public class TeachersController : ControllerBase
             }
         }
 
-        // Late detection based on check-in arrival time
+        // Punctuality detection based on check-in arrival time
         if (inMin.Value > lateCutoffMin)
         {
             return TeacherAttendanceStatus.Late;
         }
-        else if (inMin.Value <= lateCutoffMin && declaredStatus == TeacherAttendanceStatus.Late)
-        {
-            return TeacherAttendanceStatus.Present;
-        }
 
-        return declaredStatus;
+        return TeacherAttendanceStatus.Present;
     }
 
     private static int? ParseTimeToMinutes(string timeStr)
