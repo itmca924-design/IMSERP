@@ -1097,14 +1097,15 @@ public class StudentsController : ControllerBase
             record.BranchId = student.BranchId;
         }
 
-        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
-        status = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
-
         string targetSource = string.Equals(dto.Stream, "coaching", StringComparison.OrdinalIgnoreCase)
             ? "ManualBulk"
             : (string.Equals(dto.Stream, "school", StringComparison.OrdinalIgnoreCase)
                 ? "ManualSchoolBulk"
                 : (student.IsCoachingStudent && !student.IsSchoolStudent ? "ManualBulk" : "Manual"));
+
+        string effectiveScope = targetSource == "ManualBulk" ? "coaching" : "school";
+        var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
+        status = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings, effectiveScope);
 
         record.Status = status;
         record.Remarks = dto.Remarks;
@@ -1169,9 +1170,11 @@ public class StudentsController : ControllerBase
                 ? "ManualSchoolBulk"
                 : (student.IsCoachingStudent && !student.IsSchoolStudent ? "ManualBulk" : "Manual"));
 
+        string effectiveScope = targetSource == "ManualBulk" ? "coaching" : "school";
+
         foreach (var date in validDates)
         {
-            var effectiveStatus = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
+            var effectiveStatus = EvaluateStudentSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings, effectiveScope);
 
             if (existingMap.TryGetValue(date, out var record))
             {
@@ -1297,7 +1300,8 @@ public class StudentsController : ControllerBase
 
             if (day.IsPresent)
             {
-                status = EvaluateStudentSmartAttendanceStatus(status, inTime, outTime, attSettings);
+                string effectiveScope = targetSource == "ManualBulk" ? "coaching" : "school";
+                status = EvaluateStudentSmartAttendanceStatus(status, inTime, outTime, attSettings, effectiveScope);
             }
 
             if (existingMap.TryGetValue(date, out var existing))
@@ -1553,7 +1557,7 @@ public class StudentsController : ControllerBase
             existingRecords.TryGetValue(s.Id, out var att);
             DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
             DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
-            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, "coaching").ToString() : "Present";
+            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, "school").ToString() : "Present";
             return new SchoolAttendanceStudentRowDto(
                 s.Id,
                 s.StudentName,
