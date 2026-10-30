@@ -389,10 +389,21 @@ interface CalendarDay {
                 <div class="student-meta">
                   <span class="name">{{ s.studentName }}</span>
                   <span class="adm-pill" *ngIf="s.admissionNumber && rollCallScope === 'coaching'">ADM: {{ s.admissionNumber }}</span>
-                  <span class="sub" *ngIf="s.attendanceId">
-                    <mat-icon class="saved-dot">check_circle</mat-icon>
-                    <span>Marked {{ formatCapturedTime(s.capturedAt) }}</span>
-                  </span>
+                  
+                  <ng-container *ngIf="s.attendanceId">
+                    <!-- Biometric Machine Punch Source -->
+                    <span class="sub bio-sub" *ngIf="isBiometricAttendance(s)" [matTooltip]="'Biometric machine punch captured at ' + formatCapturedTime(s.capturedAt) + ' IST'">
+                      <mat-icon class="bio-dot">fingerprint</mat-icon>
+                      <span class="sub-text">Punch {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : formatCapturedTime(s.capturedAt) }}</span>
+                    </span>
+
+                    <!-- Manual Roll Call Source -->
+                    <span class="sub manual-sub" *ngIf="!isBiometricAttendance(s)" [matTooltip]="'Manual roll-call entry (Saved in database at ' + formatCapturedTime(s.capturedAt) + ' IST)'">
+                      <mat-icon class="saved-dot">check_circle</mat-icon>
+                      <span class="sub-text">In: {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : 'Shift Time' }}</span>
+                      <span class="log-pill" *ngIf="s.capturedAt" [matTooltip]="'Saved in database at ' + formatCapturedTime(s.capturedAt)">Logged</span>
+                    </span>
+                  </ng-container>
                 </div>
               </td>
               <td *ngIf="rollCallScope === 'school'">
@@ -436,12 +447,12 @@ interface CalendarDay {
               </td>
               <td class="timings-cell">
                 <div class="row-timings" *ngIf="s.status !== 'Absent'">
-                  <div class="time-field" matTooltip="Check-in Time">
-                    <span class="t-badge">In</span>
+                  <div class="time-field" [matTooltip]="isBiometricAttendance(s) ? 'Biometric Check-In Punch' : 'Session In Time (Policy Shift Default - Editable)'">
+                    <span class="t-badge" [class.bio-badge]="isBiometricAttendance(s)">In</span>
                     <input type="time" [(ngModel)]="s.checkInTime" (ngModelChange)="onStudentRowTimeChanged(s)" [disabled]="isBatchPastLocked" class="table-time-input">
                   </div>
-                  <div class="time-field" matTooltip="Check-out Time">
-                    <span class="t-badge">Out</span>
+                  <div class="time-field" [matTooltip]="isBiometricAttendance(s) ? 'Biometric Check-Out Punch' : 'Session Out Time (Policy Shift Default - Editable)'">
+                    <span class="t-badge" [class.bio-badge]="isBiometricAttendance(s)">Out</span>
                     <input type="time" [(ngModel)]="s.checkOutTime" (ngModelChange)="onStudentRowTimeChanged(s)" [disabled]="isBatchPastLocked" class="table-time-input">
                   </div>
                 </div>
@@ -1420,7 +1431,33 @@ interface CalendarDay {
     }
     .student-meta { display: flex; flex-direction: column; }
     .student-meta .name { font-weight: 600; color: #1e293b; font-size: 0.92rem; }
-    .student-meta .sub { font-size: 0.72rem; color: #16a34a; display: flex; align-items: center; gap: 2px; }
+    .student-meta .sub {
+      font-size: 0.72rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin-top: 2px;
+      cursor: help;
+      &.manual-sub {
+        color: #15803d;
+        .saved-dot { color: #16a34a; font-size: 14px; width: 14px; height: 14px; }
+      }
+      &.bio-sub {
+        color: #1d4ed8;
+        font-weight: 600;
+        .bio-dot { color: #2563eb; font-size: 14px; width: 14px; height: 14px; }
+      }
+      .log-pill {
+        background: #f1f5f9;
+        color: #64748b;
+        font-size: 0.65rem;
+        font-weight: 600;
+        padding: 0 4px;
+        border-radius: 4px;
+        border: 1px solid #e2e8f0;
+        margin-left: 2px;
+      }
+    }
     .saved-dot { font-size: 14px; width: 14px; height: 14px; }
     .adm-pill {
       display: inline-block; background: #e0e7ff; color: #3730a3;
@@ -1535,6 +1572,9 @@ interface CalendarDay {
     .time-field .t-badge {
       font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase;
       background: #f1f5f9; padding: 2px 4px; border-radius: 4px; border: 1px solid #e2e8f0;
+      &.bio-badge {
+        background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;
+      }
     }
     .table-time-input {
       border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 6px; font-size: 0.78rem;
@@ -3956,6 +3996,29 @@ export class StudentAttendanceComponent implements OnInit {
     } catch {
       return 'Previously';
     }
+  }
+
+  formatTimeAmPm(timeStr?: string | null): string {
+    if (!timeStr) return '';
+    try {
+      const parts = timeStr.trim().split(':');
+      if (parts.length < 2) return timeStr;
+      let h = parseInt(parts[0], 10);
+      const m = parts[1].padStart(2, '0');
+      if (isNaN(h)) return timeStr;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      h = h ? h : 12;
+      return `${String(h).padStart(2, '0')}:${m} ${ampm}`;
+    } catch {
+      return timeStr || '';
+    }
+  }
+
+  isBiometricAttendance(s: BatchStudentRow | any): boolean {
+    if (!s) return false;
+    const src = (s.captureSource || '').toLowerCase();
+    return src.includes('bio') || src.includes('hik') || src.includes('device') || src.includes('mach');
   }
 
   setTab(tab: 'batch' | 'single' | 'regularization'): void {
