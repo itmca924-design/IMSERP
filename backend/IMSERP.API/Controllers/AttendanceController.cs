@@ -373,6 +373,18 @@ public class AttendanceController : ControllerBase
                 }
             }
 
+            // Solution B: Smart attendance evaluation for student biometric punch
+            string shiftScope = student.IsCoachingStudent && !student.IsSchoolStudent
+                ? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning")
+                : (student.IsSchoolStudent ? "school" : (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning"));
+
+            record.Status = StudentsController.EvaluateStudentSmartAttendanceStatus(
+                TeacherAttendanceStatus.Present,
+                record.CheckInTime,
+                record.CheckOutTime,
+                settings,
+                shiftScope);
+
             // If student had approved leave on this date, update remarks noting turnstile attendance
             var approvedStudentLeave = await _db.StudentLeaves.FirstOrDefaultAsync(l =>
                 l.TenantId == _currentUser.TenantId &&
@@ -475,6 +487,19 @@ public class AttendanceController : ControllerBase
             teacherRecord.CheckOutTime = indiaTime.ToString("HH:mm");
         else
             teacherRecord.CheckInTime ??= indiaTime.ToString("HH:mm");
+
+        // Solution B: Smart attendance evaluation for teacher biometric punch
+        string teacherShiftScope = "school";
+        if (indiaTime.Hour < 8 || indiaTime.Hour >= 16)
+        {
+            teacherShiftScope = indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning";
+        }
+        teacherRecord.Status = TeachersController.EvaluateSmartAttendanceStatus(
+            TeacherAttendanceStatus.Present,
+            teacherRecord.CheckInTime,
+            teacherRecord.CheckOutTime,
+            settings,
+            teacherShiftScope);
 
         // Biometric Conflict Resolution: Check if teacher had an approved leave on this date
         var approvedLeave = await _db.TeacherLeaves.FirstOrDefaultAsync(l =>
@@ -926,6 +951,8 @@ public class AttendanceController : ControllerBase
         };
         _db.BiometricEventLogs.Add(eventLog);
 
+        var settings = await _db.AttendanceSettings.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == resolvedTenantId);
+
         // Check Student first (by Biometric ID, Admission No, Roll No, Coaching Roll No, or RFID Card No)
         var student = await _db.Students.IgnoreQueryFilters()
             .FirstOrDefaultAsync(s => s.TenantId == resolvedTenantId &&
@@ -972,6 +999,18 @@ public class AttendanceController : ControllerBase
                 record.CaptureSource = "Hikvision DS-K1A802AEF";
                 record.CapturedAt = eventTime;
             }
+
+            // Solution B: Smart attendance evaluation for student Hikvision punch
+            string shiftScope = student.IsCoachingStudent && !student.IsSchoolStudent
+                ? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning")
+                : (student.IsSchoolStudent ? "school" : (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning"));
+
+            record.Status = StudentsController.EvaluateStudentSmartAttendanceStatus(
+                TeacherAttendanceStatus.Present,
+                record.CheckInTime,
+                record.CheckOutTime,
+                settings,
+                shiftScope);
 
             eventLog.Status = "Processed";
             eventLog.AttendanceId = record.Id;
@@ -1029,6 +1068,19 @@ public class AttendanceController : ControllerBase
                 record.CaptureSource = "Hikvision DS-K1A802AEF";
                 record.CapturedAt = eventTime;
             }
+
+            // Solution B: Smart attendance evaluation for teacher Hikvision punch
+            string teacherShiftScope = "school";
+            if (indiaTime.Hour < 8 || indiaTime.Hour >= 16)
+            {
+                teacherShiftScope = indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning";
+            }
+            record.Status = TeachersController.EvaluateSmartAttendanceStatus(
+                TeacherAttendanceStatus.Present,
+                record.CheckInTime,
+                record.CheckOutTime,
+                settings,
+                teacherShiftScope);
 
             eventLog.Status = "Processed";
             eventLog.AttendanceId = record.Id;

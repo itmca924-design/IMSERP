@@ -2066,33 +2066,59 @@ export class TeacherAttendanceComponent implements OnInit {
     const diff = this.getDiffMinutes(record.checkInTime, record.checkOutTime);
     const inMin = this.parseTimeToMinutes(record.checkInTime);
 
-    const halfThreshold = this.attendanceSettings?.teacherHalfDayThresholdMinutes ?? 240;
-    let shiftStart = 480;
-    let graceMin = 15;
-
     const isCoaching = shiftHint?.startsWith('coaching') ||
-                       (record.captureSource && record.captureSource.toLowerCase().includes('coaching'));
+                       this.activeShiftType?.startsWith('coaching') ||
+                       (record.captureSource && record.captureSource.toLowerCase().includes('coaching')) ||
+                       (inMin !== null && (inMin < 450 || inMin >= 930));
+
+    let shiftStart: number;
+    let shiftEnd: number;
+    let graceMin: number;
 
     if (isCoaching) {
-      if (shiftHint === 'coaching_evening' || (inMin !== null && inMin >= 720)) {
+      if (shiftHint === 'coaching_evening' || this.activeShiftType === 'coaching_evening' || (inMin !== null && inMin >= 720)) {
         // Coaching Evening Shift
-        shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.coachingEveningStartTime || '16:00') ?? 960;
+        shiftStart = this.parseTimeToMinutes(this.batchTargetCheckIn || this.attendanceSettings?.coachingEveningStartTime || '16:00') ?? 960;
+        shiftEnd = this.parseTimeToMinutes(this.batchTargetCheckOut || this.attendanceSettings?.coachingEveningEndTime || '19:00') ?? 1140;
         graceMin = this.attendanceSettings?.coachingEveningGraceMinutes ?? 15;
       } else {
         // Coaching Morning Shift
-        shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.coachingMorningStartTime || '07:00') ?? 420;
+        shiftStart = this.parseTimeToMinutes(this.batchTargetCheckIn || this.attendanceSettings?.coachingMorningStartTime || '07:00') ?? 420;
+        shiftEnd = this.parseTimeToMinutes(this.batchTargetCheckOut || this.attendanceSettings?.coachingMorningEndTime || '10:00') ?? 600;
         graceMin = this.attendanceSettings?.coachingMorningGraceMinutes ?? 15;
       }
     } else {
       // School Day Shift / General Shift
-      shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.teacherShiftStartTime || '08:00') ?? 480;
+      shiftStart = this.parseTimeToMinutes(this.batchTargetCheckIn || this.attendanceSettings?.teacherShiftStartTime || '08:00') ?? 480;
+      shiftEnd = this.parseTimeToMinutes(this.batchTargetCheckOut || this.attendanceSettings?.teacherShiftEndTime || '17:00') ?? 1020;
       graceMin = this.attendanceSettings?.teacherGracePeriodMinutes ?? 15;
     }
 
     const lateCutoff = shiftStart + graceMin;
 
-    if (diff !== null && diff > 0 && diff < halfThreshold) return 'HalfDay';
-    if (diff !== null && diff >= halfThreshold && inMin !== null && inMin > lateCutoff && (record.status === 'Present' || record.status === 'Late')) return 'Late';
+    // Solution B: Dynamic Duration & Ratio-Based Thresholds (Zero hardcoding)
+    let shiftDuration = shiftEnd - shiftStart;
+    if (shiftDuration <= 0) {
+      shiftDuration = isCoaching ? 150 : 540;
+    }
+    const expectedDuration = shiftDuration;
+
+    let fullDayMinThreshold = Math.round(expectedDuration * 0.70);
+    let halfDayMinThreshold = Math.round(expectedDuration * 0.35);
+
+    if (!isCoaching && (this.attendanceSettings?.teacherHalfDayThresholdMinutes ?? 0) > 0) {
+      fullDayMinThreshold = this.attendanceSettings?.teacherHalfDayThresholdMinutes || 240;
+      halfDayMinThreshold = Math.round(fullDayMinThreshold / 2);
+    }
+
+    if (diff !== null && diff > 0) {
+      if (diff < halfDayMinThreshold) return 'Absent';
+      if (diff < fullDayMinThreshold) return 'HalfDay';
+    }
+
+    if (inMin !== null && inMin > lateCutoff && (record.status === 'Present' || record.status === 'Late')) {
+      return 'Late';
+    }
     return record.status as any;
   }
 
@@ -2119,20 +2145,52 @@ export class TeacherAttendanceComponent implements OnInit {
     const m = diff % 60;
     const durStr = m > 0 ? `${h}h ${m}m` : `${h}h`;
 
-    const halfThreshold = this.attendanceSettings?.teacherHalfDayThresholdMinutes ?? 240;
-    const shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.teacherShiftStartTime || '08:00') ?? 480;
-    const graceMin = this.attendanceSettings?.teacherGracePeriodMinutes ?? 15;
+    const isCoaching = this.activeShiftType !== 'school' || inMin < 450 || inMin >= 930;
+    let shiftStart: number;
+    let shiftEnd: number;
+    let graceMin: number;
+
+    if (isCoaching) {
+      if (this.activeShiftType === 'coaching_evening' || inMin >= 720) {
+        shiftStart = this.parseTimeToMinutes(this.batchTargetCheckIn || this.attendanceSettings?.coachingEveningStartTime || '16:00') ?? 960;
+        shiftEnd = this.parseTimeToMinutes(this.batchTargetCheckOut || this.attendanceSettings?.coachingEveningEndTime || '19:00') ?? 1140;
+        graceMin = this.attendanceSettings?.coachingEveningGraceMinutes ?? 15;
+      } else {
+        shiftStart = this.parseTimeToMinutes(this.batchTargetCheckIn || this.attendanceSettings?.coachingMorningStartTime || '07:00') ?? 420;
+        shiftEnd = this.parseTimeToMinutes(this.batchTargetCheckOut || this.attendanceSettings?.coachingMorningEndTime || '10:00') ?? 600;
+        graceMin = this.attendanceSettings?.coachingMorningGraceMinutes ?? 15;
+      }
+    } else {
+      shiftStart = this.parseTimeToMinutes(this.batchTargetCheckIn || this.attendanceSettings?.teacherShiftStartTime || '08:00') ?? 480;
+      shiftEnd = this.parseTimeToMinutes(this.batchTargetCheckOut || this.attendanceSettings?.teacherShiftEndTime || '17:00') ?? 1020;
+      graceMin = this.attendanceSettings?.teacherGracePeriodMinutes ?? 15;
+    }
+
     const lateCutoff = shiftStart + graceMin;
     const cutoffFormatted = this.formatDisplayTime(this.minutesToTimeString(lateCutoff));
-    const halfHours = (halfThreshold / 60).toFixed(1).replace('.0', '');
 
-    if (diff < halfThreshold) {
-      return `Work Duration: ${durStr} (< ${halfHours} hours) — Auto-detected as Half Day`;
+    let shiftDuration = shiftEnd - shiftStart;
+    if (shiftDuration <= 0) shiftDuration = isCoaching ? 150 : 540;
+    const expectedDuration = shiftDuration;
+
+    let fullDayMin = Math.round(expectedDuration * 0.70);
+    let halfDayMin = Math.round(expectedDuration * 0.35);
+
+    if (!isCoaching && (this.attendanceSettings?.teacherHalfDayThresholdMinutes ?? 0) > 0) {
+      fullDayMin = this.attendanceSettings?.teacherHalfDayThresholdMinutes || 240;
+      halfDayMin = Math.round(fullDayMin / 2);
+    }
+
+    if (diff < halfDayMin) {
+      return `Work Duration: ${durStr} (< 35% of session) — Auto-detected as Absent`;
+    }
+    if (diff < fullDayMin) {
+      return `Work Duration: ${durStr} (35%–69% of session) — Auto-detected as Half Day`;
     }
     if (inMin > lateCutoff) {
       return `Punch-in: ${this.markData.checkInTime} (After ${cutoffFormatted} grace cutoff) — Auto-detected as Late Mark (${durStr} duration)`;
     }
-    return `Work Duration: ${durStr} (On-time punch-in) — Full Day Present`;
+    return `Work Duration: ${durStr} (≥70% completed on-time) — Full Day Present`;
   }
 
   getLateQuotaTooltip(): string {

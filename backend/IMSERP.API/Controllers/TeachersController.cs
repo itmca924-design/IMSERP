@@ -4664,7 +4664,7 @@ public class TeachersController : ControllerBase
         });
     }
 
-    private static TeacherAttendanceStatus EvaluateSmartAttendanceStatus(
+    public static TeacherAttendanceStatus EvaluateSmartAttendanceStatus(
         TeacherAttendanceStatus declaredStatus, string? inTime, string? outTime, AttendanceSettings? settings = null, string? scopeOrShift = null)
     {
         if (declaredStatus == TeacherAttendanceStatus.Absent || declaredStatus == TeacherAttendanceStatus.Holiday || declaredStatus == TeacherAttendanceStatus.WeekOff || declaredStatus == TeacherAttendanceStatus.Leave)
@@ -4677,13 +4677,23 @@ public class TeachersController : ControllerBase
         if (inMin == null)
             return declaredStatus;
 
-        int halfDayThreshold = settings?.TeacherHalfDayThresholdMinutes ?? 240;
-        int shiftStartMin;
-        int graceMinutes;
-
         var isCoaching = string.Equals(scopeOrShift, "coaching", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase);
+
+        // Dynamic Shift Inference: If scopeOrShift not specified, infer coaching vs school based on check-in timing
+        // Coaching in India typically operates in early morning (< 07:30 AM / 450m) or late afternoon/evening (>= 15:30 / 930m)
+        if (!isCoaching && string.IsNullOrWhiteSpace(scopeOrShift))
+        {
+            if (inMin.Value < 450 || inMin.Value >= 930)
+            {
+                isCoaching = true;
+            }
+        }
+
+        int shiftStartMin;
+        int shiftEndMin;
+        int graceMinutes;
 
         if (isCoaching)
         {
@@ -4691,12 +4701,14 @@ public class TeachersController : ControllerBase
             {
                 // Coaching Evening Shift
                 shiftStartMin = ParseTimeToMinutes(settings?.CoachingEveningStartTime ?? "16:00") ?? 960;
+                shiftEndMin = ParseTimeToMinutes(settings?.CoachingEveningEndTime ?? "19:00") ?? 1140;
                 graceMinutes = settings?.CoachingEveningGraceMinutes ?? 15;
             }
             else
             {
                 // Coaching Morning Shift
                 shiftStartMin = ParseTimeToMinutes(settings?.CoachingMorningStartTime ?? "07:00") ?? 420;
+                shiftEndMin = ParseTimeToMinutes(settings?.CoachingMorningEndTime ?? "10:00") ?? 600;
                 graceMinutes = settings?.CoachingMorningGraceMinutes ?? 15;
             }
         }
@@ -4704,12 +4716,35 @@ public class TeachersController : ControllerBase
         {
             // School Faculty / General Shift
             shiftStartMin = ParseTimeToMinutes(settings?.TeacherShiftStartTime ?? "08:00") ?? 480;
+            shiftEndMin = ParseTimeToMinutes(settings?.TeacherShiftEndTime ?? "17:00") ?? 1020;
             graceMinutes = settings?.TeacherGracePeriodMinutes ?? 15;
         }
 
         int lateCutoffMin = shiftStartMin + graceMinutes;
 
-        // If outTime is provided, evaluate work duration for half day
+        // Solution B: Dynamic Duration & Ratio-Based Thresholds (Zero hardcoding)
+        int shiftDuration = shiftEndMin - shiftStartMin;
+        if (shiftDuration <= 0)
+        {
+            shiftDuration = isCoaching ? 150 : 540;
+        }
+        int expectedDuration = shiftDuration;
+
+        // Dynamic thresholds:
+        // Full Day qualification: >= 70% of expected duration
+        // Half Day qualification: 35% to 69% of expected duration
+        // Absent (insufficient attendance): < 35% of expected duration
+        int fullDayMinThreshold = (int)Math.Round(expectedDuration * 0.70);
+        int halfDayMinThreshold = (int)Math.Round(expectedDuration * 0.35);
+
+        // If General/School shift and admin configured a specific TeacherHalfDayThresholdMinutes, respect it
+        if (!isCoaching && (settings?.TeacherHalfDayThresholdMinutes ?? 0) > 0)
+        {
+            fullDayMinThreshold = settings!.TeacherHalfDayThresholdMinutes;
+            halfDayMinThreshold = fullDayMinThreshold / 2;
+        }
+
+        // If outTime is provided, evaluate work duration
         if (!string.IsNullOrWhiteSpace(outTime))
         {
             var outMin = ParseTimeToMinutes(outTime);
@@ -4728,9 +4763,16 @@ public class TeachersController : ControllerBase
                 }
 
                 int diff = calculatedOut - inMin.Value;
-                if (diff > 0 && diff < halfDayThreshold)
+                if (diff > 0)
                 {
-                    return TeacherAttendanceStatus.HalfDay;
+                    if (diff < halfDayMinThreshold)
+                    {
+                        return TeacherAttendanceStatus.Absent;
+                    }
+                    if (diff < fullDayMinThreshold)
+                    {
+                        return TeacherAttendanceStatus.HalfDay;
+                    }
                 }
             }
         }

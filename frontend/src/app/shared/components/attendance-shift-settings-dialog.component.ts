@@ -1110,7 +1110,8 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
     const eCutoff = this.getCoachingEveningLateCutoffFormatted();
 
     return `🌅 Morning: ${this.minutesToTimeStr(mSMin)} – ${this.minutesToTimeStr(mEMin)} (${mDurHours} hrs, Late after ${mCutoff}) | ` +
-           `🌆 Evening: ${this.minutesToTimeStr(eSMin)} – ${this.minutesToTimeStr(eEMin)} (${eDurHours} hrs, Late after ${eCutoff}).`;
+           `🌆 Evening: ${this.minutesToTimeStr(eSMin)} – ${this.minutesToTimeStr(eEMin)} (${eDurHours} hrs, Late after ${eCutoff}). ` +
+           `Policy: Full Present (≥70% session), Half-Day (35%–69%), Absent (<35%).`;
   }
 
   saveSettings(): void {

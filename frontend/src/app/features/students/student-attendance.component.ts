@@ -2886,10 +2886,48 @@ export class StudentAttendanceComponent implements OnInit {
     const inMin = this.parseTimeToMinutes(inTime);
     if (inMin === null) return declaredStatus;
 
-    const shiftStart = this.parseTimeToMinutes(this.attendanceSettings?.studentShiftStartTime || '08:00') ?? 480;
-    const grace = this.attendanceSettings?.studentGracePeriodMinutes ?? 15;
-    const lateCutoff = shiftStart + grace; // 08:15 AM
-    const halfDayThreshold = this.attendanceSettings?.studentHalfDayThresholdMinutes ?? 240;
+    const isCoaching = this.rollCallScope === 'coaching' || inMin < 450 || inMin >= 930;
+
+    let shiftStart: number;
+    let shiftEnd: number;
+    let grace: number;
+
+    if (isCoaching) {
+      if (this.coachingActiveShift === 'evening' || inMin >= 720) {
+        shiftStart = this.parseTimeToMinutes(this.bulkCheckInTime || this.attendanceSettings?.coachingEveningStartTime || '16:00') ?? 960;
+        shiftEnd = this.parseTimeToMinutes(this.bulkCheckOutTime || this.attendanceSettings?.coachingEveningEndTime || '19:00') ?? 1140;
+        grace = this.attendanceSettings?.coachingEveningGraceMinutes ?? 15;
+      } else {
+        shiftStart = this.parseTimeToMinutes(this.bulkCheckInTime || this.attendanceSettings?.coachingMorningStartTime || '07:00') ?? 420;
+        shiftEnd = this.parseTimeToMinutes(this.bulkCheckOutTime || this.attendanceSettings?.coachingMorningEndTime || '10:00') ?? 600;
+        grace = this.attendanceSettings?.coachingMorningGraceMinutes ?? 15;
+      }
+    } else {
+      shiftStart = this.parseTimeToMinutes(this.bulkCheckInTime || this.attendanceSettings?.studentShiftStartTime || '08:00') ?? 480;
+      shiftEnd = this.parseTimeToMinutes(this.bulkCheckOutTime || this.attendanceSettings?.studentShiftEndTime || '14:00') ?? 840;
+      grace = this.attendanceSettings?.studentGracePeriodMinutes ?? 15;
+    }
+
+    const lateCutoff = shiftStart + grace;
+
+    // Solution B: Dynamic Duration & Ratio-Based Thresholds (Zero hardcoding)
+    let shiftDuration = shiftEnd - shiftStart;
+    if (shiftDuration <= 0) {
+      shiftDuration = isCoaching ? 150 : 360;
+    }
+    const expectedDuration = shiftDuration;
+
+    // Dynamic thresholds:
+    // Full Day: >= 70% of expected duration
+    // Half Day: 35% to 69% of expected duration
+    // Absent: < 35% of expected duration
+    let fullDayMinThreshold = Math.round(expectedDuration * 0.70);
+    let halfDayMinThreshold = Math.round(expectedDuration * 0.35);
+
+    if (!isCoaching && (this.attendanceSettings?.studentHalfDayThresholdMinutes ?? 0) > 0) {
+      fullDayMinThreshold = this.attendanceSettings?.studentHalfDayThresholdMinutes || 240;
+      halfDayMinThreshold = Math.round(fullDayMinThreshold / 2);
+    }
 
     if (outTime) {
       let outMin = this.parseTimeToMinutes(outTime);
@@ -2900,8 +2938,13 @@ export class StudentAttendanceComponent implements OnInit {
           }
         }
         const diff = outMin - inMin;
-        if (diff > 0 && diff < halfDayThreshold) {
-          return 'HalfDay';
+        if (diff > 0) {
+          if (diff < halfDayMinThreshold) {
+            return 'Absent';
+          }
+          if (diff < fullDayMinThreshold) {
+            return 'HalfDay';
+          }
         }
       }
     }
