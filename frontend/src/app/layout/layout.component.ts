@@ -56,14 +56,15 @@ export interface BreadcrumbItem {
     QuickSettingsDrawerComponent
   ],
   template: `
-    <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav-container class="sidenav-container" [class.rail-mode]="isRailMode() && !isMobile()" [class.mobile-mode]="isMobile()">
       <mat-sidenav
         #drawer
         class="sidenav"
+        [class.rail-collapsed]="isRailMode() && !isMobile()"
         [mode]="isMobile() ? 'over' : 'side'"
         [opened]="!isMobile()">
 
-        <div class="brand-section">
+        <div class="brand-section" [matTooltip]="(isRailMode() && !isMobile()) ? (currentUser()?.instituteName || 'Institute Management ERP') : ''" matTooltipPosition="right">
           <img *ngIf="getInstituteLogoUrl() && !logoImgFailed()"
                [src]="getInstituteLogoUrl()" 
                (error)="logoImgFailed.set(true)"
@@ -72,7 +73,7 @@ export interface BreadcrumbItem {
           <div *ngIf="!getInstituteLogoUrl() || logoImgFailed()" class="brand-fallback-icon">
             <mat-icon>account_balance</mat-icon>
           </div>
-          <div class="brand-titles">
+          <div class="brand-titles" *ngIf="!isRailMode() || isMobile()">
             <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Institute Management ERP'">{{ currentUser()?.instituteName || 'Institute Management ERP' }}</span>
             <span class="brand-sub">{{ getTenantModuleBadge() }}</span>
           </div>
@@ -82,10 +83,11 @@ export interface BreadcrumbItem {
         </div>
 
         <div class="nav-container">
-          <mat-accordion class="menu-accordion" [multi]="false">
+          <!-- Full Expanded Sidebar Menu (Default Desktop & Mobile Drawer) -->
+          <mat-accordion class="menu-accordion" [multi]="false" *ngIf="!isRailMode() || isMobile()">
             <ng-container *ngFor="let item of menuTree()">
               <!-- Item with sub-menus (e.g. Master Management, Admin Settings) -->
-              <mat-expansion-panel *ngIf="item.children && item.children.length > 0" class="mat-elevation-z0" [expanded]="false">
+              <mat-expansion-panel *ngIf="item.children && item.children.length > 0" class="mat-elevation-z0" [expanded]="isParentActive(item)">
                 <mat-expansion-panel-header [matTooltip]="item.title" matTooltipPosition="right">
                   <mat-panel-title class="accordion-title">
                     <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
@@ -128,9 +130,65 @@ export interface BreadcrumbItem {
               </div>
             </ng-container>
           </mat-accordion>
+
+          <!-- Smart Compact Rail Menu (When Collapsed on Desktop) -->
+          <div class="rail-nav-list" *ngIf="isRailMode() && !isMobile()">
+            <ng-container *ngFor="let item of menuTree()">
+              <!-- Direct Item in Rail Mode (e.g. Dashboard) -->
+              <a *ngIf="!item.children || item.children.length === 0"
+                 class="rail-nav-btn"
+                 [routerLink]="item.routeUrl"
+                 routerLinkActive="rail-active"
+                 [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
+                 [matTooltip]="item.title"
+                 matTooltipPosition="right">
+                <span class="menu-icon-badge badge-main rail-badge">
+                  <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
+                </span>
+              </a>
+
+              <!-- Parent Category Item in Rail Mode (Opens Smart Floating Flyout Submenu) -->
+              <ng-container *ngIf="item.children && item.children.length > 0">
+                <button type="button"
+                        class="rail-nav-btn"
+                        [class.rail-active]="isParentActive(item)"
+                        [matMenuTriggerFor]="railSubMenu"
+                        [matTooltip]="item.title"
+                        matTooltipPosition="right">
+                  <span class="menu-icon-badge rail-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
+                    <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
+                  </span>
+                  <span class="rail-chevron-dot"></span>
+                </button>
+
+                <mat-menu #railSubMenu="matMenu" class="rail-flyout-menu" xPosition="after" yPosition="below" [overlapTrigger]="false">
+                  <div class="rail-flyout-header" (click)="$event.stopPropagation()">
+                    <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
+                      <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
+                    </span>
+                    <div class="rail-flyout-titles">
+                      <strong>{{ item.title }}</strong>
+                      <small>{{ item.children.length }} Module{{ item.children.length > 1 ? 's' : '' }}</small>
+                    </div>
+                  </div>
+                  <div class="rail-flyout-items">
+                    <a *ngFor="let sub of item.children"
+                       mat-menu-item
+                       [routerLink]="sub.routeUrl"
+                       routerLinkActive="active-rail-sub"
+                       class="rail-flyout-item">
+                      <mat-icon class="rail-sub-icon">{{ sub.icon || 'star' }}</mat-icon>
+                      <span class="rail-sub-label">{{ sub.title }}</span>
+                    </a>
+                  </div>
+                </mat-menu>
+              </ng-container>
+            </ng-container>
+          </div>
         </div>
 
-        <div class="sidebar-calendar" [class.collapsed]="isCalendarCollapsed()">
+        <!-- Expanded Mode Holiday Calendar -->
+        <div class="sidebar-calendar" *ngIf="!isRailMode() || isMobile()" [class.collapsed]="isCalendarCollapsed()">
           <div class="calendar-title-row" (click)="toggleCalendarCollapse($event)">
             <strong><mat-icon>event</mat-icon> Holiday Calendar</strong>
             <div class="calendar-header-actions">
@@ -176,8 +234,80 @@ export interface BreadcrumbItem {
           </div>
         </div>
 
-        <!-- Sidebar PWA Install App Action -->
-        <div class="sidebar-pwa-strip">
+        <!-- Rail Mode Compact Footer Actions (Holiday Calendar Flyout, Install App, Developer Team) -->
+        <div class="rail-footer-actions" *ngIf="isRailMode() && !isMobile()">
+          <button type="button"
+                  class="rail-footer-btn calendar-rail-btn"
+                  [matMenuTriggerFor]="railCalendarFlyout"
+                  [matTooltip]="'Holiday Calendar (' + calendarMonths[calendarMonth] + ' ' + calendarYear + ')'"
+                  matTooltipPosition="right">
+            <mat-icon>event</mat-icon>
+          </button>
+          <mat-menu #railCalendarFlyout="matMenu" class="rail-calendar-flyout-menu" xPosition="after" yPosition="above" [overlapTrigger]="false">
+            <div class="rail-calendar-flyout-card" (click)="$event.stopPropagation()">
+              <div class="rail-cal-header">
+                <div class="cal-title">
+                  <mat-icon>event</mat-icon>
+                  <strong>Holiday Calendar ({{ calendarYear }})</strong>
+                </div>
+                <a routerLink="/holidays" class="cal-open-link" matTooltip="Open Holiday Master">View All</a>
+              </div>
+              <div class="sidebar-calendar rail-embedded-calendar">
+                <div class="calendar-controls">
+                  <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
+                    <mat-icon>chevron_left</mat-icon>
+                  </button>
+                  <strong>{{ calendarMonths[calendarMonth] }}</strong>
+                  <button mat-icon-button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month">
+                    <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
+                <div class="calendar-weekdays">
+                  <span *ngFor="let day of calendarWeekdays">{{ day }}</span>
+                </div>
+                <div class="calendar-grid">
+                  <span *ngFor="let blank of calendarLeadingBlanks"></span>
+                  <button
+                    *ngFor="let day of calendarDays"
+                    type="button"
+                    class="calendar-day"
+                    [class.today]="day.isToday"
+                    [class.saturday]="day.isSaturday"
+                    [class.sunday]="day.isSunday"
+                    [class.holiday]="day.holiday"
+                    [matTooltip]="getCalendarDayTooltip(day)"
+                    matTooltipPosition="right">
+                    {{ day.day }}
+                  </button>
+                </div>
+                <div class="calendar-legend">
+                  <span><i class="holiday-dot"></i> Holiday</span>
+                  <span><i class="sunday-dot"></i> Sun</span>
+                  <span><i class="saturday-dot"></i> Sat</span>
+                </div>
+              </div>
+            </div>
+          </mat-menu>
+
+          <button type="button"
+                  class="rail-footer-btn pwa-rail-btn"
+                  (click)="installPwa()"
+                  [matTooltip]="isAppInstalled() ? 'App Installed' : 'Install ERP App'"
+                  matTooltipPosition="right">
+            <mat-icon>install_mobile</mat-icon>
+          </button>
+
+          <a class="rail-footer-btn dev-rail-btn"
+             routerLink="/developer"
+             routerLinkActive="rail-active"
+             matTooltip="Developer Team • Architecture & Support"
+             matTooltipPosition="right">
+            <mat-icon>engineering</mat-icon>
+          </a>
+        </div>
+
+        <!-- Sidebar PWA Install App Action (Expanded Mode) -->
+        <div class="sidebar-pwa-strip" *ngIf="!isRailMode() || isMobile()">
           <button mat-button class="sidebar-pwa-btn" (click)="installPwa()">
             <mat-icon>install_mobile</mat-icon>
             <div class="pwa-text-wrap">
@@ -187,8 +317,8 @@ export interface BreadcrumbItem {
           </button>
         </div>
 
-        <!-- Sidebar Developer Team Action -->
-        <div class="sidebar-pwa-strip sidebar-dev-strip">
+        <!-- Sidebar Developer Team Action (Expanded Mode) -->
+        <div class="sidebar-pwa-strip sidebar-dev-strip" *ngIf="!isRailMode() || isMobile()">
           <button mat-button class="sidebar-pwa-btn sidebar-dev-btn" routerLink="/developer" (click)="onNavClick(drawer)">
             <mat-icon class="dev-icon">engineering</mat-icon>
             <div class="pwa-text-wrap">
@@ -201,7 +331,13 @@ export interface BreadcrumbItem {
 
       <mat-sidenav-content>
         <mat-toolbar class="header-toolbar">
-          <button type="button" mat-icon-button (click)="drawer.toggle()" class="menu-toggle-btn" aria-label="Toggle navigation">
+          <button type="button"
+                  mat-icon-button
+                  (click)="onToggleSidebar(drawer)"
+                  class="menu-toggle-btn"
+                  [class.rail-toggled]="isRailMode() && !isMobile()"
+                  [matTooltip]="isMobile() ? 'Toggle Navigation Drawer' : (isRailMode() ? 'Expand Full Sidebar' : 'Collapse to Smart Rail Menu')"
+                  aria-label="Toggle navigation">
             <mat-icon>menu</mat-icon>
           </button>
 
@@ -440,6 +576,19 @@ export interface BreadcrumbItem {
     .sidenav-container {
       height: 100vh;
       height: 100dvh;
+
+      &:not(.mobile-mode) {
+        ::ng-deep > .mat-drawer-content.mat-sidenav-content {
+          margin-left: 280px !important;
+          transition: margin-left 0.24s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+      }
+
+      &.rail-mode:not(.mobile-mode) {
+        ::ng-deep > .mat-drawer-content.mat-sidenav-content {
+          margin-left: 72px !important;
+        }
+      }
     }
     .sidenav {
       width: 280px !important;
@@ -449,6 +598,29 @@ export interface BreadcrumbItem {
       display: flex;
       flex-direction: column;
       box-shadow: 2px 0 16px rgba(15, 23, 42, 0.04);
+      transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.24s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.24s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+      &.rail-collapsed {
+        width: 72px !important;
+        min-width: 72px !important;
+        max-width: 72px !important;
+        overflow-x: hidden !important;
+
+        ::ng-deep .mat-drawer-inner-container {
+          overflow-x: hidden !important;
+        }
+
+        .brand-section {
+          padding: 0 !important;
+          justify-content: center !important;
+          gap: 0 !important;
+        }
+
+        .nav-container {
+          padding: 10px 6px !important;
+          overflow-x: hidden !important;
+        }
+      }
 
       ::ng-deep .mat-drawer-inner-container {
         display: flex !important;
@@ -2248,6 +2420,304 @@ export interface BreadcrumbItem {
       flex-shrink: 0;
       z-index: 10;
     }
+
+    /* ── Smart Rail Navigation Menu (Collapsed Sidebar) ── */
+    .rail-nav-list {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .rail-nav-btn {
+      position: relative;
+      width: 48px;
+      height: 46px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: none;
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+
+      .rail-badge {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s ease;
+
+        .menu-icon, mat-icon {
+          font-size: 19px;
+          width: 19px;
+          height: 19px;
+        }
+      }
+
+      .rail-chevron-dot {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #94a3b8;
+        border: 1.5px solid #ffffff;
+        transition: transform 0.15s ease, background-color 0.15s ease;
+      }
+
+      &:hover {
+        background: #f1f5f9;
+        border-color: #e2e8f0;
+
+        .rail-badge {
+          transform: translateY(-1px) scale(1.05);
+        }
+
+        .rail-chevron-dot {
+          background: #2563eb;
+          transform: scale(1.2);
+        }
+      }
+
+      &.rail-active {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: -6px;
+          top: 10px;
+          bottom: 10px;
+          width: 3.5px;
+          border-radius: 0 4px 4px 0;
+          background: #2563eb;
+        }
+
+        .rail-chevron-dot {
+          background: #2563eb;
+        }
+      }
+    }
+
+    .rail-footer-actions {
+      border-top: 1px solid #e2e8f0;
+      padding: 10px 6px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      flex-shrink: 0;
+
+      .rail-footer-btn {
+        width: 42px;
+        height: 40px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+        text-decoration: none;
+        transition: all 0.18s ease;
+        outline: none;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+
+        &:hover {
+          background: #eff6ff;
+          border-color: #93c5fd;
+          transform: translateY(-1px);
+          box-shadow: 0 3px 8px rgba(37, 99, 235, 0.12);
+        }
+
+        &.pwa-rail-btn {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          color: #1d4ed8;
+        }
+
+        &.rail-active {
+          background: #dbeafe;
+          border-color: #60a5fa;
+          color: #1e3a8a;
+        }
+      }
+    }
+
+    ::ng-deep .rail-flyout-menu.mat-mdc-menu-panel {
+      min-width: 245px !important;
+      max-width: 290px !important;
+      border-radius: 12px !important;
+      border: 1px solid #bfdbfe !important;
+      box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.18), 0 6px 14px -2px rgba(15, 23, 42, 0.08) !important;
+      overflow: hidden !important;
+      margin-left: 6px !important;
+      background: #ffffff !important;
+
+      .mat-mdc-menu-content {
+        padding: 0 !important;
+      }
+
+      .rail-flyout-header {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        .rail-flyout-titles {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          line-height: 1.25;
+
+          strong {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #1e3a8a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          small {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: #3b82f6;
+          }
+        }
+      }
+
+      .rail-flyout-items {
+        padding: 6px;
+        max-height: 360px;
+        overflow-y: auto;
+
+        .rail-flyout-item.mat-mdc-menu-item {
+          min-height: 38px !important;
+          height: 38px !important;
+          border-radius: 8px !important;
+          padding: 0 10px !important;
+          margin: 2px 0 !important;
+          transition: all 0.15s ease;
+
+          .rail-sub-icon {
+            font-size: 18px !important;
+            width: 18px !important;
+            height: 18px !important;
+            margin-right: 10px !important;
+            color: #64748b !important;
+          }
+
+          .rail-sub-label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #334155;
+          }
+
+          &:hover {
+            background: #f1f5f9 !important;
+
+            .rail-sub-icon {
+              color: #2563eb !important;
+            }
+            .rail-sub-label {
+              color: #0f172a;
+            }
+          }
+
+          &.active-rail-sub {
+            background: #eff6ff !important;
+            border-left: 3px solid #2563eb;
+
+            .rail-sub-icon {
+              color: #2563eb !important;
+            }
+            .rail-sub-label {
+              color: #1d4ed8 !important;
+              font-weight: 700;
+            }
+          }
+        }
+      }
+    }
+
+    ::ng-deep .rail-calendar-flyout-menu.mat-mdc-menu-panel {
+      min-width: 265px !important;
+      max-width: 280px !important;
+      border-radius: 12px !important;
+      border: 1px solid #bfdbfe !important;
+      box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.2) !important;
+      overflow: hidden !important;
+      margin-left: 6px !important;
+      background: #ffffff !important;
+
+      .mat-mdc-menu-content {
+        padding: 0 !important;
+      }
+
+      .rail-cal-header {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .cal-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #1e3a8a;
+          font-size: 0.8rem;
+
+          mat-icon {
+            font-size: 17px;
+            width: 17px;
+            height: 17px;
+            color: #2563eb;
+          }
+        }
+
+        .cal-open-link {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #2563eb;
+          text-decoration: none;
+          background: #ffffff;
+          padding: 2px 7px;
+          border-radius: 6px;
+          border: 1px solid #bfdbfe;
+
+          &:hover {
+            background: #dbeafe;
+          }
+        }
+      }
+
+      .rail-embedded-calendar {
+        border-top: none !important;
+        padding: 10px 12px !important;
+        background: #ffffff !important;
+      }
+    }
   `],
 })
 export class LayoutComponent implements OnInit {
@@ -2271,6 +2741,37 @@ export class LayoutComponent implements OnInit {
   }
   menuTree = signal<MenuItem[]>([]);
   isMobile = signal<boolean>(false);
+  isRailMode = signal<boolean>(typeof window !== 'undefined' ? localStorage.getItem('imserp_sidebar_rail') === 'true' : false);
+
+  onToggleSidebar(drawer: MatSidenav): void {
+    if (this.isMobile()) {
+      drawer.toggle();
+      return;
+    }
+    if (!drawer.opened) {
+      drawer.open();
+    }
+    const nextState = !this.isRailMode();
+    this.isRailMode.set(nextState);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('imserp_sidebar_rail', String(nextState));
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 260);
+    }
+  }
+
+  isParentActive(item: MenuItem): boolean {
+    const currentUrl = (this.router.url || '').split('?')[0].split('#')[0].toLowerCase();
+    if (!item.children || item.children.length === 0) {
+      if (!item.routeUrl) return false;
+      const r = item.routeUrl.trim().toLowerCase();
+      return currentUrl === r || (r !== '/' && r !== '/dashboard' && currentUrl.startsWith(r + '/'));
+    }
+    return item.children.some(c => {
+      if (!c.routeUrl) return false;
+      const r = c.routeUrl.trim().toLowerCase();
+      return currentUrl === r || currentUrl.startsWith(r + '/');
+    });
+  }
   headerSearch = '';
   headerSearchFocused = false;
   headerSearchResults: Array<{ title: string; route: string; icon: string }> = [];
