@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -88,11 +88,13 @@ export interface UpcomingBillingCycleInfo {
           <button mat-raised-button color="primary" class="generate-btn" (click)="openGenerateInvoicesModal()">
             <mat-icon>post_add</mat-icon>
             <span>Generate Monthly Invoices</span>
-            <span class="autopilot-chip" *ngIf="settingsService.autoPilotInvoicing()" matTooltip="Auto-Pilot Mode Active (Auto-bills on 25th of month)">🤖 Auto-Pilot ON</span>
+            @if (settingsService.autoPilotInvoicing()) {
+              <span class="autopilot-chip" matTooltip="Auto-Pilot Mode Active (Auto-bills on 25th of month)">🤖 Auto-Pilot ON</span>
+            }
           </button>
         </div>
       </div>
-
+    
       <!-- Module Navigation / Mode Switcher -->
       <div class="fees-nav-bar">
         <button
@@ -102,9 +104,11 @@ export interface UpcomingBillingCycleInfo {
           (click)="switchTab('invoices')">
           <mat-icon>receipt_long</mat-icon>
           <span>Fee Invoices &amp; Counter Dues</span>
-          <span class="nav-count" *ngIf="totalCount > 0">{{ totalCount }}</span>
+          @if (totalCount > 0) {
+            <span class="nav-count">{{ totalCount }}</span>
+          }
         </button>
-
+    
         <button
           type="button"
           class="fees-nav-tab upi-nav-tab"
@@ -112,715 +116,755 @@ export interface UpcomingBillingCycleInfo {
           (click)="switchTab('upi')">
           <mat-icon class="upi-nav-icon">qr_code_2</mat-icon>
           <span>Online UPI Collections &amp; Audit</span>
-          <span class="nav-count upi-count" *ngIf="upiTotalCount > 0">{{ upiTotalCount }}</span>
+          @if (upiTotalCount > 0) {
+            <span class="nav-count upi-count">{{ upiTotalCount }}</span>
+          }
         </button>
       </div>
-
+    
       <!-- Smart Alert Banner: New Admissions Awaiting Invoicing -->
-      <div class="pending-invoicing-banner" *ngIf="currentActiveTab === 'invoices' && pendingStudents.length > 0 && !bannerDismissed">
-        <div class="banner-left">
-          <div class="banner-badge-icon">
-            <mat-icon>notification_important</mat-icon>
-          </div>
-          <div class="banner-text">
-            <div class="banner-title-row">
-              <span class="banner-pill">{{ pendingStudents.length }} NEW {{ pendingStudents.length === 1 ? 'ADMISSION' : 'ADMISSIONS' }}</span>
-              <strong class="banner-heading">Awaiting Fee Invoicing (New Admissions)</strong>
+      @if (currentActiveTab === 'invoices' && pendingStudents.length > 0 && !bannerDismissed) {
+        <div class="pending-invoicing-banner">
+          <div class="banner-left">
+            <div class="banner-badge-icon">
+              <mat-icon>notification_important</mat-icon>
             </div>
-            <div class="banner-students-list">
-              <span class="student-item-tag clickable" *ngFor="let s of pendingStudents | slice:0:3" (click)="generateForPendingStudent(s)" matTooltip="Click to generate invoice for {{ s.studentName }} (Roll: {{ s.rollNumber }})">
-                <strong class="st-tag-name">{{ s.studentName }}</strong>
-                <span class="sub-info">({{ s.className || s.batchName || 'General' }} &bull; {{ s.rollNumber }})</span>
-                <mat-icon class="tag-click-icon">open_in_new</mat-icon>
-              </span>
-              <span class="more-tag clickable" *ngIf="pendingStudents.length > 3" [matMenuTriggerFor]="pendingStudentsMenu" matTooltip="Click to view all {{ pendingStudents.length }} new admissions">
-                +{{ pendingStudents.length - 3 }} more admissions
-                <mat-icon class="tag-click-icon">expand_more</mat-icon>
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="banner-actions">
-          <button mat-raised-button color="accent" class="quick-gen-btn" 
-            (click)="pendingStudents.length === 1 ? generateForPendingStudent(pendingStudents[0]) : openGenerateInvoicesModal()" 
-            matTooltip="Open invoice generator for pending new admissions">
-            <mat-icon>post_add</mat-icon>
-            <span>Generate Invoices ({{ pendingStudents.length }})</span>
-          </button>
-
-          <button mat-stroked-button class="btn-pick-single" [matMenuTriggerFor]="pendingStudentsMenu" *ngIf="pendingStudents.length > 1" matTooltip="Select a specific student to invoice">
-            <span>Select Student</span>
-            <mat-icon>expand_more</mat-icon>
-          </button>
-
-          <mat-menu #pendingStudentsMenu="matMenu" xPosition="before" class="pending-students-menu-panel" (closed)="pendingStudentSearchQuery = ''">
-            <div class="menu-section-title">New Admissions Awaiting Invoices ({{ pendingStudents.length }})</div>
-            <div class="pending-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
-              <mat-icon class="search-mini-icon">search</mat-icon>
-              <input
-                type="text"
-                class="pending-search-input"
-                placeholder="Search student, roll, class..."
-                [(ngModel)]="pendingStudentSearchQuery"
-                (click)="$event.stopPropagation()"
-                (mousedown)="$event.stopPropagation()"
-                (keydown)="$event.stopPropagation()"
-              />
-              <button
-                type="button"
-                class="clear-mini-btn"
-                *ngIf="pendingStudentSearchQuery"
-                (click)="pendingStudentSearchQuery = ''; $event.stopPropagation()"
-                (mousedown)="$event.stopPropagation()"
-                matTooltip="Clear search"
-              >
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-            <div class="pending-menu-scrollable">
-              <button mat-menu-item *ngFor="let s of filteredPendingStudents" (click)="generateForPendingStudent(s)">
-                <mat-icon style="color: #d97706;">person_add</mat-icon>
-                <span>{{ s.studentName }}</span>
-                <small style="color: #64748b; margin-left: 6px;">({{ s.className || s.batchName || 'General' }} • Roll #{{ s.rollNumber }})</small>
-              </button>
-              <div *ngIf="filteredPendingStudents.length === 0" class="no-pending-match">
-                <mat-icon>search_off</mat-icon>
-                <span>No admissions match "{{ pendingStudentSearchQuery }}"</span>
+            <div class="banner-text">
+              <div class="banner-title-row">
+                <span class="banner-pill">{{ pendingStudents.length }} NEW {{ pendingStudents.length === 1 ? 'ADMISSION' : 'ADMISSIONS' }}</span>
+                <strong class="banner-heading">Awaiting Fee Invoicing (New Admissions)</strong>
+              </div>
+              <div class="banner-students-list">
+                @for (s of pendingStudents | slice:0:3; track s) {
+                  <span class="student-item-tag clickable" (click)="generateForPendingStudent(s)" matTooltip="Click to generate invoice for {{ s.studentName }} (Roll: {{ s.rollNumber }})">
+                    <strong class="st-tag-name">{{ s.studentName }}</strong>
+                    <span class="sub-info">({{ s.className || s.batchName || 'General' }} &bull; {{ s.rollNumber }})</span>
+                    <mat-icon class="tag-click-icon">open_in_new</mat-icon>
+                  </span>
+                }
+                @if (pendingStudents.length > 3) {
+                  <span class="more-tag clickable" [matMenuTriggerFor]="pendingStudentsMenu" matTooltip="Click to view all {{ pendingStudents.length }} new admissions">
+                    +{{ pendingStudents.length - 3 }} more admissions
+                    <mat-icon class="tag-click-icon">expand_more</mat-icon>
+                  </span>
+                }
               </div>
             </div>
-          </mat-menu>
-
-          <button mat-icon-button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-      </div>
-
-      <!-- Upcoming Billing Cycle Alert Banner: Preparation & 7-Day Advance Alert -->
-      <div class="upcoming-cycle-banner" *ngIf="currentActiveTab === 'invoices' && upcomingCycle && upcomingCycle.uninvoicedStudentsCount > 0 && !upcomingBannerDismissed">
-        <div class="banner-left">
-          <div class="banner-badge-icon">
-            <mat-icon>calendar_month</mat-icon>
           </div>
-          <div class="banner-text">
-            <div class="banner-title-row">
-              <span class="banner-pill-upcoming">UPCOMING BILLING CYCLE</span>
-              <strong class="banner-heading">{{ upcomingCycle.monthName }} {{ upcomingCycle.year }} Fee Collection Preparation</strong>
-              <span class="banner-badge-count">📢 {{ upcomingCycle.uninvoicedStudentsCount }} {{ upcomingCycle.uninvoicedStudentsCount === 1 ? 'Student' : 'Students' }} Awaiting Invoicing</span>
-            </div>
-            <p class="banner-subtitle">
-              Current cycle is settled. Pre-generate {{ upcomingCycle.monthName }} monthly invoices now so automated WhatsApp fee reminders (7-day advance notice) can dispatch to parents before the due date ({{ upcomingCycle.defaultDueDate | date:'dd MMM yyyy' }}).
-            </p>
-            <div class="banner-students-list" *ngIf="upcomingCycle.students.length > 0">
-              <span class="student-item-tag" *ngFor="let s of upcomingCycle.students | slice:0:3" matTooltip="Awaiting {{ upcomingCycle.monthName }} Invoice">
-                <strong class="st-tag-name">{{ s.studentName }}</strong>
-                <span class="sub-info">({{ s.className || s.batchName || 'General' }} &bull; {{ s.rollNumber }})</span>
-              </span>
-              <span class="more-tag" *ngIf="upcomingCycle.students.length > 3">
-                +{{ upcomingCycle.students.length - 3 }} more students
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="banner-actions">
-          <button mat-raised-button color="primary" class="quick-gen-btn" (click)="openGenerateInvoicesForUpcomingCycle()">
-            <mat-icon>bolt</mat-icon>
-            <span>Generate {{ upcomingCycle.monthName }} Invoices (1-Click)</span>
-          </button>
-          <button mat-icon-button class="dismiss-btn" (click)="dismissUpcomingBanner()" matTooltip="Hide alert for now">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-      </div>
-
-      <!-- Main Invoices Directory Card -->
-      <mat-card class="table-card mat-elevation-z2" *ngIf="currentActiveTab === 'invoices'">
-        <!-- Filter Toolbar -->
-        <div class="filter-toolbar">
-          <mat-form-field appearance="outline" class="search-field">
-            <mat-icon matPrefix class="search-prefix-icon">search</mat-icon>
-            <mat-label>Search Invoices, Students, Phone...</mat-label>
-            <input
-              matInput
-              [(ngModel)]="searchTerm"
-              (keyup.enter)="onSearch()"
-              placeholder="e.g. Mantosh, INV-2026, 95405..."
-            />
-            <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm = ''; onSearch()" aria-label="Clear">
+          <div class="banner-actions">
+            <button mat-raised-button color="accent" class="quick-gen-btn"
+              (click)="pendingStudents.length === 1 ? generateForPendingStudent(pendingStudents[0]) : openGenerateInvoicesModal()"
+              matTooltip="Open invoice generator for pending new admissions">
+              <mat-icon>post_add</mat-icon>
+              <span>Generate Invoices ({{ pendingStudents.length }})</span>
+            </button>
+            @if (pendingStudents.length > 1) {
+              <button mat-stroked-button class="btn-pick-single" [matMenuTriggerFor]="pendingStudentsMenu" matTooltip="Select a specific student to invoice">
+                <span>Select Student</span>
+                <mat-icon>expand_more</mat-icon>
+              </button>
+            }
+            <mat-menu #pendingStudentsMenu="matMenu" xPosition="before" class="pending-students-menu-panel" (closed)="pendingStudentSearchQuery = ''">
+              <div class="menu-section-title">New Admissions Awaiting Invoices ({{ pendingStudents.length }})</div>
+              <div class="pending-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                <mat-icon class="search-mini-icon">search</mat-icon>
+                <input
+                  type="text"
+                  class="pending-search-input"
+                  placeholder="Search student, roll, class..."
+                  [(ngModel)]="pendingStudentSearchQuery"
+                  (click)="$event.stopPropagation()"
+                  (mousedown)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()"
+                  />
+                @if (pendingStudentSearchQuery) {
+                  <button
+                    type="button"
+                    class="clear-mini-btn"
+                    (click)="pendingStudentSearchQuery = ''; $event.stopPropagation()"
+                    (mousedown)="$event.stopPropagation()"
+                    matTooltip="Clear search"
+                    >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </div>
+              <div class="pending-menu-scrollable">
+                @for (s of filteredPendingStudents; track s) {
+                  <button mat-menu-item (click)="generateForPendingStudent(s)">
+                    <mat-icon style="color: #d97706;">person_add</mat-icon>
+                    <span>{{ s.studentName }}</span>
+                    <small style="color: #64748b; margin-left: 6px;">({{ s.className || s.batchName || 'General' }} • Roll #{{ s.rollNumber }})</small>
+                  </button>
+                }
+                @if (filteredPendingStudents.length === 0) {
+                  <div class="no-pending-match">
+                    <mat-icon>search_off</mat-icon>
+                    <span>No admissions match "{{ pendingStudentSearchQuery }}"</span>
+                  </div>
+                }
+              </div>
+            </mat-menu>
+            <button mat-icon-button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now">
               <mat-icon>close</mat-icon>
             </button>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="status-filter">
-            <mat-label>Status Filter</mat-label>
-            <mat-select [(ngModel)]="selectedStatusFilter" (selectionChange)="onFilterChange()">
-              <mat-option value="">All Statuses</mat-option>
-              <mat-option value="Pending">Pending</mat-option>
-              <mat-option value="Partial">Partial Dues</mat-option>
-              <mat-option value="Overdue">Overdue Dues</mat-option>
-              <mat-option value="Paid">Fully Paid</mat-option>
-              <mat-option value="Cancelled">Cancelled</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="class-filter" *ngIf="hasSchoolModule">
-            <mat-label>Filter by School Class</mat-label>
-            <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onFilterChange()" panelClass="class-filter-panel">
-              <mat-option value="">All School Classes</mat-option>
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                🏫 {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="batch-filter" *ngIf="hasCoachingModule">
-            <mat-label>Filter by Coaching Batch</mat-label>
-            <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
-              <mat-option value="">All Coaching Batches</mat-option>
-              <mat-option *ngFor="let b of (selectedClassFilter ? getBatchesForClass(selectedClassFilter) : batches)" [value]="b.id">
-                🎯 {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
+          </div>
         </div>
-
-        <!-- Data Table -->
-        <mat-card-content class="table-container">
-          <table mat-table [dataSource]="invoices" matSort (matSortChange)="onSortChange($event)" class="full-width">
-            
-            <ng-container matColumnDef="select">
-              <th mat-header-cell *matHeaderCellDef class="select-col">
-                <mat-checkbox
-                  (change)="toggleAllVisibleRows($event)"
-                  [checked]="isAllSelected()"
-                  [indeterminate]="isSomeSelected()"
-                  [disabled]="!hasSelectableRows()"
-                  matTooltip="Select all pending on this page"
-                  color="primary">
-                </mat-checkbox>
-              </th>
-              <td mat-cell *matCellDef="let inv" class="select-col">
-                <mat-checkbox
-                  *ngIf="canSelectInvoice(inv)"
-                  (click)="$event.stopPropagation()"
-                  (change)="toggleInvoiceSelection(inv)"
-                  [checked]="isInvoiceSelected(inv)"
-                  [disabled]="isInvoiceDisabled(inv)"
-                  [matTooltip]="getSelectTooltip(inv)"
-                  color="primary">
-                </mat-checkbox>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="invoiceNumber">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="invoiceNumber">Invoice No</th>
-              <td mat-cell *matCellDef="let inv"><strong>{{ inv.invoiceNumber }}</strong></td>
-            </ng-container>
-
-            <ng-container matColumnDef="studentName">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName">Student</th>
-              <td mat-cell *matCellDef="let inv">
-                <div class="st-cell">
-                  <span class="st-name-text">{{ inv.studentName }}</span>
-                  <small class="st-roll-text">({{ inv.rollNumber }})</small>
+      }
+    
+      <!-- Upcoming Billing Cycle Alert Banner: Preparation & 7-Day Advance Alert -->
+      @if (currentActiveTab === 'invoices' && upcomingCycle && upcomingCycle.uninvoicedStudentsCount > 0 && !upcomingBannerDismissed) {
+        <div class="upcoming-cycle-banner">
+          <div class="banner-left">
+            <div class="banner-badge-icon">
+              <mat-icon>calendar_month</mat-icon>
+            </div>
+            <div class="banner-text">
+              <div class="banner-title-row">
+                <span class="banner-pill-upcoming">UPCOMING BILLING CYCLE</span>
+                <strong class="banner-heading">{{ upcomingCycle.monthName }} {{ upcomingCycle.year }} Fee Collection Preparation</strong>
+                <span class="banner-badge-count">📢 {{ upcomingCycle.uninvoicedStudentsCount }} {{ upcomingCycle.uninvoicedStudentsCount === 1 ? 'Student' : 'Students' }} Awaiting Invoicing</span>
+              </div>
+              <p class="banner-subtitle">
+                Current cycle is settled. Pre-generate {{ upcomingCycle.monthName }} monthly invoices now so automated WhatsApp fee reminders (7-day advance notice) can dispatch to parents before the due date ({{ upcomingCycle.defaultDueDate | date:'dd MMM yyyy' }}).
+              </p>
+              @if (upcomingCycle.students.length > 0) {
+                <div class="banner-students-list">
+                  @for (s of upcomingCycle.students | slice:0:3; track s) {
+                    <span class="student-item-tag" matTooltip="Awaiting {{ upcomingCycle.monthName }} Invoice">
+                      <strong class="st-tag-name">{{ s.studentName }}</strong>
+                      <span class="sub-info">({{ s.className || s.batchName || 'General' }} &bull; {{ s.rollNumber }})</span>
+                    </span>
+                  }
+                  @if (upcomingCycle.students.length > 3) {
+                    <span class="more-tag">
+                      +{{ upcomingCycle.students.length - 3 }} more students
+                    </span>
+                  }
                 </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="batchName">
-              <th mat-header-cell *matHeaderCellDef>Class &amp; Batch</th>
-              <td mat-cell *matCellDef="let inv">
-                <div class="academic-enrollment-cell">
-                  <div *ngIf="inv.className" class="academic-row school-row" matTooltip="Billed School Class">
-                    <span class="badge-icon">🏫</span>
-                    <span class="academic-val">{{ inv.className }}<span *ngIf="inv.sectionName" class="sec-tag"> ({{ inv.sectionName }})</span></span>
+              }
+            </div>
+          </div>
+          <div class="banner-actions">
+            <button mat-raised-button color="primary" class="quick-gen-btn" (click)="openGenerateInvoicesForUpcomingCycle()">
+              <mat-icon>bolt</mat-icon>
+              <span>Generate {{ upcomingCycle.monthName }} Invoices (1-Click)</span>
+            </button>
+            <button mat-icon-button class="dismiss-btn" (click)="dismissUpcomingBanner()" matTooltip="Hide alert for now">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+      }
+    
+      <!-- Main Invoices Directory Card -->
+      @if (currentActiveTab === 'invoices') {
+        <mat-card class="table-card mat-elevation-z2">
+          <!-- Filter Toolbar -->
+          <div class="filter-toolbar">
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-icon matPrefix class="search-prefix-icon">search</mat-icon>
+              <mat-label>Search Invoices, Students, Phone...</mat-label>
+              <input
+                matInput
+                [(ngModel)]="searchTerm"
+                (keyup.enter)="onSearch()"
+                placeholder="e.g. Mantosh, INV-2026, 95405..."
+                />
+              @if (searchTerm) {
+                <button mat-icon-button matSuffix (click)="searchTerm = ''; onSearch()" aria-label="Clear">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="status-filter">
+              <mat-label>Status Filter</mat-label>
+              <mat-select [(ngModel)]="selectedStatusFilter" (selectionChange)="onFilterChange()">
+                <mat-option value="">All Statuses</mat-option>
+                <mat-option value="Pending">Pending</mat-option>
+                <mat-option value="Partial">Partial Dues</mat-option>
+                <mat-option value="Overdue">Overdue Dues</mat-option>
+                <mat-option value="Paid">Fully Paid</mat-option>
+                <mat-option value="Cancelled">Cancelled</mat-option>
+              </mat-select>
+            </mat-form-field>
+            @if (hasSchoolModule) {
+              <mat-form-field appearance="outline" class="class-filter">
+                <mat-label>Filter by School Class</mat-label>
+                <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onFilterChange()" panelClass="class-filter-panel">
+                  <mat-option value="">All School Classes</mat-option>
+                  @for (c of schoolClasses; track c) {
+                    <mat-option [value]="c.id">
+                      🏫 {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+            @if (hasCoachingModule) {
+              <mat-form-field appearance="outline" class="batch-filter">
+                <mat-label>Filter by Coaching Batch</mat-label>
+                <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
+                  <mat-option value="">All Coaching Batches</mat-option>
+                  @for (b of (selectedClassFilter ? getBatchesForClass(selectedClassFilter) : batches); track b) {
+                    <mat-option [value]="b.id">
+                      🎯 {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+          </div>
+          <!-- Data Table -->
+          <mat-card-content class="table-container">
+            <table mat-table [dataSource]="invoices" matSort (matSortChange)="onSortChange($event)" class="full-width">
+              <ng-container matColumnDef="select">
+                <th mat-header-cell *matHeaderCellDef class="select-col">
+                  <mat-checkbox
+                    (change)="toggleAllVisibleRows($event)"
+                    [checked]="isAllSelected()"
+                    [indeterminate]="isSomeSelected()"
+                    [disabled]="!hasSelectableRows()"
+                    matTooltip="Select all pending on this page"
+                    color="primary">
+                  </mat-checkbox>
+                </th>
+                <td mat-cell *matCellDef="let inv" class="select-col">
+                  @if (canSelectInvoice(inv)) {
+                    <mat-checkbox
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleInvoiceSelection(inv)"
+                      [checked]="isInvoiceSelected(inv)"
+                      [disabled]="isInvoiceDisabled(inv)"
+                      [matTooltip]="getSelectTooltip(inv)"
+                      color="primary">
+                    </mat-checkbox>
+                  }
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="invoiceNumber">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="invoiceNumber">Invoice No</th>
+                <td mat-cell *matCellDef="let inv"><strong>{{ inv.invoiceNumber }}</strong></td>
+              </ng-container>
+              <ng-container matColumnDef="studentName">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName">Student</th>
+                <td mat-cell *matCellDef="let inv">
+                  <div class="st-cell">
+                    <span class="st-name-text">{{ inv.studentName }}</span>
+                    <small class="st-roll-text">({{ inv.rollNumber }})</small>
                   </div>
-                  <div *ngIf="inv.currentClassName && inv.className && inv.currentClassName !== inv.className" class="academic-row current-class-row" matTooltip="Student Promoted to higher class">
-                    <span class="badge-icon">🚀</span>
-                    <span class="academic-val">Now in {{ inv.currentClassName }}<span *ngIf="inv.currentSectionName" class="sec-tag"> ({{ inv.currentSectionName }})</span></span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="batchName">
+                <th mat-header-cell *matHeaderCellDef>Class &amp; Batch</th>
+                <td mat-cell *matCellDef="let inv">
+                  <div class="academic-enrollment-cell">
+                    @if (inv.className) {
+                      <div class="academic-row school-row" matTooltip="Billed School Class">
+                        <span class="badge-icon">🏫</span>
+                        <span class="academic-val">{{ inv.className }}@if (inv.sectionName) {
+                          <span class="sec-tag"> ({{ inv.sectionName }})</span>
+                        }</span>
+                      </div>
+                    }
+                    @if (inv.currentClassName && inv.className && inv.currentClassName !== inv.className) {
+                      <div class="academic-row current-class-row" matTooltip="Student Promoted to higher class">
+                        <span class="badge-icon">🚀</span>
+                        <span class="academic-val">Now in {{ inv.currentClassName }}@if (inv.currentSectionName) {
+                          <span class="sec-tag"> ({{ inv.currentSectionName }})</span>
+                        }</span>
+                      </div>
+                    }
+                    @if (inv.batchName) {
+                      <div class="academic-row batch-row" matTooltip="Enrolled Coaching Batch">
+                        <span class="badge-icon">🎯</span>
+                        <span class="academic-val">{{ inv.batchName }}</span>
+                      </div>
+                    }
+                    @if (!inv.className && !inv.batchName) {
+                      <div class="text-muted" style="font-size: 0.8rem;">
+                        Unassigned
+                      </div>
+                    }
                   </div>
-                  <div *ngIf="inv.batchName" class="academic-row batch-row" matTooltip="Enrolled Coaching Batch">
-                    <span class="badge-icon">🎯</span>
-                    <span class="academic-val">{{ inv.batchName }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="title">
+                <th mat-header-cell *matHeaderCellDef class="col-billing-head">Billing Period / Heads</th>
+                <td mat-cell *matCellDef="let inv" class="col-billing-head">
+                  <div class="billing-head-container">
+                    <span class="period-badge" (click)="openInvoiceBreakdown(inv)">
+                      <mat-icon class="period-icon">calendar_month</mat-icon>
+                      <span class="period-single-line">{{ inv.title }}</span>
+                    </span>
+                    @if (inv.items && inv.items.length > 0) {
+                      <div class="mini-heads-row">
+                        @if (getSortedInvoiceItems(inv.items); as sortedItems) {
+                          @for (it of sortedItems.slice(0, 2); track it) {
+                            <span
+                              class="mini-head-chip clickable-head-chip"
+                              [ngClass]="getHeadChipClass(it.headName)"
+                              (click)="openInvoiceBreakdown(inv)">
+                              <span class="chip-title-part">{{ it.headName }}:</span>
+                              <strong class="chip-amt-part">₹{{ it.amount | number:'1.0-0' }}</strong>
+                            </span>
+                          }
+                          @if (sortedItems.length > 2) {
+                            <button
+                              type="button"
+                              class="mini-head-breakdown-btn more-heads-pill"
+                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
+                              <mat-icon class="more-ic">receipt_long</mat-icon>
+                              <span>+{{ sortedItems.length - 2 }} More &bull; Breakdown</span>
+                            </button>
+                          }
+                          @if (sortedItems.length <= 2 && sortedItems.length > 0) {
+                            <button
+                              type="button"
+                              class="mini-head-breakdown-btn"
+                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
+                              <mat-icon class="more-ic">receipt_long</mat-icon>
+                              <span>Breakdown</span>
+                            </button>
+                          }
+                        }
+                      </div>
+                    }
+                    @if (inv.cancellationReason) {
+                      <div class="inv-audit-pill" [matTooltip]="inv.cancellationReason">
+                        <mat-icon class="audit-icon">info</mat-icon>
+                        <span class="audit-text">{{ inv.cancellationReason }}</span>
+                      </div>
+                    }
                   </div>
-                  <div *ngIf="!inv.className && !inv.batchName" class="text-muted" style="font-size: 0.8rem;">
-                    Unassigned
-                  </div>
-                </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="title">
-              <th mat-header-cell *matHeaderCellDef class="col-billing-head">Billing Period / Heads</th>
-              <td mat-cell *matCellDef="let inv" class="col-billing-head">
-                <div class="billing-head-container">
-                  <span class="period-badge" (click)="openInvoiceBreakdown(inv)">
-                    <mat-icon class="period-icon">calendar_month</mat-icon>
-                    <span class="period-single-line">{{ inv.title }}</span>
-                  </span>
-                  <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
-                    <ng-container *ngIf="getSortedInvoiceItems(inv.items) as sortedItems">
-                      <span
-                        *ngFor="let it of sortedItems.slice(0, 2)"
-                        class="mini-head-chip clickable-head-chip"
-                        [ngClass]="getHeadChipClass(it.headName)"
-                        (click)="openInvoiceBreakdown(inv)">
-                        <span class="chip-title-part">{{ it.headName }}:</span>
-                        <strong class="chip-amt-part">₹{{ it.amount | number:'1.0-0' }}</strong>
-                      </span>
-                      <button
-                        type="button"
-                        *ngIf="sortedItems.length > 2"
-                        class="mini-head-breakdown-btn more-heads-pill"
-                        (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
-                        <mat-icon class="more-ic">receipt_long</mat-icon>
-                        <span>+{{ sortedItems.length - 2 }} More &bull; Breakdown</span>
-                      </button>
-                      <button
-                        type="button"
-                        *ngIf="sortedItems.length <= 2 && sortedItems.length > 0"
-                        class="mini-head-breakdown-btn"
-                        (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
-                        <mat-icon class="more-ic">receipt_long</mat-icon>
-                        <span>Breakdown</span>
-                      </button>
-                    </ng-container>
-                  </div>
-                  <div *ngIf="inv.cancellationReason" class="inv-audit-pill" [matTooltip]="inv.cancellationReason">
-                    <mat-icon class="audit-icon">info</mat-icon>
-                    <span class="audit-text">{{ inv.cancellationReason }}</span>
-                  </div>
-                </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="totalAmount">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="totalAmount" class="text-right">Fee (₹)</th>
-              <td mat-cell *matCellDef="let inv" class="text-right">₹{{ inv.totalAmount | number:'1.2-2' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="paidAmount">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Paid (₹)</th>
-              <td mat-cell *matCellDef="let inv" class="text-right amount-paid">₹{{ inv.paidAmount | number:'1.2-2' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="dueAmount">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="dueAmount" class="text-right">Balance Due (₹)</th>
-              <td mat-cell *matCellDef="let inv" class="text-right">
-                <ng-container *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')">
-                  <span class="waived-due-pill" [matTooltip]="inv.cancellationReason">₹0.00 (Waived)</span>
-                </ng-container>
-                <ng-container *ngIf="!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')">
-                  <ng-container *ngIf="inv.status !== 'Cancelled'">
-                    <strong class="amount-due">₹{{ inv.dueAmount | number:'1.2-2' }}</strong>
-                  </ng-container>
-                  <ng-container *ngIf="inv.status === 'Cancelled'">
-                    <span class="cancelled-due" matTooltip="Invoice cancelled (no dues payable)">₹0.00</span>
-                  </ng-container>
-                </ng-container>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="dueDate">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="dueDate" class="col-due-date">Due Date</th>
-              <td mat-cell *matCellDef="let inv" class="col-due-date">
-                <span class="due-date-pill">{{ inv.dueDate | date:'dd-MMM-yyyy' }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="status" class="text-center">Status</th>
-              <td mat-cell *matCellDef="let inv" class="text-center">
-                <span
-                  *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')"
-                  class="status-badge settled"
-                  [matTooltip]="inv.cancellationReason"
-                  [matTooltipPosition]="'above'">
-                  Settled (Waived)
-                </span>
-                <span
-                  *ngIf="!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')"
-                  [class]="'status-badge ' + inv.status.toLowerCase()"
-                  [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''"
-                  [matTooltipPosition]="'above'">
-                  {{ inv.status }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-center col-actions">
-                <mat-icon class="col-header-action-icon" matTooltip="Actions">settings</mat-icon>
-              </th>
-              <td mat-cell *matCellDef="let inv" class="text-center col-actions">
-                <div class="smart-action-group">
-                  <!-- 3-Dots Action Menu Trigger -->
-                  <button
-                    mat-icon-button
-                    disableRipple
-                    [matMenuTriggerFor]="actionMenu"
-                    class="btn-more-dots"
-                    matTooltip="Options & Actions"
-                    aria-label="Actions Menu">
-                    <mat-icon>more_vert</mat-icon>
-                  </button>
-
-                  <!-- 3-Dots Menu (Lazy rendered by Angular Material) -->
-                  <mat-menu #actionMenu="matMenu" xPosition="before" class="smart-fees-menu">
-                    <!-- View Fee Heads Breakdown -->
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="totalAmount">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="totalAmount" class="text-right">Fee (₹)</th>
+                <td mat-cell *matCellDef="let inv" class="text-right">₹{{ inv.totalAmount | number:'1.2-2' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="paidAmount">
+                <th mat-header-cell *matHeaderCellDef class="text-right">Paid (₹)</th>
+                <td mat-cell *matCellDef="let inv" class="text-right amount-paid">₹{{ inv.paidAmount | number:'1.2-2' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="dueAmount">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="dueAmount" class="text-right">Balance Due (₹)</th>
+                <td mat-cell *matCellDef="let inv" class="text-right">
+                  @if (inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')) {
+                    <span class="waived-due-pill" [matTooltip]="inv.cancellationReason">₹0.00 (Waived)</span>
+                  }
+                  @if (!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')) {
+                    @if (inv.status !== 'Cancelled') {
+                      <strong class="amount-due">₹{{ inv.dueAmount | number:'1.2-2' }}</strong>
+                    }
+                    @if (inv.status === 'Cancelled') {
+                      <span class="cancelled-due" matTooltip="Invoice cancelled (no dues payable)">₹0.00</span>
+                    }
+                  }
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="dueDate">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="dueDate" class="col-due-date">Due Date</th>
+                <td mat-cell *matCellDef="let inv" class="col-due-date">
+                  <span class="due-date-pill">{{ inv.dueDate | date:'dd-MMM-yyyy' }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="status" class="text-center">Status</th>
+                <td mat-cell *matCellDef="let inv" class="text-center">
+                  @if (inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')) {
+                    <span
+                      class="status-badge settled"
+                      [matTooltip]="inv.cancellationReason"
+                      [matTooltipPosition]="'above'">
+                      Settled (Waived)
+                    </span>
+                  }
+                  @if (!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')) {
+                    <span
+                      [class]="'status-badge ' + inv.status.toLowerCase()"
+                      [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''"
+                      [matTooltipPosition]="'above'">
+                      {{ inv.status }}
+                    </span>
+                  }
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef class="text-center col-actions">
+                  <mat-icon class="col-header-action-icon" matTooltip="Actions">settings</mat-icon>
+                </th>
+                <td mat-cell *matCellDef="let inv" class="text-center col-actions">
+                  <div class="smart-action-group">
+                    <!-- 3-Dots Action Menu Trigger -->
                     <button
-                      mat-menu-item
-                      (click)="openInvoiceBreakdown(inv)">
-                      <mat-icon class="menu-icon-blue">format_list_bulleted</mat-icon>
-                      <span>View Fee Heads Breakdown (फीस विवरण)</span>
+                      mat-icon-button
+                      disableRipple
+                      [matMenuTriggerFor]="actionMenu"
+                      class="btn-more-dots"
+                      matTooltip="Options & Actions"
+                      aria-label="Actions Menu">
+                      <mat-icon>more_vert</mat-icon>
                     </button>
-
-                    <!-- Collect Fee -->
-                    <button
-                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
-                      mat-menu-item
-                      (click)="openCollectFeeModal(inv)">
-                      <mat-icon class="menu-icon-blue">payments</mat-icon>
-                      <span>Collect Fee (फीस जमा करें)</span>
-                    </button>
-
-                    <!-- Pay via Dynamic UPI QR -->
-                    <button
-                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
-                      mat-menu-item
-                      (click)="openUpiPaymentModal(inv)">
-                      <mat-icon class="menu-icon-emerald">qr_code_2</mat-icon>
-                      <span>Pay via Dynamic UPI QR</span>
-                    </button>
-
-                    <!-- Due Receipt / Demand Notice -->
-                    <button
-                      *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
-                      mat-menu-item
-                      (click)="openDueReceiptModal(inv)">
-                      <mat-icon class="menu-icon-amber">receipt_long</mat-icon>
-                      <span>Print Due Slip (बकाया पर्ची)</span>
-                    </button>
-
-                    <!-- View / Print Paid Receipt -->
-                    <button
-                      *ngIf="inv.status === 'Paid'"
-                      mat-menu-item
-                      (click)="openReceiptForInvoice(inv)">
-                      <mat-icon class="menu-icon-green">receipt</mat-icon>
-                      <span>Print Payment Receipt (रसीद)</span>
-                    </button>
-
-                    <!-- Send WhatsApp Receipt / Reminder -->
-                    <button
-                      *ngIf="inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)"
-                      mat-menu-item
-                      (click)="sendReminder(inv)">
-                      <mat-icon class="menu-icon-green">chat</mat-icon>
-                      <span>{{ inv.dueAmount > 0 ? 'Send WhatsApp Due Notice' : 'Send WhatsApp Paid Receipt' }}</span>
-                    </button>
-
-                    <!-- Student Ledger / Passbook -->
-                    <button
-                      mat-menu-item
-                      (click)="openStudentLedger(inv.studentId)">
-                      <mat-icon class="menu-icon-rose">menu_book</mat-icon>
-                      <span>Student Ledger & Passbook</span>
-                    </button>
-
-                    <!-- Edit / Add Fee Heads -->
-                    <button
-                      *ngIf="inv.status === 'Pending' && inv.paidAmount === 0"
-                      mat-menu-item
-                      (click)="openEditInvoiceModal(inv)">
-                      <mat-icon class="menu-icon-purple">edit_note</mat-icon>
-                      <span>Edit / Add Fee Heads</span>
-                    </button>
-
-                    <!-- Cancel Invoice -->
-                    <ng-container *ngIf="inv.status === 'Pending' || inv.status === 'Partial'">
-                      <mat-divider></mat-divider>
+                    <!-- 3-Dots Menu (Lazy rendered by Angular Material) -->
+                    <mat-menu #actionMenu="matMenu" xPosition="before" class="smart-fees-menu">
+                      <!-- View Fee Heads Breakdown -->
                       <button
                         mat-menu-item
-                        class="cancel-menu-item"
-                        (click)="confirmCancelInvoice(inv)">
-                        <mat-icon class="menu-icon-red">cancel</mat-icon>
-                        <span class="text-danger">Cancel Invoice (रद्द करें)</span>
+                        (click)="openInvoiceBreakdown(inv)">
+                        <mat-icon class="menu-icon-blue">format_list_bulleted</mat-icon>
+                        <span>View Fee Heads Breakdown (फीस विवरण)</span>
                       </button>
-                    </ng-container>
-                  </mat-menu>
-                </div>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-
-            <tr class="mat-row" *matNoDataRow>
-              <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
-                <div class="empty-state" *ngIf="!loading">
-                  <mat-icon class="empty-icon">payments</mat-icon>
-                  <p>No fee invoices found matching your filter criteria.</p>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </mat-card-content>
-
-        <mat-paginator
-          [length]="totalCount"
-          [pageSize]="pageSize"
-          [pageSizeOptions]="[5, 10, 20, 50]"
-          [pageIndex]="pageIndex"
-          (page)="onPageChange($event)"
-          showFirstLastButtons>
-        </mat-paginator>
-      </mat-card>
-
-      <!-- Online UPI Collections & Audit Card -->
-      <mat-card class="table-card mat-elevation-z2 upi-table-card" *ngIf="currentActiveTab === 'upi'">
-        <!-- UPI Insights Bar -->
-        <div class="upi-summary-strip">
-          <div class="upi-summary-item">
-            <div class="upi-item-icon">
-              <mat-icon>account_balance_wallet</mat-icon>
-            </div>
-            <div class="upi-item-data">
-              <span class="upi-data-label">Online UPI Records</span>
-              <strong class="upi-data-val">{{ upiTotalCount }} Settlements</strong>
-            </div>
-          </div>
-          <div class="upi-summary-item">
-            <div class="upi-item-icon green-icon">
-              <mat-icon>verified</mat-icon>
-            </div>
-            <div class="upi-item-data">
-              <span class="upi-data-label">Gateway Cost</span>
-              <strong class="upi-data-val green-text">₹0.00 (Zero Cost / NPCI Direct)</strong>
-            </div>
-          </div>
-          <div class="upi-summary-item">
-            <div class="upi-item-icon purple-icon">
-              <mat-icon>sync</mat-icon>
-            </div>
-            <div class="upi-item-data">
-              <span class="upi-data-label">Auto-Ledger Settlement</span>
-              <strong class="upi-data-val">Instant FIFO &amp; Day Book Active</strong>
-            </div>
-          </div>
-        </div>
-
-        <!-- Filter Toolbar -->
-        <div class="filter-toolbar">
-          <mat-form-field appearance="outline" class="search-field">
-            <mat-icon matPrefix class="search-prefix-icon">search</mat-icon>
-            <mat-label>Search by 12-digit UTR, Student Name, Roll No, Receipt No...</mat-label>
-            <input
-              matInput
-              [(ngModel)]="upiSearchTerm"
-              (keyup.enter)="onUpiSearch()"
-              placeholder="e.g. 529384920194, Mantosh, RCPT-2026..."
-            />
-            <button mat-icon-button matSuffix *ngIf="upiSearchTerm" (click)="upiSearchTerm = ''; onUpiSearch()" aria-label="Clear">
-              <mat-icon>close</mat-icon>
-            </button>
-          </mat-form-field>
-
-          <button mat-stroked-button class="btn-refresh-upi" (click)="loadOnlineUpiTransactions()" [disabled]="upiLoading">
-            <mat-icon [class.spin-icon]="upiLoading">refresh</mat-icon>
-            <span>Refresh</span>
-          </button>
-        </div>
-
-        <!-- UPI Transactions Table -->
-        <mat-card-content class="table-container table-responsive">
-          <table mat-table [dataSource]="upiTransactions" class="full-width upi-data-table">
-
-            <ng-container matColumnDef="paymentDate">
-              <th mat-header-cell *matHeaderCellDef>Date &amp; Time (IST)</th>
-              <td mat-cell *matCellDef="let txn">
-                <span class="ist-date-cell" [appIstDatetime]="txn.paymentDate" format="datetime"></span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="receiptNumber">
-              <th mat-header-cell *matHeaderCellDef>Receipt No</th>
-              <td mat-cell *matCellDef="let txn">
-                <a class="rcpt-badge-link" (click)="openReceiptForUpiTxn(txn)" matTooltip="Click to view &amp; print official receipt">
-                  <mat-icon class="link-icon">receipt</mat-icon>
-                  <span>#{{ txn.receiptNumber }}</span>
-                </a>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="studentName">
-              <th mat-header-cell *matHeaderCellDef>Student Profile</th>
-              <td mat-cell *matCellDef="let txn">
-                <div class="st-cell">
-                  <span class="st-name-text">{{ txn.studentName }}</span>
-                  <div class="st-sub-chips">
-                    <span class="meta-tag roll-tag" *ngIf="txn.rollNumber">Roll: {{ txn.rollNumber }}</span>
-                    <span class="meta-tag class-tag" *ngIf="txn.className || txn.batchName">{{ txn.className || txn.batchName }}</span>
+                      <!-- Collect Fee -->
+                      @if (inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)) {
+                        <button
+                          mat-menu-item
+                          (click)="openCollectFeeModal(inv)">
+                          <mat-icon class="menu-icon-blue">payments</mat-icon>
+                          <span>Collect Fee (फीस जमा करें)</span>
+                        </button>
+                      }
+                      <!-- Pay via Dynamic UPI QR -->
+                      @if (inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)) {
+                        <button
+                          mat-menu-item
+                          (click)="openUpiPaymentModal(inv)">
+                          <mat-icon class="menu-icon-emerald">qr_code_2</mat-icon>
+                          <span>Pay via Dynamic UPI QR</span>
+                        </button>
+                      }
+                      <!-- Due Receipt / Demand Notice -->
+                      @if (inv.dueAmount > 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)) {
+                        <button
+                          mat-menu-item
+                          (click)="openDueReceiptModal(inv)">
+                          <mat-icon class="menu-icon-amber">receipt_long</mat-icon>
+                          <span>Print Due Slip (बकाया पर्ची)</span>
+                        </button>
+                      }
+                      <!-- View / Print Paid Receipt -->
+                      @if (inv.status === 'Paid') {
+                        <button
+                          mat-menu-item
+                          (click)="openReceiptForInvoice(inv)">
+                          <mat-icon class="menu-icon-green">receipt</mat-icon>
+                          <span>Print Payment Receipt (रसीद)</span>
+                        </button>
+                      }
+                      <!-- Send WhatsApp Receipt / Reminder -->
+                      @if (inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)) {
+                        <button
+                          mat-menu-item
+                          (click)="sendReminder(inv)">
+                          <mat-icon class="menu-icon-green">chat</mat-icon>
+                          <span>{{ inv.dueAmount > 0 ? 'Send WhatsApp Due Notice' : 'Send WhatsApp Paid Receipt' }}</span>
+                        </button>
+                      }
+                      <!-- Student Ledger / Passbook -->
+                      <button
+                        mat-menu-item
+                        (click)="openStudentLedger(inv.studentId)">
+                        <mat-icon class="menu-icon-rose">menu_book</mat-icon>
+                        <span>Student Ledger & Passbook</span>
+                      </button>
+                      <!-- Edit / Add Fee Heads -->
+                      @if (inv.status === 'Pending' && inv.paidAmount === 0) {
+                        <button
+                          mat-menu-item
+                          (click)="openEditInvoiceModal(inv)">
+                          <mat-icon class="menu-icon-purple">edit_note</mat-icon>
+                          <span>Edit / Add Fee Heads</span>
+                        </button>
+                      }
+                      <!-- Cancel Invoice -->
+                      @if (inv.status === 'Pending' || inv.status === 'Partial') {
+                        <mat-divider></mat-divider>
+                        <button
+                          mat-menu-item
+                          class="cancel-menu-item"
+                          (click)="confirmCancelInvoice(inv)">
+                          <mat-icon class="menu-icon-red">cancel</mat-icon>
+                          <span class="text-danger">Cancel Invoice (रद्द करें)</span>
+                        </button>
+                      }
+                    </mat-menu>
                   </div>
-                </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="invoiceNumber">
-              <th mat-header-cell *matHeaderCellDef>Invoice / Ref</th>
-              <td mat-cell *matCellDef="let txn">
-                <span class="inv-ref-text">{{ txn.invoiceNumber || 'FIFO Settlement' }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="amountPaid">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Amount Received</th>
-              <td mat-cell *matCellDef="let txn" class="text-right">
-                <strong class="upi-paid-amt">₹{{ txn.amountPaid | number:'1.2-2' }}</strong>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="upiRrn">
-              <th mat-header-cell *matHeaderCellDef>12-Digit UTR / RRN</th>
-              <td mat-cell *matCellDef="let txn">
-                <div class="utr-pill-wrap" *ngIf="txn.upiRrn">
-                  <code class="utr-code">{{ txn.upiRrn }}</code>
-                  <button mat-icon-button disableRipple class="utr-copy-btn" (click)="copyToClipboard(txn.upiRrn)" matTooltip="Copy UTR">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                </div>
-                <span *ngIf="!txn.upiRrn" class="text-muted">-</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="payerVpa">
-              <th mat-header-cell *matHeaderCellDef>Payer / VPA</th>
-              <td mat-cell *matCellDef="let txn">
-                <div class="payer-info-cell">
-                  <span class="vpa-text" *ngIf="txn.payerVpa">{{ txn.payerVpa }}</span>
-                  <small class="payer-sub" *ngIf="txn.payerPhone || txn.payerName">
-                    {{ txn.payerName || '' }} {{ txn.payerPhone ? '(' + txn.payerPhone + ')' : '' }}
-                  </small>
-                  <span *ngIf="!txn.payerVpa && !txn.payerPhone && !txn.payerName" class="text-muted">Bharat UPI Direct</span>
-                </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef class="text-center">Settlement Status</th>
-              <td mat-cell *matCellDef="let txn" class="text-center">
-                <span class="upi-status-badge verified" matTooltip="Settled to Branch Day Book &amp; P&L">
-                  <mat-icon>check_circle</mat-icon>
-                  <span>{{ txn.onlinePaymentStatus || 'Completed' }}</span>
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-center col-actions">
-                <mat-icon class="col-header-action-icon" matTooltip="Actions">settings</mat-icon>
-              </th>
-              <td mat-cell *matCellDef="let txn" class="text-center col-actions">
-                <div class="smart-action-group">
-                  <button
-                    mat-icon-button
-                    disableRipple
-                    [matMenuTriggerFor]="upiActionMenu"
-                    class="btn-more-dots"
-                    matTooltip="Options &amp; Actions"
-                    aria-label="UPI Actions Menu">
-                    <mat-icon>more_vert</mat-icon>
-                  </button>
-
-                  <mat-menu #upiActionMenu="matMenu" xPosition="before" class="smart-fees-menu">
-                    <!-- View / Print Receipt -->
-                    <button mat-menu-item (click)="openReceiptForUpiTxn(txn)">
-                      <mat-icon class="menu-icon-green">receipt</mat-icon>
-                      <span>View &amp; Print E-Receipt (रसीद)</span>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+              <tr class="mat-row" *matNoDataRow>
+                <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
+                  @if (!loading) {
+                    <div class="empty-state">
+                      <mat-icon class="empty-icon">payments</mat-icon>
+                      <p>No fee invoices found matching your filter criteria.</p>
+                    </div>
+                  }
+                </td>
+              </tr>
+            </table>
+          </mat-card-content>
+          <mat-paginator
+            [length]="totalCount"
+            [pageSize]="pageSize"
+            [pageSizeOptions]="[5, 10, 20, 50]"
+            [pageIndex]="pageIndex"
+            (page)="onPageChange($event)"
+            showFirstLastButtons>
+          </mat-paginator>
+        </mat-card>
+      }
+    
+      <!-- Online UPI Collections & Audit Card -->
+      @if (currentActiveTab === 'upi') {
+        <mat-card class="table-card mat-elevation-z2 upi-table-card">
+          <!-- UPI Insights Bar -->
+          <div class="upi-summary-strip">
+            <div class="upi-summary-item">
+              <div class="upi-item-icon">
+                <mat-icon>account_balance_wallet</mat-icon>
+              </div>
+              <div class="upi-item-data">
+                <span class="upi-data-label">Online UPI Records</span>
+                <strong class="upi-data-val">{{ upiTotalCount }} Settlements</strong>
+              </div>
+            </div>
+            <div class="upi-summary-item">
+              <div class="upi-item-icon green-icon">
+                <mat-icon>verified</mat-icon>
+              </div>
+              <div class="upi-item-data">
+                <span class="upi-data-label">Gateway Cost</span>
+                <strong class="upi-data-val green-text">₹0.00 (Zero Cost / NPCI Direct)</strong>
+              </div>
+            </div>
+            <div class="upi-summary-item">
+              <div class="upi-item-icon purple-icon">
+                <mat-icon>sync</mat-icon>
+              </div>
+              <div class="upi-item-data">
+                <span class="upi-data-label">Auto-Ledger Settlement</span>
+                <strong class="upi-data-val">Instant FIFO &amp; Day Book Active</strong>
+              </div>
+            </div>
+          </div>
+          <!-- Filter Toolbar -->
+          <div class="filter-toolbar">
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-icon matPrefix class="search-prefix-icon">search</mat-icon>
+              <mat-label>Search by 12-digit UTR, Student Name, Roll No, Receipt No...</mat-label>
+              <input
+                matInput
+                [(ngModel)]="upiSearchTerm"
+                (keyup.enter)="onUpiSearch()"
+                placeholder="e.g. 529384920194, Mantosh, RCPT-2026..."
+                />
+              @if (upiSearchTerm) {
+                <button mat-icon-button matSuffix (click)="upiSearchTerm = ''; onUpiSearch()" aria-label="Clear">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+            </mat-form-field>
+            <button mat-stroked-button class="btn-refresh-upi" (click)="loadOnlineUpiTransactions()" [disabled]="upiLoading">
+              <mat-icon [class.spin-icon]="upiLoading">refresh</mat-icon>
+              <span>Refresh</span>
+            </button>
+          </div>
+          <!-- UPI Transactions Table -->
+          <mat-card-content class="table-container table-responsive">
+            <table mat-table [dataSource]="upiTransactions" class="full-width upi-data-table">
+              <ng-container matColumnDef="paymentDate">
+                <th mat-header-cell *matHeaderCellDef>Date &amp; Time (IST)</th>
+                <td mat-cell *matCellDef="let txn">
+                  <span class="ist-date-cell" [appIstDatetime]="txn.paymentDate" format="datetime"></span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="receiptNumber">
+                <th mat-header-cell *matHeaderCellDef>Receipt No</th>
+                <td mat-cell *matCellDef="let txn">
+                  <a class="rcpt-badge-link" (click)="openReceiptForUpiTxn(txn)" matTooltip="Click to view &amp; print official receipt">
+                    <mat-icon class="link-icon">receipt</mat-icon>
+                    <span>#{{ txn.receiptNumber }}</span>
+                  </a>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="studentName">
+                <th mat-header-cell *matHeaderCellDef>Student Profile</th>
+                <td mat-cell *matCellDef="let txn">
+                  <div class="st-cell">
+                    <span class="st-name-text">{{ txn.studentName }}</span>
+                    <div class="st-sub-chips">
+                      @if (txn.rollNumber) {
+                        <span class="meta-tag roll-tag">Roll: {{ txn.rollNumber }}</span>
+                      }
+                      @if (txn.className || txn.batchName) {
+                        <span class="meta-tag class-tag">{{ txn.className || txn.batchName }}</span>
+                      }
+                    </div>
+                  </div>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="invoiceNumber">
+                <th mat-header-cell *matHeaderCellDef>Invoice / Ref</th>
+                <td mat-cell *matCellDef="let txn">
+                  <span class="inv-ref-text">{{ txn.invoiceNumber || 'FIFO Settlement' }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="amountPaid">
+                <th mat-header-cell *matHeaderCellDef class="text-right">Amount Received</th>
+                <td mat-cell *matCellDef="let txn" class="text-right">
+                  <strong class="upi-paid-amt">₹{{ txn.amountPaid | number:'1.2-2' }}</strong>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="upiRrn">
+                <th mat-header-cell *matHeaderCellDef>12-Digit UTR / RRN</th>
+                <td mat-cell *matCellDef="let txn">
+                  @if (txn.upiRrn) {
+                    <div class="utr-pill-wrap">
+                      <code class="utr-code">{{ txn.upiRrn }}</code>
+                      <button mat-icon-button disableRipple class="utr-copy-btn" (click)="copyToClipboard(txn.upiRrn)" matTooltip="Copy UTR">
+                        <mat-icon>content_copy</mat-icon>
+                      </button>
+                    </div>
+                  }
+                  @if (!txn.upiRrn) {
+                    <span class="text-muted">-</span>
+                  }
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="payerVpa">
+                <th mat-header-cell *matHeaderCellDef>Payer / VPA</th>
+                <td mat-cell *matCellDef="let txn">
+                  <div class="payer-info-cell">
+                    @if (txn.payerVpa) {
+                      <span class="vpa-text">{{ txn.payerVpa }}</span>
+                    }
+                    @if (txn.payerPhone || txn.payerName) {
+                      <small class="payer-sub">
+                        {{ txn.payerName || '' }} {{ txn.payerPhone ? '(' + txn.payerPhone + ')' : '' }}
+                      </small>
+                    }
+                    @if (!txn.payerVpa && !txn.payerPhone && !txn.payerName) {
+                      <span class="text-muted">Bharat UPI Direct</span>
+                    }
+                  </div>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef class="text-center">Settlement Status</th>
+                <td mat-cell *matCellDef="let txn" class="text-center">
+                  <span class="upi-status-badge verified" matTooltip="Settled to Branch Day Book &amp; P&L">
+                    <mat-icon>check_circle</mat-icon>
+                    <span>{{ txn.onlinePaymentStatus || 'Completed' }}</span>
+                  </span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef class="text-center col-actions">
+                  <mat-icon class="col-header-action-icon" matTooltip="Actions">settings</mat-icon>
+                </th>
+                <td mat-cell *matCellDef="let txn" class="text-center col-actions">
+                  <div class="smart-action-group">
+                    <button
+                      mat-icon-button
+                      disableRipple
+                      [matMenuTriggerFor]="upiActionMenu"
+                      class="btn-more-dots"
+                      matTooltip="Options &amp; Actions"
+                      aria-label="UPI Actions Menu">
+                      <mat-icon>more_vert</mat-icon>
                     </button>
-
-                    <!-- Copy UTR / RRN -->
-                    <button mat-menu-item (click)="copyToClipboard(txn.upiRrn)" *ngIf="txn.upiRrn">
-                      <mat-icon class="menu-icon-blue">content_copy</mat-icon>
-                      <span>Copy 12-Digit UTR Ref</span>
-                    </button>
-
-                    <!-- Copy Receipt Number -->
-                    <button mat-menu-item (click)="copyToClipboard(txn.receiptNumber)" *ngIf="txn.receiptNumber">
-                      <mat-icon class="menu-icon-purple">tag</mat-icon>
-                      <span>Copy Receipt No</span>
-                    </button>
-                  </mat-menu>
-                </div>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="upiDisplayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: upiDisplayedColumns;"></tr>
-
-            <tr class="mat-row" *matNoDataRow>
-              <td class="mat-cell empty-cell" [attr.colspan]="upiDisplayedColumns.length">
-                <div class="empty-state" *ngIf="!upiLoading">
-                  <mat-icon class="empty-icon">qr_code_2</mat-icon>
-                  <p>No online UPI transactions found matching the filter criteria.</p>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </mat-card-content>
-
-        <mat-paginator
-          [length]="upiTotalCount"
-          [pageSize]="upiPageSize"
-          [pageSizeOptions]="[5, 10, 20, 50]"
-          [pageIndex]="upiPageIndex"
-          (page)="onUpiPageChange($event)"
-          showFirstLastButtons>
-        </mat-paginator>
-      </mat-card>
-
+                    <mat-menu #upiActionMenu="matMenu" xPosition="before" class="smart-fees-menu">
+                      <!-- View / Print Receipt -->
+                      <button mat-menu-item (click)="openReceiptForUpiTxn(txn)">
+                        <mat-icon class="menu-icon-green">receipt</mat-icon>
+                        <span>View &amp; Print E-Receipt (रसीद)</span>
+                      </button>
+                      <!-- Copy UTR / RRN -->
+                      @if (txn.upiRrn) {
+                        <button mat-menu-item (click)="copyToClipboard(txn.upiRrn)">
+                          <mat-icon class="menu-icon-blue">content_copy</mat-icon>
+                          <span>Copy 12-Digit UTR Ref</span>
+                        </button>
+                      }
+                      <!-- Copy Receipt Number -->
+                      @if (txn.receiptNumber) {
+                        <button mat-menu-item (click)="copyToClipboard(txn.receiptNumber)">
+                          <mat-icon class="menu-icon-purple">tag</mat-icon>
+                          <span>Copy Receipt No</span>
+                        </button>
+                      }
+                    </mat-menu>
+                  </div>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="upiDisplayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: upiDisplayedColumns;"></tr>
+              <tr class="mat-row" *matNoDataRow>
+                <td class="mat-cell empty-cell" [attr.colspan]="upiDisplayedColumns.length">
+                  @if (!upiLoading) {
+                    <div class="empty-state">
+                      <mat-icon class="empty-icon">qr_code_2</mat-icon>
+                      <p>No online UPI transactions found matching the filter criteria.</p>
+                    </div>
+                  }
+                </td>
+              </tr>
+            </table>
+          </mat-card-content>
+          <mat-paginator
+            [length]="upiTotalCount"
+            [pageSize]="upiPageSize"
+            [pageSizeOptions]="[5, 10, 20, 50]"
+            [pageIndex]="upiPageIndex"
+            (page)="onUpiPageChange($event)"
+            showFirstLastButtons>
+          </mat-paginator>
+        </mat-card>
+      }
+    
       <!-- Floating Multi-Collect Action Bar -->
-      <div class="multi-collect-bar" *ngIf="selectedInvoices.length > 0">
-        <div class="bar-info-section">
-          <div class="bar-left">
-            <div class="badge-count" [matTooltip]="selectedInvoices.length + ' invoice(s) selected'">
-              {{ selectedInvoices.length }}
+      @if (selectedInvoices.length > 0) {
+        <div class="multi-collect-bar">
+          <div class="bar-info-section">
+            <div class="bar-left">
+              <div class="badge-count" [matTooltip]="selectedInvoices.length + ' invoice(s) selected'">
+                {{ selectedInvoices.length }}
+              </div>
+              <div class="selection-info">
+                <span class="sel-title" [matTooltip]="selectedStudentName">
+                  {{ selectedStudentName }}
+                  <span class="sel-roll">(Roll #{{ selectedRollNumber }})</span>
+                </span>
+                <small class="sel-sub">{{ selectedInvoices.length }} {{ selectedInvoices.length === 1 ? 'Invoice' : 'Invoices' }} Selected</small>
+              </div>
             </div>
-            <div class="selection-info">
-              <span class="sel-title" [matTooltip]="selectedStudentName">
-                {{ selectedStudentName }}
-                <span class="sel-roll">(Roll #{{ selectedRollNumber }})</span>
-              </span>
-              <small class="sel-sub">{{ selectedInvoices.length }} {{ selectedInvoices.length === 1 ? 'Invoice' : 'Invoices' }} Selected</small>
+            <div class="bar-center">
+              <span class="total-label">Total to Collect</span>
+              <strong class="total-amount">₹{{ totalSelectedDue | number:'1.2-2' }}</strong>
             </div>
           </div>
-
-          <div class="bar-center">
-            <span class="total-label">Total to Collect</span>
-            <strong class="total-amount">₹{{ totalSelectedDue | number:'1.2-2' }}</strong>
+          <div class="bar-actions-section">
+            <button mat-button class="btn-clear" (click)="clearSelection()" matTooltip="Clear selected invoices">
+              <mat-icon class="clear-icon">close</mat-icon>
+              <span class="clear-text">Clear</span>
+            </button>
+            <button mat-raised-button class="btn-upi-multi" (click)="openMultiCollectUpiModal()" matTooltip="Collect payment via Dynamic UPI QR Code">
+              <mat-icon class="action-btn-icon">qr_code_2</mat-icon>
+              <span class="action-btn-text">Pay via UPI QR</span>
+            </button>
+            <button mat-raised-button class="btn-collect-multi" (click)="openMultiCollectModal()" matTooltip="Collect settlement payment for selected invoices">
+              <mat-icon class="action-btn-icon">payments</mat-icon>
+              <span class="action-btn-text">Collect Fees</span>
+              <span class="action-btn-amount">₹{{ totalSelectedDue | number:'1.2-2' }}</span>
+            </button>
           </div>
         </div>
-
-        <div class="bar-actions-section">
-          <button mat-button class="btn-clear" (click)="clearSelection()" matTooltip="Clear selected invoices">
-            <mat-icon class="clear-icon">close</mat-icon>
-            <span class="clear-text">Clear</span>
-          </button>
-          
-          <button mat-raised-button class="btn-upi-multi" (click)="openMultiCollectUpiModal()" matTooltip="Collect payment via Dynamic UPI QR Code">
-            <mat-icon class="action-btn-icon">qr_code_2</mat-icon>
-            <span class="action-btn-text">Pay via UPI QR</span>
-          </button>
-          
-          <button mat-raised-button class="btn-collect-multi" (click)="openMultiCollectModal()" matTooltip="Collect settlement payment for selected invoices">
-            <mat-icon class="action-btn-icon">payments</mat-icon>
-            <span class="action-btn-text">Collect Fees</span>
-            <span class="action-btn-amount">₹{{ totalSelectedDue | number:'1.2-2' }}</span>
-          </button>
-        </div>
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .fees-wrapper {
       display: flex;

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -90,7 +90,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
             </div>
           </div>
         </div>
-
+    
         <div class="action-btn-group">
           <button mat-stroked-button color="primary" (click)="openInwardDialog()" class="erp-btn">
             <mat-icon>add_shopping_cart</mat-icon>
@@ -113,7 +113,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
           </button>
         </div>
       </div>
-
+    
       <!-- Module Sub-Nav Bar -->
       <div class="module-nav-bar">
         <a mat-button [routerLink]="['/inventory']" class="nav-tab active-tab">
@@ -129,10 +129,12 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
         </a>
       </div>
-
+    
       <!-- Single Prominent Loader Rule -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="global-loader"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="global-loader"></mat-progress-bar>
+      }
+    
       <!-- 2. KPI Metrics Deck -->
       <div class="kpi-grid">
         <!-- KPI 1: Total Items -->
@@ -148,7 +150,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
             </div>
           </div>
         </mat-card>
-
+    
         <!-- KPI 2: Total Valuation -->
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
@@ -162,7 +164,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
             </div>
           </div>
         </mat-card>
-
+    
         <!-- KPI 3: Low Stock Warning -->
         <mat-card class="kpi-card mat-elevation-z1" [class.alert-border]="(dashboardStats?.lowStockCount || lowStockCount) > 0">
           <div class="kpi-content">
@@ -176,7 +178,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
             </div>
           </div>
         </mat-card>
-
+    
         <!-- KPI 4: Monthly Inward Purchases -->
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
@@ -191,7 +193,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
           </div>
         </mat-card>
       </div>
-
+    
       <!-- 3. Reactive Forms Filter Deck -->
       <mat-card class="filter-card mat-elevation-z1">
         <form [formGroup]="filterForm" class="filter-form-layout">
@@ -200,29 +202,37 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
             <mat-label>Campus / Branch</mat-label>
             <mat-select formControlName="branchId">
               <mat-option [value]="null">All Campuses Consolidated</mat-option>
-              <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
+              @for (b of branches; track b) {
+                <mat-option [value]="b.id">{{ b.name }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+    
           <!-- Search Term -->
           <mat-form-field appearance="outline" class="filter-field search-field">
             <mat-label>Search Items / SKU / Rack</mat-label>
             <input matInput formControlName="searchTerm" placeholder="Search by name, SKU, or rack..." />
-            <button mat-icon-button matSuffix *ngIf="filterForm.get('searchTerm')?.value" (click)="clearSearch()" type="button">
-              <mat-icon>close</mat-icon>
-            </button>
-            <mat-icon matSuffix *ngIf="!filterForm.get('searchTerm')?.value">search</mat-icon>
+            @if (filterForm.get('searchTerm')?.value) {
+              <button mat-icon-button matSuffix (click)="clearSearch()" type="button">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
+            @if (!filterForm.get('searchTerm')?.value) {
+              <mat-icon matSuffix>search</mat-icon>
+            }
           </mat-form-field>
-
+    
           <!-- Category Filter -->
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Category</mat-label>
             <mat-select formControlName="categoryId">
               <mat-option [value]="null">All Categories</mat-option>
-              <mat-option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</mat-option>
+              @for (cat of categories; track cat) {
+                <mat-option [value]="cat.id">{{ cat.name }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+    
           <!-- Item Type Filter -->
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Item Classification</mat-label>
@@ -233,7 +243,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
               <mat-option value="Asset">Fixed Assets (PCs, Labs, Benches)</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <!-- Low Stock Toggle -->
           <div class="toggle-wrap">
             <mat-slide-toggle formControlName="lowStockOnly" color="warn">
@@ -242,7 +252,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
           </div>
         </form>
       </mat-card>
-
+    
       <!-- 4. Pure Angular Material Tabs Structure -->
       <mat-card class="content-tabs-card mat-elevation-z1">
         <mat-tab-group [(selectedIndex)]="activeTabIndex" (selectedIndexChange)="onTabChange($event)" animationDuration="200ms" class="erp-tab-group">
@@ -252,7 +262,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
               <mat-icon class="tab-icon">view_list</mat-icon>
               <span>Items Catalog ({{ itemsTotalCount }})</span>
             </ng-template>
-
+    
             <div class="tab-body">
               <div class="table-responsive">
                 <table class="erp-table" matSort (matSortChange)="onItemsSortChange($event)">
@@ -276,103 +286,107 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let itm of items" [class.low-stock-row]="itm.currentStock <= itm.minStockAlertLevel">
-                      <!-- Code -->
-                      <td>
-                        <span class="code-pill">{{ itm.itemCode }}</span>
-                      </td>
-
-                      <!-- Name -->
-                      <td>
-                        <div class="item-title-wrap">
-                          <strong class="item-name">{{ itm.itemName }}</strong>
-                          <span *ngIf="itm.description" class="item-desc">{{ itm.description }}</span>
-                        </div>
-                      </td>
-
-                      <!-- Category -->
-                      <td>
-                        <mat-chip class="category-chip">{{ itm.categoryName }}</mat-chip>
-                      </td>
-
-                      <!-- Classification -->
-                      <td>
-                        <span class="type-badge" [ngClass]="'type-' + itm.itemType.toLowerCase().replace('/', '-')">
-                          {{ itm.itemType }}
-                        </span>
-                      </td>
-
-                      <!-- UOM -->
-                      <td>{{ itm.unitOfMeasurement }}</td>
-
-                      <!-- Current Stock -->
-                      <td>
-                        <span class="stock-badge" [ngClass]="getStockStatusClass(itm)">
-                          <strong>{{ itm.currentStock }}</strong> {{ itm.unitOfMeasurement }}
-                        </span>
-                      </td>
-
-                      <!-- Purchase Price -->
-                      <td>₹{{ itm.purchasePrice | number:'1.2-2' }}</td>
-
-                      <!-- Selling Price -->
-                      <td>
-                        <span *ngIf="itm.sellingPrice > 0" class="text-success font-semibold">
-                          ₹{{ itm.sellingPrice | number:'1.2-2' }}
-                        </span>
-                        <span *ngIf="itm.sellingPrice === 0" class="text-muted">—</span>
-                      </td>
-
-                      <!-- Min Alert -->
-                      <td>
-                        <span class="text-muted">{{ itm.minStockAlertLevel }} {{ itm.unitOfMeasurement }}</span>
-                      </td>
-
-                      <!-- Rack -->
-                      <td>
-                        <span *ngIf="itm.rackOrLocation" class="rack-badge">
-                          <mat-icon>shelves</mat-icon>
-                          <span>{{ itm.rackOrLocation }}</span>
-                        </span>
-                        <span *ngIf="!itm.rackOrLocation" class="text-muted">—</span>
-                      </td>
-
-                      <!-- Actions 3-Dots Menu -->
-                      <td class="text-right action-cell">
-                        <button mat-icon-button [matMenuTriggerFor]="itemMenu" class="action-menu-trigger" matTooltip="Item Actions">
-                          <mat-icon>more_vert</mat-icon>
-                        </button>
-                        <mat-menu #itemMenu="matMenu" xPosition="before" class="erp-action-menu">
-                          <button mat-menu-item (click)="openAdjustDialog(itm)">
-                            <mat-icon class="text-amber">tune</mat-icon>
-                            <span>Adjust / Reconcile Stock</span>
+                    @for (itm of items; track itm) {
+                      <tr [class.low-stock-row]="itm.currentStock <= itm.minStockAlertLevel">
+                        <!-- Code -->
+                        <td>
+                          <span class="code-pill">{{ itm.itemCode }}</span>
+                        </td>
+                        <!-- Name -->
+                        <td>
+                          <div class="item-title-wrap">
+                            <strong class="item-name">{{ itm.itemName }}</strong>
+                            @if (itm.description) {
+                              <span class="item-desc">{{ itm.description }}</span>
+                            }
+                          </div>
+                        </td>
+                        <!-- Category -->
+                        <td>
+                          <mat-chip class="category-chip">{{ itm.categoryName }}</mat-chip>
+                        </td>
+                        <!-- Classification -->
+                        <td>
+                          <span class="type-badge" [ngClass]="'type-' + itm.itemType.toLowerCase().replace('/', '-')">
+                            {{ itm.itemType }}
+                          </span>
+                        </td>
+                        <!-- UOM -->
+                        <td>{{ itm.unitOfMeasurement }}</td>
+                        <!-- Current Stock -->
+                        <td>
+                          <span class="stock-badge" [ngClass]="getStockStatusClass(itm)">
+                            <strong>{{ itm.currentStock }}</strong> {{ itm.unitOfMeasurement }}
+                          </span>
+                        </td>
+                        <!-- Purchase Price -->
+                        <td>₹{{ itm.purchasePrice | number:'1.2-2' }}</td>
+                        <!-- Selling Price -->
+                        <td>
+                          @if (itm.sellingPrice > 0) {
+                            <span class="text-success font-semibold">
+                              ₹{{ itm.sellingPrice | number:'1.2-2' }}
+                            </span>
+                          }
+                          @if (itm.sellingPrice === 0) {
+                            <span class="text-muted">—</span>
+                          }
+                        </td>
+                        <!-- Min Alert -->
+                        <td>
+                          <span class="text-muted">{{ itm.minStockAlertLevel }} {{ itm.unitOfMeasurement }}</span>
+                        </td>
+                        <!-- Rack -->
+                        <td>
+                          @if (itm.rackOrLocation) {
+                            <span class="rack-badge">
+                              <mat-icon>shelves</mat-icon>
+                              <span>{{ itm.rackOrLocation }}</span>
+                            </span>
+                          }
+                          @if (!itm.rackOrLocation) {
+                            <span class="text-muted">—</span>
+                          }
+                        </td>
+                        <!-- Actions 3-Dots Menu -->
+                        <td class="text-right action-cell">
+                          <button mat-icon-button [matMenuTriggerFor]="itemMenu" class="action-menu-trigger" matTooltip="Item Actions">
+                            <mat-icon>more_vert</mat-icon>
                           </button>
-                          <button mat-menu-item (click)="openItemDialog(itm)">
-                            <mat-icon class="text-primary">edit</mat-icon>
-                            <span>Edit Item Details</span>
+                          <mat-menu #itemMenu="matMenu" xPosition="before" class="erp-action-menu">
+                            <button mat-menu-item (click)="openAdjustDialog(itm)">
+                              <mat-icon class="text-amber">tune</mat-icon>
+                              <span>Adjust / Reconcile Stock</span>
+                            </button>
+                            <button mat-menu-item (click)="openItemDialog(itm)">
+                              <mat-icon class="text-primary">edit</mat-icon>
+                              <span>Edit Item Details</span>
+                            </button>
+                            <button mat-menu-item (click)="deleteItem(itm)">
+                              <mat-icon class="text-danger">delete_outline</mat-icon>
+                              <span>Delete Item</span>
+                            </button>
+                          </mat-menu>
+                        </td>
+                      </tr>
+                    }
+    
+                    @if (!loading && items.length === 0) {
+                      <tr>
+                        <td colspan="11" class="empty-cell">
+                          <mat-icon class="empty-icon">inventory_2</mat-icon>
+                          <p class="empty-text">No inventory items found matching your filters.</p>
+                          <button mat-stroked-button color="primary" (click)="openItemDialog()">
+                            <mat-icon>add</mat-icon>
+                            <span>Add Your First Item</span>
                           </button>
-                          <button mat-menu-item (click)="deleteItem(itm)">
-                            <mat-icon class="text-danger">delete_outline</mat-icon>
-                            <span>Delete Item</span>
-                          </button>
-                        </mat-menu>
-                      </td>
-                    </tr>
-
-                    <tr *ngIf="!loading && items.length === 0">
-                      <td colspan="11" class="empty-cell">
-                        <mat-icon class="empty-icon">inventory_2</mat-icon>
-                        <p class="empty-text">No inventory items found matching your filters.</p>
-                        <button mat-stroked-button color="primary" (click)="openItemDialog()">
-                          <mat-icon>add</mat-icon>
-                          <span>Add Your First Item</span>
-                        </button>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
-
+    
               <mat-paginator
                 [length]="itemsTotalCount"
                 [pageSize]="itemsPageSize"
@@ -384,23 +398,25 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
               </mat-paginator>
             </div>
           </mat-tab>
-
+    
           <!-- TAB 2: Stock Inward (Purchases / GRN) -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">add_shopping_cart</mat-icon>
               <span>Stock Inward / GRN ({{ inwardsTotalCount }})</span>
             </ng-template>
-
+    
             <div class="tab-body">
               <div class="tab-toolbar">
                 <div class="tab-search-box">
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="tab-search-field">
                     <mat-icon matPrefix>search</mat-icon>
                     <input matInput [formControl]="inwardsSearchCtrl" placeholder="Search Inward #, invoice, supplier, items..." />
-                    <button mat-icon-button matSuffix *ngIf="inwardsSearchCtrl.value" (click)="inwardsSearchCtrl.setValue('')" type="button">
-                      <mat-icon>close</mat-icon>
-                    </button>
+                    @if (inwardsSearchCtrl.value) {
+                      <button mat-icon-button matSuffix (click)="inwardsSearchCtrl.setValue('')" type="button">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
                   </mat-form-field>
                 </div>
                 <button mat-flat-button color="primary" (click)="openInwardDialog()">
@@ -408,7 +424,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                   <span>New Inward Entry</span>
                 </button>
               </div>
-
+    
               <div class="table-responsive">
                 <table class="erp-table" matSort (matSortChange)="onInwardsSortChange($event)">
                   <thead>
@@ -426,47 +442,55 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let inw of inwards">
-                      <td><strong class="code-pill">{{ inw.inwardNumber }}</strong></td>
-                      <td><span [appIstDatetime]="inw.inwardDate" format="date"></span></td>
-                      <td>{{ inw.invoiceBillNumber || '—' }}</td>
-                      <td><strong>{{ inw.vendorName }}</strong></td>
-                      <td><mat-chip>{{ inw.items.length }} Item(s)</mat-chip></td>
-                      <td>
-                        <div class="lines-preview">
-                          <span *ngFor="let line of inw.items.slice(0, 3)" class="line-chip">
-                            {{ line.itemName }} ({{ line.quantity }})
+                    @for (inw of inwards; track inw) {
+                      <tr>
+                        <td><strong class="code-pill">{{ inw.inwardNumber }}</strong></td>
+                        <td><span [appIstDatetime]="inw.inwardDate" format="date"></span></td>
+                        <td>{{ inw.invoiceBillNumber || '—' }}</td>
+                        <td><strong>{{ inw.vendorName }}</strong></td>
+                        <td><mat-chip>{{ inw.items.length }} Item(s)</mat-chip></td>
+                        <td>
+                          <div class="lines-preview">
+                            @for (line of inw.items.slice(0, 3); track line) {
+                              <span class="line-chip">
+                                {{ line.itemName }} ({{ line.quantity }})
+                              </span>
+                            }
+                            @if (inw.items.length > 3) {
+                              <span class="line-chip-more">
+                                +{{ inw.items.length - 3 }} more
+                              </span>
+                            }
+                          </div>
+                        </td>
+                        <td><strong class="text-primary">₹{{ inw.netAmount | number:'1.2-2' }}</strong></td>
+                        <td>
+                          <span class="status-chip" [ngClass]="'status-' + inw.paymentStatus.toLowerCase()">
+                            {{ inw.paymentStatus }}
                           </span>
-                          <span *ngIf="inw.items.length > 3" class="line-chip-more">
-                            +{{ inw.items.length - 3 }} more
-                          </span>
-                        </div>
-                      </td>
-                      <td><strong class="text-primary">₹{{ inw.netAmount | number:'1.2-2' }}</strong></td>
-                      <td>
-                        <span class="status-chip" [ngClass]="'status-' + inw.paymentStatus.toLowerCase()">
-                          {{ inw.paymentStatus }}
-                        </span>
-                      </td>
-                      <td>{{ inw.paymentMode }}</td>
-                      <td class="text-center action-cell">
-                        <button mat-icon-button class="print-row-btn" (click)="printInwardSlip(inw)" matTooltip="Print / View GRN Receipt Slip" type="button">
-                          <mat-icon>print</mat-icon>
-                        </button>
-                      </td>
-                    </tr>
-
-                    <tr *ngIf="!loading && inwards.length === 0">
-                      <td colspan="10" class="empty-cell">
-                        <mat-icon class="empty-icon">shopping_bag</mat-icon>
-                        <p class="empty-text">No stock inward records found.</p>
-                        <button mat-stroked-button color="primary" (click)="openInwardDialog()">Record First Stock Inward</button>
-                      </td>
-                    </tr>
+                        </td>
+                        <td>{{ inw.paymentMode }}</td>
+                        <td class="text-center action-cell">
+                          <button mat-icon-button class="print-row-btn" (click)="printInwardSlip(inw)" matTooltip="Print / View GRN Receipt Slip" type="button">
+                            <mat-icon>print</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    }
+    
+                    @if (!loading && inwards.length === 0) {
+                      <tr>
+                        <td colspan="10" class="empty-cell">
+                          <mat-icon class="empty-icon">shopping_bag</mat-icon>
+                          <p class="empty-text">No stock inward records found.</p>
+                          <button mat-stroked-button color="primary" (click)="openInwardDialog()">Record First Stock Inward</button>
+                        </td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
-
+    
               <mat-paginator
                 [length]="inwardsTotalCount"
                 [pageSize]="inwardsPageSize"
@@ -478,23 +502,25 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
               </mat-paginator>
             </div>
           </mat-tab>
-
+    
           <!-- TAB 3: Stock Outward & Distribution -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">outbox</mat-icon>
               <span>Outward & Kit Distribution ({{ outwardsTotalCount }})</span>
             </ng-template>
-
+    
             <div class="tab-body">
               <div class="tab-toolbar">
                 <div class="tab-search-box">
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="tab-search-field">
                     <mat-icon matPrefix>search</mat-icon>
                     <input matInput [formControl]="outwardsSearchCtrl" placeholder="Search Issue #, recipient, class, remarks..." />
-                    <button mat-icon-button matSuffix *ngIf="outwardsSearchCtrl.value" (click)="outwardsSearchCtrl.setValue('')" type="button">
-                      <mat-icon>close</mat-icon>
-                    </button>
+                    @if (outwardsSearchCtrl.value) {
+                      <button mat-icon-button matSuffix (click)="outwardsSearchCtrl.setValue('')" type="button">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
                   </mat-form-field>
                 </div>
                 <button mat-flat-button color="accent" (click)="openOutwardDialog()">
@@ -502,7 +528,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                   <span>Issue Stock / Kit</span>
                 </button>
               </div>
-
+    
               <div class="table-responsive">
                 <table class="erp-table" matSort (matSortChange)="onOutwardsSortChange($event)">
                   <thead>
@@ -519,60 +545,80 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let out of outwards" [class.row-cancelled]="out.paymentStatus === 'Cancelled'">
-                      <td><strong class="code-pill">{{ out.issueNumber }}</strong></td>
-                      <td><span [appIstDatetime]="out.issueDate" format="date"></span></td>
-                      <td>
-                        <span class="mode-badge" [ngClass]="out.issueType === 'StudentKitSale' ? 'mode-student' : 'mode-staff'">
-                          {{ out.issueType === 'StudentKitSale' ? 'Student Kit Sale' : 'Staff / Dept Issue' }}
-                        </span>
-                      </td>
-                      <td><strong>{{ out.issuedToName }}</strong></td>
-                      <td>{{ out.departmentOrClass || '—' }}</td>
-                      <td>
-                        <div class="lines-preview">
-                          <span *ngFor="let line of out.items.slice(0, 3)" class="line-chip">
-                            {{ line.itemName }} ({{ line.quantity }})
+                    @for (out of outwards; track out) {
+                      <tr [class.row-cancelled]="out.paymentStatus === 'Cancelled'">
+                        <td><strong class="code-pill">{{ out.issueNumber }}</strong></td>
+                        <td><span [appIstDatetime]="out.issueDate" format="date"></span></td>
+                        <td>
+                          <span class="mode-badge" [ngClass]="out.issueType === 'StudentKitSale' ? 'mode-student' : 'mode-staff'">
+                            {{ out.issueType === 'StudentKitSale' ? 'Student Kit Sale' : 'Staff / Dept Issue' }}
                           </span>
-                          <span *ngIf="out.items.length > 3" class="line-chip-more">
-                            +{{ out.items.length - 3 }} more
+                        </td>
+                        <td><strong>{{ out.issuedToName }}</strong></td>
+                        <td>{{ out.departmentOrClass || '—' }}</td>
+                        <td>
+                          <div class="lines-preview">
+                            @for (line of out.items.slice(0, 3); track line) {
+                              <span class="line-chip">
+                                {{ line.itemName }} ({{ line.quantity }})
+                              </span>
+                            }
+                            @if (out.items.length > 3) {
+                              <span class="line-chip-more">
+                                +{{ out.items.length - 3 }} more
+                              </span>
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          @if (out.totalAmount > 0) {
+                            <strong class="text-success">₹{{ out.totalAmount | number:'1.2-2' }}</strong>
+                          }
+                          @if (out.totalAmount === 0) {
+                            <span class="text-muted">Free Issue</span>
+                          }
+                        </td>
+                        <td>
+                          <span class="status-chip" [ngClass]="out.paymentStatus === 'Cancelled' ? 'status-cancelled' : ('status-' + (out.paymentStatus || '').toLowerCase().replace('/', '-'))">
+                            @if (out.paymentStatus === 'Cancelled') {
+                              <mat-icon class="cancel-icon-inline">undo</mat-icon>
+                            }
+                            {{ out.paymentStatus === 'Cancelled' ? 'Cancelled (Restored)' : (out.paymentStatus === 'AddedToFeeBill' ? 'Charged to Fee Card' : out.paymentStatus) }}
                           </span>
-                        </div>
-                      </td>
-                      <td>
-                        <strong *ngIf="out.totalAmount > 0" class="text-success">₹{{ out.totalAmount | number:'1.2-2' }}</strong>
-                        <span *ngIf="out.totalAmount === 0" class="text-muted">Free Issue</span>
-                      </td>
-                      <td>
-                        <span class="status-chip" [ngClass]="out.paymentStatus === 'Cancelled' ? 'status-cancelled' : ('status-' + (out.paymentStatus || '').toLowerCase().replace('/', '-'))">
-                          <mat-icon *ngIf="out.paymentStatus === 'Cancelled'" class="cancel-icon-inline">undo</mat-icon>
-                          {{ out.paymentStatus === 'Cancelled' ? 'Cancelled (Restored)' : (out.paymentStatus === 'AddedToFeeBill' ? 'Charged to Fee Card' : out.paymentStatus) }}
-                        </span>
-                      </td>
-                      <td style="text-align: center;">
-                        <div class="row-actions-group">
-                          <button *ngIf="out.paymentStatus !== 'Cancelled'" mat-icon-button class="print-row-btn" (click)="printOutwardSlip(out)" matTooltip="Print Store Issue Slip / Bill" type="button">
-                            <mat-icon>print</mat-icon>
-                          </button>
-                          <button *ngIf="out.paymentStatus !== 'Cancelled'" mat-icon-button color="warn" (click)="cancelOutward(out)" matTooltip="Cancel Issue & Return Stock to Inventory" type="button">
-                            <mat-icon>undo</mat-icon>
-                          </button>
-                          <span *ngIf="out.paymentStatus === 'Cancelled'" class="text-muted" style="font-size: 11px; font-weight: 600;">Restored</span>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <tr *ngIf="!loading && outwards.length === 0">
-                      <td colspan="9" class="empty-cell">
-                        <mat-icon class="empty-icon">outbox</mat-icon>
-                        <p class="empty-text">No outward issues recorded yet.</p>
-                        <button mat-stroked-button color="primary" (click)="openOutwardDialog()">Issue First Stock</button>
-                      </td>
-                    </tr>
+                        </td>
+                        <td style="text-align: center;">
+                          <div class="row-actions-group">
+                            @if (out.paymentStatus !== 'Cancelled') {
+                              <button mat-icon-button class="print-row-btn" (click)="printOutwardSlip(out)" matTooltip="Print Store Issue Slip / Bill" type="button">
+                                <mat-icon>print</mat-icon>
+                              </button>
+                            }
+                            @if (out.paymentStatus !== 'Cancelled') {
+                              <button mat-icon-button color="warn" (click)="cancelOutward(out)" matTooltip="Cancel Issue & Return Stock to Inventory" type="button">
+                                <mat-icon>undo</mat-icon>
+                              </button>
+                            }
+                            @if (out.paymentStatus === 'Cancelled') {
+                              <span class="text-muted" style="font-size: 11px; font-weight: 600;">Restored</span>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+    
+                    @if (!loading && outwards.length === 0) {
+                      <tr>
+                        <td colspan="9" class="empty-cell">
+                          <mat-icon class="empty-icon">outbox</mat-icon>
+                          <p class="empty-text">No outward issues recorded yet.</p>
+                          <button mat-stroked-button color="primary" (click)="openOutwardDialog()">Issue First Stock</button>
+                        </td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
-
+    
               <mat-paginator
                 [length]="outwardsTotalCount"
                 [pageSize]="outwardsPageSize"
@@ -584,23 +630,25 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
               </mat-paginator>
             </div>
           </mat-tab>
-
+    
           <!-- TAB 4: Vendors / Suppliers -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">storefront</mat-icon>
               <span>Vendors Directory ({{ vendorsTotalCount }})</span>
             </ng-template>
-
+    
             <div class="tab-body">
               <div class="tab-toolbar">
                 <div class="tab-search-box">
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="tab-search-field">
                     <mat-icon matPrefix>search</mat-icon>
                     <input matInput [formControl]="vendorsSearchCtrl" placeholder="Search supplier, contact, GST, phone..." />
-                    <button mat-icon-button matSuffix *ngIf="vendorsSearchCtrl.value" (click)="vendorsSearchCtrl.setValue('')" type="button">
-                      <mat-icon>close</mat-icon>
-                    </button>
+                    @if (vendorsSearchCtrl.value) {
+                      <button mat-icon-button matSuffix (click)="vendorsSearchCtrl.setValue('')" type="button">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
                   </mat-form-field>
                 </div>
                 <button mat-flat-button color="primary" (click)="openVendorDialog()">
@@ -608,7 +656,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                   <span>Add Vendor</span>
                 </button>
               </div>
-
+    
               <div class="table-responsive">
                 <table class="erp-table" matSort (matSortChange)="onVendorsSortChange($event)">
                   <thead>
@@ -628,56 +676,70 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let v of vendors">
-                      <td><strong>{{ v.vendorName }}</strong></td>
-                      <td>{{ v.contactPerson || '—' }}</td>
-                      <td>
-                        <span *ngIf="v.phone" class="phone-link">
-                          <mat-icon class="inline-icon">phone</mat-icon> {{ v.phone }}
-                        </span>
-                        <span *ngIf="!v.phone" class="text-muted">—</span>
-                      </td>
-                      <td>{{ v.email || '—' }}</td>
-                      <td>
-                        <div class="tax-info">
-                          <span *ngIf="v.gstin" class="tax-pill">GST: {{ v.gstin }}</span>
-                          <span *ngIf="v.pan" class="tax-pill">PAN: {{ v.pan }}</span>
-                          <span *ngIf="!v.gstin && !v.pan" class="text-muted">—</span>
-                        </div>
-                      </td>
-                      <td>{{ v.paymentTerms || '—' }}</td>
-                      <td><span class="address-text">{{ v.address || '—' }}</span></td>
-                      <td class="text-right action-cell">
-                        <button mat-icon-button [matMenuTriggerFor]="vendorMenu" class="action-menu-trigger" matTooltip="Vendor Actions">
-                          <mat-icon>more_vert</mat-icon>
-                        </button>
-                        <mat-menu #vendorMenu="matMenu" xPosition="before" class="erp-action-menu">
-                          <button mat-menu-item (click)="openVendorDialog(v)">
-                            <mat-icon class="text-primary">edit</mat-icon>
-                            <span>Edit Vendor</span>
+                    @for (v of vendors; track v) {
+                      <tr>
+                        <td><strong>{{ v.vendorName }}</strong></td>
+                        <td>{{ v.contactPerson || '—' }}</td>
+                        <td>
+                          @if (v.phone) {
+                            <span class="phone-link">
+                              <mat-icon class="inline-icon">phone</mat-icon> {{ v.phone }}
+                            </span>
+                          }
+                          @if (!v.phone) {
+                            <span class="text-muted">—</span>
+                          }
+                        </td>
+                        <td>{{ v.email || '—' }}</td>
+                        <td>
+                          <div class="tax-info">
+                            @if (v.gstin) {
+                              <span class="tax-pill">GST: {{ v.gstin }}</span>
+                            }
+                            @if (v.pan) {
+                              <span class="tax-pill">PAN: {{ v.pan }}</span>
+                            }
+                            @if (!v.gstin && !v.pan) {
+                              <span class="text-muted">—</span>
+                            }
+                          </div>
+                        </td>
+                        <td>{{ v.paymentTerms || '—' }}</td>
+                        <td><span class="address-text">{{ v.address || '—' }}</span></td>
+                        <td class="text-right action-cell">
+                          <button mat-icon-button [matMenuTriggerFor]="vendorMenu" class="action-menu-trigger" matTooltip="Vendor Actions">
+                            <mat-icon>more_vert</mat-icon>
                           </button>
-                          <button mat-menu-item (click)="deleteVendor(v)">
-                            <mat-icon class="text-danger">delete_outline</mat-icon>
-                            <span>Delete Vendor</span>
+                          <mat-menu #vendorMenu="matMenu" xPosition="before" class="erp-action-menu">
+                            <button mat-menu-item (click)="openVendorDialog(v)">
+                              <mat-icon class="text-primary">edit</mat-icon>
+                              <span>Edit Vendor</span>
+                            </button>
+                            <button mat-menu-item (click)="deleteVendor(v)">
+                              <mat-icon class="text-danger">delete_outline</mat-icon>
+                              <span>Delete Vendor</span>
+                            </button>
+                          </mat-menu>
+                        </td>
+                      </tr>
+                    }
+    
+                    @if (!loading && vendors.length === 0) {
+                      <tr>
+                        <td colspan="8" class="empty-cell">
+                          <mat-icon class="empty-icon">storefront</mat-icon>
+                          <p class="empty-text">No registered suppliers yet.</p>
+                          <button mat-stroked-button color="primary" (click)="openVendorDialog()">
+                            <mat-icon>add_business</mat-icon>
+                            <span>Add First Supplier</span>
                           </button>
-                        </mat-menu>
-                      </td>
-                    </tr>
-
-                    <tr *ngIf="!loading && vendors.length === 0">
-                      <td colspan="8" class="empty-cell">
-                        <mat-icon class="empty-icon">storefront</mat-icon>
-                        <p class="empty-text">No registered suppliers yet.</p>
-                        <button mat-stroked-button color="primary" (click)="openVendorDialog()">
-                          <mat-icon>add_business</mat-icon>
-                          <span>Add First Supplier</span>
-                        </button>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
-
+    
               <mat-paginator
                 [length]="vendorsTotalCount"
                 [pageSize]="vendorsPageSize"
@@ -689,14 +751,14 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
               </mat-paginator>
             </div>
           </mat-tab>
-
+    
           <!-- TAB 5: Categories Master -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">category</mat-icon>
               <span>Categories Master ({{ categories.length }})</span>
             </ng-template>
-
+    
             <div class="tab-body">
               <div class="tab-toolbar">
                 <span class="tab-info-text">Stock Categories Master: Classification for consumables, kits, uniforms, books & fixed assets</span>
@@ -705,7 +767,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                   <span>Add Category</span>
                 </button>
               </div>
-
+    
               <div class="table-responsive">
                 <table class="erp-table">
                   <thead>
@@ -723,67 +785,73 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let cat of categories">
-                      <td><strong class="code-pill">{{ cat.code }}</strong></td>
-                      <td><strong>{{ cat.name }}</strong></td>
-                      <td><span class="text-muted">{{ cat.description || '—' }}</span></td>
-                      <td>
-                        <mat-chip class="category-chip">{{ cat.activeItemsCount || 0 }} Item(s)</mat-chip>
-                      </td>
-                      <td>
-                        <span class="status-chip" [ngClass]="cat.isActive ? 'status-paid' : 'status-free-complimentary'">
-                          {{ cat.isActive ? 'Active' : 'Inactive' }}
-                        </span>
-                      </td>
-                      <td class="text-right action-cell">
-                        <button mat-icon-button [matMenuTriggerFor]="catMenu" class="action-menu-trigger" matTooltip="Category Actions">
-                          <mat-icon>more_vert</mat-icon>
-                        </button>
-                        <mat-menu #catMenu="matMenu" xPosition="before" class="erp-action-menu">
-                          <button mat-menu-item (click)="openCategoryDialog(cat)">
-                            <mat-icon class="text-primary">edit</mat-icon>
-                            <span>Edit Category</span>
+                    @for (cat of categories; track cat) {
+                      <tr>
+                        <td><strong class="code-pill">{{ cat.code }}</strong></td>
+                        <td><strong>{{ cat.name }}</strong></td>
+                        <td><span class="text-muted">{{ cat.description || '—' }}</span></td>
+                        <td>
+                          <mat-chip class="category-chip">{{ cat.activeItemsCount || 0 }} Item(s)</mat-chip>
+                        </td>
+                        <td>
+                          <span class="status-chip" [ngClass]="cat.isActive ? 'status-paid' : 'status-free-complimentary'">
+                            {{ cat.isActive ? 'Active' : 'Inactive' }}
+                          </span>
+                        </td>
+                        <td class="text-right action-cell">
+                          <button mat-icon-button [matMenuTriggerFor]="catMenu" class="action-menu-trigger" matTooltip="Category Actions">
+                            <mat-icon>more_vert</mat-icon>
                           </button>
-                          <button mat-menu-item (click)="deleteCategory(cat)">
-                            <mat-icon class="text-danger">delete_outline</mat-icon>
-                            <span>Delete Category</span>
+                          <mat-menu #catMenu="matMenu" xPosition="before" class="erp-action-menu">
+                            <button mat-menu-item (click)="openCategoryDialog(cat)">
+                              <mat-icon class="text-primary">edit</mat-icon>
+                              <span>Edit Category</span>
+                            </button>
+                            <button mat-menu-item (click)="deleteCategory(cat)">
+                              <mat-icon class="text-danger">delete_outline</mat-icon>
+                              <span>Delete Category</span>
+                            </button>
+                          </mat-menu>
+                        </td>
+                      </tr>
+                    }
+    
+                    @if (!loading && categories.length === 0) {
+                      <tr>
+                        <td colspan="6" class="empty-cell">
+                          <mat-icon class="empty-icon">category</mat-icon>
+                          <p class="empty-text">No inventory categories found.</p>
+                          <button mat-stroked-button color="primary" (click)="openCategoryDialog()">
+                            <mat-icon>add</mat-icon>
+                            <span>Add First Category</span>
                           </button>
-                        </mat-menu>
-                      </td>
-                    </tr>
-
-                    <tr *ngIf="!loading && categories.length === 0">
-                      <td colspan="6" class="empty-cell">
-                        <mat-icon class="empty-icon">category</mat-icon>
-                        <p class="empty-text">No inventory categories found.</p>
-                        <button mat-stroked-button color="primary" (click)="openCategoryDialog()">
-                          <mat-icon>add</mat-icon>
-                          <span>Add First Category</span>
-                        </button>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
             </div>
           </mat-tab>
-
+    
           <!-- TAB 6: Low Stock & Reorder Alerts -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon text-amber">warning_amber</mat-icon>
               <span>Reorder Alerts ({{ getLowStockItems().length }})</span>
             </ng-template>
-
+    
             <div class="tab-body">
-              <div class="alert-banner" *ngIf="getLowStockItems().length > 0">
-                <mat-icon>notification_important</mat-icon>
-                <div class="alert-banner-text">
-                  <strong>{{ getLowStockItems().length }} Item(s) Need Reordering!</strong>
-                  <span>These items have reached or fallen below the minimum safety threshold. Please issue a purchase order to prevent shortage.</span>
+              @if (getLowStockItems().length > 0) {
+                <div class="alert-banner">
+                  <mat-icon>notification_important</mat-icon>
+                  <div class="alert-banner-text">
+                    <strong>{{ getLowStockItems().length }} Item(s) Need Reordering!</strong>
+                    <span>These items have reached or fallen below the minimum safety threshold. Please issue a purchase order to prevent shortage.</span>
+                  </div>
                 </div>
-              </div>
-
+              }
+    
               <div class="table-responsive">
                 <table class="erp-table">
                   <thead>
@@ -801,56 +869,60 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let itm of getLowStockItems()">
-                      <td><span class="code-pill">{{ itm.itemCode }}</span></td>
-                      <td><strong>{{ itm.itemName }}</strong></td>
-                      <td>{{ itm.categoryName }}</td>
-                      <td>{{ itm.itemType }}</td>
-                      <td>
-                        <span class="stock-badge badge-low-stock">
-                          {{ itm.currentStock }} {{ itm.unitOfMeasurement }}
-                        </span>
-                      </td>
-                      <td>{{ itm.minStockAlertLevel }} {{ itm.unitOfMeasurement }}</td>
-                      <td>
-                        <strong class="text-danger">
-                          -{{ itm.minStockAlertLevel - itm.currentStock > 0 ? (itm.minStockAlertLevel - itm.currentStock) : 0 }} {{ itm.unitOfMeasurement }}
-                        </strong>
-                      </td>
-                      <td>₹{{ itm.purchasePrice | number:'1.2-2' }}</td>
-                      <td>{{ itm.rackOrLocation || '—' }}</td>
-                      <td class="text-right">
-                        <button mat-stroked-button color="primary" (click)="reorderItem(itm)">
-                          <mat-icon>add_shopping_cart</mat-icon>
-                          <span>Reorder Now</span>
-                        </button>
-                      </td>
-                    </tr>
-
-                    <tr *ngIf="getLowStockItems().length === 0">
-                      <td colspan="10" class="empty-cell">
-                        <mat-icon class="empty-icon text-success">verified</mat-icon>
-                        <p class="empty-text text-success">All items are well-stocked! No low stock reorder alerts at this time.</p>
-                      </td>
-                    </tr>
+                    @for (itm of getLowStockItems(); track itm) {
+                      <tr>
+                        <td><span class="code-pill">{{ itm.itemCode }}</span></td>
+                        <td><strong>{{ itm.itemName }}</strong></td>
+                        <td>{{ itm.categoryName }}</td>
+                        <td>{{ itm.itemType }}</td>
+                        <td>
+                          <span class="stock-badge badge-low-stock">
+                            {{ itm.currentStock }} {{ itm.unitOfMeasurement }}
+                          </span>
+                        </td>
+                        <td>{{ itm.minStockAlertLevel }} {{ itm.unitOfMeasurement }}</td>
+                        <td>
+                          <strong class="text-danger">
+                            -{{ itm.minStockAlertLevel - itm.currentStock > 0 ? (itm.minStockAlertLevel - itm.currentStock) : 0 }} {{ itm.unitOfMeasurement }}
+                          </strong>
+                        </td>
+                        <td>₹{{ itm.purchasePrice | number:'1.2-2' }}</td>
+                        <td>{{ itm.rackOrLocation || '—' }}</td>
+                        <td class="text-right">
+                          <button mat-stroked-button color="primary" (click)="reorderItem(itm)">
+                            <mat-icon>add_shopping_cart</mat-icon>
+                            <span>Reorder Now</span>
+                          </button>
+                        </td>
+                      </tr>
+                    }
+    
+                    @if (getLowStockItems().length === 0) {
+                      <tr>
+                        <td colspan="10" class="empty-cell">
+                          <mat-icon class="empty-icon text-success">verified</mat-icon>
+                          <p class="empty-text text-success">All items are well-stocked! No low stock reorder alerts at this time.</p>
+                        </td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
             </div>
           </mat-tab>
-
+    
           <!-- TAB 6: Stock Audit & Adjustments History -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">history</mat-icon>
               <span>Audit & Adjustments ({{ adjustments.length }})</span>
             </ng-template>
-
+    
             <div class="tab-body">
               <div class="tab-toolbar">
                 <span class="tab-info-text">Audit trails for physical count reconciliation, damages, and loss write-offs</span>
               </div>
-
+    
               <div class="table-responsive">
                 <table class="erp-table">
                   <thead>
@@ -866,29 +938,33 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let adj of adjustments">
-                      <td><span [appIstDatetime]="adj.adjustedAt" format="datetime"></span></td>
-                      <td><span class="code-pill">{{ adj.itemCode }}</span></td>
-                      <td><strong>{{ adj.itemName }}</strong></td>
-                      <td>
-                        <span class="type-badge">{{ adj.adjustmentType }}</span>
-                      </td>
-                      <td>{{ adj.previousStock }}</td>
-                      <td>
-                        <strong [ngClass]="adj.adjustedQuantity >= 0 ? 'text-success' : 'text-danger'">
-                          {{ adj.adjustedQuantity > 0 ? '+' : '' }}{{ adj.adjustedQuantity }}
-                        </strong>
-                      </td>
-                      <td><strong>{{ adj.newStock }}</strong></td>
-                      <td>{{ adj.reason || '—' }}</td>
-                    </tr>
-
-                    <tr *ngIf="!loading && adjustments.length === 0">
-                      <td colspan="8" class="empty-cell">
-                        <mat-icon class="empty-icon">tune</mat-icon>
-                        <p class="empty-text">No audit stock adjustments recorded yet.</p>
-                      </td>
-                    </tr>
+                    @for (adj of adjustments; track adj) {
+                      <tr>
+                        <td><span [appIstDatetime]="adj.adjustedAt" format="datetime"></span></td>
+                        <td><span class="code-pill">{{ adj.itemCode }}</span></td>
+                        <td><strong>{{ adj.itemName }}</strong></td>
+                        <td>
+                          <span class="type-badge">{{ adj.adjustmentType }}</span>
+                        </td>
+                        <td>{{ adj.previousStock }}</td>
+                        <td>
+                          <strong [ngClass]="adj.adjustedQuantity >= 0 ? 'text-success' : 'text-danger'">
+                            {{ adj.adjustedQuantity > 0 ? '+' : '' }}{{ adj.adjustedQuantity }}
+                          </strong>
+                        </td>
+                        <td><strong>{{ adj.newStock }}</strong></td>
+                        <td>{{ adj.reason || '—' }}</td>
+                      </tr>
+                    }
+    
+                    @if (!loading && adjustments.length === 0) {
+                      <tr>
+                        <td colspan="8" class="empty-cell">
+                          <mat-icon class="empty-icon">tune</mat-icon>
+                          <p class="empty-text">No audit stock adjustments recorded yet.</p>
+                        </td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
@@ -897,7 +973,8 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
         </mat-tab-group>
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

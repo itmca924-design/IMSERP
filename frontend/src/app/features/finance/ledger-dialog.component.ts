@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,7 +20,6 @@ export interface LedgerDialogData {
   selector: 'app-ledger-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -29,7 +28,7 @@ export interface LedgerDialogData {
     MatInputModule,
     MatSelectModule,
     MatProgressBarModule
-  ],
+],
   template: `
 <div class="ledger-modal-container">
   <!-- Strictly compliant light-blue gradient header (AGENTS.md) -->
@@ -48,7 +47,9 @@ export interface LedgerDialogData {
     </button>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <div class="modal-body">
     <div class="form-grid">
@@ -81,17 +82,17 @@ export interface LedgerDialogData {
       <mat-form-field appearance="outline">
         <mat-label>Subcategory *</mat-label>
         <mat-select [(ngModel)]="subType" required>
-          <ng-container *ngIf="accountType === 1">
+          @if (accountType === 1) {
             <mat-option [value]="1">Current Asset (Cash, Bank, Advance)</mat-option>
             <mat-option [value]="2">Fixed Asset (Building, Buses, Equipment)</mat-option>
-          </ng-container>
-          <ng-container *ngIf="accountType === 2">
+          }
+          @if (accountType === 2) {
             <mat-option [value]="3">Current Liability (Caution Money, Payable)</mat-option>
             <mat-option [value]="4">Long-Term Liability (Bank Loan, EMI)</mat-option>
-          </ng-container>
-          <ng-container *ngIf="accountType === 3">
+          }
+          @if (accountType === 3) {
             <mat-option [value]="5">Capital Fund / Promoters Equity</mat-option>
-          </ng-container>
+          }
         </mat-select>
         <mat-icon matPrefix>account_tree</mat-icon>
       </mat-form-field>
@@ -104,16 +105,20 @@ export interface LedgerDialogData {
       </mat-form-field>
 
       <!-- Branch (Optional) -->
-      <mat-form-field appearance="outline" *ngIf="branches.length > 0">
-        <mat-label>Campus / Branch</mat-label>
-        <mat-select [(ngModel)]="selectedBranchId">
-          <mat-option [value]="null">Main / All Campuses</mat-option>
-          <mat-option *ngFor="let b of branches" [value]="b.id">
-            {{ b.name }}
-          </mat-option>
-        </mat-select>
-        <mat-icon matPrefix>apartment</mat-icon>
-      </mat-form-field>
+      @if (branches.length > 0) {
+        <mat-form-field appearance="outline">
+          <mat-label>Campus / Branch</mat-label>
+          <mat-select [(ngModel)]="selectedBranchId">
+            <mat-option [value]="null">Main / All Campuses</mat-option>
+            @for (b of branches; track b) {
+              <mat-option [value]="b.id">
+                {{ b.name }}
+              </mat-option>
+            }
+          </mat-select>
+          <mat-icon matPrefix>apartment</mat-icon>
+        </mat-form-field>
+      }
 
       <!-- Description -->
       <mat-form-field appearance="outline" class="col-span-2">
@@ -122,10 +127,12 @@ export interface LedgerDialogData {
       </mat-form-field>
     </div>
 
-    <div class="alert-error" *ngIf="errorMessage">
-      <mat-icon>error_outline</mat-icon>
-      <span>{{ errorMessage }}</span>
-    </div>
+    @if (errorMessage) {
+      <div class="alert-error">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+    }
   </div>
 
   <div class="modal-footer">
@@ -136,7 +143,8 @@ export interface LedgerDialogData {
     </button>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .ledger-modal-container {
       width: 100%;

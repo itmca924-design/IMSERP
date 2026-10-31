@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, Inject, OnInit, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import * as QRCode from 'qrcode';
@@ -89,7 +89,7 @@ export interface AdvanceMonthOption {
         <mat-icon>close</mat-icon>
       </button>
     </div>
-
+    
     <form [formGroup]="feeForm" (ngSubmit)="onSubmit()">
       <mat-dialog-content class="dialog-content">
         <!-- Student Info Header Card -->
@@ -97,40 +97,57 @@ export interface AdvanceMonthOption {
           <div class="info-details">
             <span class="st-name">{{ data.studentName }} ({{ data.rollNumber }})</span>
             <span class="st-sub">
-              <span *ngIf="data.className" class="st-school-chip">
-                🏫 {{ data.className }}<span *ngIf="data.sectionName"> ({{ data.sectionName }})</span>
+              @if (data.className) {
+                <span class="st-school-chip">
+                  🏫 {{ data.className }}@if (data.sectionName) {
+                  <span> ({{ data.sectionName }})</span>
+                }
               </span>
-              <span *ngIf="data.className && data.batchName" class="st-sep">•</span>
-              <span *ngIf="data.batchName" class="st-batch-chip">
+            }
+            @if (data.className && data.batchName) {
+              <span class="st-sep">•</span>
+            }
+            @if (data.batchName) {
+              <span class="st-batch-chip">
                 🎯 {{ data.batchName }}
               </span>
-              <span *ngIf="effectiveBranchName" class="st-branch-chip">
+            }
+            @if (effectiveBranchName) {
+              <span class="st-branch-chip">
                 🏛️ {{ effectiveBranchName }}
               </span>
-              <span class="st-sep">|</span>
-              <span class="st-wa-text">WA: {{ data.parentWhatsAppPhone }}</span>
-            </span>
-            <div *ngIf="data.hostelInfo" class="hostel-badge">
+            }
+            <span class="st-sep">|</span>
+            <span class="st-wa-text">WA: {{ data.parentWhatsAppPhone }}</span>
+          </span>
+          @if (data.hostelInfo) {
+            <div class="hostel-badge">
               <mat-icon class="hostel-icon">home</mat-icon>
               <span>🏠 Hosteler: <strong>{{ data.hostelInfo }}</strong></span>
             </div>
-            <div *ngIf="data.selectedInvoicesCount && data.selectedInvoicesCount > 1" class="multi-select-pill">
+          }
+          @if (data.selectedInvoicesCount && data.selectedInvoicesCount > 1) {
+            <div class="multi-select-pill">
               <mat-icon class="mini-icon">layers</mat-icon>
               <span>Settling <strong>{{ data.selectedInvoicesCount }} Invoices</strong> in this payment</span>
             </div>
-            <div *ngIf="(!data.selectedInvoicesCount || data.selectedInvoicesCount <= 1) && totalInvoicesCount > 1" class="multi-select-pill unified-dues-pill">
+          }
+          @if ((!data.selectedInvoicesCount || data.selectedInvoicesCount <= 1) && totalInvoicesCount > 1) {
+            <div class="multi-select-pill unified-dues-pill">
               <mat-icon class="mini-icon">auto_awesome</mat-icon>
               <span>Unified Dues: <strong>{{ totalInvoicesCount }} Pending Invoices</strong> (Tuition, Kit &amp; Dues)</span>
             </div>
-          </div>
-          <div class="due-badge">
-            <span class="due-label">{{ data.selectedInvoicesCount && data.selectedInvoicesCount > 1 ? 'Selected Invoices Total:' : 'Total Net Outstanding:' }}</span>
-            <strong class="due-amount">₹{{ studentTotalOutstanding | number:'1.2-2' }}</strong>
-          </div>
+          }
         </div>
-
-        <!-- Fee Heads Itemized Checklist Table -->
-        <div class="heads-breakdown-card" *ngIf="itemRows.length > 0">
+        <div class="due-badge">
+          <span class="due-label">{{ data.selectedInvoicesCount && data.selectedInvoicesCount > 1 ? 'Selected Invoices Total:' : 'Total Net Outstanding:' }}</span>
+          <strong class="due-amount">₹{{ studentTotalOutstanding | number:'1.2-2' }}</strong>
+        </div>
+      </div>
+    
+      <!-- Fee Heads Itemized Checklist Table -->
+      @if (itemRows.length > 0) {
+        <div class="heads-breakdown-card">
           <div class="breakdown-header">
             <div class="header-left">
               <mat-checkbox
@@ -147,7 +164,6 @@ export interface AdvanceMonthOption {
               </span>
             </div>
           </div>
-
           <div class="heads-table-wrap">
             <table class="heads-table">
               <thead>
@@ -160,64 +176,72 @@ export interface AdvanceMonthOption {
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of itemRows" [class.row-selected]="row.selected" [class.row-disabled]="row.dueAmount <= 0">
-                  <td class="chk-cell" style="text-align: center;">
-                    <mat-checkbox
-                      color="primary"
-                      [checked]="row.selected"
-                      (change)="onItemCheckboxToggle(row, $event.checked)"
-                      [disabled]="row.dueAmount <= 0">
-                    </mat-checkbox>
-                  </td>
-                  <td>
-                    <div class="head-info">
-                      <div class="head-name-row">
-                        <span class="head-name">{{ row.headName }}</span>
-                        <span class="head-stream-badge" [ngClass]="getStreamBadgeClass(row.headName)">
-                          {{ getStreamBadgeText(row.headName) }}
-                        </span>
+                @for (row of itemRows; track row) {
+                  <tr [class.row-selected]="row.selected" [class.row-disabled]="row.dueAmount <= 0">
+                    <td class="chk-cell" style="text-align: center;">
+                      <mat-checkbox
+                        color="primary"
+                        [checked]="row.selected"
+                        (change)="onItemCheckboxToggle(row, $event.checked)"
+                        [disabled]="row.dueAmount <= 0">
+                      </mat-checkbox>
+                    </td>
+                    <td>
+                      <div class="head-info">
+                        <div class="head-name-row">
+                          <span class="head-name">{{ row.headName }}</span>
+                          <span class="head-stream-badge" [ngClass]="getStreamBadgeClass(row.headName)">
+                            {{ getStreamBadgeText(row.headName) }}
+                          </span>
+                        </div>
+                        @if (row.invoiceTitle) {
+                          <span class="head-invoice-sub">
+                            <mat-icon class="mini-inv-icon">receipt_long</mat-icon>
+                            {{ row.invoiceTitle }}
+                          </span>
+                        }
+                        @if (row.concessionAmount && row.concessionAmount > 0) {
+                          <span class="head-concession-pill">
+                            🎁 {{ row.concessionLabel || 'Sibling Concession' }}: -₹{{ row.concessionAmount | number:'1.2-2' }} Applied
+                          </span>
+                        }
                       </div>
-                      <span class="head-invoice-sub" *ngIf="row.invoiceTitle">
-                        <mat-icon class="mini-inv-icon">receipt_long</mat-icon>
-                        {{ row.invoiceTitle }}
-                      </span>
-                      <span class="head-concession-pill" *ngIf="row.concessionAmount && row.concessionAmount > 0">
-                        🎁 {{ row.concessionLabel || 'Sibling Concession' }}: -₹{{ row.concessionAmount | number:'1.2-2' }} Applied
-                      </span>
-                    </div>
-                  </td>
-                  <td class="text-right fee-col">₹{{ row.amount | number:'1.2-2' }}</td>
-                  <td class="text-right due-col">
-                    <strong [class.due-positive]="row.dueAmount > 0" [class.due-zero]="row.dueAmount === 0">
-                      ₹{{ row.dueAmount | number:'1.2-2' }}
-                    </strong>
-                  </td>
-                  <td class="text-right pay-col">
-                    <div class="paying-input-wrap" [class.wrap-disabled]="!row.selected || row.dueAmount <= 0">
-                      <span class="curr-symbol">₹</span>
-                      <input
-                        #payInput
-                        type="number"
-                        class="paying-input"
-                        [disabled]="!row.selected || row.dueAmount <= 0"
-                        [(ngModel)]="row.payingAmount"
-                        [ngModelOptions]="{standalone: true}"
-                        (focus)="onItemPayingInputFocus($event)"
-                        (input)="onItemPayingAmountInput(row, payInput)"
-                        (blur)="onItemPayingAmountBlur(row, payInput)"
-                        [max]="row.dueAmount"
-                        step="0.01"
-                        min="0" />
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                    <td class="text-right fee-col">₹{{ row.amount | number:'1.2-2' }}</td>
+                    <td class="text-right due-col">
+                      <strong [class.due-positive]="row.dueAmount > 0" [class.due-zero]="row.dueAmount === 0">
+                        ₹{{ row.dueAmount | number:'1.2-2' }}
+                      </strong>
+                    </td>
+                    <td class="text-right pay-col">
+                      <div class="paying-input-wrap" [class.wrap-disabled]="!row.selected || row.dueAmount <= 0">
+                        <span class="curr-symbol">₹</span>
+                        <input
+                          #payInput
+                          type="number"
+                          class="paying-input"
+                          [disabled]="!row.selected || row.dueAmount <= 0"
+                          [(ngModel)]="row.payingAmount"
+                          [ngModelOptions]="{standalone: true}"
+                          (focus)="onItemPayingInputFocus($event)"
+                          (input)="onItemPayingAmountInput(row, payInput)"
+                          (blur)="onItemPayingAmountBlur(row, payInput)"
+                          [max]="row.dueAmount"
+                          step="0.01"
+                          min="0" />
+                      </div>
+                    </td>
+                  </tr>
+                }
               </tbody>
             </table>
           </div>
         </div>
-
-        <!-- Advance Tuition Bundling Card (Optional) -->
-        <div class="advance-payment-card" *ngIf="advanceMonthOptions.length > 1 && (!data.selectedInvoicesCount || data.selectedInvoicesCount <= 1)">
+      }
+    
+      <!-- Advance Tuition Bundling Card (Optional) -->
+      @if (advanceMonthOptions.length > 1 && (!data.selectedInvoicesCount || data.selectedInvoicesCount <= 1)) {
+        <div class="advance-payment-card">
           <div class="adv-card-header">
             <div class="adv-header-left">
               <div class="adv-icon-wrap">
@@ -233,45 +257,52 @@ export interface AdvanceMonthOption {
                 <span class="adv-sub">Bundle upcoming monthly recurring fees (Tuition + Transport) into this collection receipt</span>
               </div>
             </div>
-            <div class="adv-header-right" *ngIf="selectedAdvanceOption && selectedAdvanceOption.monthCount > 0">
-              <span class="adv-added-badge">
-                Advance: +₹{{ selectedAdvanceOption.totalAmount | number:'1.2-2' }}
-              </span>
-            </div>
+            @if (selectedAdvanceOption && selectedAdvanceOption.monthCount > 0) {
+              <div class="adv-header-right">
+                <span class="adv-added-badge">
+                  Advance: +₹{{ selectedAdvanceOption.totalAmount | number:'1.2-2' }}
+                </span>
+              </div>
+            }
           </div>
-
           <div class="adv-options-grid">
-            <button
-              type="button"
-              *ngFor="let opt of advanceMonthOptions"
-              class="adv-option-btn"
-              [class.active]="selectedAdvanceOption?.monthCount === opt.monthCount"
-              (click)="onSelectAdvanceOption(opt)">
-              <div class="btn-top">
-                <span class="opt-label">{{ opt.label }}</span>
-                <mat-icon class="opt-check-icon" *ngIf="selectedAdvanceOption?.monthCount === opt.monthCount">check_circle</mat-icon>
-              </div>
-              <div class="btn-meta">
-                <span class="opt-period">{{ opt.badgeLabel }}</span>
-                <strong class="opt-cost" [class.free]="opt.totalAmount === 0">
-                  {{ opt.totalAmount === 0 ? 'Current Only' : '+₹' + (opt.totalAmount | number:'1.0-0') }}
-                </strong>
-              </div>
-            </button>
+            @for (opt of advanceMonthOptions; track opt) {
+              <button
+                type="button"
+                class="adv-option-btn"
+                [class.active]="selectedAdvanceOption?.monthCount === opt.monthCount"
+                (click)="onSelectAdvanceOption(opt)">
+                <div class="btn-top">
+                  <span class="opt-label">{{ opt.label }}</span>
+                  @if (selectedAdvanceOption?.monthCount === opt.monthCount) {
+                    <mat-icon class="opt-check-icon">check_circle</mat-icon>
+                  }
+                </div>
+                <div class="btn-meta">
+                  <span class="opt-period">{{ opt.badgeLabel }}</span>
+                  <strong class="opt-cost" [class.free]="opt.totalAmount === 0">
+                    {{ opt.totalAmount === 0 ? 'Current Only' : '+₹' + (opt.totalAmount | number:'1.0-0') }}
+                  </strong>
+                </div>
+              </button>
+            }
           </div>
-
           <!-- Informational Callout when an advance option is selected -->
-          <div class="adv-notice-callout" *ngIf="selectedAdvanceOption && selectedAdvanceOption.monthCount > 0">
-            <mat-icon class="notice-icon">verified</mat-icon>
-            <div class="notice-text">
-              <strong>Advance Settlement Active:</strong>
-              {{ selectedAdvanceOption.periodSummary }} recurring fee (+₹{{ selectedAdvanceOption.totalAmount | number:'1.2-2' }}) will be bundled into this single receipt. Upcoming monthly invoices will be pre-generated and marked Paid automatically.
+          @if (selectedAdvanceOption && selectedAdvanceOption.monthCount > 0) {
+            <div class="adv-notice-callout">
+              <mat-icon class="notice-icon">verified</mat-icon>
+              <div class="notice-text">
+                <strong>Advance Settlement Active:</strong>
+                {{ selectedAdvanceOption.periodSummary }} recurring fee (+₹{{ selectedAdvanceOption.totalAmount | number:'1.2-2' }}) will be bundled into this single receipt. Upcoming monthly invoices will be pre-generated and marked Paid automatically.
+              </div>
             </div>
-          </div>
+          }
         </div>
-
-        <!-- Library Dues Card (if student has pending library fines) -->
-        <div class="library-fine-box" *ngIf="libraryDues && libraryDues.pendingFineAmount > 0">
+      }
+    
+      <!-- Library Dues Card (if student has pending library fines) -->
+      @if (libraryDues && libraryDues.pendingFineAmount > 0) {
+        <div class="library-fine-box">
           <div class="fine-header">
             <div class="fine-badge">
               <div class="icon-circle">
@@ -284,20 +315,22 @@ export interface AdvanceMonthOption {
             </div>
             <div class="fine-amt">₹{{ libraryDues.pendingFineAmount | number:'1.2-2' }}</div>
           </div>
-
           <div class="fine-books-list">
-            <div *ngFor="let item of libraryDues.pendingFines" class="book-chip">
-              <mat-icon class="chip-icon">menu_book</mat-icon>
-              <span class="book-title">{{ item.bookTitle }}</span>
-              <span class="chip-sep">•</span>
-              <span class="acc-tag">{{ item.accessionNumber }}</span>
-              <span class="chip-sep">•</span>
-              <span class="overdue-tag">{{ item.overdueDays }}d late</span>
-              <span class="unreturned-pill" *ngIf="!item.returnDate">Not Returned Yet</span>
-              <strong class="chip-fine">₹{{ item.fineAmount | number:'1.2-2' }}</strong>
-            </div>
+            @for (item of libraryDues.pendingFines; track item) {
+              <div class="book-chip">
+                <mat-icon class="chip-icon">menu_book</mat-icon>
+                <span class="book-title">{{ item.bookTitle }}</span>
+                <span class="chip-sep">•</span>
+                <span class="acc-tag">{{ item.accessionNumber }}</span>
+                <span class="chip-sep">•</span>
+                <span class="overdue-tag">{{ item.overdueDays }}d late</span>
+                @if (!item.returnDate) {
+                  <span class="unreturned-pill">Not Returned Yet</span>
+                }
+                <strong class="chip-fine">₹{{ item.fineAmount | number:'1.2-2' }}</strong>
+              </div>
+            }
           </div>
-
           <div class="include-fine-row">
             <mat-checkbox formControlName="includeLibraryFine" color="primary" (change)="onIncludeFineToggle($event.checked)">
               <span class="chk-label">
@@ -307,47 +340,57 @@ export interface AdvanceMonthOption {
             </mat-checkbox>
           </div>
         </div>
-
-        <!-- Payment Details Form Grid -->
-        <div class="form-grid">
-          <mat-form-field appearance="outline" class="full-width amount-collect-field">
-            <mat-label>Total Amount to Collect (₹)</mat-label>
-            <input
-              matInput
-              type="number"
-              formControlName="amountPaid"
-              placeholder="e.g. 1000"
-              (focus)="onTotalAmountFocus($event)"
-              (input)="onTotalAmountInputChange($event)"
-              (blur)="onTotalAmountBlur()"
-              step="any"
-              min="1" />
-            <mat-icon matSuffix color="primary">currency_rupee</mat-icon>
-            <mat-hint *ngIf="itemRows.length > 0">
+      }
+    
+      <!-- Payment Details Form Grid -->
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="full-width amount-collect-field">
+          <mat-label>Total Amount to Collect (₹)</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="amountPaid"
+            placeholder="e.g. 1000"
+            (focus)="onTotalAmountFocus($event)"
+            (input)="onTotalAmountInputChange($event)"
+            (blur)="onTotalAmountBlur()"
+            step="any"
+            min="1" />
+          <mat-icon matSuffix color="primary">currency_rupee</mat-icon>
+          @if (itemRows.length > 0) {
+            <mat-hint>
               ⚡ <strong>Quick Lump-Sum:</strong> Type any amount (e.g. ₹1,000) to auto-distribute across fee heads by priority
             </mat-hint>
-            <mat-hint *ngIf="itemRows.length === 0">Enter the total amount to collect</mat-hint>
-            <mat-error *ngIf="feeForm.get('amountPaid')?.hasError('required')">Amount is required</mat-error>
-            <mat-error *ngIf="feeForm.get('amountPaid')?.hasError('min')">Amount must be greater than 0</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>Payment Mode</mat-label>
-            <mat-select formControlName="mode">
-              <mat-option [value]="0">Cash</mat-option>
-              <mat-option [value]="1">UPI / GPay / PhonePe</mat-option>
-              <mat-option [value]="2">Bank Transfer / NetBanking</mat-option>
-              <mat-option [value]="3">Cheque</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>Transaction / UTR Ref No</mat-label>
-            <input matInput formControlName="transactionRef" placeholder="e.g. 12-digit UPI UTR" />
-          </mat-form-field>
-
-          <!-- Dynamic UPI Counter QR Code Panel (Visible when Payment Mode is UPI = 1) -->
-          <div class="dynamic-upi-counter-card full-width" *ngIf="feeForm.get('mode')?.value === 1">
+          }
+          @if (itemRows.length === 0) {
+            <mat-hint>Enter the total amount to collect</mat-hint>
+          }
+          @if (feeForm.get('amountPaid')?.hasError('required')) {
+            <mat-error>Amount is required</mat-error>
+          }
+          @if (feeForm.get('amountPaid')?.hasError('min')) {
+            <mat-error>Amount must be greater than 0</mat-error>
+          }
+        </mat-form-field>
+    
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Payment Mode</mat-label>
+          <mat-select formControlName="mode">
+            <mat-option [value]="0">Cash</mat-option>
+            <mat-option [value]="1">UPI / GPay / PhonePe</mat-option>
+            <mat-option [value]="2">Bank Transfer / NetBanking</mat-option>
+            <mat-option [value]="3">Cheque</mat-option>
+          </mat-select>
+        </mat-form-field>
+    
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Transaction / UTR Ref No</mat-label>
+          <input matInput formControlName="transactionRef" placeholder="e.g. 12-digit UPI UTR" />
+        </mat-form-field>
+    
+        <!-- Dynamic UPI Counter QR Code Panel (Visible when Payment Mode is UPI = 1) -->
+        @if (feeForm.get('mode')?.value === 1) {
+          <div class="dynamic-upi-counter-card full-width">
             <div class="upi-card-inner">
               <!-- Left: Clean QR Frame -->
               <div class="qr-col">
@@ -363,7 +406,6 @@ export interface AdvanceMonthOption {
                   <span>Refresh QR</span>
                 </button>
               </div>
-
               <!-- Right: Info, VPA & Steps -->
               <div class="upi-info-col">
                 <!-- Top Brand & Amount Row -->
@@ -378,19 +420,21 @@ export interface AdvanceMonthOption {
                     <strong class="amt-val">₹{{ (feeForm.get('amountPaid')?.value || 0) | number:'1.2-2' }}</strong>
                   </div>
                 </div>
-
                 <!-- VPA Compact Bar -->
-                <div class="vpa-compact-bar" *ngIf="activeVpa">
-                  <div class="vpa-text-box">
-                    <span class="vpa-label">Institute VPA:</span>
-                    <strong class="vpa-id">{{ activeVpa }}</strong>
-                    <span class="vpa-payee" *ngIf="merchantName">({{ merchantName }})</span>
+                @if (activeVpa) {
+                  <div class="vpa-compact-bar">
+                    <div class="vpa-text-box">
+                      <span class="vpa-label">Institute VPA:</span>
+                      <strong class="vpa-id">{{ activeVpa }}</strong>
+                      @if (merchantName) {
+                        <span class="vpa-payee">({{ merchantName }})</span>
+                      }
+                    </div>
+                    <button mat-icon-button type="button" class="copy-vpa-btn" (click)="copyVpa()" matTooltip="Copy UPI ID">
+                      <mat-icon>content_copy</mat-icon>
+                    </button>
                   </div>
-                  <button mat-icon-button type="button" class="copy-vpa-btn" (click)="copyVpa()" matTooltip="Copy UPI ID">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                </div>
-
+                }
                 <!-- 3 Micro-Steps in Horizontal Flow -->
                 <div class="upi-steps-row">
                   <div class="micro-step">
@@ -408,7 +452,6 @@ export interface AdvanceMonthOption {
                     <span class="step-desc">Enter 12-digit UTR above</span>
                   </div>
                 </div>
-
                 <!-- Supported Apps Pills -->
                 <div class="upi-apps-chips">
                   <span class="apps-label">Supported:</span>
@@ -421,35 +464,47 @@ export interface AdvanceMonthOption {
               </div>
             </div>
           </div>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Remarks / Notes</mat-label>
-            <input matInput formControlName="remarks" placeholder="Optional notes (e.g. Received at desk)" />
-          </mat-form-field>
-
-          <div class="full-width whatsapp-toggle-box">
-            <mat-checkbox formControlName="sendWhatsAppReceipt" color="primary">
-              <span class="wa-toggle-label">
-                <mat-icon class="wa-icon">chat</mat-icon>
-                <strong>Send Instant WhatsApp Digital Payment Receipt to Parent</strong>
-              </span>
-            </mat-checkbox>
-          </div>
+        }
+    
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Remarks / Notes</mat-label>
+          <input matInput formControlName="remarks" placeholder="Optional notes (e.g. Received at desk)" />
+        </mat-form-field>
+    
+        <div class="full-width whatsapp-toggle-box">
+          <mat-checkbox formControlName="sendWhatsAppReceipt" color="primary">
+            <span class="wa-toggle-label">
+              <mat-icon class="wa-icon">chat</mat-icon>
+              <strong>Send Instant WhatsApp Digital Payment Receipt to Parent</strong>
+            </span>
+          </mat-checkbox>
         </div>
-      </mat-dialog-content>
-
-      <mat-dialog-actions align="end" class="dialog-actions">
-        <button mat-stroked-button type="button" class="btn-cancel" (click)="onCancel()" [disabled]="saving">Cancel</button>
-        <button mat-raised-button color="primary" type="submit" class="btn-confirm" [disabled]="feeForm.invalid || saving || (feeForm.get('amountPaid')?.value || 0) <= 0">
-          <mat-spinner diameter="18" *ngIf="saving" class="spinner"></mat-spinner>
-          <mat-icon *ngIf="!saving">receipt_long</mat-icon>
-          <span *ngIf="saving && selectedAdvanceOption && selectedAdvanceOption.monthCount > 0">Bundling Advance &amp; Settling...</span>
-          <span *ngIf="saving && (!selectedAdvanceOption || selectedAdvanceOption.monthCount === 0)">Processing Payment...</span>
-          <span *ngIf="!saving">Confirm &amp; Issue Receipt</span>
-        </button>
-      </mat-dialog-actions>
+      </div>
+    </mat-dialog-content>
+    
+    <mat-dialog-actions align="end" class="dialog-actions">
+      <button mat-stroked-button type="button" class="btn-cancel" (click)="onCancel()" [disabled]="saving">Cancel</button>
+      <button mat-raised-button color="primary" type="submit" class="btn-confirm" [disabled]="feeForm.invalid || saving || (feeForm.get('amountPaid')?.value || 0) <= 0">
+        @if (saving) {
+          <mat-spinner diameter="18" class="spinner"></mat-spinner>
+        }
+        @if (!saving) {
+          <mat-icon>receipt_long</mat-icon>
+        }
+        @if (saving && selectedAdvanceOption && selectedAdvanceOption.monthCount > 0) {
+          <span>Bundling Advance &amp; Settling...</span>
+        }
+        @if (saving && (!selectedAdvanceOption || selectedAdvanceOption.monthCount === 0)) {
+          <span>Processing Payment...</span>
+        }
+        @if (!saving) {
+          <span>Confirm &amp; Issue Receipt</span>
+        }
+      </button>
+    </mat-dialog-actions>
     </form>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

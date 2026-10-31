@@ -1,5 +1,5 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -28,7 +28,6 @@ import { CoachingService } from '../../core/services/coaching.service';
   selector: 'app-batches',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatTableModule,
     MatPaginatorModule,
@@ -45,7 +44,7 @@ import { CoachingService } from '../../core/services/coaching.service';
     MatTooltipModule,
     MatMenuModule,
     MatDividerModule
-  ],
+],
   template: `
     <div class="page-container">
       <div class="page-header">
@@ -64,20 +63,22 @@ import { CoachingService } from '../../core/services/coaching.service';
           </button>
         </div>
       </div>
-
+    
       <mat-card class="table-card mat-elevation-z2">
         <div class="filter-toolbar">
           <mat-form-field appearance="outline" class="search-field">
             <mat-label>Search Batches...</mat-label>
             <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Search by batch name, subject or session" />
-            <button *ngIf="searchTerm" matSuffix mat-icon-button aria-label="Clear" (click)="clearSearch()">
-              <mat-icon>close</mat-icon>
-            </button>
+            @if (searchTerm) {
+              <button matSuffix mat-icon-button aria-label="Clear" (click)="clearSearch()">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
             <button matSuffix mat-icon-button (click)="onSearch()">
               <mat-icon>search</mat-icon>
             </button>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="session-filter">
             <mat-label>Session Filter</mat-label>
             <mat-select [(ngModel)]="academicYearFilter" (selectionChange)="onSessionFilterChange()">
@@ -86,85 +87,99 @@ import { CoachingService } from '../../core/services/coaching.service';
               <mat-option value="2025-2026">2025-2026</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <!-- Single / Combined scope toggle -->
           <div class="scope-filter-toggle">
             <button type="button"
-                    class="scope-filter-btn"
-                    [class.active]="batchScopeFilter === 'all'"
-                    (click)="batchScopeFilter = 'all'">
+              class="scope-filter-btn"
+              [class.active]="batchScopeFilter === 'all'"
+              (click)="batchScopeFilter = 'all'">
               <mat-icon>apps</mat-icon>
               <span>All</span>
               <span class="scope-pill">{{ batches.length }}</span>
             </button>
             <button type="button"
-                    class="scope-filter-btn"
-                    [class.active]="batchScopeFilter === 'single'"
-                    (click)="batchScopeFilter = 'single'">
+              class="scope-filter-btn"
+              [class.active]="batchScopeFilter === 'single'"
+              (click)="batchScopeFilter = 'single'">
               <mat-icon>school</mat-icon>
               <span>Single Class</span>
               <span class="scope-pill">{{ singleClassBatchCount }}</span>
             </button>
             <button type="button"
-                    class="scope-filter-btn"
-                    [class.active]="batchScopeFilter === 'combined'"
-                    (click)="batchScopeFilter = 'combined'">
+              class="scope-filter-btn"
+              [class.active]="batchScopeFilter === 'combined'"
+              (click)="batchScopeFilter = 'combined'">
               <mat-icon>layers</mat-icon>
               <span>Multi-Class</span>
               <span class="scope-pill">{{ combinedBatchCount }}</span>
             </button>
           </div>
         </div>
-
-        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
-
+    
+        @if (loading) {
+          <mat-progress-bar mode="indeterminate" class="grid-loader"></mat-progress-bar>
+        }
+    
         <div class="table-responsive">
           <table mat-table [dataSource]="filteredBatchView" matSort (matSortChange)="onSortChange($event)" class="mat-elevation-z0 full-width-table">
-            
+    
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="name"> Batch Name </th>
               <td mat-cell *matCellDef="let element">
                 <span class="batch-name-cell">{{ element.name }}</span>
               </td>
             </ng-container>
-
+    
             <ng-container matColumnDef="className">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="class"> Class / Grade </th>
               <td mat-cell *matCellDef="let element">
-                <span class="class-tag" *ngIf="element.className && !isCombinedBatch(element)">
-                  <mat-icon class="inline-icon">school</mat-icon>
-                  {{ element.className }}
-                </span>
-                <span class="multi-class-tag" *ngIf="isCombinedBatch(element)">
-                  <mat-icon class="inline-icon">layers</mat-icon>
-                  {{ getBatchClassDisplay(element) }}
-                </span>
-                <span class="unassigned-tag" *ngIf="!element.className && !isCombinedBatch(element)">General</span>
+                @if (element.className && !isCombinedBatch(element)) {
+                  <span class="class-tag">
+                    <mat-icon class="inline-icon">school</mat-icon>
+                    {{ element.className }}
+                  </span>
+                }
+                @if (isCombinedBatch(element)) {
+                  <span class="multi-class-tag">
+                    <mat-icon class="inline-icon">layers</mat-icon>
+                    {{ getBatchClassDisplay(element) }}
+                  </span>
+                }
+                @if (!element.className && !isCombinedBatch(element)) {
+                  <span class="unassigned-tag">General</span>
+                }
               </td>
             </ng-container>
-
+    
             <ng-container matColumnDef="mentor">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="mentor"> Batch Mentor / In-charge </th>
               <td mat-cell *matCellDef="let element">
-                <div class="mentor-cell" *ngIf="element.mentorTeacherName">
-                  <div class="mentor-avatar">
-                    <mat-icon>person</mat-icon>
+                @if (element.mentorTeacherName) {
+                  <div class="mentor-cell">
+                    <div class="mentor-avatar">
+                      <mat-icon>person</mat-icon>
+                    </div>
+                    <div class="mentor-details">
+                      <strong class="mentor-name">{{ element.mentorTeacherName }}</strong>
+                      @if (element.mentorTeacherPhone) {
+                        <span class="mentor-sub">{{ element.mentorTeacherPhone }}</span>
+                      }
+                    </div>
+                    <button mat-icon-button class="quick-assign-btn" (click)="openQuickMentorModal(element)" matTooltip="Change Batch Mentor">
+                      <mat-icon>edit</mat-icon>
+                    </button>
                   </div>
-                  <div class="mentor-details">
-                    <strong class="mentor-name">{{ element.mentorTeacherName }}</strong>
-                    <span class="mentor-sub" *ngIf="element.mentorTeacherPhone">{{ element.mentorTeacherPhone }}</span>
-                  </div>
-                  <button mat-icon-button class="quick-assign-btn" (click)="openQuickMentorModal(element)" matTooltip="Change Batch Mentor">
-                    <mat-icon>edit</mat-icon>
+                }
+                @if (!element.mentorTeacherName) {
+                  <button mat-stroked-button class="assign-mentor-btn" (click)="openQuickMentorModal(element)" matTooltip="Assign designated mentor for this batch">
+                    <mat-icon>person_add</mat-icon>
+                    <span>Assign Mentor</span>
                   </button>
-                </div>
-                <button *ngIf="!element.mentorTeacherName" mat-stroked-button class="assign-mentor-btn" (click)="openQuickMentorModal(element)" matTooltip="Assign designated mentor for this batch">
-                  <mat-icon>person_add</mat-icon>
-                  <span>Assign Mentor</span>
-                </button>
+                }
               </td>
             </ng-container>
-
+    
             <ng-container matColumnDef="branchName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="branch"> Branch Campus </th>
               <td mat-cell *matCellDef="let element">
@@ -174,31 +189,41 @@ import { CoachingService } from '../../core/services/coaching.service';
                 </span>
               </td>
             </ng-container>
-
+    
             <ng-container matColumnDef="roomName">
               <th mat-header-cell *matHeaderCellDef> Classroom </th>
               <td mat-cell *matCellDef="let element">
-                <span class="room-tag" *ngIf="element.roomNumber">
-                  <mat-icon class="inline-icon">meeting_room</mat-icon>
-                  {{ formatRoomDisplay(element.roomNumber) }}
-                </span>
-                <span class="unassigned-tag" *ngIf="!element.roomNumber">Unassigned</span>
+                @if (element.roomNumber) {
+                  <span class="room-tag">
+                    <mat-icon class="inline-icon">meeting_room</mat-icon>
+                    {{ formatRoomDisplay(element.roomNumber) }}
+                  </span>
+                }
+                @if (!element.roomNumber) {
+                  <span class="unassigned-tag">Unassigned</span>
+                }
               </td>
             </ng-container>
-
+    
             <ng-container matColumnDef="subject">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="subject"> Subjects Covered </th>
               <td mat-cell *matCellDef="let element">
                 <div class="compact-subjects-wrap" [matTooltip]="element.subject || 'No subjects assigned'" matTooltipPosition="above">
-                  <span *ngFor="let s of getVisibleSubjects(element.subject)" class="compact-subject-badge">{{ s }}</span>
-                  <span class="more-subjects-badge" *ngIf="getRemainingSubjectCount(element.subject) > 0">
-                    +{{ getRemainingSubjectCount(element.subject) }} more
-                  </span>
-                  <span class="unassigned-tag" *ngIf="!element.subject">-</span>
+                  @for (s of getVisibleSubjects(element.subject); track s) {
+                    <span class="compact-subject-badge">{{ s }}</span>
+                  }
+                  @if (getRemainingSubjectCount(element.subject) > 0) {
+                    <span class="more-subjects-badge">
+                      +{{ getRemainingSubjectCount(element.subject) }} more
+                    </span>
+                  }
+                  @if (!element.subject) {
+                    <span class="unassigned-tag">-</span>
+                  }
                 </div>
               </td>
             </ng-container>
-
+    
             <ng-container matColumnDef="academicYear">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="academicYear"> Academic Session </th>
               <td mat-cell *matCellDef="let element">
@@ -207,8 +232,8 @@ import { CoachingService } from '../../core/services/coaching.service';
                 </mat-chip-option>
               </td>
             </ng-container>
-
-
+    
+    
             <ng-container matColumnDef="studentCount">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="students"> Active Students </th>
               <td mat-cell *matCellDef="let element">
@@ -218,7 +243,7 @@ import { CoachingService } from '../../core/services/coaching.service';
                 </mat-chip-option>
               </td>
             </ng-container>
-
+    
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="text-right action-th-col">
                 Actions
@@ -238,7 +263,7 @@ import { CoachingService } from '../../core/services/coaching.service';
                     <mat-icon>more_vert</mat-icon>
                   </button>
                 </div>
-
+    
                 <mat-menu #batchMenu="matMenu" xPosition="before" class="batch-action-menu">
                   <button mat-menu-item (click)="openBatchRoutine(element)">
                     <mat-icon color="primary">calendar_view_week</mat-icon>
@@ -264,21 +289,23 @@ import { CoachingService } from '../../core/services/coaching.service';
                 </mat-menu>
               </td>
             </ng-container>
-
+    
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-
+    
             <tr class="mat-row" *matNoDataRow>
               <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
-                <div class="empty-state" *ngIf="!loading">
-                  <mat-icon class="empty-icon">class</mat-icon>
-                  <p>No batches found matching your search criteria.</p>
-                </div>
+                @if (!loading) {
+                  <div class="empty-state">
+                    <mat-icon class="empty-icon">class</mat-icon>
+                    <p>No batches found matching your search criteria.</p>
+                  </div>
+                }
               </td>
             </tr>
           </table>
         </div>
-
+    
         <mat-paginator
           [length]="totalCount"
           [pageSize]="pageSize"
@@ -289,7 +316,8 @@ import { CoachingService } from '../../core/services/coaching.service';
         </mat-paginator>
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

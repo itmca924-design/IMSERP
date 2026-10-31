@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -41,106 +41,125 @@ import { AuthService } from '../../core/services/auth.service';
             <p class="subtitle">Connect with classmates, campus students, or faculty teachers</p>
           </div>
         </div>
-
+    
         <button type="button" class="sharp-close-btn" (click)="closeDialog()" aria-label="Close dialog">
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="dialog-body">
         <!-- Controls & Search -->
         <div class="directory-controls">
           <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
             <mat-icon matPrefix>search</mat-icon>
-            <input 
-              matInput 
-              [formControl]="searchControl" 
+            <input
+              matInput
+              [formControl]="searchControl"
               placeholder="Search by name, roll number, or username...">
-            <button 
-              *ngIf="searchControl.value" 
-              mat-icon-button 
-              matSuffix 
-              type="button" 
-              (click)="searchControl.setValue('')">
-              <mat-icon>close</mat-icon>
-            </button>
+            @if (searchControl.value) {
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                (click)="searchControl.setValue('')">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </mat-form-field>
-
-          <mat-button-toggle-group 
-            [formControl]="filterControl" 
+    
+          <mat-button-toggle-group
+            [formControl]="filterControl"
             class="directory-filter-toggle"
             aria-label="Directory Filter">
             <mat-button-toggle value="all">All</mat-button-toggle>
-            <ng-container *ngIf="isStudentOrParent()">
+            @if (isStudentOrParent()) {
               <mat-button-toggle value="same_class">Classmates</mat-button-toggle>
               <mat-button-toggle value="other_classes">Other Classes</mat-button-toggle>
-            </ng-container>
-            <ng-container *ngIf="!isStudentOrParent()">
+            }
+            @if (!isStudentOrParent()) {
               <mat-button-toggle value="students">Students</mat-button-toggle>
-            </ng-container>
+            }
             <mat-button-toggle value="teachers">Faculty & Staff</mat-button-toggle>
           </mat-button-toggle-group>
         </div>
-
+    
         <!-- Users List -->
         <div class="user-list-container">
-          <div *ngIf="loading()" class="loading-state">
-            <mat-spinner diameter="32"></mat-spinner>
-            <span>Loading campus directory...</span>
-          </div>
-
-          <div *ngIf="!loading() && users().length === 0" class="empty-state">
-            <mat-icon class="empty-icon">search_off</mat-icon>
-            <h3>No users found</h3>
-            <p>Try refining your search keyword or selecting a different filter tab.</p>
-          </div>
-
-          <div *ngIf="!loading() && users().length > 0" class="user-grid">
-            <div *ngFor="let u of users()" class="user-card">
-              <div class="avatar-wrap">
-                <div class="user-avatar" [class.teacher]="u.userRole === 'Teacher' || u.userRole === 'Principal'">
-                  {{ getInitials(u.fullName) }}
-                </div>
-                <span class="presence-dot" [class.online]="u.isOnline" [title]="u.isOnline ? 'Online now' : 'Offline'"></span>
-              </div>
-
-              <div class="user-info">
-                <div class="name-row">
-                  <strong class="user-name">{{ u.fullName }}</strong>
-                  <span class="role-badge" [ngClass]="getRoleBadgeClass(u.userRole, u.isSameClass)">
-                    {{ getRoleBadgeLabel(u) }}
-                  </span>
-                </div>
-
-                <div class="user-meta">
-                  <span *ngIf="u.className" class="meta-pill class-pill">
-                    🏫 {{ u.className }}<span *ngIf="u.sectionName">-{{ u.sectionName }}</span>
-                  </span>
-                  <span *ngIf="u.rollNumber" class="meta-pill roll-pill">
-                    Roll: {{ u.rollNumber }}
-                  </span>
-                  <span *ngIf="u.designation" class="meta-pill teacher-pill">
-                    🎓 {{ u.designation }}
-                  </span>
-                </div>
-              </div>
-
-              <button 
-                mat-flat-button 
-                color="primary" 
-                class="start-chat-btn"
-                [disabled]="startingChat() === u.userId"
-                (click)="onSelectUser(u)">
-                <mat-icon *ngIf="startingChat() !== u.userId">chat</mat-icon>
-                <mat-spinner *ngIf="startingChat() === u.userId" diameter="16"></mat-spinner>
-                <span>Message</span>
-              </button>
+          @if (loading()) {
+            <div class="loading-state">
+              <mat-spinner diameter="32"></mat-spinner>
+              <span>Loading campus directory...</span>
             </div>
+          }
+    
+          @if (!loading() && users().length === 0) {
+            <div class="empty-state">
+              <mat-icon class="empty-icon">search_off</mat-icon>
+              <h3>No users found</h3>
+              <p>Try refining your search keyword or selecting a different filter tab.</p>
+            </div>
+          }
+    
+          @if (!loading() && users().length > 0) {
+            <div class="user-grid">
+              @for (u of users(); track u) {
+                <div class="user-card">
+                  <div class="avatar-wrap">
+                    <div class="user-avatar" [class.teacher]="u.userRole === 'Teacher' || u.userRole === 'Principal'">
+                      {{ getInitials(u.fullName) }}
+                    </div>
+                    <span class="presence-dot" [class.online]="u.isOnline" [title]="u.isOnline ? 'Online now' : 'Offline'"></span>
+                  </div>
+                  <div class="user-info">
+                    <div class="name-row">
+                      <strong class="user-name">{{ u.fullName }}</strong>
+                      <span class="role-badge" [ngClass]="getRoleBadgeClass(u.userRole, u.isSameClass)">
+                        {{ getRoleBadgeLabel(u) }}
+                      </span>
+                    </div>
+                    <div class="user-meta">
+                      @if (u.className) {
+                        <span class="meta-pill class-pill">
+                          🏫 {{ u.className }}@if (u.sectionName) {
+                          <span>-{{ u.sectionName }}</span>
+                        }
+                      </span>
+                    }
+                    @if (u.rollNumber) {
+                      <span class="meta-pill roll-pill">
+                        Roll: {{ u.rollNumber }}
+                      </span>
+                    }
+                    @if (u.designation) {
+                      <span class="meta-pill teacher-pill">
+                        🎓 {{ u.designation }}
+                      </span>
+                    }
+                  </div>
+                </div>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  class="start-chat-btn"
+                  [disabled]="startingChat() === u.userId"
+                  (click)="onSelectUser(u)">
+                  @if (startingChat() !== u.userId) {
+                    <mat-icon>chat</mat-icon>
+                  }
+                  @if (startingChat() === u.userId) {
+                    <mat-spinner diameter="16"></mat-spinner>
+                  }
+                  <span>Message</span>
+                </button>
+              </div>
+            }
           </div>
-        </div>
+        }
       </div>
     </div>
-  `,
+    </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       width: 100%;

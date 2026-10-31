@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -75,23 +75,25 @@ import { environment } from '../../../environments/environment';
             </p>
           </div>
         </div>
-
+    
         <div class="header-action-buttons">
           <button mat-stroked-button class="run-analysis-btn" (click)="triggerAnalysis()" [disabled]="loading" matTooltip="Scan all student accounts & generate tailored recovery plans">
             <mat-icon>auto_awesome</mat-icon>
             <span>Run AI Analysis</span>
           </button>
-
+    
           <button mat-flat-button class="batch-dispatch-btn" (click)="batchDispatchSelected()" [disabled]="loading || selectedPlanIds.size === 0" matTooltip="Send AI nudges to all selected students">
             <mat-icon>send</mat-icon>
             <span>Batch Dispatch ({{ selectedPlanIds.size }})</span>
           </button>
         </div>
       </div>
-
+    
       <!-- Single Prominent Loader (Strict Rule) -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="page-loader"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="page-loader"></mat-progress-bar>
+      }
+    
       <!-- 4-Column Standard Executive KPI Deck -->
       <div class="kpi-grid">
         <div class="kpi-card overdue-kpi" (click)="filterByRisk('')" matTooltip="Click to show all fee defaulters" style="cursor: pointer;">
@@ -104,7 +106,7 @@ import { environment } from '../../../environments/environment';
             <span class="kpi-sub">{{ summary?.totalDefaultersCount || 0 }} Accounts Pending</span>
           </div>
         </div>
-
+    
         <div class="kpi-card critical-kpi" (click)="filterByRisk('CriticalOrHigh')" matTooltip="Click to show Critical & High Risk defaulters" style="cursor: pointer;">
           <div class="kpi-icon-box">
             <mat-icon>warning</mat-icon>
@@ -115,7 +117,7 @@ import { environment } from '../../../environments/environment';
             <span class="kpi-sub">{{ summary?.criticalCount || 0 }} Critical (&gt;45 days overdue)</span>
           </div>
         </div>
-
+    
         <div class="kpi-card ptp-kpi">
           <div class="kpi-icon-box">
             <mat-icon>event_available</mat-icon>
@@ -126,7 +128,7 @@ import { environment } from '../../../environments/environment';
             <span class="kpi-sub">₹{{ (summary?.activePromisesAmount || 0) | number:'1.0-0' }} Promised</span>
           </div>
         </div>
-
+    
         <div class="kpi-card recovered-kpi">
           <div class="kpi-icon-box">
             <mat-icon>verified</mat-icon>
@@ -138,7 +140,7 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
       </div>
-
+    
       <!-- Reactive Filters Card -->
       <mat-card class="filter-card mat-elevation-z1">
         <form [formGroup]="filterForm" class="filter-form">
@@ -150,31 +152,41 @@ import { environment } from '../../../environments/environment';
               <mat-option value="Coaching">🎯 Coaching Division Only</mat-option>
             </mat-select>
           </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field branch-field" *ngIf="branches.length > 1">
-            <mat-label>Campus / Branch</mat-label>
-            <mat-select formControlName="branchId" (selectionChange)="onFilterChanged()">
-              <mat-option value="">All Campuses (Consolidated)</mat-option>
-              <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
+    
+          @if (branches.length > 1) {
+            <mat-form-field appearance="outline" class="filter-field branch-field">
+              <mat-label>Campus / Branch</mat-label>
+              <mat-select formControlName="branchId" (selectionChange)="onFilterChanged()">
+                <mat-option value="">All Campuses (Consolidated)</mat-option>
+                @for (b of branches; track b) {
+                  <mat-option [value]="b.id">{{ b.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>{{ selectedAcademicScope === 'School' ? 'School Class (कक्षा)' : 'Academic Class (कक्षा)' }}</mat-label>
             <mat-select formControlName="classId" (selectionChange)="onClassChanged()">
               <mat-option value="">All Classes</mat-option>
-              <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+              @for (c of classes; track c) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field" *ngIf="selectedAcademicScope !== 'School'">
-            <mat-label>Coaching Batch</mat-label>
-            <mat-select formControlName="batchId" (selectionChange)="onFilterChanged()">
-              <mat-option value="">All Batches</mat-option>
-              <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{ b.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
+    
+          @if (selectedAcademicScope !== 'School') {
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Coaching Batch</mat-label>
+              <mat-select formControlName="batchId" (selectionChange)="onFilterChanged()">
+                <mat-option value="">All Batches</mat-option>
+                @for (b of filteredBatches; track b) {
+                  <mat-option [value]="b.id">{{ b.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Risk Category</mat-label>
             <mat-select formControlName="riskLevel" (selectionChange)="onFilterChanged()">
@@ -186,7 +198,7 @@ import { environment } from '../../../environments/environment';
               <mat-option value="Low">🟢 Low / Recent 1-7d ({{ summary?.lowRiskCount || 0 }})</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Plan Status</mat-label>
             <mat-select formControlName="status" (selectionChange)="onFilterChanged()">
@@ -198,7 +210,7 @@ import { environment } from '../../../environments/environment';
               <mat-option value="Resolved">Resolved / Paid</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field search-field">
             <mat-label>Search Student or Roll</mat-label>
             <input matInput formControlName="searchTerm" placeholder="Type student name or roll..." />
@@ -206,7 +218,7 @@ import { environment } from '../../../environments/environment';
           </mat-form-field>
         </form>
       </mat-card>
-
+    
       <!-- Main Navigation Tabs -->
       <mat-tab-group animationDuration="200ms" class="agent-tabs-wrap">
         <!-- TAB 1: AI Recovery Action Plans -->
@@ -214,284 +226,312 @@ import { environment } from '../../../environments/environment';
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">psychology</mat-icon>
             <span>AI Recovery Action Plans</span>
-            <span class="tab-badge" *ngIf="totalCount > 0">{{ totalCount }}</span>
+            @if (totalCount > 0) {
+              <span class="tab-badge">{{ totalCount }}</span>
+            }
           </ng-template>
-
+    
           <div class="tab-body-container">
             <!-- Table Action Toolbar -->
-            <div class="table-toolbar" *ngIf="totalCount > 0">
-              <div class="toolbar-left">
-                <mat-checkbox [checked]="isAllSelected()" [indeterminate]="isPartiallySelected()" (change)="toggleSelectAll($event.checked)">
-                  Select All Defaulters ({{ selectedPlanIds.size }} selected)
-                </mat-checkbox>
+            @if (totalCount > 0) {
+              <div class="table-toolbar">
+                <div class="toolbar-left">
+                  <mat-checkbox [checked]="isAllSelected()" [indeterminate]="isPartiallySelected()" (change)="toggleSelectAll($event.checked)">
+                    Select All Defaulters ({{ selectedPlanIds.size }} selected)
+                  </mat-checkbox>
+                </div>
+                <div class="toolbar-right">
+                  @if (summary?.lastAnalysisRunAt) {
+                    <span class="last-sync">
+                      Last AI Analysis: <strong>{{ $safeNavigationMigration(summary?.lastAnalysisRunAt) | date:'dd-MMM-yyyy hh:mm a' }}</strong>
+                    </span>
+                  }
+                </div>
               </div>
-
-              <div class="toolbar-right">
-                <span class="last-sync" *ngIf="summary?.lastAnalysisRunAt">
-                  Last AI Analysis: <strong>{{ summary?.lastAnalysisRunAt | date:'dd-MMM-yyyy hh:mm a' }}</strong>
-                </span>
-              </div>
-            </div>
-
+            }
+    
             <!-- Responsive Table Wrap -->
-            <div class="table-responsive" *ngIf="!loading && filteredPlans.length > 0">
-              <table
-                class="agent-table"
-                matSort
-                (matSortChange)="onSortChange($event)"
-                [matSortActive]="sortBy"
-                [matSortDirection]="sortDirection"
-              >
-                <thead>
-                  <tr>
-                    <th class="cb-col"></th>
-                    <th mat-sort-header="student" class="sortable-th">Student Details</th>
-                    <th mat-sort-header="class" class="sortable-th">Class / Batch</th>
-                    <th mat-sort-header="overdue" class="text-right sortable-th">Overdue</th>
-                    <th mat-sort-header="delay" class="sortable-th">Delay</th>
-                    <th mat-sort-header="risk" class="sortable-th">AI Risk</th>
-                    <th mat-sort-header="action" class="sortable-th">Action Plan</th>
-                    <th mat-sort-header="status" class="sortable-th">Commitment</th>
-                    <th class="text-center actions-th" matTooltip="Action Menu">
-                      <mat-icon class="th-action-icon">settings</mat-icon>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let p of filteredPlans" [class.selected-row]="selectedPlanIds.has(p.id)">
-                    <td class="cb-col">
-                      <mat-checkbox [checked]="selectedPlanIds.has(p.id)" (change)="toggleSelectPlan(p.id, $event.checked)">
-                      </mat-checkbox>
-                    </td>
-
-                    <td class="student-cell">
-                      <div class="student-info-box">
-                        <div class="stu-avatar">
-                          <img
-                            *ngIf="p.profilePhoto"
-                            [src]="getPhotoUrl(p.profilePhoto)"
-                            [alt]="p.studentName"
-                            class="stu-img"
-                            (error)="p.profilePhoto = undefined"
-                          />
-                          <div
-                            *ngIf="!p.profilePhoto"
-                            class="stu-initials"
-                            [style.background]="getAvatarGradient(p.studentName)"
-                          >
-                            {{ getInitials(p.studentName) }}
+            @if (!loading && filteredPlans.length > 0) {
+              <div class="table-responsive">
+                <table
+                  class="agent-table"
+                  matSort
+                  (matSortChange)="onSortChange($event)"
+                  [matSortActive]="sortBy"
+                  [matSortDirection]="sortDirection"
+                  >
+                  <thead>
+                    <tr>
+                      <th class="cb-col"></th>
+                      <th mat-sort-header="student" class="sortable-th">Student Details</th>
+                      <th mat-sort-header="class" class="sortable-th">Class / Batch</th>
+                      <th mat-sort-header="overdue" class="text-right sortable-th">Overdue</th>
+                      <th mat-sort-header="delay" class="sortable-th">Delay</th>
+                      <th mat-sort-header="risk" class="sortable-th">AI Risk</th>
+                      <th mat-sort-header="action" class="sortable-th">Action Plan</th>
+                      <th mat-sort-header="status" class="sortable-th">Commitment</th>
+                      <th class="text-center actions-th" matTooltip="Action Menu">
+                        <mat-icon class="th-action-icon">settings</mat-icon>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of filteredPlans; track p) {
+                      <tr [class.selected-row]="selectedPlanIds.has(p.id)">
+                        <td class="cb-col">
+                          <mat-checkbox [checked]="selectedPlanIds.has(p.id)" (change)="toggleSelectPlan(p.id, $event.checked)">
+                          </mat-checkbox>
+                        </td>
+                        <td class="student-cell">
+                          <div class="student-info-box">
+                            <div class="stu-avatar">
+                              @if (p.profilePhoto) {
+                                <img
+                                  [src]="getPhotoUrl(p.profilePhoto)"
+                                  [alt]="p.studentName"
+                                  class="stu-img"
+                                  (error)="p.profilePhoto = undefined"
+                                  />
+                              }
+                              @if (!p.profilePhoto) {
+                                <div
+                                  class="stu-initials"
+                                  [style.background]="getAvatarGradient(p.studentName)"
+                                  >
+                                  {{ getInitials(p.studentName) }}
+                                </div>
+                              }
+                            </div>
+                            <div class="stu-details">
+                              <span class="stu-name">{{ p.studentName }}</span>
+                              <span class="stu-roll">Roll: {{ p.rollNumber || p.admissionNumber || 'N/A' }}</span>
+                              @if (p.parentPhone) {
+                                <span class="stu-parent"><span class="phone-icon">📱</span><span class="phone-num">{{ p.parentPhone }}</span></span>
+                              }
+                            </div>
                           </div>
-                        </div>
-                        <div class="stu-details">
-                          <span class="stu-name">{{ p.studentName }}</span>
-                          <span class="stu-roll">Roll: {{ p.rollNumber || p.admissionNumber || 'N/A' }}</span>
-                          <span class="stu-parent" *ngIf="p.parentPhone"><span class="phone-icon">📱</span><span class="phone-num">{{ p.parentPhone }}</span></span>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td>
-                      <div class="class-batch-badge">
-                        <span class="division-pill" [ngClass]="getDivisionPillClass(p)">
-                          {{ getDivisionPillLabel(p) }}
-                        </span>
-                        <span class="c-name">{{ p.className || 'General Class' }}</span>
-                        <span class="b-name" *ngIf="p.batchName" [matTooltip]="p.batchName">• {{ p.batchName }}</span>
-                      </div>
-                    </td>
-
-                    <td class="text-right amount-col">
-                      <span class="due-amt">₹{{ p.totalOverdueAmount | number:'1.0-0' }}</span>
-                      <span class="inv-ref" *ngIf="p.invoiceNumber">#{{ p.invoiceNumber }}</span>
-                    </td>
-
-                    <td>
-                      <span class="days-chip" [ngClass]="getDelayClass(p.daysOverdue)">
-                        {{ p.daysOverdue }} days
-                      </span>
-                    </td>
-
-                    <td>
-                      <span class="risk-pill" [ngClass]="p.riskLevel.toLowerCase()" [matTooltip]="p.aiRationale || ''">
-                        <span class="dot">●</span> {{ p.riskLevel }} Risk
-                      </span>
-                    </td>
-
-                    <td>
-                      <div class="strategy-box">
-                        <span class="channel-pill">{{ p.recommendedChannel }}</span>
-                        <span class="tone-text">{{ p.recommendedTone }}</span>
-                      </div>
-                    </td>
-
-                    <td>
-                      <div class="status-cell-box">
-                        <span class="status-chip" [ngClass]="p.status.toLowerCase()">
-                          {{ getStatusLabel(p.status) }}
-                        </span>
-                        <div class="promise-inline-chip" *ngIf="p.activePromiseDate">
-                          📅 Promised: <strong>{{ p.activePromiseDate | date:'dd-MMM' }}</strong>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td class="text-center actions-col">
-                      <button type="button" [matMenuTriggerFor]="planActionMenu" class="action-more-btn" matTooltip="Action Menu">
-                        <mat-icon>more_vert</mat-icon>
-                      </button>
-                      <mat-menu #planActionMenu="matMenu" xPosition="before" class="plan-actions-dropdown">
-                        <button mat-menu-item (click)="openNudgeModal(p)">
-                          <mat-icon style="color: #16a34a;">send</mat-icon>
-                          <span>Send WhatsApp Nudge</span>
-                        </button>
-                        <button mat-menu-item (click)="openPromiseModal(p)">
-                          <mat-icon style="color: #2563eb;">event_available</mat-icon>
-                          <span>Log Promise to Pay (PTP)</span>
-                        </button>
-                        <button mat-menu-item (click)="openFeeCollection(p)">
-                          <mat-icon style="color: #9333ea;">payments</mat-icon>
-                          <span>Collect Fee &amp; Settle</span>
-                        </button>
-                      </mat-menu>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
+                        </td>
+                        <td>
+                          <div class="class-batch-badge">
+                            <span class="division-pill" [ngClass]="getDivisionPillClass(p)">
+                              {{ getDivisionPillLabel(p) }}
+                            </span>
+                            <span class="c-name">{{ p.className || 'General Class' }}</span>
+                            @if (p.batchName) {
+                              <span class="b-name" [matTooltip]="p.batchName">• {{ p.batchName }}</span>
+                            }
+                          </div>
+                        </td>
+                        <td class="text-right amount-col">
+                          <span class="due-amt">₹{{ p.totalOverdueAmount | number:'1.0-0' }}</span>
+                          @if (p.invoiceNumber) {
+                            <span class="inv-ref">#{{ p.invoiceNumber }}</span>
+                          }
+                        </td>
+                        <td>
+                          <span class="days-chip" [ngClass]="getDelayClass(p.daysOverdue)">
+                            {{ p.daysOverdue }} days
+                          </span>
+                        </td>
+                        <td>
+                          <span class="risk-pill" [ngClass]="p.riskLevel.toLowerCase()" [matTooltip]="p.aiRationale || ''">
+                            <span class="dot">●</span> {{ p.riskLevel }} Risk
+                          </span>
+                        </td>
+                        <td>
+                          <div class="strategy-box">
+                            <span class="channel-pill">{{ p.recommendedChannel }}</span>
+                            <span class="tone-text">{{ p.recommendedTone }}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div class="status-cell-box">
+                            <span class="status-chip" [ngClass]="p.status.toLowerCase()">
+                              {{ getStatusLabel(p.status) }}
+                            </span>
+                            @if (p.activePromiseDate) {
+                              <div class="promise-inline-chip">
+                                📅 Promised: <strong>{{ p.activePromiseDate | date:'dd-MMM' }}</strong>
+                              </div>
+                            }
+                          </div>
+                        </td>
+                        <td class="text-center actions-col">
+                          <button type="button" [matMenuTriggerFor]="planActionMenu" class="action-more-btn" matTooltip="Action Menu">
+                            <mat-icon>more_vert</mat-icon>
+                          </button>
+                          <mat-menu #planActionMenu="matMenu" xPosition="before" class="plan-actions-dropdown">
+                            <button mat-menu-item (click)="openNudgeModal(p)">
+                              <mat-icon style="color: #16a34a;">send</mat-icon>
+                              <span>Send WhatsApp Nudge</span>
+                            </button>
+                            <button mat-menu-item (click)="openPromiseModal(p)">
+                              <mat-icon style="color: #2563eb;">event_available</mat-icon>
+                              <span>Log Promise to Pay (PTP)</span>
+                            </button>
+                            <button mat-menu-item (click)="openFeeCollection(p)">
+                              <mat-icon style="color: #9333ea;">payments</mat-icon>
+                              <span>Collect Fee &amp; Settle</span>
+                            </button>
+                          </mat-menu>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+    
             <!-- Server-Side Pagination -->
-            <mat-paginator
-              *ngIf="totalCount > 0"
-              [length]="totalCount"
-              [pageSize]="pageSize"
-              [pageSizeOptions]="[10, 25, 50, 100]"
-              [pageIndex]="pageIndex"
-              (page)="onPageChange($event)"
-              showFirstLastButtons
-              class="agent-paginator mat-elevation-z1"
-            >
-            </mat-paginator>
-
+            @if (totalCount > 0) {
+              <mat-paginator
+                [length]="totalCount"
+                [pageSize]="pageSize"
+                [pageSizeOptions]="[10, 25, 50, 100]"
+                [pageIndex]="pageIndex"
+                (page)="onPageChange($event)"
+                showFirstLastButtons
+                class="agent-paginator mat-elevation-z1"
+                >
+              </mat-paginator>
+            }
+    
             <!-- Empty State -->
-            <div class="empty-state" *ngIf="!loading && filteredPlans.length === 0">
-              <div class="empty-icon-wrap">
-                <mat-icon>{{ totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0 ? 'filter_alt_off' : 'verified' }}</mat-icon>
+            @if (!loading && filteredPlans.length === 0) {
+              <div class="empty-state">
+                <div class="empty-icon-wrap">
+                  <mat-icon>{{ totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0 ? 'filter_alt_off' : 'verified' }}</mat-icon>
+                </div>
+                <h3>{{ totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0 ? 'No Defaulters for Current Filter' : 'No Fee Overdues Found' }}</h3>
+                @if (totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0) {
+                  <p>
+                    No fee records matched the selected Risk Profile. There are <strong>{{ summary?.totalDefaultersCount }}</strong> total overdue accounts in this division.
+                  </p>
+                }
+                @if ((summary?.totalDefaultersCount || 0) === 0) {
+                  <p>
+                    Either all student fees are settled, or click "Run AI Analysis" to scan active rosters.
+                  </p>
+                }
+                <div class="empty-actions" style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center;">
+                  @if (totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0) {
+                    <button mat-stroked-button color="primary" (click)="filterByRisk('')">
+                      <mat-icon>clear_all</mat-icon>
+                      <span>Show All Defaulters ({{ summary?.totalDefaultersCount }})</span>
+                    </button>
+                  }
+                  <button mat-flat-button color="primary" (click)="triggerAnalysis()">
+                    <mat-icon>auto_awesome</mat-icon>
+                    <span>Run Real-Time AI Analysis</span>
+                  </button>
+                </div>
               </div>
-              <h3>{{ totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0 ? 'No Defaulters for Current Filter' : 'No Fee Overdues Found' }}</h3>
-              <p *ngIf="totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0">
-                No fee records matched the selected Risk Profile. There are <strong>{{ summary?.totalDefaultersCount }}</strong> total overdue accounts in this division.
-              </p>
-              <p *ngIf="(summary?.totalDefaultersCount || 0) === 0">
-                Either all student fees are settled, or click "Run AI Analysis" to scan active rosters.
-              </p>
-              <div class="empty-actions" style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center;">
-                <button mat-stroked-button color="primary" *ngIf="totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0" (click)="filterByRisk('')">
-                  <mat-icon>clear_all</mat-icon>
-                  <span>Show All Defaulters ({{ summary?.totalDefaultersCount }})</span>
-                </button>
-                <button mat-flat-button color="primary" (click)="triggerAnalysis()">
-                  <mat-icon>auto_awesome</mat-icon>
-                  <span>Run Real-Time AI Analysis</span>
-                </button>
-              </div>
-            </div>
+            }
           </div>
         </mat-tab>
-
+    
         <!-- TAB 2: Promise to Pay (PTP) Commitment Tracker -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">event_available</mat-icon>
             <span>Promise to Pay (PTP) Tracker</span>
-            <span class="tab-badge ptp-badge" *ngIf="promises.length > 0">{{ promises.length }}</span>
+            @if (promises.length > 0) {
+              <span class="tab-badge ptp-badge">{{ promises.length }}</span>
+            }
           </ng-template>
-
+    
           <div class="tab-body-container">
-            <div class="table-responsive" *ngIf="!loading && promises.length > 0">
-              <table class="agent-table">
-                <thead>
-                  <tr>
-                    <th>Student Name</th>
-                    <th>Class / Batch</th>
-                    <th class="text-right">Promised Amount</th>
-                    <th>Promised Date</th>
-                    <th>Contact Person &amp; Phone</th>
-                    <th>Remarks / Notes</th>
-                    <th>Status</th>
-                    <th class="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let prom of promises">
-                    <td class="student-cell">
-                      <div class="stu-details">
-                        <span class="stu-name">{{ prom.studentName }}</span>
-                        <span class="stu-roll">Roll: {{ prom.rollNumber || 'N/A' }}</span>
-                      </div>
-                    </td>
-
-                    <td>
-                      <div class="class-batch-badge">
-                        <span class="division-pill" [ngClass]="getDivisionPillClass(prom)">
-                          {{ getDivisionPillLabel(prom) }}
-                        </span>
-                        <span>{{ prom.className || 'General' }}</span>
-                        <span *ngIf="prom.batchName">• {{ prom.batchName }}</span>
-                      </div>
-                    </td>
-
-                    <td class="text-right amount-col">
-                      <span class="due-amt">₹{{ prom.promisedAmount | number:'1.0-0' }}</span>
-                    </td>
-
-                    <td>
-                      <span class="promise-date-chip" [class.broken]="prom.isBroken" [class.kept]="prom.isKept">
-                        {{ prom.promisedDate | date:'dd-MMM-yyyy' }}
-                      </span>
-                    </td>
-
-                    <td>
-                      <div class="contact-box">
-                        <span class="cp-name">{{ prom.contactPerson }}</span>
-                        <span class="cp-phone">📱 {{ prom.contactPhone }}</span>
-                      </div>
-                    </td>
-
-                    <td class="notes-cell">
-                      <span>{{ prom.notes || '—' }}</span>
-                    </td>
-
-                    <td>
-                      <span class="ptp-status-pill" [class.kept]="prom.isKept" [class.broken]="prom.isBroken" [class.pending]="!prom.isKept && !prom.isBroken">
-                        {{ prom.isKept ? '✅ Kept / Settled' : prom.isBroken ? '❌ Promise Broken' : '⏳ Pending' }}
-                      </span>
-                    </td>
-
-                    <td class="text-right actions-col">
-                      <button mat-stroked-button class="mini-btn kept-btn" *ngIf="!prom.isKept" (click)="resolvePromise(prom, true)" matTooltip="Mark as payment received">
-                        Kept
-                      </button>
-                      <button mat-stroked-button class="mini-btn broken-btn" *ngIf="!prom.isKept && !prom.isBroken" (click)="resolvePromise(prom, false)" matTooltip="Mark as promise broken">
-                        Broken
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="empty-state" *ngIf="!loading && promises.length === 0">
-              <div class="empty-icon-wrap">
-                <mat-icon>event_note</mat-icon>
+            @if (!loading && promises.length > 0) {
+              <div class="table-responsive">
+                <table class="agent-table">
+                  <thead>
+                    <tr>
+                      <th>Student Name</th>
+                      <th>Class / Batch</th>
+                      <th class="text-right">Promised Amount</th>
+                      <th>Promised Date</th>
+                      <th>Contact Person &amp; Phone</th>
+                      <th>Remarks / Notes</th>
+                      <th>Status</th>
+                      <th class="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (prom of promises; track prom) {
+                      <tr>
+                        <td class="student-cell">
+                          <div class="stu-details">
+                            <span class="stu-name">{{ prom.studentName }}</span>
+                            <span class="stu-roll">Roll: {{ prom.rollNumber || 'N/A' }}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div class="class-batch-badge">
+                            <span class="division-pill" [ngClass]="getDivisionPillClass(prom)">
+                              {{ getDivisionPillLabel(prom) }}
+                            </span>
+                            <span>{{ prom.className || 'General' }}</span>
+                            @if (prom.batchName) {
+                              <span>• {{ prom.batchName }}</span>
+                            }
+                          </div>
+                        </td>
+                        <td class="text-right amount-col">
+                          <span class="due-amt">₹{{ prom.promisedAmount | number:'1.0-0' }}</span>
+                        </td>
+                        <td>
+                          <span class="promise-date-chip" [class.broken]="prom.isBroken" [class.kept]="prom.isKept">
+                            {{ prom.promisedDate | date:'dd-MMM-yyyy' }}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="contact-box">
+                            <span class="cp-name">{{ prom.contactPerson }}</span>
+                            <span class="cp-phone">📱 {{ prom.contactPhone }}</span>
+                          </div>
+                        </td>
+                        <td class="notes-cell">
+                          <span>{{ prom.notes || '—' }}</span>
+                        </td>
+                        <td>
+                          <span class="ptp-status-pill" [class.kept]="prom.isKept" [class.broken]="prom.isBroken" [class.pending]="!prom.isKept && !prom.isBroken">
+                            {{ prom.isKept ? '✅ Kept / Settled' : prom.isBroken ? '❌ Promise Broken' : '⏳ Pending' }}
+                          </span>
+                        </td>
+                        <td class="text-right actions-col">
+                          @if (!prom.isKept) {
+                            <button mat-stroked-button class="mini-btn kept-btn" (click)="resolvePromise(prom, true)" matTooltip="Mark as payment received">
+                              Kept
+                            </button>
+                          }
+                          @if (!prom.isKept && !prom.isBroken) {
+                            <button mat-stroked-button class="mini-btn broken-btn" (click)="resolvePromise(prom, false)" matTooltip="Mark as promise broken">
+                              Broken
+                            </button>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
               </div>
-              <h3>No Parent Promises Logged</h3>
-              <p>When parents promise a future payment date, click "Log Promise" on their fee plan.</p>
-            </div>
+            }
+    
+            @if (!loading && promises.length === 0) {
+              <div class="empty-state">
+                <div class="empty-icon-wrap">
+                  <mat-icon>event_note</mat-icon>
+                </div>
+                <h3>No Parent Promises Logged</h3>
+                <p>When parents promise a future payment date, click "Log Promise" on their fee plan.</p>
+              </div>
+            }
           </div>
         </mat-tab>
       </mat-tab-group>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

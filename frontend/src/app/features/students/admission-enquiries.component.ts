@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -93,7 +93,7 @@ export interface EnquiryStatsDto {
             </p>
           </div>
         </div>
-
+    
         <div class="header-actions">
           <button mat-stroked-button class="refresh-btn" (click)="loadEnquiries()" [disabled]="loading">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
@@ -105,7 +105,7 @@ export interface EnquiryStatsDto {
           </button>
         </div>
       </div>
-
+    
       <!-- Stats Bar -->
       <div class="stats-grid">
         <div class="stat-card">
@@ -144,7 +144,7 @@ export interface EnquiryStatsDto {
           </div>
         </div>
       </div>
-
+    
       <!-- Filter Card -->
       <div class="filter-card">
         <div class="filter-row">
@@ -159,7 +159,7 @@ export interface EnquiryStatsDto {
               <mat-option value="Lost">Lost / Dropped</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Lead Source</mat-label>
             <mat-select [(ngModel)]="filterSource" (selectionChange)="loadEnquiries()">
@@ -172,7 +172,7 @@ export interface EnquiryStatsDto {
               <mat-option value="Newspaper">Newspaper / Banner</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Priority</mat-label>
             <mat-select [(ngModel)]="filterPriority" (selectionChange)="loadEnquiries()">
@@ -182,12 +182,12 @@ export interface EnquiryStatsDto {
               <mat-option value="Low">💤 Low</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field search-field">
             <mat-label>Search Name, Phone, Number</mat-label>
             <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadEnquiries()">
           </mat-form-field>
-
+    
           <div class="view-toggle">
             <button mat-icon-button [class.active-view]="viewMode==='kanban'" (click)="viewMode='kanban'" matTooltip="Pipeline Kanban">
               <mat-icon>view_column</mat-icon>
@@ -198,90 +198,111 @@ export interface EnquiryStatsDto {
           </div>
         </div>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
+    
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && filteredItems.length === 0">
-        <div class="empty-icon-wrap"><mat-icon>contact_phone</mat-icon></div>
-        <h3>No Enquiries Found</h3>
-        <p>No student admission enquiries match the current filters. Click "New Enquiry" to register a lead.</p>
-        <button mat-raised-button class="create-btn" (click)="openEnquiryDialog()">
-          <mat-icon>add</mat-icon> Register First Enquiry
-        </button>
-      </div>
-
+      @if (!loading && filteredItems.length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon-wrap"><mat-icon>contact_phone</mat-icon></div>
+          <h3>No Enquiries Found</h3>
+          <p>No student admission enquiries match the current filters. Click "New Enquiry" to register a lead.</p>
+          <button mat-raised-button class="create-btn" (click)="openEnquiryDialog()">
+            <mat-icon>add</mat-icon> Register First Enquiry
+          </button>
+        </div>
+      }
+    
       <!-- PIPELINE KANBAN VIEW -->
-      <div class="kanban-board" *ngIf="!loading && viewMode==='kanban' && filteredItems.length > 0">
-        <!-- New Column -->
-        <div class="kanban-col">
-          <div class="kanban-col-hdr new-hdr">
-            <span>New Leads</span>
-            <span class="count-badge">{{getStageItems('New').length}}</span>
-          </div>
-          <div class="kanban-cards">
-            <div class="enquiry-card" *ngFor="let e of getStageItems('New')">
-              <ng-container *ngTemplateOutlet="cardContent; context:{e: e}"></ng-container>
+      @if (!loading && viewMode==='kanban' && filteredItems.length > 0) {
+        <div class="kanban-board">
+          <!-- New Column -->
+          <div class="kanban-col">
+            <div class="kanban-col-hdr new-hdr">
+              <span>New Leads</span>
+              <span class="count-badge">{{getStageItems('New').length}}</span>
             </div>
-            <div class="kanban-empty" *ngIf="getStageItems('New').length === 0">No new leads</div>
+            <div class="kanban-cards">
+              @for (e of getStageItems('New'); track e) {
+                <div class="enquiry-card">
+                  <ng-container *ngTemplateOutlet="cardContent; context:{e: e}"></ng-container>
+                </div>
+              }
+              @if (getStageItems('New').length === 0) {
+                <div class="kanban-empty">No new leads</div>
+              }
+            </div>
+          </div>
+          <!-- Contacted / Follow-up Column -->
+          <div class="kanban-col">
+            <div class="kanban-col-hdr contacted-hdr">
+              <span>Contacted / Follow-up</span>
+              <span class="count-badge">{{getStageItems('Contacted').length}}</span>
+            </div>
+            <div class="kanban-cards">
+              @for (e of getStageItems('Contacted'); track e) {
+                <div class="enquiry-card">
+                  <ng-container *ngTemplateOutlet="cardContent; context:{e: e}"></ng-container>
+                </div>
+              }
+              @if (getStageItems('Contacted').length === 0) {
+                <div class="kanban-empty">No follow-ups</div>
+              }
+            </div>
+          </div>
+          <!-- Demo / Campus Visit Column -->
+          <div class="kanban-col">
+            <div class="kanban-col-hdr demo-hdr">
+              <span>Demo / Campus Visit</span>
+              <span class="count-badge">{{getStageItems('Demo / Visit').length}}</span>
+            </div>
+            <div class="kanban-cards">
+              @for (e of getStageItems('Demo / Visit'); track e) {
+                <div class="enquiry-card">
+                  <ng-container *ngTemplateOutlet="cardContent; context:{e: e}"></ng-container>
+                </div>
+              }
+              @if (getStageItems('Demo / Visit').length === 0) {
+                <div class="kanban-empty">No campus demos</div>
+              }
+            </div>
+          </div>
+          <!-- Admitted Column -->
+          <div class="kanban-col">
+            <div class="kanban-col-hdr admitted-hdr">
+              <span>Admitted / Enrolled 🎉</span>
+              <span class="count-badge">{{getStageItems('Admitted').length}}</span>
+            </div>
+            <div class="kanban-cards">
+              @for (e of getStageItems('Admitted'); track e) {
+                <div class="enquiry-card">
+                  <ng-container *ngTemplateOutlet="cardContent; context:{e: e}"></ng-container>
+                </div>
+              }
+              @if (getStageItems('Admitted').length === 0) {
+                <div class="kanban-empty">No converted admissions</div>
+              }
+            </div>
           </div>
         </div>
-
-        <!-- Contacted / Follow-up Column -->
-        <div class="kanban-col">
-          <div class="kanban-col-hdr contacted-hdr">
-            <span>Contacted / Follow-up</span>
-            <span class="count-badge">{{getStageItems('Contacted').length}}</span>
-          </div>
-          <div class="kanban-cards">
-            <div class="enquiry-card" *ngFor="let e of getStageItems('Contacted')">
-              <ng-container *ngTemplateOutlet="cardContent; context:{e: e}"></ng-container>
-            </div>
-            <div class="kanban-empty" *ngIf="getStageItems('Contacted').length === 0">No follow-ups</div>
-          </div>
-        </div>
-
-        <!-- Demo / Campus Visit Column -->
-        <div class="kanban-col">
-          <div class="kanban-col-hdr demo-hdr">
-            <span>Demo / Campus Visit</span>
-            <span class="count-badge">{{getStageItems('Demo / Visit').length}}</span>
-          </div>
-          <div class="kanban-cards">
-            <div class="enquiry-card" *ngFor="let e of getStageItems('Demo / Visit')">
-              <ng-container *ngTemplateOutlet="cardContent; context:{e: e}"></ng-container>
-            </div>
-            <div class="kanban-empty" *ngIf="getStageItems('Demo / Visit').length === 0">No campus demos</div>
-          </div>
-        </div>
-
-        <!-- Admitted Column -->
-        <div class="kanban-col">
-          <div class="kanban-col-hdr admitted-hdr">
-            <span>Admitted / Enrolled 🎉</span>
-            <span class="count-badge">{{getStageItems('Admitted').length}}</span>
-          </div>
-          <div class="kanban-cards">
-            <div class="enquiry-card" *ngFor="let e of getStageItems('Admitted')">
-              <ng-container *ngTemplateOutlet="cardContent; context:{e: e}"></ng-container>
-            </div>
-            <div class="kanban-empty" *ngIf="getStageItems('Admitted').length === 0">No converted admissions</div>
-          </div>
-        </div>
-      </div>
-
+      }
+    
       <!-- Reusable Card Template -->
       <ng-template #cardContent let-e="e">
         <div class="card-top">
           <span class="enq-num">{{e.enquiryNumber}}</span>
           <span class="prio-tag" [ngClass]="e.priority.toLowerCase()">{{e.priority}}</span>
         </div>
-
+    
         <div class="student-name">{{e.studentName}}</div>
-        <div class="parent-line" *ngIf="e.parentName">
-          <mat-icon class="ic-inline">people</mat-icon> {{e.parentName}}
-        </div>
-
+        @if (e.parentName) {
+          <div class="parent-line">
+            <mat-icon class="ic-inline">people</mat-icon> {{e.parentName}}
+          </div>
+        }
+    
         <div class="phone-line">
           <a [href]="'tel:' + e.phone" class="phone-link">
             <mat-icon class="ic-inline">phone</mat-icon> {{e.phone}}
@@ -290,76 +311,93 @@ export interface EnquiryStatsDto {
             <mat-icon class="ic-wa">chat</mat-icon>
           </a>
         </div>
-
-        <div class="class-line" *ngIf="e.interestedClassName">
-          <mat-icon class="ic-inline">school</mat-icon> Class: <strong>{{e.interestedClassName}}</strong>
-        </div>
-
-        <div class="follow-up-bar" *ngIf="e.followUpDate" [class.due]="isFollowUpOverdue(e.followUpDate)">
-          <mat-icon class="ic-inline">alarm</mat-icon>
-          <span>Follow-up: <strong>{{e.followUpDate | date:'dd MMM yyyy'}}</strong></span>
-        </div>
-
-        <div class="follow-up-bar" *ngIf="e.createdAt" style="background:#f1f5f9; color:#475569; margin-top:4px;">
-          <mat-icon class="ic-inline">schedule</mat-icon>
-          <span>Registered: <strong>{{e.createdAt | date:'dd MMM yyyy, hh:mm a'}}</strong></span>
-        </div>
-
-        <div class="remarks-box" *ngIf="e.remarks">"{{e.remarks}}"</div>
-
-        <!-- Quick Stage Progression Bar -->
-        <div class="stage-flow-bar" *ngIf="e.status !== 'Admitted'">
-          <!-- If New: Quick advance to Contacted -->
-          <button mat-button class="stage-step-btn btn-contact" *ngIf="e.status === 'New'" (click)="moveStage(e, 'Contacted')" matTooltip="Move to Contacted / Follow-up">
-            <mat-icon>phone_in_talk</mat-icon>
-            <span>Mark Contacted ➔</span>
-          </button>
-
-          <!-- If Contacted: Quick advance to Demo / Visit -->
-          <button mat-button class="stage-step-btn btn-demo" *ngIf="e.status === 'Contacted'" (click)="moveStage(e, 'Demo / Visit')" matTooltip="Move to Demo / Campus Visit">
-            <mat-icon>school</mat-icon>
-            <span>Schedule Demo ➔</span>
-          </button>
-
-          <!-- If Demo: Quick convert to Admission -->
-          <button mat-button class="stage-step-btn btn-admit" *ngIf="e.status === 'Demo / Visit' || e.status === 'Demo'" (click)="openConvertDialog(e)" matTooltip="Complete Student Admission">
-            <mat-icon>how_to_reg</mat-icon>
-            <span>Admit Student ➔</span>
-          </button>
-
-          <!-- Change Stage Dropdown Button -->
-          <button mat-icon-button class="stage-menu-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Change Pipeline Stage">
-            <mat-icon>swap_horiz</mat-icon>
-          </button>
-        </div>
-
-        <div class="stage-flow-bar admitted-bar" *ngIf="e.status === 'Admitted'">
-          <div class="admitted-indicator">
-            <mat-icon>verified</mat-icon>
-            <span>Enrolled Student</span>
+    
+        @if (e.interestedClassName) {
+          <div class="class-line">
+            <mat-icon class="ic-inline">school</mat-icon> Class: <strong>{{e.interestedClassName}}</strong>
           </div>
-          <button mat-icon-button class="stage-menu-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Change Stage">
-            <mat-icon>swap_horiz</mat-icon>
-          </button>
-        </div>
-
+        }
+    
+        @if (e.followUpDate) {
+          <div class="follow-up-bar" [class.due]="isFollowUpOverdue(e.followUpDate)">
+            <mat-icon class="ic-inline">alarm</mat-icon>
+            <span>Follow-up: <strong>{{e.followUpDate | date:'dd MMM yyyy'}}</strong></span>
+          </div>
+        }
+    
+        @if (e.createdAt) {
+          <div class="follow-up-bar" style="background:#f1f5f9; color:#475569; margin-top:4px;">
+            <mat-icon class="ic-inline">schedule</mat-icon>
+            <span>Registered: <strong>{{e.createdAt | date:'dd MMM yyyy, hh:mm a'}}</strong></span>
+          </div>
+        }
+    
+        @if (e.remarks) {
+          <div class="remarks-box">"{{e.remarks}}"</div>
+        }
+    
+        <!-- Quick Stage Progression Bar -->
+        @if (e.status !== 'Admitted') {
+          <div class="stage-flow-bar">
+            <!-- If New: Quick advance to Contacted -->
+            @if (e.status === 'New') {
+              <button mat-button class="stage-step-btn btn-contact" (click)="moveStage(e, 'Contacted')" matTooltip="Move to Contacted / Follow-up">
+                <mat-icon>phone_in_talk</mat-icon>
+                <span>Mark Contacted ➔</span>
+              </button>
+            }
+            <!-- If Contacted: Quick advance to Demo / Visit -->
+            @if (e.status === 'Contacted') {
+              <button mat-button class="stage-step-btn btn-demo" (click)="moveStage(e, 'Demo / Visit')" matTooltip="Move to Demo / Campus Visit">
+                <mat-icon>school</mat-icon>
+                <span>Schedule Demo ➔</span>
+              </button>
+            }
+            <!-- If Demo: Quick convert to Admission -->
+            @if (e.status === 'Demo / Visit' || e.status === 'Demo') {
+              <button mat-button class="stage-step-btn btn-admit" (click)="openConvertDialog(e)" matTooltip="Complete Student Admission">
+                <mat-icon>how_to_reg</mat-icon>
+                <span>Admit Student ➔</span>
+              </button>
+            }
+            <!-- Change Stage Dropdown Button -->
+            <button mat-icon-button class="stage-menu-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Change Pipeline Stage">
+              <mat-icon>swap_horiz</mat-icon>
+            </button>
+          </div>
+        }
+    
+        @if (e.status === 'Admitted') {
+          <div class="stage-flow-bar admitted-bar">
+            <div class="admitted-indicator">
+              <mat-icon>verified</mat-icon>
+              <span>Enrolled Student</span>
+            </div>
+            <button mat-icon-button class="stage-menu-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Change Stage">
+              <mat-icon>swap_horiz</mat-icon>
+            </button>
+          </div>
+        }
+    
         <div class="card-bottom">
           <span class="source-tag">{{e.source}}</span>
-
+    
           <div class="card-actions">
             <button mat-icon-button (click)="openEnquiryDialog(e)" matTooltip="Edit Enquiry">
               <mat-icon class="card-action-ic edit">edit</mat-icon>
             </button>
-            <button mat-raised-button class="convert-mini-btn" *ngIf="e.status !== 'Admitted'" (click)="openConvertDialog(e)" matTooltip="Convert to Student Admission">
-              <mat-icon>how_to_reg</mat-icon> Admit
-            </button>
+            @if (e.status !== 'Admitted') {
+              <button mat-raised-button class="convert-mini-btn" (click)="openConvertDialog(e)" matTooltip="Convert to Student Admission">
+                <mat-icon>how_to_reg</mat-icon> Admit
+              </button>
+            }
             <button mat-icon-button (click)="deleteEnquiry(e)" matTooltip="Delete">
               <mat-icon class="card-action-ic delete">delete</mat-icon>
             </button>
           </div>
         </div>
       </ng-template>
-
+    
       <!-- Stage Change Dropdown Menu -->
       <mat-menu #stageMenu="matMenu">
         <ng-template matMenuContent let-item="item">
@@ -388,72 +426,81 @@ export interface EnquiryStatsDto {
           </button>
         </ng-template>
       </mat-menu>
-
+    
       <!-- TABLE VIEW -->
-      <div class="enq-table-wrap" *ngIf="!loading && viewMode==='table' && filteredItems.length > 0">
-        <table class="enq-table">
-          <thead>
-            <tr>
-              <th>Enq #</th>
-              <th>Student & Parent</th>
-              <th>Phone</th>
-              <th>Interested Class</th>
-              <th>Source</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th>Registered (IST)</th>
-              <th>Follow-up Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let e of filteredItems">
-              <td><strong>{{e.enquiryNumber}}</strong></td>
-              <td>
-                <div class="tbl-name">{{e.studentName}}</div>
-                <div class="tbl-sub" *ngIf="e.parentName">Parent: {{e.parentName}}</div>
-              </td>
-              <td>
-                <div class="tbl-phone">
-                  <a [href]="'tel:' + e.phone">{{e.phone}}</a>
-                  <a [href]="'https://wa.me/91' + e.phone" target="_blank" class="wa-icon-link">
-                    <mat-icon class="ic-wa">chat</mat-icon>
-                  </a>
-                </div>
-              </td>
-              <td>{{e.interestedClassName || e.interestedBatchName || '—'}}</td>
-              <td><span class="source-tag" [class.source-online]="e.source === 'Online Portal'">{{e.source === 'Online Portal' ? '🌐 Online Lead' : e.source}}</span></td>
-              <td><span class="prio-tag" [ngClass]="e.priority.toLowerCase()">{{e.priority}}</span></td>
-              <td>
-                <button mat-button class="tbl-status-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Click to change pipeline stage">
-                  <span class="status-pill" [ngClass]="getStatusClass(e.status)">{{e.status}} ▾</span>
-                </button>
-              </td>
-              <td>{{e.createdAt | date:'dd MMM yyyy, hh:mm a'}}</td>
-              <td>
-                <span [class.overdue-text]="isFollowUpOverdue(e.followUpDate)">
-                  {{e.followUpDate ? (e.followUpDate | date:'dd MMM yyyy') : '—'}}
-                </span>
-              </td>
-              <td>
-                <div class="tbl-actions">
-                  <button mat-icon-button (click)="openEnquiryDialog(e)" matTooltip="Edit">
-                    <mat-icon class="card-action-ic edit">edit</mat-icon>
-                  </button>
-                  <button mat-raised-button class="convert-mini-btn" *ngIf="e.status !== 'Admitted'" (click)="openConvertDialog(e)" matTooltip="Convert to Admission">
-                    <mat-icon>how_to_reg</mat-icon> Admit
-                  </button>
-                  <button mat-icon-button (click)="deleteEnquiry(e)" matTooltip="Delete">
-                    <mat-icon class="card-action-ic delete">delete</mat-icon>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      @if (!loading && viewMode==='table' && filteredItems.length > 0) {
+        <div class="enq-table-wrap">
+          <table class="enq-table">
+            <thead>
+              <tr>
+                <th>Enq #</th>
+                <th>Student & Parent</th>
+                <th>Phone</th>
+                <th>Interested Class</th>
+                <th>Source</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Registered (IST)</th>
+                <th>Follow-up Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (e of filteredItems; track e) {
+                <tr>
+                  <td><strong>{{e.enquiryNumber}}</strong></td>
+                  <td>
+                    <div class="tbl-name">{{e.studentName}}</div>
+                    @if (e.parentName) {
+                      <div class="tbl-sub">Parent: {{e.parentName}}</div>
+                    }
+                  </td>
+                  <td>
+                    <div class="tbl-phone">
+                      <a [href]="'tel:' + e.phone">{{e.phone}}</a>
+                      <a [href]="'https://wa.me/91' + e.phone" target="_blank" class="wa-icon-link">
+                        <mat-icon class="ic-wa">chat</mat-icon>
+                      </a>
+                    </div>
+                  </td>
+                  <td>{{e.interestedClassName || e.interestedBatchName || '—'}}</td>
+                  <td><span class="source-tag" [class.source-online]="e.source === 'Online Portal'">{{e.source === 'Online Portal' ? '🌐 Online Lead' : e.source}}</span></td>
+                  <td><span class="prio-tag" [ngClass]="e.priority.toLowerCase()">{{e.priority}}</span></td>
+                  <td>
+                    <button mat-button class="tbl-status-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Click to change pipeline stage">
+                      <span class="status-pill" [ngClass]="getStatusClass(e.status)">{{e.status}} ▾</span>
+                    </button>
+                  </td>
+                  <td>{{e.createdAt | date:'dd MMM yyyy, hh:mm a'}}</td>
+                  <td>
+                    <span [class.overdue-text]="isFollowUpOverdue(e.followUpDate)">
+                      {{e.followUpDate ? (e.followUpDate | date:'dd MMM yyyy') : '—'}}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="tbl-actions">
+                      <button mat-icon-button (click)="openEnquiryDialog(e)" matTooltip="Edit">
+                        <mat-icon class="card-action-ic edit">edit</mat-icon>
+                      </button>
+                      @if (e.status !== 'Admitted') {
+                        <button mat-raised-button class="convert-mini-btn" (click)="openConvertDialog(e)" matTooltip="Convert to Admission">
+                          <mat-icon>how_to_reg</mat-icon> Admit
+                        </button>
+                      }
+                      <button mat-icon-button (click)="deleteEnquiry(e)" matTooltip="Delete">
+                        <mat-icon class="card-action-ic delete">delete</mat-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .crm-page-container { padding: 0 0 40px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; width: 100%; }
     .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: #fff; padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -598,8 +645,8 @@ export interface EnquiryStatsDto {
       border-radius: 6px !important; 
       background: transparent;
       box-sizing: border-box !important;
-      --mdc-icon-button-state-layer-size: 28px !important;
-      --mdc-icon-button-icon-size: 18px !important;
+      --mat-icon-button-state-layer-size: 28px !important;
+      --mat-icon-button-icon-size: 18px !important;
     }
     .stage-menu-btn .mat-mdc-button-touch-target { display: none !important; }
     .stage-menu-btn .mat-mdc-button-persistent-ripple { border-radius: 6px !important; }
@@ -971,7 +1018,7 @@ export class AdmissionEnquiriesComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Form Body -->
       <div class="modal-body">
         <div class="form-row">
@@ -979,43 +1026,47 @@ export class AdmissionEnquiriesComponent implements OnInit {
             <mat-label>Student Name (विद्यार्थी का नाम)</mat-label>
             <input matInput [(ngModel)]="model.studentName" placeholder="Full Name" required />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Parent / Guardian Name</mat-label>
             <input matInput [(ngModel)]="model.parentName" placeholder="Father/Mother Name" />
           </mat-form-field>
         </div>
-
+    
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Mobile / WhatsApp Phone</mat-label>
             <input matInput [(ngModel)]="model.phone" placeholder="10-digit number" required />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Alternate Phone (Optional)</mat-label>
             <input matInput [(ngModel)]="model.alternatePhone" placeholder="Optional" />
           </mat-form-field>
         </div>
-
+    
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Interested Class (कक्षा)</mat-label>
             <mat-select [(ngModel)]="model.interestedClassId" (selectionChange)="onClassSelect()">
               <mat-option [value]="null">Not Applicable</mat-option>
-              <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
+              @for (c of data.classes; track c) {
+                <mat-option [value]="c.id">{{c.name}}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Interested Batch (Coaching)</mat-label>
             <mat-select [(ngModel)]="model.interestedBatchId" (selectionChange)="onBatchSelect()">
               <mat-option [value]="null">Not Applicable</mat-option>
-              <mat-option *ngFor="let b of data.batches" [value]="b.id">{{b.name}}</mat-option>
+              @for (b of data.batches; track b) {
+                <mat-option [value]="b.id">{{b.name}}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Lead Source (माध्यम)</mat-label>
@@ -1028,7 +1079,7 @@ export class AdmissionEnquiriesComponent implements OnInit {
               <mat-option value="Newspaper">Newspaper / Hoarding</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Priority Level</mat-label>
             <mat-select [(ngModel)]="model.priority">
@@ -1038,7 +1089,7 @@ export class AdmissionEnquiriesComponent implements OnInit {
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Pipeline Stage (चरण)</mat-label>
@@ -1046,23 +1097,27 @@ export class AdmissionEnquiriesComponent implements OnInit {
               <mat-option value="New">🆕 New Enquiry</mat-option>
               <mat-option value="Contacted">📞 Contacted / Follow-up</mat-option>
               <mat-option value="Demo / Visit">🏫 Demo / Campus Visit</mat-option>
-              <mat-option value="Admitted" *ngIf="isEdit">🎓 Admitted / Enrolled</mat-option>
-              <mat-option value="Lost" *ngIf="isEdit">❌ Lost / Dropped</mat-option>
+              @if (isEdit) {
+                <mat-option value="Admitted">🎓 Admitted / Enrolled</mat-option>
+              }
+              @if (isEdit) {
+                <mat-option value="Lost">❌ Lost / Dropped</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Next Follow-Up Date</mat-label>
             <input matInput type="date" [(ngModel)]="followUpDateStr" />
           </mat-form-field>
         </div>
-
+    
         <mat-form-field appearance="outline" class="full-field">
           <mat-label>Enquiry Remarks / Notes (टिप्पणी)</mat-label>
           <textarea matInput [(ngModel)]="model.remarks" rows="3" placeholder="Student previous marks, specific requirements, parent expectations..."></textarea>
         </mat-form-field>
       </div>
-
+    
       <!-- Footer -->
       <div class="modal-footer">
         <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
@@ -1072,7 +1127,8 @@ export class AdmissionEnquiriesComponent implements OnInit {
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .enq-dialog-wrap { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; }
     .modal-header { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-bottom: 1px solid #bfdbfe; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -1227,80 +1283,101 @@ export class EnquiryFormDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="modal-body">
         <div class="summary-box">
           <div><strong>Student:</strong> {{data.enquiry.studentName}}</div>
-          <div><strong>Parent:</strong> {{data.enquiry.parentName || '—'}} <span *ngIf="data.enquiry.motherName">&bull; Mother: {{data.enquiry.motherName}}</span></div>
-          <div><strong>Phone:</strong> {{data.enquiry.phone}}</div>
-          <div *ngIf="data.enquiry.address"><strong>Address:</strong> {{data.enquiry.address}}</div>
-          <div *ngIf="data.enquiry.requiresTransport || data.enquiry.requiresHostel">
+          <div><strong>Parent:</strong> {{data.enquiry.parentName || '—'}} @if (data.enquiry.motherName) {
+          <span>&bull; Mother: {{data.enquiry.motherName}}</span>
+        }</div>
+        <div><strong>Phone:</strong> {{data.enquiry.phone}}</div>
+        @if (data.enquiry.address) {
+          <div><strong>Address:</strong> {{data.enquiry.address}}</div>
+        }
+        @if (data.enquiry.requiresTransport || data.enquiry.requiresHostel) {
+          <div>
             <strong>Facilities:</strong>
-            <span *ngIf="data.enquiry.requiresTransport">🚌 Bus Transport </span>
-            <span *ngIf="data.enquiry.requiresHostel">🏢 Hostel Boarding</span>
+            @if (data.enquiry.requiresTransport) {
+              <span>🚌 Bus Transport </span>
+            }
+            @if (data.enquiry.requiresHostel) {
+              <span>🏢 Hostel Boarding</span>
+            }
           </div>
-          <div *ngIf="data.enquiry.source === 'Online Portal'">
+        }
+        @if (data.enquiry.source === 'Online Portal') {
+          <div>
             <span class="online-pill">🌐 Online Web Application ({{data.enquiry.enquiryNumber}})</span>
           </div>
-        </div>
-
-        <mat-form-field appearance="outline" class="full-field">
-          <mat-label>Admission Number (Leave blank to auto-generate)</mat-label>
-          <input matInput [(ngModel)]="model.admissionNumber" placeholder="e.g. ADM-2026-0045" />
+        }
+      </div>
+    
+      <mat-form-field appearance="outline" class="full-field">
+        <mat-label>Admission Number (Leave blank to auto-generate)</mat-label>
+        <input matInput [(ngModel)]="model.admissionNumber" placeholder="e.g. ADM-2026-0045" />
+      </mat-form-field>
+    
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>School Class (कक्षा)</mat-label>
+          <mat-select [(ngModel)]="model.classId" (selectionChange)="onClassSelect()">
+            <mat-option [value]="null">Not a School Student</mat-option>
+            @for (c of data.classes; track c) {
+              <mat-option [value]="c.id">{{c.name}}</mat-option>
+            }
+          </mat-select>
         </mat-form-field>
-
-        <div class="form-row">
+    
+        @if (availableSections.length > 0) {
           <mat-form-field appearance="outline" class="form-field">
-            <mat-label>School Class (कक्षा)</mat-label>
-            <mat-select [(ngModel)]="model.classId" (selectionChange)="onClassSelect()">
-              <mat-option [value]="null">Not a School Student</mat-option>
-              <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field" *ngIf="availableSections.length > 0">
             <mat-label>Section (वर्ग)</mat-label>
             <mat-select [(ngModel)]="model.sectionId">
               <mat-option [value]="null">Select Section</mat-option>
-              <mat-option *ngFor="let s of availableSections" [value]="s.id">{{s.name}}</mat-option>
+              @for (s of availableSections; track s) {
+                <mat-option [value]="s.id">{{s.name}}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-        </div>
-
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Coaching Batch</mat-label>
-            <mat-select [(ngModel)]="model.batchId">
-              <mat-option [value]="null">Not a Coaching Student</mat-option>
-              <mat-option *ngFor="let b of data.batches" [value]="b.id">{{b.name}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Gender</mat-label>
-            <mat-select [(ngModel)]="model.gender">
-              <mat-option value="Male">Male</mat-option>
-              <mat-option value="Female">Female</mat-option>
-              <mat-option value="Other">Other</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <mat-form-field appearance="outline" class="full-field">
-          <mat-label>Date of Birth</mat-label>
-          <input matInput type="date" [(ngModel)]="dobStr" />
+        }
+      </div>
+    
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Coaching Batch</mat-label>
+          <mat-select [(ngModel)]="model.batchId">
+            <mat-option [value]="null">Not a Coaching Student</mat-option>
+            @for (b of data.batches; track b) {
+              <mat-option [value]="b.id">{{b.name}}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+    
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Gender</mat-label>
+          <mat-select [(ngModel)]="model.gender">
+            <mat-option value="Male">Male</mat-option>
+            <mat-option value="Female">Female</mat-option>
+            <mat-option value="Other">Other</mat-option>
+          </mat-select>
         </mat-form-field>
       </div>
-
-      <div class="modal-footer">
-        <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
-        <button mat-raised-button class="admit-btn" (click)="confirmConvert()" [disabled]="converting">
-          <mat-icon>check_circle</mat-icon>
-          <span>Confirm Admission</span>
-        </button>
-      </div>
+    
+      <mat-form-field appearance="outline" class="full-field">
+        <mat-label>Date of Birth</mat-label>
+        <input matInput type="date" [(ngModel)]="dobStr" />
+      </mat-form-field>
     </div>
-  `,
+    
+    <div class="modal-footer">
+      <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
+      <button mat-raised-button class="admit-btn" (click)="confirmConvert()" [disabled]="converting">
+        <mat-icon>check_circle</mat-icon>
+        <span>Confirm Admission</span>
+      </button>
+    </div>
+    </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .convert-dialog-wrap { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; }
     .modal-header { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-bottom: 1px solid #bfdbfe; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }

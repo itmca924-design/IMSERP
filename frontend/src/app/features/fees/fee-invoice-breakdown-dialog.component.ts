@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -49,14 +49,16 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
           <h2 mat-dialog-title class="main-title">Fee Heads & Invoice Breakdown</h2>
           <p class="subtitle">
             Invoice <strong>#{{ inv.invoiceNumber }}</strong> • <strong>{{ inv.studentName }}</strong>
-            <span *ngIf="inv.rollNumber"> (Roll: {{ inv.rollNumber }})</span>
+            @if (inv.rollNumber) {
+              <span> (Roll: {{ inv.rollNumber }})</span>
+            }
           </p>
         </div>
         <button mat-icon-button type="button" class="close-btn" (click)="onClose()" matTooltip="Close (Esc)">
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Scrollable Dialog Content -->
       <mat-dialog-content class="dialog-content">
         <!-- 1. Student & Invoice Meta Deck -->
@@ -68,76 +70,97 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
             <div class="student-meta-details">
               <div class="student-name-row">
                 <span class="student-name">{{ inv.studentName }}</span>
-                <span *ngIf="inv.rollNumber" class="roll-pill">Roll: {{ inv.rollNumber }}</span>
+                @if (inv.rollNumber) {
+                  <span class="roll-pill">Roll: {{ inv.rollNumber }}</span>
+                }
               </div>
               <div class="academic-badges-row">
-                <span *ngIf="inv.className" class="academic-badge class-badge">
-                  <mat-icon class="badge-ic">school</mat-icon>
-                  {{ inv.className }}<span *ngIf="inv.sectionName"> - {{ inv.sectionName }}</span>
+                @if (inv.className) {
+                  <span class="academic-badge class-badge">
+                    <mat-icon class="badge-ic">school</mat-icon>
+                    {{ inv.className }}@if (inv.sectionName) {
+                    <span> - {{ inv.sectionName }}</span>
+                  }
                 </span>
-                <span *ngIf="inv.batchName" class="academic-badge batch-badge">
+              }
+              @if (inv.batchName) {
+                <span class="academic-badge batch-badge">
                   <mat-icon class="badge-ic">track_changes</mat-icon>
                   {{ inv.batchName }}
                 </span>
-                <span *ngIf="data.branchName" class="academic-badge branch-badge">
+              }
+              @if (data.branchName) {
+                <span class="academic-badge branch-badge">
                   <mat-icon class="badge-ic">location_on</mat-icon>
                   {{ data.branchName }}
                 </span>
-              </div>
+              }
             </div>
           </div>
-
-          <div class="meta-deck-right">
-            <!-- Invoice Status Pill -->
-            <span class="status-pill" [ngClass]="getStatusClass(inv.status)">
-              <mat-icon class="pill-ic">{{ getStatusIcon(inv.status) }}</mat-icon>
-              <span>{{ inv.status }}</span>
-            </span>
-
-            <!-- Period Badge -->
-            <span class="period-badge" *ngIf="inv.title">
+        </div>
+    
+        <div class="meta-deck-right">
+          <!-- Invoice Status Pill -->
+          <span class="status-pill" [ngClass]="getStatusClass(inv.status)">
+            <mat-icon class="pill-ic">{{ getStatusIcon(inv.status) }}</mat-icon>
+            <span>{{ inv.status }}</span>
+          </span>
+    
+          <!-- Period Badge -->
+          @if (inv.title) {
+            <span class="period-badge">
               <mat-icon class="period-ic">calendar_month</mat-icon>
               <span>{{ inv.title }}</span>
             </span>
-          </div>
+          }
         </div>
-
-        <!-- 2. Billed Months Detail Strip (if present) -->
-        <div class="months-strip" *ngIf="billedMonths.length > 0">
+      </div>
+    
+      <!-- 2. Billed Months Detail Strip (if present) -->
+      @if (billedMonths.length > 0) {
+        <div class="months-strip">
           <div class="months-strip-label">
             <mat-icon>event_repeat</mat-icon>
             <span>Billed Cycle ({{ billedMonths.length }} Month{{ billedMonths.length > 1 ? 's' : '' }}):</span>
           </div>
           <div class="months-chips">
-            <span class="month-chip" *ngFor="let m of billedMonths; let i = index">
-              <span class="m-idx">{{ i + 1 }}.</span> {{ m }}
-            </span>
+            @for (m of billedMonths; track m; let i = $index) {
+              <span class="month-chip">
+                <span class="m-idx">{{ i + 1 }}.</span> {{ m }}
+              </span>
+            }
           </div>
         </div>
-
-        <!-- 3. Cancellation / Waived Audit Banner -->
-        <div class="audit-banner" *ngIf="inv.cancellationReason">
+      }
+    
+      <!-- 3. Cancellation / Waived Audit Banner -->
+      @if (inv.cancellationReason) {
+        <div class="audit-banner">
           <mat-icon class="audit-banner-ic">info</mat-icon>
           <div class="audit-banner-body">
             <strong>Invoice Note / Audit Flag:</strong>
             <span>{{ inv.cancellationReason }}</span>
           </div>
         </div>
-
-        <!-- 4. Fee Heads Breakdown Card -->
-        <div class="breakdown-card">
-          <div class="breakdown-card-header">
-            <div class="breakdown-title-wrap">
-              <mat-icon class="sec-ic">format_list_bulleted</mat-icon>
-              <span class="sec-title">Fee Heads Itemized Breakdown</span>
-            </div>
-            <span class="heads-count-pill" *ngIf="itemsList && itemsList.length > 0">
+      }
+    
+      <!-- 4. Fee Heads Breakdown Card -->
+      <div class="breakdown-card">
+        <div class="breakdown-card-header">
+          <div class="breakdown-title-wrap">
+            <mat-icon class="sec-ic">format_list_bulleted</mat-icon>
+            <span class="sec-title">Fee Heads Itemized Breakdown</span>
+          </div>
+          @if (itemsList && itemsList.length > 0) {
+            <span class="heads-count-pill">
               {{ itemsList.length }} Head{{ itemsList.length > 1 ? 's' : '' }}
             </span>
-          </div>
-
-          <div class="breakdown-table-wrap">
-            <table class="heads-table" *ngIf="itemsList && itemsList.length > 0; else noItemsTpl">
+          }
+        </div>
+    
+        <div class="breakdown-table-wrap">
+          @if (itemsList && itemsList.length > 0) {
+            <table class="heads-table">
               <thead>
                 <tr>
                   <th class="th-num">#</th>
@@ -147,99 +170,113 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let it of itemsList; let idx = index" [class.tuition-row]="it.isTuition">
-                  <td class="td-num">
-                    <span class="index-num">{{ idx + 1 }}</span>
-                  </td>
-                  <td class="td-head">
-                    <div class="head-item-cell">
-                      <div class="head-icon-circle" [style.background]="it.iconBg" [style.color]="it.iconColor">
-                        <mat-icon>{{ it.icon }}</mat-icon>
+                @for (it of itemsList; track it; let idx = $index) {
+                  <tr [class.tuition-row]="it.isTuition">
+                    <td class="td-num">
+                      <span class="index-num">{{ idx + 1 }}</span>
+                    </td>
+                    <td class="td-head">
+                      <div class="head-item-cell">
+                        <div class="head-icon-circle" [style.background]="it.iconBg" [style.color]="it.iconColor">
+                          <mat-icon>{{ it.icon }}</mat-icon>
+                        </div>
+                        <div class="head-names">
+                          <span class="head-name" [class.tuition-title]="it.isTuition">{{ it.headName || 'Fee Head' }}</span>
+                          @if (it.isTuition) {
+                            <span class="tuition-pill">TUITION</span>
+                          }
+                        </div>
                       </div>
-                      <div class="head-names">
-                        <span class="head-name" [class.tuition-title]="it.isTuition">{{ it.headName || 'Fee Head' }}</span>
-                        <span *ngIf="it.isTuition" class="tuition-pill">TUITION</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="td-note">
-                    <span class="cycle-note-pill" *ngIf="it.note">{{ it.note }}</span>
-                    <span class="text-muted-dash" *ngIf="!it.note">—</span>
-                  </td>
-                  <td class="td-amt text-right">
-                    <strong class="amt-val">₹{{ (it.amount || 0) | number:'1.2-2' }}</strong>
-                  </td>
-                </tr>
+                    </td>
+                    <td class="td-note">
+                      @if (it.note) {
+                        <span class="cycle-note-pill">{{ it.note }}</span>
+                      }
+                      @if (!it.note) {
+                        <span class="text-muted-dash">—</span>
+                      }
+                    </td>
+                    <td class="td-amt text-right">
+                      <strong class="amt-val">₹{{ (it.amount || 0) | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                }
               </tbody>
             </table>
-
-            <ng-template #noItemsTpl>
-              <div class="empty-heads-notice" *ngIf="!loadingHeads">
+          } @else {
+            @if (!loadingHeads) {
+              <div class="empty-heads-notice">
                 <mat-icon>info</mat-icon>
                 <span>No itemized breakdown heads recorded for this invoice. Total billed amount is ₹{{ (inv.totalAmount || 0) | number:'1.2-2' }}.</span>
               </div>
-              <div class="empty-heads-notice loading-notice" *ngIf="loadingHeads">
+            }
+            @if (loadingHeads) {
+              <div class="empty-heads-notice loading-notice">
                 <mat-icon class="spin-ic">sync</mat-icon>
                 <span>Loading fee breakdown heads...</span>
               </div>
-            </ng-template>
-          </div>
+            }
+          }
+    
         </div>
-
-        <!-- 5. Financial Summary Grid Deck (3 Cards) -->
-        <div class="totals-summary-grid">
-          <div class="summary-box total-box">
-            <div class="box-top">
-              <span class="box-label">Total Fee</span>
-              <mat-icon class="box-ic">account_balance_wallet</mat-icon>
-            </div>
-            <div class="box-amount">₹{{ inv.totalAmount | number:'1.2-2' }}</div>
-            <div class="box-caption">Gross Invoiced</div>
+      </div>
+    
+      <!-- 5. Financial Summary Grid Deck (3 Cards) -->
+      <div class="totals-summary-grid">
+        <div class="summary-box total-box">
+          <div class="box-top">
+            <span class="box-label">Total Fee</span>
+            <mat-icon class="box-ic">account_balance_wallet</mat-icon>
           </div>
-
-          <div class="summary-box paid-box">
-            <div class="box-top">
-              <span class="box-label">Paid So Far</span>
-              <mat-icon class="box-ic">check_circle</mat-icon>
-            </div>
-            <div class="box-amount green-text">₹{{ inv.paidAmount | number:'1.2-2' }}</div>
-            <div class="box-caption">Realized Payments</div>
-          </div>
-
-          <div class="summary-box due-box" [class.zero-due]="inv.dueAmount <= 0">
-            <div class="box-top">
-              <span class="box-label">Balance Due</span>
-              <mat-icon class="box-ic">{{ inv.dueAmount <= 0 ? 'verified' : 'pending_actions' }}</mat-icon>
-            </div>
-            <div class="box-amount" [class.red-text]="inv.dueAmount > 0" [class.green-text]="inv.dueAmount <= 0">
-              ₹{{ inv.dueAmount | number:'1.2-2' }}
-            </div>
-            <div class="box-caption">{{ inv.dueAmount <= 0 ? 'Fully Settled' : 'Outstanding Balance' }}</div>
-          </div>
+          <div class="box-amount">₹{{ inv.totalAmount | number:'1.2-2' }}</div>
+          <div class="box-caption">Gross Invoiced</div>
         </div>
-      </mat-dialog-content>
-
-      <!-- Dialog Action Footer -->
-      <div class="dialog-actions">
-        <div class="actions-left">
-          <button mat-stroked-button type="button" class="action-btn-secondary" (click)="onOpenLedger()">
-            <mat-icon>menu_book</mat-icon>
-            <span>Passbook</span>
-          </button>
-          <button mat-stroked-button type="button" class="action-btn-secondary" *ngIf="inv.status !== 'Cancelled'" (click)="onSendWhatsApp()">
+    
+        <div class="summary-box paid-box">
+          <div class="box-top">
+            <span class="box-label">Paid So Far</span>
+            <mat-icon class="box-ic">check_circle</mat-icon>
+          </div>
+          <div class="box-amount green-text">₹{{ inv.paidAmount | number:'1.2-2' }}</div>
+          <div class="box-caption">Realized Payments</div>
+        </div>
+    
+        <div class="summary-box due-box" [class.zero-due]="inv.dueAmount <= 0">
+          <div class="box-top">
+            <span class="box-label">Balance Due</span>
+            <mat-icon class="box-ic">{{ inv.dueAmount <= 0 ? 'verified' : 'pending_actions' }}</mat-icon>
+          </div>
+          <div class="box-amount" [class.red-text]="inv.dueAmount > 0" [class.green-text]="inv.dueAmount <= 0">
+            ₹{{ inv.dueAmount | number:'1.2-2' }}
+          </div>
+          <div class="box-caption">{{ inv.dueAmount <= 0 ? 'Fully Settled' : 'Outstanding Balance' }}</div>
+        </div>
+      </div>
+    </mat-dialog-content>
+    
+    <!-- Dialog Action Footer -->
+    <div class="dialog-actions">
+      <div class="actions-left">
+        <button mat-stroked-button type="button" class="action-btn-secondary" (click)="onOpenLedger()">
+          <mat-icon>menu_book</mat-icon>
+          <span>Passbook</span>
+        </button>
+        @if (inv.status !== 'Cancelled') {
+          <button mat-stroked-button type="button" class="action-btn-secondary" (click)="onSendWhatsApp()">
             <mat-icon class="whatsapp-ic">chat</mat-icon>
             <span>WhatsApp</span>
           </button>
-        </div>
-
-        <div class="actions-right">
-          <button mat-stroked-button type="button" class="close-action-btn" (click)="onClose()">
-            Close
-          </button>
-
-          <!-- Pay via UPI QR -->
+        }
+      </div>
+    
+      <div class="actions-right">
+        <button mat-stroked-button type="button" class="close-action-btn" (click)="onClose()">
+          Close
+        </button>
+    
+        <!-- Pay via UPI QR -->
+        @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
           <button
-            *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
             mat-stroked-button
             type="button"
             class="upi-action-btn"
@@ -247,10 +284,11 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
             <mat-icon>qr_code_2</mat-icon>
             <span>UPI QR</span>
           </button>
-
-          <!-- Print Due Slip (if due) -->
+        }
+    
+        <!-- Print Due Slip (if due) -->
+        @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
           <button
-            *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
             mat-stroked-button
             type="button"
             class="due-slip-btn"
@@ -258,10 +296,11 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
             <mat-icon>receipt_long</mat-icon>
             <span>Due Slip</span>
           </button>
-
-          <!-- Print Payment Receipt (if paid) -->
+        }
+    
+        <!-- Print Payment Receipt (if paid) -->
+        @if (inv.status === 'Paid') {
           <button
-            *ngIf="inv.status === 'Paid'"
             mat-raised-button
             color="primary"
             type="button"
@@ -270,10 +309,11 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
             <mat-icon>receipt</mat-icon>
             <span>Print Receipt</span>
           </button>
-
-          <!-- Collect Fee (if pending) -->
+        }
+    
+        <!-- Collect Fee (if pending) -->
+        @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
           <button
-            *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
             mat-raised-button
             color="primary"
             type="button"
@@ -282,10 +322,12 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
             <mat-icon>payments</mat-icon>
             <span>Collect Fee</span>
           </button>
-        </div>
+        }
       </div>
     </div>
-  `,
+    </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

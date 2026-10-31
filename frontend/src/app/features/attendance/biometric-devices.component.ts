@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
@@ -42,7 +42,6 @@ interface MappingPerson {
   selector: 'app-biometric-devices',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatCardModule,
     MatButtonModule,
@@ -54,7 +53,7 @@ interface MappingPerson {
     MatChipsModule,
     MatTooltipModule,
     LocalDatetimePipe
-  ],
+],
   template: `
 <div class="page-container">
   <div class="page-header">
@@ -72,7 +71,9 @@ interface MappingPerson {
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- Hikvision DS-K1A802AEF Live Adapter Banner -->
   <mat-card class="hikvision-banner">
@@ -151,7 +152,9 @@ interface MappingPerson {
             <span class="pill-title">Coaching Students</span>
             <small class="pill-sub">Batch-wise Enrollment &amp; Punch</small>
           </div>
-          <span class="count-badge" *ngIf="coachingCount > 0">{{ coachingCount }}</span>
+          @if (coachingCount > 0) {
+            <span class="count-badge">{{ coachingCount }}</span>
+          }
         </button>
 
         <button type="button" class="pill-btn" [class.active]="activeCategory === 'School'" (click)="setCategory('School')">
@@ -160,7 +163,9 @@ interface MappingPerson {
             <span class="pill-title">School Students</span>
             <small class="pill-sub">Class &amp; Section-wise Enrollment</small>
           </div>
-          <span class="count-badge" *ngIf="schoolCount > 0">{{ schoolCount }}</span>
+          @if (schoolCount > 0) {
+            <span class="count-badge">{{ schoolCount }}</span>
+          }
         </button>
 
         <button type="button" class="pill-btn" [class.active]="activeCategory === 'Teacher'" (click)="setCategory('Teacher')">
@@ -169,7 +174,9 @@ interface MappingPerson {
             <span class="pill-title">Teachers &amp; Faculty</span>
             <small class="pill-sub">Staff Fingerprint &amp; RFID Cards</small>
           </div>
-          <span class="count-badge" *ngIf="teacherCount > 0">{{ teacherCount }}</span>
+          @if (teacherCount > 0) {
+            <span class="count-badge">{{ teacherCount }}</span>
+          }
         </button>
       </div>
     </div>
@@ -177,85 +184,100 @@ interface MappingPerson {
     <!-- Clean Filter Bar (Batch / Class / Section) -->
     <div class="filter-deck">
       <!-- Coaching Batch Filter -->
-      <mat-form-field appearance="outline" *ngIf="activeCategory === 'Coaching'" class="filter-field">
-        <mat-label>Coaching Batch</mat-label>
-        <mat-select [(ngModel)]="mapping.batchName" (selectionChange)="onFilterChange()">
-          <mat-option value="">All Coaching Batches ({{ coachingCount }})</mat-option>
-          <mat-option *ngFor="let batch of batchNames" [value]="batch">{{ batch }}</mat-option>
-        </mat-select>
-      </mat-form-field>
+      @if (activeCategory === 'Coaching') {
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Coaching Batch</mat-label>
+          <mat-select [(ngModel)]="mapping.batchName" (selectionChange)="onFilterChange()">
+            <mat-option value="">All Coaching Batches ({{ coachingCount }})</mat-option>
+            @for (batch of batchNames; track batch) {
+              <mat-option [value]="batch">{{ batch }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
 
       <!-- School Class & Section Filters -->
-      <ng-container *ngIf="activeCategory === 'School'">
+      @if (activeCategory === 'School') {
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>School Class</mat-label>
           <mat-select [(ngModel)]="mapping.className" (selectionChange)="onClassChange()">
             <mat-option value="">All Classes ({{ schoolCount }})</mat-option>
-            <mat-option *ngFor="let cls of classNames" [value]="cls">{{ cls }}</mat-option>
+            @for (cls of classNames; track cls) {
+              <mat-option [value]="cls">{{ cls }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Section</mat-label>
           <mat-select [(ngModel)]="mapping.sectionName" (selectionChange)="onFilterChange()">
             <mat-option value="">All Sections</mat-option>
-            <mat-option *ngFor="let sec of sectionNames" [value]="sec">{{ sec }}</mat-option>
+            @for (sec of sectionNames; track sec) {
+              <mat-option [value]="sec">{{ sec }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
-      </ng-container>
+      }
 
-      <button mat-stroked-button color="primary" class="toggle-edit-btn" (click)="toggleManualEdit()" *ngIf="!showManualEdit">
-        <mat-icon>edit_note</mat-icon> Custom / RFID Card Entry
-      </button>
+      @if (!showManualEdit) {
+        <button mat-stroked-button color="primary" class="toggle-edit-btn" (click)="toggleManualEdit()">
+          <mat-icon>edit_note</mat-icon> Custom / RFID Card Entry
+        </button>
+      }
     </div>
 
     <!-- Collapsible Single Mapping Box (Visible ONLY when user clicks Edit or Custom) -->
-    <div class="manual-edit-panel" *ngIf="showManualEdit">
-      <div class="edit-panel-header">
-        <div class="panel-title-wrap">
-          <mat-icon class="panel-icon">edit</mat-icon>
-          <div>
-            <h4>{{ selectedPersonName ? 'Assign Biometric ID: ' + selectedPersonName : 'Manual Biometric / RFID Card Entry' }}</h4>
-            <small>Type numeric ID or scan/tap 125kHz RFID card. Save button activates when ID is typed.</small>
+    @if (showManualEdit) {
+      <div class="manual-edit-panel">
+        <div class="edit-panel-header">
+          <div class="panel-title-wrap">
+            <mat-icon class="panel-icon">edit</mat-icon>
+            <div>
+              <h4>{{ selectedPersonName ? 'Assign Biometric ID: ' + selectedPersonName : 'Manual Biometric / RFID Card Entry' }}</h4>
+              <small>Type numeric ID or scan/tap 125kHz RFID card. Save button activates when ID is typed.</small>
+            </div>
+          </div>
+          <button mat-icon-button (click)="closeManualEdit()" matTooltip="Close editor">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="edit-panel-body">
+          <!-- Person Selector (if not already picked via table edit) -->
+          @if (!selectedPersonName) {
+            <mat-form-field appearance="outline" class="edit-field">
+              <mat-label>Select Person</mat-label>
+              <mat-select [(ngModel)]="mapping.personId" (selectionChange)="onPersonSelected()">
+                @for (person of filteredPeople; track person) {
+                  <mat-option [value]="person.id">
+                    {{ person.name }} ({{ person.code }}{{ getAffiliationLabel(person) }})
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+          <!-- Biometric User ID / RFID Card Input (Green Box) -->
+          <mat-form-field appearance="outline" class="edit-field" [class.field-has-value]="mapping.biometricUserId.trim()">
+            <mat-label>Biometric User ID / RFID Card No</mat-label>
+            <input matInput [(ngModel)]="mapping.biometricUserId" placeholder="e.g. 101 or Card 0001234567">
+            @if (mapping.biometricUserId.trim()) {
+              <mat-icon matSuffix class="input-suffix-icon">check_circle</mat-icon>
+            }
+            <mat-hint>Enter ID to activate the Save Mapping button</mat-hint>
+          </mat-form-field>
+          <!-- Save Button (Red Mark): ONLY VISIBLE & ACTIVE WHEN TEXT IS IN THE GREEN BOX! -->
+          <div class="edit-actions">
+            @if (mapping.personId && mapping.biometricUserId.trim()) {
+              <button mat-raised-button color="primary" class="save-mapping-btn"
+                (click)="saveMapping()">
+                <mat-icon>save</mat-icon> Save Mapping
+              </button>
+            }
+            <button mat-stroked-button (click)="closeManualEdit()">
+              Cancel
+            </button>
           </div>
         </div>
-        <button mat-icon-button (click)="closeManualEdit()" matTooltip="Close editor">
-          <mat-icon>close</mat-icon>
-        </button>
       </div>
-
-      <div class="edit-panel-body">
-        <!-- Person Selector (if not already picked via table edit) -->
-        <mat-form-field appearance="outline" class="edit-field" *ngIf="!selectedPersonName">
-          <mat-label>Select Person</mat-label>
-          <mat-select [(ngModel)]="mapping.personId" (selectionChange)="onPersonSelected()">
-            <mat-option *ngFor="let person of filteredPeople" [value]="person.id">
-              {{ person.name }} ({{ person.code }}{{ getAffiliationLabel(person) }})
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Biometric User ID / RFID Card Input (Green Box) -->
-        <mat-form-field appearance="outline" class="edit-field" [class.field-has-value]="mapping.biometricUserId.trim()">
-          <mat-label>Biometric User ID / RFID Card No</mat-label>
-          <input matInput [(ngModel)]="mapping.biometricUserId" placeholder="e.g. 101 or Card 0001234567">
-          <mat-icon matSuffix class="input-suffix-icon" *ngIf="mapping.biometricUserId.trim()">check_circle</mat-icon>
-          <mat-hint>Enter ID to activate the Save Mapping button</mat-hint>
-        </mat-form-field>
-
-        <!-- Save Button (Red Mark): ONLY VISIBLE & ACTIVE WHEN TEXT IS IN THE GREEN BOX! -->
-        <div class="edit-actions">
-          <button mat-raised-button color="primary" class="save-mapping-btn" 
-                  *ngIf="mapping.personId && mapping.biometricUserId.trim()" 
-                  (click)="saveMapping()">
-            <mat-icon>save</mat-icon> Save Mapping
-          </button>
-          <button mat-stroked-button (click)="closeManualEdit()">
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+    }
 
     <!-- Enrollment Directory Toolbar -->
     <div class="directory-toolbar">
@@ -277,9 +299,11 @@ interface MappingPerson {
       </div>
     </div>
 
-    <div class="mobile-scroll-hint" *ngIf="filteredPeople.length">
-      <mat-icon>swipe</mat-icon> Scroll table horizontally to view all columns
-    </div>
+    @if (filteredPeople.length) {
+      <div class="mobile-scroll-hint">
+        <mat-icon>swipe</mat-icon> Scroll table horizontally to view all columns
+      </div>
+    }
 
     <!-- Responsive Enrollment Table -->
     <div class="table-responsive">
@@ -295,112 +319,140 @@ interface MappingPerson {
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of filteredPeople; let i = index" [class.unmapped-row]="!p.biometricUserId">
-            <td class="col-sno">{{ i + 1 }}</td>
-            <td class="col-name">
-              <strong>{{ p.name }}</strong>
-            </td>
-            <td class="col-code"><span class="badge-code">{{ p.code || '—' }}</span></td>
-            <td class="col-group">
-              <span class="group-badge batch" *ngIf="p.batchName">📚 {{ p.batchName }}</span>
-              <span class="group-badge school" *ngIf="p.className">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
-              <span class="group-badge teacher" *ngIf="p.personType === 'Teacher'">👨‍🏫 Faculty</span>
-            </td>
-            <td class="col-device-id">
-              <span class="bio-tag mapped" *ngIf="p.biometricUserId" matTooltip="Mapped in Database">
-                <mat-icon>fingerprint</mat-icon> {{ p.biometricUserId }}
-              </span>
-              <span class="bio-tag suggested" *ngIf="!p.biometricUserId && p.suggestedBiometricId" matTooltip="Auto-generated suggested ID">
-                <mat-icon>lightbulb</mat-icon> Suggested: <strong>{{ p.suggestedBiometricId }}</strong>
-              </span>
-              <span class="bio-tag unmapped" *ngIf="!p.biometricUserId && !p.suggestedBiometricId">
-                <mat-icon>warning</mat-icon> Unmapped
-              </span>
-            </td>
-            <td class="col-action">
-              <button mat-stroked-button color="accent" class="btn-xs" *ngIf="!p.biometricUserId && p.suggestedBiometricId" (click)="quickAssignSuggested(p)" matTooltip="Assign this ID in DB now">
-                <mat-icon>check_circle</mat-icon> Apply {{ p.suggestedBiometricId }}
-              </button>
-              <button mat-icon-button class="btn-icon-xs" (click)="selectPersonForEdit(p)" matTooltip="Select for Edit">
-                <mat-icon>edit</mat-icon>
-              </button>
-            </td>
-          </tr>
-          <tr *ngIf="!filteredPeople.length">
-            <td colspan="6" class="empty-cell">No {{ activeCategory.toLowerCase() }} found matching current filters.</td>
-          </tr>
+          @for (p of filteredPeople; track p; let i = $index) {
+            <tr [class.unmapped-row]="!p.biometricUserId">
+              <td class="col-sno">{{ i + 1 }}</td>
+              <td class="col-name">
+                <strong>{{ p.name }}</strong>
+              </td>
+              <td class="col-code"><span class="badge-code">{{ p.code || '—' }}</span></td>
+              <td class="col-group">
+                @if (p.batchName) {
+                  <span class="group-badge batch">📚 {{ p.batchName }}</span>
+                }
+                @if (p.className) {
+                  <span class="group-badge school">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
+                }
+                @if (p.personType === 'Teacher') {
+                  <span class="group-badge teacher">👨‍🏫 Faculty</span>
+                }
+              </td>
+              <td class="col-device-id">
+                @if (p.biometricUserId) {
+                  <span class="bio-tag mapped" matTooltip="Mapped in Database">
+                    <mat-icon>fingerprint</mat-icon> {{ p.biometricUserId }}
+                  </span>
+                }
+                @if (!p.biometricUserId && p.suggestedBiometricId) {
+                  <span class="bio-tag suggested" matTooltip="Auto-generated suggested ID">
+                    <mat-icon>lightbulb</mat-icon> Suggested: <strong>{{ p.suggestedBiometricId }}</strong>
+                  </span>
+                }
+                @if (!p.biometricUserId && !p.suggestedBiometricId) {
+                  <span class="bio-tag unmapped">
+                    <mat-icon>warning</mat-icon> Unmapped
+                  </span>
+                }
+              </td>
+              <td class="col-action">
+                @if (!p.biometricUserId && p.suggestedBiometricId) {
+                  <button mat-stroked-button color="accent" class="btn-xs" (click)="quickAssignSuggested(p)" matTooltip="Assign this ID in DB now">
+                    <mat-icon>check_circle</mat-icon> Apply {{ p.suggestedBiometricId }}
+                  </button>
+                }
+                <button mat-icon-button class="btn-icon-xs" (click)="selectPersonForEdit(p)" matTooltip="Select for Edit">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </td>
+            </tr>
+          }
+          @if (!filteredPeople.length) {
+            <tr>
+              <td colspan="6" class="empty-cell">No {{ activeCategory.toLowerCase() }} found matching current filters.</td>
+            </tr>
+          }
         </tbody>
       </table>
     </div>
   </mat-card>
 
-  <mat-card *ngIf="showForm" class="form-card">
-    <div class="form-card-header">
-      <h2>{{ editingId ? 'Edit Device Configuration' : 'Register Biometric / RFID Terminal' }}</h2>
-      <button mat-stroked-button color="accent" (click)="prefillHikvision()" *ngIf="!editingId">
-        <mat-icon>auto_fix_high</mat-icon> Auto-Fill DS-K1A802AEF Defaults
-      </button>
-    </div>
-    <div class="form-grid">
-      <mat-form-field appearance="outline">
-        <mat-label>Device Name</mat-label>
-        <input matInput [(ngModel)]="form.name" placeholder="e.g. Main Gate Biometric">
-      </mat-form-field>
-      <mat-form-field appearance="outline">
-        <mat-label>Brand</mat-label>
-        <input matInput [(ngModel)]="form.brand">
-      </mat-form-field>
-      <mat-form-field appearance="outline">
-        <mat-label>Model</mat-label>
-        <input matInput [(ngModel)]="form.model">
-      </mat-form-field>
-      <mat-form-field appearance="outline">
-        <mat-label>Serial Number (from device label)</mat-label>
-        <input matInput [(ngModel)]="form.serialNumber" placeholder="e.g. DS-K1A802AEF20230501...">
-      </mat-form-field>
-      <mat-form-field appearance="outline">
-        <mat-label>LAN IP Address</mat-label>
-        <input matInput [(ngModel)]="form.ipAddress" placeholder="192.168.1.100">
-      </mat-form-field>
-      <mat-form-field appearance="outline">
-        <mat-label>Device Port</mat-label>
-        <input matInput type="number" [(ngModel)]="form.port">
-      </mat-form-field>
-    </div>
-    <div class="actions">
-      <button mat-button (click)="cancelForm()">Cancel</button>
-      <button mat-raised-button color="primary" (click)="saveDevice()" [disabled]="!form.name">Save Device</button>
-    </div>
-  </mat-card>
+  @if (showForm) {
+    <mat-card class="form-card">
+      <div class="form-card-header">
+        <h2>{{ editingId ? 'Edit Device Configuration' : 'Register Biometric / RFID Terminal' }}</h2>
+        @if (!editingId) {
+          <button mat-stroked-button color="accent" (click)="prefillHikvision()">
+            <mat-icon>auto_fix_high</mat-icon> Auto-Fill DS-K1A802AEF Defaults
+          </button>
+        }
+      </div>
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Device Name</mat-label>
+          <input matInput [(ngModel)]="form.name" placeholder="e.g. Main Gate Biometric">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Brand</mat-label>
+          <input matInput [(ngModel)]="form.brand">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Model</mat-label>
+          <input matInput [(ngModel)]="form.model">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Serial Number (from device label)</mat-label>
+          <input matInput [(ngModel)]="form.serialNumber" placeholder="e.g. DS-K1A802AEF20230501...">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>LAN IP Address</mat-label>
+          <input matInput [(ngModel)]="form.ipAddress" placeholder="192.168.1.100">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Device Port</mat-label>
+          <input matInput type="number" [(ngModel)]="form.port">
+        </mat-form-field>
+      </div>
+      <div class="actions">
+        <button mat-button (click)="cancelForm()">Cancel</button>
+        <button mat-raised-button color="primary" (click)="saveDevice()" [disabled]="!form.name">Save Device</button>
+      </div>
+    </mat-card>
+  }
 
   <div class="device-grid">
-    <mat-card *ngFor="let device of devices" class="device-card">
-      <div class="device-heading">
-        <mat-icon class="dev-icon">devices</mat-icon>
-        <div>
-          <strong>{{device.name}}</strong>
-          <small>{{device.brand || 'Hikvision'}} {{device.model || 'DS-K1A802AEF'}}</small>
+    @for (device of devices; track device) {
+      <mat-card class="device-card">
+        <div class="device-heading">
+          <mat-icon class="dev-icon">devices</mat-icon>
+          <div>
+            <strong>{{device.name}}</strong>
+            <small>{{device.brand || 'Hikvision'}} {{device.model || 'DS-K1A802AEF'}}</small>
+          </div>
+          <span class="status" [class.ready]="device.status === 'Online'">{{device.status}}</span>
         </div>
-        <span class="status" [class.ready]="device.status === 'Online'">{{device.status}}</span>
-      </div>
-      <div class="device-meta">
-        <span>Serial: <strong>{{device.serialNumber || 'Not set'}}</strong></span>
-        <span>IP: <strong>{{device.ipAddress || 'No IP'}}:{{device.port}}</strong></span>
-      </div>
-      <small *ngIf="device.lastError" class="error">{{device.lastError}}</small>
-      <div class="actions">
-        <button mat-stroked-button color="primary" (click)="testConnection(device)">
-          <mat-icon>sync</mat-icon> Test Socket Connection
-        </button>
-        <button mat-icon-button (click)="editDevice(device)" matTooltip="Edit device">
-          <mat-icon>edit</mat-icon>
-        </button>
-      </div>
-    </mat-card>
-    <mat-card *ngIf="!devices.length" class="empty">
-      <mat-icon>devices_other</mat-icon>
-      <p>No biometric devices registered yet. Click "Add Hikvision Device" above to register your terminal.</p>
-    </mat-card>
+        <div class="device-meta">
+          <span>Serial: <strong>{{device.serialNumber || 'Not set'}}</strong></span>
+          <span>IP: <strong>{{device.ipAddress || 'No IP'}}:{{device.port}}</strong></span>
+        </div>
+        @if (device.lastError) {
+          <small class="error">{{device.lastError}}</small>
+        }
+        <div class="actions">
+          <button mat-stroked-button color="primary" (click)="testConnection(device)">
+            <mat-icon>sync</mat-icon> Test Socket Connection
+          </button>
+          <button mat-icon-button (click)="editDevice(device)" matTooltip="Edit device">
+            <mat-icon>edit</mat-icon>
+          </button>
+        </div>
+      </mat-card>
+    }
+    @if (!devices.length) {
+      <mat-card class="empty">
+        <mat-icon>devices_other</mat-icon>
+        <p>No biometric devices registered yet. Click "Add Hikvision Device" above to register your terminal.</p>
+      </mat-card>
+    }
   </div>
 
   <mat-card class="simulation-card">
@@ -434,7 +486,9 @@ interface MappingPerson {
         <mat-label>Device</mat-label>
         <mat-select [(ngModel)]="simulation.deviceId">
           <mat-option [value]="''">Hikvision DS-K1A802AEF Push Adapter</mat-option>
-          <mat-option *ngFor="let device of devices" [value]="device.id">{{device.name}}</mat-option>
+          @for (device of devices; track device) {
+            <mat-option [value]="device.id">{{device.name}}</mat-option>
+          }
         </mat-select>
       </mat-form-field>
     </div>
@@ -442,7 +496,9 @@ interface MappingPerson {
       <button mat-raised-button color="primary" (click)="simulatePunch()" [disabled]="!simulation.biometricUserId || simulating">
         <mat-icon>fingerprint</mat-icon> Trigger Live Punch
       </button>
-      <span class="message" *ngIf="message">{{message}}</span>
+      @if (message) {
+        <span class="message">{{message}}</span>
+      }
     </div>
   </mat-card>
 
@@ -462,21 +518,30 @@ interface MappingPerson {
         </button>
       </div>
     </div>
-    <div class="event-row" *ngFor="let event of events">
-      <span class="event-icon"><mat-icon>fingerprint</mat-icon></span>
-      <div>
-        <strong>{{event.personType}} / {{event.biometricUserId}}</strong>
-        <small>{{event.eventTime | localDatetime:'datetime'}} · {{event.deviceEventId || 'No event ID'}}</small>
-        <small class="event-error" *ngIf="event.errorMessage">{{event.errorMessage}}</small>
+    @for (event of events; track event) {
+      <div class="event-row">
+        <span class="event-icon"><mat-icon>fingerprint</mat-icon></span>
+        <div>
+          <strong>{{event.personType}} / {{event.biometricUserId}}</strong>
+          <small>{{event.eventTime | localDatetime:'datetime'}} · {{event.deviceEventId || 'No event ID'}}</small>
+          @if (event.errorMessage) {
+            <small class="event-error">{{event.errorMessage}}</small>
+          }
+        </div>
+        <span class="event-status" [class.processed]="event.status === 'Processed'" [class.failed]="event.status === 'Failed'">{{event.status}}</span>
+        @if (event.status === 'Failed') {
+          <button mat-icon-button (click)="retryEvent(event)" matTooltip="Retry failed event">
+            <mat-icon>replay</mat-icon>
+          </button>
+        }
       </div>
-      <span class="event-status" [class.processed]="event.status === 'Processed'" [class.failed]="event.status === 'Failed'">{{event.status}}</span>
-      <button mat-icon-button *ngIf="event.status === 'Failed'" (click)="retryEvent(event)" matTooltip="Retry failed event">
-        <mat-icon>replay</mat-icon>
-      </button>
-    </div>
-    <p class="empty-text" *ngIf="!events.length">No biometric events received yet.</p>
+    }
+    @if (!events.length) {
+      <p class="empty-text">No biometric events received yet.</p>
+    }
   </mat-card>
 </div>`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
 :host {
   display: block;
@@ -622,7 +687,15 @@ interface MappingPerson {
   font-size: 22px;
   width: 22px;
   height: 22px;
+  flex: 0 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 22px;
   margin-top: 2px;
+}
+.guide-item > div {
+  min-width: 0;
 }
 .guide-item strong {
   display: block;

@@ -1,5 +1,5 @@
-import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,7 +11,7 @@ import { filter } from 'rxjs';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, MatProgressSpinnerModule, MatIconModule],
+  imports: [RouterOutlet, MatProgressSpinnerModule, MatIconModule],
   template: `
     <router-outlet></router-outlet>
 
@@ -30,6 +30,7 @@ import { filter } from 'rxjs';
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .global-screen-lock {
       position: fixed;

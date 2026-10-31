@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
@@ -70,6 +70,7 @@ import {
     MatMenuModule
   ],
   templateUrl: './transport-management.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./transport-management.component.scss']
 })
 export class TransportManagementComponent implements OnInit {

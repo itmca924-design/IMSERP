@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -26,7 +26,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   selector: 'app-batch-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -39,7 +38,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatProgressSpinnerModule,
     MatProgressBarModule,
     MatIconModule
-  ],
+],
   template: `
     <div class="dialog-wrapper">
       <div class="dialog-header">
@@ -54,12 +53,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="dialog-loader"></mat-progress-bar>
-
+    
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="dialog-loader"></mat-progress-bar>
+      }
+    
       <form [formGroup]="batchForm" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
-
+    
           <!-- Info Callout -->
           <div class="info-callout">
             <mat-icon class="info-icon">auto_awesome</mat-icon>
@@ -67,13 +68,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <strong>Academic Batch Setup:</strong> Link subjects, allocate classroom capacity, and assign mentor teachers.
             </div>
           </div>
-
+    
           <!-- Section: Batch Info & Subjects -->
           <div class="section-label">
             <mat-icon class="section-icon">school</mat-icon>
             <span>Batch &amp; Subject Details</span>
           </div>
-
+    
           <div class="form-grid">
             <!-- Batch Structure Scope Toggle Deck -->
             <div class="batch-scope-toggle-deck full-width">
@@ -84,20 +85,20 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'single'"
                   (click)="setBatchScope('single')"
-                >
+                  >
                   <mat-icon>school</mat-icon>
                   <div class="pill-texts">
                     <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
                     <span class="pill-sub">बड़े कोचिंग / Specific Class (e.g. Class 5th Special)</span>
                   </div>
                 </button>
-
+    
                 <button
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'combined'"
                   (click)="setBatchScope('combined')"
-                >
+                  >
                   <mat-icon>layers</mat-icon>
                   <div class="pill-texts">
                     <span class="pill-main">Combined / Multi-Class Range (संयुक्त कक्षा)</span>
@@ -106,7 +107,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </button>
               </div>
             </div>
-
+    
             <div class="row-quick-header full-width">
               <span class="row-hint-text">{{ batchScope === 'single' ? 'Choose Academic Class & Timing' : 'Configure Class Range & Timing' }}</span>
               <div class="shift-quick-pills">
@@ -116,7 +117,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   [class.active]="showQuickAddClass"
                   (click)="toggleQuickAddClass()"
                   title="Quick Add Higher Class (6th to 12th) for Coaching"
-                >
+                  >
                   <mat-icon>{{ showQuickAddClass ? 'close' : 'add_circle' }}</mat-icon>
                   <span>{{ showQuickAddClass ? 'Close Quick Add' : '+ Add Coaching Class (6th to 12th)' }}</span>
                 </button>
@@ -132,7 +133,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </button>
               </div>
             </div>
-
+    
             <!-- Batch Shift & Timings Quick Bar -->
             <div class="batch-timing-bar full-width">
               <div class="timing-bar-left">
@@ -149,231 +150,274 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <span class="tf-label">End Time</span>
                   <input type="time" formControlName="endTime" class="timing-input" />
                 </div>
-                <span class="batch-dur-pill" *ngIf="getBatchCalculatedDuration()">
-                  ⏱️ {{ getBatchCalculatedDuration() }}
-                </span>
+                @if (getBatchCalculatedDuration()) {
+                  <span class="batch-dur-pill">
+                    ⏱️ {{ getBatchCalculatedDuration() }}
+                  </span>
+                }
               </div>
             </div>
-
+    
             <!-- Quick Add Coaching Class Inline Expansion Card -->
-            <div class="quick-add-class-card full-width" *ngIf="showQuickAddClass">
-              <div class="quick-add-header">
-                <div class="quick-add-title-wrap">
-                  <div class="quick-add-icon-wrap">
-                    <mat-icon>auto_stories</mat-icon>
+            @if (showQuickAddClass) {
+              <div class="quick-add-class-card full-width">
+                <div class="quick-add-header">
+                  <div class="quick-add-title-wrap">
+                    <div class="quick-add-icon-wrap">
+                      <mat-icon>auto_stories</mat-icon>
+                    </div>
+                    <div>
+                      <span class="card-title">Quick Add Coaching Class (उच्च कक्षा जोड़ें)</span>
+                      <span class="card-hint">Adds a coaching-eligible class (Scope: Coaching) instantly without leaving this dialog.</span>
+                    </div>
                   </div>
-                  <div>
-                    <span class="card-title">Quick Add Coaching Class (उच्च कक्षा जोड़ें)</span>
-                    <span class="card-hint">Adds a coaching-eligible class (Scope: Coaching) instantly without leaving this dialog.</span>
-                  </div>
+                  <button type="button" mat-icon-button class="mini-close" (click)="showQuickAddClass = false" [disabled]="quickClassSaving">
+                    <mat-icon>close</mat-icon>
+                  </button>
                 </div>
-                <button type="button" mat-icon-button class="mini-close" (click)="showQuickAddClass = false" [disabled]="quickClassSaving">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </div>
-
-              <!-- 1-Click Suggestions Chips -->
-              <div class="quick-suggestions-wrap" *ngIf="getMissingSuggestedClasses().length > 0">
-                <span class="suggestions-label">⚡ 1-Click Quick Add:</span>
-                <div class="suggestion-chips">
+                <!-- 1-Click Suggestions Chips -->
+                @if (getMissingSuggestedClasses().length > 0) {
+                  <div class="quick-suggestions-wrap">
+                    <span class="suggestions-label">⚡ 1-Click Quick Add:</span>
+                    <div class="suggestion-chips">
+                      @for (sug of getMissingSuggestedClasses(); track sug) {
+                        <button
+                          type="button"
+                          class="sug-chip-btn"
+                          [disabled]="quickClassSaving"
+                          (click)="quickCreateClass(sug)"
+                          >
+                          <mat-icon>add</mat-icon> {{ sug }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+                <!-- Custom Class Name Input -->
+                <div class="custom-quick-row">
+                  <div class="quick-input-box">
+                    <mat-icon class="input-icon">edit</mat-icon>
+                    <input
+                      type="text"
+                      class="quick-class-input"
+                      placeholder="Or enter class name (e.g. Class 7th, Class 10th CBSE)..."
+                      [(ngModel)]="quickClassName"
+                      [ngModelOptions]="{standalone: true}"
+                      (keydown.enter)="$event.preventDefault(); quickCreateClass(quickClassName)"
+                      [disabled]="quickClassSaving"
+                      />
+                    @if (quickClassName) {
+                      <mat-icon class="clear-icon" (click)="quickClassName = ''">close</mat-icon>
+                    }
+                  </div>
                   <button
-                    *ngFor="let sug of getMissingSuggestedClasses()"
                     type="button"
-                    class="sug-chip-btn"
-                    [disabled]="quickClassSaving"
-                    (click)="quickCreateClass(sug)"
-                  >
-                    <mat-icon>add</mat-icon> {{ sug }}
+                    mat-raised-button
+                    color="primary"
+                    class="quick-submit-btn"
+                    [disabled]="!quickClassName.trim() || quickClassSaving"
+                    (click)="quickCreateClass(quickClassName)"
+                    >
+                    @if (quickClassSaving) {
+                      <mat-spinner diameter="16"></mat-spinner>
+                    }
+                    @if (!quickClassSaving) {
+                      <mat-icon>add_circle</mat-icon>
+                    }
+                    <span>{{ quickClassSaving ? 'Adding...' : 'Add & Select' }}</span>
                   </button>
                 </div>
               </div>
-
-              <!-- Custom Class Name Input -->
-              <div class="custom-quick-row">
-                <div class="quick-input-box">
-                  <mat-icon class="input-icon">edit</mat-icon>
-                  <input
-                    type="text"
-                    class="quick-class-input"
-                    placeholder="Or enter class name (e.g. Class 7th, Class 10th CBSE)..."
-                    [(ngModel)]="quickClassName"
-                    [ngModelOptions]="{standalone: true}"
-                    (keydown.enter)="$event.preventDefault(); quickCreateClass(quickClassName)"
-                    [disabled]="quickClassSaving"
-                  />
-                  <mat-icon *ngIf="quickClassName" class="clear-icon" (click)="quickClassName = ''">close</mat-icon>
-                </div>
-                <button
-                  type="button"
-                  mat-raised-button
-                  color="primary"
-                  class="quick-submit-btn"
-                  [disabled]="!quickClassName.trim() || quickClassSaving"
-                  (click)="quickCreateClass(quickClassName)"
-                >
-                  <mat-spinner diameter="16" *ngIf="quickClassSaving"></mat-spinner>
-                  <mat-icon *ngIf="!quickClassSaving">add_circle</mat-icon>
-                  <span>{{ quickClassSaving ? 'Adding...' : 'Add & Select' }}</span>
-                </button>
-              </div>
-            </div>
-
+            }
+    
             <!-- Single Class Selector -->
-            <mat-form-field appearance="outline" class="half-width" *ngIf="batchScope === 'single'">
-              <mat-label>Target Academic Class (कक्षा) *</mat-label>
-              <mat-select formControlName="classId" placeholder="Select Class" (selectionChange)="onClassSelectionChanged($event.value)" panelClass="smooth-dropdown-panel batch-select-panel" (openedChange)="onClassDropdownOpened($event)">
-                <mat-select-trigger>
-                  {{ getSelectedClassName() || 'Select Class' }}
-                </mat-select-trigger>
-
-                <!-- Sticky Search Box for Target Academic Class -->
-                <div class="dropdown-header-container" (keydown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-                  <div class="dropdown-search-box">
-                    <mat-icon class="search-icon">search</mat-icon>
-                    <input
-                      #classSearchInput
-                      type="text"
-                      class="search-input"
-                      placeholder="Search class (e.g. 5th, 10th, 12th)..."
-                      [(ngModel)]="classSearchTerm"
-                      [ngModelOptions]="{standalone: true}"
-                      (input)="$event.stopPropagation()"
-                      (keydown)="$event.stopPropagation()"
-                    />
-                    <mat-icon *ngIf="classSearchTerm" class="clear-icon" (click)="classSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
+            @if (batchScope === 'single') {
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>Target Academic Class (कक्षा) *</mat-label>
+                <mat-select formControlName="classId" placeholder="Select Class" (selectionChange)="onClassSelectionChanged($event.value)" panelClass="smooth-dropdown-panel batch-select-panel" (openedChange)="onClassDropdownOpened($event)">
+                  <mat-select-trigger>
+                    {{ getSelectedClassName() || 'Select Class' }}
+                  </mat-select-trigger>
+                  <!-- Sticky Search Box for Target Academic Class -->
+                  <div class="dropdown-header-container" (keydown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+                    <div class="dropdown-search-box">
+                      <mat-icon class="search-icon">search</mat-icon>
+                      <input
+                        #classSearchInput
+                        type="text"
+                        class="search-input"
+                        placeholder="Search class (e.g. 5th, 10th, 12th)..."
+                        [(ngModel)]="classSearchTerm"
+                        [ngModelOptions]="{standalone: true}"
+                        (input)="$event.stopPropagation()"
+                        (keydown)="$event.stopPropagation()"
+                        />
+                      @if (classSearchTerm) {
+                        <mat-icon class="clear-icon" (click)="classSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
+                      }
+                    </div>
+                    <div class="dropdown-quick-create-bar" (click)="openQuickAddClassFromDropdown($event)">
+                      <mat-icon class="bar-icon">add_circle</mat-icon>
+                      <span>Can't find class? <strong>+ Quick Add Coaching Class (6th–12th)</strong></span>
+                    </div>
                   </div>
-                  <div class="dropdown-quick-create-bar" (click)="openQuickAddClassFromDropdown($event)">
-                    <mat-icon class="bar-icon">add_circle</mat-icon>
-                    <span>Can't find class? <strong>+ Quick Add Coaching Class (6th–12th)</strong></span>
-                  </div>
-                </div>
-
-                <mat-option *ngFor="let c of getFilteredClasses()" [value]="c.id">
-                  <div class="batch-opt-row">
-                    <mat-icon color="primary" class="option-icon">class</mat-icon>
-                    <span class="opt-name">{{ c.name }}</span>
-                    <span class="opt-badge-pill" *ngIf="c.academicScope === 'Coaching'">Coaching</span>
-                    <span class="opt-code-badge" *ngIf="c.code">{{ c.code }}</span>
-                  </div>
-                </mat-option>
-                <div class="dropdown-empty-state" *ngIf="getFilteredClasses().length === 0 && classSearchTerm">
-                  <mat-icon class="empty-icon">search_off</mat-icon>
-                  <div class="empty-col">
-                    <span>No class found matching "{{ classSearchTerm }}"</span>
-                    <button type="button" class="empty-add-btn" (click)="quickCreateClassFromSearch(classSearchTerm); $event.stopPropagation()">
-                      <mat-icon>add</mat-icon> Quick Add "{{ getCleanClassSuggestion(classSearchTerm) }}" as Coaching Class
-                    </button>
-                  </div>
-                </div>
-              </mat-select>
-              <mat-icon matSuffix color="primary">class</mat-icon>
-              <mat-error *ngIf="batchScope === 'single' && batchForm.get('classId')?.hasError('required')">Academic Class is required for Single Class batch</mat-error>
-            </mat-form-field>
-
+                  @for (c of getFilteredClasses(); track c) {
+                    <mat-option [value]="c.id">
+                      <div class="batch-opt-row">
+                        <mat-icon color="primary" class="option-icon">class</mat-icon>
+                        <span class="opt-name">{{ c.name }}</span>
+                        @if (c.academicScope === 'Coaching') {
+                          <span class="opt-badge-pill">Coaching</span>
+                        }
+                        @if (c.code) {
+                          <span class="opt-code-badge">{{ c.code }}</span>
+                        }
+                      </div>
+                    </mat-option>
+                  }
+                  @if (getFilteredClasses().length === 0 && classSearchTerm) {
+                    <div class="dropdown-empty-state">
+                      <mat-icon class="empty-icon">search_off</mat-icon>
+                      <div class="empty-col">
+                        <span>No class found matching "{{ classSearchTerm }}"</span>
+                        <button type="button" class="empty-add-btn" (click)="quickCreateClassFromSearch(classSearchTerm); $event.stopPropagation()">
+                          <mat-icon>add</mat-icon> Quick Add "{{ getCleanClassSuggestion(classSearchTerm) }}" as Coaching Class
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </mat-select>
+                <mat-icon matSuffix color="primary">class</mat-icon>
+                @if (batchScope === 'single' && batchForm.get('classId')?.hasError('required')) {
+                  <mat-error>Academic Class is required for Single Class batch</mat-error>
+                }
+              </mat-form-field>
+            }
+    
             <!-- Combined Multi-Class Range Selectors -->
-            <div class="half-width combined-range-row" *ngIf="batchScope === 'combined'">
-              <mat-form-field appearance="outline" class="range-sub-field">
-                <mat-label>From Class (कक्षा से)</mat-label>
-                <mat-select [value]="rangeFromClassId" (selectionChange)="onRangeFromChange($event.value)" panelClass="smooth-dropdown-panel">
-                  <mat-option *ngFor="let c of availableClasses" [value]="c.id">
-                    {{ c.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-icon matSuffix color="primary">first_page</mat-icon>
-              </mat-form-field>
-
-              <span class="range-sep-arrow">➔</span>
-
-              <mat-form-field appearance="outline" class="range-sub-field">
-                <mat-label>To Class (कक्षा तक)</mat-label>
-                <mat-select [value]="rangeToClassId" (selectionChange)="onRangeToChange($event.value)" panelClass="smooth-dropdown-panel">
-                  <mat-option *ngFor="let c of availableClasses" [value]="c.id">
-                    {{ c.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-icon matSuffix color="primary">last_page</mat-icon>
-              </mat-form-field>
-            </div>
-
+            @if (batchScope === 'combined') {
+              <div class="half-width combined-range-row">
+                <mat-form-field appearance="outline" class="range-sub-field">
+                  <mat-label>From Class (कक्षा से)</mat-label>
+                  <mat-select [value]="rangeFromClassId" (selectionChange)="onRangeFromChange($event.value)" panelClass="smooth-dropdown-panel">
+                    @for (c of availableClasses; track c) {
+                      <mat-option [value]="c.id">
+                        {{ c.name }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matSuffix color="primary">first_page</mat-icon>
+                </mat-form-field>
+                <span class="range-sep-arrow">➔</span>
+                <mat-form-field appearance="outline" class="range-sub-field">
+                  <mat-label>To Class (कक्षा तक)</mat-label>
+                  <mat-select [value]="rangeToClassId" (selectionChange)="onRangeToChange($event.value)" panelClass="smooth-dropdown-panel">
+                    @for (c of availableClasses; track c) {
+                      <mat-option [value]="c.id">
+                        {{ c.name }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matSuffix color="primary">last_page</mat-icon>
+                </mat-form-field>
+              </div>
+            }
+    
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Batch Name *</mat-label>
               <input matInput formControlName="name" placeholder="e.g. Class 5th - Morning Coaching Batch" />
               <mat-icon matSuffix color="primary">school</mat-icon>
-              <mat-error *ngIf="batchForm.get('name')?.hasError('required')">Batch name is required</mat-error>
+              @if (batchForm.get('name')?.hasError('required')) {
+                <mat-error>Batch name is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <div class="full-width subjects-field-wrap">
-              <div class="subject-quick-actions" *ngIf="availableSubjects.length > 0">
-                <span class="quick-title">Quick Selection:</span>
-                <button type="button" class="quick-pill-btn" (click)="selectAllSubjectsOneClick()">
-                  <mat-icon>done_all</mat-icon> All Subjects (सभी विषय)
-                </button>
-                <button type="button" class="quick-pill-btn clear" *ngIf="getSelectedSubjects().length > 0" (click)="clearAllSubjectsOneClick()">
-                  <mat-icon>clear</mat-icon> Clear All
-                </button>
-              </div>
-
+              @if (availableSubjects.length > 0) {
+                <div class="subject-quick-actions">
+                  <span class="quick-title">Quick Selection:</span>
+                  <button type="button" class="quick-pill-btn" (click)="selectAllSubjectsOneClick()">
+                    <mat-icon>done_all</mat-icon> All Subjects (सभी विषय)
+                  </button>
+                  @if (getSelectedSubjects().length > 0) {
+                    <button type="button" class="quick-pill-btn clear" (click)="clearAllSubjectsOneClick()">
+                      <mat-icon>clear</mat-icon> Clear All
+                    </button>
+                  }
+                </div>
+              }
+    
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Subjects Covered (Select Chips) *</mat-label>
                 <mat-select formControlName="selectedSubjects" multiple placeholder="Select subjects from Master" panelClass="smooth-dropdown-panel subject-multiselect-panel">
                   <mat-select-trigger>
                     <mat-chip-set>
-                      <mat-chip *ngFor="let subj of batchForm.get('selectedSubjects')?.value" selected color="primary" class="selected-chip">
-                        {{ subj }}
-                      </mat-chip>
+                      @for (subj of batchForm.get('selectedSubjects')?.value; track subj) {
+                        <mat-chip selected color="primary" class="selected-chip">
+                          {{ subj }}
+                        </mat-chip>
+                      }
                     </mat-chip-set>
                   </mat-select-trigger>
-
+    
                   <!-- Sticky Search & Select All Header Box -->
                   <div class="dropdown-header-container" (keydown)="$event.stopPropagation()">
                     <div class="dropdown-search-box">
                       <mat-icon class="search-icon">search</mat-icon>
-                    <input
-                      type="text"
-                      class="search-input"
-                      placeholder="Search subjects..."
-                      [(ngModel)]="subjectSearchTerm"
-                      [ngModelOptions]="{standalone: true}"
-                      (input)="$event.stopPropagation()"
-                    />
-                    <mat-icon *ngIf="subjectSearchTerm" class="clear-icon" (click)="subjectSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
+                      <input
+                        type="text"
+                        class="search-input"
+                        placeholder="Search subjects..."
+                        [(ngModel)]="subjectSearchTerm"
+                        [ngModelOptions]="{standalone: true}"
+                        (input)="$event.stopPropagation()"
+                        />
+                      @if (subjectSearchTerm) {
+                        <mat-icon class="clear-icon" (click)="subjectSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
+                      }
+                    </div>
+    
+                    <div class="select-all-box">
+                      <mat-checkbox
+                        color="primary"
+                        [checked]="isAllSubjectsSelected()"
+                        [indeterminate]="isSomeSubjectsSelected()"
+                        (change)="toggleSelectAllSubjects($event.checked)"
+                        (click)="$event.stopPropagation()">
+                        <span class="select-all-label">Select All / Unselect All</span>
+                      </mat-checkbox>
+                    </div>
                   </div>
-                  
-                  <div class="select-all-box">
-                    <mat-checkbox
-                      color="primary"
-                      [checked]="isAllSubjectsSelected()"
-                      [indeterminate]="isSomeSubjectsSelected()"
-                      (change)="toggleSelectAllSubjects($event.checked)"
-                      (click)="$event.stopPropagation()">
-                      <span class="select-all-label">Select All / Unselect All</span>
-                    </mat-checkbox>
-                  </div>
-                </div>
-
-                <!-- Filtered Subject Options -->
-                <mat-option *ngFor="let s of getFilteredSubjects()" [value]="s.name">
-                  <mat-icon color="primary" class="option-icon">menu_book</mat-icon>
-                  <span>{{ s.name }}</span>
-                  <small class="option-code">({{ s.code || 'GEN' }})</small>
-                </mat-option>
-
-                <mat-option *ngIf="getFilteredSubjects().length === 0" disabled>
-                  <em>No matching subjects found</em>
-                </mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">category</mat-icon>
-              <mat-error *ngIf="batchForm.get('selectedSubjects')?.hasError('required')">At least one subject is required</mat-error>
-            </mat-form-field>
+    
+                  <!-- Filtered Subject Options -->
+                  @for (s of getFilteredSubjects(); track s) {
+                    <mat-option [value]="s.name">
+                      <mat-icon color="primary" class="option-icon">menu_book</mat-icon>
+                      <span>{{ s.name }}</span>
+                      <small class="option-code">({{ s.code || 'GEN' }})</small>
+                    </mat-option>
+                  }
+    
+                  @if (getFilteredSubjects().length === 0) {
+                    <mat-option disabled>
+                      <em>No matching subjects found</em>
+                    </mat-option>
+                  }
+                </mat-select>
+                <mat-icon matSuffix color="primary">category</mat-icon>
+                @if (batchForm.get('selectedSubjects')?.hasError('required')) {
+                  <mat-error>At least one subject is required</mat-error>
+                }
+              </mat-form-field>
+            </div>
           </div>
-        </div>
-
+    
           <!-- Section: Campus & Room -->
           <div class="section-label">
             <mat-icon class="section-icon">storefront</mat-icon>
             <span>Campus &amp; Classroom Allocation</span>
           </div>
-
+    
           <div class="form-grid">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Branch Campus</mat-label>
@@ -381,17 +425,19 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <mat-select-trigger>
                   {{ getSelectedBranchName() }}
                 </mat-select-trigger>
-                <mat-option *ngFor="let b of availableBranches" [value]="b.id">
-                  <div class="batch-opt-row">
-                    <mat-icon color="primary" class="option-icon">store</mat-icon>
-                    <span class="opt-name">{{ b.name }}</span>
-                    <span class="opt-code-badge">{{ b.code }}</span>
-                  </div>
-                </mat-option>
+                @for (b of availableBranches; track b) {
+                  <mat-option [value]="b.id">
+                    <div class="batch-opt-row">
+                      <mat-icon color="primary" class="option-icon">store</mat-icon>
+                      <span class="opt-name">{{ b.name }}</span>
+                      <span class="opt-code-badge">{{ b.code }}</span>
+                    </div>
+                  </mat-option>
+                }
               </mat-select>
               <mat-icon matSuffix color="primary">storefront</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Assigned Classroom (Room)</mat-label>
               <mat-select formControlName="roomId" placeholder="Select Room (Optional)" panelClass="smooth-dropdown-panel batch-select-panel">
@@ -404,25 +450,29 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <span class="text-muted">None / Unassigned</span>
                   </div>
                 </mat-option>
-                <mat-option *ngFor="let r of filteredRooms" [value]="r.id">
-                  <div class="batch-opt-row">
-                    <mat-icon color="primary" class="option-icon">meeting_room</mat-icon>
-                    <span class="opt-name">{{ formatRoomDisplay(r.roomNumber) }}</span>
-                    <span class="opt-badge-pill">Cap: {{ r.capacity }}</span>
-                    <span class="opt-sub-info" *ngIf="r.floor">Floor {{ r.floor }}</span>
-                  </div>
-                </mat-option>
+                @for (r of filteredRooms; track r) {
+                  <mat-option [value]="r.id">
+                    <div class="batch-opt-row">
+                      <mat-icon color="primary" class="option-icon">meeting_room</mat-icon>
+                      <span class="opt-name">{{ formatRoomDisplay(r.roomNumber) }}</span>
+                      <span class="opt-badge-pill">Cap: {{ r.capacity }}</span>
+                      @if (r.floor) {
+                        <span class="opt-sub-info">Floor {{ r.floor }}</span>
+                      }
+                    </div>
+                  </mat-option>
+                }
               </mat-select>
               <mat-icon matSuffix color="primary">meeting_room</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Batch Mentor / In-charge Faculty (बैच मेंटर / प्रभारी शिक्षक)</mat-label>
               <mat-select formControlName="mentorTeacherId" placeholder="Select Faculty In-charge (Optional)" panelClass="smooth-dropdown-panel batch-select-panel" (openedChange)="onTeacherDropdownOpened($event)">
                 <mat-select-trigger>
                   {{ getSelectedMentorName() }}
                 </mat-select-trigger>
-
+    
                 <!-- Sticky Search Box for Faculty / Mentor -->
                 <div class="dropdown-header-container" (keydown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
                   <div class="dropdown-search-box">
@@ -436,49 +486,63 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                       [ngModelOptions]="{standalone: true}"
                       (input)="$event.stopPropagation()"
                       (keydown)="$event.stopPropagation()"
-                    />
-                    <mat-icon *ngIf="teacherSearchTerm" class="clear-icon" (click)="teacherSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
+                      />
+                    @if (teacherSearchTerm) {
+                      <mat-icon class="clear-icon" (click)="teacherSearchTerm = ''; $event.stopPropagation()">close</mat-icon>
+                    }
                   </div>
                 </div>
-
-                <mat-option [value]="null" *ngIf="!teacherSearchTerm || 'none unassigned'.includes(teacherSearchTerm.toLowerCase())">
-                  <div class="batch-opt-row">
-                    <mat-icon class="option-icon text-muted">person_off</mat-icon>
-                    <span class="text-muted">None / Unassigned (कोई मेंटर नहीं)</span>
+    
+                @if (!teacherSearchTerm || 'none unassigned'.includes(teacherSearchTerm.toLowerCase())) {
+                  <mat-option [value]="null">
+                    <div class="batch-opt-row">
+                      <mat-icon class="option-icon text-muted">person_off</mat-icon>
+                      <span class="text-muted">None / Unassigned (कोई मेंटर नहीं)</span>
+                    </div>
+                  </mat-option>
+                }
+                @for (t of getFilteredTeachers(); track t) {
+                  <mat-option [value]="t.id">
+                    <div class="batch-opt-row">
+                      <mat-icon color="primary" class="option-icon">supervisor_account</mat-icon>
+                      <span class="opt-name">{{ t.fullName || t.name }}</span>
+                      @if (t.specialization || t.department || t.designation || t.subject) {
+                        <span class="opt-code-badge">{{ t.specialization || t.department || t.designation || t.subject }}</span>
+                      }
+                      @if (t.phoneNumber || t.phone) {
+                        <span class="opt-sub-info">📞 {{ t.phoneNumber || t.phone }}</span>
+                      }
+                    </div>
+                  </mat-option>
+                }
+                @if (getFilteredTeachers().length === 0 && teacherSearchTerm) {
+                  <div class="dropdown-empty-state">
+                    <mat-icon class="empty-icon">search_off</mat-icon>
+                    <span>No faculty found matching "{{ teacherSearchTerm }}"</span>
                   </div>
-                </mat-option>
-                <mat-option *ngFor="let t of getFilteredTeachers()" [value]="t.id">
-                  <div class="batch-opt-row">
-                    <mat-icon color="primary" class="option-icon">supervisor_account</mat-icon>
-                    <span class="opt-name">{{ t.fullName || t.name }}</span>
-                    <span class="opt-code-badge" *ngIf="t.specialization || t.department || t.designation || t.subject">{{ t.specialization || t.department || t.designation || t.subject }}</span>
-                    <span class="opt-sub-info" *ngIf="t.phoneNumber || t.phone">📞 {{ t.phoneNumber || t.phone }}</span>
-                  </div>
-                </mat-option>
-                <div class="dropdown-empty-state" *ngIf="getFilteredTeachers().length === 0 && teacherSearchTerm">
-                  <mat-icon class="empty-icon">search_off</mat-icon>
-                  <span>No faculty found matching "{{ teacherSearchTerm }}"</span>
-                </div>
+                }
               </mat-select>
               <mat-icon matSuffix color="primary">supervisor_account</mat-icon>
             </mat-form-field>
           </div>
-
+    
           <!-- Section: Academic Session -->
           <div class="section-label">
             <mat-icon class="section-icon">date_range</mat-icon>
             <span>Academic Session</span>
           </div>
-
+    
           <div class="form-grid">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Academic Session / Year *</mat-label>
               <input matInput formControlName="academicYear" placeholder="e.g. 2026-2027" />
               <mat-icon matSuffix color="primary">date_range</mat-icon>
-              <mat-error *ngIf="batchForm.get('academicYear')?.hasError('required')">Academic Year is required</mat-error>
+              @if (batchForm.get('academicYear')?.hasError('required')) {
+                <mat-error>Academic Year is required</mat-error>
+              }
             </mat-form-field>
           </div>
-
+    
           <!-- Live Preview Card -->
           <div class="preview-box">
             <div class="preview-header">
@@ -510,20 +574,25 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </div>
             </div>
           </div>
-
+    
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="batchForm.invalid || saving || loading" class="submit-btn">
-            <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
-            <mat-icon *ngIf="!saving">{{ isEditMode ? 'save' : 'add_task' }}</mat-icon>
+            @if (saving) {
+              <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+            }
+            @if (!saving) {
+              <mat-icon>{{ isEditMode ? 'save' : 'add_task' }}</mat-icon>
+            }
             <span>{{ saving ? 'Saving...' : (isEditMode ? 'Update Batch' : 'Create Batch') }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       padding: 0;

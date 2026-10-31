@@ -1,5 +1,5 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -29,7 +29,6 @@ import { environment } from '../../../environments/environment';
   selector: 'app-users',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatTableModule,
     MatPaginatorModule,
@@ -46,7 +45,7 @@ import { environment } from '../../../environments/environment';
     MatTooltipModule,
     MatMenuModule,
     MatDividerModule
-  ],
+],
   template: `
     <div class="page-container">
       <div class="page-header">
@@ -62,7 +61,7 @@ import { environment } from '../../../environments/environment';
           <span>Create New User</span>
         </button>
       </div>
-
+    
       <mat-card class="table-card mat-elevation-z2">
         <!-- Filter & Search Toolbar -->
         <div class="filter-toolbar">
@@ -75,35 +74,41 @@ import { environment } from '../../../environments/environment';
                 (ngModelChange)="onSearchInput($event)"
                 (keyup.enter)="loadUsers()"
                 placeholder="Username, Name, Email, Phone..." />
-              <button *ngIf="searchTerm" matSuffix mat-icon-button aria-label="Clear Search" (click)="clearSearch()">
-                <mat-icon>close</mat-icon>
-              </button>
+              @if (searchTerm) {
+                <button matSuffix mat-icon-button aria-label="Clear Search" (click)="clearSearch()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
               <button matSuffix mat-icon-button (click)="loadUsers()" matTooltip="Search">
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-select" subscriptSizing="dynamic">
               <mat-label>Filter by Role</mat-label>
               <mat-select [(ngModel)]="roleFilter" (selectionChange)="onFilterChange()">
                 <mat-option value="">All Roles</mat-option>
-                <mat-option *ngFor="let r of roles" [value]="r.id">
-                  {{ r.name }}
-                </mat-option>
+                @for (r of roles; track r) {
+                  <mat-option [value]="r.id">
+                    {{ r.name }}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-select" subscriptSizing="dynamic">
               <mat-label>Campus / Branch</mat-label>
               <mat-select [(ngModel)]="branchFilter" (selectionChange)="onFilterChange()">
                 <mat-option value="">All Campuses</mat-option>
                 <mat-option value="00000000-0000-0000-0000-000000000000">🏢 All Branches (HQ)</mat-option>
-                <mat-option *ngFor="let b of branches" [value]="b.id">
-                  🏫 {{ b.name }}
-                </mat-option>
+                @for (b of branches; track b) {
+                  <mat-option [value]="b.id">
+                    🏫 {{ b.name }}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="status-select" subscriptSizing="dynamic">
               <mat-label>Status</mat-label>
               <mat-select [(ngModel)]="statusFilter" (selectionChange)="onFilterChange()">
@@ -112,30 +117,35 @@ import { environment } from '../../../environments/environment';
                 <mat-option [value]="false">Disabled Only</mat-option>
               </mat-select>
             </mat-form-field>
-
-            <button
-              mat-stroked-button
-              color="warn"
-              class="reset-btn"
-              *ngIf="hasActiveFilters()"
-              (click)="resetFilters()"
-              matTooltip="Reset search and filters">
-              <mat-icon>restart_alt</mat-icon>
-              <span>Reset</span>
-            </button>
+    
+            @if (hasActiveFilters()) {
+              <button
+                mat-stroked-button
+                color="warn"
+                class="reset-btn"
+                (click)="resetFilters()"
+                matTooltip="Reset search and filters">
+                <mat-icon>restart_alt</mat-icon>
+                <span>Reset</span>
+              </button>
+            }
           </div>
-
-          <div class="toolbar-right" *ngIf="!loading">
-            <span class="user-count-chip">
-              <mat-icon class="chip-count-icon">people</mat-icon>
-              <strong>{{ totalCount }}</strong> {{ totalCount === 1 ? 'User' : 'Users' }}
-            </span>
-          </div>
+    
+          @if (!loading) {
+            <div class="toolbar-right">
+              <span class="user-count-chip">
+                <mat-icon class="chip-count-icon">people</mat-icon>
+                <strong>{{ totalCount }}</strong> {{ totalCount === 1 ? 'User' : 'Users' }}
+              </span>
+            </div>
+          }
         </div>
-
+    
         <!-- Server-side Operation Progress Loader -->
-        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
-
+        @if (loading) {
+          <mat-progress-bar mode="indeterminate" class="grid-loader"></mat-progress-bar>
+        }
+    
         <div class="table-responsive" [class.loading-dimmed]="loading">
           <table
             mat-table
@@ -143,7 +153,7 @@ import { environment } from '../../../environments/environment';
             matSort
             (matSortChange)="onSortChange($event)"
             class="mat-elevation-z0 full-width-table">
-
+    
             <!-- Username Column -->
             <ng-container matColumnDef="username">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="username"> Username </th>
@@ -151,20 +161,23 @@ import { environment } from '../../../environments/environment';
                 <span class="user-name-cell">{{ element.username }}</span>
               </td>
             </ng-container>
-
+    
             <!-- Full Name Column -->
             <ng-container matColumnDef="fullName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="fullName"> Full Name </th>
               <td mat-cell *matCellDef="let element">
                 <div class="user-profile-cell">
                   <div class="user-avatar-circle">
-                    <img
-                      *ngIf="element.profilePhoto"
-                      [src]="getPhotoUrl(element.profilePhoto)"
-                      [alt]="element.fullName"
-                      class="avatar-img"
-                      (error)="onAvatarError($event, element.fullName)" />
-                    <span *ngIf="!element.profilePhoto" class="avatar-initials">{{ getInitials(element.fullName) }}</span>
+                    @if (element.profilePhoto) {
+                      <img
+                        [src]="getPhotoUrl(element.profilePhoto)"
+                        [alt]="element.fullName"
+                        class="avatar-img"
+                        (error)="onAvatarError($event, element.fullName)" />
+                    }
+                    @if (!element.profilePhoto) {
+                      <span class="avatar-initials">{{ getInitials(element.fullName) }}</span>
+                    }
                   </div>
                   <div class="user-name-text">
                     <strong>{{ element.fullName }}</strong>
@@ -172,7 +185,7 @@ import { environment } from '../../../environments/environment';
                 </div>
               </td>
             </ng-container>
-
+    
             <!-- Assigned Role Column -->
             <ng-container matColumnDef="roleName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="roleName"> Assigned Role </th>
@@ -183,22 +196,26 @@ import { environment } from '../../../environments/environment';
                 </mat-chip-option>
               </td>
             </ng-container>
-
+    
             <!-- Assigned Branch Column -->
             <ng-container matColumnDef="branchName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="branchName"> Assigned Branch </th>
               <td mat-cell *matCellDef="let element">
-                <span class="branch-tag" *ngIf="element.branchName" [title]="element.branchName">
-                  <mat-icon class="inline-icon">store</mat-icon>
-                  <span class="branch-text">{{ element.branchName }}</span>
-                </span>
-                <span class="head-office-tag" *ngIf="!element.branchName" title="All Branches (HQ)">
-                  <mat-icon class="inline-icon">corporate_fare</mat-icon>
-                  <span class="branch-text">All Branches (HQ)</span>
-                </span>
+                @if (element.branchName) {
+                  <span class="branch-tag" [title]="element.branchName">
+                    <mat-icon class="inline-icon">store</mat-icon>
+                    <span class="branch-text">{{ element.branchName }}</span>
+                  </span>
+                }
+                @if (!element.branchName) {
+                  <span class="head-office-tag" title="All Branches (HQ)">
+                    <mat-icon class="inline-icon">corporate_fare</mat-icon>
+                    <span class="branch-text">All Branches (HQ)</span>
+                  </span>
+                }
               </td>
             </ng-container>
-
+    
             <!-- Contact Info Column -->
             <ng-container matColumnDef="contact">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="contact"> Contact Info </th>
@@ -209,7 +226,7 @@ import { environment } from '../../../environments/environment';
                 </div>
               </td>
             </ng-container>
-
+    
             <!-- Status Column -->
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="status"> Status </th>
@@ -220,7 +237,7 @@ import { environment } from '../../../environments/environment';
                 </span>
               </td>
             </ng-container>
-
+    
             <!-- Actions Column -->
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="text-center actions-col-header" matTooltip="User Actions">
@@ -235,7 +252,7 @@ import { environment } from '../../../environments/environment';
                   matTooltip="User Actions">
                   <mat-icon>more_vert</mat-icon>
                 </button>
-
+    
                 <mat-menu #userRowMenu="matMenu" xPosition="before" class="user-row-menu">
                   <button mat-menu-item (click)="openUserModal(element)">
                     <mat-icon color="primary">edit</mat-icon>
@@ -249,26 +266,30 @@ import { environment } from '../../../environments/environment';
                 </mat-menu>
               </td>
             </ng-container>
-
+    
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-
+    
             <!-- No Data Empty State -->
             <tr class="mat-row" *matNoDataRow>
               <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
-                <div class="empty-state" *ngIf="!loading">
-                  <mat-icon class="empty-icon">manage_search</mat-icon>
-                  <h3>No System Users Found</h3>
-                  <p>No user accounts matched your search keyword or selected filter criteria.</p>
-                  <button mat-stroked-button color="primary" (click)="resetFilters()" *ngIf="hasActiveFilters()">
-                    <mat-icon>filter_alt_off</mat-icon> Clear Filters &amp; Reload
-                  </button>
-                </div>
+                @if (!loading) {
+                  <div class="empty-state">
+                    <mat-icon class="empty-icon">manage_search</mat-icon>
+                    <h3>No System Users Found</h3>
+                    <p>No user accounts matched your search keyword or selected filter criteria.</p>
+                    @if (hasActiveFilters()) {
+                      <button mat-stroked-button color="primary" (click)="resetFilters()">
+                        <mat-icon>filter_alt_off</mat-icon> Clear Filters &amp; Reload
+                      </button>
+                    }
+                  </div>
+                }
               </td>
             </tr>
           </table>
         </div>
-
+    
         <!-- Server-side Pagination -->
         <mat-paginator
           [length]="totalCount"
@@ -280,7 +301,8 @@ import { environment } from '../../../environments/environment';
         </mat-paginator>
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

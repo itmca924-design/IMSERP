@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -39,37 +39,44 @@ import { environment } from '../../../environments/environment';
       <p class="page-subtitle">Manage complete faculty and administrative staff directory — add, update, and monitor credentials.</p>
     </div>
     <div class="header-actions-row">
-      <button mat-stroked-button color="primary" (click)="openBulkIdCards()" *ngIf="!showForm && canManageStaff">
-        <mat-icon>badge</mat-icon> Staff ID Cards
-      </button>
-      <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" *ngIf="!showForm && canManageStaff">
-        <mat-icon>exit_to_app</mat-icon> Exit &amp; FNF
-      </a>
-      <button mat-raised-button color="primary" (click)="openAddForm()" *ngIf="!showForm && canManageStaff">
-        <mat-icon>person_add</mat-icon> Add Staff / Teacher
-      </button>
+      @if (!showForm && canManageStaff) {
+        <button mat-stroked-button color="primary" (click)="openBulkIdCards()">
+          <mat-icon>badge</mat-icon> Staff ID Cards
+        </button>
+      }
+      @if (!showForm && canManageStaff) {
+        <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']">
+          <mat-icon>exit_to_app</mat-icon> Exit &amp; FNF
+        </a>
+      }
+      @if (!showForm && canManageStaff) {
+        <button mat-raised-button color="primary" (click)="openAddForm()">
+          <mat-icon>person_add</mat-icon> Add Staff / Teacher
+        </button>
+      }
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- ── ADD / EDIT FORM ── -->
-  <mat-card class="form-card mat-elevation-z3" *ngIf="showForm">
-    <div class="form-header">
-      <h2><mat-icon color="primary">{{editingId ? 'edit' : 'person_add'}}</mat-icon>
+  @if (showForm) {
+    <mat-card class="form-card mat-elevation-z3">
+      <div class="form-header">
+        <h2><mat-icon color="primary">{{editingId ? 'edit' : 'person_add'}}</mat-icon>
         {{editingId ? 'Edit Staff / Faculty Details' : 'Add New Staff / Faculty Member'}}
       </h2>
       <button mat-icon-button (click)="cancelForm()"><mat-icon>close</mat-icon></button>
     </div>
     <form [formGroup]="teacherForm" (ngSubmit)="saveTeacher()">
       <div class="form-grid">
-
         <!-- ── SECTION 1: ROLE, CLASSIFICATION & EMPLOYMENT ── -->
         <div class="form-section-title">
           <mat-icon>badge</mat-icon>
           <span>Staff Classification &amp; Employment Details (पद, श्रेणी एवं रोजगार विवरण)</span>
         </div>
-
         <!-- Classification -->
         <mat-form-field appearance="outline">
           <mat-label>Staff Classification *</mat-label>
@@ -81,51 +88,62 @@ import { environment } from '../../../environments/environment';
             <mat-option [value]="5">Support &amp; Facility Staff (Librarian / Lab / Front Office)</mat-option>
           </mat-select>
         </mat-form-field>
-
         <!-- Employee Code – Auto Generated (Approach 1: Category Specific) -->
         <mat-form-field appearance="outline">
           <mat-label>Employee Code *</mat-label>
           <input matInput formControlName="employeeCode" [readonly]="editingId || !allowManualCode" [class.readonly-field]="editingId || !allowManualCode">
-          <button mat-icon-button matSuffix type="button" *ngIf="!editingId && !codeLoading"
-            (click)="toggleCustomCode()"
-            [matTooltip]="allowManualCode ? 'Reset to category auto-code' : 'Click to enter custom code'">
-            <mat-icon style="font-size:18px;color:#2563eb">{{allowManualCode ? 'autorenew' : 'edit'}}</mat-icon>
-          </button>
-          <mat-icon matSuffix *ngIf="editingId" matTooltip="Employee code cannot be changed after creation" style="color:#64748b;font-size:16px">lock</mat-icon>
-          <mat-spinner matSuffix diameter="16" *ngIf="codeLoading"></mat-spinner>
-          <mat-hint *ngIf="!editingId && !allowManualCode">Auto-generated series</mat-hint>
-          <mat-hint *ngIf="!editingId && allowManualCode" style="color:#2563eb;font-weight:600">Custom code mode</mat-hint>
-          <mat-hint *ngIf="editingId">Locked: permanent employee ID</mat-hint>
+          @if (!editingId && !codeLoading) {
+            <button mat-icon-button matSuffix type="button"
+              (click)="toggleCustomCode()"
+              [matTooltip]="allowManualCode ? 'Reset to category auto-code' : 'Click to enter custom code'">
+              <mat-icon style="font-size:18px;color:#2563eb">{{allowManualCode ? 'autorenew' : 'edit'}}</mat-icon>
+            </button>
+          }
+          @if (editingId) {
+            <mat-icon matSuffix matTooltip="Employee code cannot be changed after creation" style="color:#64748b;font-size:16px">lock</mat-icon>
+          }
+          @if (codeLoading) {
+            <mat-spinner matSuffix diameter="16"></mat-spinner>
+          }
+          @if (!editingId && !allowManualCode) {
+            <mat-hint>Auto-generated series</mat-hint>
+          }
+          @if (!editingId && allowManualCode) {
+            <mat-hint style="color:#2563eb;font-weight:600">Custom code mode</mat-hint>
+          }
+          @if (editingId) {
+            <mat-hint>Locked: permanent employee ID</mat-hint>
+          }
         </mat-form-field>
-
         <!-- Full Name -->
         <mat-form-field appearance="outline">
           <mat-label>Full Name *</mat-label>
           <input matInput formControlName="fullName" placeholder="e.g. Ramesh Kumar Sharma">
         </mat-form-field>
-
         <!-- Department (with smooth Material autocomplete) -->
         <mat-form-field appearance="outline">
           <mat-label>Department *</mat-label>
           <input matInput formControlName="department" [matAutocomplete]="deptAuto" placeholder="e.g. Science, Accounts, HR, Admin">
           <mat-icon matSuffix style="color:#64748b;font-size:18px">apartment</mat-icon>
           <mat-autocomplete #deptAuto="matAutocomplete">
-            <mat-option *ngFor="let d of filteredDepartments" [value]="d">{{ d }}</mat-option>
+            @for (d of filteredDepartments; track d) {
+              <mat-option [value]="d">{{ d }}</mat-option>
+            }
           </mat-autocomplete>
           <mat-hint>Select or type department</mat-hint>
         </mat-form-field>
-
         <!-- Designation (with smooth Material autocomplete) -->
         <mat-form-field appearance="outline">
           <mat-label>Designation *</mat-label>
           <input matInput formControlName="designation" [matAutocomplete]="desigAuto" placeholder="e.g. PGT Physics, Accountant, HR Manager">
           <mat-icon matSuffix style="color:#64748b;font-size:18px">work_outline</mat-icon>
           <mat-autocomplete #desigAuto="matAutocomplete">
-            <mat-option *ngFor="let des of filteredDesignations" [value]="des">{{ des }}</mat-option>
+            @for (des of filteredDesignations; track des) {
+              <mat-option [value]="des">{{ des }}</mat-option>
+            }
           </mat-autocomplete>
           <mat-hint>Official post / title</mat-hint>
         </mat-form-field>
-
         <!-- Employment Type -->
         <mat-form-field appearance="outline">
           <mat-label>Employment Type</mat-label>
@@ -137,16 +155,18 @@ import { environment } from '../../../environments/environment';
             <mat-option value="Part-Time">Part-Time</mat-option>
           </mat-select>
         </mat-form-field>
-
         <!-- Joining Date with range validation -->
         <mat-form-field appearance="outline">
           <mat-label>Joining Date *</mat-label>
           <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" (change)="validateDateRanges()">
           <mat-hint>Official date of joining</mat-hint>
-          <mat-error *ngIf="teacherForm.get('joiningDate')?.hasError('beforeAdult')">Cannot be before 18th birthday</mat-error>
-          <mat-error *ngIf="teacherForm.get('joiningDate')?.hasError('futureTooFar')">Cannot exceed 90 days in future</mat-error>
+          @if (teacherForm.get('joiningDate')?.hasError('beforeAdult')) {
+            <mat-error>Cannot be before 18th birthday</mat-error>
+          }
+          @if (teacherForm.get('joiningDate')?.hasError('futureTooFar')) {
+            <mat-error>Cannot exceed 90 days in future</mat-error>
+          }
         </mat-form-field>
-
         <!-- Biometric User ID -->
         <mat-form-field appearance="outline">
           <mat-label>Biometric Machine Punch ID</mat-label>
@@ -154,18 +174,15 @@ import { environment } from '../../../environments/environment';
           <mat-icon matSuffix matTooltip="Device ID on Fingerprint / Facial Attendance Machine" style="color:#64748b;font-size:16px">fingerprint</mat-icon>
           <mat-hint>Links biometric punch records</mat-hint>
         </mat-form-field>
-
         <!-- ── SECTION 2: PERSONAL & CONTACT DETAILS ── -->
         <div class="form-section-title">
           <mat-icon>person</mat-icon>
           <span>Personal, Contact &amp; Qualification Details (व्यक्तिगत एवं संपर्क विवरण)</span>
         </div>
-
         <mat-form-field appearance="outline">
           <mat-label>Father's / Spouse's Name</mat-label>
           <input matInput formControlName="fatherName">
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Gender *</mat-label>
           <mat-select formControlName="gender">
@@ -174,16 +191,18 @@ import { environment } from '../../../environments/environment';
             <mat-option value="Other">Other</mat-option>
           </mat-select>
         </mat-form-field>
-
         <!-- Date of Birth with range validation -->
         <mat-form-field appearance="outline">
           <mat-label>Date of Birth</mat-label>
           <input matInput type="date" formControlName="dateOfBirth" [min]="minDob" [max]="maxDob" (change)="validateDateRanges()">
           <mat-hint>Min age 18 years</mat-hint>
-          <mat-error *ngIf="teacherForm.get('dateOfBirth')?.hasError('underage')">Staff must be at least 18 years old</mat-error>
-          <mat-error *ngIf="teacherForm.get('dateOfBirth')?.hasError('tooOld')">Please enter a valid DOB</mat-error>
+          @if (teacherForm.get('dateOfBirth')?.hasError('underage')) {
+            <mat-error>Staff must be at least 18 years old</mat-error>
+          }
+          @if (teacherForm.get('dateOfBirth')?.hasError('tooOld')) {
+            <mat-error>Please enter a valid DOB</mat-error>
+          }
         </mat-form-field>
-
         <!-- Blood Group -->
         <mat-form-field appearance="outline">
           <mat-label>Blood Group</mat-label>
@@ -200,23 +219,29 @@ import { environment } from '../../../environments/environment';
           </mat-select>
           <mat-hint>For Staff ID Card</mat-hint>
         </mat-form-field>
-
         <!-- Phone with inline duplicate check -->
         <div class="field-with-hint">
           <mat-form-field appearance="outline" style="width:100%">
             <mat-label>Primary Phone Number *</mat-label>
             <input matInput formControlName="phoneNumber" maxlength="12" (blur)="checkDuplicate('phone')">
-            <mat-icon matSuffix *ngIf="phoneDupChecking" style="font-size:16px">hourglass_empty</mat-icon>
-            <mat-icon matSuffix *ngIf="!phoneDupChecking && phoneDuplicate" color="warn" style="font-size:16px">warning</mat-icon>
-            <mat-icon matSuffix *ngIf="!phoneDupChecking && !phoneDuplicate && teacherForm.get('phoneNumber')?.value"
+            @if (phoneDupChecking) {
+              <mat-icon matSuffix style="font-size:16px">hourglass_empty</mat-icon>
+            }
+            @if (!phoneDupChecking && phoneDuplicate) {
+              <mat-icon matSuffix color="warn" style="font-size:16px">warning</mat-icon>
+            }
+            @if (!phoneDupChecking && !phoneDuplicate && teacherForm.get('phoneNumber')?.value) {
+              <mat-icon matSuffix
               style="font-size:16px;color:#2e7d32">check_circle</mat-icon>
+            }
             <mat-hint>10-digit mobile number</mat-hint>
           </mat-form-field>
-          <div class="dup-warning" *ngIf="phoneDuplicate">
-            <mat-icon>warning</mat-icon>Phone number already taken!
-          </div>
+          @if (phoneDuplicate) {
+            <div class="dup-warning">
+              <mat-icon>warning</mat-icon>Phone number already taken!
+            </div>
+          }
         </div>
-
         <!-- WhatsApp with inline duplicate check & copy button -->
         <div class="field-with-hint">
           <mat-form-field appearance="outline" style="width:100%">
@@ -226,139 +251,151 @@ import { environment } from '../../../environments/environment';
               <button mat-icon-button type="button" (click)="copyPhoneToWhatsApp()" matTooltip="Same as Phone Number" class="copy-suffix-btn">
                 <mat-icon>content_copy</mat-icon>
               </button>
-              <mat-icon *ngIf="whatsAppDupChecking" class="status-suffix-icon">hourglass_empty</mat-icon>
-              <mat-icon *ngIf="!whatsAppDupChecking && whatsAppDuplicate" color="warn" class="status-suffix-icon">warning</mat-icon>
-              <mat-icon *ngIf="!whatsAppDupChecking && !whatsAppDuplicate && teacherForm.get('whatsAppPhone')?.value"
+              @if (whatsAppDupChecking) {
+                <mat-icon class="status-suffix-icon">hourglass_empty</mat-icon>
+              }
+              @if (!whatsAppDupChecking && whatsAppDuplicate) {
+                <mat-icon color="warn" class="status-suffix-icon">warning</mat-icon>
+              }
+              @if (!whatsAppDupChecking && !whatsAppDuplicate && teacherForm.get('whatsAppPhone')?.value) {
+                <mat-icon
                 class="status-suffix-icon check-icon">check_circle</mat-icon>
+              }
             </div>
             <mat-hint>WhatsApp payslip &amp; updates</mat-hint>
           </mat-form-field>
-          <div class="dup-warning" *ngIf="whatsAppDuplicate">
-            <mat-icon>warning</mat-icon> WhatsApp Number already taken!
-          </div>
+          @if (whatsAppDuplicate) {
+            <div class="dup-warning">
+              <mat-icon>warning</mat-icon> WhatsApp Number already taken!
+            </div>
+          }
         </div>
-
         <!-- Email with inline duplicate check -->
         <div class="field-with-hint">
           <mat-form-field appearance="outline" style="width:100%">
             <mat-label>Email Address</mat-label>
             <input matInput type="email" formControlName="email" (blur)="checkDuplicate('email')">
-            <mat-icon matSuffix *ngIf="emailDupChecking" style="font-size:16px">hourglass_empty</mat-icon>
-            <mat-icon matSuffix *ngIf="!emailDupChecking && emailDuplicate" color="warn" style="font-size:16px">warning</mat-icon>
-            <mat-icon matSuffix *ngIf="!emailDupChecking && !emailDuplicate && teacherForm.get('email')?.value"
+            @if (emailDupChecking) {
+              <mat-icon matSuffix style="font-size:16px">hourglass_empty</mat-icon>
+            }
+            @if (!emailDupChecking && emailDuplicate) {
+              <mat-icon matSuffix color="warn" style="font-size:16px">warning</mat-icon>
+            }
+            @if (!emailDupChecking && !emailDuplicate && teacherForm.get('email')?.value) {
+              <mat-icon matSuffix
               style="font-size:16px;color:#2e7d32">check_circle</mat-icon>
+            }
             <mat-hint>Official or personal email</mat-hint>
           </mat-form-field>
-          <div class="dup-warning" *ngIf="emailDuplicate">
-            <mat-icon>warning</mat-icon> Yeh Email ID pehle se registered hai!
-          </div>
+          @if (emailDuplicate) {
+            <div class="dup-warning">
+              <mat-icon>warning</mat-icon> Yeh Email ID pehle se registered hai!
+            </div>
+          }
         </div>
-
         <mat-form-field appearance="outline">
           <mat-label>Emergency Contact Person</mat-label>
           <input matInput formControlName="emergencyContactName" placeholder="e.g. Suman Sharma (Spouse)">
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Emergency Contact Phone</mat-label>
           <input matInput formControlName="emergencyContactPhone" maxlength="12" placeholder="e.g. 9811223344">
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Qualification</mat-label>
           <input matInput formControlName="qualification" placeholder="e.g. M.Sc, B.Ed, M.Tech, MBA, Graduate">
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Subject Specialization</mat-label>
           <input matInput formControlName="specialization" placeholder="Physics, Mathematics, Accounts...">
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Total Experience (Years)</mat-label>
           <input matInput type="number" formControlName="experienceYears" min="0">
         </mat-form-field>
-
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Residential Address</mat-label>
           <input matInput formControlName="address" placeholder="Full residential / permanent address">
         </mat-form-field>
-
         <!-- ── SECTION 3: BANK DETAILS & TAX / PAYROLL IDENTIFIERS ── -->
         <div class="form-section-title">
           <mat-icon>account_balance</mat-icon>
           <span>Bank &amp; Statutory Details (बैंक खाता व वेतन विवरण — For Salary &amp; Payroll)</span>
         </div>
-
         <!-- Bank Name with smooth Material autocomplete -->
         <mat-form-field appearance="outline">
           <mat-label>Bank Name</mat-label>
           <input matInput formControlName="bankName" [matAutocomplete]="bankAuto" placeholder="e.g. State Bank of India, HDFC Bank">
           <mat-icon matSuffix style="color:#64748b;font-size:18px">account_balance</mat-icon>
           <mat-autocomplete #bankAuto="matAutocomplete">
-            <mat-option *ngFor="let b of filteredBanks" [value]="b">{{ b }}</mat-option>
+            @for (b of filteredBanks; track b) {
+              <mat-option [value]="b">{{ b }}</mat-option>
+            }
           </mat-autocomplete>
           <mat-hint>Select or type bank name</mat-hint>
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Bank Account Number</mat-label>
           <input matInput formControlName="bankAccountNumber" placeholder="e.g. 302918239401">
           <mat-hint>Account for salary credit</mat-hint>
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Bank IFSC Code</mat-label>
           <input matInput formControlName="bankIfscCode" placeholder="e.g. SBIN0001234" maxlength="11" style="text-transform:uppercase">
           <mat-hint>11-character IFSC</mat-hint>
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Bank Account Holder Name</mat-label>
           <input matInput formControlName="bankAccountHolder" placeholder="Name as per bank passbook">
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>PAN Card Number</mat-label>
           <input matInput formControlName="panNumber" placeholder="e.g. ABCDE1234F" maxlength="10" style="text-transform:uppercase">
           <mat-hint>Required for TDS tax deduction</mat-hint>
-          <mat-error *ngIf="teacherForm.get('panNumber')?.hasError('pattern')">Invalid PAN format (e.g. ABCDE1234F)</mat-error>
+          @if (teacherForm.get('panNumber')?.hasError('pattern')) {
+            <mat-error>Invalid PAN format (e.g. ABCDE1234F)</mat-error>
+          }
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>Aadhaar Card Number</mat-label>
           <input matInput formControlName="aadhaarNumber" placeholder="e.g. 123456789012" maxlength="12">
           <mat-hint>12-digit Aadhaar UID</mat-hint>
-          <mat-error *ngIf="teacherForm.get('aadhaarNumber')?.hasError('pattern')">Must be 12 numeric digits</mat-error>
+          @if (teacherForm.get('aadhaarNumber')?.hasError('pattern')) {
+            <mat-error>Must be 12 numeric digits</mat-error>
+          }
         </mat-form-field>
-
         <mat-form-field appearance="outline">
           <mat-label>PF / UAN Number</mat-label>
           <input matInput formControlName="uanNumber" placeholder="e.g. 100928374650">
           <mat-hint>Required for PF deduction</mat-hint>
         </mat-form-field>
-
         <!-- Profile Photo Row: URL or File Upload (Clean & Responsive) -->
         <div class="photo-upload-row full-width">
           <div class="photo-preview-box">
-            <img *ngIf="teacherForm.get('photoUrl')?.value && !previewImgError"
-                 [src]="getPhotoUrl(teacherForm.get('photoUrl')?.value)"
-                 class="form-avatar-preview"
-                 (error)="previewImgError = true"
-                 (load)="previewImgError = false"
-                 alt="Preview">
-            <div *ngIf="!teacherForm.get('photoUrl')?.value || previewImgError" class="form-avatar-placeholder">
-              <mat-icon>person</mat-icon>
-            </div>
+            @if (teacherForm.get('photoUrl')?.value && !previewImgError) {
+              <img
+                [src]="getPhotoUrl($safeNavigationMigration(teacherForm.get('photoUrl')?.value))"
+                class="form-avatar-preview"
+                (error)="previewImgError = true"
+                (load)="previewImgError = false"
+                alt="Preview">
+            }
+            @if (!teacherForm.get('photoUrl')?.value || previewImgError) {
+              <div class="form-avatar-placeholder">
+                <mat-icon>person</mat-icon>
+              </div>
+            }
           </div>
           <div class="photo-field-wrapper">
             <mat-form-field appearance="outline" style="width:100%">
               <mat-label>Profile Photo (URL or File)</mat-label>
               <input matInput formControlName="photoUrl" placeholder="Paste image link or choose image file below" (input)="previewImgError = false">
               <mat-icon matPrefix style="color:#64748b;margin-right:6px">photo_camera</mat-icon>
-              <button mat-icon-button matSuffix *ngIf="teacherForm.get('photoUrl')?.value" type="button" (click)="teacherForm.patchValue({photoUrl: ''})">
-                <mat-icon style="font-size:16px">clear</mat-icon>
-              </button>
+              @if (teacherForm.get('photoUrl')?.value) {
+                <button mat-icon-button matSuffix type="button" (click)="teacherForm.patchValue({photoUrl: ''})">
+                  <mat-icon style="font-size:16px">clear</mat-icon>
+                </button>
+              }
             </mat-form-field>
             <div class="photo-btn-group">
               <input #formFileInput type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none">
@@ -373,16 +410,22 @@ import { environment } from '../../../environments/environment';
       <div class="form-actions">
         <button mat-button type="button" (click)="cancelForm()">Cancel</button>
         <button mat-raised-button color="primary" type="submit" [disabled]="teacherForm.invalid || saving || hasDuplicates">
-          <mat-spinner diameter="18" *ngIf="saving" style="display:inline-block;margin-right:6px"></mat-spinner>
-          <mat-icon *ngIf="!saving">save</mat-icon>
+          @if (saving) {
+            <mat-spinner diameter="18" style="display:inline-block;margin-right:6px"></mat-spinner>
+          }
+          @if (!saving) {
+            <mat-icon>save</mat-icon>
+          }
           {{saving ? 'Saving...' : (editingId ? 'Update Staff Member' : 'Add Staff Member')}}
         </button>
       </div>
     </form>
   </mat-card>
+}
 
-  <!-- ── SEARCH & FILTER ── -->
-  <mat-card class="filter-card mat-elevation-z1" *ngIf="!showForm">
+<!-- ── SEARCH & FILTER ── -->
+@if (!showForm) {
+  <mat-card class="filter-card mat-elevation-z1">
     <div class="filter-heading">
       <div class="filter-title"><mat-icon>filter_list</mat-icon><strong>Staff &amp; Faculty Directory</strong></div>
       <span class="total-count">{{totalCount}} members</span>
@@ -392,9 +435,11 @@ import { environment } from '../../../environments/environment';
         <mat-label>Search staff / faculty members...</mat-label>
         <mat-icon matPrefix>search</mat-icon>
         <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearch()" placeholder="Name, code, designation, department...">
-        <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadTeachers()">
-          <mat-icon>clear</mat-icon>
-        </button>
+        @if (searchTerm) {
+          <button mat-icon-button matSuffix (click)="searchTerm=''; loadTeachers()">
+            <mat-icon>clear</mat-icon>
+          </button>
+        }
       </mat-form-field>
       <mat-form-field appearance="outline" class="staff-filter-field">
         <mat-label>Staff Type</mat-label>
@@ -414,25 +459,33 @@ import { environment } from '../../../environments/environment';
       </mat-form-field>
     </div>
   </mat-card>
+}
 
-  <!-- ── SELECTED TEACHER PROFILE VIEW ── -->
-  <div class="profile-view" *ngIf="selectedTeacher && !showForm">
+<!-- ── SELECTED TEACHER PROFILE VIEW ── -->
+@if (selectedTeacher && !showForm) {
+  <div class="profile-view">
     <mat-card class="profile-card mat-elevation-z3">
       <div class="profile-top">
         <div class="avatar-circle-wrapper">
           <div class="avatar-circle" (click)="selectedTeacher.photoUrl && openPhotoPreview(selectedTeacher.photoUrl, selectedTeacher.fullName)" [style.cursor]="selectedTeacher.photoUrl ? 'pointer' : 'default'" [matTooltip]="selectedTeacher.photoUrl ? 'Click to view full photo' : ''">
-            <img *ngIf="selectedTeacher.photoUrl && !imgLoadErrors[selectedTeacher.id]"
-                 [src]="getPhotoUrl(selectedTeacher.photoUrl)"
-                 [alt]="selectedTeacher.fullName"
-                 class="avatar-img"
-                 (error)="imgLoadErrors[selectedTeacher.id] = true">
-            <span *ngIf="!selectedTeacher.photoUrl || imgLoadErrors[selectedTeacher.id]">
-              {{getInitials(selectedTeacher.fullName)}}
-            </span>
+            @if (selectedTeacher.photoUrl && !imgLoadErrors[selectedTeacher.id]) {
+              <img
+                [src]="getPhotoUrl(selectedTeacher.photoUrl)"
+                [alt]="selectedTeacher.fullName"
+                class="avatar-img"
+                (error)="imgLoadErrors[selectedTeacher.id] = true">
+            }
+            @if (!selectedTeacher.photoUrl || imgLoadErrors[selectedTeacher.id]) {
+              <span>
+                {{getInitials(selectedTeacher.fullName)}}
+              </span>
+            }
           </div>
-          <button mat-mini-fab color="primary" class="avatar-quick-upload-btn" *ngIf="canManageStaff && selectedTeacher.isActive" (click)="quickAvatarInput.click()" matTooltip="Upload / Update Profile Photo">
-            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;">camera_alt</mat-icon>
-          </button>
+          @if (canManageStaff && selectedTeacher.isActive) {
+            <button mat-mini-fab color="primary" class="avatar-quick-upload-btn" (click)="quickAvatarInput.click()" matTooltip="Upload / Update Profile Photo">
+              <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;">camera_alt</mat-icon>
+            </button>
+          }
           <input #quickAvatarInput type="file" accept="image/*" (change)="onQuickAvatarSelected($event, selectedTeacher)" style="display:none">
         </div>
         <div class="profile-info">
@@ -450,287 +503,395 @@ import { environment } from '../../../environments/environment';
             </div>
           </div>
           <div class="profile-meta-row">
-            <span class="spec-text" *ngIf="isTeachingStaff(selectedTeacher)">
-              {{selectedTeacher.specialization || 'Teaching Faculty'}}
-            </span>
-            <span class="spec-text non-teach-text" *ngIf="!isTeachingStaff(selectedTeacher)">
-              <strong>{{selectedTeacher.designation || 'Staff Member'}}</strong>
-              <span *ngIf="selectedTeacher.department"> &bull; {{selectedTeacher.department}}</span>
-            </span>
-            <span class="qual-badge" *ngIf="selectedTeacher.qualification">&bull; {{selectedTeacher.qualification}}</span>
+            @if (isTeachingStaff(selectedTeacher)) {
+              <span class="spec-text">
+                {{selectedTeacher.specialization || 'Teaching Faculty'}}
+              </span>
+            }
+            @if (!isTeachingStaff(selectedTeacher)) {
+              <span class="spec-text non-teach-text">
+                <strong>{{selectedTeacher.designation || 'Staff Member'}}</strong>
+                @if (selectedTeacher.department) {
+                  <span> &bull; {{selectedTeacher.department}}</span>
+                }
+              </span>
+            }
+            @if (selectedTeacher.qualification) {
+              <span class="qual-badge">&bull; {{selectedTeacher.qualification}}</span>
+            }
           </div>
         </div>
         <button mat-icon-button (click)="selectedTeacher = null" class="close-profile" matTooltip="Close Profile Card">
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
       <!-- Relieved / Offboarded Faculty Notice Banner -->
-      <div class="relieved-banner" *ngIf="!selectedTeacher.isActive">
-        <div class="banner-left">
-          <div class="lock-icon-box"><mat-icon>verified_user</mat-icon></div>
-          <div class="banner-content">
-            <span class="banner-title">Staff Member Offboarded &amp; Relieved</span>
-            <span class="banner-sub">Full &amp; Final Settlement (FNF) has been finalized. ERP portal login, monthly payroll, and operational allocations are deactivated.</span>
+      @if (!selectedTeacher.isActive) {
+        <div class="relieved-banner">
+          <div class="banner-left">
+            <div class="lock-icon-box"><mat-icon>verified_user</mat-icon></div>
+            <div class="banner-content">
+              <span class="banner-title">Staff Member Offboarded &amp; Relieved</span>
+              <span class="banner-sub">Full &amp; Final Settlement (FNF) has been finalized. ERP portal login, monthly payroll, and operational allocations are deactivated.</span>
+            </div>
           </div>
+          <a mat-flat-button color="primary" class="banner-btn" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
+            <mat-icon>receipt_long</mat-icon> View FNF Statement &amp; Certificate
+          </a>
         </div>
-        <a mat-flat-button color="primary" class="banner-btn" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
-          <mat-icon>receipt_long</mat-icon> View FNF Statement &amp; Certificate
-        </a>
-      </div>
-
+      }
       <mat-divider></mat-divider>
-
       <div class="profile-details-grid">
         <div class="detail-block">
           <span class="block-title"><mat-icon>contact_phone</mat-icon> Contact &amp; Personal</span>
           <div class="detail-row"><mat-icon>phone</mat-icon><span><strong>Phone:</strong> {{selectedTeacher.phoneNumber}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.whatsAppPhone"><mat-icon style="color:#25d366">chat</mat-icon><span><strong>WhatsApp:</strong> {{selectedTeacher.whatsAppPhone}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.email"><mat-icon>email</mat-icon><span><strong>Email:</strong> {{selectedTeacher.email}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.bloodGroup"><mat-icon style="color:#dc2626">water_drop</mat-icon><span><strong>Blood Group:</strong> {{selectedTeacher.bloodGroup}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.emergencyContactPhone"><mat-icon>emergency</mat-icon><span><strong>Emergency:</strong> {{selectedTeacher.emergencyContactName}} ({{selectedTeacher.emergencyContactPhone}})</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.address"><mat-icon>location_on</mat-icon><span><strong>Address:</strong> {{selectedTeacher.address}}</span></div>
+          @if (selectedTeacher.whatsAppPhone) {
+            <div class="detail-row"><mat-icon style="color:#25d366">chat</mat-icon><span><strong>WhatsApp:</strong> {{selectedTeacher.whatsAppPhone}}</span></div>
+          }
+          @if (selectedTeacher.email) {
+            <div class="detail-row"><mat-icon>email</mat-icon><span><strong>Email:</strong> {{selectedTeacher.email}}</span></div>
+          }
+          @if (selectedTeacher.bloodGroup) {
+            <div class="detail-row"><mat-icon style="color:#dc2626">water_drop</mat-icon><span><strong>Blood Group:</strong> {{selectedTeacher.bloodGroup}}</span></div>
+          }
+          @if (selectedTeacher.emergencyContactPhone) {
+            <div class="detail-row"><mat-icon>emergency</mat-icon><span><strong>Emergency:</strong> {{selectedTeacher.emergencyContactName}} ({{selectedTeacher.emergencyContactPhone}})</span></div>
+          }
+          @if (selectedTeacher.address) {
+            <div class="detail-row"><mat-icon>location_on</mat-icon><span><strong>Address:</strong> {{selectedTeacher.address}}</span></div>
+          }
         </div>
-
         <div class="detail-block">
           <span class="block-title"><mat-icon>work</mat-icon> Employment &amp; Biometrics</span>
           <div class="detail-row"><mat-icon>badge</mat-icon><span><strong>Employment:</strong> {{selectedTeacher.employmentType || 'Permanent'}}</span></div>
           <div class="detail-row"><mat-icon>calendar_today</mat-icon><span><strong>Joined:</strong> {{selectedTeacher.joiningDate | date:'dd MMM yyyy'}}</span></div>
           <div class="detail-row"><mat-icon>history_edu</mat-icon><span><strong>Experience:</strong> {{selectedTeacher.experienceYears}} years</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.dateOfBirth"><mat-icon>cake</mat-icon><span><strong>DOB:</strong> {{selectedTeacher.dateOfBirth | date:'dd MMM yyyy'}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.biometricUserId"><mat-icon>fingerprint</mat-icon><span><strong>Biometric ID:</strong> {{selectedTeacher.biometricUserId}}</span></div>
-          <div class="detail-row" *ngIf="isTeachingStaff(selectedTeacher) && selectedTeacher.classTeacherOf"><mat-icon style="color:#d97706">stars</mat-icon><span><strong>Class Teacher:</strong> {{selectedTeacher.classTeacherOf}}</span></div>
-          <div class="detail-row" *ngIf="isTeachingStaff(selectedTeacher) && selectedTeacher.assignedClasses && selectedTeacher.assignedClasses.length > 0"><mat-icon style="color:#2563eb">school</mat-icon><span><strong>Assigned Classes:</strong> {{selectedTeacher.assignedClasses.join(', ')}}</span></div>
+          @if (selectedTeacher.dateOfBirth) {
+            <div class="detail-row"><mat-icon>cake</mat-icon><span><strong>DOB:</strong> {{selectedTeacher.dateOfBirth | date:'dd MMM yyyy'}}</span></div>
+          }
+          @if (selectedTeacher.biometricUserId) {
+            <div class="detail-row"><mat-icon>fingerprint</mat-icon><span><strong>Biometric ID:</strong> {{selectedTeacher.biometricUserId}}</span></div>
+          }
+          @if (isTeachingStaff(selectedTeacher) && selectedTeacher.classTeacherOf) {
+            <div class="detail-row"><mat-icon style="color:#d97706">stars</mat-icon><span><strong>Class Teacher:</strong> {{selectedTeacher.classTeacherOf}}</span></div>
+          }
+          @if (isTeachingStaff(selectedTeacher) && selectedTeacher.assignedClasses && selectedTeacher.assignedClasses.length > 0) {
+            <div class="detail-row"><mat-icon style="color:#2563eb">school</mat-icon><span><strong>Assigned Classes:</strong> {{selectedTeacher.assignedClasses.join(', ')}}</span></div>
+          }
         </div>
-
         <!-- Bank & Statutory (Payroll) - Dynamically restricted to Admin/HR or Self -->
-        <div class="detail-block" *ngIf="canViewFinancials(selectedTeacher)">
-          <span class="block-title"><mat-icon>account_balance</mat-icon> Bank &amp; Statutory (Payroll)</span>
-          <div class="detail-row" *ngIf="selectedTeacher.bankName"><mat-icon>account_balance</mat-icon><span><strong>Bank:</strong> {{selectedTeacher.bankName}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.bankAccountNumber"><mat-icon>credit_card</mat-icon><span><strong>A/C No:</strong> {{selectedTeacher.bankAccountNumber}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.bankIfscCode"><mat-icon>tag</mat-icon><span><strong>IFSC:</strong> {{selectedTeacher.bankIfscCode}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.panNumber"><mat-icon>receipt</mat-icon><span><strong>PAN:</strong> {{selectedTeacher.panNumber}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.aadhaarNumber"><mat-icon>verified</mat-icon><span><strong>Aadhaar:</strong> {{selectedTeacher.aadhaarNumber}}</span></div>
-          <div class="detail-row" *ngIf="selectedTeacher.uanNumber"><mat-icon>savings</mat-icon><span><strong>UAN / PF:</strong> {{selectedTeacher.uanNumber}}</span></div>
-          <div class="detail-row no-bank" *ngIf="!selectedTeacher.bankAccountNumber && !selectedTeacher.panNumber">
-            <mat-icon style="color:#94a3b8">info</mat-icon>
-            <span style="color:#64748b;font-style:italic">Bank &amp; PAN not configured yet. Click Edit to update.</span>
+        @if (canViewFinancials(selectedTeacher)) {
+          <div class="detail-block">
+            <span class="block-title"><mat-icon>account_balance</mat-icon> Bank &amp; Statutory (Payroll)</span>
+            @if (selectedTeacher.bankName) {
+              <div class="detail-row"><mat-icon>account_balance</mat-icon><span><strong>Bank:</strong> {{selectedTeacher.bankName}}</span></div>
+            }
+            @if (selectedTeacher.bankAccountNumber) {
+              <div class="detail-row"><mat-icon>credit_card</mat-icon><span><strong>A/C No:</strong> {{selectedTeacher.bankAccountNumber}}</span></div>
+            }
+            @if (selectedTeacher.bankIfscCode) {
+              <div class="detail-row"><mat-icon>tag</mat-icon><span><strong>IFSC:</strong> {{selectedTeacher.bankIfscCode}}</span></div>
+            }
+            @if (selectedTeacher.panNumber) {
+              <div class="detail-row"><mat-icon>receipt</mat-icon><span><strong>PAN:</strong> {{selectedTeacher.panNumber}}</span></div>
+            }
+            @if (selectedTeacher.aadhaarNumber) {
+              <div class="detail-row"><mat-icon>verified</mat-icon><span><strong>Aadhaar:</strong> {{selectedTeacher.aadhaarNumber}}</span></div>
+            }
+            @if (selectedTeacher.uanNumber) {
+              <div class="detail-row"><mat-icon>savings</mat-icon><span><strong>UAN / PF:</strong> {{selectedTeacher.uanNumber}}</span></div>
+            }
+            @if (!selectedTeacher.bankAccountNumber && !selectedTeacher.panNumber) {
+              <div class="detail-row no-bank">
+                <mat-icon style="color:#94a3b8">info</mat-icon>
+                <span style="color:#64748b;font-style:italic">Bank &amp; PAN not configured yet. Click Edit to update.</span>
+              </div>
+            }
           </div>
-        </div>
-
+        }
         <!-- Privacy Shield for Colleagues (Dynamic) -->
-        <div class="detail-block private-block" *ngIf="!canViewFinancials(selectedTeacher)">
-          <span class="block-title"><mat-icon>security</mat-icon> Statutory &amp; Payroll Details</span>
-          <div class="private-notice">
-            <mat-icon>lock</mat-icon>
-            <div class="notice-text">
-              <strong>Confidential Employee Records</strong>
-              <p>Bank accounts, PAN, and payroll statements are private to the staff member &amp; Admin.</p>
+        @if (!canViewFinancials(selectedTeacher)) {
+          <div class="detail-block private-block">
+            <span class="block-title"><mat-icon>security</mat-icon> Statutory &amp; Payroll Details</span>
+            <div class="private-notice">
+              <mat-icon>lock</mat-icon>
+              <div class="notice-text">
+                <strong>Confidential Employee Records</strong>
+                <p>Bank accounts, PAN, and payroll statements are private to the staff member &amp; Admin.</p>
+              </div>
             </div>
           </div>
-        </div>
+        }
       </div>
-
       <mat-divider></mat-divider>
-
       <!-- Quick Navigation to Sub-Pages -->
       <div class="quick-nav">
         <p class="quick-nav-title">{{ isSelf(selectedTeacher) ? 'My Self-Service Actions →' : 'Directly Jaao →' }}</p>
         <div class="quick-nav-grid">
-          <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher) && (canManageStaff || isSelf(selectedTeacher))" [routerLink]="['/teachers/assignments']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>class</mat-icon> {{ isSelf(selectedTeacher) ? 'My Teaching Schedule' : 'Batch Assignments' }}
-          </a>
+          @if (isTeachingStaff(selectedTeacher) && (canManageStaff || isSelf(selectedTeacher))) {
+            <a mat-stroked-button [routerLink]="['/teachers/assignments']" [queryParams]="{teacherId: selectedTeacher.id}">
+              <mat-icon>class</mat-icon> {{ isSelf(selectedTeacher) ? 'My Teaching Schedule' : 'Batch Assignments' }}
+            </a>
+          }
           <!-- Attendance: Self or Admin/HR can view logs -->
-          <a mat-stroked-button *ngIf="canManageStaff || isSelf(selectedTeacher)" [routerLink]="['/teachers/attendance']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>event_available</mat-icon> {{ isSelf(selectedTeacher) ? 'My Attendance' : 'Attendance' }}
-          </a>
+          @if (canManageStaff || isSelf(selectedTeacher)) {
+            <a mat-stroked-button [routerLink]="['/teachers/attendance']" [queryParams]="{teacherId: selectedTeacher.id}">
+              <mat-icon>event_available</mat-icon> {{ isSelf(selectedTeacher) ? 'My Attendance' : 'Attendance' }}
+            </a>
+          }
           <!-- Salary Structure: Admin/HR only -->
-          <a mat-stroked-button *ngIf="canManageStaff" [routerLink]="['/teachers/salary']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>account_balance_wallet</mat-icon> Salary Structure
-          </a>
+          @if (canManageStaff) {
+            <a mat-stroked-button [routerLink]="['/teachers/salary']" [queryParams]="{teacherId: selectedTeacher.id}">
+              <mat-icon>account_balance_wallet</mat-icon> Salary Structure
+            </a>
+          }
           <!-- Salary Payments: Admin/HR or Self only -->
-          <a mat-stroked-button *ngIf="canViewFinancials(selectedTeacher)" [routerLink]="['/teachers/payments']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>payments</mat-icon> {{ isSelf(selectedTeacher) ? 'My Salary Slips' : 'Salary Payments' }}
-          </a>
+          @if (canViewFinancials(selectedTeacher)) {
+            <a mat-stroked-button [routerLink]="['/teachers/payments']" [queryParams]="{teacherId: selectedTeacher.id}">
+              <mat-icon>payments</mat-icon> {{ isSelf(selectedTeacher) ? 'My Salary Slips' : 'Salary Payments' }}
+            </a>
+          }
           <!-- Advances: Admin/HR or Self only -->
-          <a mat-stroked-button *ngIf="canViewFinancials(selectedTeacher)" [routerLink]="['/teachers/advances']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>currency_rupee</mat-icon> {{ isSelf(selectedTeacher) ? 'My Advances' : 'Advances' }}
-          </a>
+          @if (canViewFinancials(selectedTeacher)) {
+            <a mat-stroked-button [routerLink]="['/teachers/advances']" [queryParams]="{teacherId: selectedTeacher.id}">
+              <mat-icon>currency_rupee</mat-icon> {{ isSelf(selectedTeacher) ? 'My Advances' : 'Advances' }}
+            </a>
+          }
           <!-- Leaves: Self or Admin/HR only -->
-          <a mat-stroked-button *ngIf="canManageStaff || isSelf(selectedTeacher)" [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>beach_access</mat-icon> {{ isSelf(selectedTeacher) ? 'My Leaves' : 'Leave Management' }}
-          </a>
+          @if (canManageStaff || isSelf(selectedTeacher)) {
+            <a mat-stroked-button [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}">
+              <mat-icon>beach_access</mat-icon> {{ isSelf(selectedTeacher) ? 'My Leaves' : 'Leave Management' }}
+            </a>
+          }
           <!-- Proxy & Substitution: Academic coordination -->
-          <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher)" [routerLink]="['/teachers/substitution']">
-            <mat-icon>swap_horiz</mat-icon> Proxy &amp; Substitution
-          </a>
+          @if (isTeachingStaff(selectedTeacher)) {
+            <a mat-stroked-button [routerLink]="['/teachers/substitution']">
+              <mat-icon>swap_horiz</mat-icon> Proxy &amp; Substitution
+            </a>
+          }
           <!-- Lesson Diary: Academic planning -->
-          <a mat-stroked-button *ngIf="isTeachingStaff(selectedTeacher)" [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
-            <mat-icon>menu_book</mat-icon> Lesson Diary
-          </a>
+          @if (isTeachingStaff(selectedTeacher)) {
+            <a mat-stroked-button [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
+              <mat-icon>menu_book</mat-icon> Lesson Diary
+            </a>
+          }
           <!-- Transport Pass: shown if transport module is on -->
-          <a mat-stroked-button *ngIf="authService.hasTransportModule() && (canManageStaff || isSelf(selectedTeacher))" [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
-            <mat-icon style="color: #2563eb;">directions_bus</mat-icon> Transport Pass
-          </a>
+          @if (authService.hasTransportModule() && (canManageStaff || isSelf(selectedTeacher))) {
+            <a mat-stroked-button [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
+              <mat-icon style="color: #2563eb;">directions_bus</mat-icon> Transport Pass
+            </a>
+          }
           <!-- Staff Quarters: Admin/HR only -->
-          <a mat-stroked-button *ngIf="canManageStaff && authService.hasHostelModule()" [routerLink]="['/hostel']" style="color: #4f46e5; border-color: #c7d2fe;">
-            <mat-icon style="color: #4f46e5;">apartment</mat-icon> Staff Quarters
-          </a>
+          @if (canManageStaff && authService.hasHostelModule()) {
+            <a mat-stroked-button [routerLink]="['/hostel']" style="color: #4f46e5; border-color: #c7d2fe;">
+              <mat-icon style="color: #4f46e5;">apartment</mat-icon> Staff Quarters
+            </a>
+          }
           <!-- Library Account: shown if library module is on -->
-          <a mat-stroked-button *ngIf="authService.hasLibraryModule() && (canManageStaff || isSelf(selectedTeacher))" [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
-            <mat-icon style="color: #059669;">local_library</mat-icon> Library Account
-          </a>
+          @if (authService.hasLibraryModule() && (canManageStaff || isSelf(selectedTeacher))) {
+            <a mat-stroked-button [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
+              <mat-icon style="color: #059669;">local_library</mat-icon> Library Account
+            </a>
+          }
           <!-- Promotion & Appraisals: Admin/HR only -->
-          <a mat-stroked-button *ngIf="canManageStaff" [routerLink]="['/teachers/promotions']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #7c3aed; border-color: #ddd6fe;">
-            <mat-icon style="color: #7c3aed;">military_tech</mat-icon> Promotion &amp; Appraisal
-          </a>
+          @if (canManageStaff) {
+            <a mat-stroked-button [routerLink]="['/teachers/promotions']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #7c3aed; border-color: #ddd6fe;">
+              <mat-icon style="color: #7c3aed;">military_tech</mat-icon> Promotion &amp; Appraisal
+            </a>
+          }
           <!-- Exit/FNF: Admin/HR only -->
-          <a mat-stroked-button *ngIf="canManageStaff && selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
-            <mat-icon style="color: #dc2626;">exit_to_app</mat-icon> Exit / FNF
-          </a>
+          @if (canManageStaff && selectedTeacher.isActive) {
+            <a mat-stroked-button [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
+              <mat-icon style="color: #dc2626;">exit_to_app</mat-icon> Exit / FNF
+            </a>
+          }
           <!-- Relieved/Inactive Teacher: View Settled FNF Statement -->
-          <a mat-stroked-button *ngIf="canManageStaff && !selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}" style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;">
-            <mat-icon style="color: #2563eb;">receipt_long</mat-icon> FNF Statement
-          </a>
+          @if (canManageStaff && !selectedTeacher.isActive) {
+            <a mat-stroked-button [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}" style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;">
+              <mat-icon style="color: #2563eb;">receipt_long</mat-icon> FNF Statement
+            </a>
+          }
         </div>
       </div>
-
       <mat-divider></mat-divider>
-
       <div class="profile-actions">
         <div class="account-actions-group">
           <!-- Active Badge: shown when login IS created -->
-          <div class="user-account-badge" *ngIf="selectedTeacher.hasLoginAccount">
-            <mat-icon>verified_user</mat-icon>
-            <span>ERP Login {{ selectedTeacher.isActive ? 'Active' : 'Locked' }}: <strong>&#64;{{selectedTeacher.username}}</strong></span>
-          </div>
+          @if (selectedTeacher.hasLoginAccount) {
+            <div class="user-account-badge">
+              <mat-icon>verified_user</mat-icon>
+              <span>ERP Login {{ selectedTeacher.isActive ? 'Active' : 'Locked' }}: <strong>&#64;{{selectedTeacher.username}}</strong></span>
+            </div>
+          }
           <!-- Create Login Button: Admin/HR only when login is NOT created yet -->
-          <button mat-stroked-button color="accent" *ngIf="canManageStaff && selectedTeacher.isActive && !selectedTeacher.hasLoginAccount" (click)="openCreateAccountDialog(selectedTeacher)">
-            <mat-icon>person_add_alt</mat-icon> Create ERP Login
-          </button>
+          @if (canManageStaff && selectedTeacher.isActive && !selectedTeacher.hasLoginAccount) {
+            <button mat-stroked-button color="accent" (click)="openCreateAccountDialog(selectedTeacher)">
+              <mat-icon>person_add_alt</mat-icon> Create ERP Login
+            </button>
+          }
         </div>
         <!-- Staff ID Card: Admin/HR can print all; Teacher prints own only -->
-        <button mat-stroked-button color="primary" *ngIf="selectedTeacher.isActive && canViewDocs(selectedTeacher)" (click)="openSingleIdCard(selectedTeacher)">
-          <mat-icon>badge</mat-icon> {{ isSelf(selectedTeacher) ? 'My Staff ID Card' : 'Staff ID Card' }}
-        </button>
+        @if (selectedTeacher.isActive && canViewDocs(selectedTeacher)) {
+          <button mat-stroked-button color="primary" (click)="openSingleIdCard(selectedTeacher)">
+            <mat-icon>badge</mat-icon> {{ isSelf(selectedTeacher) ? 'My Staff ID Card' : 'Staff ID Card' }}
+          </button>
+        }
         <!-- KYC & Docs: Admin/HR can view all; Teacher views own only -->
-        <button mat-stroked-button color="accent" *ngIf="selectedTeacher.isActive && canViewDocs(selectedTeacher)" (click)="openDocumentsModal(selectedTeacher)">
-          <mat-icon>folder_shared</mat-icon> {{ isSelf(selectedTeacher) ? 'My KYC & Docs' : 'KYC & Docs' }}
-        </button>
-
+        @if (selectedTeacher.isActive && canViewDocs(selectedTeacher)) {
+          <button mat-stroked-button color="accent" (click)="openDocumentsModal(selectedTeacher)">
+            <mat-icon>folder_shared</mat-icon> {{ isSelf(selectedTeacher) ? 'My KYC & Docs' : 'KYC & Docs' }}
+          </button>
+        }
         <!-- Exit / FNF Settlement: Admin/HR only -->
-        <a mat-stroked-button color="warn" *ngIf="canManageStaff && selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
-          <mat-icon>exit_to_app</mat-icon> Exit / FNF Settlement
-        </a>
-
+        @if (canManageStaff && selectedTeacher.isActive) {
+          <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <mat-icon>exit_to_app</mat-icon> Exit / FNF Settlement
+          </a>
+        }
         <!-- Offboarded / Relieved Teacher: View FNF Statement & Certificate -->
-        <a mat-stroked-button style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;" *ngIf="canManageStaff && !selectedTeacher.isActive" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
-          <mat-icon style="color: #2563eb;">receipt_long</mat-icon> View FNF Statement
-        </a>
-
+        @if (canManageStaff && !selectedTeacher.isActive) {
+          <a mat-stroked-button style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
+            <mat-icon style="color: #2563eb;">receipt_long</mat-icon> View FNF Statement
+          </a>
+        }
         <!-- Edit Profile: Admin/HR only -->
-        <button mat-raised-button color="primary" *ngIf="canManageStaff && selectedTeacher.isActive" (click)="editTeacher(selectedTeacher)">
-          <mat-icon>edit</mat-icon> Edit Profile
-        </button>
+        @if (canManageStaff && selectedTeacher.isActive) {
+          <button mat-raised-button color="primary" (click)="editTeacher(selectedTeacher)">
+            <mat-icon>edit</mat-icon> Edit Profile
+          </button>
+        }
         <!-- Remove: Admin only (not HR) -->
-        <button mat-raised-button color="warn" *ngIf="authService.isAdmin() && selectedTeacher.isActive" (click)="deleteTeacher(selectedTeacher.id)">
-          <mat-icon>delete</mat-icon> Remove
-        </button>
+        @if (authService.isAdmin() && selectedTeacher.isActive) {
+          <button mat-raised-button color="warn" (click)="deleteTeacher(selectedTeacher.id)">
+            <mat-icon>delete</mat-icon> Remove
+          </button>
+        }
       </div>
     </mat-card>
   </div>
+}
 
-  <!-- ── TEACHER GRID ── -->
-  <div class="teachers-grid" *ngIf="!showForm">
-    <mat-card class="teacher-card mat-elevation-z2"
-      *ngFor="let t of teachers"
-      [class.selected-card]="selectedTeacher?.id === t.id"
-      (click)="selectTeacher(t)">
-      <div class="card-avatar" [class.has-photo]="!!t.photoUrl && !imgLoadErrors[t.id]">
-        <img *ngIf="t.photoUrl && !imgLoadErrors[t.id]"
-             [src]="getPhotoUrl(t.photoUrl)"
-             [alt]="t.fullName"
-             class="card-photo-img"
-             (error)="imgLoadErrors[t.id] = true">
-        <div *ngIf="!t.photoUrl || imgLoadErrors[t.id]" class="card-initials-badge">
-          {{getInitials(t.fullName)}}
+<!-- ── TEACHER GRID ── -->
+@if (!showForm) {
+  <div class="teachers-grid">
+    @for (t of teachers; track t) {
+      <mat-card class="teacher-card mat-elevation-z2"
+        [class.selected-card]="selectedTeacher?.id === t.id"
+        (click)="selectTeacher(t)">
+        <div class="card-avatar" [class.has-photo]="!!t.photoUrl && !imgLoadErrors[t.id]">
+          @if (t.photoUrl && !imgLoadErrors[t.id]) {
+            <img
+              [src]="getPhotoUrl(t.photoUrl)"
+              [alt]="t.fullName"
+              class="card-photo-img"
+              (error)="imgLoadErrors[t.id] = true">
+          }
+          @if (!t.photoUrl || imgLoadErrors[t.id]) {
+            <div class="card-initials-badge">
+              {{getInitials(t.fullName)}}
+            </div>
+          }
+          @if (t.photoUrl && !imgLoadErrors[t.id]) {
+            <button mat-icon-button class="card-photo-zoom-btn"
+              (click)="$event.stopPropagation(); openPhotoPreview(t.photoUrl, t.fullName)"
+              matTooltip="View Full Photo">
+              <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;">zoom_in</mat-icon>
+            </button>
+          }
         </div>
-        <button mat-icon-button class="card-photo-zoom-btn"
-                *ngIf="t.photoUrl && !imgLoadErrors[t.id]"
-                (click)="$event.stopPropagation(); openPhotoPreview(t.photoUrl, t.fullName)"
-                matTooltip="View Full Photo">
-          <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;">zoom_in</mat-icon>
-        </button>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="emp-code">{{t.employeeCode}}</span>
+            <span class="staff-mini-pill" [class.non-teach]="!isTeachingStaff(t)">
+              {{ isTeachingStaff(t) ? 'Faculty' : (t.designation || 'Staff') }}
+            </span>
+            <!-- Active login key icon -->
+            @if (t.hasLoginAccount) {
+              <span class="login-badge-chip" [matTooltip]="'ERP Login Active (@' + (t.username || '') + ')'">
+                <mat-icon>vpn_key</mat-icon>
+              </span>
+            }
+            <!-- Not created login: show + Login button -->
+            @if (!t.hasLoginAccount && canManageStaff && t.isActive) {
+              <button mat-button class="card-create-login-btn"
+                (click)="$event.stopPropagation(); openCreateAccountDialog(t)"
+                matTooltip="Create ERP Login account for this staff member">
+                <mat-icon>person_add_alt</mat-icon> + Login
+              </button>
+            }
+            <span class="active-dot" [class.active]="t.isActive" [class.inactive]="!t.isActive"></span>
+          </div>
+          <h4>{{t.fullName}}</h4>
+          @if (isTeachingStaff(t)) {
+            <p class="spec">{{t.specialization || 'Teaching Faculty'}}</p>
+          }
+          @if (!isTeachingStaff(t)) {
+            <p class="spec non-teach-spec">{{t.designation || 'Staff'}} @if (t.department) {
+              <span>({{t.department}})</span>
+            }</p>
+          }
+          <p class="qual">{{t.qualification || ''}}</p>
+          <!-- Class Teacher Pill (if assigned) -->
+          @if (isTeachingStaff(t) && t.classTeacherOf) {
+            <div class="card-class-teacher-pill" [matTooltip]="'Designated Class Teacher: ' + t.classTeacherOf">
+              <mat-icon>stars</mat-icon>
+              <span>Class Teacher: <strong>{{t.classTeacherOf}}</strong></span>
+            </div>
+          }
+          <!-- Assigned Classes / Batches Pills -->
+          @if (isTeachingStaff(t) && t.assignedClasses && t.assignedClasses.length > 0) {
+            <div class="card-classes-row" [matTooltip]="'All assigned classes/batches: ' + t.assignedClasses.join(', ')">
+              <span class="classes-label"><mat-icon>school</mat-icon> Classes:</span>
+              @for (c of t.assignedClasses.slice(0, 2); track c) {
+                <span class="class-pill">{{c}}</span>
+              }
+              @if (t.assignedClasses.length > 2) {
+                <span class="class-pill-more">+{{t.assignedClasses.length - 2}} more</span>
+              }
+            </div>
+          }
+          <!-- No class assigned placeholder (for teaching faculty only) -->
+          @if (isTeachingStaff(t) && (!t.assignedClasses || t.assignedClasses.length === 0) && !t.classTeacherOf) {
+            <div class="card-classes-row no-class">
+              <span class="no-class-text"><mat-icon>info_outline</mat-icon> No class assigned</span>
+            </div>
+          }
+          <div class="card-meta">
+            @if (isTeachingStaff(t)) {
+              <span><mat-icon>class</mat-icon>{{t.assignedBatchCount}} Batches</span>
+            }
+            @if (!isTeachingStaff(t)) {
+              <span><mat-icon>apartment</mat-icon>{{t.department || 'Staff'}}</span>
+            }
+            <span><mat-icon>work_history</mat-icon>{{t.experienceYears}}y exp</span>
+          </div>
+          <div class="card-phone"><mat-icon>phone</mat-icon>{{t.phoneNumber}}</div>
+          <!-- Quick Action Buttons -->
+          <div class="card-footer-actions">
+            @if (canManageStaff && t.isActive) {
+              <button mat-button class="card-action-btn edit-btn" (click)="$event.stopPropagation(); editTeacher(t)" matTooltip="Edit details at top">
+                <mat-icon>edit</mat-icon> Edit
+              </button>
+            }
+            <button mat-button class="card-action-btn view-btn" (click)="$event.stopPropagation(); viewTeacherProfile(t)" matTooltip="View Full Profile &amp; Records">
+              <mat-icon>visibility</mat-icon> Profile
+            </button>
+          </div>
+        </div>
+      </mat-card>
+    }
+    @if (teachers.length === 0 && !loading) {
+      <div class="empty-state">
+        <mat-icon>person_off</mat-icon>
+        <p>No staff or faculty records found. Click "Add Staff / Teacher" above to get started.</p>
       </div>
-      <div class="card-body">
-        <div class="card-top">
-          <span class="emp-code">{{t.employeeCode}}</span>
-          <span class="staff-mini-pill" [class.non-teach]="!isTeachingStaff(t)">
-            {{ isTeachingStaff(t) ? 'Faculty' : (t.designation || 'Staff') }}
-          </span>
-          <!-- Active login key icon -->
-          <span class="login-badge-chip" *ngIf="t.hasLoginAccount" [matTooltip]="'ERP Login Active (@' + (t.username || '') + ')'">
-            <mat-icon>vpn_key</mat-icon>
-          </span>
-          <!-- Not created login: show + Login button -->
-          <button mat-button class="card-create-login-btn"
-                  *ngIf="!t.hasLoginAccount && canManageStaff && t.isActive"
-                  (click)="$event.stopPropagation(); openCreateAccountDialog(t)"
-                  matTooltip="Create ERP Login account for this staff member">
-            <mat-icon>person_add_alt</mat-icon> + Login
-          </button>
-          <span class="active-dot" [class.active]="t.isActive" [class.inactive]="!t.isActive"></span>
-        </div>
-        <h4>{{t.fullName}}</h4>
-        <p class="spec" *ngIf="isTeachingStaff(t)">{{t.specialization || 'Teaching Faculty'}}</p>
-        <p class="spec non-teach-spec" *ngIf="!isTeachingStaff(t)">{{t.designation || 'Staff'}} <span *ngIf="t.department">({{t.department}})</span></p>
-        <p class="qual">{{t.qualification || ''}}</p>
-
-        <!-- Class Teacher Pill (if assigned) -->
-        <div class="card-class-teacher-pill" *ngIf="isTeachingStaff(t) && t.classTeacherOf" [matTooltip]="'Designated Class Teacher: ' + t.classTeacherOf">
-          <mat-icon>stars</mat-icon>
-          <span>Class Teacher: <strong>{{t.classTeacherOf}}</strong></span>
-        </div>
-
-        <!-- Assigned Classes / Batches Pills -->
-        <div class="card-classes-row" *ngIf="isTeachingStaff(t) && t.assignedClasses && t.assignedClasses.length > 0" [matTooltip]="'All assigned classes/batches: ' + t.assignedClasses.join(', ')">
-          <span class="classes-label"><mat-icon>school</mat-icon> Classes:</span>
-          <span class="class-pill" *ngFor="let c of t.assignedClasses.slice(0, 2)">{{c}}</span>
-          <span class="class-pill-more" *ngIf="t.assignedClasses.length > 2">+{{t.assignedClasses.length - 2}} more</span>
-        </div>
-
-        <!-- No class assigned placeholder (for teaching faculty only) -->
-        <div class="card-classes-row no-class" *ngIf="isTeachingStaff(t) && (!t.assignedClasses || t.assignedClasses.length === 0) && !t.classTeacherOf">
-          <span class="no-class-text"><mat-icon>info_outline</mat-icon> No class assigned</span>
-        </div>
-
-        <div class="card-meta">
-          <span *ngIf="isTeachingStaff(t)"><mat-icon>class</mat-icon>{{t.assignedBatchCount}} Batches</span>
-          <span *ngIf="!isTeachingStaff(t)"><mat-icon>apartment</mat-icon>{{t.department || 'Staff'}}</span>
-          <span><mat-icon>work_history</mat-icon>{{t.experienceYears}}y exp</span>
-        </div>
-        <div class="card-phone"><mat-icon>phone</mat-icon>{{t.phoneNumber}}</div>
-
-        <!-- Quick Action Buttons -->
-        <div class="card-footer-actions">
-          <button mat-button class="card-action-btn edit-btn" *ngIf="canManageStaff && t.isActive" (click)="$event.stopPropagation(); editTeacher(t)" matTooltip="Edit details at top">
-            <mat-icon>edit</mat-icon> Edit
-          </button>
-          <button mat-button class="card-action-btn view-btn" (click)="$event.stopPropagation(); viewTeacherProfile(t)" matTooltip="View Full Profile &amp; Records">
-            <mat-icon>visibility</mat-icon> Profile
-          </button>
-        </div>
-      </div>
-    </mat-card>
-
-    <div class="empty-state" *ngIf="teachers.length === 0 && !loading">
-      <mat-icon>person_off</mat-icon>
-      <p>No staff or faculty records found. Click "Add Staff / Teacher" above to get started.</p>
-    </div>
+    }
   </div>
+}
 
-  <!-- Pagination -->
-  <div class="pagination" *ngIf="totalCount > pageSize && !showForm">
+<!-- Pagination -->
+@if (totalCount > pageSize && !showForm) {
+  <div class="pagination">
     <button mat-icon-button [disabled]="pageNumber === 1" (click)="changePage(-1)">
       <mat-icon>chevron_left</mat-icon>
     </button>
@@ -739,14 +900,20 @@ import { environment } from '../../../environments/environment';
       <mat-icon>chevron_right</mat-icon>
     </button>
   </div>
+}
 
-  <!-- Create Teacher Login Modal -->
-  <div class="account-drawer-overlay" *ngIf="showAccountModal">
+<!-- Create Teacher Login Modal -->
+@if (showAccountModal) {
+  <div class="account-drawer-overlay">
     <mat-card class="account-drawer-card mat-elevation-z4">
       <div class="account-drawer-header">
         <div class="hdr-icon">
-          <img *ngIf="accountPhoto || accountTeacher?.photoUrl" [src]="getPhotoUrl(accountPhoto || accountTeacher?.photoUrl)" [alt]="accountTeacher?.fullName" class="hdr-avatar-img" />
-          <mat-icon *ngIf="!(accountPhoto || accountTeacher?.photoUrl)">lock_person</mat-icon>
+          @if (accountPhoto || accountTeacher?.photoUrl) {
+            <img [src]="getPhotoUrl(accountPhoto || accountTeacher?.photoUrl)" [alt]="$safeNavigationMigration(accountTeacher?.fullName)" class="hdr-avatar-img" />
+          }
+          @if (!(accountPhoto || accountTeacher?.photoUrl)) {
+            <mat-icon>lock_person</mat-icon>
+          }
         </div>
         <div class="hdr-text">
           <h3>Create Staff ERP Login</h3>
@@ -758,8 +925,12 @@ import { environment } from '../../../environments/environment';
         <!-- Photo Upload Row -->
         <div class="photo-upload-row">
           <div class="avatar-preview-box">
-            <img *ngIf="accountPhoto || accountTeacher?.photoUrl" [src]="getPhotoUrl(accountPhoto || accountTeacher?.photoUrl)" class="avatar-preview-img" alt="Staff Photo" />
-            <mat-icon *ngIf="!(accountPhoto || accountTeacher?.photoUrl)" class="avatar-fallback-icon">account_circle</mat-icon>
+            @if (accountPhoto || accountTeacher?.photoUrl) {
+              <img [src]="getPhotoUrl(accountPhoto || accountTeacher?.photoUrl)" class="avatar-preview-img" alt="Staff Photo" />
+            }
+            @if (!(accountPhoto || accountTeacher?.photoUrl)) {
+              <mat-icon class="avatar-fallback-icon">account_circle</mat-icon>
+            }
           </div>
           <div class="photo-meta-group">
             <div class="photo-title">Staff Profile Photo</div>
@@ -770,28 +941,29 @@ import { environment } from '../../../environments/environment';
                 <mat-icon>photo_camera</mat-icon>
                 <span>{{ (accountPhoto || accountTeacher?.photoUrl) ? 'Change Photo' : 'Upload Photo' }}</span>
               </button>
-              <button mat-button color="warn" type="button" class="remove-btn" *ngIf="accountPhoto || accountTeacher?.photoUrl" (click)="removeAccountPhoto()">
-                <mat-icon>delete_outline</mat-icon>
-                <span>Remove</span>
-              </button>
+              @if (accountPhoto || accountTeacher?.photoUrl) {
+                <button mat-button color="warn" type="button" class="remove-btn" (click)="removeAccountPhoto()">
+                  <mat-icon>delete_outline</mat-icon>
+                  <span>Remove</span>
+                </button>
+              }
             </div>
           </div>
         </div>
-
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Assign Portal Role *</mat-label>
           <mat-select [(ngModel)]="accountFormData.roleId">
-            <mat-option *ngFor="let r of systemRoles" [value]="r.id">{{r.name}}</mat-option>
+            @for (r of systemRoles; track r) {
+              <mat-option [value]="r.id">{{r.name}}</mat-option>
+            }
           </mat-select>
           <mat-hint>Determines page permissions &amp; accessible ERP modules</mat-hint>
         </mat-form-field>
-
         <mat-form-field appearance="outline" class="full-width" style="margin-top: 10px;">
           <mat-label>Login Username *</mat-label>
           <input matInput [(ngModel)]="accountFormData.username" placeholder="e.g. rahul.sharma" />
           <mat-hint>Staff member will use this to sign into IMSERP</mat-hint>
         </mat-form-field>
-
         <mat-form-field appearance="outline" class="full-width" style="margin-top: 10px;">
           <mat-label>Initial Password *</mat-label>
           <input matInput type="text" [(ngModel)]="accountFormData.password" placeholder="e.g. Staff@123" />
@@ -807,9 +979,11 @@ import { environment } from '../../../environments/environment';
       </div>
     </mat-card>
   </div>
+}
 
-  <!-- Full Photo Preview Lightbox Dialog -->
-  <div class="photo-lightbox-backdrop" *ngIf="previewPhotoUrl" (click)="previewPhotoUrl = null">
+<!-- Full Photo Preview Lightbox Dialog -->
+@if (previewPhotoUrl) {
+  <div class="photo-lightbox-backdrop" (click)="previewPhotoUrl = null">
     <div class="photo-lightbox-modal" (click)="$event.stopPropagation()">
       <div class="lightbox-header">
         <div class="lightbox-title-box">
@@ -825,8 +999,10 @@ import { environment } from '../../../environments/environment';
       </div>
     </div>
   </div>
+}
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display:flex; flex-direction:column; gap:20px; }
     .page-header {

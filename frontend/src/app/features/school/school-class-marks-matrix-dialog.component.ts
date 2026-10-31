@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -80,24 +80,28 @@ interface EditableStudentRow {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Filter Controls Strip -->
       <div class="filters-strip">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ctrl-field">
           <mat-label>Target Class *</mat-label>
           <mat-select [(value)]="selectedClassId" (selectionChange)="onClassChange()">
-            <mat-option *ngFor="let c of data.classes" [value]="c.id">{{ c.name }}</mat-option>
+            @for (c of data.classes; track c) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
+    
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ctrl-field">
           <mat-label>Section</mat-label>
           <mat-select [(value)]="selectedSectionId" (selectionChange)="loadMatrix()">
             <mat-option value="">All Sections</mat-option>
-            <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
+            @for (s of sections; track s) {
+              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
+    
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ctrl-field">
           <mat-label>Academic Session *</mat-label>
           <mat-select [(value)]="selectedAcademicYear" (selectionChange)="loadMatrix()">
@@ -106,7 +110,7 @@ interface EditableStudentRow {
             <mat-option value="2026-2027">2026-2027</mat-option>
           </mat-select>
         </mat-form-field>
-
+    
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ctrl-field">
           <mat-label>Exam Type / Term *</mat-label>
           <mat-select [(value)]="selectedExamType" (selectionChange)="loadMatrix()">
@@ -118,153 +122,164 @@ interface EditableStudentRow {
             <mat-option value="Pre-Board">Pre-Board Exam</mat-option>
           </mat-select>
         </mat-form-field>
-
+    
         <button mat-stroked-button color="primary" class="reload-btn" (click)="loadMatrix()" [disabled]="loading" matTooltip="Refresh data from server">
           <mat-icon>refresh</mat-icon>
           <span>Reload</span>
         </button>
       </div>
-
+    
       <!-- Quick Search & Actions Strip -->
-      <div class="search-actions-strip" *ngIf="!loading && subjects.length > 0">
-        <div class="search-input-box">
-          <mat-icon>search</mat-icon>
-          <input type="text" [(ngModel)]="searchStudentText" placeholder="Search student by name or roll number...">
-          <button *ngIf="searchStudentText" (click)="searchStudentText = ''" class="clear-btn">
-            <mat-icon>close</mat-icon>
-          </button>
+      @if (!loading && subjects.length > 0) {
+        <div class="search-actions-strip">
+          <div class="search-input-box">
+            <mat-icon>search</mat-icon>
+            <input type="text" [(ngModel)]="searchStudentText" placeholder="Search student by name or roll number...">
+            @if (searchStudentText) {
+              <button (click)="searchStudentText = ''" class="clear-btn">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
+          </div>
+          <div class="quick-helpers">
+            <span class="info-pill">
+              <mat-icon>school</mat-icon> {{ subjects.length }} Subject Papers
+            </span>
+            <span class="info-pill">
+              <mat-icon>groups</mat-icon> {{ students.length }} Students
+            </span>
+            <button mat-button color="primary" (click)="markAllPresent()" matTooltip="Clear absent flag for all students">
+              <mat-icon>done_all</mat-icon> Mark All Present
+            </button>
+          </div>
         </div>
-
-        <div class="quick-helpers">
-          <span class="info-pill">
-            <mat-icon>school</mat-icon> {{ subjects.length }} Subject Papers
-          </span>
-          <span class="info-pill">
-            <mat-icon>groups</mat-icon> {{ students.length }} Students
-          </span>
-          <button mat-button color="primary" (click)="markAllPresent()" matTooltip="Clear absent flag for all students">
-            <mat-icon>done_all</mat-icon> Mark All Present
-          </button>
-        </div>
-      </div>
-
+      }
+    
       <!-- Matrix Content Body -->
       <div class="dialog-body">
-
+    
         <!-- Empty State: No Exams -->
-        <div class="matrix-empty" *ngIf="!loading && subjects.length === 0">
-          <mat-icon class="empty-icon">event_busy</mat-icon>
-          <h3>No Exam Papers Found</h3>
-          <p>
-            There are no exam papers scheduled for <strong>{{ getClassName() }}</strong> under 
-            <strong>{{ selectedExamType }}</strong> ({{ selectedAcademicYear }}).
-          </p>
-          <p class="sub-hint">Please schedule bulk exams first from the "Bulk Exam Scheduler" tab before entering marks.</p>
-        </div>
-
+        @if (!loading && subjects.length === 0) {
+          <div class="matrix-empty">
+            <mat-icon class="empty-icon">event_busy</mat-icon>
+            <h3>No Exam Papers Found</h3>
+            <p>
+              There are no exam papers scheduled for <strong>{{ getClassName() }}</strong> under
+              <strong>{{ selectedExamType }}</strong> ({{ selectedAcademicYear }}).
+            </p>
+            <p class="sub-hint">Please schedule bulk exams first from the "Bulk Exam Scheduler" tab before entering marks.</p>
+          </div>
+        }
+    
         <!-- Empty State: No Students -->
-        <div class="matrix-empty" *ngIf="!loading && subjects.length > 0 && students.length === 0">
-          <mat-icon class="empty-icon">group_off</mat-icon>
-          <h3>No Enrolled Students Found</h3>
-          <p>There are no active school students enrolled in <strong>{{ getClassName() }}</strong>.</p>
-        </div>
-
+        @if (!loading && subjects.length > 0 && students.length === 0) {
+          <div class="matrix-empty">
+            <mat-icon class="empty-icon">group_off</mat-icon>
+            <h3>No Enrolled Students Found</h3>
+            <p>There are no active school students enrolled in <strong>{{ getClassName() }}</strong>.</p>
+          </div>
+        }
+    
         <!-- The Multi-Subject Dynamic Grid Table -->
-        <div class="table-scroll-container" *ngIf="!loading && subjects.length > 0 && students.length > 0">
-          <table class="marks-matrix-table">
-            <thead>
-              <tr>
-                <th class="th-fixed th-roll">Roll #</th>
-                <th class="th-fixed th-name">Student Name</th>
-                <!-- Dynamic Subject Columns -->
-                <th *ngFor="let sub of subjects" class="th-subject">
-                  <div class="sub-hdr">
-                    <span class="sub-name" [matTooltip]="sub.subjectName">{{ sub.subjectName }}</span>
-                    <span class="sub-meta">Max: {{ sub.maxMarks }} | Pass: {{ sub.passingMarks }}</span>
-                  </div>
-                </th>
-                <!-- Summary Dynamic Columns -->
-                <th class="th-summary th-total">Total</th>
-                <th class="th-summary th-pct">%</th>
-                <th class="th-summary th-status">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let s of filteredStudents; let i = index" [class.row-alt]="i % 2 === 1">
-                <!-- Roll Number -->
-                <td class="td-fixed td-roll">
-                  <span class="roll-badge">{{ s.rollNumber || (i + 1) }}</span>
-                </td>
-
-                <!-- Student Name & Admission Number -->
-                <td class="td-fixed td-name">
-                  <div class="student-name-cell">
-                    <strong>{{ s.studentName }}</strong>
-                    <span class="adm-no">Adm: {{ s.admissionNumber }}</span>
-                  </div>
-                </td>
-
-                <!-- Dynamic Subject Mark Cells -->
-                <td *ngFor="let sub of subjects" class="td-mark-cell" [class.cell-absent]="s.marks[sub.examId].isAbsent">
-                  <div class="mark-cell-wrapper">
-                    <!-- Absent Toggle Button -->
-                    <button
-                      type="button"
-                      class="btn-absent-toggle"
-                      [class.active-absent]="s.marks[sub.examId].isAbsent"
-                      (click)="toggleAbsent(s, sub.examId)"
-                      [matTooltip]="s.marks[sub.examId].isAbsent ? 'Student is Absent. Click to mark Present.' : 'Mark Absent'">
-                      {{ s.marks[sub.examId].isAbsent ? 'ABS' : 'P' }}
-                    </button>
-
-                    <!-- Number Input for Marks -->
-                    <input
-                      type="number"
-                      class="mark-input"
-                      [class.input-error]="isMarkOverMax(s, sub)"
-                      [disabled]="s.marks[sub.examId].isAbsent"
-                      [(ngModel)]="s.marks[sub.examId].marksObtained"
-                      [min]="0"
-                      [max]="sub.maxMarks"
-                      placeholder="-"
-                      (keydown)="onInputKeydown($event, i, sub.examId)">
-                  </div>
-                </td>
-
-                <!-- Computed Total Marks -->
-                <td class="td-summary td-total">
-                  <strong>{{ calculateStudentTotal(s) }}</strong>
-                  <span class="total-max">/ {{ calculateTotalMax() }}</span>
-                </td>
-
-                <!-- Computed Percentage -->
-                <td class="td-summary td-pct">
-                  <span class="pct-val" [class.pct-pass]="calculatePercentage(s) >= 33" [class.pct-fail]="calculatePercentage(s) < 33">
-                    {{ calculatePercentage(s) | number:'1.1-1' }}%
-                  </span>
-                </td>
-
-                <!-- Computed Status Badge -->
-                <td class="td-summary td-status">
-                  <span class="status-badge" [ngClass]="getStudentStatusClass(s)">
-                    {{ getStudentStatusText(s) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        @if (!loading && subjects.length > 0 && students.length > 0) {
+          <div class="table-scroll-container">
+            <table class="marks-matrix-table">
+              <thead>
+                <tr>
+                  <th class="th-fixed th-roll">Roll #</th>
+                  <th class="th-fixed th-name">Student Name</th>
+                  <!-- Dynamic Subject Columns -->
+                  @for (sub of subjects; track sub) {
+                    <th class="th-subject">
+                      <div class="sub-hdr">
+                        <span class="sub-name" [matTooltip]="sub.subjectName">{{ sub.subjectName }}</span>
+                        <span class="sub-meta">Max: {{ sub.maxMarks }} | Pass: {{ sub.passingMarks }}</span>
+                      </div>
+                    </th>
+                  }
+                  <!-- Summary Dynamic Columns -->
+                  <th class="th-summary th-total">Total</th>
+                  <th class="th-summary th-pct">%</th>
+                  <th class="th-summary th-status">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of filteredStudents; track s; let i = $index) {
+                  <tr [class.row-alt]="i % 2 === 1">
+                    <!-- Roll Number -->
+                    <td class="td-fixed td-roll">
+                      <span class="roll-badge">{{ s.rollNumber || (i + 1) }}</span>
+                    </td>
+                    <!-- Student Name & Admission Number -->
+                    <td class="td-fixed td-name">
+                      <div class="student-name-cell">
+                        <strong>{{ s.studentName }}</strong>
+                        <span class="adm-no">Adm: {{ s.admissionNumber }}</span>
+                      </div>
+                    </td>
+                    <!-- Dynamic Subject Mark Cells -->
+                    @for (sub of subjects; track sub) {
+                      <td class="td-mark-cell" [class.cell-absent]="s.marks[sub.examId].isAbsent">
+                        <div class="mark-cell-wrapper">
+                          <!-- Absent Toggle Button -->
+                          <button
+                            type="button"
+                            class="btn-absent-toggle"
+                            [class.active-absent]="s.marks[sub.examId].isAbsent"
+                            (click)="toggleAbsent(s, sub.examId)"
+                            [matTooltip]="s.marks[sub.examId].isAbsent ? 'Student is Absent. Click to mark Present.' : 'Mark Absent'">
+                            {{ s.marks[sub.examId].isAbsent ? 'ABS' : 'P' }}
+                          </button>
+                          <!-- Number Input for Marks -->
+                          <input
+                            type="number"
+                            class="mark-input"
+                            [class.input-error]="isMarkOverMax(s, sub)"
+                            [disabled]="s.marks[sub.examId].isAbsent"
+                            [(ngModel)]="s.marks[sub.examId].marksObtained"
+                            [min]="0"
+                            [max]="sub.maxMarks"
+                            placeholder="-"
+                            (keydown)="onInputKeydown($event, i, sub.examId)">
+                        </div>
+                      </td>
+                    }
+                    <!-- Computed Total Marks -->
+                    <td class="td-summary td-total">
+                      <strong>{{ calculateStudentTotal(s) }}</strong>
+                      <span class="total-max">/ {{ calculateTotalMax() }}</span>
+                    </td>
+                    <!-- Computed Percentage -->
+                    <td class="td-summary td-pct">
+                      <span class="pct-val" [class.pct-pass]="calculatePercentage(s) >= 33" [class.pct-fail]="calculatePercentage(s) < 33">
+                        {{ calculatePercentage(s) | number:'1.1-1' }}%
+                      </span>
+                    </td>
+                    <!-- Computed Status Badge -->
+                    <td class="td-summary td-status">
+                      <span class="status-badge" [ngClass]="getStudentStatusClass(s)">
+                        {{ getStudentStatusText(s) }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </div>
-
+    
       <!-- Action Footer -->
       <div class="modal-footer">
         <div class="footer-left">
-          <div class="footer-stat" *ngIf="students.length > 0">
-            <mat-icon>check_circle</mat-icon>
-            <span>Ready to save <strong>{{ students.length }}</strong> student row(s) across <strong>{{ subjects.length }}</strong> subjects.</span>
-          </div>
+          @if (students.length > 0) {
+            <div class="footer-stat">
+              <mat-icon>check_circle</mat-icon>
+              <span>Ready to save <strong>{{ students.length }}</strong> student row(s) across <strong>{{ subjects.length }}</strong> subjects.</span>
+            </div>
+          }
         </div>
-
+    
         <div class="footer-right">
           <button mat-stroked-button type="button" class="btn-cancel" (click)="onClose()">
             Cancel
@@ -275,14 +290,19 @@ interface EditableStudentRow {
             class="btn-save-all"
             (click)="saveAllMarks()"
             [disabled]="saving || loading || students.length === 0 || subjects.length === 0">
-            <mat-icon *ngIf="!saving">save</mat-icon>
-            <mat-spinner diameter="18" *ngIf="saving"></mat-spinner>
+            @if (!saving) {
+              <mat-icon>save</mat-icon>
+            }
+            @if (saving) {
+              <mat-spinner diameter="18"></mat-spinner>
+            }
             <span>Save All Marks (सभी अंक सेव करें)</span>
           </button>
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .matrix-dialog-wrapper {
       display: flex;

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -43,12 +43,14 @@ import { BranchDialogComponent } from './branch-dialog.component';
           <h2 class="page-title">Branch Management</h2>
           <p class="page-subtitle">Manage multi-branch operations, campus locations, codes, and branch-level statistics.</p>
         </div>
-        <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()" *ngIf="canManageBranches">
-          <mat-icon>add_business</mat-icon>
-          <span>Add New Branch</span>
-        </button>
+        @if (canManageBranches) {
+          <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()">
+            <mat-icon>add_business</mat-icon>
+            <span>Add New Branch</span>
+          </button>
+        }
       </div>
-
+    
       <!-- KPI Summary Cards -->
       <div class="kpi-container">
         <mat-card class="kpi-card blue">
@@ -62,7 +64,7 @@ import { BranchDialogComponent } from './branch-dialog.component';
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card emerald">
           <div class="kpi-inner">
             <div>
@@ -74,7 +76,7 @@ import { BranchDialogComponent } from './branch-dialog.component';
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card amber">
           <div class="kpi-inner">
             <div>
@@ -86,7 +88,7 @@ import { BranchDialogComponent } from './branch-dialog.component';
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card violet">
           <div class="kpi-inner">
             <div>
@@ -99,7 +101,7 @@ import { BranchDialogComponent } from './branch-dialog.component';
           </div>
         </mat-card>
       </div>
-
+    
       <!-- Main Content Card -->
       <mat-card class="table-card">
         <!-- Search & Actions Bar -->
@@ -111,133 +113,144 @@ import { BranchDialogComponent } from './branch-dialog.component';
               placeholder="Search by branch name, code, or address..."
               [(ngModel)]="searchQuery"
               (ngModelChange)="filterBranches()"
-            />
-            <button mat-icon-button *ngIf="searchQuery" (click)="searchQuery = ''; filterBranches()">
-              <mat-icon>close</mat-icon>
-            </button>
+              />
+            @if (searchQuery) {
+              <button mat-icon-button (click)="searchQuery = ''; filterBranches()">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </div>
-
+    
           <div class="toolbar-stats">
             Showing <strong>{{ filteredBranches.length }}</strong> of {{ branches.length }} branches
           </div>
         </div>
-
+    
         <!-- Branches Table -->
-        <div class="table-responsive" *ngIf="!loading">
-          <table mat-table [dataSource]="filteredBranches" class="branches-table">
-            <!-- Branch Name Column -->
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Branch / Campus</th>
-              <td mat-cell *matCellDef="let b">
-                <div class="branch-name-cell">
-                  <div class="branch-avatar" [class.is-hq]="b.isMainBranch">
-                    <mat-icon>{{ b.isMainBranch ? 'account_balance' : 'store' }}</mat-icon>
-                  </div>
-                  <div class="branch-meta">
-                    <div class="name-row">
-                      <span class="branch-name">{{ b.name }}</span>
-                      <span class="hq-pill" *ngIf="b.isMainBranch">
-                        <mat-icon>star</mat-icon> Head Office
-                      </span>
+        @if (!loading) {
+          <div class="table-responsive">
+            <table mat-table [dataSource]="filteredBranches" class="branches-table">
+              <!-- Branch Name Column -->
+              <ng-container matColumnDef="name">
+                <th mat-header-cell *matHeaderCellDef>Branch / Campus</th>
+                <td mat-cell *matCellDef="let b">
+                  <div class="branch-name-cell">
+                    <div class="branch-avatar" [class.is-hq]="b.isMainBranch">
+                      <mat-icon>{{ b.isMainBranch ? 'account_balance' : 'store' }}</mat-icon>
                     </div>
-                    <span class="branch-created">Added {{ b.createdAt | date:'mediumDate' }}</span>
+                    <div class="branch-meta">
+                      <div class="name-row">
+                        <span class="branch-name">{{ b.name }}</span>
+                        @if (b.isMainBranch) {
+                          <span class="hq-pill">
+                            <mat-icon>star</mat-icon> Head Office
+                          </span>
+                        }
+                      </div>
+                      <span class="branch-created">Added {{ b.createdAt | date:'mediumDate' }}</span>
+                    </div>
                   </div>
-                </div>
-              </td>
-            </ng-container>
-
-            <!-- Code Column -->
-            <ng-container matColumnDef="code">
-              <th mat-header-cell *matHeaderCellDef>Code</th>
-              <td mat-cell *matCellDef="let b">
-                <span class="code-badge">{{ b.code }}</span>
-              </td>
-            </ng-container>
-
-            <!-- Contact & Address Column -->
-            <ng-container matColumnDef="contact">
-              <th mat-header-cell *matHeaderCellDef>Contact &amp; Location</th>
-              <td mat-cell *matCellDef="let b">
-                <div class="contact-cell">
-                  <span class="phone-item" *ngIf="b.contactPhone">
-                    <mat-icon>call</mat-icon> {{ b.contactPhone }}
+                </td>
+              </ng-container>
+              <!-- Code Column -->
+              <ng-container matColumnDef="code">
+                <th mat-header-cell *matHeaderCellDef>Code</th>
+                <td mat-cell *matCellDef="let b">
+                  <span class="code-badge">{{ b.code }}</span>
+                </td>
+              </ng-container>
+              <!-- Contact & Address Column -->
+              <ng-container matColumnDef="contact">
+                <th mat-header-cell *matHeaderCellDef>Contact &amp; Location</th>
+                <td mat-cell *matCellDef="let b">
+                  <div class="contact-cell">
+                    @if (b.contactPhone) {
+                      <span class="phone-item">
+                        <mat-icon>call</mat-icon> {{ b.contactPhone }}
+                      </span>
+                    }
+                    @if (b.email) {
+                      <span class="email-item">
+                        <mat-icon>email</mat-icon> {{ b.email }}
+                      </span>
+                    }
+                    @if (formatBranchAddress(b)) {
+                      <span class="address-item" [matTooltip]="formatBranchAddress(b)">
+                        <mat-icon>place</mat-icon> {{ formatBranchAddress(b) }}
+                      </span>
+                    }
+                    @if (!b.contactPhone && !b.email && !formatBranchAddress(b)) {
+                      <span class="empty-field">—</span>
+                    }
+                  </div>
+                </td>
+              </ng-container>
+              <!-- Stats Column -->
+              <ng-container matColumnDef="stats">
+                <th mat-header-cell *matHeaderCellDef>Enrolled Data</th>
+                <td mat-cell *matCellDef="let b">
+                  <div class="stats-pills">
+                    <span class="stat-chip blue" [matTooltip]="'Students in this branch'">
+                      <mat-icon>school</mat-icon> {{ b.studentCount }} Students
+                    </span>
+                    <span class="stat-chip purple" [matTooltip]="'Batches in this branch'">
+                      <mat-icon>class</mat-icon> {{ b.batchCount }} Batches
+                    </span>
+                    <span class="stat-chip green" [matTooltip]="'Rooms in this branch'">
+                      <mat-icon>meeting_room</mat-icon> {{ b.roomCount }} Rooms
+                    </span>
+                  </div>
+                </td>
+              </ng-container>
+              <!-- Status Column -->
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef>Status</th>
+                <td mat-cell *matCellDef="let b">
+                  <span class="status-badge" [class.active]="b.isActive" [class.inactive]="!b.isActive">
+                    <span class="status-dot"></span>
+                    {{ b.isActive ? 'Active' : 'Inactive' }}
                   </span>
-                  <span class="email-item" *ngIf="b.email">
-                    <mat-icon>email</mat-icon> {{ b.email }}
-                  </span>
-                  <span class="address-item" *ngIf="formatBranchAddress(b)" [matTooltip]="formatBranchAddress(b)">
-                    <mat-icon>place</mat-icon> {{ formatBranchAddress(b) }}
-                  </span>
-                  <span class="empty-field" *ngIf="!b.contactPhone && !b.email && !formatBranchAddress(b)">—</span>
-                </div>
-              </td>
-            </ng-container>
-
-            <!-- Stats Column -->
-            <ng-container matColumnDef="stats">
-              <th mat-header-cell *matHeaderCellDef>Enrolled Data</th>
-              <td mat-cell *matCellDef="let b">
-                <div class="stats-pills">
-                  <span class="stat-chip blue" [matTooltip]="'Students in this branch'">
-                    <mat-icon>school</mat-icon> {{ b.studentCount }} Students
-                  </span>
-                  <span class="stat-chip purple" [matTooltip]="'Batches in this branch'">
-                    <mat-icon>class</mat-icon> {{ b.batchCount }} Batches
-                  </span>
-                  <span class="stat-chip green" [matTooltip]="'Rooms in this branch'">
-                    <mat-icon>meeting_room</mat-icon> {{ b.roomCount }} Rooms
-                  </span>
-                </div>
-              </td>
-            </ng-container>
-
-            <!-- Status Column -->
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let b">
-                <span class="status-badge" [class.active]="b.isActive" [class.inactive]="!b.isActive">
-                  <span class="status-dot"></span>
-                  {{ b.isActive ? 'Active' : 'Inactive' }}
-                </span>
-              </td>
-            </ng-container>
-
-            <!-- Actions Column -->
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
-              <td mat-cell *matCellDef="let b" class="text-right">
-                <div class="actions-row">
-                  <button mat-icon-button color="primary" (click)="openEditModal(b)" matTooltip="Edit Branch Details" *ngIf="canManageBranches">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button
-                    mat-icon-button
-                    color="warn"
-                    (click)="deleteBranch(b)"
-                    *ngIf="canManageBranches && !b.isMainBranch"
-                    matTooltip="Delete Branch"
-                  >
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
-                </div>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="branch-table-row"></tr>
-
-            <!-- Row shown when there is no matching data -->
-            <tr class="mat-row" *matNoDataRow>
-              <td class="mat-cell empty-table-cell" [attr.colspan]="displayedColumns.length">
-                <mat-icon>search_off</mat-icon>
-                <p>No branches found matching your search criteria.</p>
-              </td>
-            </tr>
-          </table>
-        </div>
+                </td>
+              </ng-container>
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+                <td mat-cell *matCellDef="let b" class="text-right">
+                  <div class="actions-row">
+                    @if (canManageBranches) {
+                      <button mat-icon-button color="primary" (click)="openEditModal(b)" matTooltip="Edit Branch Details">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                    }
+                    @if (canManageBranches && !b.isMainBranch) {
+                      <button
+                        mat-icon-button
+                        color="warn"
+                        (click)="deleteBranch(b)"
+                        matTooltip="Delete Branch"
+                        >
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="branch-table-row"></tr>
+              <!-- Row shown when there is no matching data -->
+              <tr class="mat-row" *matNoDataRow>
+                <td class="mat-cell empty-table-cell" [attr.colspan]="displayedColumns.length">
+                  <mat-icon>search_off</mat-icon>
+                  <p>No branches found matching your search criteria.</p>
+                </td>
+              </tr>
+            </table>
+          </div>
+        }
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .branches-wrapper {
       padding: 0 0 40px;
@@ -284,9 +297,60 @@ import { BranchDialogComponent } from './branch-dialog.component';
     /* KPI Grid */
     .kpi-container {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 16px;
       margin-bottom: 24px;
+
+      /* Tablet: 2 x 2 grid */
+      @media (max-width: 1024px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      /* Mobile: compact 2 x 2 grid */
+      @media (max-width: 640px) {
+        gap: 10px;
+        margin-bottom: 16px;
+
+        .kpi-card {
+          padding: 12px !important;
+          border-radius: 12px !important;
+        }
+
+        .kpi-card .kpi-inner {
+          flex-direction: column-reverse;
+          align-items: flex-start;
+          gap: 8px;
+        }
+
+        .kpi-card .kpi-label {
+          font-size: 0.66rem;
+          letter-spacing: 0.02em;
+          margin-bottom: 4px;
+          line-height: 1.25;
+        }
+
+        .kpi-card .kpi-val {
+          font-size: 1.35rem;
+
+          &.main-hq-name {
+            font-size: 0.88rem;
+            max-width: 100%;
+          }
+        }
+
+        .kpi-card .kpi-icon-box {
+          width: 32px;
+          height: 32px;
+          border-radius: 9px;
+          mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        }
+      }
+
+      /* Very small phones: single column */
+      @media (max-width: 340px) {
+        grid-template-columns: 1fr;
+      }
     }
 
     .kpi-card {
@@ -300,6 +364,10 @@ import { BranchDialogComponent } from './branch-dialog.component';
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
+
+        > div:first-child {
+          min-width: 0;
+        }
       }
 
       .kpi-label {

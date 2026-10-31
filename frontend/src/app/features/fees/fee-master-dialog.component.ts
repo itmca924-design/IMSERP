@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -56,7 +56,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <mat-tab-group class="fee-tabs" animationDuration="150ms">
         <!-- TAB 1: Fee Heads Master Catalog -->
         <mat-tab>
@@ -64,15 +64,19 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
             <mat-icon class="tab-icon">category</mat-icon>
             <span>Fee Heads Master ({{ feeHeads.length }})</span>
           </ng-template>
-
+    
           <div class="tab-content">
             <!-- Add / Edit Fee Head Panel -->
             <div class="add-head-box">
               <div class="box-header">
                 <strong><mat-icon>add_circle</mat-icon> Create / Update Fee Head</strong>
                 <button mat-stroked-button type="button" class="preset-btn" (click)="seedStandardHeads()" [disabled]="seedingPresets">
-                  <mat-spinner diameter="16" *ngIf="seedingPresets" class="btn-spinner"></mat-spinner>
-                  <mat-icon *ngIf="!seedingPresets">sync</mat-icon>
+                  @if (seedingPresets) {
+                    <mat-spinner diameter="16" class="btn-spinner"></mat-spinner>
+                  }
+                  @if (!seedingPresets) {
+                    <mat-icon>sync</mat-icon>
+                  }
                   <span>Sync Fee Heads from Database</span>
                 </button>
               </div>
@@ -80,15 +84,19 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                 <mat-form-field appearance="outline" class="field-col">
                   <mat-label>Fee Head Name</mat-label>
                   <input matInput formControlName="name" placeholder="e.g. Tuition Fee, Exam Fee, Coaching Fee" />
-                  <mat-error *ngIf="headForm.get('name')?.hasError('required')">Name is required</mat-error>
+                  @if (headForm.get('name')?.hasError('required')) {
+                    <mat-error>Name is required</mat-error>
+                  }
                 </mat-form-field>
-
+    
                 <mat-form-field appearance="outline" class="field-col">
                   <mat-label>Short Code (Unique)</mat-label>
                   <input matInput formControlName="code" placeholder="e.g. TUI, COACH, EXAM, COMP" style="text-transform: uppercase;" />
-                  <mat-error *ngIf="headForm.get('code')?.hasError('required')">Code is required</mat-error>
+                  @if (headForm.get('code')?.hasError('required')) {
+                    <mat-error>Code is required</mat-error>
+                  }
                 </mat-form-field>
-
+    
                 <mat-form-field appearance="outline" class="field-col">
                   <mat-label>Category</mat-label>
                   <mat-select formControlName="category" panelClass="smooth-dropdown-panel fee-category-panel">
@@ -133,24 +141,28 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                         <span class="opt-desc">Printed DPPs, formula sheets, school diary, tie &amp; ID card</span>
                       </div>
                     </mat-option>
-                    <mat-option value="Residential" *ngIf="hasHostelModule">
-                      <div class="opt-content">
-                        <div class="opt-header-row">
-                          <span class="category-tag cat-residential">Residential</span>
-                          <span>Hostel &amp; Mess</span>
+                    @if (hasHostelModule) {
+                      <mat-option value="Residential">
+                        <div class="opt-content">
+                          <div class="opt-header-row">
+                            <span class="category-tag cat-residential">Residential</span>
+                            <span>Hostel &amp; Mess</span>
+                          </div>
+                          <span class="opt-desc">Hostel room rent, food mess &amp; boarding facilities</span>
                         </div>
-                        <span class="opt-desc">Hostel room rent, food mess &amp; boarding facilities</span>
-                      </div>
-                    </mat-option>
-                    <mat-option value="Transport" *ngIf="hasTransportModule">
-                      <div class="opt-content">
-                        <div class="opt-header-row">
-                          <span class="category-tag cat-transport">Transport</span>
-                          <span>Bus &amp; Van Facility</span>
+                      </mat-option>
+                    }
+                    @if (hasTransportModule) {
+                      <mat-option value="Transport">
+                        <div class="opt-content">
+                          <div class="opt-header-row">
+                            <span class="category-tag cat-transport">Transport</span>
+                            <span>Bus &amp; Van Facility</span>
+                          </div>
+                          <span class="opt-desc">Monthly student pickup &amp; drop transit facility</span>
                         </div>
-                        <span class="opt-desc">Monthly student pickup &amp; drop transit facility</span>
-                      </div>
-                    </mat-option>
+                      </mat-option>
+                    }
                     <mat-option value="Other">
                       <div class="opt-content">
                         <div class="opt-header-row">
@@ -162,7 +174,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-
+    
                 <mat-form-field appearance="outline" class="field-col">
                   <mat-label>Frequency</mat-label>
                   <mat-select formControlName="frequency" panelClass="smooth-dropdown-panel fee-frequency-panel">
@@ -227,32 +239,44 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-
+    
                 <mat-form-field appearance="outline" class="field-col">
                   <mat-label>Applicable To</mat-label>
                   <mat-select formControlName="applicableTo" panelClass="smooth-dropdown-panel">
-                    <mat-option *ngIf="hasSchoolModule && hasCoachingModule" value="Both">🔄 Both (School &amp; Coaching)</mat-option>
-                    <mat-option *ngIf="hasSchoolModule" value="School">🏫 School Only</mat-option>
-                    <mat-option *ngIf="hasCoachingModule" value="Coaching">🎯 Coaching Only</mat-option>
+                    @if (hasSchoolModule && hasCoachingModule) {
+                      <mat-option value="Both">🔄 Both (School &amp; Coaching)</mat-option>
+                    }
+                    @if (hasSchoolModule) {
+                      <mat-option value="School">🏫 School Only</mat-option>
+                    }
+                    @if (hasCoachingModule) {
+                      <mat-option value="Coaching">🎯 Coaching Only</mat-option>
+                    }
                   </mat-select>
                 </mat-form-field>
-
+    
                 <mat-form-field appearance="outline" class="field-col full-width">
                   <mat-label>Description / Note</mat-label>
                   <input matInput formControlName="description" placeholder="Brief description of when this fee is levied" />
                 </mat-form-field>
-
+    
                 <div class="form-action-col">
                   <button mat-raised-button color="primary" type="submit" [disabled]="headForm.invalid || savingHead">
-                    <mat-spinner diameter="18" *ngIf="savingHead" class="btn-spinner"></mat-spinner>
-                    <mat-icon *ngIf="!savingHead">save</mat-icon>
+                    @if (savingHead) {
+                      <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+                    }
+                    @if (!savingHead) {
+                      <mat-icon>save</mat-icon>
+                    }
                     <span>Save Fee Head</span>
                   </button>
-                  <button mat-button type="button" *ngIf="headForm.dirty" (click)="resetHeadForm()">Cancel</button>
+                  @if (headForm.dirty) {
+                    <button mat-button type="button" (click)="resetHeadForm()">Cancel</button>
+                  }
                 </div>
               </form>
             </div>
-
+    
             <!-- Existing Fee Heads Table -->
             <div class="heads-table-container">
               <div class="heads-toolbar-row">
@@ -263,27 +287,31 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     placeholder="Search fee heads by name, code, category..."
                     [(ngModel)]="headSearchQuery"
                     (input)="filterFeeHeadsMaster()"
-                  />
-                  <button mat-icon-button type="button" class="clear-search-btn" *ngIf="headSearchQuery" (click)="clearHeadSearch()">
-                    <mat-icon>close</mat-icon>
-                  </button>
+                    />
+                  @if (headSearchQuery) {
+                    <button mat-icon-button type="button" class="clear-search-btn" (click)="clearHeadSearch()">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
                 </div>
                 <div class="heads-meta-actions">
-                  <div class="heads-meta-pill" *ngIf="feeHeads.length > 0">
-                    <span>{{ filteredFeeHeads.length }} of {{ feeHeads.length }} Heads</span>
-                  </div>
+                  @if (feeHeads.length > 0) {
+                    <div class="heads-meta-pill">
+                      <span>{{ filteredFeeHeads.length }} of {{ feeHeads.length }} Heads</span>
+                    </div>
+                  }
                   <button type="button" mat-stroked-button color="primary" class="tab-report-btn" (click)="openFeeHeadsReport()" matTooltip="Print or export official master fee heads catalog">
                     <mat-icon>print</mat-icon>
                     <span>Print Catalog</span>
                   </button>
                 </div>
               </div>
-
+    
               <div class="mobile-table-hint">
                 <mat-icon>swipe</mat-icon>
                 <span>Swipe sideways to view all columns &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
               </div>
-
+    
               <div class="heads-table-wrapper">
                 <table class="styled-table">
                   <thead>
@@ -291,268 +319,306 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       <th>Code</th>
                       <th>Fee Head Name</th>
                       <th>Applicable To</th>
-                    <th>Category</th>
-                    <th>Frequency</th>
-                    <th>Description</th>
-                    <th class="text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let h of filteredFeeHeads">
-                    <td><span class="code-pill">{{ h.code }}</span></td>
-                    <td><strong>{{ h.name }}</strong></td>
-                    <td>
-                      <span class="scope-badge" [ngClass]="'scope-' + (h.applicableTo || 'both').toLowerCase()">
-                        {{ (h.applicableTo || 'Both') === 'Both' ? '🔄 Both' : ((h.applicableTo === 'School') ? '🏫 School' : '🎯 Coaching') }}
-                      </span>
-                    </td>
-                    <td><span class="category-tag" [ngClass]="'cat-' + h.category.toLowerCase()">{{ h.category }}</span></td>
-                    <td><span class="freq-tag">{{ h.frequency }}</span></td>
-                    <td class="desc-cell">{{ h.description || '—' }}</td>
-                    <td class="text-center">
-                      <button mat-icon-button color="warn" (click)="onDeactivateHead(h)" matTooltip="Deactivate this Fee Head" *ngIf="!h.isDefault">
-                        <mat-icon>delete_outline</mat-icon>
-                      </button>
-                      <span class="default-badge" *ngIf="h.isDefault">Default</span>
-                    </td>
-                  </tr>
-                  <tr *ngIf="filteredFeeHeads.length === 0 && feeHeads.length > 0">
-                    <td colspan="7" class="empty-state">No fee heads found matching "{{ headSearchQuery }}".</td>
-                  </tr>
-                  <tr *ngIf="feeHeads.length === 0">
-                    <td colspan="7" class="empty-state">No fee heads found. Click "Sync Fee Heads from Database" above to auto-populate standard school & coaching heads.</td>
-                  </tr>
-                </tbody>
-              </table>
+                      <th>Category</th>
+                      <th>Frequency</th>
+                      <th>Description</th>
+                      <th class="text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (h of filteredFeeHeads; track h) {
+                      <tr>
+                        <td><span class="code-pill">{{ h.code }}</span></td>
+                        <td><strong>{{ h.name }}</strong></td>
+                        <td>
+                          <span class="scope-badge" [ngClass]="'scope-' + (h.applicableTo || 'both').toLowerCase()">
+                            {{ (h.applicableTo || 'Both') === 'Both' ? '🔄 Both' : ((h.applicableTo === 'School') ? '🏫 School' : '🎯 Coaching') }}
+                          </span>
+                        </td>
+                        <td><span class="category-tag" [ngClass]="'cat-' + h.category.toLowerCase()">{{ h.category }}</span></td>
+                        <td><span class="freq-tag">{{ h.frequency }}</span></td>
+                        <td class="desc-cell">{{ h.description || '—' }}</td>
+                        <td class="text-center">
+                          @if (!h.isDefault) {
+                            <button mat-icon-button color="warn" (click)="onDeactivateHead(h)" matTooltip="Deactivate this Fee Head">
+                              <mat-icon>delete_outline</mat-icon>
+                            </button>
+                          }
+                          @if (h.isDefault) {
+                            <span class="default-badge">Default</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                    @if (filteredFeeHeads.length === 0 && feeHeads.length > 0) {
+                      <tr>
+                        <td colspan="7" class="empty-state">No fee heads found matching "{{ headSearchQuery }}".</td>
+                      </tr>
+                    }
+                    @if (feeHeads.length === 0) {
+                      <tr>
+                        <td colspan="7" class="empty-state">No fee heads found. Click "Sync Fee Heads from Database" above to auto-populate standard school & coaching heads.</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      </mat-tab>
-
+        </mat-tab>
+    
         <!-- TAB 2: Fee Structure Matrix (School Classes & Coaching Batches) -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">grid_view</mat-icon>
             <span>Fee Structure Matrix</span>
           </ng-template>
-
+    
           <div class="tab-content">
             <!-- Target Selector Toolbar Card -->
             <div class="matrix-selector-card">
               <!-- Top Row: Mode Toggle & Summary Cards -->
               <div class="selector-top-row">
                 <!-- Dual Switcher: shown only when BOTH modules are active and items exist -->
-                <div class="target-toggle" *ngIf="hasSchoolModule && hasCoachingModule && schoolClasses.length > 0 && batches.length > 0">
-                  <button type="button"
-                          class="toggle-btn"
-                          [class.active]="targetType === 'class'"
-                          (click)="setTargetType('class')">
-                    <mat-icon>school</mat-icon>
-                    <span>School Class</span>
-                    <span class="count-pill">{{ schoolOnlyClasses.length }}</span>
-                  </button>
-                  <button type="button"
-                          class="toggle-btn"
-                          [class.active]="targetType === 'batch'"
-                          (click)="setTargetType('batch')">
-                    <mat-icon>groups</mat-icon>
-                    <span>Coaching Batch</span>
-                    <span class="count-pill">{{ batches.length }}</span>
-                  </button>
-                </div>
-
+                @if (hasSchoolModule && hasCoachingModule && schoolClasses.length > 0 && batches.length > 0) {
+                  <div class="target-toggle">
+                    <button type="button"
+                      class="toggle-btn"
+                      [class.active]="targetType === 'class'"
+                      (click)="setTargetType('class')">
+                      <mat-icon>school</mat-icon>
+                      <span>School Class</span>
+                      <span class="count-pill">{{ schoolOnlyClasses.length }}</span>
+                    </button>
+                    <button type="button"
+                      class="toggle-btn"
+                      [class.active]="targetType === 'batch'"
+                      (click)="setTargetType('batch')">
+                      <mat-icon>groups</mat-icon>
+                      <span>Coaching Batch</span>
+                      <span class="count-pill">{{ batches.length }}</span>
+                    </button>
+                  </div>
+                }
+    
                 <!-- Summary Cards (Monthly & Annual Totals) -->
-                <div class="summary-cards" *ngIf="matrixRows.length > 0">
-                  <div class="sum-card monthly">
-                    <span class="sum-label">Total Monthly Bill:</span>
-                    <strong class="sum-val">₹{{ totalMonthlyAmount | number:'1.2-2' }}</strong>
+                @if (matrixRows.length > 0) {
+                  <div class="summary-cards">
+                    <div class="sum-card monthly">
+                      <span class="sum-label">Total Monthly Bill:</span>
+                      <strong class="sum-val">₹{{ totalMonthlyAmount | number:'1.2-2' }}</strong>
+                    </div>
+                    <div class="sum-card annual">
+                      <span class="sum-label">Annual / One-Time Extras:</span>
+                      <strong class="sum-val">₹{{ totalAnnualExtras | number:'1.2-2' }}</strong>
+                    </div>
+                    <button type="button" mat-stroked-button color="primary" class="tab-matrix-report-btn" (click)="openClassFeeMatrixReport()" matTooltip="Print or export class-wise fee structure matrix">
+                      <mat-icon>print</mat-icon>
+                      <span>Class Fee Report</span>
+                    </button>
                   </div>
-                  <div class="sum-card annual">
-                    <span class="sum-label">Annual / One-Time Extras:</span>
-                    <strong class="sum-val">₹{{ totalAnnualExtras | number:'1.2-2' }}</strong>
-                  </div>
-                  <button type="button" mat-stroked-button color="primary" class="tab-matrix-report-btn" (click)="openClassFeeMatrixReport()" matTooltip="Print or export class-wise fee structure matrix">
-                    <mat-icon>print</mat-icon>
-                    <span>Class Fee Report</span>
-                  </button>
-                </div>
+                }
               </div>
-
+    
               <!-- Bottom Row: Large Full-Width Selection Dropdown -->
               <div class="selector-dropdown-row">
                 <!-- Dropdown when targetType === 'class' -->
-                <mat-form-field appearance="outline" class="select-target-full" *ngIf="hasSchoolModule && targetType === 'class'">
-                  <mat-label>Assign Fee For: School Class</mat-label>
-                  <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                    <mat-option *ngFor="let c of schoolOnlyClasses" [value]="c.id">
-                      🏫 {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }}
-                    </mat-option>
-                  </mat-select>
-                  <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
-                </mat-form-field>
-
-                <!-- Coaching Batch: Single / Combined Sub-Toggle + Dropdowns -->
-                <div class="coaching-section-wrap" *ngIf="hasCoachingModule && targetType === 'batch'">
-
-                  <!-- Single vs Combined toggle -->
-                  <div class="coaching-scope-toggle">
-                    <button type="button"
-                            class="scope-btn"
-                            [class.active]="coachingScope === 'single'"
-                            (click)="setCoachingScope('single')">
-                      <mat-icon>school</mat-icon>
-                      <div class="scope-btn-text">
-                        <span class="scope-btn-title">Single Class Batch</span>
-                        <span class="scope-btn-sub">एक class → batch select करें</span>
-                      </div>
-                      <span class="count-pill">{{ singleClassBatches.length }}</span>
-                    </button>
-                    <button type="button"
-                            class="scope-btn"
-                            [class.active]="coachingScope === 'combined'"
-                            (click)="setCoachingScope('combined')">
-                      <mat-icon>layers</mat-icon>
-                      <div class="scope-btn-text">
-                        <span class="scope-btn-title">Combined / Multi-Class</span>
-                        <span class="scope-btn-sub">Class 1st–5th जैसी combined batches</span>
-                      </div>
-                      <span class="count-pill">{{ combinedBatches.length }}</span>
-                    </button>
-                  </div>
-
-                  <!-- Single Class mode: class filter + batch dropdown -->
-                  <div class="batch-selector-dual-row" *ngIf="coachingScope === 'single'">
-                    <mat-form-field appearance="outline" class="select-class-filter">
-                      <mat-label>Academic Class (कक्षा)</mat-label>
-                      <mat-select [(ngModel)]="batchClassFilter" (selectionChange)="onBatchClassFilterChange()" panelClass="target-select-panel">
-                        <mat-option value="">✨ All Classes</mat-option>
-                        <mat-option *ngFor="let c of coachingEligibleClasses" [value]="c.id">
-                          🏫 {{ c.name }}
+                @if (hasSchoolModule && targetType === 'class') {
+                  <mat-form-field appearance="outline" class="select-target-full">
+                    <mat-label>Assign Fee For: School Class</mat-label>
+                    <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
+                      @for (c of schoolOnlyClasses; track c) {
+                        <mat-option [value]="c.id">
+                          🏫 {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }}
                         </mat-option>
-                      </mat-select>
-                      <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="select-batch-target">
-                      <mat-label>Batch Select करें</mat-label>
-                      <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                        <mat-option *ngFor="let b of filteredSingleBatches" [value]="b.id">
-                          🎯 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }}
-                        </mat-option>
-                        <mat-option *ngIf="filteredSingleBatches.length === 0" disabled>
-                          No single-class batches found
-                        </mat-option>
-                      </mat-select>
-                      <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">groups</mat-icon>
-                    </mat-form-field>
-                  </div>
-
-                  <!-- Combined mode: only combined/multi-class batches -->
-                  <mat-form-field appearance="outline" class="select-target-full" *ngIf="coachingScope === 'combined'">
-                    <mat-label>Combined Batch Select करें</mat-label>
-                    <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                      <mat-option *ngFor="let b of combinedBatches" [value]="b.id">
-                        🔗 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }}
-                      </mat-option>
-                      <mat-option *ngIf="combinedBatches.length === 0" disabled>
-                        No combined batches found. Create one in Batch Master.
-                      </mat-option>
+                      }
                     </mat-select>
-                    <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">layers</mat-icon>
+                    <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
                   </mat-form-field>
-
+                }
+    
+                <!-- Coaching Batch: Single / Combined Sub-Toggle + Dropdowns -->
+                @if (hasCoachingModule && targetType === 'batch') {
+                  <div class="coaching-section-wrap">
+                    <!-- Single vs Combined toggle -->
+                    <div class="coaching-scope-toggle">
+                      <button type="button"
+                        class="scope-btn"
+                        [class.active]="coachingScope === 'single'"
+                        (click)="setCoachingScope('single')">
+                        <mat-icon>school</mat-icon>
+                        <div class="scope-btn-text">
+                          <span class="scope-btn-title">Single Class Batch</span>
+                          <span class="scope-btn-sub">एक class → batch select करें</span>
+                        </div>
+                        <span class="count-pill">{{ singleClassBatches.length }}</span>
+                      </button>
+                      <button type="button"
+                        class="scope-btn"
+                        [class.active]="coachingScope === 'combined'"
+                        (click)="setCoachingScope('combined')">
+                        <mat-icon>layers</mat-icon>
+                        <div class="scope-btn-text">
+                          <span class="scope-btn-title">Combined / Multi-Class</span>
+                          <span class="scope-btn-sub">Class 1st–5th जैसी combined batches</span>
+                        </div>
+                        <span class="count-pill">{{ combinedBatches.length }}</span>
+                      </button>
+                    </div>
+                    <!-- Single Class mode: class filter + batch dropdown -->
+                    @if (coachingScope === 'single') {
+                      <div class="batch-selector-dual-row">
+                        <mat-form-field appearance="outline" class="select-class-filter">
+                          <mat-label>Academic Class (कक्षा)</mat-label>
+                          <mat-select [(ngModel)]="batchClassFilter" (selectionChange)="onBatchClassFilterChange()" panelClass="target-select-panel">
+                            <mat-option value="">✨ All Classes</mat-option>
+                            @for (c of coachingEligibleClasses; track c) {
+                              <mat-option [value]="c.id">
+                                🏫 {{ c.name }}
+                              </mat-option>
+                            }
+                          </mat-select>
+                          <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">school</mat-icon>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="select-batch-target">
+                          <mat-label>Batch Select करें</mat-label>
+                          <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
+                            @for (b of filteredSingleBatches; track b) {
+                              <mat-option [value]="b.id">
+                                🎯 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }}
+                              </mat-option>
+                            }
+                            @if (filteredSingleBatches.length === 0) {
+                              <mat-option disabled>
+                                No single-class batches found
+                              </mat-option>
+                            }
+                          </mat-select>
+                          <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">groups</mat-icon>
+                        </mat-form-field>
+                      </div>
+                    }
+                    <!-- Combined mode: only combined/multi-class batches -->
+                    @if (coachingScope === 'combined') {
+                      <mat-form-field appearance="outline" class="select-target-full">
+                        <mat-label>Combined Batch Select करें</mat-label>
+                        <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
+                          @for (b of combinedBatches; track b) {
+                            <mat-option [value]="b.id">
+                              🔗 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }}
+                            </mat-option>
+                          }
+                          @if (combinedBatches.length === 0) {
+                            <mat-option disabled>
+                              No combined batches found. Create one in Batch Master.
+                            </mat-option>
+                          }
+                        </mat-select>
+                        <mat-icon matPrefix class="dropdown-prefix-icon" color="primary">layers</mat-icon>
+                      </mat-form-field>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+    
+            <!-- Structure Grid Table -->
+            @if ((targetType === 'class' && selectedClassId) || (targetType === 'batch' && selectedBatchId)) {
+              <div class="matrix-table-container">
+                <div class="mobile-table-hint">
+                  <mat-icon>swipe</mat-icon>
+                  <span>Swipe sideways to edit amounts &amp; months &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
+                </div>
+                <div class="matrix-table-wrapper">
+                  <table class="styled-table matrix-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 40px;">Active</th>
+                        <th>Fee Head</th>
+                        <th>Category</th>
+                        <th>Frequency</th>
+                        <th style="width: 180px;">Amount (₹)</th>
+                        <th style="width: 220px;">Applicable Month</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of matrixRows; track row) {
+                        <tr [class.row-disabled]="!row.isActive">
+                          <td>
+                            <mat-checkbox [(ngModel)]="row.isActive" (change)="onRowActiveChange(row)" color="primary"></mat-checkbox>
+                          </td>
+                          <td>
+                            <strong>{{ row.feeHeadName }}</strong>
+                            <span class="code-sub">({{ row.feeHeadCode }})</span>
+                          </td>
+                          <td>
+                            <span class="category-tag" [ngClass]="'cat-' + row.category.toLowerCase()">{{ row.category }}</span>
+                          </td>
+                          <td><span class="freq-tag">{{ row.frequency }}</span></td>
+                          <td>
+                            <mat-form-field appearance="outline" class="inline-amt-field" density="compact">
+                              <span matPrefix class="rupee-prefix">₹&nbsp;</span>
+                              <input matInput type="number" [ngModel]="row.isActive ? row.amount : 0" (ngModelChange)="row.amount = $event; onAmountChange(row)" [disabled]="!row.isActive" min="0" />
+                            </mat-form-field>
+                          </td>
+                          <td>
+                            <mat-form-field appearance="outline" class="inline-month-field" density="compact">
+                              <mat-select [(ngModel)]="row.applicableMonth" [disabled]="!row.isActive || row.frequency === 'Monthly'">
+                                <mat-option [value]="null">All Months (Recurring)</mat-option>
+                                <mat-option [value]="4">April (Session Start)</mat-option>
+                                <mat-option [value]="5">May</mat-option>
+                                <mat-option [value]="6">June</mat-option>
+                                <mat-option [value]="7">July</mat-option>
+                                <mat-option [value]="8">August</mat-option>
+                                <mat-option [value]="9">September (Term 1 Exam)</mat-option>
+                                <mat-option [value]="10">October</mat-option>
+                                <mat-option [value]="11">November</mat-option>
+                                <mat-option [value]="12">December</mat-option>
+                                <mat-option [value]="1">January</mat-option>
+                                <mat-option [value]="2">February (Final Exam)</mat-option>
+                                <mat-option [value]="3">March</mat-option>
+                              </mat-select>
+                            </mat-form-field>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <div class="matrix-save-bar">
+                  <span class="save-hint">💡 Changes will apply to generated invoices for this {{ targetType === 'class' ? 'School Class' : 'Coaching Batch' }}.</span>
+                  <button mat-raised-button color="primary" class="save-matrix-btn" (click)="onSaveMatrix()" [disabled]="savingMatrix">
+                    @if (savingMatrix) {
+                      <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+                    }
+                    @if (!savingMatrix) {
+                      <mat-icon>save</mat-icon>
+                    }
+                    <span>Save {{ targetType === 'class' ? 'Class' : 'Batch' }} Fee Structure</span>
+                  </button>
                 </div>
               </div>
-            </div>
-
-            <!-- Structure Grid Table -->
-            <div class="matrix-table-container" *ngIf="(targetType === 'class' && selectedClassId) || (targetType === 'batch' && selectedBatchId)">
-              <div class="mobile-table-hint">
-                <mat-icon>swipe</mat-icon>
-                <span>Swipe sideways to edit amounts &amp; months &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
+            }
+    
+            @if (!(targetType === 'class' ? selectedClassId : selectedBatchId)) {
+              <div class="no-selection-hint">
+                <mat-icon>touch_app</mat-icon>
+                <p>Please select a {{ targetType === 'class' ? 'School Class' : 'Coaching Batch' }} above to configure its Fee Structure Matrix.</p>
               </div>
-              <div class="matrix-table-wrapper">
-                <table class="styled-table matrix-table">
-                <thead>
-                  <tr>
-                    <th style="width: 40px;">Active</th>
-                    <th>Fee Head</th>
-                    <th>Category</th>
-                    <th>Frequency</th>
-                    <th style="width: 180px;">Amount (₹)</th>
-                    <th style="width: 220px;">Applicable Month</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let row of matrixRows" [class.row-disabled]="!row.isActive">
-                    <td>
-                      <mat-checkbox [(ngModel)]="row.isActive" (change)="onRowActiveChange(row)" color="primary"></mat-checkbox>
-                    </td>
-                    <td>
-                      <strong>{{ row.feeHeadName }}</strong>
-                      <span class="code-sub">({{ row.feeHeadCode }})</span>
-                    </td>
-                    <td>
-                      <span class="category-tag" [ngClass]="'cat-' + row.category.toLowerCase()">{{ row.category }}</span>
-                    </td>
-                    <td><span class="freq-tag">{{ row.frequency }}</span></td>
-                    <td>
-                      <mat-form-field appearance="outline" class="inline-amt-field" density="compact">
-                        <span matPrefix class="rupee-prefix">₹&nbsp;</span>
-                        <input matInput type="number" [ngModel]="row.isActive ? row.amount : 0" (ngModelChange)="row.amount = $event; onAmountChange(row)" [disabled]="!row.isActive" min="0" />
-                      </mat-form-field>
-                    </td>
-                    <td>
-                      <mat-form-field appearance="outline" class="inline-month-field" density="compact">
-                        <mat-select [(ngModel)]="row.applicableMonth" [disabled]="!row.isActive || row.frequency === 'Monthly'">
-                          <mat-option [value]="null">All Months (Recurring)</mat-option>
-                          <mat-option [value]="4">April (Session Start)</mat-option>
-                          <mat-option [value]="5">May</mat-option>
-                          <mat-option [value]="6">June</mat-option>
-                          <mat-option [value]="7">July</mat-option>
-                          <mat-option [value]="8">August</mat-option>
-                          <mat-option [value]="9">September (Term 1 Exam)</mat-option>
-                          <mat-option [value]="10">October</mat-option>
-                          <mat-option [value]="11">November</mat-option>
-                          <mat-option [value]="12">December</mat-option>
-                          <mat-option [value]="1">January</mat-option>
-                          <mat-option [value]="2">February (Final Exam)</mat-option>
-                          <mat-option [value]="3">March</mat-option>
-                        </mat-select>
-                      </mat-form-field>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-              <div class="matrix-save-bar">
-                <span class="save-hint">💡 Changes will apply to generated invoices for this {{ targetType === 'class' ? 'School Class' : 'Coaching Batch' }}.</span>
-                <button mat-raised-button color="primary" class="save-matrix-btn" (click)="onSaveMatrix()" [disabled]="savingMatrix">
-                  <mat-spinner diameter="18" *ngIf="savingMatrix" class="btn-spinner"></mat-spinner>
-                  <mat-icon *ngIf="!savingMatrix">save</mat-icon>
-                  <span>Save {{ targetType === 'class' ? 'Class' : 'Batch' }} Fee Structure</span>
-                </button>
-              </div>
-            </div>
-
-            <div *ngIf="!(targetType === 'class' ? selectedClassId : selectedBatchId)" class="no-selection-hint">
-              <mat-icon>touch_app</mat-icon>
-              <p>Please select a {{ targetType === 'class' ? 'School Class' : 'Coaching Batch' }} above to configure its Fee Structure Matrix.</p>
-            </div>
+            }
           </div>
         </mat-tab>
-
+    
         <!-- TAB 3: Admission & Billing Policy (दाखिला व बिलिंग नीति) -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">policy</mat-icon>
             <span>Billing &amp; Cutoff Policy</span>
           </ng-template>
-
+    
           <div class="tab-content policy-tab-content">
             <form [formGroup]="policyForm" (ngSubmit)="onSavePolicy()" class="policy-form">
-
+    
               <!-- Dynamic Admission Cutoff Card -->
               <div class="policy-card">
                 <div class="policy-card-header">
@@ -565,17 +631,21 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                   </div>
                   <span class="policy-active-badge">Active Rule: Day 1–{{ policyForm.get('admissionCutoffDay')?.value }}</span>
                 </div>
-
+    
                 <div class="policy-card-body">
                   <div class="policy-input-row">
                     <mat-form-field appearance="outline" class="cutoff-field">
                       <mat-label>Admission Cutoff Day (1 – 28)</mat-label>
                       <input matInput type="number" formControlName="admissionCutoffDay" min="1" max="28" placeholder="20" />
                       <span matSuffix style="font-size: 0.82rem; color: #64748b; font-weight: 600; margin-right: 8px;">th of each month</span>
-                      <mat-error *ngIf="policyForm.get('admissionCutoffDay')?.hasError('required')">Cutoff day is required</mat-error>
-                      <mat-error *ngIf="policyForm.get('admissionCutoffDay')?.hasError('min') || policyForm.get('admissionCutoffDay')?.hasError('max')">Must be between 1 and 28</mat-error>
+                      @if (policyForm.get('admissionCutoffDay')?.hasError('required')) {
+                        <mat-error>Cutoff day is required</mat-error>
+                      }
+                      @if (policyForm.get('admissionCutoffDay')?.hasError('min') || policyForm.get('admissionCutoffDay')?.hasError('max')) {
+                        <mat-error>Must be between 1 and 28</mat-error>
+                      }
                     </mat-form-field>
-
+    
                     <mat-form-field appearance="outline" class="policy-select-field">
                       <mat-label>Rollover Behavior (कटऑफ बाद का नियम)</mat-label>
                       <mat-select formControlName="admissionRolloverPolicy">
@@ -583,7 +653,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       </mat-select>
                     </mat-form-field>
                   </div>
-
+    
                   <!-- Visual Rule Simulation & Preview Box -->
                   <div class="rule-preview-grid">
                     <div class="preview-tile same-month">
@@ -596,7 +666,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                         Students admitted on or before the <strong>{{ policyForm.get('admissionCutoffDay')?.value || 20 }}th</strong> are billed for the full current month, bundling initial Tuition and One-Time Registration fees.
                       </p>
                     </div>
-
+    
                     <div class="preview-tile next-month">
                       <div class="tile-badge rollover">
                         <mat-icon>trending_flat</mat-icon>
@@ -610,7 +680,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                   </div>
                 </div>
               </div>
-
+    
               <!-- Session / Financial Year Alignment Card -->
               <div class="policy-card">
                 <div class="policy-card-header">
@@ -623,7 +693,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                   </div>
                   <span class="policy-active-badge fy-badge">Cycle: April – March</span>
                 </div>
-
+    
                 <div class="policy-card-body">
                   <mat-form-field appearance="outline" class="cutoff-field">
                     <mat-label>Session Start Month</mat-label>
@@ -635,7 +705,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                   </mat-form-field>
                 </div>
               </div>
-
+    
               <!-- Strict Registration & One-Time Fee Safeguard Banner -->
               <div class="policy-safeguard-banner">
                 <div class="sg-icon-box">
@@ -651,22 +721,27 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                   </p>
                 </div>
               </div>
-
+    
               <!-- Save Policy Actions Bar -->
               <div class="policy-save-bar">
                 <button mat-raised-button color="primary" type="submit" class="save-policy-btn" [disabled]="savingPolicy || policyForm.invalid">
-                  <mat-spinner diameter="18" *ngIf="savingPolicy" class="btn-spinner"></mat-spinner>
-                  <mat-icon *ngIf="!savingPolicy">save</mat-icon>
+                  @if (savingPolicy) {
+                    <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+                  }
+                  @if (!savingPolicy) {
+                    <mat-icon>save</mat-icon>
+                  }
                   <span>Save Billing &amp; Cutoff Policies</span>
                 </button>
               </div>
-
+    
             </form>
           </div>
         </mat-tab>
       </mat-tab-group>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

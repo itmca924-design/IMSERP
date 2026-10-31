@@ -1,5 +1,6 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -27,7 +28,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   selector: 'app-create-ptm-session-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     FormsModule,
     MatDialogModule,
@@ -36,7 +36,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <div class="dialog-header">
@@ -53,7 +53,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="dialog-body">
         <div class="form-row full-width">
           <mat-form-field appearance="outline" class="w-100">
@@ -61,30 +61,30 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <input matInput formControlName="title" placeholder="e.g. Term 1 Progress Review PTM 2026-27" />
           </mat-form-field>
         </div>
-
+    
         <div class="form-row two-col">
           <mat-form-field appearance="outline">
             <mat-label>Meeting Date *</mat-label>
             <input matInput type="date" formControlName="meetingDate" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>Academic Year</mat-label>
             <input matInput formControlName="academicYear" placeholder="e.g. 2026-2027" />
           </mat-form-field>
         </div>
-
+    
         <div class="form-row three-col">
           <mat-form-field appearance="outline">
             <mat-label>Start Time *</mat-label>
             <input matInput formControlName="startTime" placeholder="09:00 AM" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>End Time *</mat-label>
             <input matInput formControlName="endTime" placeholder="01:30 PM" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>Meeting Mode *</mat-label>
             <mat-select formControlName="meetingMode">
@@ -94,13 +94,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <div class="form-row two-col">
           <mat-form-field appearance="outline">
             <mat-label>Venue Room / Meeting Link</mat-label>
             <input matInput formControlName="venueOrLink" placeholder="Auditorium / Room 104 or Meet link" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>Division / Stream Scope *</mat-label>
             <mat-select formControlName="divisionScope">
@@ -110,39 +110,51 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <div class="form-row two-col">
-          <mat-form-field appearance="outline" *ngIf="form.get('divisionScope')?.value !== 'Coaching'">
-            <mat-label>Target School Class / Scope</mat-label>
-            <mat-select formControlName="targetClassName">
-              <mat-option value="All Classes">All Classes (Whole School)</mat-option>
-              <mat-option *ngFor="let c of classes" [value]="c.name">{{ c.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
+          @if (form.get('divisionScope')?.value !== 'Coaching') {
+            <mat-form-field appearance="outline">
+              <mat-label>Target School Class / Scope</mat-label>
+              <mat-select formControlName="targetClassName">
+                <mat-option value="All Classes">All Classes (Whole School)</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.name">{{ c.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+    
           <!-- Academic Class for Coaching Mode -->
-          <mat-form-field appearance="outline" *ngIf="form.get('divisionScope')?.value === 'Coaching'">
-            <mat-label>Academic Class (कक्षा)</mat-label>
-            <mat-select [(ngModel)]="coachingClassId" [ngModelOptions]="{standalone: true}" (selectionChange)="onCoachingClassChange($event.value)">
-              <mat-option value="">All Academic Classes</mat-option>
-              <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" *ngIf="form.get('divisionScope')?.value === 'Coaching'">
-            <mat-label>Target Coaching Batch</mat-label>
-            <mat-select formControlName="targetBatchId" (selectionChange)="onBatchChange($event.value)">
-              <mat-option [value]="null">All Coaching Batches</mat-option>
-              <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{ b.name }} ({{ b.subject }}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
+          @if (form.get('divisionScope')?.value === 'Coaching') {
+            <mat-form-field appearance="outline">
+              <mat-label>Academic Class (कक्षा)</mat-label>
+              <mat-select [(ngModel)]="coachingClassId" [ngModelOptions]="{standalone: true}" (selectionChange)="onCoachingClassChange($event.value)">
+                <mat-option value="">All Academic Classes</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+    
+          @if (form.get('divisionScope')?.value === 'Coaching') {
+            <mat-form-field appearance="outline">
+              <mat-label>Target Coaching Batch</mat-label>
+              <mat-select formControlName="targetBatchId" (selectionChange)="onBatchChange($event.value)">
+                <mat-option [value]="null">All Coaching Batches</mat-option>
+                @for (b of filteredBatches; track b) {
+                  <mat-option [value]="b.id">{{ b.name }} ({{ b.subject }}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+    
           <mat-form-field appearance="outline">
             <mat-label>Organizer / Host Officer *</mat-label>
             <input matInput formControlName="organizerName" placeholder="Principal / Academic Coordinator" />
           </mat-form-field>
         </div>
-
+    
         <div class="form-row full-width">
           <mat-form-field appearance="outline" class="w-100">
             <mat-label>Status</mat-label>
@@ -154,14 +166,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <div class="form-row full-width">
           <mat-form-field appearance="outline" class="w-100">
             <mat-label>Agenda & Parent Notice Instructions</mat-label>
             <textarea matInput rows="3" formControlName="agenda" placeholder="Discussion on mid-term performance, homework regularity, and school events..."></textarea>
           </mat-form-field>
         </div>
-
+    
         <div class="dialog-actions">
           <button mat-button type="button" (click)="dialogRef.close()">Cancel</button>
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isSaving">
@@ -171,7 +183,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; width: 620px; max-width: 95vw; }
     .dialog-header {
@@ -322,7 +335,6 @@ export class CreatePtmSessionDialogComponent implements OnInit {
   selector: 'app-record-ptm-feedback-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -330,7 +342,7 @@ export class CreatePtmSessionDialogComponent implements OnInit {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <div class="dialog-header">
@@ -421,6 +433,7 @@ export class CreatePtmSessionDialogComponent implements OnInit {
       </form>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; width: 620px; max-width: 95vw; }
     .dialog-header {
@@ -506,7 +519,6 @@ export class RecordPtmFeedbackDialogComponent implements OnInit {
   selector: 'app-add-ptm-booking-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -515,7 +527,7 @@ export class RecordPtmFeedbackDialogComponent implements OnInit {
     MatInputModule,
     MatSelectModule,
     MatAutocompleteModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <div class="dialog-header">
@@ -532,41 +544,45 @@ export class RecordPtmFeedbackDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="dialog-body">
         <div class="form-row full-width">
           <mat-form-field appearance="outline" class="w-100">
             <mat-label>Search Student (Name or Roll Number) *</mat-label>
             <input matInput [matAutocomplete]="autoStudent" [formControl]="searchControl" placeholder="Type student name..." />
             <mat-autocomplete #autoStudent="matAutocomplete" (optionSelected)="onStudentSelected($event.option.value)">
-              <mat-option *ngFor="let s of studentResults" [value]="s">
-                {{ s.studentName }} &bull; Roll: {{ s.coachingRollNumber || s.admissionNumber || s.rollNumber }} ({{ s.batchName ? s.batchName : (s.gradeClass || 'Class') }})
-              </mat-option>
+              @for (s of studentResults; track s) {
+                <mat-option [value]="s">
+                  {{ s.studentName }} &bull; Roll: {{ s.coachingRollNumber || s.admissionNumber || s.rollNumber }} ({{ s.batchName ? s.batchName : (s.gradeClass || 'Class') }})
+                </mat-option>
+              }
             </mat-autocomplete>
           </mat-form-field>
         </div>
-
-        <div *ngIf="selectedStudent" class="selected-student-box">
-          <div class="student-name">{{ selectedStudent.studentName }}</div>
-          <div class="student-details">
-            Roll / Adm #: {{ selectedStudent.coachingRollNumber || selectedStudent.admissionNumber || selectedStudent.rollNumber }} &bull;
-            Batch / Class: <strong>{{ selectedStudent.batchName || selectedStudent.gradeClass || 'General' }}</strong> &bull;
-            Parent: {{ selectedStudent.parentName || 'Parent' }} ({{ selectedStudent.parentWhatsAppPhone || 'N/A' }})
+    
+        @if (selectedStudent) {
+          <div class="selected-student-box">
+            <div class="student-name">{{ selectedStudent.studentName }}</div>
+            <div class="student-details">
+              Roll / Adm #: {{ selectedStudent.coachingRollNumber || selectedStudent.admissionNumber || selectedStudent.rollNumber }} &bull;
+              Batch / Class: <strong>{{ selectedStudent.batchName || selectedStudent.gradeClass || 'General' }}</strong> &bull;
+              Parent: {{ selectedStudent.parentName || 'Parent' }} ({{ selectedStudent.parentWhatsAppPhone || 'N/A' }})
+            </div>
           </div>
-        </div>
-
+        }
+    
         <div class="form-row two-col">
           <mat-form-field appearance="outline">
             <mat-label>Slot Time (Optional)</mat-label>
             <input matInput formControlName="slotTime" placeholder="e.g. 10:00 AM - 10:15 AM" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>Attending Teacher</mat-label>
             <input matInput formControlName="teacherName" placeholder="Teacher Name" />
           </mat-form-field>
         </div>
-
+    
         <div class="dialog-actions">
           <button mat-button type="button" (click)="dialogRef.close()">Cancel</button>
           <button mat-flat-button color="primary" type="submit" [disabled]="!selectedStudent || isSaving">
@@ -576,7 +592,8 @@ export class RecordPtmFeedbackDialogComponent implements OnInit {
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; width: 540px; max-width: 95vw; }
     .dialog-header {
@@ -697,7 +714,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
     MatDialogModule,
     MatProgressSpinnerModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="page-container">
       <!-- Top Title & Action Header -->
@@ -720,7 +737,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
           </button>
         </div>
       </div>
-
+    
       <!-- KPI Stats Ribbon -->
       <div class="kpi-grid">
         <mat-card class="kpi-card card-blue">
@@ -735,7 +752,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-emerald">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -748,7 +765,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-indigo">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -761,7 +778,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-amber">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -775,7 +792,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
           </div>
         </mat-card>
       </div>
-
+    
       <!-- Reactive Filter Deck -->
       <mat-card class="filter-card">
         <form [formGroup]="filterForm" class="filter-form">
@@ -784,10 +801,12 @@ export class AddPtmBookingDialogComponent implements OnInit {
               <mat-label>Campus Branch</mat-label>
               <mat-select formControlName="branchId" (selectionChange)="onFilterChanged()">
                 <mat-option value="ALL">All Campuses Consolidated</mat-option>
-                <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
+                @for (b of branches; track b) {
+                  <mat-option [value]="b.id">{{ b.name }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Session Status</mat-label>
               <mat-select formControlName="status" (selectionChange)="onFilterChanged()">
@@ -798,7 +817,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
                 <mat-option value="Cancelled">Cancelled</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Academic Year</mat-label>
               <mat-select formControlName="academicYear" (selectionChange)="onFilterChanged()">
@@ -807,7 +826,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
                 <mat-option value="2025-2026">2025-2026</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Division / Stream</mat-label>
               <mat-select formControlName="divisionScope" (selectionChange)="onDivisionScopeChanged()">
@@ -816,24 +835,32 @@ export class AddPtmBookingDialogComponent implements OnInit {
                 <mat-option value="Coaching">Coaching Batches</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <!-- Academic Class Filter (when Coaching) -->
-            <mat-form-field appearance="outline" class="filter-field" *ngIf="filterForm.get('divisionScope')?.value === 'Coaching'">
-              <mat-label>Academic Class (कक्षा)</mat-label>
-              <mat-select [(ngModel)]="filterCoachingClassId" [ngModelOptions]="{standalone: true}" (selectionChange)="onFilterCoachingClassChanged()">
-                <mat-option value="">All Academic Classes</mat-option>
-                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="filter-field" *ngIf="filterForm.get('divisionScope')?.value === 'Coaching'">
-              <mat-label>Target Coaching Batch</mat-label>
-              <mat-select formControlName="targetBatchId" (selectionChange)="onFilterChanged()">
-                <mat-option [value]="null">All Coaching Batches</mat-option>
-                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{ b.name }} ({{ b.subject }}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-
+            @if (filterForm.get('divisionScope')?.value === 'Coaching') {
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Academic Class (कक्षा)</mat-label>
+                <mat-select [(ngModel)]="filterCoachingClassId" [ngModelOptions]="{standalone: true}" (selectionChange)="onFilterCoachingClassChanged()">
+                  <mat-option value="">All Academic Classes</mat-option>
+                  @for (c of classes; track c) {
+                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+    
+            @if (filterForm.get('divisionScope')?.value === 'Coaching') {
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Target Coaching Batch</mat-label>
+                <mat-select formControlName="targetBatchId" (selectionChange)="onFilterChanged()">
+                  <mat-option [value]="null">All Coaching Batches</mat-option>
+                  @for (b of filteredBatches; track b) {
+                    <mat-option [value]="b.id">{{ b.name }} ({{ b.subject }}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+    
             <mat-form-field appearance="outline" class="filter-field search-field">
               <mat-label>Search Session or Class</mat-label>
               <input matInput formControlName="searchTerm" placeholder="Search title, class, batch, organizer..." (keyup.enter)="onFilterChanged()" />
@@ -841,7 +868,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
-
+    
             <div class="filter-actions">
               <button mat-stroked-button type="button" (click)="resetFilters()">
                 <mat-icon>refresh</mat-icon> Reset
@@ -850,229 +877,239 @@ export class AddPtmBookingDialogComponent implements OnInit {
           </div>
         </form>
       </mat-card>
-
+    
       <!-- Single Prominent Loader -->
-      <div *ngIf="isLoading" class="loader-container">
-        <mat-spinner diameter="44"></mat-spinner>
-        <span>Loading PTM records...</span>
-      </div>
-
+      @if (isLoading) {
+        <div class="loader-container">
+          <mat-spinner diameter="44"></mat-spinner>
+          <span>Loading PTM records...</span>
+        </div>
+      }
+    
       <!-- Main Tabbed Work Desk -->
-      <div *ngIf="!isLoading">
-        <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="150ms">
-          <!-- Tab 1: PTM Sessions -->
-          <mat-tab label="PTM Sessions (बैठक सत्र)">
-            <div class="tab-content">
-              <div *ngIf="sessions.length === 0" class="empty-state">
-                <mat-icon class="empty-icon">event_busy</mat-icon>
-                <h3>No PTM sessions found</h3>
-                <p>Click "Schedule PTM Session" above to create a conference event for classes, coaching batches, and parents.</p>
+      @if (!isLoading) {
+        <div>
+          <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="150ms">
+            <!-- Tab 1: PTM Sessions -->
+            <mat-tab label="PTM Sessions (बैठक सत्र)">
+              <div class="tab-content">
+                @if (sessions.length === 0) {
+                  <div class="empty-state">
+                    <mat-icon class="empty-icon">event_busy</mat-icon>
+                    <h3>No PTM sessions found</h3>
+                    <p>Click "Schedule PTM Session" above to create a conference event for classes, coaching batches, and parents.</p>
+                  </div>
+                }
+                @if (sessions.length > 0) {
+                  <div class="table-responsive">
+                    <table mat-table [dataSource]="sessions" class="ptm-table">
+                      <ng-container matColumnDef="title">
+                        <th mat-header-cell *matHeaderCellDef>Session Title & Scope</th>
+                        <td mat-cell *matCellDef="let s">
+                          <div class="title-cell">
+                            <div class="name-badge-row">
+                              <span class="session-name">{{ s.title }}</span>
+                              <span class="stream-pill" [class.coaching]="s.divisionScope === 'Coaching'" [class.school]="s.divisionScope === 'School'">
+                                {{ s.divisionScope === 'Coaching' ? 'Coaching' : (s.divisionScope === 'School' ? 'School' : 'All') }}
+                              </span>
+                            </div>
+                            <span class="session-class-badge">
+                              {{ s.divisionScope === 'Coaching' ? (s.targetBatchName || 'All Coaching Batches') : (s.targetClassName || 'All Classes') }}
+                            </span>
+                          </div>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="dateTime">
+                        <th mat-header-cell *matHeaderCellDef>Meeting Date & Timing</th>
+                        <td mat-cell *matCellDef="let s">
+                          <div class="date-cell">
+                            <strong>{{ s.meetingDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+                            <span class="timing-badge">{{ s.startTime }} - {{ s.endTime }}</span>
+                          </div>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="mode">
+                        <th mat-header-cell *matHeaderCellDef>Mode & Venue</th>
+                        <td mat-cell *matCellDef="let s">
+                          <div class="venue-cell">
+                            <span class="mode-tag" [ngClass]="s.meetingMode.toLowerCase()">{{ s.meetingMode }}</span>
+                            @if (s.venueOrLink) {
+                              <small class="venue-text">{{ s.venueOrLink }}</small>
+                            }
+                          </div>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="organizer">
+                        <th mat-header-cell *matHeaderCellDef>Organizer</th>
+                        <td mat-cell *matCellDef="let s">
+                          <span class="organizer-name">{{ s.organizerName }}</span>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="turnout">
+                        <th mat-header-cell *matHeaderCellDef>Parent Turnout</th>
+                        <td mat-cell *matCellDef="let s">
+                          <div class="turnout-pill">
+                            <strong>{{ s.attendedCount }}</strong> / {{ s.bookingsCount }}
+                            <small>Attended</small>
+                          </div>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="status">
+                        <th mat-header-cell *matHeaderCellDef>Status</th>
+                        <td mat-cell *matCellDef="let s">
+                          <span class="status-badge" [ngClass]="s.status.toLowerCase()">{{ s.status }}</span>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+                        <td mat-cell *matCellDef="let s" class="text-right">
+                          <div class="action-buttons">
+                            <button mat-stroked-button color="primary" class="btn-compact" (click)="openSessionBookings(s)" matTooltip="Manage Attendance & Slot Desk">
+                              <mat-icon>groups</mat-icon> Desk
+                            </button>
+                            <button mat-icon-button color="accent" (click)="bulkEnrollClass(s)" matTooltip="Bulk Enroll Class Students">
+                              <mat-icon>group_add</mat-icon>
+                            </button>
+                            <button mat-icon-button (click)="openEditSessionDialog(s)" matTooltip="Edit Session">
+                              <mat-icon>edit</mat-icon>
+                            </button>
+                            <button mat-icon-button color="warn" (click)="deleteSession(s)" matTooltip="Delete Session">
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </ng-container>
+                      <tr mat-header-row *matHeaderRowDef="displayedSessionColumns"></tr>
+                      <tr mat-row *matRowDef="let row; columns: displayedSessionColumns;" class="interactive-row"></tr>
+                    </table>
+                  </div>
+                }
               </div>
-
-              <div *ngIf="sessions.length > 0" class="table-responsive">
-                <table mat-table [dataSource]="sessions" class="ptm-table">
-                  <ng-container matColumnDef="title">
-                    <th mat-header-cell *matHeaderCellDef>Session Title & Scope</th>
-                    <td mat-cell *matCellDef="let s">
-                      <div class="title-cell">
-                        <div class="name-badge-row">
-                          <span class="session-name">{{ s.title }}</span>
-                          <span class="stream-pill" [class.coaching]="s.divisionScope === 'Coaching'" [class.school]="s.divisionScope === 'School'">
-                            {{ s.divisionScope === 'Coaching' ? 'Coaching' : (s.divisionScope === 'School' ? 'School' : 'All') }}
+            </mat-tab>
+            <!-- Tab 2: Parent Attendance & Slot Desk -->
+            <mat-tab label="Parent Attendance & Slot Desk (उपस्थिति एवं समीक्षा)">
+              <div class="tab-content">
+                <div class="desk-toolbar">
+                  <div class="desk-session-select">
+                    <mat-form-field appearance="outline" class="session-dropdown">
+                      <mat-label>Selected PTM Session</mat-label>
+                      <mat-select [value]="selectedSessionId" (selectionChange)="onSessionDropdownChanged($event.value)">
+                        @for (s of sessions; track s) {
+                          <mat-option [value]="s.id">
+                            {{ s.title }} ({{ s.meetingDate | date:'dd MMM yyyy':'Asia/Kolkata' }})
+                          </mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                  @if (activeSession) {
+                    <div class="desk-actions">
+                      <button mat-stroked-button color="accent" (click)="bulkEnrollClass(activeSession)">
+                        <mat-icon>group_add</mat-icon> Bulk Enroll All Class Students
+                      </button>
+                      <button mat-flat-button color="primary" (click)="openAddBookingDialog()">
+                        <mat-icon>person_add</mat-icon> Enroll Student / Walk-in
+                      </button>
+                    </div>
+                  }
+                </div>
+                @if (bookings.length === 0) {
+                  <div class="empty-state">
+                    <mat-icon class="empty-icon">person_search</mat-icon>
+                    <h3>No student slots booked for this session yet</h3>
+                    <p>Use "Bulk Enroll All Class Students" or "Enroll Student / Walk-in" to populate parents for this meeting.</p>
+                  </div>
+                }
+                @if (bookings.length > 0) {
+                  <div class="table-responsive">
+                    <table mat-table [dataSource]="bookings" class="bookings-table">
+                      <ng-container matColumnDef="student">
+                        <th mat-header-cell *matHeaderCellDef>Student & Class</th>
+                        <td mat-cell *matCellDef="let b">
+                          <div class="student-cell">
+                            <span class="st-name">{{ b.studentName }}</span>
+                            <small class="st-meta">Adm #: {{ b.admissionNumber || 'N/A' }} &bull; {{ b.className }}</small>
+                          </div>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="parent">
+                        <th mat-header-cell *matHeaderCellDef>Parent Details</th>
+                        <td mat-cell *matCellDef="let b">
+                          <div class="parent-cell">
+                            <strong>{{ b.parentName || 'Parent' }}</strong>
+                            <small class="phone-link">{{ b.parentPhone || 'No Phone' }}</small>
+                          </div>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="slot">
+                        <th mat-header-cell *matHeaderCellDef>Slot Time</th>
+                        <td mat-cell *matCellDef="let b">
+                          <span class="slot-pill">{{ b.slotTime || 'Open / Walk-in' }}</span>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="attendance">
+                        <th mat-header-cell *matHeaderCellDef>Attendance</th>
+                        <td mat-cell *matCellDef="let b">
+                          <span class="attendance-badge" [ngClass]="b.parentAttended.toLowerCase()">
+                            {{ b.parentAttended }}
                           </span>
-                        </div>
-                        <span class="session-class-badge">
-                          {{ s.divisionScope === 'Coaching' ? (s.targetBatchName || 'All Coaching Batches') : (s.targetClassName || 'All Classes') }}
-                        </span>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="dateTime">
-                    <th mat-header-cell *matHeaderCellDef>Meeting Date & Timing</th>
-                    <td mat-cell *matCellDef="let s">
-                      <div class="date-cell">
-                        <strong>{{ s.meetingDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
-                        <span class="timing-badge">{{ s.startTime }} - {{ s.endTime }}</span>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="mode">
-                    <th mat-header-cell *matHeaderCellDef>Mode & Venue</th>
-                    <td mat-cell *matCellDef="let s">
-                      <div class="venue-cell">
-                        <span class="mode-tag" [ngClass]="s.meetingMode.toLowerCase()">{{ s.meetingMode }}</span>
-                        <small class="venue-text" *ngIf="s.venueOrLink">{{ s.venueOrLink }}</small>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="organizer">
-                    <th mat-header-cell *matHeaderCellDef>Organizer</th>
-                    <td mat-cell *matCellDef="let s">
-                      <span class="organizer-name">{{ s.organizerName }}</span>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="turnout">
-                    <th mat-header-cell *matHeaderCellDef>Parent Turnout</th>
-                    <td mat-cell *matCellDef="let s">
-                      <div class="turnout-pill">
-                        <strong>{{ s.attendedCount }}</strong> / {{ s.bookingsCount }}
-                        <small>Attended</small>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="status">
-                    <th mat-header-cell *matHeaderCellDef>Status</th>
-                    <td mat-cell *matCellDef="let s">
-                      <span class="status-badge" [ngClass]="s.status.toLowerCase()">{{ s.status }}</span>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="actions">
-                    <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
-                    <td mat-cell *matCellDef="let s" class="text-right">
-                      <div class="action-buttons">
-                        <button mat-stroked-button color="primary" class="btn-compact" (click)="openSessionBookings(s)" matTooltip="Manage Attendance & Slot Desk">
-                          <mat-icon>groups</mat-icon> Desk
-                        </button>
-                        <button mat-icon-button color="accent" (click)="bulkEnrollClass(s)" matTooltip="Bulk Enroll Class Students">
-                          <mat-icon>group_add</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="openEditSessionDialog(s)" matTooltip="Edit Session">
-                          <mat-icon>edit</mat-icon>
-                        </button>
-                        <button mat-icon-button color="warn" (click)="deleteSession(s)" matTooltip="Delete Session">
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <tr mat-header-row *matHeaderRowDef="displayedSessionColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: displayedSessionColumns;" class="interactive-row"></tr>
-                </table>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="feedback">
+                        <th mat-header-cell *matHeaderCellDef>Teacher Remarks & Action Points</th>
+                        <td mat-cell *matCellDef="let b">
+                          @if (b.teacherFeedback) {
+                            <div class="feedback-cell">
+                              <span class="teacher-remarks">{{ b.teacherFeedback }}</span>
+                              @if (b.actionPoints) {
+                                <small class="action-points"><strong>Action:</strong> {{ b.actionPoints }}</small>
+                              }
+                            </div>
+                          }
+                          @if (!b.teacherFeedback) {
+                            <span class="text-muted">No remarks yet</span>
+                          }
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="followUp">
+                        <th mat-header-cell *matHeaderCellDef>Follow-up</th>
+                        <td mat-cell *matCellDef="let b">
+                          @if (b.followUpRequired) {
+                            <span class="followup-badge">
+                              <mat-icon>flag</mat-icon> Required
+                            </span>
+                          }
+                          @if (!b.followUpRequired) {
+                            <span class="text-muted">&mdash;</span>
+                          }
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+                        <td mat-cell *matCellDef="let b" class="text-right">
+                          <div class="action-buttons">
+                            <button mat-flat-button color="primary" class="btn-compact" (click)="openRecordFeedbackDialog(b)">
+                              <mat-icon>fact_check</mat-icon> Record
+                            </button>
+                            <button mat-icon-button color="warn" (click)="deleteBooking(b)" matTooltip="Remove Booking">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </ng-container>
+                      <tr mat-header-row *matHeaderRowDef="displayedBookingColumns"></tr>
+                      <tr mat-row *matRowDef="let row; columns: displayedBookingColumns;"></tr>
+                    </table>
+                  </div>
+                }
               </div>
-            </div>
-          </mat-tab>
-
-          <!-- Tab 2: Parent Attendance & Slot Desk -->
-          <mat-tab label="Parent Attendance & Slot Desk (उपस्थिति एवं समीक्षा)">
-            <div class="tab-content">
-              <div class="desk-toolbar">
-                <div class="desk-session-select">
-                  <mat-form-field appearance="outline" class="session-dropdown">
-                    <mat-label>Selected PTM Session</mat-label>
-                    <mat-select [value]="selectedSessionId" (selectionChange)="onSessionDropdownChanged($event.value)">
-                      <mat-option *ngFor="let s of sessions" [value]="s.id">
-                        {{ s.title }} ({{ s.meetingDate | date:'dd MMM yyyy':'Asia/Kolkata' }})
-                      </mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                </div>
-
-                <div class="desk-actions" *ngIf="activeSession">
-                  <button mat-stroked-button color="accent" (click)="bulkEnrollClass(activeSession)">
-                    <mat-icon>group_add</mat-icon> Bulk Enroll All Class Students
-                  </button>
-                  <button mat-flat-button color="primary" (click)="openAddBookingDialog()">
-                    <mat-icon>person_add</mat-icon> Enroll Student / Walk-in
-                  </button>
-                </div>
-              </div>
-
-              <div *ngIf="bookings.length === 0" class="empty-state">
-                <mat-icon class="empty-icon">person_search</mat-icon>
-                <h3>No student slots booked for this session yet</h3>
-                <p>Use "Bulk Enroll All Class Students" or "Enroll Student / Walk-in" to populate parents for this meeting.</p>
-              </div>
-
-              <div *ngIf="bookings.length > 0" class="table-responsive">
-                <table mat-table [dataSource]="bookings" class="bookings-table">
-                  <ng-container matColumnDef="student">
-                    <th mat-header-cell *matHeaderCellDef>Student & Class</th>
-                    <td mat-cell *matCellDef="let b">
-                      <div class="student-cell">
-                        <span class="st-name">{{ b.studentName }}</span>
-                        <small class="st-meta">Adm #: {{ b.admissionNumber || 'N/A' }} &bull; {{ b.className }}</small>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="parent">
-                    <th mat-header-cell *matHeaderCellDef>Parent Details</th>
-                    <td mat-cell *matCellDef="let b">
-                      <div class="parent-cell">
-                        <strong>{{ b.parentName || 'Parent' }}</strong>
-                        <small class="phone-link">{{ b.parentPhone || 'No Phone' }}</small>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="slot">
-                    <th mat-header-cell *matHeaderCellDef>Slot Time</th>
-                    <td mat-cell *matCellDef="let b">
-                      <span class="slot-pill">{{ b.slotTime || 'Open / Walk-in' }}</span>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="attendance">
-                    <th mat-header-cell *matHeaderCellDef>Attendance</th>
-                    <td mat-cell *matCellDef="let b">
-                      <span class="attendance-badge" [ngClass]="b.parentAttended.toLowerCase()">
-                        {{ b.parentAttended }}
-                      </span>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="feedback">
-                    <th mat-header-cell *matHeaderCellDef>Teacher Remarks & Action Points</th>
-                    <td mat-cell *matCellDef="let b">
-                      <div class="feedback-cell" *ngIf="b.teacherFeedback">
-                        <span class="teacher-remarks">{{ b.teacherFeedback }}</span>
-                        <small class="action-points" *ngIf="b.actionPoints"><strong>Action:</strong> {{ b.actionPoints }}</small>
-                      </div>
-                      <span *ngIf="!b.teacherFeedback" class="text-muted">No remarks yet</span>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="followUp">
-                    <th mat-header-cell *matHeaderCellDef>Follow-up</th>
-                    <td mat-cell *matCellDef="let b">
-                      <span *ngIf="b.followUpRequired" class="followup-badge">
-                        <mat-icon>flag</mat-icon> Required
-                      </span>
-                      <span *ngIf="!b.followUpRequired" class="text-muted">&mdash;</span>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="actions">
-                    <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
-                    <td mat-cell *matCellDef="let b" class="text-right">
-                      <div class="action-buttons">
-                        <button mat-flat-button color="primary" class="btn-compact" (click)="openRecordFeedbackDialog(b)">
-                          <mat-icon>fact_check</mat-icon> Record
-                        </button>
-                        <button mat-icon-button color="warn" (click)="deleteBooking(b)" matTooltip="Remove Booking">
-                          <mat-icon>close</mat-icon>
-                        </button>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <tr mat-header-row *matHeaderRowDef="displayedBookingColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: displayedBookingColumns;"></tr>
-                </table>
-              </div>
-            </div>
-          </mat-tab>
-        </mat-tab-group>
-      </div>
+            </mat-tab>
+          </mat-tab-group>
+        </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

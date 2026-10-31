@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,7 +19,6 @@ export interface RoleEditDialogData {
   selector: 'app-role-edit-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -28,7 +27,7 @@ export interface RoleEditDialogData {
     MatFormFieldModule,
     MatSlideToggleModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <!-- Strict Light Blue Gradient Header matching AGENTS.md rule -->
@@ -44,7 +43,7 @@ export interface RoleEditDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Form Content -->
       <form [formGroup]="form" (ngSubmit)="onSave()">
         <mat-dialog-content class="dialog-body">
@@ -54,16 +53,18 @@ export interface RoleEditDialogData {
               <mat-label>Role Title / Name *</mat-label>
               <input matInput formControlName="name" placeholder="e.g. Accounts & Finance / Faculty">
               <mat-icon matSuffix style="color:#64748b">badge</mat-icon>
-              <mat-error *ngIf="form.get('name')?.hasError('required')">Role name is required</mat-error>
+              @if (form.get('name')?.hasError('required')) {
+                <mat-error>Role name is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Role Description -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Role Description</mat-label>
               <textarea matInput formControlName="description" rows="3" placeholder="Describe module scope and permissions for this role..."></textarea>
               <mat-hint>Summary displayed in permissions matrix</mat-hint>
             </mat-form-field>
-
+    
             <!-- Active Status Toggle -->
             <div class="status-toggle-row">
               <div class="status-info">
@@ -76,19 +77,24 @@ export interface RoleEditDialogData {
             </div>
           </div>
         </mat-dialog-content>
-
+    
         <!-- Dialog Footer Actions -->
         <mat-dialog-actions align="end" class="dialog-footer">
           <button mat-button type="button" class="cancel-btn" (click)="onCancel()">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn">
-            <mat-spinner diameter="18" *ngIf="saving" style="display:inline-block;margin-right:6px"></mat-spinner>
-            <mat-icon *ngIf="!saving">{{ data.isNew ? 'add' : 'check' }}</mat-icon>
+            @if (saving) {
+              <mat-spinner diameter="18" style="display:inline-block;margin-right:6px"></mat-spinner>
+            }
+            @if (!saving) {
+              <mat-icon>{{ data.isNew ? 'add' : 'check' }}</mat-icon>
+            }
             <span>{{ data.isNew ? 'Create Role' : 'Save Changes' }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

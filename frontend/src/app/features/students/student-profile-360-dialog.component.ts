@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, HostListener } from '@angular/core';
+import { Component, Inject, OnInit, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -68,15 +68,18 @@ const API_BASE = environment.apiBaseUrl;
       <div class="modal-header">
         <div class="header-left">
           <div class="header-avatar-wrap">
-            <img
-              *ngIf="data360?.student?.profilePhoto"
-              [src]="getPhotoUrl(data360!.student.profilePhoto)"
-              [alt]="data360?.student?.studentName"
-              class="header-avatar-img"
-            />
-            <div *ngIf="!data360?.student?.profilePhoto" class="header-avatar-fallback">
-              {{ getInitials(data360?.student?.studentName || data.studentName || 'S') }}
-            </div>
+            @if (data360?.student?.profilePhoto) {
+              <img
+                [src]="getPhotoUrl(data360!.student.profilePhoto)"
+                [alt]="$safeNavigationMigration(data360?.student?.studentName)"
+                class="header-avatar-img"
+                />
+            }
+            @if (!data360?.student?.profilePhoto) {
+              <div class="header-avatar-fallback">
+                {{ getInitials(data360?.student?.studentName || data.studentName || 'S') }}
+              </div>
+            }
             <div class="status-indicator" [class.active]="data360?.student?.isActive !== false"></div>
           </div>
           <div class="header-title-box">
@@ -85,38 +88,58 @@ const API_BASE = environment.apiBaseUrl;
               <span class="status-tag" [class.active]="data360?.student?.isActive !== false">
                 {{ data360?.student?.isActive !== false ? 'Active Enrolled' : 'Inactive / Left' }}
               </span>
-              <span *ngIf="data360?.student?.isCoachingStudent" class="stream-tag coaching">
-                <mat-icon class="stream-icon">groups</mat-icon> Coaching
-              </span>
-              <span *ngIf="data360?.student?.isSchoolStudent" class="stream-tag school">
-                <mat-icon class="stream-icon">school</mat-icon> School
-              </span>
+              @if (data360?.student?.isCoachingStudent) {
+                <span class="stream-tag coaching">
+                  <mat-icon class="stream-icon">groups</mat-icon> Coaching
+                </span>
+              }
+              @if (data360?.student?.isSchoolStudent) {
+                <span class="stream-tag school">
+                  <mat-icon class="stream-icon">school</mat-icon> School
+                </span>
+              }
             </div>
             <p class="modal-subtitle">
-              <span *ngIf="data360?.student?.className">
-                Class: <strong>{{ data360!.student.className }}{{ data360!.student.sectionName ? ' - ' + data360!.student.sectionName : '' }}</strong>
-              </span>
-              <span *ngIf="data360?.student?.batchName" class="meta-sep">
-                &bull; Coaching Batch: <strong>{{ data360!.student.batchName }}</strong>
-              </span>
-              <span *ngIf="data360?.student?.batchSubject" class="meta-sep">
-                &bull; Subject: <strong>{{ data360!.student.batchSubject }}</strong>
-              </span>
-              <span *ngIf="data360?.student?.isSchoolStudent" class="meta-sep">
-                &bull; Class Teacher: <strong [style.color]="data360?.student?.classTeacherName ? '#1e40af' : '#b45309'">{{ data360?.student?.classTeacherName || 'Not Assigned' }}</strong>
-              </span>
-              <span class="meta-sep" *ngIf="data360?.student?.schoolRollNumber || (data360?.student?.isSchoolStudent && data360?.student?.rollNumber)">
-                &bull; School Roll: <strong>{{ data360?.student?.schoolRollNumber || data360?.student?.rollNumber }}</strong>
-              </span>
-              <span class="meta-sep" *ngIf="data360?.student?.coachingRollNumber || (!data360?.student?.isSchoolStudent && data360?.student?.rollNumber)">
-                &bull; Coaching Roll: <strong style="color: #c2410c;">{{ data360?.student?.coachingRollNumber || data360?.student?.rollNumber }}</strong>
-              </span>
-              <span *ngIf="data360?.student?.admissionNumber" class="meta-sep">
-                &bull; SR/Adm: <strong>{{ data360!.student.admissionNumber }}</strong>
-              </span>
-              <span *ngIf="data360?.student?.joiningDate" class="meta-sep">
-                &bull; Adm Date: <strong>{{ data360!.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
-              </span>
+              @if (data360?.student?.className) {
+                <span>
+                  Class: <strong>{{ data360!.student.className }}{{ data360!.student.sectionName ? ' - ' + data360!.student.sectionName : '' }}</strong>
+                </span>
+              }
+              @if (data360?.student?.batchName) {
+                <span class="meta-sep">
+                  &bull; Coaching Batch: <strong>{{ data360!.student.batchName }}</strong>
+                </span>
+              }
+              @if (data360?.student?.batchSubject) {
+                <span class="meta-sep">
+                  &bull; Subject: <strong>{{ data360!.student.batchSubject }}</strong>
+                </span>
+              }
+              @if (data360?.student?.isSchoolStudent) {
+                <span class="meta-sep">
+                  &bull; Class Teacher: <strong [style.color]="data360?.student?.classTeacherName ? '#1e40af' : '#b45309'">{{ data360?.student?.classTeacherName || 'Not Assigned' }}</strong>
+                </span>
+              }
+              @if (data360?.student?.schoolRollNumber || (data360?.student?.isSchoolStudent && data360?.student?.rollNumber)) {
+                <span class="meta-sep">
+                  &bull; School Roll: <strong>{{ data360?.student?.schoolRollNumber || data360?.student?.rollNumber }}</strong>
+                </span>
+              }
+              @if (data360?.student?.coachingRollNumber || (!data360?.student?.isSchoolStudent && data360?.student?.rollNumber)) {
+                <span class="meta-sep">
+                  &bull; Coaching Roll: <strong style="color: #c2410c;">{{ data360?.student?.coachingRollNumber || data360?.student?.rollNumber }}</strong>
+                </span>
+              }
+              @if (data360?.student?.admissionNumber) {
+                <span class="meta-sep">
+                  &bull; SR/Adm: <strong>{{ data360!.student.admissionNumber }}</strong>
+                </span>
+              }
+              @if (data360?.student?.joiningDate) {
+                <span class="meta-sep">
+                  &bull; Adm Date: <strong>{{ data360!.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+                </span>
+              }
             </p>
           </div>
         </div>
@@ -124,1918 +147,2166 @@ const API_BASE = environment.apiBaseUrl;
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Quick Metrics Ribbon -->
-      <div class="metrics-ribbon" *ngIf="data360">
-        <div class="metric-pill">
-          <mat-icon class="icon-att">fact_check</mat-icon>
-          <span class="metric-val" [class.good]="data360.attendanceSummary.attendancePercentage >= 75" [class.warn]="data360.attendanceSummary.attendancePercentage < 75">
-            {{ data360.attendanceSummary.attendancePercentage }}%
-          </span>
-          <span class="metric-lbl">Attendance</span>
+      @if (data360) {
+        <div class="metrics-ribbon">
+          <div class="metric-pill">
+            <mat-icon class="icon-att">fact_check</mat-icon>
+            <span class="metric-val" [class.good]="data360.attendanceSummary.attendancePercentage >= 75" [class.warn]="data360.attendanceSummary.attendancePercentage < 75">
+              {{ data360.attendanceSummary.attendancePercentage }}%
+            </span>
+            <span class="metric-lbl">Attendance</span>
+          </div>
+          <div class="metric-pill">
+            <mat-icon class="icon-fee" [class.danger]="data360.feeSummary.totalPending > 0">account_balance_wallet</mat-icon>
+            <span class="metric-val" [class.danger]="data360.feeSummary.totalPending > 0" [class.good]="data360.feeSummary.totalPending === 0">
+              &#8377;{{ data360.feeSummary.totalPending | number }}
+            </span>
+            <span class="metric-lbl">Due Balance</span>
+          </div>
+          @if (data360.facilities.hasHostel) {
+            <div class="metric-pill">
+              <mat-icon class="icon-hostel">hotel</mat-icon>
+              <span class="metric-val">{{ data360.facilities.hostelName || 'Hostel' }}</span>
+              <span class="metric-lbl">Rm {{ data360.facilities.roomNumber }} ({{ data360.facilities.bedCode }})</span>
+            </div>
+          }
+          @if (data360.facilities.hasTransport) {
+            <div class="metric-pill">
+              <mat-icon class="icon-transport">directions_bus</mat-icon>
+              <span class="metric-val">{{ data360.facilities.routeName || 'Transport' }}</span>
+              <span class="metric-lbl">{{ data360.facilities.stopName }}</span>
+            </div>
+          }
+          @if (data360.library.isMember) {
+            <div class="metric-pill">
+              <mat-icon class="icon-lib">local_library</mat-icon>
+              <span class="metric-val">{{ data360.library.currentlyIssuedCount }} Books</span>
+              <span class="metric-lbl">Issued</span>
+            </div>
+          }
+          @if (data360.siblings.length) {
+            <div class="metric-pill">
+              <mat-icon class="icon-sibling">family_restroom</mat-icon>
+              <span class="metric-val">{{ data360.siblings.length }} Sibling{{ data360.siblings.length > 1 ? 's' : '' }}</span>
+              <span class="metric-lbl">In School</span>
+            </div>
+          }
+          @if (data360.inventoryKits && data360.inventoryKits.length > 0) {
+            <div class="metric-pill" (click)="activeTabIndex = 12" style="cursor: pointer;" title="View Issued Kits">
+              <mat-icon style="color: #4f46e5;">inventory_2</mat-icon>
+              <span class="metric-val">{{ data360.inventoryKits.length }} Kit{{ data360.inventoryKits.length > 1 ? 's' : '' }}</span>
+              <span class="metric-lbl">Issued Items</span>
+            </div>
+          }
         </div>
-        <div class="metric-pill">
-          <mat-icon class="icon-fee" [class.danger]="data360.feeSummary.totalPending > 0">account_balance_wallet</mat-icon>
-          <span class="metric-val" [class.danger]="data360.feeSummary.totalPending > 0" [class.good]="data360.feeSummary.totalPending === 0">
-            &#8377;{{ data360.feeSummary.totalPending | number }}
-          </span>
-          <span class="metric-lbl">Due Balance</span>
-        </div>
-        <div class="metric-pill" *ngIf="data360.facilities.hasHostel">
-          <mat-icon class="icon-hostel">hotel</mat-icon>
-          <span class="metric-val">{{ data360.facilities.hostelName || 'Hostel' }}</span>
-          <span class="metric-lbl">Rm {{ data360.facilities.roomNumber }} ({{ data360.facilities.bedCode }})</span>
-        </div>
-        <div class="metric-pill" *ngIf="data360.facilities.hasTransport">
-          <mat-icon class="icon-transport">directions_bus</mat-icon>
-          <span class="metric-val">{{ data360.facilities.routeName || 'Transport' }}</span>
-          <span class="metric-lbl">{{ data360.facilities.stopName }}</span>
-        </div>
-        <div class="metric-pill" *ngIf="data360.library.isMember">
-          <mat-icon class="icon-lib">local_library</mat-icon>
-          <span class="metric-val">{{ data360.library.currentlyIssuedCount }} Books</span>
-          <span class="metric-lbl">Issued</span>
-        </div>
-        <div class="metric-pill" *ngIf="data360.siblings.length">
-          <mat-icon class="icon-sibling">family_restroom</mat-icon>
-          <span class="metric-val">{{ data360.siblings.length }} Sibling{{ data360.siblings.length > 1 ? 's' : '' }}</span>
-          <span class="metric-lbl">In School</span>
-        </div>
-        <div class="metric-pill" *ngIf="data360.inventoryKits && data360.inventoryKits.length > 0" (click)="activeTabIndex = 12" style="cursor: pointer;" title="View Issued Kits">
-          <mat-icon style="color: #4f46e5;">inventory_2</mat-icon>
-          <span class="metric-val">{{ data360.inventoryKits.length }} Kit{{ data360.inventoryKits.length > 1 ? 's' : '' }}</span>
-          <span class="metric-lbl">Issued Items</span>
-        </div>
-      </div>
-
+      }
+    
       <!-- Feature 5: Smart Early-Warning & Performance Radar Banner -->
-      <div class="alert-radar-banner" *ngIf="data360?.performanceAlert as alert"
-           [class.star-performer]="alert.isStarPerformer"
-           [class.has-risk]="alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk">
-        <div class="banner-left">
-          <div class="banner-icon-badge">
-            <mat-icon *ngIf="alert.isStarPerformer">military_tech</mat-icon>
-            <mat-icon *ngIf="!alert.isStarPerformer && (alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk)">crisis_alert</mat-icon>
-            <mat-icon *ngIf="!alert.isStarPerformer && !alert.hasAttendanceWarning && !alert.hasExamWarning && !alert.hasAttendanceRisk && !alert.hasAcademicRisk">insights</mat-icon>
+      @if (data360?.performanceAlert; as alert) {
+        <div class="alert-radar-banner"
+          [class.star-performer]="alert.isStarPerformer"
+          [class.has-risk]="alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk">
+          <div class="banner-left">
+            <div class="banner-icon-badge">
+              @if (alert.isStarPerformer) {
+                <mat-icon>military_tech</mat-icon>
+              }
+              @if (!alert.isStarPerformer && (alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk)) {
+                <mat-icon>crisis_alert</mat-icon>
+              }
+              @if (!alert.isStarPerformer && !alert.hasAttendanceWarning && !alert.hasExamWarning && !alert.hasAttendanceRisk && !alert.hasAcademicRisk) {
+                <mat-icon>insights</mat-icon>
+              }
+            </div>
+            <div class="banner-content">
+              <div class="banner-title-line">
+                @if (alert.isStarPerformer) {
+                  <span class="banner-badge">Star Scholar &amp; High Achiever</span>
+                }
+                @if (alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk) {
+                  <span class="banner-badge risk">Early Warning Alert</span>
+                }
+                @if (!alert.isStarPerformer && !alert.hasAttendanceWarning && !alert.hasExamWarning && !alert.hasAttendanceRisk && !alert.hasAcademicRisk) {
+                  <span class="banner-badge normal">Performance Status</span>
+                }
+                <span class="banner-summary-text">{{ alert.attendanceAlertMessage || alert.examAlertMessage || alert.performanceBadgeText || alert.alertMessage }}</span>
+              </div>
+              <!-- Strengths and Weaknesses Tags -->
+              @if ((alert.strongSubjects && alert.strongSubjects.length > 0) || (alert.weakSubjects && alert.weakSubjects.length > 0)) {
+                <div class="subject-tags-row">
+                  @if (alert.strongSubjects && alert.strongSubjects.length > 0) {
+                    <div class="tag-group">
+                      <span class="tag-title strong"><mat-icon>trending_up</mat-icon> Strengths:</span>
+                      @for (s of alert.strongSubjects; track s) {
+                        <span class="sub-pill strong">{{ s }}</span>
+                      }
+                    </div>
+                  }
+                  @if (alert.weakSubjects && alert.weakSubjects.length > 0) {
+                    <div class="tag-group">
+                      <span class="tag-title weak"><mat-icon>trending_down</mat-icon> Needs Attention:</span>
+                      @for (w of alert.weakSubjects; track w) {
+                        <span class="sub-pill weak">{{ w }}</span>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
           </div>
-          <div class="banner-content">
-            <div class="banner-title-line">
-              <span class="banner-badge" *ngIf="alert.isStarPerformer">Star Scholar &amp; High Achiever</span>
-              <span class="banner-badge risk" *ngIf="alert.hasAttendanceWarning || alert.hasExamWarning || alert.hasAttendanceRisk || alert.hasAcademicRisk">Early Warning Alert</span>
-              <span class="banner-badge normal" *ngIf="!alert.isStarPerformer && !alert.hasAttendanceWarning && !alert.hasExamWarning && !alert.hasAttendanceRisk && !alert.hasAcademicRisk">Performance Status</span>
-              <span class="banner-summary-text">{{ alert.attendanceAlertMessage || alert.examAlertMessage || alert.performanceBadgeText || alert.alertMessage }}</span>
-            </div>
-            <!-- Strengths and Weaknesses Tags -->
-            <div class="subject-tags-row" *ngIf="(alert.strongSubjects && alert.strongSubjects.length > 0) || (alert.weakSubjects && alert.weakSubjects.length > 0)">
-              <div class="tag-group" *ngIf="alert.strongSubjects && alert.strongSubjects.length > 0">
-                <span class="tag-title strong"><mat-icon>trending_up</mat-icon> Strengths:</span>
-                <span class="sub-pill strong" *ngFor="let s of alert.strongSubjects">{{ s }}</span>
-              </div>
-              <div class="tag-group" *ngIf="alert.weakSubjects && alert.weakSubjects.length > 0">
-                <span class="tag-title weak"><mat-icon>trending_down</mat-icon> Needs Attention:</span>
-                <span class="sub-pill weak" *ngFor="let w of alert.weakSubjects">{{ w }}</span>
-              </div>
-            </div>
+          <div class="banner-quick-actions">
+            <button mat-button class="action-btn" (click)="activeTabIndex = 3">
+              <mat-icon>assignment</mat-icon> Exams
+            </button>
+            <button mat-button class="action-btn" (click)="activeTabIndex = 8">
+              <mat-icon>gavel</mat-icon> Conduct
+            </button>
+            <button mat-button class="action-btn" (click)="activeTabIndex = 9">
+              <mat-icon>record_voice_over</mat-icon> PTM Desk
+            </button>
+            <button mat-button class="action-btn" (click)="activeTabIndex = 11">
+              <mat-icon>diversity_3</mat-icon> Siblings ({{ siblingsList.length || (data360?.siblings?.length ?? 0) }})
+            </button>
           </div>
         </div>
-
-        <div class="banner-quick-actions">
-          <button mat-button class="action-btn" (click)="activeTabIndex = 3">
-            <mat-icon>assignment</mat-icon> Exams
-          </button>
-          <button mat-button class="action-btn" (click)="activeTabIndex = 8">
-            <mat-icon>gavel</mat-icon> Conduct
-          </button>
-          <button mat-button class="action-btn" (click)="activeTabIndex = 9">
-            <mat-icon>record_voice_over</mat-icon> PTM Desk
-          </button>
-          <button mat-button class="action-btn" (click)="activeTabIndex = 11">
-            <mat-icon>diversity_3</mat-icon> Siblings ({{ siblingsList.length || (data360?.siblings?.length ?? 0) }})
-          </button>
-        </div>
-      </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
-      <div class="modal-body" *ngIf="data360">
-        <mat-tab-group animationDuration="200ms" class="custom-tabs" [(selectedIndex)]="activeTabIndex">
-          
-          <!-- TAB 1: OVERVIEW & BIODATA -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">person</mat-icon> Overview
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="dossier-grid">
-                
-                <!-- Personal Info Card -->
-                <div class="info-card">
-                  <div class="card-header">
-                    <mat-icon class="sect-icon">badge</mat-icon>
-                    <h3>Student Identity &amp; Biodata</h3>
-                  </div>
-                  <div class="info-rows">
-                    <div class="info-row">
-                      <span class="row-label">Full Name:</span>
-                      <span class="row-val font-semibold">{{ data360.student.studentName }}</span>
+      }
+    
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
+      @if (data360) {
+        <div class="modal-body">
+          <mat-tab-group animationDuration="200ms" class="custom-tabs" [(selectedIndex)]="activeTabIndex">
+            <!-- TAB 1: OVERVIEW & BIODATA -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">person</mat-icon> Overview
+              </ng-template>
+              <div class="tab-content-wrap">
+                <div class="dossier-grid">
+                  <!-- Personal Info Card -->
+                  <div class="info-card">
+                    <div class="card-header">
+                      <mat-icon class="sect-icon">badge</mat-icon>
+                      <h3>Student Identity &amp; Biodata</h3>
                     </div>
-                    <div class="info-row">
-                      <span class="row-label">Date of Birth:</span>
-                      <span class="row-val">
-                        {{ data360.student.dateOfBirth ? (data360.student.dateOfBirth | date:'dd MMM yyyy') : 'N/A' }}
-                        <small *ngIf="data360.student.age">({{ data360.student.age }} years)</small>
-                      </span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Gender / Blood:</span>
-                      <span class="row-val">{{ data360.student.gender || 'N/A' }} &bull; {{ data360.student.bloodGroup || 'N/A' }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Category / Religion:</span>
-                      <span class="row-val">{{ data360.student.category || 'General' }} &bull; {{ data360.student.religion || 'N/A' }}</span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.aadhaarNumber">
-                      <span class="row-label">Aadhaar UID:</span>
-                      <span class="row-val font-mono">{{ data360.student.aadhaarNumber }}</span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.apaarId || data360.student.penNumber">
-                      <span class="row-label">APAAR / PEN:</span>
-                      <span class="row-val font-mono">{{ data360.student.apaarId || data360.student.penNumber }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Joining Date:</span>
-                      <span class="row-val font-semibold">{{ data360.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Academic & Faculty Allocation Card -->
-                <div class="info-card">
-                  <div class="card-header">
-                    <mat-icon class="sect-icon">school</mat-icon>
-                    <h3>Academic &amp; Faculty Allocation</h3>
-                  </div>
-                  <div class="info-rows">
-                    <div class="info-row">
-                      <span class="row-label">Class:</span>
-                      <span class="row-val font-semibold">
-                        {{ data360.student.className ? data360.student.className + (data360.student.sectionName ? ' - ' + data360.student.sectionName : '') : 'N/A' }}
-                      </span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.isCoachingStudent || data360.student.batchName">
-                      <span class="row-label">Coaching Batch:</span>
-                      <span class="row-val font-semibold" style="color: #c2410c;">
-                        <mat-icon style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle; margin-right: 2px;">groups</mat-icon>
-                        {{ data360.student.batchName || 'General / Unassigned' }}
-                      </span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.isCoachingStudent || data360.student.batchSubject">
-                      <span class="row-label">Batch Subject:</span>
-                      <span class="row-val font-semibold" [style.color]="data360.student.batchSubject ? '#1e40af' : '#64748b'">
-                        {{ data360.student.batchSubject || 'General / All Subjects' }}
-                      </span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.isCoachingStudent && data360.student.coachingJoiningDate">
-                      <span class="row-label">Coaching Entry Date:</span>
-                      <span class="row-val font-semibold" style="color: #c2410c;">
-                        {{ data360.student.coachingJoiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}
-                      </span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.isSchoolStudent">
-                      <span class="row-label">Class Teacher:</span>
-                      <span class="row-val ct-highlight" *ngIf="data360.student.classTeacherName">
-                        {{ data360.student.classTeacherName }}
-                        <small *ngIf="data360.student.classTeacherPhone">({{ data360.student.classTeacherPhone }})</small>
-                      </span>
-                      <span class="row-val" *ngIf="!data360.student.classTeacherName" style="color: #b45309; font-weight: 600; font-size: 0.82rem;">
-                        Not Assigned <small style="color: #64748b; font-weight: 400;">(Master Management &gt; Classes &amp; Sections)</small>
-                      </span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Admission / SR No:</span>
-                      <span class="row-val font-mono">{{ data360.student.admissionNumber || 'N/A' }}</span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.isSchoolStudent || data360.student.schoolRollNumber">
-                      <span class="row-label">School Roll No:</span>
-                      <span class="row-val font-mono">{{ data360.student.schoolRollNumber || (data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.isCoachingStudent || data360.student.coachingRollNumber">
-                      <span class="row-label">Coaching Roll No:</span>
-                      <span class="row-val font-mono font-semibold" style="color: #c2410c;">{{ data360.student.coachingRollNumber || (!data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.branchName">
-                      <span class="row-label">Branch / Campus:</span>
-                      <span class="row-val">{{ data360.student.branchName }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Parents & Guardian Info Card -->
-                <div class="info-card">
-                  <div class="card-header">
-                    <mat-icon class="sect-icon">people</mat-icon>
-                    <h3>Parents &amp; Emergency Contacts</h3>
-                  </div>
-                  <div class="info-rows">
-                    <div class="info-row">
-                      <span class="row-label">Father / Guardian:</span>
-                      <span class="row-val font-semibold">{{ data360.student.parentName }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Mother's Name:</span>
-                      <span class="row-val">{{ data360.student.motherName || 'N/A' }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">WhatsApp Contact:</span>
-                      <span class="row-val highlight-phone">
-                        <mat-icon class="phone-icon">chat</mat-icon>
-                        {{ data360.student.parentWhatsAppPhone }}
-                      </span>
-                    </div>
-                    <div class="info-row" *ngIf="data360.student.emergencyContactName">
-                      <span class="row-label">Emergency Contact:</span>
-                      <span class="row-val">{{ data360.student.emergencyContactName }} ({{ data360.student.emergencyContactPhone || 'No Phone' }})</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Residential Address:</span>
-                      <span class="row-val address-text">{{ data360.student.address || 'Not specified' }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Enrollment & Previous School Info Card -->
-                <div class="info-card">
-                  <div class="card-header">
-                    <mat-icon class="sect-icon">history_edu</mat-icon>
-                    <h3>Enrollment &amp; Academic Background</h3>
-                  </div>
-                  <div class="info-rows">
-                    <div class="info-row">
-                      <span class="row-label">Enrollment Stream:</span>
-                      <span class="row-val">
-                        <span *ngIf="data360.student.isSchoolStudent" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-right:6px; display:inline-flex; align-items:center; gap:4px;">
-                          <mat-icon style="font-size:13px; width:13px; height:13px;">school</mat-icon> School
-                        </span>
-                        <span *ngIf="data360.student.isCoachingStudent" style="background:#ffedd5; color:#c2410c; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
-                          <mat-icon style="font-size:13px; width:13px; height:13px;">groups</mat-icon> Coaching
-                        </span>
-                      </span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Previous School:</span>
-                      <span class="row-val">{{ data360.student.previousSchoolName || 'N/A' }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Previous Board:</span>
-                      <span class="row-val">{{ data360.student.previousBoard || 'N/A' }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="row-label">Status:</span>
-                      <span class="row-val font-semibold" [style.color]="data360.student.isActive ? '#16a34a' : '#dc2626'">
-                        {{ data360.student.isActive ? 'Active Enrolled' : 'Inactive / Left' }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Linked Siblings Card -->
-                <div class="info-card col-span-2">
-                  <div class="card-header sibling-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <mat-icon class="sect-icon sibling-icon">family_restroom</mat-icon>
-                      <h3>Linked Siblings / Family Members ({{ siblingsList.length || data360.siblings.length || 0 }})</h3>
-                    </div>
-                    <button mat-stroked-button color="primary" class="manage-sibs-btn" (click)="activeTabIndex = 11" style="height:28px; line-height:28px; font-size:11px;">
-                      <mat-icon style="font-size:14px; width:14px; height:14px;">diversity_3</mat-icon> Manage / Link Sibling
-                    </button>
-                  </div>
-                  <div class="siblings-grid" *ngIf="data360.siblings.length">
-                    <div class="sibling-chip-card" *ngFor="let sib of data360.siblings" (click)="openSibling(sib.studentId)">
-                      <div class="sib-avatar-wrap">
-                        <img *ngIf="sib.profilePhoto" [src]="getPhotoUrl(sib.profilePhoto)" [alt]="sib.studentName" class="sib-avatar-img" />
-                        <div *ngIf="!sib.profilePhoto" class="sib-avatar-fallback">{{ getInitials(sib.studentName) }}</div>
+                    <div class="info-rows">
+                      <div class="info-row">
+                        <span class="row-label">Full Name:</span>
+                        <span class="row-val font-semibold">{{ data360.student.studentName }}</span>
                       </div>
-                      <div class="sib-info">
-                        <div class="sib-name">{{ sib.studentName }}</div>
-                        <div class="sib-meta">
-                          <span *ngIf="sib.className">Class {{ sib.className }}{{ sib.sectionName ? ' - ' + sib.sectionName : '' }}</span>
-                          <span *ngIf="sib.batchName"> &bull; {{ sib.batchName }}</span>
-                          <span> &bull; Roll: {{ sib.rollNumber }}</span>
+                      <div class="info-row">
+                        <span class="row-label">Date of Birth:</span>
+                        <span class="row-val">
+                          {{ data360.student.dateOfBirth ? (data360.student.dateOfBirth | date:'dd MMM yyyy') : 'N/A' }}
+                          @if (data360.student.age) {
+                            <small>({{ data360.student.age }} years)</small>
+                          }
+                        </span>
+                      </div>
+                      <div class="info-row">
+                        <span class="row-label">Gender / Blood:</span>
+                        <span class="row-val">{{ data360.student.gender || 'N/A' }} &bull; {{ data360.student.bloodGroup || 'N/A' }}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="row-label">Category / Religion:</span>
+                        <span class="row-val">{{ data360.student.category || 'General' }} &bull; {{ data360.student.religion || 'N/A' }}</span>
+                      </div>
+                      @if (data360.student.aadhaarNumber) {
+                        <div class="info-row">
+                          <span class="row-label">Aadhaar UID:</span>
+                          <span class="row-val font-mono">{{ data360.student.aadhaarNumber }}</span>
                         </div>
-                      </div>
-                      <mat-icon class="view-sib-icon" matTooltip="Click to open profile">launch</mat-icon>
-                    </div>
-                  </div>
-                  <div *ngIf="!data360.siblings.length" style="padding:12px; color:#64748b; font-size:12px; display:flex; align-items:center; gap:8px;">
-                    <mat-icon style="font-size:18px; width:18px; height:18px; color:#94a3b8;">info</mat-icon>
-                    No siblings linked yet. Click "Manage / Link Sibling" to map family members and configure fee concessions.
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 2: FEE LEDGER & PAYMENTS -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">payments</mat-icon> Fee Ledger
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="fee-kpi-row">
-                <div class="fee-kpi-card billed">
-                  <span class="kpi-label">Total Invoiced</span>
-                  <span class="kpi-val">&#8377;{{ data360.feeSummary.totalInvoiced | number }}</span>
-                  <span class="kpi-sub">{{ data360.feeSummary.totalInvoicesCount }} Total Invoices</span>
-                </div>
-                <div class="fee-kpi-card paid">
-                  <span class="kpi-label">Total Received</span>
-                  <span class="kpi-val">&#8377;{{ data360.feeSummary.totalPaid | number }}</span>
-                  <span class="kpi-sub">Cleared Payments</span>
-                </div>
-                <div class="fee-kpi-card due" [class.has-due]="data360.feeSummary.totalPending > 0">
-                  <span class="kpi-label">Pending Dues</span>
-                  <span class="kpi-val">&#8377;{{ data360.feeSummary.totalPending | number }}</span>
-                  <span class="kpi-sub">{{ data360.feeSummary.unpaidInvoicesCount }} Unpaid / Partial</span>
-                </div>
-              </div>
-
-              <div class="section-title-wrap">
-                <h4>Fee Invoices &amp; Receipts History</h4>
-              </div>
-
-              <div class="table-scroll-wrap" *ngIf="data360.feeSummary.recentInvoices?.length">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Invoice No</th>
-                      <th>Title / Particulars</th>
-                      <th>Due Date</th>
-                      <th class="text-right">Total</th>
-                      <th class="text-right">Paid</th>
-                      <th class="text-right">Balance</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let inv of data360.feeSummary.recentInvoices">
-                      <td class="font-mono">{{ inv.invoiceNumber }}</td>
-                      <td>{{ inv.title }}</td>
-                      <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
-                      <td class="text-right font-semibold">&#8377;{{ inv.totalAmount | number }}</td>
-                      <td class="text-right text-success">&#8377;{{ inv.paidAmount | number }}</td>
-                      <td class="text-right" [class.text-danger]="inv.balanceAmount > 0">&#8377;{{ inv.balanceAmount | number }}</td>
-                      <td>
-                        <span class="status-badge" [ngClass]="inv.status.toLowerCase()">
-                          {{ inv.status }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="empty-state-box" *ngIf="!data360.feeSummary.recentInvoices?.length">
-                <mat-icon>receipt_long</mat-icon>
-                <p>No fee invoices recorded for this student yet.</p>
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 3: ATTENDANCE RADAR -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">event_available</mat-icon> Attendance
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="att-kpi-row">
-                <div class="att-box percentage">
-                  <span class="att-num">{{ data360.attendanceSummary.attendancePercentage }}%</span>
-                  <span class="att-label">Cumulative Attendance</span>
-                </div>
-                <div class="att-box present">
-                  <span class="att-num">{{ data360.attendanceSummary.presentDays }}</span>
-                  <span class="att-label">Present Days</span>
-                </div>
-                <div class="att-box absent">
-                  <span class="att-num">{{ data360.attendanceSummary.absentDays }}</span>
-                  <span class="att-label">Absent Days</span>
-                </div>
-                <div class="att-box late">
-                  <span class="att-num">{{ data360.attendanceSummary.lateDays }}</span>
-                  <span class="att-label">Late Marks</span>
-                </div>
-                <div class="att-box leave">
-                  <span class="att-num">{{ data360.attendanceSummary.leaveDays }}</span>
-                  <span class="att-label">Approved Leaves</span>
-                </div>
-              </div>
-
-              <div class="section-title-wrap">
-                <h4>Recent 15 Attendance Logs</h4>
-              </div>
-
-              <div class="att-timeline" *ngIf="data360.attendanceSummary.recentLogs?.length">
-                <div class="att-log-item" *ngFor="let log of data360.attendanceSummary.recentLogs">
-                  <div class="att-date-col">
-                    <span class="att-day">{{ log.date | date:'dd' }}</span>
-                    <span class="att-mon">{{ log.date | date:'MMM yyyy' }}</span>
-                  </div>
-                  <div class="att-status-col">
-                    <span class="status-badge" [ngClass]="log.status.toLowerCase()">
-                      {{ log.status }}
-                    </span>
-                    <span class="att-source" *ngIf="log.captureSource">
-                      <mat-icon class="inline-icon">fingerprint</mat-icon> {{ log.captureSource }}
-                    </span>
-                  </div>
-                  <div class="att-remarks-col">
-                    {{ log.remarks || 'Standard classroom attendance' }}
-                  </div>
-                </div>
-              </div>
-
-              <div class="empty-state-box" *ngIf="!data360.attendanceSummary.recentLogs?.length">
-                <mat-icon>calendar_today</mat-icon>
-                <p>No attendance records found for this student.</p>
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 4: EXAMS & ACADEMIC PERFORMANCE -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">grade</mat-icon> Academic &amp; Exams
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="section-title-wrap">
-                <h4>Recent Assessment &amp; Examination Results</h4>
-              </div>
-
-              <div class="table-scroll-wrap" *ngIf="data360.examMarks?.length">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Exam / Test Title</th>
-                      <th>Subject</th>
-                      <th>Date</th>
-                      <th class="text-right">Marks Scored</th>
-                      <th class="text-right">Max Marks</th>
-                      <th class="text-right">Percentage</th>
-                      <th>Result</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let ex of data360.examMarks">
-                      <td class="font-semibold">{{ ex.testName }}</td>
-                      <td>{{ ex.subjectName }}</td>
-                      <td>{{ ex.testDate | date:'dd MMM yyyy' }}</td>
-                      <td class="text-right font-semibold">{{ ex.marksObtained }}</td>
-                      <td class="text-right">{{ ex.maxMarks }}</td>
-                      <td class="text-right font-bold" [class.text-success]="ex.percentage >= 60" [class.text-danger]="ex.percentage < 33">
-                        {{ ex.percentage }}%
-                      </td>
-                      <td>
-                        <span class="status-badge" [class.paid]="ex.status === 'Passed'" [class.due]="ex.status !== 'Passed'">
-                          {{ ex.status }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="empty-state-box" *ngIf="!data360.examMarks?.length">
-                <mat-icon>assignment_turned_in</mat-icon>
-                <p>No examination or assessment marks logged for this student yet.</p>
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 5: LIBRARY, HOSTEL & TRANSPORT -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">room_preferences</mat-icon> Facilities
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="facilities-grid">
-                
-                <!-- Hostel Facility Card -->
-                <div class="facility-card">
-                  <div class="fac-header">
-                    <mat-icon class="fac-icon hostel">hotel</mat-icon>
-                    <div>
-                      <h4>Hostel Residential Facility</h4>
-                      <span class="fac-status" [class.active]="data360.facilities.hasHostel">
-                        {{ data360.facilities.hasHostel ? 'Resident Enrolled' : 'Not Enrolled / Day Scholar' }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="fac-details" *ngIf="data360.facilities.hasHostel">
-                    <div class="fac-row">
-                      <span>Hostel Block:</span>
-                      <strong>{{ data360.facilities.hostelName }}</strong>
-                    </div>
-                    <div class="fac-row">
-                      <span>Room &amp; Bed:</span>
-                      <strong>Room {{ data360.facilities.roomNumber }} &bull; Bed {{ data360.facilities.bedCode }}</strong>
-                    </div>
-                    <div class="fac-row">
-                      <span>Monthly Rent:</span>
-                      <strong>&#8377;{{ data360.facilities.monthlyBedRent | number }}/mo</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Transport Facility Card -->
-                <div class="facility-card">
-                  <div class="fac-header">
-                    <mat-icon class="fac-icon transport">directions_bus</mat-icon>
-                    <div>
-                      <h4>Transport &amp; Bus Service</h4>
-                      <span class="fac-status" [class.active]="data360.facilities.hasTransport">
-                        {{ data360.facilities.hasTransport ? 'Bus Pass Active' : 'Self Commuter' }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="fac-details" *ngIf="data360.facilities.hasTransport">
-                    <div class="fac-row">
-                      <span>Route Name:</span>
-                      <strong>{{ data360.facilities.routeName }}</strong>
-                    </div>
-                    <div class="fac-row">
-                      <span>Pickup / Drop Stop:</span>
-                      <strong>{{ data360.facilities.stopName }}</strong>
-                    </div>
-                    <div class="fac-row" *ngIf="data360.facilities.vehicleNumber">
-                      <span>Bus Reg No:</span>
-                      <strong>{{ data360.facilities.vehicleNumber }}</strong>
-                    </div>
-
-                    <!-- Live Boarding / Transit Radar Pill for Student 360 -->
-                    <div class="live-transit-box" *ngIf="liveTransitStatus" style="margin-top: 10px; padding: 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
-                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <span style="font-weight: 700; color: #1e40af; font-size: 0.76rem; display: flex; align-items: center; gap: 4px;">
-                          <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #2563eb;">sensors</mat-icon> Today's Live Transit Status
-                        </span>
-                        <button type="button" mat-icon-button (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" title="Refresh Live Status" style="width: 24px; height: 24px; line-height: 24px;">
-                          <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #3b82f6;">refresh</mat-icon>
-                        </button>
-                      </div>
-                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.72rem;">
-                        <div style="background: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #dbeafe;">
-                          <div style="color: #64748b; font-weight: 600;">Pickup (Morning)</div>
-                          <strong *ngIf="liveTransitStatus.morningStatus === 'Boarded'" style="color: #16a34a;">
-                            Boarded ({{ liveTransitStatus.morningBoardedAtFormatted || 'Done' }})
-                          </strong>
-                          <strong *ngIf="liveTransitStatus.morningStatus === 'Absent'" style="color: #dc2626;">
-                            Absent / Missed
-                          </strong>
-                          <strong *ngIf="liveTransitStatus.morningStatus !== 'Boarded' && liveTransitStatus.morningStatus !== 'Absent'" style="color: #d97706;">
-                            Awaiting Pickup
-                          </strong>
+                      }
+                      @if (data360.student.apaarId || data360.student.penNumber) {
+                        <div class="info-row">
+                          <span class="row-label">APAAR / PEN:</span>
+                          <span class="row-val font-mono">{{ data360.student.apaarId || data360.student.penNumber }}</span>
                         </div>
-                        <div style="background: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #dbeafe;">
-                          <div style="color: #64748b; font-weight: 600;">Drop (Evening)</div>
-                          <strong *ngIf="liveTransitStatus.eveningStatus === 'Dropped'" style="color: #2563eb;">
-                            Dropped ({{ liveTransitStatus.eveningTimeFormatted || 'Done' }})
-                          </strong>
-                          <strong *ngIf="liveTransitStatus.eveningStatus === 'Boarded'" style="color: #16a34a;">
-                            On Bus (Departed)
-                          </strong>
-                          <strong *ngIf="liveTransitStatus.eveningStatus === 'Absent'" style="color: #dc2626;">
-                            Absent / Self Pickup
-                          </strong>
-                          <strong *ngIf="liveTransitStatus.eveningStatus !== 'Dropped' && liveTransitStatus.eveningStatus !== 'Boarded' && liveTransitStatus.eveningStatus !== 'Absent'" style="color: #d97706;">
-                            Awaiting Run
-                          </strong>
-                        </div>
-                      </div>
-                      <div *ngIf="liveTransitStatus.driverName" style="margin-top: 6px; font-size: 0.7rem; color: #475569; display: flex; justify-content: space-between;">
-                        <span>Driver: <strong>{{ liveTransitStatus.driverName }}</strong></span>
-                        <a *ngIf="liveTransitStatus.driverPhone" [href]="'tel:' + liveTransitStatus.driverPhone" style="color: #2563eb; text-decoration: none; font-weight: 600;">
-                          Call Driver
-                        </a>
+                      }
+                      <div class="info-row">
+                        <span class="row-label">Joining Date:</span>
+                        <span class="row-val font-semibold">{{ data360.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
                       </div>
                     </div>
+                  </div>
+                  <!-- Academic & Faculty Allocation Card -->
+                  <div class="info-card">
+                    <div class="card-header">
+                      <mat-icon class="sect-icon">school</mat-icon>
+                      <h3>Academic &amp; Faculty Allocation</h3>
+                    </div>
+                    <div class="info-rows">
+                      <div class="info-row">
+                        <span class="row-label">Class:</span>
+                        <span class="row-val font-semibold">
+                          {{ data360.student.className ? data360.student.className + (data360.student.sectionName ? ' - ' + data360.student.sectionName : '') : 'N/A' }}
+                        </span>
+                      </div>
+                      @if (data360.student.isCoachingStudent || data360.student.batchName) {
+                        <div class="info-row">
+                          <span class="row-label">Coaching Batch:</span>
+                          <span class="row-val font-semibold" style="color: #c2410c;">
+                            <mat-icon style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle; margin-right: 2px;">groups</mat-icon>
+                            {{ data360.student.batchName || 'General / Unassigned' }}
+                          </span>
+                        </div>
+                      }
+                      @if (data360.student.isCoachingStudent || data360.student.batchSubject) {
+                        <div class="info-row">
+                          <span class="row-label">Batch Subject:</span>
+                          <span class="row-val font-semibold" [style.color]="data360.student.batchSubject ? '#1e40af' : '#64748b'">
+                            {{ data360.student.batchSubject || 'General / All Subjects' }}
+                          </span>
+                        </div>
+                      }
+                      @if (data360.student.isCoachingStudent && data360.student.coachingJoiningDate) {
+                        <div class="info-row">
+                          <span class="row-label">Coaching Entry Date:</span>
+                          <span class="row-val font-semibold" style="color: #c2410c;">
+                            {{ data360.student.coachingJoiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}
+                          </span>
+                        </div>
+                      }
+                      @if (data360.student.isSchoolStudent) {
+                        <div class="info-row">
+                          <span class="row-label">Class Teacher:</span>
+                          @if (data360.student.classTeacherName) {
+                            <span class="row-val ct-highlight">
+                              {{ data360.student.classTeacherName }}
+                              @if (data360.student.classTeacherPhone) {
+                                <small>({{ data360.student.classTeacherPhone }})</small>
+                              }
+                            </span>
+                          }
+                          @if (!data360.student.classTeacherName) {
+                            <span class="row-val" style="color: #b45309; font-weight: 600; font-size: 0.82rem;">
+                              Not Assigned <small style="color: #64748b; font-weight: 400;">(Master Management &gt; Classes &amp; Sections)</small>
+                            </span>
+                          }
+                        </div>
+                      }
+                      <div class="info-row">
+                        <span class="row-label">Admission / SR No:</span>
+                        <span class="row-val font-mono">{{ data360.student.admissionNumber || 'N/A' }}</span>
+                      </div>
+                      @if (data360.student.isSchoolStudent || data360.student.schoolRollNumber) {
+                        <div class="info-row">
+                          <span class="row-label">School Roll No:</span>
+                          <span class="row-val font-mono">{{ data360.student.schoolRollNumber || (data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</span>
+                        </div>
+                      }
+                      @if (data360.student.isCoachingStudent || data360.student.coachingRollNumber) {
+                        <div class="info-row">
+                          <span class="row-label">Coaching Roll No:</span>
+                          <span class="row-val font-mono font-semibold" style="color: #c2410c;">{{ data360.student.coachingRollNumber || (!data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</span>
+                        </div>
+                      }
+                      @if (data360.student.branchName) {
+                        <div class="info-row">
+                          <span class="row-label">Branch / Campus:</span>
+                          <span class="row-val">{{ data360.student.branchName }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                  <!-- Parents & Guardian Info Card -->
+                  <div class="info-card">
+                    <div class="card-header">
+                      <mat-icon class="sect-icon">people</mat-icon>
+                      <h3>Parents &amp; Emergency Contacts</h3>
+                    </div>
+                    <div class="info-rows">
+                      <div class="info-row">
+                        <span class="row-label">Father / Guardian:</span>
+                        <span class="row-val font-semibold">{{ data360.student.parentName }}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="row-label">Mother's Name:</span>
+                        <span class="row-val">{{ data360.student.motherName || 'N/A' }}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="row-label">WhatsApp Contact:</span>
+                        <span class="row-val highlight-phone">
+                          <mat-icon class="phone-icon">chat</mat-icon>
+                          {{ data360.student.parentWhatsAppPhone }}
+                        </span>
+                      </div>
+                      @if (data360.student.emergencyContactName) {
+                        <div class="info-row">
+                          <span class="row-label">Emergency Contact:</span>
+                          <span class="row-val">{{ data360.student.emergencyContactName }} ({{ data360.student.emergencyContactPhone || 'No Phone' }})</span>
+                        </div>
+                      }
+                      <div class="info-row">
+                        <span class="row-label">Residential Address:</span>
+                        <span class="row-val address-text">{{ data360.student.address || 'Not specified' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Enrollment & Previous School Info Card -->
+                  <div class="info-card">
+                    <div class="card-header">
+                      <mat-icon class="sect-icon">history_edu</mat-icon>
+                      <h3>Enrollment &amp; Academic Background</h3>
+                    </div>
+                    <div class="info-rows">
+                      <div class="info-row">
+                        <span class="row-label">Enrollment Stream:</span>
+                        <span class="row-val">
+                          @if (data360.student.isSchoolStudent) {
+                            <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-right:6px; display:inline-flex; align-items:center; gap:4px;">
+                              <mat-icon style="font-size:13px; width:13px; height:13px;">school</mat-icon> School
+                            </span>
+                          }
+                          @if (data360.student.isCoachingStudent) {
+                            <span style="background:#ffedd5; color:#c2410c; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                              <mat-icon style="font-size:13px; width:13px; height:13px;">groups</mat-icon> Coaching
+                            </span>
+                          }
+                        </span>
+                      </div>
+                      <div class="info-row">
+                        <span class="row-label">Previous School:</span>
+                        <span class="row-val">{{ data360.student.previousSchoolName || 'N/A' }}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="row-label">Previous Board:</span>
+                        <span class="row-val">{{ data360.student.previousBoard || 'N/A' }}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="row-label">Status:</span>
+                        <span class="row-val font-semibold" [style.color]="data360.student.isActive ? '#16a34a' : '#dc2626'">
+                          {{ data360.student.isActive ? 'Active Enrolled' : 'Inactive / Left' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Linked Siblings Card -->
+                  <div class="info-card col-span-2">
+                    <div class="card-header sibling-header" style="display:flex; justify-content:space-between; align-items:center;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <mat-icon class="sect-icon sibling-icon">family_restroom</mat-icon>
+                        <h3>Linked Siblings / Family Members ({{ siblingsList.length || data360.siblings.length || 0 }})</h3>
+                      </div>
+                      <button mat-stroked-button color="primary" class="manage-sibs-btn" (click)="activeTabIndex = 11" style="height:28px; line-height:28px; font-size:11px;">
+                        <mat-icon style="font-size:14px; width:14px; height:14px;">diversity_3</mat-icon> Manage / Link Sibling
+                      </button>
+                    </div>
+                    @if (data360.siblings.length) {
+                      <div class="siblings-grid">
+                        @for (sib of data360.siblings; track sib) {
+                          <div class="sibling-chip-card" (click)="openSibling(sib.studentId)">
+                            <div class="sib-avatar-wrap">
+                              @if (sib.profilePhoto) {
+                                <img [src]="getPhotoUrl(sib.profilePhoto)" [alt]="sib.studentName" class="sib-avatar-img" />
+                              }
+                              @if (!sib.profilePhoto) {
+                                <div class="sib-avatar-fallback">{{ getInitials(sib.studentName) }}</div>
+                              }
+                            </div>
+                            <div class="sib-info">
+                              <div class="sib-name">{{ sib.studentName }}</div>
+                              <div class="sib-meta">
+                                @if (sib.className) {
+                                  <span>Class {{ sib.className }}{{ sib.sectionName ? ' - ' + sib.sectionName : '' }}</span>
+                                }
+                                @if (sib.batchName) {
+                                  <span> &bull; {{ sib.batchName }}</span>
+                                }
+                                <span> &bull; Roll: {{ sib.rollNumber }}</span>
+                              </div>
+                            </div>
+                            <mat-icon class="view-sib-icon" matTooltip="Click to open profile">launch</mat-icon>
+                          </div>
+                        }
+                      </div>
+                    }
+                    @if (!data360.siblings.length) {
+                      <div style="padding:12px; color:#64748b; font-size:12px; display:flex; align-items:center; gap:8px;">
+                        <mat-icon style="font-size:18px; width:18px; height:18px; color:#94a3b8;">info</mat-icon>
+                        No siblings linked yet. Click "Manage / Link Sibling" to map family members and configure fee concessions.
+                      </div>
+                    }
                   </div>
                 </div>
-
-                <!-- Library Facility Card -->
-                <div class="facility-card col-span-2">
-                  <div class="fac-header">
-                    <mat-icon class="fac-icon library">local_library</mat-icon>
-                    <div>
-                      <h4>Library Membership &amp; Issued Books</h4>
-                      <span class="fac-status" [class.active]="data360.library.isMember">
-                        {{ data360.library.isMember ? (data360.library.membershipPlan || 'Active Member') : 'Not Enrolled' }}
-                      </span>
-                    </div>
+              </div>
+            </mat-tab>
+            <!-- TAB 2: FEE LEDGER & PAYMENTS -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">payments</mat-icon> Fee Ledger
+              </ng-template>
+              <div class="tab-content-wrap">
+                <div class="fee-kpi-row">
+                  <div class="fee-kpi-card billed">
+                    <span class="kpi-label">Total Invoiced</span>
+                    <span class="kpi-val">&#8377;{{ data360.feeSummary.totalInvoiced | number }}</span>
+                    <span class="kpi-sub">{{ data360.feeSummary.totalInvoicesCount }} Total Invoices</span>
                   </div>
-
-                  <div *ngIf="data360.library.isMember" class="lib-books-box">
-                    <div class="lib-meta-strip">
-                      <span>Card No: <strong>{{ data360.library.libraryCardNumber || 'N/A' }}</strong></span>
-                      <span>Max Books Allowed: <strong>{{ data360.library.maxBooksAllowed }}</strong></span>
-                      <span>Currently Holding: <strong>{{ data360.library.currentlyIssuedCount }} Books</strong></span>
-                    </div>
-
-                    <div class="table-scroll-wrap" *ngIf="data360.library.issuedBooks?.length">
-                      <table class="data-table">
-                        <thead>
+                  <div class="fee-kpi-card paid">
+                    <span class="kpi-label">Total Received</span>
+                    <span class="kpi-val">&#8377;{{ data360.feeSummary.totalPaid | number }}</span>
+                    <span class="kpi-sub">Cleared Payments</span>
+                  </div>
+                  <div class="fee-kpi-card due" [class.has-due]="data360.feeSummary.totalPending > 0">
+                    <span class="kpi-label">Pending Dues</span>
+                    <span class="kpi-val">&#8377;{{ data360.feeSummary.totalPending | number }}</span>
+                    <span class="kpi-sub">{{ data360.feeSummary.unpaidInvoicesCount }} Unpaid / Partial</span>
+                  </div>
+                </div>
+                <div class="section-title-wrap">
+                  <h4>Fee Invoices &amp; Receipts History</h4>
+                </div>
+                @if (data360.feeSummary.recentInvoices?.length) {
+                  <div class="table-scroll-wrap">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Invoice No</th>
+                          <th>Title / Particulars</th>
+                          <th>Due Date</th>
+                          <th class="text-right">Total</th>
+                          <th class="text-right">Paid</th>
+                          <th class="text-right">Balance</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (inv of data360.feeSummary.recentInvoices; track inv) {
                           <tr>
-                            <th>Book Title</th>
-                            <th>Accession No</th>
-                            <th>Issue Date</th>
-                            <th>Due Date</th>
-                            <th>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr *ngFor="let b of data360.library.issuedBooks">
-                            <td class="font-semibold">{{ b.bookTitle }}</td>
-                            <td class="font-mono">{{ b.accessionNumber || 'N/A' }}</td>
-                            <td>{{ b.issueDate | date:'dd MMM yyyy' }}</td>
-                            <td>{{ b.dueDate | date:'dd MMM yyyy' }}</td>
+                            <td class="font-mono">{{ inv.invoiceNumber }}</td>
+                            <td>{{ inv.title }}</td>
+                            <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
+                            <td class="text-right font-semibold">&#8377;{{ inv.totalAmount | number }}</td>
+                            <td class="text-right text-success">&#8377;{{ inv.paidAmount | number }}</td>
+                            <td class="text-right" [class.text-danger]="inv.balanceAmount > 0">&#8377;{{ inv.balanceAmount | number }}</td>
                             <td>
-                              <span class="status-badge" [class.due]="b.isOverdue" [class.paid]="!b.isOverdue">
-                                {{ b.isOverdue ? 'Overdue' : 'Active Holding' }}
+                              <span class="status-badge" [ngClass]="inv.status.toLowerCase()">
+                                {{ inv.status }}
                               </span>
                             </td>
                           </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <p *ngIf="!data360.library.issuedBooks?.length" class="no-books-msg">
-                      No books currently issued to this student.
-                    </p>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+                @if (!data360.feeSummary.recentInvoices?.length) {
+                  <div class="empty-state-box">
+                    <mat-icon>receipt_long</mat-icon>
+                    <p>No fee invoices recorded for this student yet.</p>
+                  </div>
+                }
+              </div>
+            </mat-tab>
+            <!-- TAB 3: ATTENDANCE RADAR -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">event_available</mat-icon> Attendance
+              </ng-template>
+              <div class="tab-content-wrap">
+                <div class="att-kpi-row">
+                  <div class="att-box percentage">
+                    <span class="att-num">{{ data360.attendanceSummary.attendancePercentage }}%</span>
+                    <span class="att-label">Cumulative Attendance</span>
+                  </div>
+                  <div class="att-box present">
+                    <span class="att-num">{{ data360.attendanceSummary.presentDays }}</span>
+                    <span class="att-label">Present Days</span>
+                  </div>
+                  <div class="att-box absent">
+                    <span class="att-num">{{ data360.attendanceSummary.absentDays }}</span>
+                    <span class="att-label">Absent Days</span>
+                  </div>
+                  <div class="att-box late">
+                    <span class="att-num">{{ data360.attendanceSummary.lateDays }}</span>
+                    <span class="att-label">Late Marks</span>
+                  </div>
+                  <div class="att-box leave">
+                    <span class="att-num">{{ data360.attendanceSummary.leaveDays }}</span>
+                    <span class="att-label">Approved Leaves</span>
                   </div>
                 </div>
-
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 6: LEAVES & GATE PASSES -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">time_to_leave</mat-icon> Leaves &amp; Passes
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="leaves-passes-grid">
-                
-                <!-- Leaves Card -->
-                <div class="section-card">
-                  <div class="card-header">
-                    <mat-icon class="sect-icon">event_busy</mat-icon>
-                    <h4>Student Leave Applications ({{ data360.leaves.length || 0 }})</h4>
-                  </div>
-                  <div class="mini-list" *ngIf="data360.leaves.length">
-                    <div class="mini-item" *ngFor="let l of data360.leaves">
-                      <div class="mini-left">
-                        <span class="mini-title">{{ l.reason }}</span>
-                        <span class="mini-meta">{{ l.fromDate | date:'dd MMM' }} - {{ l.toDate | date:'dd MMM yyyy' }} ({{ l.totalDays }} day{{ l.totalDays > 1 ? 's' : '' }})</span>
+                <div class="section-title-wrap">
+                  <h4>Recent 15 Attendance Logs</h4>
+                </div>
+                @if (data360.attendanceSummary.recentLogs?.length) {
+                  <div class="att-timeline">
+                    @for (log of data360.attendanceSummary.recentLogs; track log) {
+                      <div class="att-log-item">
+                        <div class="att-date-col">
+                          <span class="att-day">{{ log.date | date:'dd' }}</span>
+                          <span class="att-mon">{{ log.date | date:'MMM yyyy' }}</span>
+                        </div>
+                        <div class="att-status-col">
+                          <span class="status-badge" [ngClass]="log.status.toLowerCase()">
+                            {{ log.status }}
+                          </span>
+                          @if (log.captureSource) {
+                            <span class="att-source">
+                              <mat-icon class="inline-icon">fingerprint</mat-icon> {{ log.captureSource }}
+                            </span>
+                          }
+                        </div>
+                        <div class="att-remarks-col">
+                          {{ log.remarks || 'Standard classroom attendance' }}
+                        </div>
                       </div>
-                      <span class="status-badge" [ngClass]="l.status.toLowerCase()">
-                        {{ l.status }}
-                      </span>
-                    </div>
+                    }
                   </div>
-                  <div class="empty-state-box" *ngIf="!data360.leaves.length">
-                    <p>No leave requests found.</p>
+                }
+                @if (!data360.attendanceSummary.recentLogs?.length) {
+                  <div class="empty-state-box">
+                    <mat-icon>calendar_today</mat-icon>
+                    <p>No attendance records found for this student.</p>
                   </div>
+                }
+              </div>
+            </mat-tab>
+            <!-- TAB 4: EXAMS & ACADEMIC PERFORMANCE -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">grade</mat-icon> Academic &amp; Exams
+              </ng-template>
+              <div class="tab-content-wrap">
+                <div class="section-title-wrap">
+                  <h4>Recent Assessment &amp; Examination Results</h4>
                 </div>
-
-                <!-- Gate Passes Card -->
-                <div class="section-card">
-                  <div class="card-header">
-                    <mat-icon class="sect-icon">exit_to_app</mat-icon>
-                    <h4>Campus Gate Passes ({{ data360.gatePasses.length || 0 }})</h4>
+                @if (data360.examMarks?.length) {
+                  <div class="table-scroll-wrap">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Exam / Test Title</th>
+                          <th>Subject</th>
+                          <th>Date</th>
+                          <th class="text-right">Marks Scored</th>
+                          <th class="text-right">Max Marks</th>
+                          <th class="text-right">Percentage</th>
+                          <th>Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (ex of data360.examMarks; track ex) {
+                          <tr>
+                            <td class="font-semibold">{{ ex.testName }}</td>
+                            <td>{{ ex.subjectName }}</td>
+                            <td>{{ ex.testDate | date:'dd MMM yyyy' }}</td>
+                            <td class="text-right font-semibold">{{ ex.marksObtained }}</td>
+                            <td class="text-right">{{ ex.maxMarks }}</td>
+                            <td class="text-right font-bold" [class.text-success]="ex.percentage >= 60" [class.text-danger]="ex.percentage < 33">
+                              {{ ex.percentage }}%
+                            </td>
+                            <td>
+                              <span class="status-badge" [class.paid]="ex.status === 'Passed'" [class.due]="ex.status !== 'Passed'">
+                                {{ ex.status }}
+                              </span>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
                   </div>
-                  <div class="mini-list" *ngIf="data360.gatePasses.length">
-                    <div class="mini-item" *ngFor="let gp of data360.gatePasses">
-                      <div class="mini-left">
-                        <span class="mini-title">{{ gp.passNumber }} - {{ gp.reason }}</span>
-                        <span class="mini-meta">Out: {{ gp.outTime | date:'dd MMM, hh:mm a' }} &bull; By: {{ gp.guardianName || 'Guardian' }}</span>
+                }
+                @if (!data360.examMarks?.length) {
+                  <div class="empty-state-box">
+                    <mat-icon>assignment_turned_in</mat-icon>
+                    <p>No examination or assessment marks logged for this student yet.</p>
+                  </div>
+                }
+              </div>
+            </mat-tab>
+            <!-- TAB 5: LIBRARY, HOSTEL & TRANSPORT -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">room_preferences</mat-icon> Facilities
+              </ng-template>
+              <div class="tab-content-wrap">
+                <div class="facilities-grid">
+                  <!-- Hostel Facility Card -->
+                  <div class="facility-card">
+                    <div class="fac-header">
+                      <mat-icon class="fac-icon hostel">hotel</mat-icon>
+                      <div>
+                        <h4>Hostel Residential Facility</h4>
+                        <span class="fac-status" [class.active]="data360.facilities.hasHostel">
+                          {{ data360.facilities.hasHostel ? 'Resident Enrolled' : 'Not Enrolled / Day Scholar' }}
+                        </span>
                       </div>
-                      <span class="status-badge" [ngClass]="gp.status.toLowerCase()">
-                        {{ gp.status }}
-                      </span>
                     </div>
+                    @if (data360.facilities.hasHostel) {
+                      <div class="fac-details">
+                        <div class="fac-row">
+                          <span>Hostel Block:</span>
+                          <strong>{{ data360.facilities.hostelName }}</strong>
+                        </div>
+                        <div class="fac-row">
+                          <span>Room &amp; Bed:</span>
+                          <strong>Room {{ data360.facilities.roomNumber }} &bull; Bed {{ data360.facilities.bedCode }}</strong>
+                        </div>
+                        <div class="fac-row">
+                          <span>Monthly Rent:</span>
+                          <strong>&#8377;{{ data360.facilities.monthlyBedRent | number }}/mo</strong>
+                        </div>
+                      </div>
+                    }
                   </div>
-                  <div class="empty-state-box" *ngIf="!data360.gatePasses.length">
-                    <p>No campus gate passes issued.</p>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 7: DOCUMENTS & KYC VAULT -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">folder_shared</mat-icon> KYC Documents
-            </ng-template>
-            <div class="tab-content-wrap">
-              <!-- Top Upload Action Row -->
-              <div class="doc-actions-row">
-                <div class="doc-count-badge">
-                  <mat-icon>verified_user</mat-icon>
-                  <span>{{ data360.documents.length || 0 }} Official KYC Documents Stored</span>
-                </div>
-                <button mat-raised-button color="primary" (click)="showUploadForm = !showUploadForm" class="upload-btn">
-                  <mat-icon>{{ showUploadForm ? 'close' : 'cloud_upload' }}</mat-icon>
-                  {{ showUploadForm ? 'Cancel Upload' : 'Upload New Document' }}
-                </button>
-              </div>
-
-              <!-- Upload New Document Form -->
-              <div class="upload-form-card" *ngIf="showUploadForm">
-                <div class="card-header">
-                  <mat-icon>upload_file</mat-icon>
-                  <h4>Upload Student KYC / Academic Document</h4>
-                </div>
-                <div class="form-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Document Type *</mat-label>
-                    <mat-select [(ngModel)]="newDoc.documentType">
-                      <mat-option value="Aadhaar">Aadhaar Card</mat-option>
-                      <mat-option value="BirthCertificate">Birth Certificate</mat-option>
-                      <mat-option value="TransferCertificate">Previous School TC / SLC</mat-option>
-                      <mat-option value="Marksheet">Previous Class Marksheet</mat-option>
-                      <mat-option value="CasteCertificate">Caste / Category Certificate</mat-option>
-                      <mat-option value="IncomeCertificate">Income Certificate (EWS/RTE)</mat-option>
-                      <mat-option value="MedicalRecord">Medical / Vaccination Report</mat-option>
-                      <mat-option value="Other">Other Document</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Document Title *</mat-label>
-                    <input matInput [(ngModel)]="newDoc.title" placeholder="e.g. Class 9 Final Marksheet">
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Document Reg / ID Number</mat-label>
-                    <input matInput [(ngModel)]="newDoc.documentNumber" placeholder="e.g. UIDAI-1234 or TC-982">
-                  </mat-form-field>
-
-                  <div class="file-picker-box">
-                    <label class="file-picker-lbl">Select File (PDF, Image, Scan):</label>
-                    <input type="file" (change)="onFileSelected($event)" accept=".pdf,image/*" class="file-input" />
-                    <span *ngIf="selectedFileName" class="selected-filename">{{ selectedFileName }}</span>
-                  </div>
-
-                  <mat-form-field appearance="outline" class="col-span-2">
-                    <mat-label>Remarks / Verification Notes</mat-label>
-                    <input matInput [(ngModel)]="newDoc.remarks" placeholder="Verified from original by admission desk">
-                  </mat-form-field>
-
-                  <div class="form-actions-bar col-span-2">
-                    <button mat-button (click)="showUploadForm = false">Cancel</button>
-                    <button mat-raised-button color="primary" (click)="saveDocument()" [disabled]="uploading || !newDoc.documentType || !newDoc.title">
-                      <mat-icon *ngIf="!uploading">check</mat-icon>
-                      <span>{{ uploading ? 'Uploading Document...' : 'Save & Attach Document' }}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Documents List Grid -->
-              <div class="docs-grid" *ngIf="data360.documents?.length">
-                <div class="doc-card" *ngFor="let doc of data360.documents">
-                  <div class="doc-type-icon" [ngClass]="getDocIconClass(doc.documentType)">
-                    <mat-icon>{{ getDocIcon(doc.documentType) }}</mat-icon>
-                  </div>
-                  <div class="doc-info">
-                    <div class="doc-title-row">
-                      <span class="doc-title">{{ doc.title }}</span>
-                      <span class="doc-type-pill">{{ doc.documentType }}</span>
+                  <!-- Transport Facility Card -->
+                  <div class="facility-card">
+                    <div class="fac-header">
+                      <mat-icon class="fac-icon transport">directions_bus</mat-icon>
+                      <div>
+                        <h4>Transport &amp; Bus Service</h4>
+                        <span class="fac-status" [class.active]="data360.facilities.hasTransport">
+                          {{ data360.facilities.hasTransport ? 'Bus Pass Active' : 'Self Commuter' }}
+                        </span>
+                      </div>
                     </div>
-                    <div class="doc-meta" *ngIf="doc.documentNumber">
-                      <span>ID/No: <strong>{{ doc.documentNumber }}</strong></span>
+                    @if (data360.facilities.hasTransport) {
+                      <div class="fac-details">
+                        <div class="fac-row">
+                          <span>Route Name:</span>
+                          <strong>{{ data360.facilities.routeName }}</strong>
+                        </div>
+                        <div class="fac-row">
+                          <span>Pickup / Drop Stop:</span>
+                          <strong>{{ data360.facilities.stopName }}</strong>
+                        </div>
+                        @if (data360.facilities.vehicleNumber) {
+                          <div class="fac-row">
+                            <span>Bus Reg No:</span>
+                            <strong>{{ data360.facilities.vehicleNumber }}</strong>
+                          </div>
+                        }
+                        <!-- Live Boarding / Transit Radar Pill for Student 360 -->
+                        @if (liveTransitStatus) {
+                          <div class="live-transit-box" style="margin-top: 10px; padding: 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                              <span style="font-weight: 700; color: #1e40af; font-size: 0.76rem; display: flex; align-items: center; gap: 4px;">
+                                <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #2563eb;">sensors</mat-icon> Today's Live Transit Status
+                              </span>
+                              <button type="button" mat-icon-button (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" title="Refresh Live Status" style="width: 24px; height: 24px; line-height: 24px;">
+                                <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #3b82f6;">refresh</mat-icon>
+                              </button>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.72rem;">
+                              <div style="background: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #dbeafe;">
+                                <div style="color: #64748b; font-weight: 600;">Pickup (Morning)</div>
+                                @if (liveTransitStatus.morningStatus === 'Boarded') {
+                                  <strong style="color: #16a34a;">
+                                    Boarded ({{ liveTransitStatus.morningBoardedAtFormatted || 'Done' }})
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.morningStatus === 'Absent') {
+                                  <strong style="color: #dc2626;">
+                                    Absent / Missed
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.morningStatus !== 'Boarded' && liveTransitStatus.morningStatus !== 'Absent') {
+                                  <strong style="color: #d97706;">
+                                    Awaiting Pickup
+                                  </strong>
+                                }
+                              </div>
+                              <div style="background: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #dbeafe;">
+                                <div style="color: #64748b; font-weight: 600;">Drop (Evening)</div>
+                                @if (liveTransitStatus.eveningStatus === 'Dropped') {
+                                  <strong style="color: #2563eb;">
+                                    Dropped ({{ liveTransitStatus.eveningTimeFormatted || 'Done' }})
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.eveningStatus === 'Boarded') {
+                                  <strong style="color: #16a34a;">
+                                    On Bus (Departed)
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.eveningStatus === 'Absent') {
+                                  <strong style="color: #dc2626;">
+                                    Absent / Self Pickup
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.eveningStatus !== 'Dropped' && liveTransitStatus.eveningStatus !== 'Boarded' && liveTransitStatus.eveningStatus !== 'Absent') {
+                                  <strong style="color: #d97706;">
+                                    Awaiting Run
+                                  </strong>
+                                }
+                              </div>
+                            </div>
+                            @if (liveTransitStatus.driverName) {
+                              <div style="margin-top: 6px; font-size: 0.7rem; color: #475569; display: flex; justify-content: space-between;">
+                                <span>Driver: <strong>{{ liveTransitStatus.driverName }}</strong></span>
+                                @if (liveTransitStatus.driverPhone) {
+                                  <a [href]="'tel:' + liveTransitStatus.driverPhone" style="color: #2563eb; text-decoration: none; font-weight: 600;">
+                                    Call Driver
+                                  </a>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                  <!-- Library Facility Card -->
+                  <div class="facility-card col-span-2">
+                    <div class="fac-header">
+                      <mat-icon class="fac-icon library">local_library</mat-icon>
+                      <div>
+                        <h4>Library Membership &amp; Issued Books</h4>
+                        <span class="fac-status" [class.active]="data360.library.isMember">
+                          {{ data360.library.isMember ? (data360.library.membershipPlan || 'Active Member') : 'Not Enrolled' }}
+                        </span>
+                      </div>
                     </div>
-                    <div class="doc-meta">
-                      <span>Uploaded: {{ doc.createdAt | date:'dd MMM yyyy' }}</span>
-                      <span *ngIf="doc.verifiedBy"> &bull; Verified By: {{ doc.verifiedBy }}</span>
+                    @if (data360.library.isMember) {
+                      <div class="lib-books-box">
+                        <div class="lib-meta-strip">
+                          <span>Card No: <strong>{{ data360.library.libraryCardNumber || 'N/A' }}</strong></span>
+                          <span>Max Books Allowed: <strong>{{ data360.library.maxBooksAllowed }}</strong></span>
+                          <span>Currently Holding: <strong>{{ data360.library.currentlyIssuedCount }} Books</strong></span>
+                        </div>
+                        @if (data360.library.issuedBooks?.length) {
+                          <div class="table-scroll-wrap">
+                            <table class="data-table">
+                              <thead>
+                                <tr>
+                                  <th>Book Title</th>
+                                  <th>Accession No</th>
+                                  <th>Issue Date</th>
+                                  <th>Due Date</th>
+                                  <th>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                @for (b of data360.library.issuedBooks; track b) {
+                                  <tr>
+                                    <td class="font-semibold">{{ b.bookTitle }}</td>
+                                    <td class="font-mono">{{ b.accessionNumber || 'N/A' }}</td>
+                                    <td>{{ b.issueDate | date:'dd MMM yyyy' }}</td>
+                                    <td>{{ b.dueDate | date:'dd MMM yyyy' }}</td>
+                                    <td>
+                                      <span class="status-badge" [class.due]="b.isOverdue" [class.paid]="!b.isOverdue">
+                                        {{ b.isOverdue ? 'Overdue' : 'Active Holding' }}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
+                          </div>
+                        }
+                        @if (!data360.library.issuedBooks?.length) {
+                          <p class="no-books-msg">
+                            No books currently issued to this student.
+                          </p>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </mat-tab>
+            <!-- TAB 6: LEAVES & GATE PASSES -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">time_to_leave</mat-icon> Leaves &amp; Passes
+              </ng-template>
+              <div class="tab-content-wrap">
+                <div class="leaves-passes-grid">
+                  <!-- Leaves Card -->
+                  <div class="section-card">
+                    <div class="card-header">
+                      <mat-icon class="sect-icon">event_busy</mat-icon>
+                      <h4>Student Leave Applications ({{ data360.leaves.length || 0 }})</h4>
                     </div>
-                    <p class="doc-remarks" *ngIf="doc.remarks">{{ doc.remarks }}</p>
+                    @if (data360.leaves.length) {
+                      <div class="mini-list">
+                        @for (l of data360.leaves; track l) {
+                          <div class="mini-item">
+                            <div class="mini-left">
+                              <span class="mini-title">{{ l.reason }}</span>
+                              <span class="mini-meta">{{ l.fromDate | date:'dd MMM' }} - {{ l.toDate | date:'dd MMM yyyy' }} ({{ l.totalDays }} day{{ l.totalDays > 1 ? 's' : '' }})</span>
+                            </div>
+                            <span class="status-badge" [ngClass]="l.status.toLowerCase()">
+                              {{ l.status }}
+                            </span>
+                          </div>
+                        }
+                      </div>
+                    }
+                    @if (!data360.leaves.length) {
+                      <div class="empty-state-box">
+                        <p>No leave requests found.</p>
+                      </div>
+                    }
                   </div>
-                  <div class="doc-actions">
-                    <a *ngIf="doc.fileUrl" [href]="getFullUrl(doc.fileUrl)" target="_blank" mat-icon-button class="view-btn" matTooltip="View / Download Document">
-                      <mat-icon>visibility</mat-icon>
-                    </a>
-                    <button mat-icon-button color="warn" (click)="deleteDocument(doc)" matTooltip="Delete Document">
-                      <mat-icon>delete</mat-icon>
-                    </button>
+                  <!-- Gate Passes Card -->
+                  <div class="section-card">
+                    <div class="card-header">
+                      <mat-icon class="sect-icon">exit_to_app</mat-icon>
+                      <h4>Campus Gate Passes ({{ data360.gatePasses.length || 0 }})</h4>
+                    </div>
+                    @if (data360.gatePasses.length) {
+                      <div class="mini-list">
+                        @for (gp of data360.gatePasses; track gp) {
+                          <div class="mini-item">
+                            <div class="mini-left">
+                              <span class="mini-title">{{ gp.passNumber }} - {{ gp.reason }}</span>
+                              <span class="mini-meta">Out: {{ gp.outTime | date:'dd MMM, hh:mm a' }} &bull; By: {{ gp.guardianName || 'Guardian' }}</span>
+                            </div>
+                            <span class="status-badge" [ngClass]="gp.status.toLowerCase()">
+                              {{ gp.status }}
+                            </span>
+                          </div>
+                        }
+                      </div>
+                    }
+                    @if (!data360.gatePasses.length) {
+                      <div class="empty-state-box">
+                        <p>No campus gate passes issued.</p>
+                      </div>
+                    }
                   </div>
                 </div>
               </div>
-
-              <div class="empty-state-box" *ngIf="!data360.documents?.length && !showUploadForm">
-                <mat-icon>folder_open</mat-icon>
-                <p>No KYC documents uploaded for this student yet.</p>
-                <button mat-stroked-button color="primary" (click)="showUploadForm = true">
-                  <mat-icon>upload</mat-icon> Upload First Document
-                </button>
-              </div>
-
-            </div>
-          </mat-tab>
-
-          <!-- TAB 8: ACHIEVEMENTS & WALL OF FAME (Feature 1) -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">emoji_events</mat-icon> Wall of Fame ({{ data360.achievements?.length || 0 }})
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="tab-action-header">
-                <div>
-                  <h4 class="tab-action-title">Honors, Awards &amp; Merit Accolades</h4>
-                  <p class="tab-action-sub">Recognitions, badges, Olympiads, sports &amp; co-curricular achievements</p>
-                </div>
-                <button mat-raised-button color="primary" class="primary-gradient-btn" *ngIf="!isReadOnly" (click)="showAddAchievementForm = !showAddAchievementForm">
-                  <mat-icon>{{ showAddAchievementForm ? 'close' : 'add_task' }}</mat-icon>
-                  {{ showAddAchievementForm ? 'Cancel' : 'Record Achievement' }}
-                </button>
-              </div>
-
-              <!-- Add Achievement Form Drawer -->
-              <div class="inline-form-card" *ngIf="showAddAchievementForm">
-                <div class="form-header">
-                  <mat-icon>military_tech</mat-icon>
-                  <h5>Record New Student Honor / Achievement</h5>
-                </div>
-                <div class="form-grid">
-                  <div class="form-field-wrap">
-                    <label>Achievement / Award Title *</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newAchievement.title" placeholder="e.g. 1st Prize in State Science Exhibition" />
+            </mat-tab>
+            <!-- TAB 7: DOCUMENTS & KYC VAULT -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">folder_shared</mat-icon> KYC Documents
+              </ng-template>
+              <div class="tab-content-wrap">
+                <!-- Top Upload Action Row -->
+                <div class="doc-actions-row">
+                  <div class="doc-count-badge">
+                    <mat-icon>verified_user</mat-icon>
+                    <span>{{ data360.documents.length || 0 }} Official KYC Documents Stored</span>
                   </div>
-                  <div class="form-field-wrap">
-                    <label>Category *</label>
-                    <select class="custom-input" [(ngModel)]="newAchievement.category">
-                      <option value="Academic">Academic Excellence</option>
-                      <option value="Sports">Sports &amp; Athletics</option>
-                      <option value="Cultural">Art &amp; Cultural</option>
-                      <option value="Olympiad">Olympiad / Competition</option>
-                      <option value="Leadership">Leadership &amp; Service</option>
-                      <option value="Other">Special Honor / Other</option>
-                    </select>
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Competition Level</label>
-                    <select class="custom-input" [(ngModel)]="newAchievement.level">
-                      <option value="School">School Level</option>
-                      <option value="Inter-School">Inter-School</option>
-                      <option value="District">District Level</option>
-                      <option value="State">State Level</option>
-                      <option value="National">National Level</option>
-                      <option value="International">International Level</option>
-                    </select>
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Position / Standing</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newAchievement.position" placeholder="e.g. 1st Place, Gold Medal, Winner" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Awarded Date *</label>
-                    <input type="date" class="custom-input" [(ngModel)]="newAchievement.awardedDate" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Awarding Body / Issued By</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newAchievement.issuedBy" placeholder="e.g. CBSE / State Sports Authority" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Certificate / Serial No.</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newAchievement.certificateNumber" placeholder="e.g. CERT-2026-904" />
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Remarks / Citation</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newAchievement.remarks" placeholder="Key highlights or citation summary..." />
-                  </div>
-                </div>
-                <div class="form-actions">
-                  <button mat-button (click)="showAddAchievementForm = false">Cancel</button>
-                  <button mat-raised-button color="primary" [disabled]="savingAchievement" (click)="saveAchievement()">
-                    <mat-icon>check_circle</mat-icon> {{ savingAchievement ? 'Saving...' : 'Save Achievement' }}
+                  <button mat-raised-button color="primary" (click)="showUploadForm = !showUploadForm" class="upload-btn">
+                    <mat-icon>{{ showUploadForm ? 'close' : 'cloud_upload' }}</mat-icon>
+                    {{ showUploadForm ? 'Cancel Upload' : 'Upload New Document' }}
                   </button>
                 </div>
-              </div>
-
-              <!-- Achievements Grid -->
-              <div class="achievement-grid" *ngIf="data360.achievements?.length">
-                <div class="honor-card" *ngFor="let ach of data360.achievements" [ngClass]="(ach.category || 'other').toLowerCase()">
-                  <div class="honor-top">
-                    <div class="honor-badge-icon" [ngClass]="(ach.category || 'other').toLowerCase()">
-                      <mat-icon>{{ getAchievementIcon(ach.category) }}</mat-icon>
+                <!-- Upload New Document Form -->
+                @if (showUploadForm) {
+                  <div class="upload-form-card">
+                    <div class="card-header">
+                      <mat-icon>upload_file</mat-icon>
+                      <h4>Upload Student KYC / Academic Document</h4>
                     </div>
-                    <div class="honor-titles">
-                      <div class="honor-title">{{ ach.title }}</div>
-                      <div class="honor-meta">
-                        <span class="honor-category-tag" [ngClass]="(ach.category || 'other').toLowerCase()">{{ ach.category }}</span>
-                        <span class="level-tag" *ngIf="ach.level || ach.awardLevel">{{ ach.level || ach.awardLevel }}</span>
-                        <span class="pos-tag" *ngIf="ach.position">{{ ach.position }}</span>
+                    <div class="form-grid">
+                      <mat-form-field appearance="outline">
+                        <mat-label>Document Type *</mat-label>
+                        <mat-select [(ngModel)]="newDoc.documentType">
+                          <mat-option value="Aadhaar">Aadhaar Card</mat-option>
+                          <mat-option value="BirthCertificate">Birth Certificate</mat-option>
+                          <mat-option value="TransferCertificate">Previous School TC / SLC</mat-option>
+                          <mat-option value="Marksheet">Previous Class Marksheet</mat-option>
+                          <mat-option value="CasteCertificate">Caste / Category Certificate</mat-option>
+                          <mat-option value="IncomeCertificate">Income Certificate (EWS/RTE)</mat-option>
+                          <mat-option value="MedicalRecord">Medical / Vaccination Report</mat-option>
+                          <mat-option value="Other">Other Document</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline">
+                        <mat-label>Document Title *</mat-label>
+                        <input matInput [(ngModel)]="newDoc.title" placeholder="e.g. Class 9 Final Marksheet">
+                      </mat-form-field>
+                      <mat-form-field appearance="outline">
+                        <mat-label>Document Reg / ID Number</mat-label>
+                        <input matInput [(ngModel)]="newDoc.documentNumber" placeholder="e.g. UIDAI-1234 or TC-982">
+                      </mat-form-field>
+                      <div class="file-picker-box">
+                        <label class="file-picker-lbl">Select File (PDF, Image, Scan):</label>
+                        <input type="file" (change)="onFileSelected($event)" accept=".pdf,image/*" class="file-input" />
+                        @if (selectedFileName) {
+                          <span class="selected-filename">{{ selectedFileName }}</span>
+                        }
+                      </div>
+                      <mat-form-field appearance="outline" class="col-span-2">
+                        <mat-label>Remarks / Verification Notes</mat-label>
+                        <input matInput [(ngModel)]="newDoc.remarks" placeholder="Verified from original by admission desk">
+                      </mat-form-field>
+                      <div class="form-actions-bar col-span-2">
+                        <button mat-button (click)="showUploadForm = false">Cancel</button>
+                        <button mat-raised-button color="primary" (click)="saveDocument()" [disabled]="uploading || !newDoc.documentType || !newDoc.title">
+                          @if (!uploading) {
+                            <mat-icon>check</mat-icon>
+                          }
+                          <span>{{ uploading ? 'Uploading Document...' : 'Save & Attach Document' }}</span>
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div class="honor-body">
-                    <div class="honor-info-line" *ngIf="ach.issuedBy || ach.awardedBy">
-                      <span class="meta-label">Organized By:</span>
-                      <span class="meta-text">{{ ach.issuedBy || ach.awardedBy }}</span>
-                    </div>
-                    <div class="honor-info-line">
-                      <span class="meta-label">Award Date:</span>
-                      <span class="meta-text">{{ (ach.awardedDate || ach.awardDate) | date:'dd MMM yyyy' }}</span>
-                    </div>
-                    <div class="honor-info-line" *ngIf="ach.certificateNumber">
-                      <span class="meta-label">Cert No:</span>
-                      <span class="meta-text font-mono">{{ ach.certificateNumber }}</span>
-                    </div>
-                    <p class="honor-remarks" *ngIf="ach.remarks || ach.description">{{ ach.remarks || ach.description }}</p>
-                  </div>
-                  <div class="honor-footer">
-                    <button mat-stroked-button class="print-cert-btn" (click)="printCertificate(ach)" matTooltip="Generate &amp; Print Official Certificate of Merit">
-                      <mat-icon>print</mat-icon> Print Certificate
-                    </button>
-                    <button mat-icon-button color="warn" *ngIf="!isReadOnly" (click)="deleteAchievement(ach)" matTooltip="Delete record">
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="empty-state-box" *ngIf="!data360.achievements?.length && !showAddAchievementForm">
-                <mat-icon>workspace_premium</mat-icon>
-                <p>No honors or awards recorded yet. Click above to celebrate this student's milestone!</p>
-                <button mat-stroked-button color="primary" (click)="showAddAchievementForm = true">
-                  <mat-icon>add</mat-icon> Add First Achievement
-                </button>
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 9: DISCIPLINE & CONDUCT REGISTER (Feature 2) -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">gavel</mat-icon> Discipline &amp; Conduct ({{ data360.disciplinaryRecords?.length || 0 }})
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="tab-action-header">
-                <div>
-                  <h4 class="tab-action-title">Student Behavior &amp; Conduct Diary</h4>
-                  <p class="tab-action-sub">Institutional incident tracking, positive commendations, and corrective actions</p>
-                </div>
-                <button mat-raised-button color="primary" class="primary-gradient-btn" *ngIf="!isReadOnly" (click)="showAddDisciplineForm = !showAddDisciplineForm">
-                  <mat-icon>{{ showAddDisciplineForm ? 'close' : 'add_moderator' }}</mat-icon>
-                  {{ showAddDisciplineForm ? 'Cancel' : 'Log Incident / Commendation' }}
-                </button>
-              </div>
-
-              <!-- Add Disciplinary Form Drawer -->
-              <div class="inline-form-card" *ngIf="showAddDisciplineForm">
-                <div class="form-header">
-                  <mat-icon>fact_check</mat-icon>
-                  <h5>Record Conduct Entry / Commendation</h5>
-                </div>
-                <div class="form-grid">
-                  <div class="form-field-wrap">
-                    <label>Incident / Record Title *</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newDiscipline.title" placeholder="e.g. Exemplary Honesty / Uniform Violation" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Entry Type *</label>
-                    <select class="custom-input" [(ngModel)]="newDiscipline.incidentType">
-                      <option value="PositiveCommendation">Positive Commendation (Honor)</option>
-                      <option value="MinorInfraction">Minor Infraction (Warning)</option>
-                      <option value="ModerateMisconduct">Moderate Misconduct</option>
-                      <option value="SevereViolation">Severe Violation</option>
-                    </select>
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Severity Level *</label>
-                    <select class="custom-input" [(ngModel)]="newDiscipline.severity">
-                      <option value="Commendation">Commendation / Praise</option>
-                      <option value="Low">Low Severity</option>
-                      <option value="Medium">Medium Severity</option>
-                      <option value="High">High Severity</option>
-                      <option value="Critical">Critical</option>
-                    </select>
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Incident Date *</label>
-                    <input type="date" class="custom-input" [(ngModel)]="newDiscipline.incidentDate" />
-                  </div>
-                  <div class="form-field-wrap faculty-field-wrap">
-                    <label>Reported By / Faculty Name</label>
-                    <div class="faculty-combobox-wrap">
-                      <input
-                        type="text"
-                        class="custom-input"
-                        [(ngModel)]="newDiscipline.reportedByName"
-                        (focus)="showDisciplineFacultyDropdown = true"
-                        placeholder="Select faculty or type name..."
-                        autocomplete="off"
-                      />
-                      <button type="button" class="combobox-toggle-btn" (click)="showDisciplineFacultyDropdown = !showDisciplineFacultyDropdown" tabindex="-1">
-                        <mat-icon>{{ showDisciplineFacultyDropdown ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
-                      </button>
-
-                      <!-- Custom Positioned Floating Dropdown Panel Directly Below Input -->
-                      <div class="faculty-dropdown-menu" *ngIf="showDisciplineFacultyDropdown">
-                        <!-- 1. Assigned Class Teacher -->
-                        <div class="dropdown-group-header" *ngIf="data360?.student?.classTeacherName">Assigned Class Teacher</div>
-                        <div
-                          class="dropdown-option-item highlight"
-                          *ngIf="data360?.student?.classTeacherName"
-                          (click)="selectDisciplineFaculty(data360!.student.classTeacherName + ' (Class Teacher)')"
-                        >
-                          <mat-icon class="item-icon star">stars</mat-icon>
-                          <div class="item-text">
-                            <div class="item-name">{{ data360!.student.classTeacherName }}</div>
-                            <div class="item-sub">Class Teacher &bull; Sec {{ data360!.student.sectionName || 'A' }}</div>
-                          </div>
+                }
+                <!-- Documents List Grid -->
+                @if (data360.documents?.length) {
+                  <div class="docs-grid">
+                    @for (doc of data360.documents; track doc) {
+                      <div class="doc-card">
+                        <div class="doc-type-icon" [ngClass]="getDocIconClass(doc.documentType)">
+                          <mat-icon>{{ getDocIcon(doc.documentType) }}</mat-icon>
                         </div>
-
-                        <!-- 2. School Teachers -->
-                        <div class="dropdown-group-header" *ngIf="schoolTeachers.length > 0">Faculty &amp; Subject Teachers</div>
-                        <div
-                          class="dropdown-option-item"
-                          *ngFor="let t of getFilteredTeachers(newDiscipline.reportedByName)"
-                          (click)="selectDisciplineFaculty(t.fullName + (t.specialization ? ' (' + t.specialization + ')' : (t.designation ? ' (' + t.designation + ')' : '')))"
-                        >
-                          <mat-icon class="item-icon teacher">school</mat-icon>
-                          <div class="item-text">
-                            <div class="item-name">{{ t.fullName }}</div>
-                            <div class="item-sub">{{ t.specialization || t.designation || t.department || 'Faculty' }}</div>
+                        <div class="doc-info">
+                          <div class="doc-title-row">
+                            <span class="doc-title">{{ doc.title }}</span>
+                            <span class="doc-type-pill">{{ doc.documentType }}</span>
                           </div>
+                          @if (doc.documentNumber) {
+                            <div class="doc-meta">
+                              <span>ID/No: <strong>{{ doc.documentNumber }}</strong></span>
+                            </div>
+                          }
+                          <div class="doc-meta">
+                            <span>Uploaded: {{ doc.createdAt | date:'dd MMM yyyy' }}</span>
+                            @if (doc.verifiedBy) {
+                              <span> &bull; Verified By: {{ doc.verifiedBy }}</span>
+                            }
+                          </div>
+                          @if (doc.remarks) {
+                            <p class="doc-remarks">{{ doc.remarks }}</p>
+                          }
                         </div>
-
-                        <!-- 3. Key Authorities -->
-                        <div class="dropdown-group-header">Institutional Incharges &amp; Staff</div>
-                        <div
-                          class="dropdown-option-item"
-                          *ngFor="let auth of institutionalAuthorities"
-                          (click)="selectDisciplineFaculty(auth.title)"
-                        >
-                          <mat-icon class="item-icon auth">{{ auth.icon }}</mat-icon>
-                          <div class="item-text">
-                            <div class="item-name">{{ auth.title }}</div>
-                          </div>
+                        <div class="doc-actions">
+                          @if (doc.fileUrl) {
+                            <a [href]="getFullUrl(doc.fileUrl)" target="_blank" mat-icon-button class="view-btn" matTooltip="View / Download Document">
+                              <mat-icon>visibility</mat-icon>
+                            </a>
+                          }
+                          <button mat-icon-button color="warn" (click)="deleteDocument(doc)" matTooltip="Delete Document">
+                            <mat-icon>delete</mat-icon>
+                          </button>
                         </div>
                       </div>
-                    </div>
+                    }
                   </div>
-                  <div class="form-field-wrap">
-                    <label>Status</label>
-                    <select class="custom-input" [(ngModel)]="newDiscipline.status">
-                      <option value="Resolved">Resolved</option>
-                      <option value="Open">Open</option>
-                      <option value="UnderReview">Under Review</option>
-                    </select>
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Description of Event *</label>
-                    <textarea class="custom-textarea" rows="2" [(ngModel)]="newDiscipline.description" placeholder="Provide factual details of the incident or deed..."></textarea>
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Corrective Action / Recognition Awarded</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newDiscipline.actionTaken" placeholder="e.g. Certificate issued, Parent counseling session held, Verbal warning" />
-                  </div>
-                  <div class="form-field-wrap full-col checkbox-wrap">
-                    <label class="checkbox-label">
-                      <input type="checkbox" [(ngModel)]="newDiscipline.parentNotified" />
-                      <span>Parents have been formally notified regarding this matter</span>
-                    </label>
-                  </div>
-                </div>
-                <div class="form-actions">
-                  <button mat-button (click)="showAddDisciplineForm = false">Cancel</button>
-                  <button mat-raised-button color="primary" [disabled]="savingDiscipline" (click)="saveDiscipline()">
-                    <mat-icon>check_circle</mat-icon> {{ savingDiscipline ? 'Saving...' : 'Save Entry' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Conduct List -->
-              <div class="conduct-list" *ngIf="data360.disciplinaryRecords?.length">
-                <div class="conduct-item" *ngFor="let rec of data360.disciplinaryRecords" [ngClass]="(rec.incidentType || 'minor').toLowerCase()">
-                  <div class="conduct-icon-col">
-                    <div class="type-pill-icon" [ngClass]="(rec.incidentType || 'minor').toLowerCase()">
-                      <mat-icon *ngIf="rec.incidentType === 'PositiveCommendation'">thumb_up</mat-icon>
-                      <mat-icon *ngIf="rec.incidentType !== 'PositiveCommendation'">report_problem</mat-icon>
-                    </div>
-                  </div>
-                  <div class="conduct-content-col">
-                    <div class="conduct-header-row">
-                      <div class="conduct-title">{{ rec.title }}</div>
-                      <div class="conduct-tags">
-                        <span class="severity-pill" [ngClass]="(rec.severity || 'low').toLowerCase()">{{ rec.severity }}</span>
-                        <span class="status-badge" [ngClass]="(rec.status || (rec.isResolved ? 'resolved' : 'open')).toLowerCase()">{{ rec.status || (rec.isResolved ? 'Resolved' : 'Open') }}</span>
-                      </div>
-                    </div>
-                    <p class="conduct-desc">{{ rec.description }}</p>
-                    <div class="conduct-meta-row">
-                      <span class="meta-item"><mat-icon>calendar_today</mat-icon> {{ rec.incidentDate | date:'dd MMM yyyy' }}</span>
-                      <span class="meta-item" *ngIf="rec.reportedByName || rec.reportedBy"><mat-icon>person</mat-icon> By: {{ rec.reportedByName || rec.reportedBy }}</span>
-                      <span class="meta-item parent-flag" [class.notified]="rec.parentNotified">
-                        <mat-icon>{{ rec.parentNotified ? 'notifications_active' : 'notifications_off' }}</mat-icon>
-                        {{ rec.parentNotified ? 'Parent Notified' : 'Parent Not Notified' }}
-                      </span>
-                    </div>
-                    <div class="conduct-action-box" *ngIf="rec.actionTaken">
-                      <strong>Action / Outcome:</strong> {{ rec.actionTaken }}
-                    </div>
-                  </div>
-                  <div class="conduct-actions-col" *ngIf="!isReadOnly">
-                    <button mat-icon-button color="warn" (click)="deleteDiscipline(rec)" matTooltip="Delete entry">
-                      <mat-icon>delete</mat-icon>
+                }
+                @if (!data360.documents?.length && !showUploadForm) {
+                  <div class="empty-state-box">
+                    <mat-icon>folder_open</mat-icon>
+                    <p>No KYC documents uploaded for this student yet.</p>
+                    <button mat-stroked-button color="primary" (click)="showUploadForm = true">
+                      <mat-icon>upload</mat-icon> Upload First Document
                     </button>
                   </div>
-                </div>
+                }
               </div>
-
-              <div class="empty-state-box" *ngIf="!data360.disciplinaryRecords?.length && !showAddDisciplineForm">
-                <mat-icon>verified</mat-icon>
-                <p>Clean conduct sheet! No disciplinary incidents or infractions logged.</p>
-                <button mat-stroked-button color="primary" (click)="showAddDisciplineForm = true">
-                  <mat-icon>add</mat-icon> Log New Record
-                </button>
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 10: PTM & PARENT FEEDBACK DESK (Feature 3) -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">record_voice_over</mat-icon> PTM Desk ({{ data360.ptmRecords?.length || 0 }})
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="tab-action-header">
-                <div>
-                  <h4 class="tab-action-title">Parent-Teacher Meeting &amp; Feedback Journal</h4>
-                  <p class="tab-action-sub">Record discussions, guardian feedback, pedagogical counsel, and agreed action plans</p>
-                </div>
-                <button mat-raised-button color="primary" class="primary-gradient-btn" *ngIf="!isReadOnly" (click)="showAddPtmForm = !showAddPtmForm">
-                  <mat-icon>{{ showAddPtmForm ? 'close' : 'contact_phone' }}</mat-icon>
-                  {{ showAddPtmForm ? 'Cancel' : 'Record PTM Interaction' }}
-                </button>
-              </div>
-
-              <!-- Add PTM Form Drawer -->
-              <div class="inline-form-card" *ngIf="showAddPtmForm">
-                <div class="form-header">
-                  <mat-icon>question_answer</mat-icon>
-                  <h5>Log Parent-Teacher Conference</h5>
-                </div>
-                <div class="form-grid">
-                  <div class="form-field-wrap">
-                    <label>Meeting Date *</label>
-                    <input type="date" class="custom-input" [(ngModel)]="newPtm.meetingDate" />
+            </mat-tab>
+            <!-- TAB 8: ACHIEVEMENTS & WALL OF FAME (Feature 1) -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">emoji_events</mat-icon> Wall of Fame ({{ data360.achievements?.length || 0 }})
+              </ng-template>
+              <div class="tab-content-wrap">
+                <div class="tab-action-header">
+                  <div>
+                    <h4 class="tab-action-title">Honors, Awards &amp; Merit Accolades</h4>
+                    <p class="tab-action-sub">Recognitions, badges, Olympiads, sports &amp; co-curricular achievements</p>
                   </div>
-                  <div class="form-field-wrap">
-                    <label>Attended By (Parent / Guardian) *</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newPtm.attendedByParentName" placeholder="e.g. Mr. Rajesh Kumar (Father)" />
-                  </div>
-                  <div class="form-field-wrap faculty-field-wrap">
-                    <label>Teacher / Counselor Conducting PTM</label>
-                    <div class="faculty-combobox-wrap">
-                      <input
-                        type="text"
-                        class="custom-input"
-                        [(ngModel)]="newPtm.teacherName"
-                        (focus)="showPtmFacultyDropdown = true"
-                        placeholder="Select faculty or type name..."
-                        autocomplete="off"
-                      />
-                      <button type="button" class="combobox-toggle-btn" (click)="showPtmFacultyDropdown = !showPtmFacultyDropdown" tabindex="-1">
-                        <mat-icon>{{ showPtmFacultyDropdown ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
-                      </button>
-
-                      <!-- Custom Positioned Floating Dropdown Panel Directly Below Input -->
-                      <div class="faculty-dropdown-menu" *ngIf="showPtmFacultyDropdown">
-                        <!-- 1. Assigned Class Teacher -->
-                        <div class="dropdown-group-header" *ngIf="data360?.student?.classTeacherName">Assigned Class Teacher</div>
-                        <div
-                          class="dropdown-option-item highlight"
-                          *ngIf="data360?.student?.classTeacherName"
-                          (click)="selectPtmFaculty(data360!.student.classTeacherName + ' (Class Teacher)')"
-                        >
-                          <mat-icon class="item-icon star">stars</mat-icon>
-                          <div class="item-text">
-                            <div class="item-name">{{ data360!.student.classTeacherName }}</div>
-                            <div class="item-sub">Class Teacher &bull; Sec {{ data360!.student.sectionName || 'A' }}</div>
-                          </div>
-                        </div>
-
-                        <!-- 2. School Teachers -->
-                        <div class="dropdown-group-header" *ngIf="schoolTeachers.length > 0">Faculty &amp; Subject Teachers</div>
-                        <div
-                          class="dropdown-option-item"
-                          *ngFor="let t of getFilteredTeachers(newPtm.teacherName)"
-                          (click)="selectPtmFaculty(t.fullName + (t.specialization ? ' (' + t.specialization + ')' : (t.designation ? ' (' + t.designation + ')' : '')))"
-                        >
-                          <mat-icon class="item-icon teacher">school</mat-icon>
-                          <div class="item-text">
-                            <div class="item-name">{{ t.fullName }}</div>
-                            <div class="item-sub">{{ t.specialization || t.designation || t.department || 'Faculty' }}</div>
-                          </div>
-                        </div>
-
-                        <!-- 3. Key Authorities -->
-                        <div class="dropdown-group-header">Institutional Incharges &amp; Counselors</div>
-                        <div
-                          class="dropdown-option-item"
-                          *ngFor="let auth of institutionalAuthorities"
-                          (click)="selectPtmFaculty(auth.title)"
-                        >
-                          <mat-icon class="item-icon auth">{{ auth.icon }}</mat-icon>
-                          <div class="item-text">
-                            <div class="item-name">{{ auth.title }}</div>
-                          </div>
-                        </div>
+                  @if (!isReadOnly) {
+                    <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="showAddAchievementForm = !showAddAchievementForm">
+                      <mat-icon>{{ showAddAchievementForm ? 'close' : 'add_task' }}</mat-icon>
+                      {{ showAddAchievementForm ? 'Cancel' : 'Record Achievement' }}
+                    </button>
+                  }
+                </div>
+                <!-- Add Achievement Form Drawer -->
+                @if (showAddAchievementForm) {
+                  <div class="inline-form-card">
+                    <div class="form-header">
+                      <mat-icon>military_tech</mat-icon>
+                      <h5>Record New Student Honor / Achievement</h5>
+                    </div>
+                    <div class="form-grid">
+                      <div class="form-field-wrap">
+                        <label>Achievement / Award Title *</label>
+                        <input type="text" class="custom-input" [(ngModel)]="newAchievement.title" placeholder="e.g. 1st Prize in State Science Exhibition" />
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Category *</label>
+                        <select class="custom-input" [(ngModel)]="newAchievement.category">
+                          <option value="Academic">Academic Excellence</option>
+                          <option value="Sports">Sports &amp; Athletics</option>
+                          <option value="Cultural">Art &amp; Cultural</option>
+                          <option value="Olympiad">Olympiad / Competition</option>
+                          <option value="Leadership">Leadership &amp; Service</option>
+                          <option value="Other">Special Honor / Other</option>
+                        </select>
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Competition Level</label>
+                        <select class="custom-input" [(ngModel)]="newAchievement.level">
+                          <option value="School">School Level</option>
+                          <option value="Inter-School">Inter-School</option>
+                          <option value="District">District Level</option>
+                          <option value="State">State Level</option>
+                          <option value="National">National Level</option>
+                          <option value="International">International Level</option>
+                        </select>
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Position / Standing</label>
+                        <input type="text" class="custom-input" [(ngModel)]="newAchievement.position" placeholder="e.g. 1st Place, Gold Medal, Winner" />
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Awarded Date *</label>
+                        <input type="date" class="custom-input" [(ngModel)]="newAchievement.awardedDate" />
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Awarding Body / Issued By</label>
+                        <input type="text" class="custom-input" [(ngModel)]="newAchievement.issuedBy" placeholder="e.g. CBSE / State Sports Authority" />
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Certificate / Serial No.</label>
+                        <input type="text" class="custom-input" [(ngModel)]="newAchievement.certificateNumber" placeholder="e.g. CERT-2026-904" />
+                      </div>
+                      <div class="form-field-wrap full-col">
+                        <label>Remarks / Citation</label>
+                        <input type="text" class="custom-input" [(ngModel)]="newAchievement.remarks" placeholder="Key highlights or citation summary..." />
                       </div>
                     </div>
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Parent Satisfaction Level</label>
-                    <select class="custom-input" [(ngModel)]="newPtm.satisfactionRating">
-                      <option value="HighlySatisfied">Highly Satisfied</option>
-                      <option value="Satisfied">Satisfied</option>
-                      <option value="NeedsImprovement">Needs Improvement</option>
-                      <option value="Dissatisfied">Dissatisfied / Escalated</option>
-                    </select>
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Discussion Summary *</label>
-                    <textarea class="custom-textarea" rows="2" [(ngModel)]="newPtm.discussionSummary" placeholder="Summary of agenda discussed regarding student progress, behavior, or attendance..."></textarea>
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Teacher's Remarks &amp; Suggestions</label>
-                    <textarea class="custom-textarea" rows="2" [(ngModel)]="newPtm.teacherRemarks" placeholder="Teacher's guidance, areas of improvement, or appreciation..."></textarea>
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Parent Feedback / Concerns</label>
-                    <textarea class="custom-textarea" rows="2" [(ngModel)]="newPtm.parentFeedback" placeholder="What the parents expressed, queries about syllabus, transport, etc..."></textarea>
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Agreed Action Points / Commitments</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newPtm.actionPoints" placeholder="e.g. Daily 1 hr math practice at home; Monthly progress review" />
-                  </div>
-                </div>
-                <div class="form-actions">
-                  <button mat-button (click)="showAddPtmForm = false">Cancel</button>
-                  <button mat-raised-button color="primary" [disabled]="savingPtm" (click)="savePtm()">
-                    <mat-icon>check_circle</mat-icon> {{ savingPtm ? 'Saving...' : 'Save PTM Record' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- PTM Timeline -->
-              <div class="ptm-timeline" *ngIf="data360.ptmRecords?.length">
-                <div class="ptm-card" *ngFor="let ptm of data360.ptmRecords">
-                  <div class="ptm-card-header">
-                    <div class="ptm-header-left">
-                      <div class="ptm-date-badge">
-                        <span class="ptm-day">{{ (ptm.meetingDate || ptm.ptmDate) | date:'dd' }}</span>
-                        <span class="ptm-mon">{{ (ptm.meetingDate || ptm.ptmDate) | date:'MMM yyyy' }}</span>
-                      </div>
-                      <div class="ptm-meta-block">
-                        <div class="ptm-attendee">Met with: <strong>{{ ptm.attendedByParentName || ptm.parentAttended }}</strong></div>
-                        <div class="ptm-teacher" *ngIf="ptm.teacherName">Conducted by: <strong>{{ ptm.teacherName }}</strong></div>
-                      </div>
-                    </div>
-                    <div class="ptm-header-right">
-                      <span class="satisfaction-badge" [ngClass]="(ptm.satisfactionRating || 'satisfied').toLowerCase()">
-                        {{ formatRating(ptm.satisfactionRating) }}
-                      </span>
-                      <button mat-icon-button color="warn" *ngIf="!isReadOnly" (click)="deletePtm(ptm)" matTooltip="Delete PTM record">
-                        <mat-icon>delete</mat-icon>
+                    <div class="form-actions">
+                      <button mat-button (click)="showAddAchievementForm = false">Cancel</button>
+                      <button mat-raised-button color="primary" [disabled]="savingAchievement" (click)="saveAchievement()">
+                        <mat-icon>check_circle</mat-icon> {{ savingAchievement ? 'Saving...' : 'Save Achievement' }}
                       </button>
                     </div>
                   </div>
-                  <div class="ptm-card-body">
-                    <div class="ptm-section" *ngIf="ptm.discussionSummary || ptm.childStrengths">
-                      <div class="ptm-sec-title"><mat-icon>forum</mat-icon> Discussion Summary &amp; Strengths</div>
-                      <p class="ptm-sec-text">{{ ptm.discussionSummary || ptm.childStrengths }}</p>
-                    </div>
-                    <div class="ptm-dual-row">
-                      <div class="ptm-box teacher-box" *ngIf="ptm.teacherRemarks">
-                        <div class="box-title"><mat-icon>school</mat-icon> Teacher's Feedback</div>
-                        <p>{{ ptm.teacherRemarks }}</p>
-                      </div>
-                      <div class="ptm-box parent-box" *ngIf="ptm.parentFeedback">
-                        <div class="box-title"><mat-icon>family_restroom</mat-icon> Parent's Feedback</div>
-                        <p>{{ ptm.parentFeedback }}</p>
-                      </div>
-                    </div>
-                    <div class="ptm-action-points" *ngIf="ptm.actionPoints || ptm.areasOfImprovement">
-                      <mat-icon>checklist</mat-icon>
-                      <div><strong>Action Commitments:</strong> {{ ptm.actionPoints || ptm.areasOfImprovement }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="empty-state-box" *ngIf="!data360.ptmRecords?.length && !showAddPtmForm">
-                <mat-icon>groups</mat-icon>
-                <p>No PTM interactions recorded for this student yet.</p>
-                <button mat-stroked-button color="primary" (click)="showAddPtmForm = true">
-                  <mat-icon>add</mat-icon> Log First PTM Interaction
-                </button>
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 11: COMPREHENSIVE HEALTH & MEDICAL PROFILE (Feature 4) -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">medical_services</mat-icon> Health &amp; Medical Profile
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="tab-action-header">
-                <div>
-                  <h4 class="tab-action-title">Student Health &amp; Emergency Medical Profile</h4>
-                  <p class="tab-action-sub">Growth metrics, BMI tracker, allergies, emergency contacts &amp; pediatric history</p>
-                </div>
-                <div class="header-action-group">
-                  <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
-                    <mat-icon>badge</mat-icon> Print Pocket Medical Card
-                  </button>
-                  <button mat-raised-button color="primary" class="primary-gradient-btn" *ngIf="!isReadOnly" (click)="toggleEditHealth()">
-                    <mat-icon>{{ showEditHealthForm ? 'close' : 'edit' }}</mat-icon>
-                    {{ showEditHealthForm ? 'Cancel Edit' : 'Update Health Record' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Edit Health Form Drawer -->
-              <div class="inline-form-card" *ngIf="showEditHealthForm">
-                <div class="form-header">
-                  <mat-icon>favorite</mat-icon>
-                  <h5>Update Student Vitals &amp; Medical Record</h5>
-                </div>
-                <div class="form-grid">
-                  <div class="form-field-wrap">
-                    <label>Height (in cm)</label>
-                    <input type="number" class="custom-input" [(ngModel)]="healthForm.heightCm" placeholder="e.g. 152" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Weight (in kg)</label>
-                    <input type="number" class="custom-input" [(ngModel)]="healthForm.weightKg" placeholder="e.g. 45.5" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Blood Group</label>
-                    <select class="custom-input" [(ngModel)]="healthForm.bloodGroup">
-                      <option value="">Select Blood Group</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                    </select>
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Vision - Left Eye</label>
-                    <input type="text" class="custom-input" [(ngModel)]="healthForm.visionLeft" placeholder="e.g. 6/6 or -1.5D" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Vision - Right Eye</label>
-                    <input type="text" class="custom-input" [(ngModel)]="healthForm.visionRight" placeholder="e.g. 6/6 or -1.25D" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Last Medical Checkup Date</label>
-                    <input type="date" class="custom-input" [(ngModel)]="healthForm.lastCheckupDate" />
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Known Allergies (Food / Medicines / Environmental)</label>
-                    <input type="text" class="custom-input" [(ngModel)]="healthForm.knownAllergies" placeholder="e.g. Peanuts, Penicillin, Dust, Pollen (or 'None')" />
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Chronic Medical Conditions (if any)</label>
-                    <input type="text" class="custom-input" [(ngModel)]="healthForm.chronicConditions" placeholder="e.g. Childhood Asthma, Juvenile Diabetes, Epilepsy (or 'None')" />
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Regular Medications / Inhalers</label>
-                    <input type="text" class="custom-input" [(ngModel)]="healthForm.regularMedications" placeholder="e.g. Asthalin Inhaler as needed; Vitamin D syrup" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Emergency Doctor / Pediatrician Name</label>
-                    <input type="text" class="custom-input" [(ngModel)]="healthForm.emergencyDoctorName" placeholder="Dr. S. Mehta" />
-                  </div>
-                  <div class="form-field-wrap">
-                    <label>Doctor Emergency Contact Phone</label>
-                    <input type="text" class="custom-input" [(ngModel)]="healthForm.emergencyDoctorPhone" placeholder="+91 98765 43210" />
-                  </div>
-                  <div class="form-field-wrap full-col">
-                    <label>Doctor's Special Notes / Recommendations</label>
-                    <textarea class="custom-textarea" rows="2" [(ngModel)]="healthForm.doctorNotes" placeholder="Any physical education restrictions, dietary precautions, etc..."></textarea>
-                  </div>
-                </div>
-                <div class="form-actions">
-                  <button mat-button (click)="showEditHealthForm = false">Cancel</button>
-                  <button mat-raised-button color="primary" [disabled]="savingHealth" (click)="saveHealth()">
-                    <mat-icon>check_circle</mat-icon> {{ savingHealth ? 'Saving...' : 'Save Health Vitals' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Health Dashboard & Vitals Display -->
-              <div class="health-dashboard-grid">
-                
-                <!-- BMI & Growth Metric Card -->
-                <div class="health-card bmi-card">
-                  <div class="health-card-header">
-                    <mat-icon class="health-icon">accessibility_new</mat-icon>
-                    <h5>Physical Growth &amp; BMI Tracker</h5>
-                  </div>
-                  <div class="vitals-row">
-                    <div class="vital-box">
-                      <span class="vital-label">Height</span>
-                      <span class="vital-val">{{ data360.healthRecord?.heightCm ? (data360.healthRecord!.heightCm + ' cm') : 'Not Recorded' }}</span>
-                    </div>
-                    <div class="vital-box">
-                      <span class="vital-label">Weight</span>
-                      <span class="vital-val">{{ data360.healthRecord?.weightKg ? (data360.healthRecord!.weightKg + ' kg') : 'Not Recorded' }}</span>
-                    </div>
-                    <div class="vital-box bmi-highlight">
-                      <span class="vital-label">BMI Score</span>
-                      <span class="vital-val">{{ data360.healthRecord?.bmi ? (data360.healthRecord!.bmi | number:'1.1-1') : 'N/A' }}</span>
-                    </div>
-                  </div>
-
-                  <!-- BMI Category Meter -->
-                  <div class="bmi-category-meter" *ngIf="data360.healthRecord?.bmiCategory">
-                    <div class="meter-bar">
-                      <div class="meter-segment under" [class.current]="data360.healthRecord?.bmiCategory === 'Underweight'">Underweight (&lt;18.5)</div>
-                      <div class="meter-segment normal" [class.current]="data360.healthRecord?.bmiCategory === 'Normal'">Healthy (18.5 - 24.9)</div>
-                      <div class="meter-segment over" [class.current]="data360.healthRecord?.bmiCategory === 'Overweight'">Overweight (25 - 29.9)</div>
-                      <div class="meter-segment obese" [class.current]="data360.healthRecord?.bmiCategory === 'Obese'">Obese (&ge;30)</div>
-                    </div>
-                    <div class="bmi-status-text">
-                      Growth Evaluation: <strong [ngClass]="data360.healthRecord!.bmiCategory!.toLowerCase()">{{ data360.healthRecord!.bmiCategory }}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Emergency Medical Alert Card -->
-                <div class="health-card alert-card">
-                  <div class="health-card-header">
-                    <mat-icon class="health-icon danger">warning</mat-icon>
-                    <h5>Critical Medical Alerts &amp; Allergies</h5>
-                  </div>
-                  <div class="medical-alert-content">
-                    <div class="alert-box" [class.has-allergy]="data360.healthRecord?.knownAllergies">
-                      <div class="alert-title"><mat-icon>coronavirus</mat-icon> Known Allergies</div>
-                      <p class="alert-desc">{{ data360.healthRecord?.knownAllergies || 'No known allergies reported.' }}</p>
-                    </div>
-                    <div class="alert-box" [class.has-condition]="data360.healthRecord?.chronicConditions">
-                      <div class="alert-title"><mat-icon>healing</mat-icon> Chronic Medical Conditions</div>
-                      <p class="alert-desc">{{ data360.healthRecord?.chronicConditions || 'None reported.' }}</p>
-                    </div>
-                    <div class="alert-box" *ngIf="data360.healthRecord?.regularMedications">
-                      <div class="alert-title"><mat-icon>medication</mat-icon> Regular Medications / Inhalers</div>
-                      <p class="alert-desc">{{ data360.healthRecord?.regularMedications }}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Clinical Details & Doctor Card -->
-                <div class="health-card clinical-card">
-                  <div class="health-card-header">
-                    <mat-icon class="health-icon">local_hospital</mat-icon>
-                    <h5>Clinical Details &amp; Doctor Contacts</h5>
-                  </div>
-                  <div class="clinical-rows">
-                    <div class="clinical-row">
-                      <span class="lbl">Blood Group:</span>
-                      <strong class="val blood-val">{{ data360.healthRecord?.bloodGroup || data360.student.bloodGroup || 'Not Tested' }}</strong>
-                    </div>
-                    <div class="clinical-row">
-                      <span class="lbl">Vision Assessment:</span>
-                      <span class="val">L: {{ data360.healthRecord?.visionLeft || '6/6' }} &bull; R: {{ data360.healthRecord?.visionRight || '6/6' }}</span>
-                    </div>
-                    <div class="clinical-row">
-                      <span class="lbl">Last Campus Checkup:</span>
-                      <span class="val">{{ data360.healthRecord?.lastCheckupDate ? (data360.healthRecord!.lastCheckupDate | date:'dd MMM yyyy') : 'No checkup recorded' }}</span>
-                    </div>
-                    <div class="clinical-row" *ngIf="data360.healthRecord?.emergencyDoctorName">
-                      <span class="lbl">Pediatrician / Doctor:</span>
-                      <span class="val">{{ data360.healthRecord!.emergencyDoctorName }}</span>
-                    </div>
-                    <div class="clinical-row" *ngIf="data360.healthRecord?.emergencyDoctorPhone">
-                      <span class="lbl">Doctor Contact:</span>
-                      <a [href]="'tel:' + data360.healthRecord!.emergencyDoctorPhone" class="val doc-phone">
-                        <mat-icon>phone</mat-icon> {{ data360.healthRecord!.emergencyDoctorPhone }}
-                      </a>
-                    </div>
-                    <div class="doctor-notes-box" *ngIf="data360.healthRecord?.doctorNotes || data360.healthRecord?.doctorRemarks">
-                      <div class="notes-lbl">Physician's Guidance:</div>
-                      <p>{{ data360.healthRecord!.doctorNotes || data360.healthRecord!.doctorRemarks }}</p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- TAB 12: SIBLINGS & FAMILY LINKAGE (Feature 1) -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">diversity_3</mat-icon> Siblings &amp; Family ({{ siblingsList.length }})
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="tab-action-header">
-                <div>
-                  <h4 class="tab-action-title">Linked Siblings &amp; Family Group</h4>
-                  <p class="tab-action-sub">Link brother/sister profiles, set sibling fee discount, and track family ledger</p>
-                </div>
-                <button mat-raised-button color="primary" class="primary-gradient-btn" *ngIf="!isReadOnly" (click)="showAddSiblingForm = !showAddSiblingForm">
-                  <mat-icon>{{ showAddSiblingForm ? 'close' : 'person_add' }}</mat-icon>
-                  {{ showAddSiblingForm ? 'Cancel' : 'Link New Sibling' }}
-                </button>
-              </div>
-
-              <!-- Add Sibling Drawer / Form Card -->
-              <div class="inline-form-card" *ngIf="showAddSiblingForm">
-                <div class="form-header">
-                  <div class="form-header-title">
-                    <mat-icon>person_add</mat-icon>
-                    <h5>Search &amp; Link Student as Sibling</h5>
-                  </div>
-                  <span class="badge-hint"><mat-icon style="font-size:14px; width:14px; height:14px; vertical-align:middle;">travel_explore</mat-icon> Live Institution Search</span>
-                </div>
-
-                <div class="form-grid">
-                  <div class="form-field-wrap full-col search-field-container">
-                    <label>Search Student (Name, Admission No, Parent Phone) *</label>
-                    <div class="search-input-wrap">
-                      <input type="text" class="custom-input" [(ngModel)]="siblingSearchQuery" (input)="onSearchSibling()" placeholder="Type student name, admission number or parent phone..." />
-                      <mat-icon class="search-icon" *ngIf="!searchingCandidates">search</mat-icon>
-                      <mat-progress-spinner *ngIf="searchingCandidates" mode="indeterminate" diameter="18" class="search-spinner"></mat-progress-spinner>
-
-                      <!-- Autocomplete Results Dropdown -->
-                      <div class="candidate-dropdown" *ngIf="candidateSearchResults.length > 0">
-                        <div class="candidate-item" *ngFor="let c of candidateSearchResults" (click)="selectSiblingCandidate(c)">
-                          <div class="cand-avatar">{{ getInitials(c.studentName) }}</div>
-                          <div class="cand-details">
-                            <div class="cand-name">{{ c.studentName }}</div>
-                            <div class="cand-meta">
-                               <span *ngIf="c.className">Class {{ c.className }}</span>
-                               <span *ngIf="c.batchName"><span *ngIf="c.className"> &bull; </span>Batch {{ c.batchName }}</span>
-                              <span *ngIf="c.admissionNumber"> &bull; Adm: {{ c.admissionNumber }}</span>
-                              <span *ngIf="c.parentPhone"> &bull; Phone: {{ c.parentPhone }}</span>
+                }
+                <!-- Achievements Grid -->
+                @if (data360.achievements?.length) {
+                  <div class="achievement-grid">
+                    @for (ach of data360.achievements; track ach) {
+                      <div class="honor-card" [ngClass]="(ach.category || 'other').toLowerCase()">
+                        <div class="honor-top">
+                          <div class="honor-badge-icon" [ngClass]="(ach.category || 'other').toLowerCase()">
+                            <mat-icon>{{ getAchievementIcon(ach.category) }}</mat-icon>
+                          </div>
+                          <div class="honor-titles">
+                            <div class="honor-title">{{ ach.title }}</div>
+                            <div class="honor-meta">
+                              <span class="honor-category-tag" [ngClass]="(ach.category || 'other').toLowerCase()">{{ ach.category }}</span>
+                              @if (ach.level || ach.awardLevel) {
+                                <span class="level-tag">{{ ach.level || ach.awardLevel }}</span>
+                              }
+                              @if (ach.position) {
+                                <span class="pos-tag">{{ ach.position }}</span>
+                              }
                             </div>
                           </div>
-                          <button type="button" class="cand-select-btn">Select</button>
+                        </div>
+                        <div class="honor-body">
+                          @if (ach.issuedBy || ach.awardedBy) {
+                            <div class="honor-info-line">
+                              <span class="meta-label">Organized By:</span>
+                              <span class="meta-text">{{ ach.issuedBy || ach.awardedBy }}</span>
+                            </div>
+                          }
+                          <div class="honor-info-line">
+                            <span class="meta-label">Award Date:</span>
+                            <span class="meta-text">{{ (ach.awardedDate || ach.awardDate) | date:'dd MMM yyyy' }}</span>
+                          </div>
+                          @if (ach.certificateNumber) {
+                            <div class="honor-info-line">
+                              <span class="meta-label">Cert No:</span>
+                              <span class="meta-text font-mono">{{ ach.certificateNumber }}</span>
+                            </div>
+                          }
+                          @if (ach.remarks || ach.description) {
+                            <p class="honor-remarks">{{ ach.remarks || ach.description }}</p>
+                          }
+                        </div>
+                        <div class="honor-footer">
+                          <button mat-stroked-button class="print-cert-btn" (click)="printCertificate(ach)" matTooltip="Generate &amp; Print Official Certificate of Merit">
+                            <mat-icon>print</mat-icon> Print Certificate
+                          </button>
+                          @if (!isReadOnly) {
+                            <button mat-icon-button color="warn" (click)="deleteAchievement(ach)" matTooltip="Delete record">
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          }
                         </div>
                       </div>
-                    </div>
+                    }
                   </div>
-
-                  <!-- Selected Candidate Preview -->
-                  <div class="form-field-wrap full-col" *ngIf="selectedSiblingCandidate">
-                    <div class="selected-cand-card">
-                      <div class="cand-preview-info">
-                        <mat-icon style="color: #16a34a; font-size: 20px; width: 20px; height: 20px;">check_circle</mat-icon>
-                        <div>
-                          <strong style="color: #15803d; font-size: 0.88rem;">{{ selectedSiblingCandidate.studentName }}</strong>
-                          <span style="color:#475569; font-size:12px; margin-left:8px;">
-                            ({{ selectedSiblingCandidate.className ? 'Class ' + selectedSiblingCandidate.className : '' }}{{ selectedSiblingCandidate.className && selectedSiblingCandidate.batchName ? ' &bull; ' : '' }}{{ selectedSiblingCandidate.batchName ? 'Batch ' + selectedSiblingCandidate.batchName : '' }}{{ !selectedSiblingCandidate.className && !selectedSiblingCandidate.batchName ? 'No class/batch' : '' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
-                          </span>
-                        </div>
-                      </div>
-                      <button type="button" class="clear-cand-btn" (click)="selectedSiblingCandidate = null" title="Change selection">
-                        <mat-icon style="font-size: 16px; width: 16px; height: 16px;">close</mat-icon>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="form-field-wrap">
-                    <label>Relationship *</label>
-                    <select class="custom-input" [(ngModel)]="newSiblingRelationship">
-                      <option value="Brother">Brother</option>
-                      <option value="Sister">Sister</option>
-                      <option value="Twin">Twin</option>
-                      <option value="Cousin">Cousin</option>
-                    </select>
-                  </div>
-
-                  <div class="form-field-wrap">
-                    <label>Sibling Concession / Fee Discount (%)</label>
-                    <input type="number" class="custom-input" [(ngModel)]="newSiblingDiscount" min="0" max="100" placeholder="e.g. 15" />
-                  </div>
-
-                  <div class="form-field-wrap">
-                    <label>Internal Notes / Authorization</label>
-                    <input type="text" class="custom-input" [(ngModel)]="newSiblingNotes" placeholder="e.g. Approved 15% discount" />
-                  </div>
-                </div>
-
-                <div class="form-actions">
-                  <button mat-button type="button" (click)="showAddSiblingForm = false">Cancel</button>
-                  <button mat-raised-button color="primary" class="primary-gradient-btn" [disabled]="savingSibling || !selectedSiblingCandidate" (click)="saveSiblingLink()">
-                    <mat-icon>link</mat-icon> {{ savingSibling ? 'Linking...' : 'Confirm & Link Sibling' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Siblings Grid Display -->
-              <div class="siblings-manage-grid" *ngIf="siblingsList.length > 0">
-                <div class="sibling-manage-card" *ngFor="let sib of siblingsList">
-                  <div class="sib-card-top">
-                    <div class="sib-avatar-large">
-                      <img *ngIf="sib.profilePhoto" [src]="getPhotoUrl(sib.profilePhoto)" [alt]="sib.siblingName" />
-                      <span *ngIf="!sib.profilePhoto">{{ getInitials(sib.siblingName) }}</span>
-                    </div>
-                    <div class="sib-main-info">
-                      <div class="sib-name-row">
-                        <h5>{{ sib.siblingName }}</h5>
-                        <span class="sib-rel-tag">{{ sib.relationship }}</span>
-                      </div>
-                      <div class="sib-academic-meta">
-                        <span *ngIf="sib.className">Class {{ sib.className }}{{ sib.sectionName ? ' - ' + sib.sectionName : '' }}</span>
-                        <span *ngIf="sib.schoolRollNumber || sib.rollNumber"> &bull; Roll: {{ sib.schoolRollNumber || sib.rollNumber }}</span>
-                        <span *ngIf="sib.admissionNumber"> &bull; Adm: {{ sib.admissionNumber }}</span>
-                      </div>
-                    </div>
-                    <button mat-icon-button color="warn" *ngIf="!isReadOnly" (click)="deleteSiblingLink(sib)" matTooltip="Remove sibling link">
-                      <mat-icon>link_off</mat-icon>
+                }
+                @if (!data360.achievements?.length && !showAddAchievementForm) {
+                  <div class="empty-state-box">
+                    <mat-icon>workspace_premium</mat-icon>
+                    <p>No honors or awards recorded yet. Click above to celebrate this student's milestone!</p>
+                    <button mat-stroked-button color="primary" (click)="showAddAchievementForm = true">
+                      <mat-icon>add</mat-icon> Add First Achievement
                     </button>
                   </div>
-
-                  <div class="sib-card-badges">
-                    <div class="sib-badge discount-badge" *ngIf="sib.discountPercent > 0">
-                      <mat-icon>local_offer</mat-icon> Sibling Discount: <strong>{{ sib.discountPercent }}%</strong>
+                }
+              </div>
+            </mat-tab>
+            <!-- TAB 9: DISCIPLINE & CONDUCT REGISTER (Feature 2) -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">gavel</mat-icon> Discipline &amp; Conduct ({{ data360.disciplinaryRecords?.length || 0 }})
+              </ng-template>
+              <div class="tab-content-wrap">
+                <div class="tab-action-header">
+                  <div>
+                    <h4 class="tab-action-title">Student Behavior &amp; Conduct Diary</h4>
+                    <p class="tab-action-sub">Institutional incident tracking, positive commendations, and corrective actions</p>
+                  </div>
+                  @if (!isReadOnly) {
+                    <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="showAddDisciplineForm = !showAddDisciplineForm">
+                      <mat-icon>{{ showAddDisciplineForm ? 'close' : 'add_moderator' }}</mat-icon>
+                      {{ showAddDisciplineForm ? 'Cancel' : 'Log Incident / Commendation' }}
+                    </button>
+                  }
+                </div>
+                <!-- Add Disciplinary Form Drawer -->
+                @if (showAddDisciplineForm) {
+                  <div class="inline-form-card">
+                    <div class="form-header">
+                      <mat-icon>fact_check</mat-icon>
+                      <h5>Record Conduct Entry / Commendation</h5>
                     </div>
-                    <div class="sib-badge fee-badge" [class.has-due]="sib.outstandingDues > 0">
-                      <mat-icon>{{ sib.outstandingDues > 0 ? 'account_balance_wallet' : 'verified' }}</mat-icon>
-                      {{ sib.outstandingDues > 0 ? ('Pending Due: ₹' + (sib.outstandingDues | number)) : 'Fee Cleared (₹0 Due)' }}
+                    <div class="form-grid">
+                      <div class="form-field-wrap">
+                        <label>Incident / Record Title *</label>
+                        <input type="text" class="custom-input" [(ngModel)]="newDiscipline.title" placeholder="e.g. Exemplary Honesty / Uniform Violation" />
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Entry Type *</label>
+                        <select class="custom-input" [(ngModel)]="newDiscipline.incidentType">
+                          <option value="PositiveCommendation">Positive Commendation (Honor)</option>
+                          <option value="MinorInfraction">Minor Infraction (Warning)</option>
+                          <option value="ModerateMisconduct">Moderate Misconduct</option>
+                          <option value="SevereViolation">Severe Violation</option>
+                        </select>
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Severity Level *</label>
+                        <select class="custom-input" [(ngModel)]="newDiscipline.severity">
+                          <option value="Commendation">Commendation / Praise</option>
+                          <option value="Low">Low Severity</option>
+                          <option value="Medium">Medium Severity</option>
+                          <option value="High">High Severity</option>
+                          <option value="Critical">Critical</option>
+                        </select>
+                      </div>
+                      <div class="form-field-wrap">
+                        <label>Incident Date *</label>
+                        <input type="date" class="custom-input" [(ngModel)]="newDiscipline.incidentDate" />
+                      </div>
+                      <div class="form-field-wrap faculty-field-wrap">
+                        <label>Reported By / Faculty Name</label>
+                        <div class="faculty-combobox-wrap">
+                          <input
+                            type="text"
+                            class="custom-input"
+                            [(ngModel)]="newDiscipline.reportedByName"
+                            (focus)="showDisciplineFacultyDropdown = true"
+                            placeholder="Select faculty or type name..."
+                            autocomplete="off"
+                            />
+                            <button type="button" class="combobox-toggle-btn" (click)="showDisciplineFacultyDropdown = !showDisciplineFacultyDropdown" tabindex="-1">
+                              <mat-icon>{{ showDisciplineFacultyDropdown ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
+                            </button>
+                            <!-- Custom Positioned Floating Dropdown Panel Directly Below Input -->
+                            @if (showDisciplineFacultyDropdown) {
+                              <div class="faculty-dropdown-menu">
+                                <!-- 1. Assigned Class Teacher -->
+                                @if (data360?.student?.classTeacherName) {
+                                  <div class="dropdown-group-header">Assigned Class Teacher</div>
+                                }
+                                @if (data360?.student?.classTeacherName) {
+                                  <div
+                                    class="dropdown-option-item highlight"
+                                    (click)="selectDisciplineFaculty(data360!.student.classTeacherName + ' (Class Teacher)')"
+                                    >
+                                    <mat-icon class="item-icon star">stars</mat-icon>
+                                    <div class="item-text">
+                                      <div class="item-name">{{ data360!.student.classTeacherName }}</div>
+                                      <div class="item-sub">Class Teacher &bull; Sec {{ data360!.student.sectionName || 'A' }}</div>
+                                    </div>
+                                  </div>
+                                }
+                                <!-- 2. School Teachers -->
+                                @if (schoolTeachers.length > 0) {
+                                  <div class="dropdown-group-header">Faculty &amp; Subject Teachers</div>
+                                }
+                                @for (t of getFilteredTeachers(newDiscipline.reportedByName); track t) {
+                                  <div
+                                    class="dropdown-option-item"
+                                    (click)="selectDisciplineFaculty(t.fullName + (t.specialization ? ' (' + t.specialization + ')' : (t.designation ? ' (' + t.designation + ')' : '')))"
+                                    >
+                                    <mat-icon class="item-icon teacher">school</mat-icon>
+                                    <div class="item-text">
+                                      <div class="item-name">{{ t.fullName }}</div>
+                                      <div class="item-sub">{{ t.specialization || t.designation || t.department || 'Faculty' }}</div>
+                                    </div>
+                                  </div>
+                                }
+                                <!-- 3. Key Authorities -->
+                                <div class="dropdown-group-header">Institutional Incharges &amp; Staff</div>
+                                @for (auth of institutionalAuthorities; track auth) {
+                                  <div
+                                    class="dropdown-option-item"
+                                    (click)="selectDisciplineFaculty(auth.title)"
+                                    >
+                                    <mat-icon class="item-icon auth">{{ auth.icon }}</mat-icon>
+                                    <div class="item-text">
+                                      <div class="item-name">{{ auth.title }}</div>
+                                    </div>
+                                  </div>
+                                }
+                              </div>
+                            }
+                          </div>
+                        </div>
+                        <div class="form-field-wrap">
+                          <label>Status</label>
+                          <select class="custom-input" [(ngModel)]="newDiscipline.status">
+                            <option value="Resolved">Resolved</option>
+                            <option value="Open">Open</option>
+                            <option value="UnderReview">Under Review</option>
+                          </select>
+                        </div>
+                        <div class="form-field-wrap full-col">
+                          <label>Description of Event *</label>
+                          <textarea class="custom-textarea" rows="2" [(ngModel)]="newDiscipline.description" placeholder="Provide factual details of the incident or deed..."></textarea>
+                        </div>
+                        <div class="form-field-wrap full-col">
+                          <label>Corrective Action / Recognition Awarded</label>
+                          <input type="text" class="custom-input" [(ngModel)]="newDiscipline.actionTaken" placeholder="e.g. Certificate issued, Parent counseling session held, Verbal warning" />
+                        </div>
+                        <div class="form-field-wrap full-col checkbox-wrap">
+                          <label class="checkbox-label">
+                            <input type="checkbox" [(ngModel)]="newDiscipline.parentNotified" />
+                            <span>Parents have been formally notified regarding this matter</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div class="form-actions">
+                        <button mat-button (click)="showAddDisciplineForm = false">Cancel</button>
+                        <button mat-raised-button color="primary" [disabled]="savingDiscipline" (click)="saveDiscipline()">
+                          <mat-icon>check_circle</mat-icon> {{ savingDiscipline ? 'Saving...' : 'Save Entry' }}
+                        </button>
+                      </div>
+                    </div>
+                  }
+                  <!-- Conduct List -->
+                  @if (data360.disciplinaryRecords?.length) {
+                    <div class="conduct-list">
+                      @for (rec of data360.disciplinaryRecords; track rec) {
+                        <div class="conduct-item" [ngClass]="(rec.incidentType || 'minor').toLowerCase()">
+                          <div class="conduct-icon-col">
+                            <div class="type-pill-icon" [ngClass]="(rec.incidentType || 'minor').toLowerCase()">
+                              @if (rec.incidentType === 'PositiveCommendation') {
+                                <mat-icon>thumb_up</mat-icon>
+                              }
+                              @if (rec.incidentType !== 'PositiveCommendation') {
+                                <mat-icon>report_problem</mat-icon>
+                              }
+                            </div>
+                          </div>
+                          <div class="conduct-content-col">
+                            <div class="conduct-header-row">
+                              <div class="conduct-title">{{ rec.title }}</div>
+                              <div class="conduct-tags">
+                                <span class="severity-pill" [ngClass]="(rec.severity || 'low').toLowerCase()">{{ rec.severity }}</span>
+                                <span class="status-badge" [ngClass]="(rec.status || (rec.isResolved ? 'resolved' : 'open')).toLowerCase()">{{ rec.status || (rec.isResolved ? 'Resolved' : 'Open') }}</span>
+                              </div>
+                            </div>
+                            <p class="conduct-desc">{{ rec.description }}</p>
+                            <div class="conduct-meta-row">
+                              <span class="meta-item"><mat-icon>calendar_today</mat-icon> {{ rec.incidentDate | date:'dd MMM yyyy' }}</span>
+                              @if (rec.reportedByName || rec.reportedBy) {
+                                <span class="meta-item"><mat-icon>person</mat-icon> By: {{ rec.reportedByName || rec.reportedBy }}</span>
+                              }
+                              <span class="meta-item parent-flag" [class.notified]="rec.parentNotified">
+                                <mat-icon>{{ rec.parentNotified ? 'notifications_active' : 'notifications_off' }}</mat-icon>
+                                {{ rec.parentNotified ? 'Parent Notified' : 'Parent Not Notified' }}
+                              </span>
+                            </div>
+                            @if (rec.actionTaken) {
+                              <div class="conduct-action-box">
+                                <strong>Action / Outcome:</strong> {{ rec.actionTaken }}
+                              </div>
+                            }
+                          </div>
+                          @if (!isReadOnly) {
+                            <div class="conduct-actions-col">
+                              <button mat-icon-button color="warn" (click)="deleteDiscipline(rec)" matTooltip="Delete entry">
+                                <mat-icon>delete</mat-icon>
+                              </button>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                  @if (!data360.disciplinaryRecords?.length && !showAddDisciplineForm) {
+                    <div class="empty-state-box">
+                      <mat-icon>verified</mat-icon>
+                      <p>Clean conduct sheet! No disciplinary incidents or infractions logged.</p>
+                      <button mat-stroked-button color="primary" (click)="showAddDisciplineForm = true">
+                        <mat-icon>add</mat-icon> Log New Record
+                      </button>
+                    </div>
+                  }
+                </div>
+              </mat-tab>
+              <!-- TAB 10: PTM & PARENT FEEDBACK DESK (Feature 3) -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">record_voice_over</mat-icon> PTM Desk ({{ data360.ptmRecords?.length || 0 }})
+                </ng-template>
+                <div class="tab-content-wrap">
+                  <div class="tab-action-header">
+                    <div>
+                      <h4 class="tab-action-title">Parent-Teacher Meeting &amp; Feedback Journal</h4>
+                      <p class="tab-action-sub">Record discussions, guardian feedback, pedagogical counsel, and agreed action plans</p>
+                    </div>
+                    @if (!isReadOnly) {
+                      <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="showAddPtmForm = !showAddPtmForm">
+                        <mat-icon>{{ showAddPtmForm ? 'close' : 'contact_phone' }}</mat-icon>
+                        {{ showAddPtmForm ? 'Cancel' : 'Record PTM Interaction' }}
+                      </button>
+                    }
+                  </div>
+                  <!-- Add PTM Form Drawer -->
+                  @if (showAddPtmForm) {
+                    <div class="inline-form-card">
+                      <div class="form-header">
+                        <mat-icon>question_answer</mat-icon>
+                        <h5>Log Parent-Teacher Conference</h5>
+                      </div>
+                      <div class="form-grid">
+                        <div class="form-field-wrap">
+                          <label>Meeting Date *</label>
+                          <input type="date" class="custom-input" [(ngModel)]="newPtm.meetingDate" />
+                        </div>
+                        <div class="form-field-wrap">
+                          <label>Attended By (Parent / Guardian) *</label>
+                          <input type="text" class="custom-input" [(ngModel)]="newPtm.attendedByParentName" placeholder="e.g. Mr. Rajesh Kumar (Father)" />
+                        </div>
+                        <div class="form-field-wrap faculty-field-wrap">
+                          <label>Teacher / Counselor Conducting PTM</label>
+                          <div class="faculty-combobox-wrap">
+                            <input
+                              type="text"
+                              class="custom-input"
+                              [(ngModel)]="newPtm.teacherName"
+                              (focus)="showPtmFacultyDropdown = true"
+                              placeholder="Select faculty or type name..."
+                              autocomplete="off"
+                              />
+                              <button type="button" class="combobox-toggle-btn" (click)="showPtmFacultyDropdown = !showPtmFacultyDropdown" tabindex="-1">
+                                <mat-icon>{{ showPtmFacultyDropdown ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
+                              </button>
+                              <!-- Custom Positioned Floating Dropdown Panel Directly Below Input -->
+                              @if (showPtmFacultyDropdown) {
+                                <div class="faculty-dropdown-menu">
+                                  <!-- 1. Assigned Class Teacher -->
+                                  @if (data360?.student?.classTeacherName) {
+                                    <div class="dropdown-group-header">Assigned Class Teacher</div>
+                                  }
+                                  @if (data360?.student?.classTeacherName) {
+                                    <div
+                                      class="dropdown-option-item highlight"
+                                      (click)="selectPtmFaculty(data360!.student.classTeacherName + ' (Class Teacher)')"
+                                      >
+                                      <mat-icon class="item-icon star">stars</mat-icon>
+                                      <div class="item-text">
+                                        <div class="item-name">{{ data360!.student.classTeacherName }}</div>
+                                        <div class="item-sub">Class Teacher &bull; Sec {{ data360!.student.sectionName || 'A' }}</div>
+                                      </div>
+                                    </div>
+                                  }
+                                  <!-- 2. School Teachers -->
+                                  @if (schoolTeachers.length > 0) {
+                                    <div class="dropdown-group-header">Faculty &amp; Subject Teachers</div>
+                                  }
+                                  @for (t of getFilteredTeachers(newPtm.teacherName); track t) {
+                                    <div
+                                      class="dropdown-option-item"
+                                      (click)="selectPtmFaculty(t.fullName + (t.specialization ? ' (' + t.specialization + ')' : (t.designation ? ' (' + t.designation + ')' : '')))"
+                                      >
+                                      <mat-icon class="item-icon teacher">school</mat-icon>
+                                      <div class="item-text">
+                                        <div class="item-name">{{ t.fullName }}</div>
+                                        <div class="item-sub">{{ t.specialization || t.designation || t.department || 'Faculty' }}</div>
+                                      </div>
+                                    </div>
+                                  }
+                                  <!-- 3. Key Authorities -->
+                                  <div class="dropdown-group-header">Institutional Incharges &amp; Counselors</div>
+                                  @for (auth of institutionalAuthorities; track auth) {
+                                    <div
+                                      class="dropdown-option-item"
+                                      (click)="selectPtmFaculty(auth.title)"
+                                      >
+                                      <mat-icon class="item-icon auth">{{ auth.icon }}</mat-icon>
+                                      <div class="item-text">
+                                        <div class="item-name">{{ auth.title }}</div>
+                                      </div>
+                                    </div>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Parent Satisfaction Level</label>
+                            <select class="custom-input" [(ngModel)]="newPtm.satisfactionRating">
+                              <option value="HighlySatisfied">Highly Satisfied</option>
+                              <option value="Satisfied">Satisfied</option>
+                              <option value="NeedsImprovement">Needs Improvement</option>
+                              <option value="Dissatisfied">Dissatisfied / Escalated</option>
+                            </select>
+                          </div>
+                          <div class="form-field-wrap full-col">
+                            <label>Discussion Summary *</label>
+                            <textarea class="custom-textarea" rows="2" [(ngModel)]="newPtm.discussionSummary" placeholder="Summary of agenda discussed regarding student progress, behavior, or attendance..."></textarea>
+                          </div>
+                          <div class="form-field-wrap full-col">
+                            <label>Teacher's Remarks &amp; Suggestions</label>
+                            <textarea class="custom-textarea" rows="2" [(ngModel)]="newPtm.teacherRemarks" placeholder="Teacher's guidance, areas of improvement, or appreciation..."></textarea>
+                          </div>
+                          <div class="form-field-wrap full-col">
+                            <label>Parent Feedback / Concerns</label>
+                            <textarea class="custom-textarea" rows="2" [(ngModel)]="newPtm.parentFeedback" placeholder="What the parents expressed, queries about syllabus, transport, etc..."></textarea>
+                          </div>
+                          <div class="form-field-wrap full-col">
+                            <label>Agreed Action Points / Commitments</label>
+                            <input type="text" class="custom-input" [(ngModel)]="newPtm.actionPoints" placeholder="e.g. Daily 1 hr math practice at home; Monthly progress review" />
+                          </div>
+                        </div>
+                        <div class="form-actions">
+                          <button mat-button (click)="showAddPtmForm = false">Cancel</button>
+                          <button mat-raised-button color="primary" [disabled]="savingPtm" (click)="savePtm()">
+                            <mat-icon>check_circle</mat-icon> {{ savingPtm ? 'Saving...' : 'Save PTM Record' }}
+                          </button>
+                        </div>
+                      </div>
+                    }
+                    <!-- PTM Timeline -->
+                    @if (data360.ptmRecords?.length) {
+                      <div class="ptm-timeline">
+                        @for (ptm of data360.ptmRecords; track ptm) {
+                          <div class="ptm-card">
+                            <div class="ptm-card-header">
+                              <div class="ptm-header-left">
+                                <div class="ptm-date-badge">
+                                  <span class="ptm-day">{{ (ptm.meetingDate || ptm.ptmDate) | date:'dd' }}</span>
+                                  <span class="ptm-mon">{{ (ptm.meetingDate || ptm.ptmDate) | date:'MMM yyyy' }}</span>
+                                </div>
+                                <div class="ptm-meta-block">
+                                  <div class="ptm-attendee">Met with: <strong>{{ ptm.attendedByParentName || ptm.parentAttended }}</strong></div>
+                                  @if (ptm.teacherName) {
+                                    <div class="ptm-teacher">Conducted by: <strong>{{ ptm.teacherName }}</strong></div>
+                                  }
+                                </div>
+                              </div>
+                              <div class="ptm-header-right">
+                                <span class="satisfaction-badge" [ngClass]="(ptm.satisfactionRating || 'satisfied').toLowerCase()">
+                                  {{ formatRating(ptm.satisfactionRating) }}
+                                </span>
+                                @if (!isReadOnly) {
+                                  <button mat-icon-button color="warn" (click)="deletePtm(ptm)" matTooltip="Delete PTM record">
+                                    <mat-icon>delete</mat-icon>
+                                  </button>
+                                }
+                              </div>
+                            </div>
+                            <div class="ptm-card-body">
+                              @if (ptm.discussionSummary || ptm.childStrengths) {
+                                <div class="ptm-section">
+                                  <div class="ptm-sec-title"><mat-icon>forum</mat-icon> Discussion Summary &amp; Strengths</div>
+                                  <p class="ptm-sec-text">{{ ptm.discussionSummary || ptm.childStrengths }}</p>
+                                </div>
+                              }
+                              <div class="ptm-dual-row">
+                                @if (ptm.teacherRemarks) {
+                                  <div class="ptm-box teacher-box">
+                                    <div class="box-title"><mat-icon>school</mat-icon> Teacher's Feedback</div>
+                                    <p>{{ ptm.teacherRemarks }}</p>
+                                  </div>
+                                }
+                                @if (ptm.parentFeedback) {
+                                  <div class="ptm-box parent-box">
+                                    <div class="box-title"><mat-icon>family_restroom</mat-icon> Parent's Feedback</div>
+                                    <p>{{ ptm.parentFeedback }}</p>
+                                  </div>
+                                }
+                              </div>
+                              @if (ptm.actionPoints || ptm.areasOfImprovement) {
+                                <div class="ptm-action-points">
+                                  <mat-icon>checklist</mat-icon>
+                                  <div><strong>Action Commitments:</strong> {{ ptm.actionPoints || ptm.areasOfImprovement }}</div>
+                                </div>
+                              }
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
+                    @if (!data360.ptmRecords?.length && !showAddPtmForm) {
+                      <div class="empty-state-box">
+                        <mat-icon>groups</mat-icon>
+                        <p>No PTM interactions recorded for this student yet.</p>
+                        <button mat-stroked-button color="primary" (click)="showAddPtmForm = true">
+                          <mat-icon>add</mat-icon> Log First PTM Interaction
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </mat-tab>
+                <!-- TAB 11: COMPREHENSIVE HEALTH & MEDICAL PROFILE (Feature 4) -->
+                <mat-tab>
+                  <ng-template mat-tab-label>
+                    <mat-icon class="tab-icon">medical_services</mat-icon> Health &amp; Medical Profile
+                  </ng-template>
+                  <div class="tab-content-wrap">
+                    <div class="tab-action-header">
+                      <div>
+                        <h4 class="tab-action-title">Student Health &amp; Emergency Medical Profile</h4>
+                        <p class="tab-action-sub">Growth metrics, BMI tracker, allergies, emergency contacts &amp; pediatric history</p>
+                      </div>
+                      <div class="header-action-group">
+                        <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
+                          <mat-icon>badge</mat-icon> Print Pocket Medical Card
+                        </button>
+                        @if (!isReadOnly) {
+                          <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="toggleEditHealth()">
+                            <mat-icon>{{ showEditHealthForm ? 'close' : 'edit' }}</mat-icon>
+                            {{ showEditHealthForm ? 'Cancel Edit' : 'Update Health Record' }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                    <!-- Edit Health Form Drawer -->
+                    @if (showEditHealthForm) {
+                      <div class="inline-form-card">
+                        <div class="form-header">
+                          <mat-icon>favorite</mat-icon>
+                          <h5>Update Student Vitals &amp; Medical Record</h5>
+                        </div>
+                        <div class="form-grid">
+                          <div class="form-field-wrap">
+                            <label>Height (in cm)</label>
+                            <input type="number" class="custom-input" [(ngModel)]="healthForm.heightCm" placeholder="e.g. 152" />
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Weight (in kg)</label>
+                            <input type="number" class="custom-input" [(ngModel)]="healthForm.weightKg" placeholder="e.g. 45.5" />
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Blood Group</label>
+                            <select class="custom-input" [(ngModel)]="healthForm.bloodGroup">
+                              <option value="">Select Blood Group</option>
+                              <option value="A+">A+</option>
+                              <option value="A-">A-</option>
+                              <option value="B+">B+</option>
+                              <option value="B-">B-</option>
+                              <option value="O+">O+</option>
+                              <option value="O-">O-</option>
+                              <option value="AB+">AB+</option>
+                              <option value="AB-">AB-</option>
+                            </select>
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Vision - Left Eye</label>
+                            <input type="text" class="custom-input" [(ngModel)]="healthForm.visionLeft" placeholder="e.g. 6/6 or -1.5D" />
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Vision - Right Eye</label>
+                            <input type="text" class="custom-input" [(ngModel)]="healthForm.visionRight" placeholder="e.g. 6/6 or -1.25D" />
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Last Medical Checkup Date</label>
+                            <input type="date" class="custom-input" [(ngModel)]="healthForm.lastCheckupDate" />
+                          </div>
+                          <div class="form-field-wrap full-col">
+                            <label>Known Allergies (Food / Medicines / Environmental)</label>
+                            <input type="text" class="custom-input" [(ngModel)]="healthForm.knownAllergies" placeholder="e.g. Peanuts, Penicillin, Dust, Pollen (or 'None')" />
+                          </div>
+                          <div class="form-field-wrap full-col">
+                            <label>Chronic Medical Conditions (if any)</label>
+                            <input type="text" class="custom-input" [(ngModel)]="healthForm.chronicConditions" placeholder="e.g. Childhood Asthma, Juvenile Diabetes, Epilepsy (or 'None')" />
+                          </div>
+                          <div class="form-field-wrap full-col">
+                            <label>Regular Medications / Inhalers</label>
+                            <input type="text" class="custom-input" [(ngModel)]="healthForm.regularMedications" placeholder="e.g. Asthalin Inhaler as needed; Vitamin D syrup" />
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Emergency Doctor / Pediatrician Name</label>
+                            <input type="text" class="custom-input" [(ngModel)]="healthForm.emergencyDoctorName" placeholder="Dr. S. Mehta" />
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Doctor Emergency Contact Phone</label>
+                            <input type="text" class="custom-input" [(ngModel)]="healthForm.emergencyDoctorPhone" placeholder="+91 98765 43210" />
+                          </div>
+                          <div class="form-field-wrap full-col">
+                            <label>Doctor's Special Notes / Recommendations</label>
+                            <textarea class="custom-textarea" rows="2" [(ngModel)]="healthForm.doctorNotes" placeholder="Any physical education restrictions, dietary precautions, etc..."></textarea>
+                          </div>
+                        </div>
+                        <div class="form-actions">
+                          <button mat-button (click)="showEditHealthForm = false">Cancel</button>
+                          <button mat-raised-button color="primary" [disabled]="savingHealth" (click)="saveHealth()">
+                            <mat-icon>check_circle</mat-icon> {{ savingHealth ? 'Saving...' : 'Save Health Vitals' }}
+                          </button>
+                        </div>
+                      </div>
+                    }
+                    <!-- Health Dashboard & Vitals Display -->
+                    <div class="health-dashboard-grid">
+                      <!-- BMI & Growth Metric Card -->
+                      <div class="health-card bmi-card">
+                        <div class="health-card-header">
+                          <mat-icon class="health-icon">accessibility_new</mat-icon>
+                          <h5>Physical Growth &amp; BMI Tracker</h5>
+                        </div>
+                        <div class="vitals-row">
+                          <div class="vital-box">
+                            <span class="vital-label">Height</span>
+                            <span class="vital-val">{{ data360.healthRecord?.heightCm ? (data360.healthRecord!.heightCm + ' cm') : 'Not Recorded' }}</span>
+                          </div>
+                          <div class="vital-box">
+                            <span class="vital-label">Weight</span>
+                            <span class="vital-val">{{ data360.healthRecord?.weightKg ? (data360.healthRecord!.weightKg + ' kg') : 'Not Recorded' }}</span>
+                          </div>
+                          <div class="vital-box bmi-highlight">
+                            <span class="vital-label">BMI Score</span>
+                            <span class="vital-val">{{ data360.healthRecord?.bmi ? (data360.healthRecord!.bmi | number:'1.1-1') : 'N/A' }}</span>
+                          </div>
+                        </div>
+                        <!-- BMI Category Meter -->
+                        @if (data360.healthRecord?.bmiCategory) {
+                          <div class="bmi-category-meter">
+                            <div class="meter-bar">
+                              <div class="meter-segment under" [class.current]="data360.healthRecord?.bmiCategory === 'Underweight'">Underweight (&lt;18.5)</div>
+                              <div class="meter-segment normal" [class.current]="data360.healthRecord?.bmiCategory === 'Normal'">Healthy (18.5 - 24.9)</div>
+                              <div class="meter-segment over" [class.current]="data360.healthRecord?.bmiCategory === 'Overweight'">Overweight (25 - 29.9)</div>
+                              <div class="meter-segment obese" [class.current]="data360.healthRecord?.bmiCategory === 'Obese'">Obese (&ge;30)</div>
+                            </div>
+                            <div class="bmi-status-text">
+                              Growth Evaluation: <strong [ngClass]="data360.healthRecord!.bmiCategory!.toLowerCase()">{{ data360.healthRecord!.bmiCategory }}</strong>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                      <!-- Emergency Medical Alert Card -->
+                      <div class="health-card alert-card">
+                        <div class="health-card-header">
+                          <mat-icon class="health-icon danger">warning</mat-icon>
+                          <h5>Critical Medical Alerts &amp; Allergies</h5>
+                        </div>
+                        <div class="medical-alert-content">
+                          <div class="alert-box" [class.has-allergy]="data360.healthRecord?.knownAllergies">
+                            <div class="alert-title"><mat-icon>coronavirus</mat-icon> Known Allergies</div>
+                            <p class="alert-desc">{{ data360.healthRecord?.knownAllergies || 'No known allergies reported.' }}</p>
+                          </div>
+                          <div class="alert-box" [class.has-condition]="data360.healthRecord?.chronicConditions">
+                            <div class="alert-title"><mat-icon>healing</mat-icon> Chronic Medical Conditions</div>
+                            <p class="alert-desc">{{ data360.healthRecord?.chronicConditions || 'None reported.' }}</p>
+                          </div>
+                          @if (data360.healthRecord?.regularMedications) {
+                            <div class="alert-box">
+                              <div class="alert-title"><mat-icon>medication</mat-icon> Regular Medications / Inhalers</div>
+                              <p class="alert-desc">{{ data360.healthRecord?.regularMedications }}</p>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                      <!-- Clinical Details & Doctor Card -->
+                      <div class="health-card clinical-card">
+                        <div class="health-card-header">
+                          <mat-icon class="health-icon">local_hospital</mat-icon>
+                          <h5>Clinical Details &amp; Doctor Contacts</h5>
+                        </div>
+                        <div class="clinical-rows">
+                          <div class="clinical-row">
+                            <span class="lbl">Blood Group:</span>
+                            <strong class="val blood-val">{{ data360.healthRecord?.bloodGroup || data360.student.bloodGroup || 'Not Tested' }}</strong>
+                          </div>
+                          <div class="clinical-row">
+                            <span class="lbl">Vision Assessment:</span>
+                            <span class="val">L: {{ data360.healthRecord?.visionLeft || '6/6' }} &bull; R: {{ data360.healthRecord?.visionRight || '6/6' }}</span>
+                          </div>
+                          <div class="clinical-row">
+                            <span class="lbl">Last Campus Checkup:</span>
+                            <span class="val">{{ data360.healthRecord?.lastCheckupDate ? (data360.healthRecord!.lastCheckupDate | date:'dd MMM yyyy') : 'No checkup recorded' }}</span>
+                          </div>
+                          @if (data360.healthRecord?.emergencyDoctorName) {
+                            <div class="clinical-row">
+                              <span class="lbl">Pediatrician / Doctor:</span>
+                              <span class="val">{{ data360.healthRecord!.emergencyDoctorName }}</span>
+                            </div>
+                          }
+                          @if (data360.healthRecord?.emergencyDoctorPhone) {
+                            <div class="clinical-row">
+                              <span class="lbl">Doctor Contact:</span>
+                              <a [href]="'tel:' + data360.healthRecord!.emergencyDoctorPhone" class="val doc-phone">
+                                <mat-icon>phone</mat-icon> {{ data360.healthRecord!.emergencyDoctorPhone }}
+                              </a>
+                            </div>
+                          }
+                          @if (data360.healthRecord?.doctorNotes || data360.healthRecord?.doctorRemarks) {
+                            <div class="doctor-notes-box">
+                              <div class="notes-lbl">Physician's Guidance:</div>
+                              <p>{{ data360.healthRecord!.doctorNotes || data360.healthRecord!.doctorRemarks }}</p>
+                            </div>
+                          }
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  <div class="sib-card-footer" *ngIf="sib.parentPhone || sib.notes">
-                    <span *ngIf="sib.parentPhone" class="parent-phone">
-                      <mat-icon>call</mat-icon> {{ sib.parentName || 'Parent' }}: {{ sib.parentPhone }}
-                    </span>
-                    <span *ngIf="sib.notes" class="sib-notes-text">&bull; {{ sib.notes }}</span>
+                </mat-tab>
+                <!-- TAB 12: SIBLINGS & FAMILY LINKAGE (Feature 1) -->
+                <mat-tab>
+                  <ng-template mat-tab-label>
+                    <mat-icon class="tab-icon">diversity_3</mat-icon> Siblings &amp; Family ({{ siblingsList.length }})
+                  </ng-template>
+                  <div class="tab-content-wrap">
+                    <div class="tab-action-header">
+                      <div>
+                        <h4 class="tab-action-title">Linked Siblings &amp; Family Group</h4>
+                        <p class="tab-action-sub">Link brother/sister profiles, set sibling fee discount, and track family ledger</p>
+                      </div>
+                      @if (!isReadOnly) {
+                        <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="showAddSiblingForm = !showAddSiblingForm">
+                          <mat-icon>{{ showAddSiblingForm ? 'close' : 'person_add' }}</mat-icon>
+                          {{ showAddSiblingForm ? 'Cancel' : 'Link New Sibling' }}
+                        </button>
+                      }
+                    </div>
+                    <!-- Add Sibling Drawer / Form Card -->
+                    @if (showAddSiblingForm) {
+                      <div class="inline-form-card">
+                        <div class="form-header">
+                          <div class="form-header-title">
+                            <mat-icon>person_add</mat-icon>
+                            <h5>Search &amp; Link Student as Sibling</h5>
+                          </div>
+                          <span class="badge-hint"><mat-icon style="font-size:14px; width:14px; height:14px; vertical-align:middle;">travel_explore</mat-icon> Live Institution Search</span>
+                        </div>
+                        <div class="form-grid">
+                          <div class="form-field-wrap full-col search-field-container">
+                            <label>Search Student (Name, Admission No, Parent Phone) *</label>
+                            <div class="search-input-wrap">
+                              <input type="text" class="custom-input" [(ngModel)]="siblingSearchQuery" (input)="onSearchSibling()" placeholder="Type student name, admission number or parent phone..." />
+                              @if (!searchingCandidates) {
+                                <mat-icon class="search-icon">search</mat-icon>
+                              }
+                              @if (searchingCandidates) {
+                                <mat-progress-spinner mode="indeterminate" diameter="18" class="search-spinner"></mat-progress-spinner>
+                              }
+                              <!-- Autocomplete Results Dropdown -->
+                              @if (candidateSearchResults.length > 0) {
+                                <div class="candidate-dropdown">
+                                  @for (c of candidateSearchResults; track c) {
+                                    <div class="candidate-item" (click)="selectSiblingCandidate(c)">
+                                      <div class="cand-avatar">{{ getInitials(c.studentName) }}</div>
+                                      <div class="cand-details">
+                                        <div class="cand-name">{{ c.studentName }}</div>
+                                        <div class="cand-meta">
+                                          @if (c.className) {
+                                            <span>Class {{ c.className }}</span>
+                                          }
+                                          @if (c.batchName) {
+                                            <span>@if (c.className) {
+                                              <span> &bull; </span>
+                                            }Batch {{ c.batchName }}</span>
+                                          }
+                                          @if (c.admissionNumber) {
+                                            <span> &bull; Adm: {{ c.admissionNumber }}</span>
+                                          }
+                                          @if (c.parentPhone) {
+                                            <span> &bull; Phone: {{ c.parentPhone }}</span>
+                                          }
+                                        </div>
+                                      </div>
+                                      <button type="button" class="cand-select-btn">Select</button>
+                                    </div>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          </div>
+                          <!-- Selected Candidate Preview -->
+                          @if (selectedSiblingCandidate) {
+                            <div class="form-field-wrap full-col">
+                              <div class="selected-cand-card">
+                                <div class="cand-preview-info">
+                                  <mat-icon style="color: #16a34a; font-size: 20px; width: 20px; height: 20px;">check_circle</mat-icon>
+                                  <div>
+                                    <strong style="color: #15803d; font-size: 0.88rem;">{{ selectedSiblingCandidate.studentName }}</strong>
+                                    <span style="color:#475569; font-size:12px; margin-left:8px;">
+                                      ({{ selectedSiblingCandidate.className ? 'Class ' + selectedSiblingCandidate.className : '' }}{{ selectedSiblingCandidate.className && selectedSiblingCandidate.batchName ? ' &bull; ' : '' }}{{ selectedSiblingCandidate.batchName ? 'Batch ' + selectedSiblingCandidate.batchName : '' }}{{ !selectedSiblingCandidate.className && !selectedSiblingCandidate.batchName ? 'No class/batch' : '' }} &bull; Adm: {{ selectedSiblingCandidate.admissionNumber || 'N/A' }})
+                                    </span>
+                                  </div>
+                                </div>
+                                <button type="button" class="clear-cand-btn" (click)="selectedSiblingCandidate = null" title="Change selection">
+                                  <mat-icon style="font-size: 16px; width: 16px; height: 16px;">close</mat-icon>
+                                </button>
+                              </div>
+                            </div>
+                          }
+                          <div class="form-field-wrap">
+                            <label>Relationship *</label>
+                            <select class="custom-input" [(ngModel)]="newSiblingRelationship">
+                              <option value="Brother">Brother</option>
+                              <option value="Sister">Sister</option>
+                              <option value="Twin">Twin</option>
+                              <option value="Cousin">Cousin</option>
+                            </select>
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Sibling Concession / Fee Discount (%)</label>
+                            <input type="number" class="custom-input" [(ngModel)]="newSiblingDiscount" min="0" max="100" placeholder="e.g. 15" />
+                          </div>
+                          <div class="form-field-wrap">
+                            <label>Internal Notes / Authorization</label>
+                            <input type="text" class="custom-input" [(ngModel)]="newSiblingNotes" placeholder="e.g. Approved 15% discount" />
+                          </div>
+                        </div>
+                        <div class="form-actions">
+                          <button mat-button type="button" (click)="showAddSiblingForm = false">Cancel</button>
+                          <button mat-raised-button color="primary" class="primary-gradient-btn" [disabled]="savingSibling || !selectedSiblingCandidate" (click)="saveSiblingLink()">
+                            <mat-icon>link</mat-icon> {{ savingSibling ? 'Linking...' : 'Confirm & Link Sibling' }}
+                          </button>
+                        </div>
+                      </div>
+                    }
+                    <!-- Siblings Grid Display -->
+                    @if (siblingsList.length > 0) {
+                      <div class="siblings-manage-grid">
+                        @for (sib of siblingsList; track sib) {
+                          <div class="sibling-manage-card">
+                            <div class="sib-card-top">
+                              <div class="sib-avatar-large">
+                                @if (sib.profilePhoto) {
+                                  <img [src]="getPhotoUrl(sib.profilePhoto)" [alt]="sib.siblingName" />
+                                }
+                                @if (!sib.profilePhoto) {
+                                  <span>{{ getInitials(sib.siblingName) }}</span>
+                                }
+                              </div>
+                              <div class="sib-main-info">
+                                <div class="sib-name-row">
+                                  <h5>{{ sib.siblingName }}</h5>
+                                  <span class="sib-rel-tag">{{ sib.relationship }}</span>
+                                </div>
+                                <div class="sib-academic-meta">
+                                  @if (sib.className) {
+                                    <span>Class {{ sib.className }}{{ sib.sectionName ? ' - ' + sib.sectionName : '' }}</span>
+                                  }
+                                  @if (sib.schoolRollNumber || sib.rollNumber) {
+                                    <span> &bull; Roll: {{ sib.schoolRollNumber || sib.rollNumber }}</span>
+                                  }
+                                  @if (sib.admissionNumber) {
+                                    <span> &bull; Adm: {{ sib.admissionNumber }}</span>
+                                  }
+                                </div>
+                              </div>
+                              @if (!isReadOnly) {
+                                <button mat-icon-button color="warn" (click)="deleteSiblingLink(sib)" matTooltip="Remove sibling link">
+                                  <mat-icon>link_off</mat-icon>
+                                </button>
+                              }
+                            </div>
+                            <div class="sib-card-badges">
+                              @if (sib.discountPercent > 0) {
+                                <div class="sib-badge discount-badge">
+                                  <mat-icon>local_offer</mat-icon> Sibling Discount: <strong>{{ sib.discountPercent }}%</strong>
+                                </div>
+                              }
+                              <div class="sib-badge fee-badge" [class.has-due]="sib.outstandingDues > 0">
+                                <mat-icon>{{ sib.outstandingDues > 0 ? 'account_balance_wallet' : 'verified' }}</mat-icon>
+                                {{ sib.outstandingDues > 0 ? ('Pending Due: ₹' + (sib.outstandingDues | number)) : 'Fee Cleared (₹0 Due)' }}
+                              </div>
+                            </div>
+                            @if (sib.parentPhone || sib.notes) {
+                              <div class="sib-card-footer">
+                                @if (sib.parentPhone) {
+                                  <span class="parent-phone">
+                                    <mat-icon>call</mat-icon> {{ sib.parentName || 'Parent' }}: {{ sib.parentPhone }}
+                                  </span>
+                                }
+                                @if (sib.notes) {
+                                  <span class="sib-notes-text">&bull; {{ sib.notes }}</span>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                    <!-- Empty state -->
+                    @if (siblingsList.length === 0 && !showAddSiblingForm) {
+                      <div class="empty-state-box">
+                        <mat-icon class="empty-icon">diversity_3</mat-icon>
+                        <h5>No Siblings Linked Yet</h5>
+                        <p>Link brothers or sisters studying in this institution to enable unified parent portal view and sibling fee concessions.</p>
+                        @if (!isReadOnly) {
+                          <button mat-stroked-button color="primary" (click)="showAddSiblingForm = true">
+                            <mat-icon>person_add</mat-icon> Link First Sibling
+                          </button>
+                        }
+                      </div>
+                    }
                   </div>
-                </div>
-              </div>
-
-              <!-- Empty state -->
-              <div class="empty-state-box" *ngIf="siblingsList.length === 0 && !showAddSiblingForm">
-                <mat-icon class="empty-icon">diversity_3</mat-icon>
-                <h5>No Siblings Linked Yet</h5>
-                <p>Link brothers or sisters studying in this institution to enable unified parent portal view and sibling fee concessions.</p>
-                <button mat-stroked-button color="primary" *ngIf="!isReadOnly" (click)="showAddSiblingForm = true">
-                  <mat-icon>person_add</mat-icon> Link First Sibling
-                </button>
-              </div>
-
-            </div>
-          </mat-tab>
-
-          <!-- TAB 13: KITS & INVENTORY ASSETS -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">inventory_2</mat-icon> Kits &amp; Store Assets ({{ data360.inventoryKits?.length || 0 }})
-            </ng-template>
-            <div class="tab-content-wrap">
-              <div class="tab-action-header">
-                <div>
-                  <h4 class="tab-action-title">Student Inventory &amp; Kit Distribution Dossier</h4>
-                  <p class="tab-action-sub">Track all uniform, book kits, and store materials issued to the student with payment status and returns</p>
-                </div>
-                <button mat-stroked-button color="primary" (click)="openSaleReturnsForStudent()">
-                  <mat-icon>assignment_return</mat-icon> Kit Return / Exchange (SR)
-                </button>
-              </div>
-
-              <!-- Summary KPIs -->
-              <div class="kit-kpi-grid">
-                <div class="kit-kpi-card">
-                  <span class="kpi-label">Total Outward Kits</span>
-                  <span class="kpi-val">{{ data360.inventoryKits?.length || 0 }}</span>
-                </div>
-                <div class="kit-kpi-card">
-                  <span class="kpi-label">Total Items Issued</span>
-                  <span class="kpi-val">{{ getTotalKitItemsCount() }} Pcs</span>
-                </div>
-                <div class="kit-kpi-card">
-                  <span class="kpi-label">Total Kit Value</span>
-                  <span class="kpi-val text-primary">&#8377;{{ getTotalKitValue() | number:'1.2-2' }}</span>
-                </div>
-              </div>
-
-              <!-- Kits Table -->
-              <div class="table-responsive kit-table-wrap" *ngIf="data360.inventoryKits && data360.inventoryKits.length > 0; else noKits">
-                <table class="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Issue #</th>
-                      <th>Date</th>
-                      <th>Items Issued</th>
-                      <th>Total Qty</th>
-                      <th>Kit Amount</th>
-                      <th>Payment Status</th>
-                      <th>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let kit of data360.inventoryKits">
-                      <td class="font-mono font-bold">{{ kit.issueNumber }}</td>
-                      <td>{{ kit.issueDate | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}</td>
-                      <td>
-                        <span class="item-summary-pill">{{ kit.itemsSummary }}</span>
-                      </td>
-                      <td class="font-bold">{{ kit.totalQuantity }}</td>
-                      <td class="font-bold text-slate-800">&#8377;{{ kit.totalAmount | number:'1.2-2' }}</td>
-                      <td>
+                </mat-tab>
+                <!-- TAB 13: KITS & INVENTORY ASSETS -->
+                <mat-tab>
+                  <ng-template mat-tab-label>
+                    <mat-icon class="tab-icon">inventory_2</mat-icon> Kits &amp; Store Assets ({{ data360.inventoryKits?.length || 0 }})
+                  </ng-template>
+                  <div class="tab-content-wrap">
+                    <div class="tab-action-header">
+                      <div>
+                        <h4 class="tab-action-title">Student Inventory &amp; Kit Distribution Dossier</h4>
+                        <p class="tab-action-sub">Track all uniform, book kits, and store materials issued to the student with payment status and returns</p>
+                      </div>
+                      <button mat-stroked-button color="primary" (click)="openSaleReturnsForStudent()">
+                        <mat-icon>assignment_return</mat-icon> Kit Return / Exchange (SR)
+                      </button>
+                    </div>
+                    <!-- Summary KPIs -->
+                    <div class="kit-kpi-grid">
+                      <div class="kit-kpi-card">
+                        <span class="kpi-label">Total Outward Kits</span>
+                        <span class="kpi-val">{{ data360.inventoryKits?.length || 0 }}</span>
+                      </div>
+                      <div class="kit-kpi-card">
+                        <span class="kpi-label">Total Items Issued</span>
+                        <span class="kpi-val">{{ getTotalKitItemsCount() }} Pcs</span>
+                      </div>
+                      <div class="kit-kpi-card">
+                        <span class="kpi-label">Total Kit Value</span>
+                        <span class="kpi-val text-primary">&#8377;{{ getTotalKitValue() | number:'1.2-2' }}</span>
+                      </div>
+                    </div>
+                    <!-- Kits Table -->
+                    @if (data360.inventoryKits && data360.inventoryKits.length > 0) {
+                      <div class="table-responsive kit-table-wrap">
+                        <table class="custom-table">
+                          <thead>
+                            <tr>
+                              <th>Issue #</th>
+                              <th>Date</th>
+                              <th>Items Issued</th>
+                              <th>Total Qty</th>
+                              <th>Kit Amount</th>
+                              <th>Payment Status</th>
+                              <th>Remarks</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (kit of data360.inventoryKits; track kit) {
+                              <tr>
+                                <td class="font-mono font-bold">{{ kit.issueNumber }}</td>
+                                <td>{{ kit.issueDate | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}</td>
+                                <td>
+                                  <span class="item-summary-pill">{{ kit.itemsSummary }}</span>
+                                </td>
+                                <td class="font-bold">{{ kit.totalQuantity }}</td>
+                                <td class="font-bold text-slate-800">&#8377;{{ kit.totalAmount | number:'1.2-2' }}</td>
+                                <td>
                         <span class="badge-status" [ngClass]="{
                           'status-paid': kit.paymentStatus === 'Paid',
                           'status-fee': kit.paymentStatus === 'AddedToFeeBill',
                           'status-free': kit.paymentStatus === 'Free/Complimentary',
                           'status-unpaid': kit.paymentStatus === 'Unpaid'
                         }">
-                          {{ kit.paymentStatus === 'AddedToFeeBill' ? 'Added to Fee Bill' : kit.paymentStatus }}
-                        </span>
-                      </td>
-                      <td class="text-muted">{{ kit.remarks || '-' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <ng-template #noKits>
-                <div class="empty-state-box">
-                  <mat-icon class="empty-icon">inventory_2</mat-icon>
-                  <h5>No Kits Issued to Student</h5>
-                  <p>No inventory kits, uniforms, or study materials have been issued to this student yet.</p>
-                </div>
-              </ng-template>
-
-            </div>
-          </mat-tab>
-
-        </mat-tab-group>
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="modal-footer">
-        <div class="footer-left">
-          <span class="footer-branch" *ngIf="data360?.student?.branchName">
-            <mat-icon class="inline-icon">store</mat-icon> {{ data360!.student.branchName }}
-          </span>
-        </div>
-        <div class="footer-btns">
-          <button mat-button (click)="dialogRef.close()">Close</button>
-        </div>
-      </div>
-
-      <!-- ≡ƒÅå PRINTABLE MERIT CERTIFICATE MODAL OVERLAY (Feature 1) -->
-      <div class="cert-modal-backdrop" *ngIf="activeCertificateModal" (click)="activeCertificateModal = null">
-        <div class="cert-dialog-window" (click)="$event.stopPropagation()">
-          <div class="cert-modal-top-bar">
-            <span>Certificate of Merit &amp; Excellence Preview</span>
-            <div class="top-bar-actions">
-              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
-                <mat-icon>print</mat-icon> Print Certificate
-              </button>
-              <button mat-icon-button (click)="activeCertificateModal = null">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <div class="printable-certificate-sheet" id="printCertificateArea">
-            <div class="cert-inner-border">
-              <div class="cert-header">
-                <div class="cert-seal-icon"><mat-icon style="font-size: 36px; width: 36px; height: 36px; color: #d97706;">emoji_events</mat-icon></div>
-                <h1 class="cert-school-name">{{ data360?.student?.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE' }}</h1>
-                <h3 class="cert-heading">CERTIFICATE OF MERIT &amp; ACHIEVEMENT</h3>
-                <div class="cert-ribbon-sub">This accolade is proudly conferred upon</div>
-              </div>
-
-              <div class="cert-recipient-name">{{ data360?.student?.studentName }}</div>
-              
-              <div class="cert-recipient-meta">
-                Class: <strong>{{ data360?.student?.className }}</strong> &bull; 
-                Roll No: <strong>{{ data360?.student?.rollNumber }}</strong> &bull; 
-                Admission No: <strong>{{ data360?.student?.admissionNumber || 'N/A' }}</strong>
-              </div>
-
-              <p class="cert-citation">
-                in proud recognition of outstanding dedication, exemplary talent and securing
-                <span class="cert-pos-highlight">{{ activeCertificateModal.position || 'Merit Position' }}</span>
-                in <strong class="cert-event-title">{{ activeCertificateModal.title }}</strong> 
-                held at the <strong>{{ activeCertificateModal.level || activeCertificateModal.awardLevel || 'Institutional' }}</strong> level.
-              </p>
-
-              <div class="cert-signatures-row">
-                <div class="cert-sign-col">
-                  <div class="cert-sign-line"></div>
-                  <span class="cert-sign-role">Class Teacher / Event Incharge</span>
-                </div>
-                <div class="cert-seal-stamp">
-                  <div class="stamp-circle">
-                    <span>INSTITUTE SEAL</span>
-                    <small>{{ (activeCertificateModal.awardedDate || activeCertificateModal.awardDate) | date:'yyyy' }}</small>
+                                    {{ kit.paymentStatus === 'AddedToFeeBill' ? 'Added to Fee Bill' : kit.paymentStatus }}
+                                  </span>
+                                </td>
+                                <td class="text-muted">{{ kit.remarks || '-' }}</td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    } @else {
+                      <div class="empty-state-box">
+                        <mat-icon class="empty-icon">inventory_2</mat-icon>
+                        <h5>No Kits Issued to Student</h5>
+                        <p>No inventory kits, uniforms, or study materials have been issued to this student yet.</p>
+                      </div>
+                    }
                   </div>
-                  <div class="cert-date-text">Date: {{ (activeCertificateModal.awardedDate || activeCertificateModal.awardDate) | date:'dd MMM yyyy' }}</div>
-                </div>
-                <div class="cert-sign-col">
-                  <div class="cert-sign-line"></div>
-                  <span class="cert-sign-role">Principal / Director</span>
-                </div>
-              </div>
-
-              <div class="cert-certno" *ngIf="activeCertificateModal.certificateNumber">
-                Cert No: {{ activeCertificateModal.certificateNumber }}
-              </div>
+                </mat-tab>
+              </mat-tab-group>
+            </div>
+          }
+    
+          <!-- Modal Footer -->
+          <div class="modal-footer">
+            <div class="footer-left">
+              @if (data360?.student?.branchName) {
+                <span class="footer-branch">
+                  <mat-icon class="inline-icon">store</mat-icon> {{ data360!.student.branchName }}
+                </span>
+              }
+            </div>
+            <div class="footer-btns">
+              <button mat-button (click)="dialogRef.close()">Close</button>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- ≡ƒ⌐║ PRINTABLE POCKET EMERGENCY MEDICAL CARD MODAL (Feature 4) -->
-      <div class="cert-modal-backdrop" *ngIf="showPrintMedicalCard" (click)="showPrintMedicalCard = false">
-        <div class="medical-dialog-window" (click)="$event.stopPropagation()">
-          <div class="cert-modal-top-bar">
-            <span>Student Emergency Medical Pocket Card Preview</span>
-            <div class="top-bar-actions">
-              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
-                <mat-icon>print</mat-icon> Print ID Card
-              </button>
-              <button mat-icon-button (click)="showPrintMedicalCard = false">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <div class="printable-medical-card" id="printMedicalCardArea">
-            <div class="med-card-header">
-              <div class="med-cross"><mat-icon>local_hospital</mat-icon></div>
-              <div class="med-head-title">
-                <h4>EMERGENCY MEDICAL IDENTITY CARD</h4>
-                <span>{{ data360?.student?.branchName || 'School & Coaching Institution' }}</span>
-              </div>
-            </div>
-
-            <div class="med-card-body">
-              <div class="med-profile-row">
-                <div class="med-photo-box">
-                  <img *ngIf="data360?.student?.profilePhoto" [src]="getPhotoUrl(data360!.student.profilePhoto)" />
-                  <div *ngIf="!data360?.student?.profilePhoto" class="med-photo-fallback">
-                    {{ getInitials(data360?.student?.studentName || 'S') }}
+    
+          <!-- ≡ƒÅå PRINTABLE MERIT CERTIFICATE MODAL OVERLAY (Feature 1) -->
+          @if (activeCertificateModal) {
+            <div class="cert-modal-backdrop" (click)="activeCertificateModal = null">
+              <div class="cert-dialog-window" (click)="$event.stopPropagation()">
+                <div class="cert-modal-top-bar">
+                  <span>Certificate of Merit &amp; Excellence Preview</span>
+                  <div class="top-bar-actions">
+                    <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
+                      <mat-icon>print</mat-icon> Print Certificate
+                    </button>
+                    <button mat-icon-button (click)="activeCertificateModal = null">
+                      <mat-icon>close</mat-icon>
+                    </button>
                   </div>
                 </div>
-                <div class="med-details-box">
-                  <div class="med-name">{{ data360?.student?.studentName }}</div>
-                  <div class="med-line">
-                    Class: <strong>{{ data360?.student?.className }}{{ data360?.student?.sectionName ? ' - ' + data360?.student?.sectionName : '' }}</strong>
-                    <span *ngIf="data360?.student?.batchName"> &bull; Batch: <strong>{{ data360?.student?.batchName }}</strong></span>
-                    &bull; Roll: <strong>{{ (data360?.student?.isCoachingStudent && !data360?.student?.isSchoolStudent ? data360?.student?.coachingRollNumber : data360?.student?.schoolRollNumber) || data360?.student?.rollNumber }}</strong>
+                <div class="printable-certificate-sheet" id="printCertificateArea">
+                  <div class="cert-inner-border">
+                    <div class="cert-header">
+                      <div class="cert-seal-icon"><mat-icon style="font-size: 36px; width: 36px; height: 36px; color: #d97706;">emoji_events</mat-icon></div>
+                      <h1 class="cert-school-name">{{ data360?.student?.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE' }}</h1>
+                      <h3 class="cert-heading">CERTIFICATE OF MERIT &amp; ACHIEVEMENT</h3>
+                      <div class="cert-ribbon-sub">This accolade is proudly conferred upon</div>
+                    </div>
+                    <div class="cert-recipient-name">{{ data360?.student?.studentName }}</div>
+                    <div class="cert-recipient-meta">
+                      Class: <strong>{{ data360?.student?.className }}</strong> &bull;
+                      Roll No: <strong>{{ data360?.student?.rollNumber }}</strong> &bull;
+                      Admission No: <strong>{{ data360?.student?.admissionNumber || 'N/A' }}</strong>
+                    </div>
+                    <p class="cert-citation">
+                      in proud recognition of outstanding dedication, exemplary talent and securing
+                      <span class="cert-pos-highlight">{{ activeCertificateModal.position || 'Merit Position' }}</span>
+                      in <strong class="cert-event-title">{{ activeCertificateModal.title }}</strong>
+                      held at the <strong>{{ activeCertificateModal.level || activeCertificateModal.awardLevel || 'Institutional' }}</strong> level.
+                    </p>
+                    <div class="cert-signatures-row">
+                      <div class="cert-sign-col">
+                        <div class="cert-sign-line"></div>
+                        <span class="cert-sign-role">Class Teacher / Event Incharge</span>
+                      </div>
+                      <div class="cert-seal-stamp">
+                        <div class="stamp-circle">
+                          <span>INSTITUTE SEAL</span>
+                          <small>{{ (activeCertificateModal.awardedDate || activeCertificateModal.awardDate) | date:'yyyy' }}</small>
+                        </div>
+                        <div class="cert-date-text">Date: {{ (activeCertificateModal.awardedDate || activeCertificateModal.awardDate) | date:'dd MMM yyyy' }}</div>
+                      </div>
+                      <div class="cert-sign-col">
+                        <div class="cert-sign-line"></div>
+                        <span class="cert-sign-role">Principal / Director</span>
+                      </div>
+                    </div>
+                    @if (activeCertificateModal.certificateNumber) {
+                      <div class="cert-certno">
+                        Cert No: {{ activeCertificateModal.certificateNumber }}
+                      </div>
+                    }
                   </div>
-                  <div class="med-line">DOB: <strong>{{ data360?.student?.dateOfBirth ? (data360!.student.dateOfBirth | date:'dd-MM-yyyy') : 'N/A' }}</strong> &bull; Blood: <strong class="blood-highlight">{{ data360?.healthRecord?.bloodGroup || data360?.student?.bloodGroup || 'N/A' }}</strong></div>
-                </div>
-              </div>
-
-              <div class="med-alert-box red" *ngIf="data360?.healthRecord?.knownAllergies">
-                <strong>CRITICAL ALLERGIES:</strong> {{ data360!.healthRecord!.knownAllergies }}
-              </div>
-              <div class="med-alert-box amber" *ngIf="data360?.healthRecord?.chronicConditions">
-                <strong>CHRONIC CONDITIONS:</strong> {{ data360!.healthRecord!.chronicConditions }}
-              </div>
-
-              <div class="med-contacts-grid">
-                <div class="contact-entry">
-                  <span class="label">Father / Guardian:</span>
-                  <strong>{{ data360?.student?.parentName }} ({{ data360?.student?.parentWhatsAppPhone }})</strong>
-                </div>
-                <div class="contact-entry" *ngIf="data360?.student?.emergencyContactName">
-                  <span class="label">Emergency Contact:</span>
-                  <strong>{{ data360?.student?.emergencyContactName }} ({{ data360?.student?.emergencyContactPhone }})</strong>
-                </div>
-                <div class="contact-entry" *ngIf="data360?.healthRecord?.emergencyDoctorName">
-                  <span class="label">Pediatrician:</span>
-                  <strong>{{ data360?.healthRecord?.emergencyDoctorName }} ({{ data360?.healthRecord?.emergencyDoctorPhone }})</strong>
                 </div>
               </div>
             </div>
-            <div class="med-card-footer">
-              <span>Carry on institution excursions &amp; bus transit. In medical emergency, call 108 / Institution Helpdesk.</span>
+          }
+    
+          <!-- ≡ƒ⌐║ PRINTABLE POCKET EMERGENCY MEDICAL CARD MODAL (Feature 4) -->
+          @if (showPrintMedicalCard) {
+            <div class="cert-modal-backdrop" (click)="showPrintMedicalCard = false">
+              <div class="medical-dialog-window" (click)="$event.stopPropagation()">
+                <div class="cert-modal-top-bar">
+                  <span>Student Emergency Medical Pocket Card Preview</span>
+                  <div class="top-bar-actions">
+                    <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
+                      <mat-icon>print</mat-icon> Print ID Card
+                    </button>
+                    <button mat-icon-button (click)="showPrintMedicalCard = false">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                </div>
+                <div class="printable-medical-card" id="printMedicalCardArea">
+                  <div class="med-card-header">
+                    <div class="med-cross"><mat-icon>local_hospital</mat-icon></div>
+                    <div class="med-head-title">
+                      <h4>EMERGENCY MEDICAL IDENTITY CARD</h4>
+                      <span>{{ data360?.student?.branchName || 'School & Coaching Institution' }}</span>
+                    </div>
+                  </div>
+                  <div class="med-card-body">
+                    <div class="med-profile-row">
+                      <div class="med-photo-box">
+                        @if (data360?.student?.profilePhoto) {
+                          <img [src]="getPhotoUrl(data360!.student.profilePhoto)" />
+                        }
+                        @if (!data360?.student?.profilePhoto) {
+                          <div class="med-photo-fallback">
+                            {{ getInitials(data360?.student?.studentName || 'S') }}
+                          </div>
+                        }
+                      </div>
+                      <div class="med-details-box">
+                        <div class="med-name">{{ data360?.student?.studentName }}</div>
+                        <div class="med-line">
+                          Class: <strong>{{ data360?.student?.className }}{{ data360?.student?.sectionName ? ' - ' + data360?.student?.sectionName : '' }}</strong>
+                          @if (data360?.student?.batchName) {
+                            <span> &bull; Batch: <strong>{{ data360?.student?.batchName }}</strong></span>
+                          }
+                          &bull; Roll: <strong>{{ (data360?.student?.isCoachingStudent && !data360?.student?.isSchoolStudent ? data360?.student?.coachingRollNumber : data360?.student?.schoolRollNumber) || data360?.student?.rollNumber }}</strong>
+                        </div>
+                        <div class="med-line">DOB: <strong>{{ data360?.student?.dateOfBirth ? (data360!.student.dateOfBirth | date:'dd-MM-yyyy') : 'N/A' }}</strong> &bull; Blood: <strong class="blood-highlight">{{ data360?.healthRecord?.bloodGroup || data360?.student?.bloodGroup || 'N/A' }}</strong></div>
+                      </div>
+                    </div>
+                    @if (data360?.healthRecord?.knownAllergies) {
+                      <div class="med-alert-box red">
+                        <strong>CRITICAL ALLERGIES:</strong> {{ data360!.healthRecord!.knownAllergies }}
+                      </div>
+                    }
+                    @if (data360?.healthRecord?.chronicConditions) {
+                      <div class="med-alert-box amber">
+                        <strong>CHRONIC CONDITIONS:</strong> {{ data360!.healthRecord!.chronicConditions }}
+                      </div>
+                    }
+                    <div class="med-contacts-grid">
+                      <div class="contact-entry">
+                        <span class="label">Father / Guardian:</span>
+                        <strong>{{ data360?.student?.parentName }} ({{ data360?.student?.parentWhatsAppPhone }})</strong>
+                      </div>
+                      @if (data360?.student?.emergencyContactName) {
+                        <div class="contact-entry">
+                          <span class="label">Emergency Contact:</span>
+                          <strong>{{ data360?.student?.emergencyContactName }} ({{ data360?.student?.emergencyContactPhone }})</strong>
+                        </div>
+                      }
+                      @if (data360?.healthRecord?.emergencyDoctorName) {
+                        <div class="contact-entry">
+                          <span class="label">Pediatrician:</span>
+                          <strong>{{ data360?.healthRecord?.emergencyDoctorName }} ({{ data360?.healthRecord?.emergencyDoctorPhone }})</strong>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                  <div class="med-card-footer">
+                    <span>Carry on institution excursions &amp; bus transit. In medical emergency, call 108 / Institution Helpdesk.</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          }
         </div>
-      </div>
-    </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .profile-360-container {
       display: flex;

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
@@ -84,17 +84,17 @@ interface CandidateRow extends PromotionCandidateDto {
           </a>
         </div>
       </div>
-
+    
       <!-- Main Tabs -->
       <mat-tab-group animationDuration="200ms" class="styled-tab-group" (selectedTabChange)="onTabChange($event.index)">
-        
+    
         <!-- TAB 1: BULK PROMOTION / MIGRATION WORKFLOW -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">upgrade</mat-icon>
             <span>Transition Matrix</span>
           </ng-template>
-
+    
           <div class="tab-body">
             <!-- Dual-Mode Scope Switcher (School Class Promotion vs. Coaching Batch Migration) -->
             <div class="scope-nav-container">
@@ -108,445 +108,506 @@ interface CandidateRow extends PromotionCandidateDto {
                   <span>Coaching Batch Migration / Roll-over</span>
                 </button>
               </div>
-              <div class="scope-meta-badge" *ngIf="currentScope === 'school'">
-                <mat-icon>auto_awesome</mat-icon>
-                <span>Academic Grade Advancement (Class &rarr; Next Higher Class)</span>
-              </div>
-              <div class="scope-meta-badge" *ngIf="currentScope === 'coaching'">
-                <mat-icon>swap_horiz</mat-icon>
-                <span>Coaching Cohort Roll-over (Batch &rarr; Target Batch)</span>
-              </div>
+              @if (currentScope === 'school') {
+                <div class="scope-meta-badge">
+                  <mat-icon>auto_awesome</mat-icon>
+                  <span>Academic Grade Advancement (Class &rarr; Next Higher Class)</span>
+                </div>
+              }
+              @if (currentScope === 'coaching') {
+                <div class="scope-meta-badge">
+                  <mat-icon>swap_horiz</mat-icon>
+                  <span>Coaching Cohort Roll-over (Batch &rarr; Target Batch)</span>
+                </div>
+              }
             </div>
-
+    
             <!-- Source & Target Selector Card -->
             <mat-card class="matrix-card mat-elevation-z2">
               <div class="matrix-grid">
-                
+    
                 <!-- Left: Source (Promote/Migrate FROM) -->
                 <div class="matrix-panel source-panel">
                   <div class="panel-badge source-badge">
                     <mat-icon>{{ currentScope === 'school' ? 'school' : 'menu_book' }}</mat-icon>
                     <span>SOURCE ({{ currentScope === 'school' ? 'Current Grade' : 'Current Coaching Batch' }})</span>
                   </div>
-
+    
                   <!-- School Class Selectors -->
-                  <div class="form-row" *ngIf="currentScope === 'school'">
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Promote From Class</mat-label>
-                      <mat-select [(ngModel)]="fromClassId" (selectionChange)="onFromClassChange($event.value)">
-                        <mat-option *ngFor="let c of classes" [value]="c.id">
-                          {{ c.name }} ({{ c.sectionCount || 0 }} Sections)
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Section (Optional)</mat-label>
-                      <mat-select [(ngModel)]="fromSectionId" (selectionChange)="onFromSectionChange()">
-                        <mat-option [value]="''">All Sections</mat-option>
-                        <mat-option *ngFor="let s of fromSections" [value]="s.id">
-                          {{ s.name }}
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Current Academic Session</mat-label>
-                      <input matInput [(ngModel)]="fromAcademicYear" (change)="loadClassExams()" placeholder="e.g. 2025-2026" />
-                    </mat-form-field>
-                  </div>
-
+                  @if (currentScope === 'school') {
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Promote From Class</mat-label>
+                        <mat-select [(ngModel)]="fromClassId" (selectionChange)="onFromClassChange($event.value)">
+                          @for (c of classes; track c) {
+                            <mat-option [value]="c.id">
+                              {{ c.name }} ({{ c.sectionCount || 0 }} Sections)
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Section (Optional)</mat-label>
+                        <mat-select [(ngModel)]="fromSectionId" (selectionChange)="onFromSectionChange()">
+                          <mat-option [value]="''">All Sections</mat-option>
+                          @for (s of fromSections; track s) {
+                            <mat-option [value]="s.id">
+                              {{ s.name }}
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Current Academic Session</mat-label>
+                        <input matInput [(ngModel)]="fromAcademicYear" (change)="loadClassExams()" placeholder="e.g. 2025-2026" />
+                      </mat-form-field>
+                    </div>
+                  }
+    
                   <!-- Coaching Batch Selectors -->
-                  <div class="form-row" *ngIf="currentScope === 'coaching'">
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Source Class (कक्षा)</mat-label>
-                      <mat-select [(ngModel)]="fromCoachingClassId" (selectionChange)="onFromCoachingClassChange()">
-                        <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-                        <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Source Coaching Batch</mat-label>
-                      <mat-select [(ngModel)]="fromBatchId" (selectionChange)="onFromBatchChange($event.value)">
-                        <mat-option *ngIf="filteredFromBatches.length === 0" disabled value="">
-                          No Batches in this Class
-                        </mat-option>
-                        <mat-option *ngFor="let b of filteredFromBatches" [value]="b.id">
-                          {{ b.name }} ({{ b.subject || 'All Subjects' }} &bull; {{ b.studentCount || 0 }} Students)
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Current Academic Session</mat-label>
-                      <input matInput [(ngModel)]="fromAcademicYear" (change)="loadClassExams()" placeholder="e.g. 2025-2026" />
-                    </mat-form-field>
-                  </div>
-
+                  @if (currentScope === 'coaching') {
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Source Class (कक्षा)</mat-label>
+                        <mat-select [(ngModel)]="fromCoachingClassId" (selectionChange)="onFromCoachingClassChange()">
+                          <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                          @for (c of classes; track c) {
+                            <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Source Coaching Batch</mat-label>
+                        <mat-select [(ngModel)]="fromBatchId" (selectionChange)="onFromBatchChange($event.value)">
+                          @if (filteredFromBatches.length === 0) {
+                            <mat-option disabled value="">
+                              No Batches in this Class
+                            </mat-option>
+                          }
+                          @for (b of filteredFromBatches; track b) {
+                            <mat-option [value]="b.id">
+                              {{ b.name }} ({{ b.subject || 'All Subjects' }} &bull; {{ b.studentCount || 0 }} Students)
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Current Academic Session</mat-label>
+                        <input matInput [(ngModel)]="fromAcademicYear" (change)="loadClassExams()" placeholder="e.g. 2025-2026" />
+                      </mat-form-field>
+                    </div>
+                  }
+    
                   <!-- Row 2: Exam Selection & Passing Benchmark -->
                   <div class="form-row exam-config-row">
                     <mat-form-field appearance="outline" class="panel-field exam-select-field">
                       <mat-label>{{ currentScope === 'school' ? 'Evaluation Exam / Assessment' : 'Batch Test / Assessment' }}</mat-label>
                       <mat-select [(ngModel)]="selectedExamId">
                         <mat-option [value]="''">All Session Exams (Aggregate Average)</mat-option>
-                        <mat-option *ngFor="let ex of availableExams" [value]="ex.id">
-                          {{ ex.title }} ({{ ex.subject }} - {{ ex.maxMarks }} Marks)
-                        </mat-option>
+                        @for (ex of availableExams; track ex) {
+                          <mat-option [value]="ex.id">
+                            {{ ex.title }} ({{ ex.subject }} - {{ ex.maxMarks }} Marks)
+                          </mat-option>
+                        }
                       </mat-select>
                     </mat-form-field>
-
+    
                     <mat-form-field appearance="outline" class="panel-field benchmark-field">
                       <mat-label>Pass Benchmark (%)</mat-label>
                       <input matInput type="number" [(ngModel)]="passingPercentage" min="1" max="100" />
                     </mat-form-field>
                   </div>
-
+    
                   <div class="source-hint">
                     <mat-icon>auto_awesome</mat-icon>
                     <span>Scores &lt; {{ passingPercentage }}% or absent automatically suggest <strong>{{ currentScope === 'school' ? 'Detained (Repeat)' : 'Retained in Batch' }}</strong>.</span>
                   </div>
                 </div>
-
+    
                 <!-- Center Divider Arrow -->
                 <div class="matrix-arrow-box">
                   <div class="arrow-circle">
                     <mat-icon>double_arrow</mat-icon>
                   </div>
                 </div>
-
+    
                 <!-- Right: Target (Promote/Migrate TO) -->
                 <div class="matrix-panel target-panel">
                   <div class="panel-badge target-badge">
                     <mat-icon>arrow_forward</mat-icon>
                     <span>DESTINATION ({{ currentScope === 'school' ? 'New Grade' : 'Target Coaching Batch' }})</span>
                   </div>
-
+    
                   <!-- School Destination Fields -->
-                  <div class="form-row" *ngIf="currentScope === 'school'">
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Promote Into Class</mat-label>
-                      <mat-select [(ngModel)]="toClassId" (selectionChange)="onToClassChange($event.value)">
-                        <mat-option *ngIf="destinationClasses.length === 0" disabled value="">
-                          No Higher Grade Available (Terminal Class)
-                        </mat-option>
-                        <mat-option *ngFor="let c of destinationClasses" [value]="c.id">
-                          {{ c.name }}
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Target Section</mat-label>
-                      <mat-select [(ngModel)]="toSectionId">
-                        <mat-option *ngFor="let s of toSections" [value]="s.id">
-                          {{ s.name }} (Cap: {{ s.maxCapacity || 45 }})
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>New Academic Session</mat-label>
-                      <input matInput [(ngModel)]="toAcademicYear" placeholder="e.g. 2026-2027" />
-                    </mat-form-field>
-                  </div>
-
+                  @if (currentScope === 'school') {
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Promote Into Class</mat-label>
+                        <mat-select [(ngModel)]="toClassId" (selectionChange)="onToClassChange($event.value)">
+                          @if (destinationClasses.length === 0) {
+                            <mat-option disabled value="">
+                              No Higher Grade Available (Terminal Class)
+                            </mat-option>
+                          }
+                          @for (c of destinationClasses; track c) {
+                            <mat-option [value]="c.id">
+                              {{ c.name }}
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Target Section</mat-label>
+                        <mat-select [(ngModel)]="toSectionId">
+                          @for (s of toSections; track s) {
+                            <mat-option [value]="s.id">
+                              {{ s.name }} (Cap: {{ s.maxCapacity || 45 }})
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>New Academic Session</mat-label>
+                        <input matInput [(ngModel)]="toAcademicYear" placeholder="e.g. 2026-2027" />
+                      </mat-form-field>
+                    </div>
+                  }
+    
                   <!-- Coaching Destination Fields -->
-                  <div class="form-row" *ngIf="currentScope === 'coaching'">
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Target Class (कक्षा)</mat-label>
-                      <mat-select [(ngModel)]="toCoachingClassId" (selectionChange)="onToCoachingClassChange()">
-                        <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-                        <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>Migrate Into Target Batch</mat-label>
-                      <mat-select [(ngModel)]="toBatchId">
-                        <mat-option *ngIf="destinationBatches.length === 0" disabled value="">
-                          No other coaching batches available
-                        </mat-option>
-                        <mat-option *ngFor="let b of destinationBatches" [value]="b.id">
-                          {{ b.name }} ({{ b.subject || 'Coaching' }})
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="panel-field">
-                      <mat-label>New Academic Session</mat-label>
-                      <input matInput [(ngModel)]="toAcademicYear" placeholder="e.g. 2026-2027" />
-                    </mat-form-field>
-                  </div>
-
-                  <div class="dest-hint-box" *ngIf="currentScope === 'school'">
-                    <mat-icon>verified</mat-icon>
-                    <span>Promoted students will roll over to <strong>{{ getToClassName() }}</strong> for session <strong>{{ toAcademicYear }}</strong>.</span>
-                  </div>
-                  <div class="dest-hint-box" *ngIf="currentScope === 'coaching'">
-                    <mat-icon>verified</mat-icon>
-                    <span>Migrated students will roll over to <strong>{{ getToBatchName() }}</strong> for session <strong>{{ toAcademicYear }}</strong>.</span>
-                  </div>
+                  @if (currentScope === 'coaching') {
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Target Class (कक्षा)</mat-label>
+                        <mat-select [(ngModel)]="toCoachingClassId" (selectionChange)="onToCoachingClassChange()">
+                          <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                          @for (c of classes; track c) {
+                            <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>Migrate Into Target Batch</mat-label>
+                        <mat-select [(ngModel)]="toBatchId">
+                          @if (destinationBatches.length === 0) {
+                            <mat-option disabled value="">
+                              No other coaching batches available
+                            </mat-option>
+                          }
+                          @for (b of destinationBatches; track b) {
+                            <mat-option [value]="b.id">
+                              {{ b.name }} ({{ b.subject || 'Coaching' }})
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="panel-field">
+                        <mat-label>New Academic Session</mat-label>
+                        <input matInput [(ngModel)]="toAcademicYear" placeholder="e.g. 2026-2027" />
+                      </mat-form-field>
+                    </div>
+                  }
+    
+                  @if (currentScope === 'school') {
+                    <div class="dest-hint-box">
+                      <mat-icon>verified</mat-icon>
+                      <span>Promoted students will roll over to <strong>{{ getToClassName() }}</strong> for session <strong>{{ toAcademicYear }}</strong>.</span>
+                    </div>
+                  }
+                  @if (currentScope === 'coaching') {
+                    <div class="dest-hint-box">
+                      <mat-icon>verified</mat-icon>
+                      <span>Migrated students will roll over to <strong>{{ getToBatchName() }}</strong> for session <strong>{{ toAcademicYear }}</strong>.</span>
+                    </div>
+                  }
                 </div>
               </div>
-
+    
               <div class="matrix-footer">
                 <button mat-raised-button color="primary" class="load-candidates-btn" (click)="loadCandidates()" [disabled]="(currentScope === 'school' && !fromClassId) || (currentScope === 'coaching' && !fromBatchId) || loadingCandidates">
-                  <mat-spinner diameter="18" *ngIf="loadingCandidates" class="inline-spinner"></mat-spinner>
-                  <mat-icon *ngIf="!loadingCandidates">people_alt</mat-icon>
+                  @if (loadingCandidates) {
+                    <mat-spinner diameter="18" class="inline-spinner"></mat-spinner>
+                  }
+                  @if (!loadingCandidates) {
+                    <mat-icon>people_alt</mat-icon>
+                  }
                   <span>Evaluate &amp; Load Students</span>
                 </button>
               </div>
             </mat-card>
-
+    
             <!-- Candidates Workspace -->
-            <div *ngIf="candidatesLoaded" class="candidates-workspace">
-              
-              <!-- Toolbar -->
-              <mat-card class="toolbar-card mat-elevation-z1">
-                <div class="tb-left">
-                  <mat-checkbox [checked]="isAllSelected()" [indeterminate]="isPartiallySelected()" (change)="toggleSelectAll($event.checked)" color="primary">
-                    <strong>Select All ({{ candidates.length }})</strong>
-                  </mat-checkbox>
-
-                  <div class="search-wrap">
-                    <mat-icon>search</mat-icon>
-                    <input type="text" [(ngModel)]="searchTerm" placeholder="Search student name or SR number..." />
+            @if (candidatesLoaded) {
+              <div class="candidates-workspace">
+                <!-- Toolbar -->
+                <mat-card class="toolbar-card mat-elevation-z1">
+                  <div class="tb-left">
+                    <mat-checkbox [checked]="isAllSelected()" [indeterminate]="isPartiallySelected()" (change)="toggleSelectAll($event.checked)" color="primary">
+                      <strong>Select All ({{ candidates.length }})</strong>
+                    </mat-checkbox>
+                    <div class="search-wrap">
+                      <mat-icon>search</mat-icon>
+                      <input type="text" [(ngModel)]="searchTerm" placeholder="Search student name or SR number..." />
+                    </div>
                   </div>
-                </div>
-
-                <div class="tb-right">
-                  <!-- Roll number automation menu -->
-                  <button mat-stroked-button [matMenuTriggerFor]="rollMenu" class="tool-btn">
-                    <mat-icon>format_list_numbered</mat-icon>
-                    <span>Auto-Assign Roll Numbers</span>
-                    <mat-icon>arrow_drop_down</mat-icon>
-                  </button>
-                  <mat-menu #rollMenu="matMenu">
-                    <button mat-menu-item (click)="autoAssignRollNumbers('alphabetical')">
-                      <mat-icon>sort_by_alpha</mat-icon>
-                      <span>Alphabetical (A to Z Name Order: 1, 2, 3...)</span>
-                    </button>
-                    <button mat-menu-item (click)="autoAssignRollNumbers('retain')">
-                      <mat-icon>history</mat-icon>
-                      <span>Retain Current Section Roll Numbers</span>
-                    </button>
-                    <button mat-menu-item (click)="autoAssignRollNumbers('sequential')">
+                  <div class="tb-right">
+                    <!-- Roll number automation menu -->
+                    <button mat-stroked-button [matMenuTriggerFor]="rollMenu" class="tool-btn">
                       <mat-icon>format_list_numbered</mat-icon>
-                      <span>Sequential from 1 based on Table Order</span>
+                      <span>Auto-Assign Roll Numbers</span>
+                      <mat-icon>arrow_drop_down</mat-icon>
                     </button>
-                  </mat-menu>
-
-                  <!-- Set all status menu -->
-                  <button mat-stroked-button [matMenuTriggerFor]="statusMenu" class="tool-btn">
-                    <mat-icon>checklist</mat-icon>
-                    <span>Bulk Status</span>
-                    <mat-icon>arrow_drop_down</mat-icon>
-                  </button>
-                  <mat-menu #statusMenu="matMenu">
-                    <button mat-menu-item (click)="setBulkStatus(currentScope === 'coaching' ? 'Migrated' : 'Promoted')">
-                      <mat-icon style="color:#16a34a">check_circle</mat-icon>
-                      <span>Set All Selected as "{{ currentScope === 'coaching' ? 'Migrated' : 'Promoted' }}"</span>
+                    <mat-menu #rollMenu="matMenu">
+                      <button mat-menu-item (click)="autoAssignRollNumbers('alphabetical')">
+                        <mat-icon>sort_by_alpha</mat-icon>
+                        <span>Alphabetical (A to Z Name Order: 1, 2, 3...)</span>
+                      </button>
+                      <button mat-menu-item (click)="autoAssignRollNumbers('retain')">
+                        <mat-icon>history</mat-icon>
+                        <span>Retain Current Section Roll Numbers</span>
+                      </button>
+                      <button mat-menu-item (click)="autoAssignRollNumbers('sequential')">
+                        <mat-icon>format_list_numbered</mat-icon>
+                        <span>Sequential from 1 based on Table Order</span>
+                      </button>
+                    </mat-menu>
+                    <!-- Set all status menu -->
+                    <button mat-stroked-button [matMenuTriggerFor]="statusMenu" class="tool-btn">
+                      <mat-icon>checklist</mat-icon>
+                      <span>Bulk Status</span>
+                      <mat-icon>arrow_drop_down</mat-icon>
                     </button>
-                    <button mat-menu-item (click)="setBulkStatus('Detained')">
-                      <mat-icon style="color:#dc2626">highlight_off</mat-icon>
-                      <span>Set All Selected as "{{ currentScope === 'school' ? 'Detained (Repeat)' : 'Retained in Batch' }}"</span>
-                    </button>
-                    <button mat-menu-item (click)="setBulkStatus('Passed with Grace')">
-                      <mat-icon style="color:#2563eb">verified</mat-icon>
-                      <span>Set All Selected as "Passed with Grace"</span>
-                    </button>
-                  </mat-menu>
-                </div>
-              </mat-card>
-
-              <!-- Table -->
-              <mat-card class="table-card mat-elevation-z2">
-                <div class="table-responsive">
-                  <table class="styled-table">
-                    <thead>
-                      <tr>
-                        <th class="col-chk"></th>
-                        <th class="col-student">Student Information</th>
-                        <th class="col-current">{{ currentScope === 'school' ? 'Current Grade' : 'Current Batch' }}</th>
-                        <th class="col-exam">{{ currentScope === 'school' ? 'Annual Exam Performance' : 'Assessment Performance' }}</th>
-                        <th class="col-metrics">Attendance &amp; Fees</th>
-                        <th class="col-status">{{ currentScope === 'school' ? 'Promotion Decision' : 'Migration Decision' }}</th>
-                        <th class="col-dest">{{ currentScope === 'school' ? 'Target Grade' : 'Target Batch' }}</th>
-                        <th class="col-newroll">{{ currentScope === 'school' ? 'New Sec Roll No' : 'New Batch Roll No' }}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let s of filteredCandidates" [class.row-selected]="s.selected" [class.row-detained]="s.resultStatus === 'Detained'" [class.row-exam-failed]="s.examResultStatus === 'Failed' || s.examResultStatus === 'Absent'">
-                        
-                        <!-- Checkbox -->
-                        <td class="col-chk">
-                          <mat-checkbox [(ngModel)]="s.selected" color="primary"></mat-checkbox>
-                        </td>
-
-                        <!-- Student Info -->
-                        <td class="col-student">
-                          <div class="student-cell">
-                            <div class="avatar-box">
-                              <span *ngIf="!s.profilePhoto">{{ getInitials(s.studentName) }}</span>
-                              <img *ngIf="s.profilePhoto" [src]="s.profilePhoto" alt="{{ s.studentName }}" />
-                            </div>
-                            <div class="student-meta">
-                              <span class="st-name">{{ s.studentName }}</span>
-                              <div class="st-sub">
-                                <span class="sr-pill">SR: <strong>{{ s.admissionNumber }}</strong></span>
-                                <span class="dot">&bull;</span>
-                                <span>{{ s.gender || 'Student' }}</span>
-                                <span class="dot" *ngIf="s.parentName">&bull;</span>
-                                <span *ngIf="s.parentName">{{ s.parentName }}</span>
+                    <mat-menu #statusMenu="matMenu">
+                      <button mat-menu-item (click)="setBulkStatus(currentScope === 'coaching' ? 'Migrated' : 'Promoted')">
+                        <mat-icon style="color:#16a34a">check_circle</mat-icon>
+                        <span>Set All Selected as "{{ currentScope === 'coaching' ? 'Migrated' : 'Promoted' }}"</span>
+                      </button>
+                      <button mat-menu-item (click)="setBulkStatus('Detained')">
+                        <mat-icon style="color:#dc2626">highlight_off</mat-icon>
+                        <span>Set All Selected as "{{ currentScope === 'school' ? 'Detained (Repeat)' : 'Retained in Batch' }}"</span>
+                      </button>
+                      <button mat-menu-item (click)="setBulkStatus('Passed with Grace')">
+                        <mat-icon style="color:#2563eb">verified</mat-icon>
+                        <span>Set All Selected as "Passed with Grace"</span>
+                      </button>
+                    </mat-menu>
+                  </div>
+                </mat-card>
+                <!-- Table -->
+                <mat-card class="table-card mat-elevation-z2">
+                  <div class="table-responsive">
+                    <table class="styled-table">
+                      <thead>
+                        <tr>
+                          <th class="col-chk"></th>
+                          <th class="col-student">Student Information</th>
+                          <th class="col-current">{{ currentScope === 'school' ? 'Current Grade' : 'Current Batch' }}</th>
+                          <th class="col-exam">{{ currentScope === 'school' ? 'Annual Exam Performance' : 'Assessment Performance' }}</th>
+                          <th class="col-metrics">Attendance &amp; Fees</th>
+                          <th class="col-status">{{ currentScope === 'school' ? 'Promotion Decision' : 'Migration Decision' }}</th>
+                          <th class="col-dest">{{ currentScope === 'school' ? 'Target Grade' : 'Target Batch' }}</th>
+                          <th class="col-newroll">{{ currentScope === 'school' ? 'New Sec Roll No' : 'New Batch Roll No' }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (s of filteredCandidates; track s) {
+                          <tr [class.row-selected]="s.selected" [class.row-detained]="s.resultStatus === 'Detained'" [class.row-exam-failed]="s.examResultStatus === 'Failed' || s.examResultStatus === 'Absent'">
+                            <!-- Checkbox -->
+                            <td class="col-chk">
+                              <mat-checkbox [(ngModel)]="s.selected" color="primary"></mat-checkbox>
+                            </td>
+                            <!-- Student Info -->
+                            <td class="col-student">
+                              <div class="student-cell">
+                                <div class="avatar-box">
+                                  @if (!s.profilePhoto) {
+                                    <span>{{ getInitials(s.studentName) }}</span>
+                                  }
+                                  @if (s.profilePhoto) {
+                                    <img [src]="s.profilePhoto" alt="{{ s.studentName }}" />
+                                  }
+                                </div>
+                                <div class="student-meta">
+                                  <span class="st-name">{{ s.studentName }}</span>
+                                  <div class="st-sub">
+                                    <span class="sr-pill">SR: <strong>{{ s.admissionNumber }}</strong></span>
+                                    <span class="dot">&bull;</span>
+                                    <span>{{ s.gender || 'Student' }}</span>
+                                    @if (s.parentName) {
+                                      <span class="dot">&bull;</span>
+                                    }
+                                    @if (s.parentName) {
+                                      <span>{{ s.parentName }}</span>
+                                    }
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        <!-- Current Grade / Batch -->
-                        <td class="col-current">
-                          <div class="grade-badge current-grade" *ngIf="currentScope === 'school'">
-                            <span class="grade-name">{{ s.currentClassName }}</span>
-                            <span class="grade-sec">{{ s.currentSectionName ? 'Sec ' + s.currentSectionName : '' }}</span>
-                            <span class="grade-roll">Roll: <strong>{{ s.schoolRollNumber || s.currentRollNumber }}</strong></span>
-                          </div>
-                          <div class="grade-badge current-grade coaching-badge" *ngIf="currentScope === 'coaching'">
-                            <span class="grade-name">{{ s.coachingBatchName || 'Batch' }}</span>
-                            <span class="grade-sec">Coaching Cohort</span>
-                            <span class="grade-roll">Roll: <strong>{{ s.coachingRollNumber || s.currentRollNumber }}</strong></span>
-                          </div>
-                        </td>
-
-                        <!-- Exam / Assessment Performance -->
-                        <td class="col-exam">
-                          <div class="exam-perf-box" *ngIf="s.examResultStatus && s.examResultStatus !== 'No Exam Record'">
-                            <div class="exam-top-row">
-                              <span class="exam-score">Marks: <strong>{{ s.examMarksObtained }}</strong> / {{ s.examMaxMarks }}</span>
-                              <span class="exam-pct-badge" [class.pct-pass]="(s.examPercentage || 0) >= passingPercentage" [class.pct-fail]="(s.examPercentage || 0) < passingPercentage">
-                                {{ s.examPercentage }}%
-                              </span>
-                            </div>
-                            <div class="exam-bottom-row">
-                              <span class="grade-chip" *ngIf="s.examGrade">Grade: <strong>{{ s.examGrade }}</strong></span>
-                              <span class="status-result-badge" [class.badge-passed]="s.examResultStatus === 'Passed'" [class.badge-failed]="s.examResultStatus === 'Failed'" [class.badge-absent]="s.examResultStatus === 'Absent'">
-                                <mat-icon class="badge-icon">{{ s.examResultStatus === 'Passed' ? 'check_circle' : 'cancel' }}</mat-icon>
-                                <span>{{ s.examResultStatus }}</span>
-                              </span>
-                            </div>
-                          </div>
-                          <div class="no-exam-box" *ngIf="!s.examResultStatus || s.examResultStatus === 'No Exam Record'">
-                            <span class="no-exam-chip">No Record</span>
-                          </div>
-                        </td>
-
-                        <!-- Metrics -->
-                        <td class="col-metrics">
-                          <div class="metrics-stack">
-                            <div class="metric-item">
-                              <span class="lbl">Attendance:</span>
-                              <span class="val-att" [class.att-low]="s.attendancePercentage < 75">
-                                {{ s.attendancePercentage }}%
-                              </span>
-                            </div>
-                            <div class="metric-item">
-                              <span class="lbl">Pending Fees:</span>
-                              <span class="val-dues" [class.has-dues]="s.pendingDues > 0">
-                                {{ s.pendingDues > 0 ? ('₹' + s.pendingDues) : 'Nil (Clear)' }}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        <!-- Status Decision -->
-                        <td class="col-status">
-                          <select class="custom-select status-select" [(ngModel)]="s.resultStatus" [class.status-promoted]="s.resultStatus === 'Promoted' || s.resultStatus === 'Migrated'" [class.status-detained]="s.resultStatus === 'Detained'" [class.status-grace]="s.resultStatus === 'Passed with Grace'">
-                            <option value="Promoted" *ngIf="currentScope === 'school'">Promoted (Pass)</option>
-                            <option value="Migrated" *ngIf="currentScope === 'coaching'">Migrated (Roll-over)</option>
-                            <option value="Passed with Grace">Passed with Grace</option>
-                            <option value="Double Promoted" *ngIf="currentScope === 'school'">Double Promoted</option>
-                            <option value="Detained">{{ currentScope === 'school' ? 'Detained (Repeat)' : 'Retained in Batch' }}</option>
-                          </select>
-                        </td>
-
-                        <!-- Target Grade / Batch -->
-                        <td class="col-dest">
-                          <div class="grade-badge target-grade" *ngIf="s.resultStatus !== 'Detained' && currentScope === 'school'">
-                            <span class="grade-name">{{ getToClassName() }}</span>
-                            <span class="grade-sec">{{ getToSectionName() }}</span>
-                          </div>
-                          <div class="grade-badge target-grade coaching-target" *ngIf="s.resultStatus !== 'Detained' && currentScope === 'coaching'">
-                            <span class="grade-name">{{ getToBatchName() }}</span>
-                            <span class="grade-sec">Target Cohort</span>
-                          </div>
-                          <div class="grade-badge detained-grade" *ngIf="s.resultStatus === 'Detained'">
-                            <span>Retain in {{ currentScope === 'school' ? s.currentClassName : (s.coachingBatchName || 'Batch') }}</span>
-                          </div>
-                        </td>
-
-                        <!-- New Roll -->
-                        <td class="col-newroll">
-                          <input
-                            type="text"
-                            class="roll-input"
-                            [(ngModel)]="s.newRollNumber"
-                            [placeholder]="currentScope === 'school' ? 'Roll No' : 'Batch Roll'"
-                            [disabled]="s.resultStatus === 'Detained'"
-                            [class.input-disabled]="s.resultStatus === 'Detained'"
-                          />
-                        </td>
-                      </tr>
-
-                      <tr *ngIf="filteredCandidates.length === 0">
-                        <td colspan="8" class="empty-state">
-                          <mat-icon>search_off</mat-icon>
-                          <p>No matching students found.</p>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Sticky Bottom Action Bar -->
-                <div class="action-dock">
-                  <div class="dock-summary">
-                    <span class="dock-stat total">Total: <strong>{{ candidates.length }}</strong></span>
-                    <span class="dock-stat selected">Selected: <strong>{{ getSelectedCount() }}</strong></span>
-                    <span class="dock-stat promoted">{{ currentScope === 'school' ? 'Promoted' : 'Migrated' }}: <strong>{{ getPromotedCount() }}</strong></span>
-                    <span class="dock-stat detained">{{ currentScope === 'school' ? 'Detained' : 'Retained' }}: <strong>{{ getDetainedCount() }}</strong></span>
+                            </td>
+                            <!-- Current Grade / Batch -->
+                            <td class="col-current">
+                              @if (currentScope === 'school') {
+                                <div class="grade-badge current-grade">
+                                  <span class="grade-name">{{ s.currentClassName }}</span>
+                                  <span class="grade-sec">{{ s.currentSectionName ? 'Sec ' + s.currentSectionName : '' }}</span>
+                                  <span class="grade-roll">Roll: <strong>{{ s.schoolRollNumber || s.currentRollNumber }}</strong></span>
+                                </div>
+                              }
+                              @if (currentScope === 'coaching') {
+                                <div class="grade-badge current-grade coaching-badge">
+                                  <span class="grade-name">{{ s.coachingBatchName || 'Batch' }}</span>
+                                  <span class="grade-sec">Coaching Cohort</span>
+                                  <span class="grade-roll">Roll: <strong>{{ s.coachingRollNumber || s.currentRollNumber }}</strong></span>
+                                </div>
+                              }
+                            </td>
+                            <!-- Exam / Assessment Performance -->
+                            <td class="col-exam">
+                              @if (s.examResultStatus && s.examResultStatus !== 'No Exam Record') {
+                                <div class="exam-perf-box">
+                                  <div class="exam-top-row">
+                                    <span class="exam-score">Marks: <strong>{{ s.examMarksObtained }}</strong> / {{ s.examMaxMarks }}</span>
+                                    <span class="exam-pct-badge" [class.pct-pass]="(s.examPercentage || 0) >= passingPercentage" [class.pct-fail]="(s.examPercentage || 0) < passingPercentage">
+                                      {{ s.examPercentage }}%
+                                    </span>
+                                  </div>
+                                  <div class="exam-bottom-row">
+                                    @if (s.examGrade) {
+                                      <span class="grade-chip">Grade: <strong>{{ s.examGrade }}</strong></span>
+                                    }
+                                    <span class="status-result-badge" [class.badge-passed]="s.examResultStatus === 'Passed'" [class.badge-failed]="s.examResultStatus === 'Failed'" [class.badge-absent]="s.examResultStatus === 'Absent'">
+                                      <mat-icon class="badge-icon">{{ s.examResultStatus === 'Passed' ? 'check_circle' : 'cancel' }}</mat-icon>
+                                      <span>{{ s.examResultStatus }}</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              }
+                              @if (!s.examResultStatus || s.examResultStatus === 'No Exam Record') {
+                                <div class="no-exam-box">
+                                  <span class="no-exam-chip">No Record</span>
+                                </div>
+                              }
+                            </td>
+                            <!-- Metrics -->
+                            <td class="col-metrics">
+                              <div class="metrics-stack">
+                                <div class="metric-item">
+                                  <span class="lbl">Attendance:</span>
+                                  <span class="val-att" [class.att-low]="s.attendancePercentage < 75">
+                                    {{ s.attendancePercentage }}%
+                                  </span>
+                                </div>
+                                <div class="metric-item">
+                                  <span class="lbl">Pending Fees:</span>
+                                  <span class="val-dues" [class.has-dues]="s.pendingDues > 0">
+                                    {{ s.pendingDues > 0 ? ('₹' + s.pendingDues) : 'Nil (Clear)' }}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <!-- Status Decision -->
+                            <td class="col-status">
+                              <select class="custom-select status-select" [(ngModel)]="s.resultStatus" [class.status-promoted]="s.resultStatus === 'Promoted' || s.resultStatus === 'Migrated'" [class.status-detained]="s.resultStatus === 'Detained'" [class.status-grace]="s.resultStatus === 'Passed with Grace'">
+                                @if (currentScope === 'school') {
+                                  <option value="Promoted">Promoted (Pass)</option>
+                                }
+                                @if (currentScope === 'coaching') {
+                                  <option value="Migrated">Migrated (Roll-over)</option>
+                                }
+                                <option value="Passed with Grace">Passed with Grace</option>
+                                @if (currentScope === 'school') {
+                                  <option value="Double Promoted">Double Promoted</option>
+                                }
+                                <option value="Detained">{{ currentScope === 'school' ? 'Detained (Repeat)' : 'Retained in Batch' }}</option>
+                              </select>
+                            </td>
+                            <!-- Target Grade / Batch -->
+                            <td class="col-dest">
+                              @if (s.resultStatus !== 'Detained' && currentScope === 'school') {
+                                <div class="grade-badge target-grade">
+                                  <span class="grade-name">{{ getToClassName() }}</span>
+                                  <span class="grade-sec">{{ getToSectionName() }}</span>
+                                </div>
+                              }
+                              @if (s.resultStatus !== 'Detained' && currentScope === 'coaching') {
+                                <div class="grade-badge target-grade coaching-target">
+                                  <span class="grade-name">{{ getToBatchName() }}</span>
+                                  <span class="grade-sec">Target Cohort</span>
+                                </div>
+                              }
+                              @if (s.resultStatus === 'Detained') {
+                                <div class="grade-badge detained-grade">
+                                  <span>Retain in {{ currentScope === 'school' ? s.currentClassName : (s.coachingBatchName || 'Batch') }}</span>
+                                </div>
+                              }
+                            </td>
+                            <!-- New Roll -->
+                            <td class="col-newroll">
+                              <input
+                                type="text"
+                                class="roll-input"
+                                [(ngModel)]="s.newRollNumber"
+                                [placeholder]="currentScope === 'school' ? 'Roll No' : 'Batch Roll'"
+                                [disabled]="s.resultStatus === 'Detained'"
+                                [class.input-disabled]="s.resultStatus === 'Detained'"
+                                />
+                            </td>
+                          </tr>
+                        }
+                        @if (filteredCandidates.length === 0) {
+                          <tr>
+                            <td colspan="8" class="empty-state">
+                              <mat-icon>search_off</mat-icon>
+                              <p>No matching students found.</p>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
                   </div>
-
-                  <div class="dock-btns">
-                    <button mat-button type="button" (click)="candidatesLoaded = false" [disabled]="executing">Reset Selection</button>
-                    <button mat-raised-button color="primary" class="execute-btn" (click)="confirmAndExecutePromotion()" [disabled]="getSelectedCount() === 0 || (currentScope === 'school' ? !toClassId : !toBatchId) || executing">
-                      <mat-spinner diameter="18" *ngIf="executing" class="inline-spinner"></mat-spinner>
-                      <mat-icon *ngIf="!executing">rocket_launch</mat-icon>
-                      <span>Execute {{ currentScope === 'school' ? 'Class Promotion' : 'Batch Migration' }} ({{ getSelectedCount() }})</span>
-                    </button>
+                  <!-- Sticky Bottom Action Bar -->
+                  <div class="action-dock">
+                    <div class="dock-summary">
+                      <span class="dock-stat total">Total: <strong>{{ candidates.length }}</strong></span>
+                      <span class="dock-stat selected">Selected: <strong>{{ getSelectedCount() }}</strong></span>
+                      <span class="dock-stat promoted">{{ currentScope === 'school' ? 'Promoted' : 'Migrated' }}: <strong>{{ getPromotedCount() }}</strong></span>
+                      <span class="dock-stat detained">{{ currentScope === 'school' ? 'Detained' : 'Retained' }}: <strong>{{ getDetainedCount() }}</strong></span>
+                    </div>
+                    <div class="dock-btns">
+                      <button mat-button type="button" (click)="candidatesLoaded = false" [disabled]="executing">Reset Selection</button>
+                      <button mat-raised-button color="primary" class="execute-btn" (click)="confirmAndExecutePromotion()" [disabled]="getSelectedCount() === 0 || (currentScope === 'school' ? !toClassId : !toBatchId) || executing">
+                        @if (executing) {
+                          <mat-spinner diameter="18" class="inline-spinner"></mat-spinner>
+                        }
+                        @if (!executing) {
+                          <mat-icon>rocket_launch</mat-icon>
+                        }
+                        <span>Execute {{ currentScope === 'school' ? 'Class Promotion' : 'Batch Migration' }} ({{ getSelectedCount() }})</span>
+                      </button>
+                    </div>
                   </div>
+                </mat-card>
+              </div>
+            }
+    
+            <!-- Initial State Card -->
+            @if (!candidatesLoaded) {
+              <mat-card class="empty-guide-card mat-elevation-z1">
+                <div class="guide-content">
+                  <mat-icon class="guide-icon">school</mat-icon>
+                  <h3>Select Source &amp; Destination Class to Begin</h3>
+                  <p>Choose the current grade (e.g. Class 8th) and target promotion grade (e.g. Class 9th) above, then click <strong>"Load Students for Promotion"</strong>.</p>
                 </div>
               </mat-card>
-
-            </div>
-
-            <!-- Initial State Card -->
-            <mat-card *ngIf="!candidatesLoaded" class="empty-guide-card mat-elevation-z1">
-              <div class="guide-content">
-                <mat-icon class="guide-icon">school</mat-icon>
-                <h3>Select Source &amp; Destination Class to Begin</h3>
-                <p>Choose the current grade (e.g. Class 8th) and target promotion grade (e.g. Class 9th) above, then click <strong>"Load Students for Promotion"</strong>.</p>
-              </div>
-            </mat-card>
+            }
           </div>
         </mat-tab>
-
+    
         <!-- TAB 2: PROMOTION AUDIT HISTORY & REVERT -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">history</mat-icon>
             <span>Transition History &amp; Audit Logs</span>
           </ng-template>
-
+    
           <div class="tab-body">
             <mat-card class="history-card mat-elevation-z2">
               <div class="history-filter-bar">
@@ -559,45 +620,52 @@ interface CandidateRow extends PromotionCandidateDto {
                       <mat-option value="Coaching">Coaching Batch Migrations</mat-option>
                     </mat-select>
                   </mat-form-field>
-
-                  <mat-form-field appearance="outline" class="filter-field" *ngIf="historyFilterScope !== 'Coaching'">
-                    <mat-label>Filter by Class</mat-label>
-                    <mat-select [(ngModel)]="historyFilterClassId" (selectionChange)="loadHistory()">
-                      <mat-option [value]="''">All Classes</mat-option>
-                      <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-
-                  <ng-container *ngIf="historyFilterScope === 'Coaching'">
+    
+                  @if (historyFilterScope !== 'Coaching') {
+                    <mat-form-field appearance="outline" class="filter-field">
+                      <mat-label>Filter by Class</mat-label>
+                      <mat-select [(ngModel)]="historyFilterClassId" (selectionChange)="loadHistory()">
+                        <mat-option [value]="''">All Classes</mat-option>
+                        @for (c of classes; track c) {
+                          <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  }
+    
+                  @if (historyFilterScope === 'Coaching') {
                     <mat-form-field appearance="outline" class="filter-field">
                       <mat-label>Filter by Class</mat-label>
                       <mat-select [(ngModel)]="historyFilterCoachingClassId" (selectionChange)="onHistoryCoachingClassChange()">
                         <mat-option [value]="''">All Classes</mat-option>
-                        <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                        @for (c of classes; track c) {
+                          <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                        }
                       </mat-select>
                     </mat-form-field>
-
                     <mat-form-field appearance="outline" class="filter-field">
                       <mat-label>Filter by Batch</mat-label>
                       <mat-select [(ngModel)]="historyFilterBatchId" (selectionChange)="loadHistory()">
                         <mat-option [value]="''">All Batches</mat-option>
-                        <mat-option *ngFor="let b of filteredHistoryBatches" [value]="b.id">{{ b.name }}</mat-option>
+                        @for (b of filteredHistoryBatches; track b) {
+                          <mat-option [value]="b.id">{{ b.name }}</mat-option>
+                        }
                       </mat-select>
                     </mat-form-field>
-                  </ng-container>
-
+                  }
+    
                   <mat-form-field appearance="outline" class="filter-field">
                     <mat-label>Academic Session</mat-label>
                     <input matInput [(ngModel)]="historyFilterYear" (keyup.enter)="loadHistory()" placeholder="e.g. 2026-2027" />
                   </mat-form-field>
-
+    
                   <button mat-stroked-button color="primary" (click)="loadHistory()" class="refresh-btn">
                     <mat-icon>refresh</mat-icon>
                     <span>Filter Logs</span>
                   </button>
                 </div>
               </div>
-
+    
               <div class="table-responsive">
                 <table class="styled-table">
                   <thead>
@@ -613,63 +681,81 @@ interface CandidateRow extends PromotionCandidateDto {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let h of historyItems">
-                      <td>
-                        <span class="date-txt">{{ h.promotionDate | date:'dd MMM yyyy, hh:mm a' }}</span>
-                      </td>
-                      <td>
-                        <div class="st-hist-cell">
-                          <strong>{{ h.studentName }}</strong>
-                          <span class="sub">SR: {{ h.admissionNumber }}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="route-badge" *ngIf="h.scope === 'Coaching' || h.fromBatchName">
-                          <span class="from batch-route">{{ h.fromBatchName || 'Batch' }} [Roll: {{ h.fromRollNumber || '-' }}]</span>
-                          <mat-icon class="arrow">arrow_forward</mat-icon>
-                          <span class="to batch-route">{{ h.toBatchName || 'Batch' }} [Roll: {{ h.toRollNumber || '-' }}]</span>
-                        </div>
-                        <div class="route-badge" *ngIf="h.scope !== 'Coaching' && !h.fromBatchName">
-                          <span class="from">{{ h.fromClassName }} {{ h.fromSectionName ? '(' + h.fromSectionName + ')' : '' }} [Roll: {{ h.fromRollNumber || '-' }}]</span>
-                          <mat-icon class="arrow">arrow_forward</mat-icon>
-                          <span class="to">{{ h.toClassName }} {{ h.toSectionName ? '(' + h.toSectionName + ')' : '' }} [Roll: {{ h.toRollNumber || '-' }}]</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span class="year-pill">{{ h.fromAcademicYear }} &rarr; {{ h.toAcademicYear }}</span>
-                      </td>
-                      <td>
-                        <div *ngIf="h.examPercentage != null" class="exam-hist-badge">
-                          <strong>{{ h.examPercentage }}%</strong>
-                          <span *ngIf="h.examGrade" class="sub-grade">({{ h.examGrade }})</span>
-                          <span *ngIf="h.examTotalMarks" class="sub-marks">{{ h.examTotalMarks }}</span>
-                        </div>
-                        <span *ngIf="h.examPercentage == null" class="text-muted">-</span>
-                      </td>
-                      <td>
-                        <span class="status-chip" [class.chip-promoted]="h.resultStatus === 'Promoted' || h.resultStatus === 'Migrated'" [class.chip-detained]="h.resultStatus === 'Detained'">
-                          {{ h.resultStatus }}
-                        </span>
-                      </td>
-                      <td>
-                        <span class="user-txt">{{ h.promotedBy || 'Admin' }}</span>
-                      </td>
-                      <td class="text-right">
-                        <button mat-icon-button color="primary" *ngIf="h.scope !== 'Coaching'" (click)="printPromotionCertificate(h)" matTooltip="Print Official Promotion Certificate">
-                          <mat-icon>workspace_premium</mat-icon>
-                        </button>
-                        <button mat-icon-button color="warn" (click)="revertSingleHistory(h)" [matTooltip]="h.scope === 'Coaching' ? 'Rollback this batch migration' : 'Rollback this promotion'">
-                          <mat-icon>undo</mat-icon>
-                        </button>
-                      </td>
-                    </tr>
-
-                    <tr *ngIf="historyItems.length === 0 && !loadingHistory">
-                      <td colspan="8" class="empty-state">
-                        <mat-icon>assignment</mat-icon>
-                        <p>No promotion transition records found.</p>
-                      </td>
-                    </tr>
+                    @for (h of historyItems; track h) {
+                      <tr>
+                        <td>
+                          <span class="date-txt">{{ h.promotionDate | date:'dd MMM yyyy, hh:mm a' }}</span>
+                        </td>
+                        <td>
+                          <div class="st-hist-cell">
+                            <strong>{{ h.studentName }}</strong>
+                            <span class="sub">SR: {{ h.admissionNumber }}</span>
+                          </div>
+                        </td>
+                        <td>
+                          @if (h.scope === 'Coaching' || h.fromBatchName) {
+                            <div class="route-badge">
+                              <span class="from batch-route">{{ h.fromBatchName || 'Batch' }} [Roll: {{ h.fromRollNumber || '-' }}]</span>
+                              <mat-icon class="arrow">arrow_forward</mat-icon>
+                              <span class="to batch-route">{{ h.toBatchName || 'Batch' }} [Roll: {{ h.toRollNumber || '-' }}]</span>
+                            </div>
+                          }
+                          @if (h.scope !== 'Coaching' && !h.fromBatchName) {
+                            <div class="route-badge">
+                              <span class="from">{{ h.fromClassName }} {{ h.fromSectionName ? '(' + h.fromSectionName + ')' : '' }} [Roll: {{ h.fromRollNumber || '-' }}]</span>
+                              <mat-icon class="arrow">arrow_forward</mat-icon>
+                              <span class="to">{{ h.toClassName }} {{ h.toSectionName ? '(' + h.toSectionName + ')' : '' }} [Roll: {{ h.toRollNumber || '-' }}]</span>
+                            </div>
+                          }
+                        </td>
+                        <td>
+                          <span class="year-pill">{{ h.fromAcademicYear }} &rarr; {{ h.toAcademicYear }}</span>
+                        </td>
+                        <td>
+                          @if (h.examPercentage != null) {
+                            <div class="exam-hist-badge">
+                              <strong>{{ h.examPercentage }}%</strong>
+                              @if (h.examGrade) {
+                                <span class="sub-grade">({{ h.examGrade }})</span>
+                              }
+                              @if (h.examTotalMarks) {
+                                <span class="sub-marks">{{ h.examTotalMarks }}</span>
+                              }
+                            </div>
+                          }
+                          @if (h.examPercentage == null) {
+                            <span class="text-muted">-</span>
+                          }
+                        </td>
+                        <td>
+                          <span class="status-chip" [class.chip-promoted]="h.resultStatus === 'Promoted' || h.resultStatus === 'Migrated'" [class.chip-detained]="h.resultStatus === 'Detained'">
+                            {{ h.resultStatus }}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="user-txt">{{ h.promotedBy || 'Admin' }}</span>
+                        </td>
+                        <td class="text-right">
+                          @if (h.scope !== 'Coaching') {
+                            <button mat-icon-button color="primary" (click)="printPromotionCertificate(h)" matTooltip="Print Official Promotion Certificate">
+                              <mat-icon>workspace_premium</mat-icon>
+                            </button>
+                          }
+                          <button mat-icon-button color="warn" (click)="revertSingleHistory(h)" [matTooltip]="h.scope === 'Coaching' ? 'Rollback this batch migration' : 'Rollback this promotion'">
+                            <mat-icon>undo</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    }
+    
+                    @if (historyItems.length === 0 && !loadingHistory) {
+                      <tr>
+                        <td colspan="8" class="empty-state">
+                          <mat-icon>assignment</mat-icon>
+                          <p>No promotion transition records found.</p>
+                        </td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
@@ -678,7 +764,8 @@ interface CandidateRow extends PromotionCandidateDto {
         </mat-tab>
       </mat-tab-group>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .promotion-container {
       display: flex;

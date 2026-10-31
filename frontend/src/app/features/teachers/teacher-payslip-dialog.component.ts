@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -26,8 +26,12 @@ export interface PayslipDialogData {
       <div class="modal-actions no-print">
         <div class="modal-hdr-left">
           <div class="modal-hdr-icon" [class.has-logo-img]="logoUrl && !headerLogoFailed">
-            <img *ngIf="logoUrl && !headerLogoFailed" [src]="logoUrl" (error)="headerLogoFailed = true" alt="Logo" class="header-logo-img">
-            <mat-icon *ngIf="!logoUrl || headerLogoFailed">receipt_long</mat-icon>
+            @if (logoUrl && !headerLogoFailed) {
+              <img [src]="logoUrl" (error)="headerLogoFailed = true" alt="Logo" class="header-logo-img">
+            }
+            @if (!logoUrl || headerLogoFailed) {
+              <mat-icon>receipt_long</mat-icon>
+            }
           </div>
           <div>
             <h3 class="modal-hdr-title">Staff Salary Payslip</h3>
@@ -47,23 +51,27 @@ export interface PayslipDialogData {
           </button>
         </div>
       </div>
-
+    
       <!-- Printable Payslip Document -->
       <div class="payslip-paper" id="payslip-paper">
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
-            <div class="logo-mark transparent-logo-mark" *ngIf="logoUrl && !logoFailed" [class.has-img]="true">
-              <img [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-            </div>
+            @if (logoUrl && !logoFailed) {
+              <div class="logo-mark transparent-logo-mark" [class.has-img]="true">
+                <img [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+              </div>
+            }
             <div>
               <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Salary Payslip' }}</h2>
               <p class="inst-subtitle">Faculty & Staff Payroll Management | Monthly Pay Advice</p>
-              <p class="inst-branch" *ngIf="effectiveBranchName">
-                <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
-                <span class="branch-dept-sep">|</span>
-                <span class="branch-dept">Payroll & Accounts Division</span>
-              </p>
+              @if (effectiveBranchName) {
+                <p class="inst-branch">
+                  <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
+                  <span class="branch-dept-sep">|</span>
+                  <span class="branch-dept">Payroll & Accounts Division</span>
+                </p>
+              }
             </div>
           </div>
           <div class="payslip-badge">
@@ -71,16 +79,18 @@ export interface PayslipDialogData {
             <span class="badge-sub">वेतन पर्ची</span>
           </div>
         </div>
-
+    
         <div class="meta-strip">
           <div class="meta-item">
             <span class="meta-label">Pay Period / Month:</span>
             <span class="meta-val"><strong>{{ data.payment.monthName }}</strong></span>
           </div>
-          <div class="meta-item branch-meta-item" *ngIf="effectiveBranchName">
-            <span class="meta-label">Branch / Campus:</span>
-            <span class="meta-val branch-val">🏛️ {{ effectiveBranchName }}</span>
-          </div>
+          @if (effectiveBranchName) {
+            <div class="meta-item branch-meta-item">
+              <span class="meta-label">Branch / Campus:</span>
+              <span class="meta-val branch-val">🏛️ {{ effectiveBranchName }}</span>
+            </div>
+          }
           <div class="meta-item">
             <span class="meta-label">Receipt / Voucher No:</span>
             <span class="meta-val receipt-no">{{ data.payment.receiptNumber }}</span>
@@ -94,7 +104,7 @@ export interface PayslipDialogData {
             <span class="meta-val mode-pill">{{ data.payment.paymentMode }}</span>
           </div>
         </div>
-
+    
         <!-- Faculty Details Grid -->
         <div class="details-section">
           <div class="details-col">
@@ -105,16 +115,20 @@ export interface PayslipDialogData {
           <div class="details-col">
             <div class="info-row"><span class="k">Contact Number:</span><span class="v">{{ data.teacher.phoneNumber }}</span></div>
             <div class="info-row"><span class="k">Experience:</span><span class="v">{{ data.teacher.experienceYears }} Years</span></div>
-            <div class="info-row" *ngIf="data.payment.transactionRef"><span class="k">Transaction Ref:</span><span class="v">{{ data.payment.transactionRef }}</span></div>
+            @if (data.payment.transactionRef) {
+              <div class="info-row"><span class="k">Transaction Ref:</span><span class="v">{{ data.payment.transactionRef }}</span></div>
+            }
           </div>
         </div>
-
+    
         <!-- Attendance Summary Row -->
         <div class="attendance-summary-box">
-          <div class="att-item" *ngIf="data.payment.workingDays">
-            <span class="att-lbl">Working Days:</span>
-            <span class="att-val">{{ data.payment.workingDays }} Days</span>
-          </div>
+          @if (data.payment.workingDays) {
+            <div class="att-item">
+              <span class="att-lbl">Working Days:</span>
+              <span class="att-val">{{ data.payment.workingDays }} Days</span>
+            </div>
+          }
           <div class="att-item">
             <span class="att-lbl">Present Days:</span>
             <span class="att-val green">{{ data.payment.presentDays }} Days</span>
@@ -123,16 +137,20 @@ export interface PayslipDialogData {
             <span class="att-lbl">Absent / LOP:</span>
             <span class="att-val" [class.red]="data.payment.absentDays > 0">{{ data.payment.absentDays }} Days</span>
           </div>
-          <div class="att-item" *ngIf="(data.payment.paidLeaveDays || 0) > 0">
-            <span class="att-lbl">Paid Leaves:</span>
-            <span class="att-val green">{{ data.payment.paidLeaveDays }} Days</span>
-          </div>
-          <div class="att-item att-remarks" *ngIf="data.payment.remarks">
-            <span class="att-lbl">Attendance Details:</span>
-            <span class="att-val-sub">{{ data.payment.remarks }}</span>
-          </div>
+          @if ((data.payment.paidLeaveDays || 0) > 0) {
+            <div class="att-item">
+              <span class="att-lbl">Paid Leaves:</span>
+              <span class="att-val green">{{ data.payment.paidLeaveDays }} Days</span>
+            </div>
+          }
+          @if (data.payment.remarks) {
+            <div class="att-item att-remarks">
+              <span class="att-lbl">Attendance Details:</span>
+              <span class="att-val-sub">{{ data.payment.remarks }}</span>
+            </div>
+          }
         </div>
-
+    
         <!-- Earnings & Deductions Table -->
         <div class="breakdown-table-wrapper">
           <table class="payslip-table">
@@ -159,39 +177,55 @@ export interface PayslipDialogData {
                 </td>
               </tr>
               <!-- Row 2: HRA vs Statutory (PF / TDS) -->
-              <tr *ngIf="data.payment.basicSalary != null">
-                <td>House Rent Allowance (HRA)</td>
-                <td class="text-right">₹{{ (data.payment.hra || 0) | number:'1.2-2' }}</td>
-                <td>Provident Fund (PF)</td>
-                <td class="text-right">₹{{ (data.payment.pfDeduction || 0) | number:'1.2-2' }}</td>
-              </tr>
+              @if (data.payment.basicSalary != null) {
+                <tr>
+                  <td>House Rent Allowance (HRA)</td>
+                  <td class="text-right">₹{{ (data.payment.hra || 0) | number:'1.2-2' }}</td>
+                  <td>Provident Fund (PF)</td>
+                  <td class="text-right">₹{{ (data.payment.pfDeduction || 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
               <!-- Row 3: Other Allowances vs TDS / Tax -->
-              <tr *ngIf="data.payment.basicSalary != null">
-                <td>Other Allowances</td>
-                <td class="text-right">₹{{ (data.payment.otherAllowances || 0) | number:'1.2-2' }}</td>
-                <td>TDS / Tax Deduction</td>
-                <td class="text-right">₹{{ (data.payment.tdsDeduction || 0) | number:'1.2-2' }}</td>
-              </tr>
+              @if (data.payment.basicSalary != null) {
+                <tr>
+                  <td>Other Allowances</td>
+                  <td class="text-right">₹{{ (data.payment.otherAllowances || 0) | number:'1.2-2' }}</td>
+                  <td>TDS / Tax Deduction</td>
+                  <td class="text-right">₹{{ (data.payment.tdsDeduction || 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
               <!-- Row 4: Facilities (Hostel / Transport) if applicable -->
-              <tr *ngIf="((data.payment.hostelDeduction || 0) + (data.payment.transportDeduction || 0)) > 0">
-                <td>&nbsp;</td>
-                <td></td>
-                <td>Facilities (Hostel / Transport)</td>
-                <td class="text-right">₹{{ ((data.payment.hostelDeduction || 0) + (data.payment.transportDeduction || 0)) | number:'1.2-2' }}</td>
-              </tr>
+              @if (((data.payment.hostelDeduction || 0) + (data.payment.transportDeduction || 0)) > 0) {
+                <tr>
+                  <td>&nbsp;</td>
+                  <td></td>
+                  <td>Facilities (Hostel / Transport)</td>
+                  <td class="text-right">₹{{ ((data.payment.hostelDeduction || 0) + (data.payment.transportDeduction || 0)) | number:'1.2-2' }}</td>
+                </tr>
+              }
               <!-- Advance Adjusted Row -->
               <tr>
-                <td *ngIf="(data.payment.arrearsAmount || 0) > 0" style="color:#059669; font-weight:700;">
-                  Previous Month Arrears (पिछला बकाया)
-                  <div *ngIf="data.payment.arrearsRemarks" style="font-size:10px; color:#047857; font-weight:normal;">
-                    {{ data.payment.arrearsRemarks }}
-                  </div>
-                </td>
-                <td *ngIf="(data.payment.arrearsAmount || 0) > 0" class="text-right" style="color:#059669; font-weight:700;">
-                  +₹{{ data.payment.arrearsAmount | number:'1.2-2' }}
-                </td>
-                <td *ngIf="!(data.payment.arrearsAmount || 0)">&nbsp;</td>
-                <td *ngIf="!(data.payment.arrearsAmount || 0)"></td>
+                @if ((data.payment.arrearsAmount || 0) > 0) {
+                  <td style="color:#059669; font-weight:700;">
+                    Previous Month Arrears (पिछला बकाया)
+                    @if (data.payment.arrearsRemarks) {
+                      <div style="font-size:10px; color:#047857; font-weight:normal;">
+                        {{ data.payment.arrearsRemarks }}
+                      </div>
+                    }
+                  </td>
+                }
+                @if ((data.payment.arrearsAmount || 0) > 0) {
+                  <td class="text-right" style="color:#059669; font-weight:700;">
+                    +₹{{ data.payment.arrearsAmount | number:'1.2-2' }}
+                  </td>
+                }
+                @if (!(data.payment.arrearsAmount || 0)) {
+                  <td>&nbsp;</td>
+                }
+                @if (!(data.payment.arrearsAmount || 0)) {
+                  <td></td>
+                }
                 <td>Advance Salary Adjusted</td>
                 <td class="text-right">₹{{ data.payment.advanceAdjusted | number:'1.2-2' }}</td>
               </tr>
@@ -204,7 +238,7 @@ export interface PayslipDialogData {
             </tbody>
           </table>
         </div>
-
+    
         <!-- Net Payable Block -->
         <div class="net-payable-strip">
           <div class="net-left">
@@ -216,7 +250,7 @@ export interface PayslipDialogData {
             <span class="net-amount">{{ data.payment.netPaid | number:'1.2-2' }}</span>
           </div>
         </div>
-
+    
         <!-- Signatures & Disclaimer Footer -->
         <div class="footer-signatures">
           <div class="sig-box">
@@ -224,27 +258,34 @@ export interface PayslipDialogData {
             <span>Employee / Faculty Signature</span>
           </div>
           <div class="sig-box text-center">
-            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
-            <div *ngIf="!officialSealUrl" class="stamp-placeholder">
-              <mat-icon>verified</mat-icon>
-              <span>Verified &amp; Audited</span>
-            </div>
+            @if (officialSealUrl) {
+              <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+            }
+            @if (!officialSealUrl) {
+              <div class="stamp-placeholder">
+                <mat-icon>verified</mat-icon>
+                <span>Verified &amp; Audited</span>
+              </div>
+            }
           </div>
           <div class="sig-box text-right">
-            <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-              <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
-            </div>
+            @if (digitalSignatureUrl) {
+              <div class="digital-sign-wrapper">
+                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+              </div>
+            }
             <div class="sig-line"></div>
             <span>Authorized Signatory / Director</span>
           </div>
         </div>
-
+    
         <div class="paper-disclaimer">
           <p>This is a computer-generated salary slip from {{ data.instituteName || authService.currentUser()?.instituteName || authService.getInstituteName() || 'Institution' }} ERP. Valid without physical stamp if electronically audited.</p>
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

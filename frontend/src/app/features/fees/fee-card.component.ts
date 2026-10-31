@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, ViewChildren, QueryList, inject } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChildren, QueryList, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -52,216 +52,260 @@ import { environment } from '../../../environments/environment';
             </p>
           </div>
         </div>
-
+    
         <div class="header-actions">
           <button mat-stroked-button class="btn-action" (click)="refresh()" [disabled]="loading" matTooltip="Reload Fee Card Data">
             <mat-icon [class.spin]="loading">sync</mat-icon>
             <span>Refresh</span>
           </button>
-
+    
           <button mat-flat-button color="primary" class="btn-print" (click)="printCard()" [disabled]="loading || !currentCard">
             <mat-icon>print</mat-icon>
             <span>Print Fee Card</span>
           </button>
         </div>
       </div>
-
+    
       <!-- Controls & Filter Toolbar (Screen Only) -->
       <div class="filters-card no-print">
         <!-- Dynamic Academic Stream Switcher (When tenant has both School & Coaching modules) -->
-        <div class="stream-switcher-row" *ngIf="hasSchoolModule() && hasCoachingModule()">
-          <span class="stream-label">Academic Scope:</span>
-          <div class="stream-pills">
-            <button
-              type="button"
-              class="stream-pill"
-              [class.active]="activeStream === 'school'"
-              (click)="switchStream('school')">
-              <mat-icon>school</mat-icon>
-              <span>School Classes</span>
-            </button>
-            <button
-              type="button"
-              class="stream-pill"
-              [class.active]="activeStream === 'coaching'"
-              (click)="switchStream('coaching')">
-              <mat-icon>menu_book</mat-icon>
-              <span>Coaching Batches</span>
-            </button>
+        @if (hasSchoolModule() && hasCoachingModule()) {
+          <div class="stream-switcher-row">
+            <span class="stream-label">Academic Scope:</span>
+            <div class="stream-pills">
+              <button
+                type="button"
+                class="stream-pill"
+                [class.active]="activeStream === 'school'"
+                (click)="switchStream('school')">
+                <mat-icon>school</mat-icon>
+                <span>School Classes</span>
+              </button>
+              <button
+                type="button"
+                class="stream-pill"
+                [class.active]="activeStream === 'coaching'"
+                (click)="switchStream('coaching')">
+                <mat-icon>menu_book</mat-icon>
+                <span>Coaching Batches</span>
+              </button>
+            </div>
           </div>
-        </div>
-
+        }
+    
         <div class="filters-grid">
           <!-- Session Selector -->
           <div class="filter-col">
             <label class="filter-label">Academic Session</label>
             <mat-form-field appearance="outline" class="w-full">
               <mat-select [(ngModel)]="selectedSessionYear" (selectionChange)="onFilterChanged()">
-                <mat-option *ngFor="let s of sessions" [value]="s.year">
-                  {{ s.label }}
-                </mat-option>
+                @for (s of sessions; track s) {
+                  <mat-option [value]="s.year">
+                    {{ s.label }}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
           </div>
-
+    
           <!-- Class Selector (School Stream Only) -->
-          <div class="filter-col" *ngIf="activeStream === 'school'">
-            <label class="filter-label">School Class</label>
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-select [(ngModel)]="selectedClassId" placeholder="-- Select Class --" (selectionChange)="onClassChanged()">
-                <mat-option value="">-- Select Class --</mat-option>
-                <mat-option *ngFor="let c of classes" [value]="c.id">
-                  {{ c.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
+          @if (activeStream === 'school') {
+            <div class="filter-col">
+              <label class="filter-label">School Class</label>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-select [(ngModel)]="selectedClassId" placeholder="-- Select Class --" (selectionChange)="onClassChanged()">
+                  <mat-option value="">-- Select Class --</mat-option>
+                  @for (c of classes; track c) {
+                    <mat-option [value]="c.id">
+                      {{ c.name }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          }
+    
           <!-- Section Selector (School Stream Only) -->
-          <div class="filter-col" *ngIf="activeStream === 'school'">
-            <label class="filter-label">Section</label>
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-select [(ngModel)]="selectedSectionId" placeholder="-- All Sections --" (selectionChange)="onSectionChanged()">
-                <mat-option value="">-- All Sections --</mat-option>
-                <mat-option *ngFor="let sec of sections" [value]="sec.id">
-                  {{ sec.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
+          @if (activeStream === 'school') {
+            <div class="filter-col">
+              <label class="filter-label">Section</label>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-select [(ngModel)]="selectedSectionId" placeholder="-- All Sections --" (selectionChange)="onSectionChanged()">
+                  <mat-option value="">-- All Sections --</mat-option>
+                  @for (sec of sections; track sec) {
+                    <mat-option [value]="sec.id">
+                      {{ sec.name }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          }
+    
           <!-- Class Filter (Coaching Stream) -->
-          <div class="filter-col" *ngIf="activeStream === 'coaching'">
-            <label class="filter-label">Filter by Class</label>
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-select [(ngModel)]="coachingClassFilter" placeholder="-- All Classes --" (selectionChange)="onCoachingClassChanged()">
-                <mat-option value="">-- All Classes --</mat-option>
-                <mat-option *ngFor="let c of classes" [value]="c.id">
-                  {{ c.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
+          @if (activeStream === 'coaching') {
+            <div class="filter-col">
+              <label class="filter-label">Filter by Class</label>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-select [(ngModel)]="coachingClassFilter" placeholder="-- All Classes --" (selectionChange)="onCoachingClassChanged()">
+                  <mat-option value="">-- All Classes --</mat-option>
+                  @for (c of classes; track c) {
+                    <mat-option [value]="c.id">
+                      {{ c.name }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          }
+    
           <!-- Batch Selector (Coaching Stream Only) -->
-          <div class="filter-col" *ngIf="activeStream === 'coaching'">
-            <label class="filter-label">Coaching Batch</label>
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-select [(ngModel)]="selectedBatchId" placeholder="-- Select Batch --" (selectionChange)="onBatchChanged()">
-                <mat-option value="">-- Select Batch --</mat-option>
-                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
-                  {{ b.name }} <span *ngIf="b.subject">({{ b.subject }})</span> <span *ngIf="b.className">• {{ b.className }}</span>
-                </mat-option>
+          @if (activeStream === 'coaching') {
+            <div class="filter-col">
+              <label class="filter-label">Coaching Batch</label>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-select [(ngModel)]="selectedBatchId" placeholder="-- Select Batch --" (selectionChange)="onBatchChanged()">
+                  <mat-option value="">-- Select Batch --</mat-option>
+                  @for (b of filteredBatches; track b) {
+                    <mat-option [value]="b.id">
+                      {{ b.name }} @if (b.subject) {
+                      <span>({{ b.subject }})</span>
+                      } @if (b.className) {
+                      <span>• {{ b.className }}</span>
+                    }
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
           </div>
-
-          <!-- Student Selector / Search -->
-          <div class="filter-col student-col">
-            <label class="filter-label">Select Student</label>
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-select
-                [(ngModel)]="selectedStudentId"
-                placeholder="-- Choose Student --"
-                (selectionChange)="onStudentChanged()"
-                [disabled]="students.length === 0"
-                panelClass="student-select-panel"
-                (opened)="focusSearchInput()"
-                (closed)="onStudentSelectClosed()">
-
-                <mat-select-trigger *ngIf="getSelectedStudent() as sel">
+        }
+    
+        <!-- Student Selector / Search -->
+        <div class="filter-col student-col">
+          <label class="filter-label">Select Student</label>
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-select
+              [(ngModel)]="selectedStudentId"
+              placeholder="-- Choose Student --"
+              (selectionChange)="onStudentChanged()"
+              [disabled]="students.length === 0"
+              panelClass="student-select-panel"
+              (opened)="focusSearchInput()"
+              (closed)="onStudentSelectClosed()">
+    
+              @if (getSelectedStudent(); as sel) {
+                <mat-select-trigger>
                   <span class="st-name-text">{{ sel.studentName || sel.name || 'Student' }}</span>
                 </mat-select-trigger>
-
-                <!-- Sticky Search Option inside Dropdown Panel -->
-                <mat-option disabled class="dropdown-search-option">
-                  <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                    <mat-icon class="search-box-icon">search</mat-icon>
-                    <input
-                      id="student-fee-card-search-input"
-                      type="text"
-                      class="search-inner-input"
-                      placeholder="Search student..."
-                      [(ngModel)]="studentSearchQuery"
-                      (click)="$event.stopPropagation()"
-                      (mousedown)="$event.stopPropagation()"
-                      (keydown)="$event.stopPropagation()"
+              }
+    
+              <!-- Sticky Search Option inside Dropdown Panel -->
+              <mat-option disabled class="dropdown-search-option">
+                <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                  <mat-icon class="search-box-icon">search</mat-icon>
+                  <input
+                    id="student-fee-card-search-input"
+                    type="text"
+                    class="search-inner-input"
+                    placeholder="Search student..."
+                    [(ngModel)]="studentSearchQuery"
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="$event.stopPropagation()"
+                    (keydown)="$event.stopPropagation()"
                     />
+                  @if (studentSearchQuery) {
                     <button
                       type="button"
                       class="clear-mini-btn"
-                      *ngIf="studentSearchQuery"
                       (click)="clearStudentSearch($event)"
                       (mousedown)="$event.stopPropagation()"
                       matTooltip="Clear search"
-                    >
+                      >
                       <mat-icon>close</mat-icon>
                     </button>
-                  </div>
-                  <div class="search-meta-bar" *ngIf="students.length > 0">
+                  }
+                </div>
+                @if (students.length > 0) {
+                  <div class="search-meta-bar">
                     <span>Showing <strong>{{ filteredStudents.length }}</strong> of {{ students.length }} students</span>
                   </div>
-                </mat-option>
-
-                <mat-option value="">-- Choose Student ({{ students.length }}) --</mat-option>
-                <mat-option *ngFor="let st of filteredStudents" [value]="st.id" class="student-item-option">
+                }
+              </mat-option>
+    
+              <mat-option value="">-- Choose Student ({{ students.length }}) --</mat-option>
+              @for (st of filteredStudents; track st) {
+                <mat-option [value]="st.id" class="student-item-option">
                   <span class="st-name-text">{{ st.studentName || st.name }}</span>
                 </mat-option>
-
-                <mat-option disabled *ngIf="filteredStudents.length === 0 && studentSearchQuery" class="no-results-option">
+              }
+    
+              @if (filteredStudents.length === 0 && studentSearchQuery) {
+                <mat-option disabled class="no-results-option">
                   <div class="no-results-wrap">
                     <mat-icon>search_off</mat-icon>
                     <span>No students match "{{ studentSearchQuery }}"</span>
                   </div>
                 </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
+              }
+            </mat-select>
+          </mat-form-field>
         </div>
-
-        <!-- Mode Toggle & Quick Filter Stats -->
-        <div class="filter-bottom-bar">
-          <div class="view-mode-toggle">
-            <button
-              class="toggle-chip"
-              [class.active]="viewMode === 'single'"
-              (click)="switchViewMode('single')">
-              <mat-icon>person</mat-icon>
-              <span>Single Student View</span>
-            </button>
-            <button
-              class="toggle-chip"
-              [class.active]="viewMode === 'class'"
-              (click)="switchViewMode('class')"
-              [disabled]="activeStream === 'school' ? !selectedClassId : !selectedBatchId">
-              <mat-icon>groups</mat-icon>
-              <span>{{ activeStream === 'coaching' ? 'Coaching Batch View' : 'Class Batch View' }} ({{ classCards.length }})</span>
-            </button>
-          </div>
-
-          <div class="quick-helpers">
-            <button *ngIf="currentCard" mat-button class="btn-whatsapp" (click)="openWhatsAppShareDialog()" matTooltip="Share Fee Passbook on WhatsApp (Popup)">
+      </div>
+    
+      <!-- Mode Toggle & Quick Filter Stats -->
+      <div class="filter-bottom-bar">
+        <div class="view-mode-toggle">
+          <button
+            class="toggle-chip"
+            [class.active]="viewMode === 'single'"
+            (click)="switchViewMode('single')">
+            <mat-icon>person</mat-icon>
+            <span>Single Student View</span>
+          </button>
+          <button
+            class="toggle-chip"
+            [class.active]="viewMode === 'class'"
+            (click)="switchViewMode('class')"
+            [disabled]="activeStream === 'school' ? !selectedClassId : !selectedBatchId">
+            <mat-icon>groups</mat-icon>
+            <span>{{ activeStream === 'coaching' ? 'Coaching Batch View' : 'Class Batch View' }} ({{ classCards.length }})</span>
+          </button>
+        </div>
+    
+        <div class="quick-helpers">
+          @if (currentCard) {
+            <button mat-button class="btn-whatsapp" (click)="openWhatsAppShareDialog()" matTooltip="Share Fee Passbook on WhatsApp (Popup)">
               <mat-icon>share</mat-icon>
               <span>Share via WhatsApp</span>
             </button>
-            <span class="status-summary" *ngIf="currentCard">
+          }
+          @if (currentCard) {
+            <span class="status-summary">
               Monthly Rate: <strong>₹{{ currentCard.monthlyFeeRate | number:'1.2-2' }}</strong> |
               Balance Due: <strong [class.has-due]="currentCard.totalBalanceDue > 0">₹{{ currentCard.totalBalanceDue | number:'1.2-2' }}</strong>
             </span>
-          </div>
+          }
         </div>
       </div>
-
-      <!-- Empty / Prompt State -->
-      <div class="empty-container no-print" *ngIf="!loading && !currentCard && viewMode === 'single'">
+    </div>
+    
+    <!-- Empty / Prompt State -->
+    @if (!loading && !currentCard && viewMode === 'single') {
+      <div class="empty-container no-print">
         <mat-icon class="empty-icon">badge</mat-icon>
         <h3>No Student Selected</h3>
-        <p *ngIf="activeStream === 'school'">Please select a Class, Section and Student from the filters above to generate the Student Fee Card.</p>
-        <p *ngIf="activeStream === 'coaching'">Please select a Coaching Batch and Student from the filters above to generate the Coaching Fee Card.</p>
+        @if (activeStream === 'school') {
+          <p>Please select a Class, Section and Student from the filters above to generate the Student Fee Card.</p>
+        }
+        @if (activeStream === 'coaching') {
+          <p>Please select a Coaching Batch and Student from the filters above to generate the Coaching Fee Card.</p>
+        }
       </div>
-
-      <!-- SINGLE STUDENT FEE CARD (Screen & Print) -->
-      <div class="fee-card-wrapper" *ngIf="!loading && currentCard && viewMode === 'single'">
+    }
+    
+    <!-- SINGLE STUDENT FEE CARD (Screen & Print) -->
+    @if (!loading && currentCard && viewMode === 'single') {
+      <div class="fee-card-wrapper">
         <div class="student-fee-passbook">
           <!-- CARD HEADER -->
           <div class="card-institute-header">
@@ -273,28 +317,34 @@ import { environment } from '../../../environments/environment';
               <p class="inst-tagline">Excellence in Education • Complete Student ERP Management</p>
               <p class="inst-address">{{ currentCard.instituteAddress || 'Parsa, Saran, Bihar - 841219' }}</p>
               <p class="inst-contact">
-                <span *ngIf="currentCard.institutePhone">Phone / WhatsApp: {{ currentCard.institutePhone }}</span>
-                <span *ngIf="currentCard.branchName"> • Branch: <strong>{{ currentCard.branchName }}</strong></span>
+                @if (currentCard.institutePhone) {
+                  <span>Phone / WhatsApp: {{ currentCard.institutePhone }}</span>
+                }
+                @if (currentCard.branchName) {
+                  <span> • Branch: <strong>{{ currentCard.branchName }}</strong></span>
+                }
               </p>
             </div>
             <div class="student-photo-col">
               <div class="student-photo-box">
-                <img *ngIf="getStudentPhoto(currentCard)" [src]="getStudentPhoto(currentCard)" alt="Student Photo" class="student-photo" (error)="onStudentPhotoError($event)" />
-                <div *ngIf="!getStudentPhoto(currentCard)" class="student-photo-fallback">
-                  <mat-icon>person</mat-icon>
-                </div>
+                @if (getStudentPhoto(currentCard)) {
+                  <img [src]="getStudentPhoto(currentCard)" alt="Student Photo" class="student-photo" (error)="onStudentPhotoError($event)" />
+                }
+                @if (!getStudentPhoto(currentCard)) {
+                  <div class="student-photo-fallback">
+                    <mat-icon>person</mat-icon>
+                  </div>
+                }
               </div>
               <span class="photo-caption">Student Photo</span>
             </div>
           </div>
-
           <!-- TITLE BANNER -->
           <div class="card-title-banner">
             <span class="banner-en">{{ (activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)) ? 'COACHING STUDENT ANNUAL FEE CARD / PASSBOOK' : 'STUDENT ANNUAL FEE CARD / PASSBOOK' }}</span>
             <span class="banner-session">SESSION: {{ currentCard.sessionName }}</span>
             <span class="banner-hi">{{ (activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)) ? 'छात्र कोचिंग वार्षिक शुल्क पुस्तिका' : 'छात्र वार्षिक शुल्क पुस्तिका' }}</span>
           </div>
-
           <!-- STUDENT INFO TABLE (Authentic ERP Passbook Format) -->
           <table class="student-info-table">
             <tbody>
@@ -303,12 +353,12 @@ import { environment } from '../../../environments/environment';
                 <td class="info-value student-name-val">{{ currentCard.studentName }}</td>
                 <td class="info-label">{{ (activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)) ? 'Coaching Batch (बैच)' : 'Class & Sec (कक्षा / वर्ग)' }}</td>
                 <td class="info-value bold-val">
-                  <ng-container *ngIf="activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)">
+                  @if (activeStream === 'coaching' || (!currentCard.className && currentCard.batchName)) {
                     {{ getCoachingAcademicDisplay(currentCard) }}
-                  </ng-container>
-                  <ng-container *ngIf="activeStream !== 'coaching' && (currentCard.className || !currentCard.batchName)">
+                  }
+                  @if (activeStream !== 'coaching' && (currentCard.className || !currentCard.batchName)) {
                     {{ getSchoolAcademicDisplay(currentCard) }}
-                  </ng-container>
+                  }
                 </td>
               </tr>
               <tr>
@@ -331,27 +381,32 @@ import { environment } from '../../../environments/environment';
                 <td class="info-label">Monthly Rate (मासिक शुल्क)</td>
                 <td class="info-value rate-val">₹{{ currentCard.monthlyFeeRate | number:'1.2-2' }}/mo</td>
               </tr>
-              <tr *ngIf="currentCard.address">
-                <td class="info-label">Address (पता)</td>
-                <td class="info-value" colspan="3">{{ currentCard.address }}</td>
-              </tr>
+              @if (currentCard.address) {
+                <tr>
+                  <td class="info-label">Address (पता)</td>
+                  <td class="info-value" colspan="3">{{ currentCard.address }}</td>
+                </tr>
+              }
             </tbody>
           </table>
-
           <!-- SUMMARY KPI STRIP -->
           <div class="summary-kpi-strip">
             <div class="kpi-box">
               <span class="kpi-label">{{ getSessionTotalLabel(currentCard) }}</span>
               <span class="kpi-value">₹{{ currentCard.totalAnnualFee | number:'1.2-2' }}</span>
             </div>
-            <div class="kpi-box" *ngIf="currentCard.totalOneTimeFee && currentCard.totalOneTimeFee > 0">
-              <span class="kpi-label">One-Time / Reg. Fee</span>
-              <span class="kpi-value onetime-kpi-val">₹{{ currentCard.totalOneTimeFee | number:'1.2-2' }}</span>
-            </div>
-            <div class="kpi-box" *ngIf="currentCard.totalConcession > 0">
-              <span class="kpi-label">Concession Granted</span>
-              <span class="kpi-value concession-val">-₹{{ currentCard.totalConcession | number:'1.2-2' }}</span>
-            </div>
+            @if (currentCard.totalOneTimeFee && currentCard.totalOneTimeFee > 0) {
+              <div class="kpi-box">
+                <span class="kpi-label">One-Time / Reg. Fee</span>
+                <span class="kpi-value onetime-kpi-val">₹{{ currentCard.totalOneTimeFee | number:'1.2-2' }}</span>
+              </div>
+            }
+            @if (currentCard.totalConcession > 0) {
+              <div class="kpi-box">
+                <span class="kpi-label">Concession Granted</span>
+                <span class="kpi-value concession-val">-₹{{ currentCard.totalConcession | number:'1.2-2' }}</span>
+              </div>
+            }
             <div class="kpi-box">
               <span class="kpi-label">Total Paid Amount</span>
               <span class="kpi-value paid-val">₹{{ currentCard.totalPaid | number:'1.2-2' }}</span>
@@ -360,12 +415,13 @@ import { environment } from '../../../environments/environment';
               <span class="kpi-label">Net Balance Due</span>
               <span class="kpi-value">₹{{ currentCard.totalBalanceDue | number:'1.2-2' }}</span>
             </div>
-            <div class="kpi-box" *ngIf="currentCard.pendingLibraryFine > 0">
-              <span class="kpi-label">Library Dues</span>
-              <span class="kpi-value lib-val">₹{{ currentCard.pendingLibraryFine | number:'1.2-2' }}</span>
-            </div>
+            @if (currentCard.pendingLibraryFine > 0) {
+              <div class="kpi-box">
+                <span class="kpi-label">Library Dues</span>
+                <span class="kpi-value lib-val">₹{{ currentCard.pendingLibraryFine | number:'1.2-2' }}</span>
+              </div>
+            }
           </div>
-
           <!-- 12-MONTH FEE PASSBOOK TABLE -->
           <div class="passbook-table-container">
             <!-- Dynamic Institute Watermark Overlay -->
@@ -387,70 +443,96 @@ import { environment } from '../../../environments/environment';
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let m of currentCard.months; let idx = index" [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'" [class.row-na]="m.status === 'N/A'">
-                  <td class="td-sn">{{ m.monthIndex }}</td>
-                  <td class="td-month">
-                    <strong>{{ m.monthShort }}</strong>
-                    <div *ngIf="m.billingCycleTag" class="cycle-pill-tag" [matTooltip]="'Billed under ' + m.billingCycleTag + ' plan'">
-                      <mat-icon class="mini-tag-icon">autorenew</mat-icon>
-                      <span>{{ m.billingCycleTag }}</span>
-                    </div>
-                    <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="onetime-tag">
-                      <mat-icon class="mini-tag-icon">bookmark</mat-icon>
-                      <span>{{ getOneTimeTagLabel(m) }}</span>
-                    </div>
-                  </td>
-                  <td class="td-amount" [matTooltip]="getMonthTooltip(m)" [matTooltipDisabled]="!getMonthTooltip(m)" matTooltipClass="multiline-tooltip">
-                    <ng-container *ngIf="m.status !== 'N/A'">
-                      <div *ngIf="m.concessionAmount > 0" class="concession-cell">
-                        <span class="net-amt">₹{{ m.netPayable | number:'1.2-2' }}</span>
-                        <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
-                      </div>
-                      <span *ngIf="!m.concessionAmount || m.concessionAmount <= 0">₹{{ m.amountPayable | number:'1.2-2' }}</span>
-                      <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="breakdown-subtext">
-                        <small class="sub-split">{{ getOneTimeSubtextLabel(m) }}</small>
-                      </div>
-                    </ng-container>
-                    <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
-                  </td>
-                  <td class="td-amount font-bold-amt" [class.text-green]="m.amountPaid > 0">
-                    {{ m.amountPaid > 0 ? ('₹' + (m.amountPaid | number:'1.2-2')) : '-' }}
-                  </td>
-                  <td class="td-amount" [class.text-red]="m.balanceDue > 0">
-                    <ng-container *ngIf="m.status !== 'N/A'">
-                      {{ m.balanceDue > 0 ? ('₹' + (m.balanceDue | number:'1.2-2')) : (m.status === 'Upcoming' ? '-' : '₹0.00') }}
-                    </ng-container>
-                    <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
-                  </td>
-                  <td class="td-status">
-                    <span class="status-pill" [ngClass]="getStatusClass(m.status)">
-                      {{ formatStatus(m.status) }}
-                    </span>
-                    <div *ngIf="m.remarks && m.remarks.includes('[BALANCE WAIVED & SETTLED]')" class="month-waiver-tag" [matTooltip]="m.remarks">
-                      <mat-icon class="waiver-mini-icon">verified</mat-icon>
-                      <span>Balance Waived</span>
-                    </div>
-                  </td>
-                  <td class="td-receipt">
-                    <ng-container *ngIf="m.receiptNumber">
-                      <span class="rcpt-num">{{ m.receiptNumber }}</span>
-                      <small class="rcpt-date" *ngIf="m.paymentDate">
-                        <span [appIstDatetime]="m.paymentDate" [format]="'datetime'"></span>
-                      </small>
-                    </ng-container>
-                    <span *ngIf="!m.receiptNumber" class="text-muted">-</span>
-                  </td>
-                  <td class="td-mode">
-                    {{ formatPaymentMode(m.paymentMode) }}
-                  </td>
-                  <td class="td-sign">
-                    <span *ngIf="m.status === 'Paid' || m.status === 'Settled'" class="verified-seal">
-                      <mat-icon class="verified-icon">verified</mat-icon>
-                      {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
-                    </span>
-                    <span *ngIf="m.status !== 'Paid' && m.status !== 'Settled'" class="sign-dash">__________</span>
-                  </td>
-                </tr>
+                @for (m of currentCard.months; track m; let idx = $index) {
+                  <tr [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'" [class.row-na]="m.status === 'N/A'">
+                    <td class="td-sn">{{ m.monthIndex }}</td>
+                    <td class="td-month">
+                      <strong>{{ m.monthShort }}</strong>
+                      @if (m.billingCycleTag) {
+                        <div class="cycle-pill-tag" [matTooltip]="'Billed under ' + m.billingCycleTag + ' plan'">
+                          <mat-icon class="mini-tag-icon">autorenew</mat-icon>
+                          <span>{{ m.billingCycleTag }}</span>
+                        </div>
+                      }
+                      @if (m.oneTimeCharges && m.oneTimeCharges > 0) {
+                        <div class="onetime-tag">
+                          <mat-icon class="mini-tag-icon">bookmark</mat-icon>
+                          <span>{{ getOneTimeTagLabel(m) }}</span>
+                        </div>
+                      }
+                    </td>
+                    <td class="td-amount" [matTooltip]="getMonthTooltip(m)" [matTooltipDisabled]="!getMonthTooltip(m)" matTooltipClass="multiline-tooltip">
+                      @if (m.status !== 'N/A') {
+                        @if (m.concessionAmount > 0) {
+                          <div class="concession-cell">
+                            <span class="net-amt">₹{{ m.netPayable | number:'1.2-2' }}</span>
+                            <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
+                          </div>
+                        }
+                        @if (!m.concessionAmount || m.concessionAmount <= 0) {
+                          <span>₹{{ m.amountPayable | number:'1.2-2' }}</span>
+                        }
+                        @if (m.oneTimeCharges && m.oneTimeCharges > 0) {
+                          <div class="breakdown-subtext">
+                            <small class="sub-split">{{ getOneTimeSubtextLabel(m) }}</small>
+                          </div>
+                        }
+                      }
+                      @if (m.status === 'N/A') {
+                        <span class="text-muted">-</span>
+                      }
+                    </td>
+                    <td class="td-amount font-bold-amt" [class.text-green]="m.amountPaid > 0">
+                      {{ m.amountPaid > 0 ? ('₹' + (m.amountPaid | number:'1.2-2')) : '-' }}
+                    </td>
+                    <td class="td-amount" [class.text-red]="m.balanceDue > 0">
+                      @if (m.status !== 'N/A') {
+                        {{ m.balanceDue > 0 ? ('₹' + (m.balanceDue | number:'1.2-2')) : (m.status === 'Upcoming' ? '-' : '₹0.00') }}
+                      }
+                      @if (m.status === 'N/A') {
+                        <span class="text-muted">-</span>
+                      }
+                    </td>
+                    <td class="td-status">
+                      <span class="status-pill" [ngClass]="getStatusClass(m.status)">
+                        {{ formatStatus(m.status) }}
+                      </span>
+                      @if (m.remarks && m.remarks.includes('[BALANCE WAIVED & SETTLED]')) {
+                        <div class="month-waiver-tag" [matTooltip]="m.remarks">
+                          <mat-icon class="waiver-mini-icon">verified</mat-icon>
+                          <span>Balance Waived</span>
+                        </div>
+                      }
+                    </td>
+                    <td class="td-receipt">
+                      @if (m.receiptNumber) {
+                        <span class="rcpt-num">{{ m.receiptNumber }}</span>
+                        @if (m.paymentDate) {
+                          <small class="rcpt-date">
+                            <span [appIstDatetime]="m.paymentDate" [format]="'datetime'"></span>
+                          </small>
+                        }
+                      }
+                      @if (!m.receiptNumber) {
+                        <span class="text-muted">-</span>
+                      }
+                    </td>
+                    <td class="td-mode">
+                      {{ formatPaymentMode(m.paymentMode) }}
+                    </td>
+                    <td class="td-sign">
+                      @if (m.status === 'Paid' || m.status === 'Settled') {
+                        <span class="verified-seal">
+                          <mat-icon class="verified-icon">verified</mat-icon>
+                          {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
+                        </span>
+                      }
+                      @if (m.status !== 'Paid' && m.status !== 'Settled') {
+                        <span class="sign-dash">__________</span>
+                      }
+                    </td>
+                  </tr>
+                }
               </tbody>
               <tfoot>
                 <tr class="tfoot-total-row">
@@ -461,18 +543,21 @@ import { environment } from '../../../environments/environment';
                     ₹{{ currentCard.totalBalanceDue | number:'1.2-2' }}
                   </td>
                   <td colspan="4" class="total-remarks">
-                    <span *ngIf="currentCard.totalBalanceDue <= 0" class="clearance-badge">
-                      <mat-icon>check_circle</mat-icon> No Outstanding Dues for Session {{ currentCard.sessionName }}
-                    </span>
-                    <span *ngIf="currentCard.totalBalanceDue > 0" class="pending-badge">
-                      <mat-icon>warning</mat-icon> Outstanding Due of ₹{{ currentCard.totalBalanceDue | number:'1.2-2' }} pending clearance
-                    </span>
+                    @if (currentCard.totalBalanceDue <= 0) {
+                      <span class="clearance-badge">
+                        <mat-icon>check_circle</mat-icon> No Outstanding Dues for Session {{ currentCard.sessionName }}
+                      </span>
+                    }
+                    @if (currentCard.totalBalanceDue > 0) {
+                      <span class="pending-badge">
+                        <mat-icon>warning</mat-icon> Outstanding Due of ₹{{ currentCard.totalBalanceDue | number:'1.2-2' }} pending clearance
+                      </span>
+                    }
                   </td>
                 </tr>
               </tfoot>
             </table>
           </div>
-
           <!-- RULES & TERMS FOOTER -->
           <div class="card-terms-box">
             <h4 class="terms-title">नियम एवं निर्देश / Important Instructions & Terms:</h4>
@@ -483,7 +568,6 @@ import { environment } from '../../../environments/environment';
               <li>बिना आधिकारिक रसीद एवं मुहर के किया गया कोई भी भुगतान अमान्य होगा। (Always demand computer printed receipts).</li>
             </ol>
           </div>
-
           <!-- SIGNATURE BLOCKS -->
           <div class="signatures-container">
             <div class="sig-block">
@@ -491,23 +575,27 @@ import { environment } from '../../../environments/environment';
               <span class="sig-title">Parent / Guardian Signature</span>
               <span class="sig-sub">(अभिभावक के हस्ताक्षर)</span>
             </div>
-
             <div class="sig-block">
               <div class="sig-line"></div>
               <span class="sig-title">Cashier / Accountant</span>
               <span class="sig-sub">(लेखापाल / कैशियर)</span>
             </div>
-
             <div class="sig-block principal-block">
-              <div class="seal-container" *ngIf="officialSealUrl">
-                <img [src]="officialSealUrl" alt="Official Seal" class="card-official-seal-img" />
-              </div>
-              <div class="seal-placeholder" *ngIf="!officialSealUrl">
-                <span>INSTITUTE SEAL</span>
-              </div>
-              <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
-              </div>
+              @if (officialSealUrl) {
+                <div class="seal-container">
+                  <img [src]="officialSealUrl" alt="Official Seal" class="card-official-seal-img" />
+                </div>
+              }
+              @if (!officialSealUrl) {
+                <div class="seal-placeholder">
+                  <span>INSTITUTE SEAL</span>
+                </div>
+              }
+              @if (digitalSignatureUrl) {
+                <div class="digital-sign-wrapper">
+                  <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+                </div>
+              }
               <div class="sig-line"></div>
               <span class="sig-title">Principal / Director Stamp</span>
               <span class="sig-sub">(प्राचार्य / निदेशक मुहर)</span>
@@ -515,9 +603,11 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
       </div>
-
-      <!-- CLASS BATCH VIEW (Multiple Cards For Selected Class) -->
-      <div class="class-batch-wrapper" *ngIf="!loading && viewMode === 'class'">
+    }
+    
+    <!-- CLASS BATCH VIEW (Multiple Cards For Selected Class) -->
+    @if (!loading && viewMode === 'class') {
+      <div class="class-batch-wrapper">
         <div class="batch-controls no-print">
           <div class="batch-header-info">
             <h3>{{ activeStream === 'coaching' ? 'Coaching Batch Fee Cards Roster' : 'Class Fee Cards Roster' }} ({{ classCards.length }} Students)</h3>
@@ -528,249 +618,300 @@ import { environment } from '../../../environments/environment';
             <span>Print All {{ activeStream === 'coaching' ? 'Batch Cards' : 'Class Cards' }} (A4 Pages)</span>
           </button>
         </div>
-
-        <div *ngIf="classCards.length === 0" class="empty-container no-print">
-          <mat-icon class="empty-icon">groups</mat-icon>
-          <h3>No students found in this {{ activeStream === 'coaching' ? 'coaching batch' : 'class' }}</h3>
-          <p>Please select another {{ activeStream === 'coaching' ? 'batch' : 'class or section' }}.</p>
-        </div>
-
+        @if (classCards.length === 0) {
+          <div class="empty-container no-print">
+            <mat-icon class="empty-icon">groups</mat-icon>
+            <h3>No students found in this {{ activeStream === 'coaching' ? 'coaching batch' : 'class' }}</h3>
+            <p>Please select another {{ activeStream === 'coaching' ? 'batch' : 'class or section' }}.</p>
+          </div>
+        }
         <div class="batch-cards-list">
-          <div *ngFor="let card of classCards" class="page-break-container">
-            <div class="student-fee-passbook">
-              <!-- CARD HEADER -->
-              <div class="card-institute-header">
-                <div class="inst-logo-col">
-                  <img [src]="getInstituteLogo(card)" alt="Institute Logo" class="inst-logo-img" (error)="onLogoError($event)" />
-                </div>
-                <div class="inst-details-col">
-                  <h2 class="inst-name">{{ card.instituteName || authService.currentUser()?.instituteName || 'Institution' }}</h2>
-                  <p class="inst-tagline">Excellence in Education • Complete Student ERP Management</p>
-                  <p class="inst-address" *ngIf="card.instituteAddress">{{ card.instituteAddress }}</p>
-                  <p class="inst-contact">
-                    <span *ngIf="card.institutePhone">Phone / WhatsApp: {{ card.institutePhone }}</span>
-                    <span *ngIf="card.branchName"> • Branch: <strong>{{ card.branchName }}</strong></span>
-                  </p>
-                </div>
-                <div class="student-photo-col">
-                  <div class="student-photo-box">
-                    <img *ngIf="getStudentPhoto(card)" [src]="getStudentPhoto(card)" alt="Student Photo" class="student-photo" (error)="onStudentPhotoError($event)" />
-                    <div *ngIf="!getStudentPhoto(card)" class="student-photo-fallback">
-                      <mat-icon>person</mat-icon>
+          @for (card of classCards; track card) {
+            <div class="page-break-container">
+              <div class="student-fee-passbook">
+                <!-- CARD HEADER -->
+                <div class="card-institute-header">
+                  <div class="inst-logo-col">
+                    <img [src]="getInstituteLogo(card)" alt="Institute Logo" class="inst-logo-img" (error)="onLogoError($event)" />
+                  </div>
+                  <div class="inst-details-col">
+                    <h2 class="inst-name">{{ card.instituteName || authService.currentUser()?.instituteName || 'Institution' }}</h2>
+                    <p class="inst-tagline">Excellence in Education • Complete Student ERP Management</p>
+                    @if (card.instituteAddress) {
+                      <p class="inst-address">{{ card.instituteAddress }}</p>
+                    }
+                    <p class="inst-contact">
+                      @if (card.institutePhone) {
+                        <span>Phone / WhatsApp: {{ card.institutePhone }}</span>
+                      }
+                      @if (card.branchName) {
+                        <span> • Branch: <strong>{{ card.branchName }}</strong></span>
+                      }
+                    </p>
+                  </div>
+                  <div class="student-photo-col">
+                    <div class="student-photo-box">
+                      @if (getStudentPhoto(card)) {
+                        <img [src]="getStudentPhoto(card)" alt="Student Photo" class="student-photo" (error)="onStudentPhotoError($event)" />
+                      }
+                      @if (!getStudentPhoto(card)) {
+                        <div class="student-photo-fallback">
+                          <mat-icon>person</mat-icon>
+                        </div>
+                      }
                     </div>
+                    <span class="photo-caption">Student Photo</span>
                   </div>
-                  <span class="photo-caption">Student Photo</span>
                 </div>
-              </div>
-
-              <!-- TITLE BANNER -->
-              <div class="card-title-banner">
-                <span class="banner-en">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'COACHING STUDENT ANNUAL FEE CARD / PASSBOOK' : 'STUDENT ANNUAL FEE CARD / PASSBOOK' }}</span>
-                <span class="banner-session">SESSION: {{ card.sessionName }}</span>
-                <span class="banner-hi">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'छात्र कोचिंग वार्षिक शुल्क पुस्तिका' : 'छात्र वार्षिक शुल्क पुस्तिका' }}</span>
-              </div>
-
-              <!-- STUDENT INFO TABLE (Authentic ERP Passbook Format) -->
-              <table class="student-info-table">
-                <tbody>
-                  <tr>
-                    <td class="info-label">Student Name (विद्यार्थी का नाम)</td>
-                    <td class="info-value student-name-val">{{ card.studentName }}</td>
-                    <td class="info-label">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'Coaching Batch (बैच)' : 'Class & Sec (कक्षा / वर्ग)' }}</td>
-                    <td class="info-value bold-val">
-                      <ng-container *ngIf="activeStream === 'coaching' || (!card.className && card.batchName)">
-                        {{ getCoachingAcademicDisplay(card) }}
-                      </ng-container>
-                      <ng-container *ngIf="activeStream !== 'coaching' && (card.className || !card.batchName)">
-                        {{ getSchoolAcademicDisplay(card) }}
-                      </ng-container>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="info-label">Roll No. (क्रमांक)</td>
-                    <td class="info-value bold-val">
-                      {{ ((activeStream === 'coaching' ? (card.coachingRollNumber || card.rollNumber) : (card.schoolRollNumber || card.rollNumber)) || card.rollNumber) || '-' }}
-                    </td>
-                    <td class="info-label">{{ getAdmissionDateLabel(card) }}</td>
-                    <td class="info-value bold-val">{{ getAdmissionDateDisplay(card) }}</td>
-                  </tr>
-                  <tr>
-                    <td class="info-label">Father's Name (पिता का नाम)</td>
-                    <td class="info-value">{{ card.parentName || '-' }}</td>
-                    <td class="info-label">Mother's Name (माता का नाम)</td>
-                    <td class="info-value">{{ card.motherName || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td class="info-label">Parent Mobile (मोबाइल नं.)</td>
-                    <td class="info-value">{{ card.parentWhatsAppPhone || card.emergencyContactPhone || '-' }}</td>
-                    <td class="info-label">Monthly Rate (मासिक शुल्क)</td>
-                    <td class="info-value rate-val">₹{{ card.monthlyFeeRate | number:'1.2-2' }}/mo</td>
-                  </tr>
-                  <tr *ngIf="card.address">
-                    <td class="info-label">Address (पता)</td>
-                    <td class="info-value" colspan="3">{{ card.address }}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <!-- SUMMARY KPI STRIP -->
-              <div class="summary-kpi-strip">
-                <div class="kpi-box">
-                  <span class="kpi-label">{{ getSessionTotalLabel(card) }}</span>
-                  <span class="kpi-value">₹{{ card.totalAnnualFee | number:'1.2-2' }}</span>
+                <!-- TITLE BANNER -->
+                <div class="card-title-banner">
+                  <span class="banner-en">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'COACHING STUDENT ANNUAL FEE CARD / PASSBOOK' : 'STUDENT ANNUAL FEE CARD / PASSBOOK' }}</span>
+                  <span class="banner-session">SESSION: {{ card.sessionName }}</span>
+                  <span class="banner-hi">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'छात्र कोचिंग वार्षिक शुल्क पुस्तिका' : 'छात्र वार्षिक शुल्क पुस्तिका' }}</span>
                 </div>
-                <div class="kpi-box" *ngIf="card.totalOneTimeFee && card.totalOneTimeFee > 0">
-                  <span class="kpi-label">One-Time / Reg. Fee</span>
-                  <span class="kpi-value onetime-kpi-val">₹{{ card.totalOneTimeFee | number:'1.2-2' }}</span>
-                </div>
-                <div class="kpi-box" *ngIf="card.totalConcession > 0">
-                  <span class="kpi-label">Concession Granted</span>
-                  <span class="kpi-value concession-val">-₹{{ card.totalConcession | number:'1.2-2' }}</span>
-                </div>
-                <div class="kpi-box">
-                  <span class="kpi-label">Total Paid Amount</span>
-                  <span class="kpi-value paid-val">₹{{ card.totalPaid | number:'1.2-2' }}</span>
-                </div>
-                <div class="kpi-box" [class.due-highlight]="card.totalBalanceDue > 0" [class.clear-highlight]="card.totalBalanceDue <= 0">
-                  <span class="kpi-label">Net Balance Due</span>
-                  <span class="kpi-value">₹{{ card.totalBalanceDue | number:'1.2-2' }}</span>
-                </div>
-              </div>
-
-              <!-- 12-MONTH FEE PASSBOOK TABLE -->
-              <div class="passbook-table-container">
-                <!-- Dynamic Institute Watermark Overlay -->
-                <div class="passbook-watermark-overlay" aria-hidden="true">
-                  <img [src]="getInstituteLogo(card)" alt="" class="watermark-logo-img" (error)="onLogoError($event)" />
-                </div>
-                <table class="passbook-table">
-                  <thead>
-                    <tr>
-                      <th class="th-sn">#</th>
-                      <th class="th-month">Month (माह)</th>
-                      <th class="th-amount">Payable (₹)</th>
-                      <th class="th-amount">Paid (₹)</th>
-                      <th class="th-amount">Balance (₹)</th>
-                      <th class="th-status">Status</th>
-                      <th class="th-receipt">Receipt No & Date / Time (IST)</th>
-                      <th class="th-mode">Mode</th>
-                      <th class="th-sign">Cashier Stamp / Sign</th>
-                    </tr>
-                  </thead>
+                <!-- STUDENT INFO TABLE (Authentic ERP Passbook Format) -->
+                <table class="student-info-table">
                   <tbody>
-                    <tr *ngFor="let m of card.months" [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'" [class.row-na]="m.status === 'N/A'">
-                      <td class="td-sn">{{ m.monthIndex }}</td>
-                      <td class="td-month">
-                        <strong>{{ m.monthShort }}</strong>
-                        <div *ngIf="m.billingCycleTag" class="cycle-pill-tag" [matTooltip]="'Billed under ' + m.billingCycleTag + ' plan'">
-                          <mat-icon class="mini-tag-icon">autorenew</mat-icon>
-                          <span>{{ m.billingCycleTag }}</span>
-                        </div>
-                        <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="onetime-tag" [matTooltip]="m.oneTimeChargesNote || 'Includes One-Time Charges'">
-                          <mat-icon class="mini-tag-icon">bookmark</mat-icon>
-                          <span>{{ getOneTimeTagLabel(m) }}</span>
-                        </div>
-                      </td>
-                      <td class="td-amount">
-                        <ng-container *ngIf="m.status !== 'N/A'">
-                          <div *ngIf="m.concessionAmount > 0" class="concession-cell">
-                            <span class="net-amt">₹{{ m.netPayable | number:'1.2-2' }}</span>
-                            <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
-                          </div>
-                          <span *ngIf="!m.concessionAmount || m.concessionAmount <= 0">₹{{ m.amountPayable | number:'1.2-2' }}</span>
-                          <div *ngIf="m.oneTimeCharges && m.oneTimeCharges > 0" class="breakdown-subtext" [matTooltip]="m.oneTimeChargesNote || 'Monthly + One-Time breakdown'">
-                            <small class="sub-split">{{ getOneTimeSubtextLabel(m) }}</small>
-                          </div>
-                        </ng-container>
-                        <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
-                      </td>
-                      <td class="td-amount font-bold-amt" [class.text-green]="m.amountPaid > 0">
-                        {{ m.amountPaid > 0 ? ('₹' + (m.amountPaid | number:'1.2-2')) : '-' }}
-                      </td>
-                      <td class="td-amount" [class.text-red]="m.balanceDue > 0">
-                        <ng-container *ngIf="m.status !== 'N/A'">
-                          {{ m.balanceDue > 0 ? ('₹' + (m.balanceDue | number:'1.2-2')) : (m.status === 'Upcoming' ? '-' : '₹0.00') }}
-                        </ng-container>
-                        <span *ngIf="m.status === 'N/A'" class="text-muted">-</span>
-                      </td>
-                      <td class="td-status">
-                        <span class="status-pill" [ngClass]="getStatusClass(m.status)">
-                          {{ formatStatus(m.status) }}
-                        </span>
-                        <div *ngIf="m.remarks && m.remarks.includes('[BALANCE WAIVED & SETTLED]')" class="month-waiver-tag" [matTooltip]="m.remarks">
-                          <mat-icon class="waiver-mini-icon">verified</mat-icon>
-                          <span>Balance Waived</span>
-                        </div>
-                      </td>
-                      <td class="td-receipt">
-                        <ng-container *ngIf="m.receiptNumber">
-                          <span class="rcpt-num">{{ m.receiptNumber }}</span>
-                          <small class="rcpt-date" *ngIf="m.paymentDate">
-                            <span [appIstDatetime]="m.paymentDate" [format]="'datetime'"></span>
-                          </small>
-                        </ng-container>
-                        <span *ngIf="!m.receiptNumber" class="text-muted">-</span>
-                      </td>
-                      <td class="td-mode">{{ formatPaymentMode(m.paymentMode) }}</td>
-                      <td class="td-sign">
-                        <span *ngIf="m.status === 'Paid' || m.status === 'Settled'" class="verified-seal">
-                          <mat-icon class="verified-icon">verified</mat-icon> {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
-                        </span>
-                        <span *ngIf="m.status !== 'Paid' && m.status !== 'Settled'" class="sign-dash">__________</span>
+                    <tr>
+                      <td class="info-label">Student Name (विद्यार्थी का नाम)</td>
+                      <td class="info-value student-name-val">{{ card.studentName }}</td>
+                      <td class="info-label">{{ (activeStream === 'coaching' || (!card.className && card.batchName)) ? 'Coaching Batch (बैच)' : 'Class & Sec (कक्षा / वर्ग)' }}</td>
+                      <td class="info-value bold-val">
+                        @if (activeStream === 'coaching' || (!card.className && card.batchName)) {
+                          {{ getCoachingAcademicDisplay(card) }}
+                        }
+                        @if (activeStream !== 'coaching' && (card.className || !card.batchName)) {
+                          {{ getSchoolAcademicDisplay(card) }}
+                        }
                       </td>
                     </tr>
+                    <tr>
+                      <td class="info-label">Roll No. (क्रमांक)</td>
+                      <td class="info-value bold-val">
+                        {{ ((activeStream === 'coaching' ? (card.coachingRollNumber || card.rollNumber) : (card.schoolRollNumber || card.rollNumber)) || card.rollNumber) || '-' }}
+                      </td>
+                      <td class="info-label">{{ getAdmissionDateLabel(card) }}</td>
+                      <td class="info-value bold-val">{{ getAdmissionDateDisplay(card) }}</td>
+                    </tr>
+                    <tr>
+                      <td class="info-label">Father's Name (पिता का नाम)</td>
+                      <td class="info-value">{{ card.parentName || '-' }}</td>
+                      <td class="info-label">Mother's Name (माता का नाम)</td>
+                      <td class="info-value">{{ card.motherName || '-' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="info-label">Parent Mobile (मोबाइल नं.)</td>
+                      <td class="info-value">{{ card.parentWhatsAppPhone || card.emergencyContactPhone || '-' }}</td>
+                      <td class="info-label">Monthly Rate (मासिक शुल्क)</td>
+                      <td class="info-value rate-val">₹{{ card.monthlyFeeRate | number:'1.2-2' }}/mo</td>
+                    </tr>
+                    @if (card.address) {
+                      <tr>
+                        <td class="info-label">Address (पता)</td>
+                        <td class="info-value" colspan="3">{{ card.address }}</td>
+                      </tr>
+                    }
                   </tbody>
-                  <tfoot>
-                    <tr class="tfoot-total-row">
-                      <td colspan="2" class="total-label">{{ getSessionTotalLabel(card) }}</td>
-                      <td class="total-val">₹{{ card.totalAnnualFee | number:'1.2-2' }}</td>
-                      <td class="total-val text-green">₹{{ card.totalPaid | number:'1.2-2' }}</td>
-                      <td class="total-val" [class.text-red]="card.totalBalanceDue > 0">
-                        ₹{{ card.totalBalanceDue | number:'1.2-2' }}
-                      </td>
-                      <td colspan="4" class="total-remarks">
-                        <span *ngIf="card.totalBalanceDue <= 0" class="clearance-badge">
-                          <mat-icon>check_circle</mat-icon> Clearance for Session {{ card.sessionName }}
-                        </span>
-                        <span *ngIf="card.totalBalanceDue > 0" class="pending-badge">
-                          <mat-icon>warning</mat-icon> Due ₹{{ card.totalBalanceDue | number:'1.2-2' }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tfoot>
                 </table>
-              </div>
-
-              <!-- SIGNATURE BLOCKS -->
-              <div class="signatures-container">
-                <div class="sig-block">
-                  <div class="sig-line"></div>
-                  <span class="sig-title">Parent Signature</span>
+                <!-- SUMMARY KPI STRIP -->
+                <div class="summary-kpi-strip">
+                  <div class="kpi-box">
+                    <span class="kpi-label">{{ getSessionTotalLabel(card) }}</span>
+                    <span class="kpi-value">₹{{ card.totalAnnualFee | number:'1.2-2' }}</span>
+                  </div>
+                  @if (card.totalOneTimeFee && card.totalOneTimeFee > 0) {
+                    <div class="kpi-box">
+                      <span class="kpi-label">One-Time / Reg. Fee</span>
+                      <span class="kpi-value onetime-kpi-val">₹{{ card.totalOneTimeFee | number:'1.2-2' }}</span>
+                    </div>
+                  }
+                  @if (card.totalConcession > 0) {
+                    <div class="kpi-box">
+                      <span class="kpi-label">Concession Granted</span>
+                      <span class="kpi-value concession-val">-₹{{ card.totalConcession | number:'1.2-2' }}</span>
+                    </div>
+                  }
+                  <div class="kpi-box">
+                    <span class="kpi-label">Total Paid Amount</span>
+                    <span class="kpi-value paid-val">₹{{ card.totalPaid | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="kpi-box" [class.due-highlight]="card.totalBalanceDue > 0" [class.clear-highlight]="card.totalBalanceDue <= 0">
+                    <span class="kpi-label">Net Balance Due</span>
+                    <span class="kpi-value">₹{{ card.totalBalanceDue | number:'1.2-2' }}</span>
+                  </div>
                 </div>
-                <div class="sig-block">
-                  <div class="sig-line"></div>
-                  <span class="sig-title">Cashier / Accountant</span>
+                <!-- 12-MONTH FEE PASSBOOK TABLE -->
+                <div class="passbook-table-container">
+                  <!-- Dynamic Institute Watermark Overlay -->
+                  <div class="passbook-watermark-overlay" aria-hidden="true">
+                    <img [src]="getInstituteLogo(card)" alt="" class="watermark-logo-img" (error)="onLogoError($event)" />
+                  </div>
+                  <table class="passbook-table">
+                    <thead>
+                      <tr>
+                        <th class="th-sn">#</th>
+                        <th class="th-month">Month (माह)</th>
+                        <th class="th-amount">Payable (₹)</th>
+                        <th class="th-amount">Paid (₹)</th>
+                        <th class="th-amount">Balance (₹)</th>
+                        <th class="th-status">Status</th>
+                        <th class="th-receipt">Receipt No & Date / Time (IST)</th>
+                        <th class="th-mode">Mode</th>
+                        <th class="th-sign">Cashier Stamp / Sign</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (m of card.months; track m) {
+                        <tr [class.row-paid]="m.status === 'Paid'" [class.row-due]="m.status === 'Due' || m.status === 'Overdue'" [class.row-na]="m.status === 'N/A'">
+                          <td class="td-sn">{{ m.monthIndex }}</td>
+                          <td class="td-month">
+                            <strong>{{ m.monthShort }}</strong>
+                            @if (m.billingCycleTag) {
+                              <div class="cycle-pill-tag" [matTooltip]="'Billed under ' + m.billingCycleTag + ' plan'">
+                                <mat-icon class="mini-tag-icon">autorenew</mat-icon>
+                                <span>{{ m.billingCycleTag }}</span>
+                              </div>
+                            }
+                            @if (m.oneTimeCharges && m.oneTimeCharges > 0) {
+                              <div class="onetime-tag" [matTooltip]="m.oneTimeChargesNote || 'Includes One-Time Charges'">
+                                <mat-icon class="mini-tag-icon">bookmark</mat-icon>
+                                <span>{{ getOneTimeTagLabel(m) }}</span>
+                              </div>
+                            }
+                          </td>
+                          <td class="td-amount">
+                            @if (m.status !== 'N/A') {
+                              @if (m.concessionAmount > 0) {
+                                <div class="concession-cell">
+                                  <span class="net-amt">₹{{ m.netPayable | number:'1.2-2' }}</span>
+                                  <small class="concession-tag">-₹{{ m.concessionAmount | number:'1.0-0' }} Disc</small>
+                                </div>
+                              }
+                              @if (!m.concessionAmount || m.concessionAmount <= 0) {
+                                <span>₹{{ m.amountPayable | number:'1.2-2' }}</span>
+                              }
+                              @if (m.oneTimeCharges && m.oneTimeCharges > 0) {
+                                <div class="breakdown-subtext" [matTooltip]="m.oneTimeChargesNote || 'Monthly + One-Time breakdown'">
+                                  <small class="sub-split">{{ getOneTimeSubtextLabel(m) }}</small>
+                                </div>
+                              }
+                            }
+                            @if (m.status === 'N/A') {
+                              <span class="text-muted">-</span>
+                            }
+                          </td>
+                          <td class="td-amount font-bold-amt" [class.text-green]="m.amountPaid > 0">
+                            {{ m.amountPaid > 0 ? ('₹' + (m.amountPaid | number:'1.2-2')) : '-' }}
+                          </td>
+                          <td class="td-amount" [class.text-red]="m.balanceDue > 0">
+                            @if (m.status !== 'N/A') {
+                              {{ m.balanceDue > 0 ? ('₹' + (m.balanceDue | number:'1.2-2')) : (m.status === 'Upcoming' ? '-' : '₹0.00') }}
+                            }
+                            @if (m.status === 'N/A') {
+                              <span class="text-muted">-</span>
+                            }
+                          </td>
+                          <td class="td-status">
+                            <span class="status-pill" [ngClass]="getStatusClass(m.status)">
+                              {{ formatStatus(m.status) }}
+                            </span>
+                            @if (m.remarks && m.remarks.includes('[BALANCE WAIVED & SETTLED]')) {
+                              <div class="month-waiver-tag" [matTooltip]="m.remarks">
+                                <mat-icon class="waiver-mini-icon">verified</mat-icon>
+                                <span>Balance Waived</span>
+                              </div>
+                            }
+                          </td>
+                          <td class="td-receipt">
+                            @if (m.receiptNumber) {
+                              <span class="rcpt-num">{{ m.receiptNumber }}</span>
+                              @if (m.paymentDate) {
+                                <small class="rcpt-date">
+                                  <span [appIstDatetime]="m.paymentDate" [format]="'datetime'"></span>
+                                </small>
+                              }
+                            }
+                            @if (!m.receiptNumber) {
+                              <span class="text-muted">-</span>
+                            }
+                          </td>
+                          <td class="td-mode">{{ formatPaymentMode(m.paymentMode) }}</td>
+                          <td class="td-sign">
+                            @if (m.status === 'Paid' || m.status === 'Settled') {
+                              <span class="verified-seal">
+                                <mat-icon class="verified-icon">verified</mat-icon> {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
+                              </span>
+                            }
+                            @if (m.status !== 'Paid' && m.status !== 'Settled') {
+                              <span class="sign-dash">__________</span>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                    <tfoot>
+                      <tr class="tfoot-total-row">
+                        <td colspan="2" class="total-label">{{ getSessionTotalLabel(card) }}</td>
+                        <td class="total-val">₹{{ card.totalAnnualFee | number:'1.2-2' }}</td>
+                        <td class="total-val text-green">₹{{ card.totalPaid | number:'1.2-2' }}</td>
+                        <td class="total-val" [class.text-red]="card.totalBalanceDue > 0">
+                          ₹{{ card.totalBalanceDue | number:'1.2-2' }}
+                        </td>
+                        <td colspan="4" class="total-remarks">
+                          @if (card.totalBalanceDue <= 0) {
+                            <span class="clearance-badge">
+                              <mat-icon>check_circle</mat-icon> Clearance for Session {{ card.sessionName }}
+                            </span>
+                          }
+                          @if (card.totalBalanceDue > 0) {
+                            <span class="pending-badge">
+                              <mat-icon>warning</mat-icon> Due ₹{{ card.totalBalanceDue | number:'1.2-2' }}
+                            </span>
+                          }
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
-                <div class="sig-block principal-block">
-                  <div class="seal-container" *ngIf="officialSealUrl">
-                    <img [src]="officialSealUrl" alt="Official Seal" class="card-official-seal-img" />
+                <!-- SIGNATURE BLOCKS -->
+                <div class="signatures-container">
+                  <div class="sig-block">
+                    <div class="sig-line"></div>
+                    <span class="sig-title">Parent Signature</span>
                   </div>
-                  <div class="seal-placeholder" *ngIf="!officialSealUrl">
-                    <span>SEAL</span>
+                  <div class="sig-block">
+                    <div class="sig-line"></div>
+                    <span class="sig-title">Cashier / Accountant</span>
                   </div>
-                  <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-                    <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+                  <div class="sig-block principal-block">
+                    @if (officialSealUrl) {
+                      <div class="seal-container">
+                        <img [src]="officialSealUrl" alt="Official Seal" class="card-official-seal-img" />
+                      </div>
+                    }
+                    @if (!officialSealUrl) {
+                      <div class="seal-placeholder">
+                        <span>SEAL</span>
+                      </div>
+                    }
+                    @if (digitalSignatureUrl) {
+                      <div class="digital-sign-wrapper">
+                        <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+                      </div>
+                    }
+                    <div class="sig-line"></div>
+                    <span class="sig-title">Principal / Director Stamp</span>
                   </div>
-                  <div class="sig-line"></div>
-                  <span class="sig-title">Principal / Director Stamp</span>
                 </div>
               </div>
             </div>
-          </div>
+          }
         </div>
       </div>
+    }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     /* Host & Global Layout */
     :host {

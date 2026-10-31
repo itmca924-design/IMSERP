@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -59,7 +59,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
         class="mode-pill"
         [class.active]="viewMode === 'single'"
         (click)="switchViewMode('single')"
-      >
+        >
         <mat-icon>person</mat-icon>
         <span>Individual Staff View</span>
       </button>
@@ -68,718 +68,814 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
         class="mode-pill"
         [class.active]="viewMode === 'bulk'"
         (click)="switchViewMode('bulk')"
-      >
+        >
         <mat-icon>groups</mat-icon>
         <span>Monthly Bulk Payroll Run</span>
-        <span class="badge-pill" *ngIf="bulkSummary && bulkSummary.pendingCount > 0">{{ bulkSummary.pendingCount }} Ready</span>
+        @if (bulkSummary && bulkSummary.pendingCount > 0) {
+          <span class="badge-pill">{{ bulkSummary.pendingCount }} Ready</span>
+        }
       </button>
     </div>
   </div>
 
   <!-- Loading Bar -->
-  <mat-progress-bar mode="indeterminate" *ngIf="loading || bulkLoading || bulkDisbursing"></mat-progress-bar>
+  @if (loading || bulkLoading || bulkDisbursing) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- ========================================================================= -->
   <!-- 1. INDIVIDUAL STAFF VIEW MODE -->
   <!-- ========================================================================= -->
-  <div *ngIf="viewMode === 'single'" class="single-view-container">
-    <app-teacher-selector [preSelectId]="preSelectId" [activeOnly]="true" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
-
-    <div *ngIf="!selectedTeacher" class="no-selection">
-      <mat-icon>person_search</mat-icon>
-      <p>Please select a faculty member above to view salary payments and history.</p>
-    </div>
-
-    <div *ngIf="selectedTeacher">
-      <!-- Exited Teacher Notice -->
-      <div class="exited-notice" *ngIf="!selectedTeacher.isActive">
-        <mat-icon>lock</mat-icon>
+  @if (viewMode === 'single') {
+    <div class="single-view-container">
+      <app-teacher-selector [preSelectId]="preSelectId" [activeOnly]="true" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
+      @if (!selectedTeacher) {
+        <div class="no-selection">
+          <mat-icon>person_search</mat-icon>
+          <p>Please select a faculty member above to view salary payments and history.</p>
+        </div>
+      }
+      @if (selectedTeacher) {
         <div>
-          <strong>Faculty Member Relieved / Inactive</strong>
-          <p>{{selectedTeacher.fullName}} ({{selectedTeacher.employeeCode}}) has been offboarded{{selectedTeacher.leavingDate ? ' on ' + (selectedTeacher.leavingDate | date:'dd MMM yyyy') : ''}}. Full &amp; Final Settlement has been processed. Regular monthly payments are locked.</p>
-        </div>
-      </div>
-
-      <div class="section-header">
-        <div class="section-hdr-left">
-          <h3>{{selectedTeacher.fullName}} — Payment History</h3>
-          <span class="staff-sub-badge" *ngIf="selectedTeacher.designation">{{selectedTeacher.designation}} &bull; {{selectedTeacher.department || 'Faculty'}}</span>
-          <span class="status-chip missing-header-chip" *ngIf="preview && !hasSalaryConfigured" (click)="goToSalaryStructure()" matTooltip="Click to configure salary structure">
-            <mat-icon>warning_amber</mat-icon> Salary Structure Not Configured
-          </span>
-        </div>
-        <button mat-raised-button color="primary" [disabled]="!selectedTeacher.isActive" (click)="toggleForm()" [matTooltip]="!selectedTeacher.isActive ? 'Exited teacher cannot receive regular salary payments' : ''">
-          <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
-          {{showForm ? 'Cancel' : 'Record Salary Payment'}}
-        </button>
-      </div>
-
-      <!-- Payment Form -->
-      <mat-card class="form-card mat-elevation-z1" *ngIf="showForm">
-
-        <!-- 1. When Salary Structure is Configured: Smart Payroll Auto-Calculation Banner (Only for completed past months) -->
-        <div class="payroll-preview-banner" *ngIf="hasSalaryConfigured && !isSelectedMonthOngoing && !isSelectedMonthFuture" [class.applied-banner]="calculationsApplied">
-          <div class="banner-top">
-            <div class="banner-title">
-              <mat-icon>calculate</mat-icon>
+          <!-- Exited Teacher Notice -->
+          @if (!selectedTeacher.isActive) {
+            <div class="exited-notice">
+              <mat-icon>lock</mat-icon>
               <div>
-                <strong>Automated Attendance &amp; Salary Calculation ({{months[preview!.month - 1]}} {{preview!.year}})</strong>
-                <p>Per-day rate: ₹{{preview!.perDayRate | number}} ({{preview!.totalWorkingDays}} working days in month)</p>
+                <strong>Faculty Member Relieved / Inactive</strong>
+                <p>{{selectedTeacher.fullName}} ({{selectedTeacher.employeeCode}}) has been offboarded{{selectedTeacher.leavingDate ? ' on ' + (selectedTeacher.leavingDate | date:'dd MMM yyyy') : ''}}. Full &amp; Final Settlement has been processed. Regular monthly payments are locked.</p>
               </div>
             </div>
-            <button mat-flat-button type="button" class="autofill-btn" [class.applied]="calculationsApplied" (click)="applyPreviewToForm()">
-              <mat-icon>{{calculationsApplied ? 'check_circle' : 'auto_fix_high'}}</mat-icon>
-              {{calculationsApplied ? 'Calculations Verified &amp; Applied ✓' : 'Auto-Fill Calculated Deductions'}}
+          }
+          <div class="section-header">
+            <div class="section-hdr-left">
+              <h3>{{selectedTeacher.fullName}} — Payment History</h3>
+              @if (selectedTeacher.designation) {
+                <span class="staff-sub-badge">{{selectedTeacher.designation}} &bull; {{selectedTeacher.department || 'Faculty'}}</span>
+              }
+              @if (preview && !hasSalaryConfigured) {
+                <span class="status-chip missing-header-chip" (click)="goToSalaryStructure()" matTooltip="Click to configure salary structure">
+                  <mat-icon>warning_amber</mat-icon> Salary Structure Not Configured
+                </span>
+              }
+            </div>
+            <button mat-raised-button color="primary" [disabled]="!selectedTeacher.isActive" (click)="toggleForm()" [matTooltip]="!selectedTeacher.isActive ? 'Exited teacher cannot receive regular salary payments' : ''">
+              <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
+              {{showForm ? 'Cancel' : 'Record Salary Payment'}}
             </button>
           </div>
-
-          <!-- Stats Grid -->
-          <div class="banner-grid">
-            <div class="stat-box">
-              <span class="lbl">Gross Salary</span>
-              <span class="num">₹{{preview!.grossSalary | number}}</span>
-              <small>Base monthly gross</small>
-            </div>
-            <div class="stat-box">
-              <span class="lbl">Present &amp; Half Days</span>
-              <span class="num">{{preview!.presentDays}}P / {{preview!.halfDays}}HD</span>
-              <small [class.red]="preview!.halfDayDeduction > 0">
-                {{preview!.halfDayDeduction > 0 ? '-₹' + (preview!.halfDayDeduction | number) + ' (Half Day cut)' : '0 Half Day cut'}}
-              </small>
-            </div>
-            <div class="stat-box" [class.highlight-warn]="preview!.latePenaltyDays > 0">
-              <span class="lbl">Late Marks</span>
-              <span class="num">{{preview!.lateDays}} Lates ({{preview!.allowedLateDays}} Free)</span>
-              <small [class.red]="preview!.latePenaltyDays > 0" [class.green]="preview!.latePenaltyDays === 0">
-                {{preview!.latePenaltyDays > 0 ? '-₹' + (preview!.latePenaltyDeduction | number) + ' (' + preview!.excessLateDays + ' excess: ' + preview!.latePenaltyDays + 'd cut)' : 'Within Grace Quota (₹0 Cut)'}}
-              </small>
-            </div>
-            <div class="stat-box">
-              <span class="lbl">Absent Days</span>
-              <span class="num">{{preview!.absentDays}} Absent</span>
-              <small [class.red]="preview!.absentDeduction > 0">
-                {{preview!.absentDeduction > 0 ? '-₹' + (preview!.absentDeduction | number) + ' (Loss of Pay)' : '0 Absents'}}
-              </small>
-            </div>
-
-            <!-- Sanctioned Leaves Breakdown Card -->
-            <div class="stat-box" *ngIf="(preview!.unpaidLeaveDays || 0) > 0 || (preview!.paidLeaveDays || 0) > 0" style="border-color:#f59e0b;background:#fffbeb;">
-              <span class="lbl" style="color:#b45309;">Sanctioned Leaves</span>
-              <span class="num" style="color:#d97706;">{{ (preview!.unpaidLeaveDays || 0) + (preview!.paidLeaveDays || 0) }} Days</span>
-              <small style="color:#92400e;">
-                <span *ngIf="(preview!.unpaidLeaveDays || 0) > 0" style="color:#dc2626;font-weight:600;">{{preview!.unpaidLeaveDays}}d Unpaid (LOP)</span>
-                <span *ngIf="(preview!.unpaidLeaveDays || 0) > 0 && (preview!.paidLeaveDays || 0) > 0"> &bull; </span>
-                <span *ngIf="(preview!.paidLeaveDays || 0) > 0" style="color:#16a34a;font-weight:600;">{{preview!.paidLeaveDays}}d Paid</span>
-              </small>
-            </div>
-
-            <!-- Hostel Rent Deduction Card -->
-            <div class="stat-box" *ngIf="preview!.hostelRentDeduction > 0" style="border-color:#f97316;background:#fff7ed;">
-              <span class="lbl" style="color:#9a3412;">Hostel / Mess Rent</span>
-              <span class="num" style="color:#c2410c;">-₹{{preview!.hostelRentDeduction | number}}</span>
-              <small style="color:#ea580c;">{{preview!.hostelRentInfo || 'Monthly rent deduction'}}</small>
-            </div>
-
-            <!-- Transport Fare Deduction Card -->
-            <div class="stat-box" *ngIf="preview!.transportFareDeduction > 0" style="border-color:#8b5cf6;background:#faf5ff;">
-              <span class="lbl" style="color:#5b21b6;">Transport Fare</span>
-              <span class="num" style="color:#7c3aed;">-₹{{preview!.transportFareDeduction | number}}</span>
-              <small style="color:#8b5cf6;">{{preview!.transportFareInfo || 'Monthly transport fare'}}</small>
-            </div>
-
-            <!-- Advance Adjustment Card -->
-            <div class="stat-box advance-box" *ngIf="preview!.pendingAdvance > 0" [class.highlight-advance]="preview!.pendingAdvance > 0">
-              <span class="lbl advance-lbl">
-                <mat-icon class="adv-icon">account_balance_wallet</mat-icon>
-                Advance to Adjust
-              </span>
-              <span class="num advance-num">-₹{{preview!.pendingAdvance | number}}</span>
-              <small class="red">{{pendingAdvances.length}} advance(s) pending — will be deducted</small>
-            </div>
-            <!-- No Pending Advance -->
-            <div class="stat-box" *ngIf="preview!.pendingAdvance === 0">
-              <span class="lbl">Advance Adjusted</span>
-              <span class="num" style="color:#15803d">₹0</span>
-              <small class="green">No pending advance</small>
-            </div>
-
-            <!-- Arrears Card (when arrearsAmount > 0) -->
-            <div class="stat-box" *ngIf="(preview!.arrearsAmount || 0) > 0" style="border-color:#10b981;background:#ecfdf5;">
-              <span class="lbl" style="color:#047857;">Joining Arrears (पिछला बकाया)</span>
-              <span class="num" style="color:#059669;">+₹{{preview!.arrearsAmount | number}}</span>
-              <small style="color:#065f46;">{{preview!.arrearsRemarks || 'Previous month joining arrears'}}</small>
-            </div>
-
-            <div class="stat-box net-box">
-              <span class="lbl">Net Suggested Pay</span>
-              <span class="num net">₹{{preview!.recommendedNetPaid | number}}</span>
-              <small *ngIf="(preview!.arrearsAmount || 0) > 0">Gross ₹{{preview!.grossSalary | number}} + Arrears ₹{{preview!.arrearsAmount | number}} &bull; Ded: -₹{{preview!.totalAttendanceDeduction + preview!.pfDeduction + preview!.tdsDeduction + preview!.otherDeductions + preview!.pendingAdvance + (preview!.hostelRentDeduction || 0) + (preview!.transportFareDeduction || 0) | number}}</small>
-              <small *ngIf="!preview!.arrearsAmount || preview!.arrearsAmount === 0">Deductions: -₹{{preview!.totalAttendanceDeduction + preview!.pfDeduction + preview!.tdsDeduction + preview!.otherDeductions + preview!.pendingAdvance + (preview!.hostelRentDeduction || 0) + (preview!.transportFareDeduction || 0) | number}}</small>
-            </div>
-          </div>
-
-          <!-- Advance Detail Breakdown -->
-          <div class="advance-detail-strip" *ngIf="preview!.pendingAdvance > 0 && pendingAdvances.length > 0">
-            <mat-icon>info</mat-icon>
-            <span>
-              <strong>Advance Breakdown:</strong>
-              <span *ngFor="let a of pendingAdvances; let last = last">
-                ₹{{a.amount | number}} ({{a.requestDate | date:'dd MMM yyyy'}} — {{a.reason || 'No reason'}}){{!last ? ', ' : ''}}
-              </span>
-              → Total: <strong>₹{{preview!.pendingAdvance | number}}</strong> will be auto-adjusted from salary.
-            </span>
-          </div>
-        </div>
-
-        <!-- Ongoing Month Warning Banner -->
-        <div class="month-status-banner ongoing-banner mat-elevation-z1" *ngIf="isSelectedMonthOngoing">
-          <div class="status-banner-icon"><mat-icon>schedule</mat-icon></div>
-          <div class="status-banner-content">
-            <h4>{{ ongoingMonthInfo?.monthName }} {{ ongoingMonthInfo?.year }} is In Progress (माह अभी जारी है)</h4>
-            <p>
-              Today is <strong>Day {{ ongoingMonthInfo?.currentDay }} of {{ ongoingMonthInfo?.totalDays }}</strong>. Monthly attendance register is incomplete.
-              Per standard institutional payroll rules, regular monthly salary can only be processed on or after the last day of the month (<strong>{{ ongoingMonthInfo?.totalDays }} {{ ongoingMonthInfo?.monthName }} {{ ongoingMonthInfo?.year }}</strong>).
-            </p>
-          </div>
-        </div>
-
-        <!-- Future Month Warning Banner -->
-        <div class="month-status-banner future-banner mat-elevation-z1" *ngIf="isSelectedMonthFuture">
-          <div class="status-banner-icon"><mat-icon>event_busy</mat-icon></div>
-          <div class="status-banner-content">
-            <h4>Future Month Selected (भविष्य का महीना)</h4>
-            <p>Salary payment cannot be processed for a future month. Please select a past completed month.</p>
-          </div>
-        </div>
-
-        <!-- 2. When Salary Structure is NOT Configured: Prominent Warning Banner -->
-        <div class="missing-salary-card mat-elevation-z1" *ngIf="!hasSalaryConfigured && !previewLoading && !isSelectedMonthOngoing && !isSelectedMonthFuture">
-          <div class="missing-salary-icon-wrap">
-            <mat-icon>warning_amber</mat-icon>
-          </div>
-          <div class="missing-salary-content">
-            <h4>Salary Structure Not Configured (वेतन संरचना कॉन्फ़िगर नहीं है)</h4>
-            <p>
-              Salary structure (Basic Salary, HRA, Allowances) has not been configured for
-              <strong>{{ selectedTeacher.fullName }}</strong> ({{ selectedTeacher.employeeCode }}).
-              Gross salary is <strong>₹0</strong>. Monthly salary payments cannot be recorded until a valid salary structure is configured.
-            </p>
-          </div>
-          <button mat-raised-button color="primary" type="button" class="config-now-btn" (click)="goToSalaryStructure()">
-            <mat-icon>tune</mat-icon>
-            <span>Configure Salary Structure</span>
-          </button>
-        </div>
-
-        <form [formGroup]="paymentForm" (ngSubmit)="recordPayment()">
-          <div class="form-grid">
-            <!-- Row 1: Period & Earnings (4 columns) -->
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Month *</mat-label>
-              <mat-select formControlName="paymentMonth">
-                <mat-option *ngFor="let m of months; let i=index" [value]="i+1">{{m}}</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Year *</mat-label>
-              <input matInput type="number" formControlName="paymentYear" min="2020" max="2099">
-              <mat-error *ngIf="paymentForm.get('paymentYear')?.hasError('required')">Year required</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Gross Amount ₹ *</mat-label>
-              <input matInput type="number" formControlName="grossAmount" min="0">
-              <mat-error *ngIf="paymentForm.get('grossAmount')?.hasError('required')">Gross amount required</mat-error>
-              <mat-error *ngIf="paymentForm.get('grossAmount')?.hasError('min')">Must be ≥ 0</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Arrears ₹ (पिछला बकाया)</mat-label>
-              <input matInput type="number" formControlName="arrearsAmount" min="0">
-              <mat-hint *ngIf="preview?.arrearsRemarks" class="hint-arrears" align="start" [matTooltip]="preview?.arrearsRemarks || ''">
-                ⚡ {{preview?.arrearsRemarks}}
-              </mat-hint>
-            </mat-form-field>
-
-            <!-- Row 2: Deductions, Advance, Net & Mode (4 columns) -->
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Deductions ₹</mat-label>
-              <input matInput type="number" formControlName="deductions" min="0">
-              <mat-error *ngIf="paymentForm.get('deductions')?.hasError('min')">Must be ≥ 0</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Advance Adjusted ₹</mat-label>
-              <input matInput type="number" formControlName="advanceAdjusted" min="0">
-              <mat-hint *ngIf="preview && preview.pendingAdvance > 0" class="hint-advance" align="start">
-                ⚡ Auto-filled: ₹{{preview.pendingAdvance | number}}
-              </mat-hint>
-              <mat-error *ngIf="paymentForm.get('advanceAdjusted')?.hasError('min')">Must be ≥ 0</mat-error>
-              <mat-error *ngIf="paymentForm.get('advanceAdjusted')?.hasError('advanceExceedsGross')">Advance cannot exceed total earnings</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Net Paid ₹ *</mat-label>
-              <input matInput type="number" formControlName="netPaid" min="0">
-              <mat-hint class="single-line-hint" title="Gross + Arrears − Deductions − Advance">Gross + Arr. − Ded. − Adv.</mat-hint>
-              <mat-error *ngIf="paymentForm.get('netPaid')?.hasError('required')">Net paid required</mat-error>
-              <mat-error *ngIf="paymentForm.get('netPaid')?.hasError('min')">Must be ≥ 0</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Payment Mode</mat-label>
-              <mat-select formControlName="paymentMode">
-                <mat-option value="Cash">Cash</mat-option>
-                <mat-option value="BankTransfer">Bank Transfer</mat-option>
-                <mat-option value="UPI">UPI</mat-option>
-                <mat-option value="Cheque">Cheque</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <!-- Row 3: Present Days, Absent Days, Payment Date, Transaction Ref (4 columns) -->
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Present Days</mat-label>
-              <input matInput type="number" formControlName="presentDays" min="0">
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Absent Days</mat-label>
-              <input matInput type="number" formControlName="absentDays" min="0">
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Payment Date *</mat-label>
-              <input matInput type="date" formControlName="paymentDate">
-              <mat-error *ngIf="paymentForm.get('paymentDate')?.hasError('required')">Date required</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Transaction Ref</mat-label>
-              <input matInput formControlName="transactionRef" placeholder="UTR / Cheque No.">
-            </mat-form-field>
-
-            <!-- Row 4: Remarks (spans all 4 columns) -->
-            <mat-form-field appearance="outline" class="remarks-col-4" subscriptSizing="dynamic">
-              <mat-label>Remarks</mat-label>
-              <input matInput formControlName="remarks" placeholder="Optional notes, deductions explanation, or attendance calculation remarks...">
-              <mat-icon matSuffix color="primary">notes</mat-icon>
-            </mat-form-field>
-          </div>
-          <div class="form-actions">
-            <!-- Ongoing Month Lock Hint -->
-            <div class="mandatory-hint warn-hint" *ngIf="isSelectedMonthOngoing">
-              <mat-icon>lock_clock</mat-icon>
-              <span>"Record Payment" is locked — {{ ongoingMonthInfo?.monthName }} is in progress (Day {{ ongoingMonthInfo?.currentDay }}/{{ ongoingMonthInfo?.totalDays }}). Allowed on or after {{ ongoingMonthInfo?.totalDays }} {{ ongoingMonthInfo?.monthName }}.</span>
-            </div>
-
-            <!-- Future Month Lock Hint -->
-            <div class="mandatory-hint warn-hint" *ngIf="isSelectedMonthFuture">
-              <mat-icon>block</mat-icon>
-              <span>"Record Payment" is locked — Cannot process future month.</span>
-            </div>
-
-            <!-- 1. If Salary Structure is NOT configured -->
-            <div class="mandatory-hint warn-hint" *ngIf="!hasSalaryConfigured && !isSelectedMonthOngoing && !isSelectedMonthFuture">
-              <mat-icon>warning_amber</mat-icon>
-              <span>"Record Payment" is locked — Salary structure is not configured (Gross amount is ₹0). Please configure Salary Structure first.</span>
-            </div>
-
-            <!-- 2. If Salary Structure IS configured, but auto-fill not clicked -->
-            <div class="mandatory-hint" *ngIf="hasSalaryConfigured && !calculationsApplied && !isSelectedMonthOngoing && !isSelectedMonthFuture">
-              <mat-icon>lock</mat-icon>
-              <span>"Record Payment" is disabled — Please click <strong>"Auto-Fill Calculated Deductions"</strong> above first.</span>
-            </div>
-
-            <!-- 3. If Salary Structure IS configured, and auto-fill clicked -->
-            <div class="mandatory-hint success-hint" *ngIf="hasSalaryConfigured && calculationsApplied && !isSelectedMonthOngoing && !isSelectedMonthFuture">
-              <mat-icon>check_circle</mat-icon>
-              <span>Calculations verified! You can now record the payment.</span>
-            </div>
-
-            <button mat-button type="button" (click)="toggleForm()">Cancel</button>
-
-            <!-- Configure Structure Shortcut Button when unconfigured -->
-            <button mat-stroked-button color="warn" type="button" *ngIf="!hasSalaryConfigured" (click)="goToSalaryStructure()">
-              <mat-icon>tune</mat-icon>
-              <span>Configure Structure</span>
-            </button>
-
-            <button mat-raised-button color="primary" type="submit"
+          <!-- Payment Form -->
+          @if (showForm) {
+            <mat-card class="form-card mat-elevation-z1">
+              <!-- 1. When Salary Structure is Configured: Smart Payroll Auto-Calculation Banner (Only for completed past months) -->
+              @if (hasSalaryConfigured && !isSelectedMonthOngoing && !isSelectedMonthFuture) {
+                <div class="payroll-preview-banner" [class.applied-banner]="calculationsApplied">
+                  <div class="banner-top">
+                    <div class="banner-title">
+                      <mat-icon>calculate</mat-icon>
+                      <div>
+                        <strong>Automated Attendance &amp; Salary Calculation ({{months[preview!.month - 1]}} {{preview!.year}})</strong>
+                        <p>Per-day rate: ₹{{preview!.perDayRate | number}} ({{preview!.totalWorkingDays}} working days in month)</p>
+                      </div>
+                    </div>
+                    <button mat-flat-button type="button" class="autofill-btn" [class.applied]="calculationsApplied" (click)="applyPreviewToForm()">
+                      <mat-icon>{{calculationsApplied ? 'check_circle' : 'auto_fix_high'}}</mat-icon>
+                      {{calculationsApplied ? 'Calculations Verified &amp; Applied ✓' : 'Auto-Fill Calculated Deductions'}}
+                    </button>
+                  </div>
+                  <!-- Stats Grid -->
+                  <div class="banner-grid">
+                    <div class="stat-box">
+                      <span class="lbl">Gross Salary</span>
+                      <span class="num">₹{{preview!.grossSalary | number}}</span>
+                      <small>Base monthly gross</small>
+                    </div>
+                    <div class="stat-box">
+                      <span class="lbl">Present &amp; Half Days</span>
+                      <span class="num">{{preview!.presentDays}}P / {{preview!.halfDays}}HD</span>
+                      <small [class.red]="preview!.halfDayDeduction > 0">
+                        {{preview!.halfDayDeduction > 0 ? '-₹' + (preview!.halfDayDeduction | number) + ' (Half Day cut)' : '0 Half Day cut'}}
+                      </small>
+                    </div>
+                    <div class="stat-box" [class.highlight-warn]="preview!.latePenaltyDays > 0">
+                      <span class="lbl">Late Marks</span>
+                      <span class="num">{{preview!.lateDays}} Lates ({{preview!.allowedLateDays}} Free)</span>
+                      <small [class.red]="preview!.latePenaltyDays > 0" [class.green]="preview!.latePenaltyDays === 0">
+                        {{preview!.latePenaltyDays > 0 ? '-₹' + (preview!.latePenaltyDeduction | number) + ' (' + preview!.excessLateDays + ' excess: ' + preview!.latePenaltyDays + 'd cut)' : 'Within Grace Quota (₹0 Cut)'}}
+                      </small>
+                    </div>
+                    <div class="stat-box">
+                      <span class="lbl">Absent Days</span>
+                      <span class="num">{{preview!.absentDays}} Absent</span>
+                      <small [class.red]="preview!.absentDeduction > 0">
+                        {{preview!.absentDeduction > 0 ? '-₹' + (preview!.absentDeduction | number) + ' (Loss of Pay)' : '0 Absents'}}
+                      </small>
+                    </div>
+                    <!-- Sanctioned Leaves Breakdown Card -->
+                    @if ((preview!.unpaidLeaveDays || 0) > 0 || (preview!.paidLeaveDays || 0) > 0) {
+                      <div class="stat-box" style="border-color:#f59e0b;background:#fffbeb;">
+                        <span class="lbl" style="color:#b45309;">Sanctioned Leaves</span>
+                        <span class="num" style="color:#d97706;">{{ (preview!.unpaidLeaveDays || 0) + (preview!.paidLeaveDays || 0) }} Days</span>
+                        <small style="color:#92400e;">
+                          @if ((preview!.unpaidLeaveDays || 0) > 0) {
+                            <span style="color:#dc2626;font-weight:600;">{{preview!.unpaidLeaveDays}}d Unpaid (LOP)</span>
+                          }
+                          @if ((preview!.unpaidLeaveDays || 0) > 0 && (preview!.paidLeaveDays || 0) > 0) {
+                            <span> &bull; </span>
+                          }
+                          @if ((preview!.paidLeaveDays || 0) > 0) {
+                            <span style="color:#16a34a;font-weight:600;">{{preview!.paidLeaveDays}}d Paid</span>
+                          }
+                        </small>
+                      </div>
+                    }
+                    <!-- Hostel Rent Deduction Card -->
+                    @if (preview!.hostelRentDeduction > 0) {
+                      <div class="stat-box" style="border-color:#f97316;background:#fff7ed;">
+                        <span class="lbl" style="color:#9a3412;">Hostel / Mess Rent</span>
+                        <span class="num" style="color:#c2410c;">-₹{{preview!.hostelRentDeduction | number}}</span>
+                        <small style="color:#ea580c;">{{preview!.hostelRentInfo || 'Monthly rent deduction'}}</small>
+                      </div>
+                    }
+                    <!-- Transport Fare Deduction Card -->
+                    @if (preview!.transportFareDeduction > 0) {
+                      <div class="stat-box" style="border-color:#8b5cf6;background:#faf5ff;">
+                        <span class="lbl" style="color:#5b21b6;">Transport Fare</span>
+                        <span class="num" style="color:#7c3aed;">-₹{{preview!.transportFareDeduction | number}}</span>
+                        <small style="color:#8b5cf6;">{{preview!.transportFareInfo || 'Monthly transport fare'}}</small>
+                      </div>
+                    }
+                    <!-- Advance Adjustment Card -->
+                    @if (preview!.pendingAdvance > 0) {
+                      <div class="stat-box advance-box" [class.highlight-advance]="preview!.pendingAdvance > 0">
+                        <span class="lbl advance-lbl">
+                          <mat-icon class="adv-icon">account_balance_wallet</mat-icon>
+                          Advance to Adjust
+                        </span>
+                        <span class="num advance-num">-₹{{preview!.pendingAdvance | number}}</span>
+                        <small class="red">{{pendingAdvances.length}} advance(s) pending — will be deducted</small>
+                      </div>
+                    }
+                    <!-- No Pending Advance -->
+                    @if (preview!.pendingAdvance === 0) {
+                      <div class="stat-box">
+                        <span class="lbl">Advance Adjusted</span>
+                        <span class="num" style="color:#15803d">₹0</span>
+                        <small class="green">No pending advance</small>
+                      </div>
+                    }
+                    <!-- Arrears Card (when arrearsAmount > 0) -->
+                    @if ((preview!.arrearsAmount || 0) > 0) {
+                      <div class="stat-box" style="border-color:#10b981;background:#ecfdf5;">
+                        <span class="lbl" style="color:#047857;">Joining Arrears (पिछला बकाया)</span>
+                        <span class="num" style="color:#059669;">+₹{{preview!.arrearsAmount | number}}</span>
+                        <small style="color:#065f46;">{{preview!.arrearsRemarks || 'Previous month joining arrears'}}</small>
+                      </div>
+                    }
+                    <div class="stat-box net-box">
+                      <span class="lbl">Net Suggested Pay</span>
+                      <span class="num net">₹{{preview!.recommendedNetPaid | number}}</span>
+                      @if ((preview!.arrearsAmount || 0) > 0) {
+                        <small>Gross ₹{{preview!.grossSalary | number}} + Arrears ₹{{preview!.arrearsAmount | number}} &bull; Ded: -₹{{preview!.totalAttendanceDeduction + preview!.pfDeduction + preview!.tdsDeduction + preview!.otherDeductions + preview!.pendingAdvance + (preview!.hostelRentDeduction || 0) + (preview!.transportFareDeduction || 0) | number}}</small>
+                      }
+                      @if (!preview!.arrearsAmount || preview!.arrearsAmount === 0) {
+                        <small>Deductions: -₹{{preview!.totalAttendanceDeduction + preview!.pfDeduction + preview!.tdsDeduction + preview!.otherDeductions + preview!.pendingAdvance + (preview!.hostelRentDeduction || 0) + (preview!.transportFareDeduction || 0) | number}}</small>
+                      }
+                    </div>
+                  </div>
+                  <!-- Advance Detail Breakdown -->
+                  @if (preview!.pendingAdvance > 0 && pendingAdvances.length > 0) {
+                    <div class="advance-detail-strip">
+                      <mat-icon>info</mat-icon>
+                      <span>
+                        <strong>Advance Breakdown:</strong>
+                        @for (a of pendingAdvances; track a; let last = $last) {
+                          <span>
+                            ₹{{a.amount | number}} ({{a.requestDate | date:'dd MMM yyyy'}} — {{a.reason || 'No reason'}}){{!last ? ', ' : ''}}
+                          </span>
+                        }
+                        → Total: <strong>₹{{preview!.pendingAdvance | number}}</strong> will be auto-adjusted from salary.
+                      </span>
+                    </div>
+                  }
+                </div>
+              }
+              <!-- Ongoing Month Warning Banner -->
+              @if (isSelectedMonthOngoing) {
+                <div class="month-status-banner ongoing-banner mat-elevation-z1">
+                  <div class="status-banner-icon"><mat-icon>schedule</mat-icon></div>
+                  <div class="status-banner-content">
+                    <h4>{{ ongoingMonthInfo?.monthName }} {{ ongoingMonthInfo?.year }} is In Progress (माह अभी जारी है)</h4>
+                    <p>
+                      Today is <strong>Day {{ ongoingMonthInfo?.currentDay }} of {{ ongoingMonthInfo?.totalDays }}</strong>. Monthly attendance register is incomplete.
+                      Per standard institutional payroll rules, regular monthly salary can only be processed on or after the last day of the month (<strong>{{ ongoingMonthInfo?.totalDays }} {{ ongoingMonthInfo?.monthName }} {{ ongoingMonthInfo?.year }}</strong>).
+                    </p>
+                  </div>
+                </div>
+              }
+              <!-- Future Month Warning Banner -->
+              @if (isSelectedMonthFuture) {
+                <div class="month-status-banner future-banner mat-elevation-z1">
+                  <div class="status-banner-icon"><mat-icon>event_busy</mat-icon></div>
+                  <div class="status-banner-content">
+                    <h4>Future Month Selected (भविष्य का महीना)</h4>
+                    <p>Salary payment cannot be processed for a future month. Please select a past completed month.</p>
+                  </div>
+                </div>
+              }
+              <!-- 2. When Salary Structure is NOT Configured: Prominent Warning Banner -->
+              @if (!hasSalaryConfigured && !previewLoading && !isSelectedMonthOngoing && !isSelectedMonthFuture) {
+                <div class="missing-salary-card mat-elevation-z1">
+                  <div class="missing-salary-icon-wrap">
+                    <mat-icon>warning_amber</mat-icon>
+                  </div>
+                  <div class="missing-salary-content">
+                    <h4>Salary Structure Not Configured (वेतन संरचना कॉन्फ़िगर नहीं है)</h4>
+                    <p>
+                      Salary structure (Basic Salary, HRA, Allowances) has not been configured for
+                      <strong>{{ selectedTeacher.fullName }}</strong> ({{ selectedTeacher.employeeCode }}).
+                      Gross salary is <strong>₹0</strong>. Monthly salary payments cannot be recorded until a valid salary structure is configured.
+                    </p>
+                  </div>
+                  <button mat-raised-button color="primary" type="button" class="config-now-btn" (click)="goToSalaryStructure()">
+                    <mat-icon>tune</mat-icon>
+                    <span>Configure Salary Structure</span>
+                  </button>
+                </div>
+              }
+              <form [formGroup]="paymentForm" (ngSubmit)="recordPayment()">
+                <div class="form-grid">
+                  <!-- Row 1: Period & Earnings (4 columns) -->
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Month *</mat-label>
+                    <mat-select formControlName="paymentMonth">
+                      @for (m of months; track m; let i = $index) {
+                        <mat-option [value]="i+1">{{m}}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Year *</mat-label>
+                    <input matInput type="number" formControlName="paymentYear" min="2020" max="2099">
+                    @if (paymentForm.get('paymentYear')?.hasError('required')) {
+                      <mat-error>Year required</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Gross Amount ₹ *</mat-label>
+                    <input matInput type="number" formControlName="grossAmount" min="0">
+                    @if (paymentForm.get('grossAmount')?.hasError('required')) {
+                      <mat-error>Gross amount required</mat-error>
+                    }
+                    @if (paymentForm.get('grossAmount')?.hasError('min')) {
+                      <mat-error>Must be ≥ 0</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Arrears ₹ (पिछला बकाया)</mat-label>
+                    <input matInput type="number" formControlName="arrearsAmount" min="0">
+                    @if (preview?.arrearsRemarks) {
+                      <mat-hint class="hint-arrears" align="start" [matTooltip]="preview?.arrearsRemarks || ''">
+                        ⚡ {{preview?.arrearsRemarks}}
+                      </mat-hint>
+                    }
+                  </mat-form-field>
+                  <!-- Row 2: Deductions, Advance, Net & Mode (4 columns) -->
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Deductions ₹</mat-label>
+                    <input matInput type="number" formControlName="deductions" min="0">
+                    @if (paymentForm.get('deductions')?.hasError('min')) {
+                      <mat-error>Must be ≥ 0</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Advance Adjusted ₹</mat-label>
+                    <input matInput type="number" formControlName="advanceAdjusted" min="0">
+                    @if (preview && preview.pendingAdvance > 0) {
+                      <mat-hint class="hint-advance" align="start">
+                        ⚡ Auto-filled: ₹{{preview.pendingAdvance | number}}
+                      </mat-hint>
+                    }
+                    @if (paymentForm.get('advanceAdjusted')?.hasError('min')) {
+                      <mat-error>Must be ≥ 0</mat-error>
+                    }
+                    @if (paymentForm.get('advanceAdjusted')?.hasError('advanceExceedsGross')) {
+                      <mat-error>Advance cannot exceed total earnings</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Net Paid ₹ *</mat-label>
+                    <input matInput type="number" formControlName="netPaid" min="0">
+                    <mat-hint class="single-line-hint" title="Gross + Arrears − Deductions − Advance">Gross + Arr. − Ded. − Adv.</mat-hint>
+                    @if (paymentForm.get('netPaid')?.hasError('required')) {
+                      <mat-error>Net paid required</mat-error>
+                    }
+                    @if (paymentForm.get('netPaid')?.hasError('min')) {
+                      <mat-error>Must be ≥ 0</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Payment Mode</mat-label>
+                    <mat-select formControlName="paymentMode">
+                      <mat-option value="Cash">Cash</mat-option>
+                      <mat-option value="BankTransfer">Bank Transfer</mat-option>
+                      <mat-option value="UPI">UPI</mat-option>
+                      <mat-option value="Cheque">Cheque</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <!-- Row 3: Present Days, Absent Days, Payment Date, Transaction Ref (4 columns) -->
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Present Days</mat-label>
+                    <input matInput type="number" formControlName="presentDays" min="0">
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Absent Days</mat-label>
+                    <input matInput type="number" formControlName="absentDays" min="0">
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Payment Date *</mat-label>
+                    <input matInput type="date" formControlName="paymentDate">
+                    @if (paymentForm.get('paymentDate')?.hasError('required')) {
+                      <mat-error>Date required</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Transaction Ref</mat-label>
+                    <input matInput formControlName="transactionRef" placeholder="UTR / Cheque No.">
+                  </mat-form-field>
+                  <!-- Row 4: Remarks (spans all 4 columns) -->
+                  <mat-form-field appearance="outline" class="remarks-col-4" subscriptSizing="dynamic">
+                    <mat-label>Remarks</mat-label>
+                    <input matInput formControlName="remarks" placeholder="Optional notes, deductions explanation, or attendance calculation remarks...">
+                    <mat-icon matSuffix color="primary">notes</mat-icon>
+                  </mat-form-field>
+                </div>
+                <div class="form-actions">
+                  <!-- Ongoing Month Lock Hint -->
+                  @if (isSelectedMonthOngoing) {
+                    <div class="mandatory-hint warn-hint">
+                      <mat-icon>lock_clock</mat-icon>
+                      <span>"Record Payment" is locked — {{ ongoingMonthInfo?.monthName }} is in progress (Day {{ ongoingMonthInfo?.currentDay }}/{{ ongoingMonthInfo?.totalDays }}). Allowed on or after {{ ongoingMonthInfo?.totalDays }} {{ ongoingMonthInfo?.monthName }}.</span>
+                    </div>
+                  }
+                  <!-- Future Month Lock Hint -->
+                  @if (isSelectedMonthFuture) {
+                    <div class="mandatory-hint warn-hint">
+                      <mat-icon>block</mat-icon>
+                      <span>"Record Payment" is locked — Cannot process future month.</span>
+                    </div>
+                  }
+                  <!-- 1. If Salary Structure is NOT configured -->
+                  @if (!hasSalaryConfigured && !isSelectedMonthOngoing && !isSelectedMonthFuture) {
+                    <div class="mandatory-hint warn-hint">
+                      <mat-icon>warning_amber</mat-icon>
+                      <span>"Record Payment" is locked — Salary structure is not configured (Gross amount is ₹0). Please configure Salary Structure first.</span>
+                    </div>
+                  }
+                  <!-- 2. If Salary Structure IS configured, but auto-fill not clicked -->
+                  @if (hasSalaryConfigured && !calculationsApplied && !isSelectedMonthOngoing && !isSelectedMonthFuture) {
+                    <div class="mandatory-hint">
+                      <mat-icon>lock</mat-icon>
+                      <span>"Record Payment" is disabled — Please click <strong>"Auto-Fill Calculated Deductions"</strong> above first.</span>
+                    </div>
+                  }
+                  <!-- 3. If Salary Structure IS configured, and auto-fill clicked -->
+                  @if (hasSalaryConfigured && calculationsApplied && !isSelectedMonthOngoing && !isSelectedMonthFuture) {
+                    <div class="mandatory-hint success-hint">
+                      <mat-icon>check_circle</mat-icon>
+                      <span>Calculations verified! You can now record the payment.</span>
+                    </div>
+                  }
+                  <button mat-button type="button" (click)="toggleForm()">Cancel</button>
+                  <!-- Configure Structure Shortcut Button when unconfigured -->
+                  @if (!hasSalaryConfigured) {
+                    <button mat-stroked-button color="warn" type="button" (click)="goToSalaryStructure()">
+                      <mat-icon>tune</mat-icon>
+                      <span>Configure Structure</span>
+                    </button>
+                  }
+                  <button mat-raised-button color="primary" type="submit"
                     [disabled]="paymentForm.invalid || !calculationsApplied || saving || !hasSalaryConfigured || isSelectedMonthOngoing || isSelectedMonthFuture"
                     [matTooltip]="isSelectedMonthOngoing ? 'Cannot record payment for ongoing month until month-end' : (isSelectedMonthFuture ? 'Cannot record payment for future month' : (!hasSalaryConfigured ? 'Cannot record payment: Salary structure is not configured (Gross amount is ₹0)' : (!calculationsApplied ? 'Please click Auto-Fill above to apply deductions' : (paymentForm.invalid ? 'Please resolve validation errors in form' : ''))))">
-              <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
-              {{saving ? 'Saving...' : 'Record Payment'}}
-            </button>
-          </div>
-        </form>
-      </mat-card>
-
-      <!-- Payments Table -->
-      <mat-card class="table-card mat-elevation-z1" *ngIf="payments.length > 0">
-        <table class="pay-table">
-          <thead>
-            <tr>
-              <th>Month / Year</th><th>Gross</th><th>Deductions</th>
-              <th>Advance Adj.</th><th>Net Paid</th><th>Mode</th><th>Receipt</th><th>Date</th><th class="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let p of payments">
-              <td><strong>{{p.monthName}}</strong></td>
-              <td>
-                <div>₹{{p.grossAmount | number}}</div>
-                <span *ngIf="(p.arrearsAmount || 0) > 0" class="arrears-pill" [matTooltip]="p.arrearsRemarks || 'Joining arrears'">
-                  +₹{{p.arrearsAmount | number}} Arr.
-                </span>
-              </td>
-              <td>₹{{p.deductions | number}}</td>
-              <td>
-                <span *ngIf="p.advanceAdjusted > 0" class="advance-adj-chip">
-                  <mat-icon class="inline-icon">account_balance_wallet</mat-icon>
-                  ₹{{p.advanceAdjusted | number}}
-                </span>
-                <span *ngIf="p.advanceAdjusted === 0" style="color:#94a3b8">—</span>
-              </td>
-              <td><strong class="net-amount">₹{{p.netPaid | number}}</strong></td>
-              <td><span class="mode-chip">{{p.paymentMode}}</span></td>
-              <td>
-                <span class="receipt-tag clickable" (click)="openPayslip(p)" matTooltip="Click to view Payslip">
-                  <mat-icon class="inline-icon">receipt</mat-icon> {{p.receiptNumber}}
-                </span>
-              </td>
-              <td>{{p.paymentDate | date:'dd MMM yyyy'}}</td>
-              <td class="text-center" style="white-space:nowrap;">
-                <button mat-flat-button color="primary" class="payslip-btn" (click)="openPayslip(p)" matTooltip="View &amp; Print Payslip">
-                  <mat-icon>receipt_long</mat-icon> Payslip
-                </button>
-                <button mat-icon-button color="warn" (click)="deletePayment(p)" matTooltip="Delete Voucher">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </mat-card>
-
-      <!-- Summary Bar -->
-      <mat-card class="summary-bar mat-elevation-z1" *ngIf="payments.length > 0">
-        <span>Total Payments: <strong>{{payments.length}}</strong></span>
-        <span>Total Gross Paid: <strong>₹{{totalGross | number}}</strong></span>
-        <span>Total Advance Recovered: <strong class="orange">₹{{totalAdvanceAdjusted | number}}</strong></span>
-        <span>Total Net Paid: <strong class="green">₹{{totalPaid | number}}</strong></span>
-      </mat-card>
-
-      <div class="empty-state" *ngIf="payments.length === 0 && !loading && !showForm">
-        <mat-icon>payments</mat-icon>
-        <p>No salary payments recorded yet for this faculty member.</p>
-      </div>
+                    <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
+                    {{saving ? 'Saving...' : 'Record Payment'}}
+                  </button>
+                </div>
+              </form>
+            </mat-card>
+          }
+          <!-- Payments Table -->
+          @if (payments.length > 0) {
+            <mat-card class="table-card mat-elevation-z1">
+              <table class="pay-table">
+                <thead>
+                  <tr>
+                    <th>Month / Year</th><th>Gross</th><th>Deductions</th>
+                    <th>Advance Adj.</th><th>Net Paid</th><th>Mode</th><th>Receipt</th><th>Date</th><th class="text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of payments; track p) {
+                    <tr>
+                      <td><strong>{{p.monthName}}</strong></td>
+                      <td>
+                        <div>₹{{p.grossAmount | number}}</div>
+                        @if ((p.arrearsAmount || 0) > 0) {
+                          <span class="arrears-pill" [matTooltip]="p.arrearsRemarks || 'Joining arrears'">
+                            +₹{{p.arrearsAmount | number}} Arr.
+                          </span>
+                        }
+                      </td>
+                      <td>₹{{p.deductions | number}}</td>
+                      <td>
+                        @if (p.advanceAdjusted > 0) {
+                          <span class="advance-adj-chip">
+                            <mat-icon class="inline-icon">account_balance_wallet</mat-icon>
+                            ₹{{p.advanceAdjusted | number}}
+                          </span>
+                        }
+                        @if (p.advanceAdjusted === 0) {
+                          <span style="color:#94a3b8">—</span>
+                        }
+                      </td>
+                      <td><strong class="net-amount">₹{{p.netPaid | number}}</strong></td>
+                      <td><span class="mode-chip">{{p.paymentMode}}</span></td>
+                      <td>
+                        <span class="receipt-tag clickable" (click)="openPayslip(p)" matTooltip="Click to view Payslip">
+                          <mat-icon class="inline-icon">receipt</mat-icon> {{p.receiptNumber}}
+                        </span>
+                      </td>
+                      <td>{{p.paymentDate | date:'dd MMM yyyy'}}</td>
+                      <td class="text-center" style="white-space:nowrap;">
+                        <button mat-flat-button color="primary" class="payslip-btn" (click)="openPayslip(p)" matTooltip="View &amp; Print Payslip">
+                          <mat-icon>receipt_long</mat-icon> Payslip
+                        </button>
+                        <button mat-icon-button color="warn" (click)="deletePayment(p)" matTooltip="Delete Voucher">
+                          <mat-icon>delete_outline</mat-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </mat-card>
+          }
+          <!-- Summary Bar -->
+          @if (payments.length > 0) {
+            <mat-card class="summary-bar mat-elevation-z1">
+              <span>Total Payments: <strong>{{payments.length}}</strong></span>
+              <span>Total Gross Paid: <strong>₹{{totalGross | number}}</strong></span>
+              <span>Total Advance Recovered: <strong class="orange">₹{{totalAdvanceAdjusted | number}}</strong></span>
+              <span>Total Net Paid: <strong class="green">₹{{totalPaid | number}}</strong></span>
+            </mat-card>
+          }
+          @if (payments.length === 0 && !loading && !showForm) {
+            <div class="empty-state">
+              <mat-icon>payments</mat-icon>
+              <p>No salary payments recorded yet for this faculty member.</p>
+            </div>
+          }
+        </div>
+      }
     </div>
-  </div>
+  }
 
   <!-- ========================================================================= -->
   <!-- 2. MONTHLY BULK PAYROLL RUN MODE -->
   <!-- ========================================================================= -->
-  <div *ngIf="viewMode === 'bulk'" class="bulk-view-container">
-
-    <!-- Bulk Control Bar (Month & Year Selector) -->
-    <div class="bulk-header-bar">
-      <div class="bulk-filter-controls">
-        <mat-form-field appearance="outline" class="bulk-select-field" subscriptSizing="dynamic">
-          <mat-label>Payroll Month</mat-label>
-          <mat-select [(ngModel)]="bulkMonth" (selectionChange)="loadBulkPreview()">
-            <mat-option *ngFor="let m of months; let i=index" [value]="i+1">{{m}}</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="bulk-year-field" subscriptSizing="dynamic">
-          <mat-label>Payroll Year</mat-label>
-          <input matInput type="number" [(ngModel)]="bulkYear" (change)="loadBulkPreview()" min="2020" max="2099">
-        </mat-form-field>
-
-        <button mat-flat-button color="primary" class="refresh-preview-btn" (click)="loadBulkPreview()"
-                [disabled]="bulkLoading || isBulkMonthOngoing || isBulkMonthFuture"
-                [matTooltip]="isBulkMonthOngoing ? 'Payroll calculation is locked until month-end' : (isBulkMonthFuture ? 'Cannot calculate payroll for future month' : 'Recalculate monthly payroll preview')">
-          <mat-icon [class.spin-anim]="bulkLoading">{{ isBulkMonthOngoing ? 'lock' : 'refresh' }}</mat-icon>
-          <span>{{ bulkLoading ? 'Calculating...' : (isBulkMonthOngoing ? 'Payroll Locked (In Progress)' : (isBulkMonthFuture ? 'Future Month (Locked)' : 'Load Payroll Preview')) }}</span>
-        </button>
-      </div>
-
-      <!-- Quick Search & Status Filter -->
-      <div class="bulk-filter-right">
-        <div class="search-box">
-          <mat-icon>search</mat-icon>
-          <input type="text" [(ngModel)]="bulkSearchQuery" placeholder="Filter staff name, code, dept..." />
-          <button mat-icon-button *ngIf="bulkSearchQuery" (click)="bulkSearchQuery = ''"><mat-icon>close</mat-icon></button>
-        </div>
-
-        <mat-form-field appearance="outline" class="bulk-status-filter" subscriptSizing="dynamic">
-          <mat-label>Status Filter</mat-label>
-          <mat-select [(ngModel)]="bulkStatusFilter">
-            <mat-option value="all">All Staff</mat-option>
-            <mat-option value="pending">Ready to Disburse</mat-option>
-            <mat-option value="paid">Already Paid</mat-option>
-            <mat-option value="missing">Missing Structure</mat-option>
-          </mat-select>
-        </mat-form-field>
-      </div>
-    </div>
-
-    <!-- Ongoing Month Warning Banner in Bulk View -->
-    <div class="month-status-banner ongoing-banner mat-elevation-z1" *ngIf="isBulkMonthOngoing">
-      <div class="status-banner-icon"><mat-icon>lock_clock</mat-icon></div>
-      <div class="status-banner-content">
-        <h4>{{ months[bulkMonth - 1] }} {{ bulkYear }} Payroll is Locked (माह अभी जारी है)</h4>
-        <p>
-          Today is <strong>Day {{ bulkOngoingMonthInfo?.currentDay }} of {{ bulkOngoingMonthInfo?.totalDays }}</strong>. Monthly attendance register is currently in progress.
-          Per standard institutional payroll rules, monthly payroll calculation will unlock on or after the last day of the month (<strong>{{ bulkOngoingMonthInfo?.totalDays }} {{ bulkOngoingMonthInfo?.monthName }} {{ bulkOngoingMonthInfo?.year }}</strong>).
-          Please select a completed past month (e.g. <strong>{{ months[getDefaultPayrollMonth().month - 1] }} {{ getDefaultPayrollMonth().year }}</strong>) to review and disburse monthly staff salaries.
-        </p>
-      </div>
-    </div>
-
-    <!-- Future Month Warning Banner in Bulk View -->
-    <div class="month-status-banner future-banner mat-elevation-z1" *ngIf="isBulkMonthFuture">
-      <div class="status-banner-icon"><mat-icon>event_busy</mat-icon></div>
-      <div class="status-banner-content">
-        <h4>Future Month Selected (भविष्य का महीना)</h4>
-        <p>Bulk salary disbursement cannot be processed for a future month. Please select a past completed month.</p>
-      </div>
-    </div>
-
-    <!-- Bulk KPI Cards (Only for completed past months) -->
-    <div class="stats-grid" *ngIf="bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture">
-      <div class="stat-card total">
-        <div class="stat-icon-wrap"><mat-icon>people</mat-icon></div>
-        <div class="stat-data">
-          <span class="stat-val">{{ bulkSummary.totalStaff }}</span>
-          <span class="stat-lbl">Total Active Faculty</span>
-        </div>
-      </div>
-      <div class="stat-card configured">
-        <div class="stat-icon-wrap"><mat-icon>task_alt</mat-icon></div>
-        <div class="stat-data">
-          <span class="stat-val">{{ bulkSummary.alreadyPaidCount }}</span>
-          <span class="stat-lbl">Already Paid ({{ months[bulkMonth - 1] }})</span>
-        </div>
-      </div>
-      <div class="stat-card missing">
-        <div class="stat-icon-wrap"><mat-icon>pending_actions</mat-icon></div>
-        <div class="stat-data">
-          <span class="stat-val">{{ bulkSummary.pendingCount }}</span>
-          <span class="stat-lbl">Ready to Disburse</span>
-        </div>
-      </div>
-      <div class="stat-card average">
-        <div class="stat-icon-wrap"><mat-icon>account_balance_wallet</mat-icon></div>
-        <div class="stat-data">
-          <span class="stat-val">₹{{ bulkSummary.totalNetPayable | number:'1.0-0' }}</span>
-          <span class="stat-lbl">Total Net Disbursement</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bulk Action & Disbursement Banner (Only for completed past months) -->
-    <mat-card class="bulk-action-card mat-elevation-z1" *ngIf="bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture">
-      <div class="action-card-header">
-        <div class="selection-indicator">
-          <mat-checkbox
-            [checked]="allEligibleSelected"
-            [indeterminate]="hasSomeEligibleSelected"
-            (change)="toggleSelectAll($event.checked)"
-            color="primary"
-          >
-            <strong>Select All Eligible Pending Staff</strong>
-          </mat-checkbox>
-          <div class="selection-count-pill" *ngIf="selectedBulkStaff.length > 0">
-            <mat-icon>check</mat-icon>
-            <span><strong>{{ selectedBulkStaff.length }}</strong> Selected &bull; Total Net: <strong>₹{{ selectedTotalNet | number:'1.0-0' }}</strong></span>
-          </div>
-        </div>
-
-        <div class="batch-disburse-btn-wrap">
-          <button
-            mat-raised-button
-            color="primary"
-            class="disburse-btn"
-            [disabled]="selectedBulkStaff.length === 0 || bulkDisbursing || isBulkMonthOngoing || isBulkMonthFuture"
-            [matTooltip]="isBulkMonthOngoing ? 'Cannot disburse salary for ongoing month until month-end' : (isBulkMonthFuture ? 'Cannot disburse salary for future month' : '')"
-            (click)="disburseBulkPayments()"
-          >
-            <mat-icon>{{ bulkDisbursing ? 'hourglass_empty' : 'send_and_archive' }}</mat-icon>
-            <span>{{ bulkDisbursing ? 'Processing Disbursement...' : 'Disburse Salary for ' + selectedBulkStaff.length + ' Staff' }}</span>
+  @if (viewMode === 'bulk') {
+    <div class="bulk-view-container">
+      <!-- Bulk Control Bar (Month & Year Selector) -->
+      <div class="bulk-header-bar">
+        <div class="bulk-filter-controls">
+          <mat-form-field appearance="outline" class="bulk-select-field" subscriptSizing="dynamic">
+            <mat-label>Payroll Month</mat-label>
+            <mat-select [(ngModel)]="bulkMonth" (selectionChange)="loadBulkPreview()">
+              @for (m of months; track m; let i = $index) {
+                <mat-option [value]="i+1">{{m}}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="bulk-year-field" subscriptSizing="dynamic">
+            <mat-label>Payroll Year</mat-label>
+            <input matInput type="number" [(ngModel)]="bulkYear" (change)="loadBulkPreview()" min="2020" max="2099">
+          </mat-form-field>
+          <button mat-flat-button color="primary" class="refresh-preview-btn" (click)="loadBulkPreview()"
+            [disabled]="bulkLoading || isBulkMonthOngoing || isBulkMonthFuture"
+            [matTooltip]="isBulkMonthOngoing ? 'Payroll calculation is locked until month-end' : (isBulkMonthFuture ? 'Cannot calculate payroll for future month' : 'Recalculate monthly payroll preview')">
+            <mat-icon [class.spin-anim]="bulkLoading">{{ isBulkMonthOngoing ? 'lock' : 'refresh' }}</mat-icon>
+            <span>{{ bulkLoading ? 'Calculating...' : (isBulkMonthOngoing ? 'Payroll Locked (In Progress)' : (isBulkMonthFuture ? 'Future Month (Locked)' : 'Load Payroll Preview')) }}</span>
           </button>
         </div>
+        <!-- Quick Search & Status Filter -->
+        <div class="bulk-filter-right">
+          <div class="search-box">
+            <mat-icon>search</mat-icon>
+            <input type="text" [(ngModel)]="bulkSearchQuery" placeholder="Filter staff name, code, dept..." />
+            @if (bulkSearchQuery) {
+              <button mat-icon-button (click)="bulkSearchQuery = ''"><mat-icon>close</mat-icon></button>
+            }
+          </div>
+          <mat-form-field appearance="outline" class="bulk-status-filter" subscriptSizing="dynamic">
+            <mat-label>Status Filter</mat-label>
+            <mat-select [(ngModel)]="bulkStatusFilter">
+              <mat-option value="all">All Staff</mat-option>
+              <mat-option value="pending">Ready to Disburse</mat-option>
+              <mat-option value="paid">Already Paid</mat-option>
+              <mat-option value="missing">Missing Structure</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
       </div>
-
-      <!-- Batch Disbursement Settings Row -->
-      <div class="batch-inputs-row">
-        <mat-form-field appearance="outline" class="batch-input">
-          <mat-label>Payment Date *</mat-label>
-          <input matInput type="date" [(ngModel)]="bulkPaymentDate">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="batch-input">
-          <mat-label>Payment Mode *</mat-label>
-          <mat-select [(ngModel)]="bulkPaymentMode">
-            <mat-option value="BankTransfer">Bank Transfer (NEFT/RTGS)</mat-option>
-            <mat-option value="UPI">UPI</mat-option>
-            <mat-option value="Cash">Cash</mat-option>
-            <mat-option value="Cheque">Cheque</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="batch-input">
-          <mat-label>Batch Transaction / UTR Ref</mat-label>
-          <input matInput [(ngModel)]="bulkTransactionRef" placeholder="e.g. NEFT-BATCH-{{ bulkYear }}{{ bulkMonth }}">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="batch-input-wide">
-          <mat-label>Disbursement Remarks</mat-label>
-          <input matInput [(ngModel)]="bulkRemarks" placeholder="Monthly staff salary disbursement for {{ months[bulkMonth - 1] }} {{ bulkYear }}">
-        </mat-form-field>
-      </div>
-    </mat-card>
-
-    <!-- Bulk Staff Payroll Table (Only for completed past months) -->
-    <mat-card class="table-card mat-elevation-z1" *ngIf="filteredBulkItems.length > 0 && !isBulkMonthOngoing && !isBulkMonthFuture">
-      <div class="table-responsive">
-        <table class="bulk-pay-table">
-          <thead>
-            <tr>
-              <th style="width: 48px;" class="text-center">
-                <mat-checkbox
-                  [checked]="allEligibleSelected"
-                  [indeterminate]="hasSomeEligibleSelected"
-                  (change)="toggleSelectAll($event.checked)"
-                  color="primary"
-                  matTooltip="Toggle selection of all eligible pending faculty"
-                ></mat-checkbox>
-              </th>
-              <th>Faculty Member</th>
-              <th>Attendance &amp; Working Days</th>
-              <th>Gross Amount</th>
-              <th>Deductions</th>
-              <th>Advance Adj.</th>
-              <th>Net Payable</th>
-              <th>Payment Status</th>
-              <th class="text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of filteredBulkItems" [class.row-paid]="item.isAlreadyPaid" [class.row-selected]="item.selected">
-              <!-- Select Checkbox -->
-              <td class="text-center">
-                <mat-checkbox
-                  [(ngModel)]="item.selected"
-                  [disabled]="item.isAlreadyPaid || !item.hasSalaryStructure"
-                  [matTooltip]="item.isAlreadyPaid ? 'Already paid for this month' : (!item.hasSalaryStructure ? 'Salary structure not configured' : 'Select to disburse')"
-                  color="primary"
-                ></mat-checkbox>
-              </td>
-
-              <!-- Faculty Details -->
-              <td>
-                <div class="staff-info-cell">
-                  <div class="staff-avatar-initial">{{ item.teacherName.charAt(0) }}</div>
-                  <div>
-                    <div class="staff-primary-name clickable-link" (click)="quickSelectTeacher(item.teacherId)" matTooltip="Switch to individual view for this staff">
-                      {{ item.teacherName }}
-                    </div>
-                    <div class="staff-secondary-meta">
-                      <span class="code-badge">{{ item.employeeCode }}</span>
-                      <span *ngIf="item.designation">{{ item.designation }}</span>
-                      <span *ngIf="item.department">&bull; {{ item.department }}</span>
-                    </div>
-                  </div>
-                </div>
-              </td>
-
-              <!-- Attendance Metrics -->
-              <td>
-                <div class="attendance-metrics-cell">
-                  <span class="badge-working">{{ item.totalWorkingDays }} Total Days</span>
-                  <div class="att-detail-row">
-                    <span class="text-present"><strong>{{ item.presentDays }}</strong> Present</span>
-                    <span class="text-absent" *ngIf="item.absentDays > 0">&bull; <strong>{{ item.absentDays }}</strong> Absent</span>
-                  </div>
-                </div>
-              </td>
-
-              <!-- Gross Salary -->
-              <td>
-                <span class="amount-cell">₹{{ item.grossAmount | number:'1.0-0' }}</span>
-                <div *ngIf="(item.arrearsAmount || 0) > 0" class="arrears-pill" [matTooltip]="item.arrearsRemarks || 'Joining arrears'">
-                  +₹{{ item.arrearsAmount | number:'1.0-0' }} Arr.
-                </div>
-              </td>
-
-              <!-- Deductions Breakdown -->
-              <td>
-                <div class="deductions-cell">
-                  <span class="ded-total" [class.red]="item.totalDeductions > 0">-₹{{ item.totalDeductions | number:'1.0-0' }}</span>
-                  <small class="ded-breakdown" *ngIf="item.totalDeductions > 0">
-                    <span *ngIf="item.attendanceDeductions > 0">Attn: ₹{{ item.attendanceDeductions | number:'1.0-0' }}</span>
-                    <span *ngIf="item.statutoryDeductions > 0">&bull; PF/TDS: ₹{{ item.statutoryDeductions | number:'1.0-0' }}</span>
-                  </small>
-                </div>
-              </td>
-
-              <!-- Advance Adjusted -->
-              <td>
-                <span *ngIf="item.advanceAdjusted > 0" class="advance-adj-chip">
-                  <mat-icon class="inline-icon">account_balance_wallet</mat-icon>
-                  ₹{{ item.advanceAdjusted | number:'1.0-0' }}
-                </span>
-                <span *ngIf="item.advanceAdjusted === 0" style="color: #94a3b8;">₹0</span>
-              </td>
-
-              <!-- Net Payable -->
-              <td>
-                <strong class="net-payable-amount">₹{{ item.netPaid | number:'1.0-0' }}</strong>
-              </td>
-
-              <!-- Status Badge -->
-              <td style="white-space: nowrap; min-width: 140px;">
-                <span *ngIf="item.isAlreadyPaid" class="status-chip paid">
-                  <mat-icon>check_circle</mat-icon> Paid ✓
-                </span>
-                <span *ngIf="!item.isAlreadyPaid && item.hasSalaryStructure" class="status-chip ready">
-                  <mat-icon>pending</mat-icon> Ready to Disburse
-                </span>
-                <span *ngIf="!item.hasSalaryStructure" class="status-chip missing" matTooltip="Configure salary structure in Salary Structure tab">
-                  <mat-icon>warning_amber</mat-icon> Missing Structure
-                </span>
-              </td>
-
-              <!-- Row Action -->
-              <td class="text-center">
-                <button
-                  *ngIf="item.isAlreadyPaid && item.paidPaymentId"
-                  mat-flat-button
-                  color="primary"
-                  class="payslip-btn"
-                  (click)="openPayslipForStaff(item)"
-                  matTooltip="View &amp; Print Payslip"
+      <!-- Ongoing Month Warning Banner in Bulk View -->
+      @if (isBulkMonthOngoing) {
+        <div class="month-status-banner ongoing-banner mat-elevation-z1">
+          <div class="status-banner-icon"><mat-icon>lock_clock</mat-icon></div>
+          <div class="status-banner-content">
+            <h4>{{ months[bulkMonth - 1] }} {{ bulkYear }} Payroll is Locked (माह अभी जारी है)</h4>
+            <p>
+              Today is <strong>Day {{ bulkOngoingMonthInfo?.currentDay }} of {{ bulkOngoingMonthInfo?.totalDays }}</strong>. Monthly attendance register is currently in progress.
+              Per standard institutional payroll rules, monthly payroll calculation will unlock on or after the last day of the month (<strong>{{ bulkOngoingMonthInfo?.totalDays }} {{ bulkOngoingMonthInfo?.monthName }} {{ bulkOngoingMonthInfo?.year }}</strong>).
+              Please select a completed past month (e.g. <strong>{{ months[getDefaultPayrollMonth().month - 1] }} {{ getDefaultPayrollMonth().year }}</strong>) to review and disburse monthly staff salaries.
+            </p>
+          </div>
+        </div>
+      }
+      <!-- Future Month Warning Banner in Bulk View -->
+      @if (isBulkMonthFuture) {
+        <div class="month-status-banner future-banner mat-elevation-z1">
+          <div class="status-banner-icon"><mat-icon>event_busy</mat-icon></div>
+          <div class="status-banner-content">
+            <h4>Future Month Selected (भविष्य का महीना)</h4>
+            <p>Bulk salary disbursement cannot be processed for a future month. Please select a past completed month.</p>
+          </div>
+        </div>
+      }
+      <!-- Bulk KPI Cards (Only for completed past months) -->
+      @if (bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture) {
+        <div class="stats-grid">
+          <div class="stat-card total">
+            <div class="stat-icon-wrap"><mat-icon>people</mat-icon></div>
+            <div class="stat-data">
+              <span class="stat-val">{{ bulkSummary.totalStaff }}</span>
+              <span class="stat-lbl">Total Active Faculty</span>
+            </div>
+          </div>
+          <div class="stat-card configured">
+            <div class="stat-icon-wrap"><mat-icon>task_alt</mat-icon></div>
+            <div class="stat-data">
+              <span class="stat-val">{{ bulkSummary.alreadyPaidCount }}</span>
+              <span class="stat-lbl">Already Paid ({{ months[bulkMonth - 1] }})</span>
+            </div>
+          </div>
+          <div class="stat-card missing">
+            <div class="stat-icon-wrap"><mat-icon>pending_actions</mat-icon></div>
+            <div class="stat-data">
+              <span class="stat-val">{{ bulkSummary.pendingCount }}</span>
+              <span class="stat-lbl">Ready to Disburse</span>
+            </div>
+          </div>
+          <div class="stat-card average">
+            <div class="stat-icon-wrap"><mat-icon>account_balance_wallet</mat-icon></div>
+            <div class="stat-data">
+              <span class="stat-val">₹{{ bulkSummary.totalNetPayable | number:'1.0-0' }}</span>
+              <span class="stat-lbl">Total Net Disbursement</span>
+            </div>
+          </div>
+        </div>
+      }
+      <!-- Bulk Action & Disbursement Banner (Only for completed past months) -->
+      @if (bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture) {
+        <mat-card class="bulk-action-card mat-elevation-z1">
+          <div class="action-card-header">
+            <div class="selection-indicator">
+              <mat-checkbox
+                [checked]="allEligibleSelected"
+                [indeterminate]="hasSomeEligibleSelected"
+                (change)="toggleSelectAll($event.checked)"
+                color="primary"
                 >
-                  <mat-icon>receipt_long</mat-icon> Payslip
-                </button>
-
-                <button
-                  *ngIf="!item.isAlreadyPaid"
-                  mat-stroked-button
-                  class="single-jump-btn"
-                  (click)="quickSelectTeacher(item.teacherId)"
-                  matTooltip="Open individual staff payment workspace"
+                <strong>Select All Eligible Pending Staff</strong>
+              </mat-checkbox>
+              @if (selectedBulkStaff.length > 0) {
+                <div class="selection-count-pill">
+                  <mat-icon>check</mat-icon>
+                  <span><strong>{{ selectedBulkStaff.length }}</strong> Selected &bull; Total Net: <strong>₹{{ selectedTotalNet | number:'1.0-0' }}</strong></span>
+                </div>
+              }
+            </div>
+            <div class="batch-disburse-btn-wrap">
+              <button
+                mat-raised-button
+                color="primary"
+                class="disburse-btn"
+                [disabled]="selectedBulkStaff.length === 0 || bulkDisbursing || isBulkMonthOngoing || isBulkMonthFuture"
+                [matTooltip]="isBulkMonthOngoing ? 'Cannot disburse salary for ongoing month until month-end' : (isBulkMonthFuture ? 'Cannot disburse salary for future month' : '')"
+                (click)="disburseBulkPayments()"
                 >
-                  <mat-icon>edit_calendar</mat-icon> Individual
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </mat-card>
-
-    <!-- Empty Table State -->
-    <div class="empty-state" *ngIf="filteredBulkItems.length === 0 && !bulkLoading && bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture">
-      <mat-icon>search_off</mat-icon>
-      <p>No faculty members match the current filter criteria for {{ months[bulkMonth - 1] }} {{ bulkYear }}.</p>
+                <mat-icon>{{ bulkDisbursing ? 'hourglass_empty' : 'send_and_archive' }}</mat-icon>
+                <span>{{ bulkDisbursing ? 'Processing Disbursement...' : 'Disburse Salary for ' + selectedBulkStaff.length + ' Staff' }}</span>
+              </button>
+            </div>
+          </div>
+          <!-- Batch Disbursement Settings Row -->
+          <div class="batch-inputs-row">
+            <mat-form-field appearance="outline" class="batch-input">
+              <mat-label>Payment Date *</mat-label>
+              <input matInput type="date" [(ngModel)]="bulkPaymentDate">
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="batch-input">
+              <mat-label>Payment Mode *</mat-label>
+              <mat-select [(ngModel)]="bulkPaymentMode">
+                <mat-option value="BankTransfer">Bank Transfer (NEFT/RTGS)</mat-option>
+                <mat-option value="UPI">UPI</mat-option>
+                <mat-option value="Cash">Cash</mat-option>
+                <mat-option value="Cheque">Cheque</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="batch-input">
+              <mat-label>Batch Transaction / UTR Ref</mat-label>
+              <input matInput [(ngModel)]="bulkTransactionRef" placeholder="e.g. NEFT-BATCH-{{ bulkYear }}{{ bulkMonth }}">
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="batch-input-wide">
+              <mat-label>Disbursement Remarks</mat-label>
+              <input matInput [(ngModel)]="bulkRemarks" placeholder="Monthly staff salary disbursement for {{ months[bulkMonth - 1] }} {{ bulkYear }}">
+            </mat-form-field>
+          </div>
+        </mat-card>
+      }
+      <!-- Bulk Staff Payroll Table (Only for completed past months) -->
+      @if (filteredBulkItems.length > 0 && !isBulkMonthOngoing && !isBulkMonthFuture) {
+        <mat-card class="table-card mat-elevation-z1">
+          <div class="table-responsive">
+            <table class="bulk-pay-table">
+              <thead>
+                <tr>
+                  <th style="width: 48px;" class="text-center">
+                    <mat-checkbox
+                      [checked]="allEligibleSelected"
+                      [indeterminate]="hasSomeEligibleSelected"
+                      (change)="toggleSelectAll($event.checked)"
+                      color="primary"
+                      matTooltip="Toggle selection of all eligible pending faculty"
+                    ></mat-checkbox>
+                  </th>
+                  <th>Faculty Member</th>
+                  <th>Attendance &amp; Working Days</th>
+                  <th>Gross Amount</th>
+                  <th>Deductions</th>
+                  <th>Advance Adj.</th>
+                  <th>Net Payable</th>
+                  <th>Payment Status</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of filteredBulkItems; track item) {
+                  <tr [class.row-paid]="item.isAlreadyPaid" [class.row-selected]="item.selected">
+                    <!-- Select Checkbox -->
+                    <td class="text-center">
+                      <mat-checkbox
+                        [(ngModel)]="item.selected"
+                        [disabled]="item.isAlreadyPaid || !item.hasSalaryStructure"
+                        [matTooltip]="item.isAlreadyPaid ? 'Already paid for this month' : (!item.hasSalaryStructure ? 'Salary structure not configured' : 'Select to disburse')"
+                        color="primary"
+                      ></mat-checkbox>
+                    </td>
+                    <!-- Faculty Details -->
+                    <td>
+                      <div class="staff-info-cell">
+                        <div class="staff-avatar-initial">{{ item.teacherName.charAt(0) }}</div>
+                        <div>
+                          <div class="staff-primary-name clickable-link" (click)="quickSelectTeacher(item.teacherId)" matTooltip="Switch to individual view for this staff">
+                            {{ item.teacherName }}
+                          </div>
+                          <div class="staff-secondary-meta">
+                            <span class="code-badge">{{ item.employeeCode }}</span>
+                            @if (item.designation) {
+                              <span>{{ item.designation }}</span>
+                            }
+                            @if (item.department) {
+                              <span>&bull; {{ item.department }}</span>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <!-- Attendance Metrics -->
+                    <td>
+                      <div class="attendance-metrics-cell">
+                        <span class="badge-working">{{ item.totalWorkingDays }} Total Days</span>
+                        <div class="att-detail-row">
+                          <span class="text-present"><strong>{{ item.presentDays }}</strong> Present</span>
+                          @if (item.absentDays > 0) {
+                            <span class="text-absent">&bull; <strong>{{ item.absentDays }}</strong> Absent</span>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                    <!-- Gross Salary -->
+                    <td>
+                      <span class="amount-cell">₹{{ item.grossAmount | number:'1.0-0' }}</span>
+                      @if ((item.arrearsAmount || 0) > 0) {
+                        <div class="arrears-pill" [matTooltip]="item.arrearsRemarks || 'Joining arrears'">
+                          +₹{{ item.arrearsAmount | number:'1.0-0' }} Arr.
+                        </div>
+                      }
+                    </td>
+                    <!-- Deductions Breakdown -->
+                    <td>
+                      <div class="deductions-cell">
+                        <span class="ded-total" [class.red]="item.totalDeductions > 0">-₹{{ item.totalDeductions | number:'1.0-0' }}</span>
+                        @if (item.totalDeductions > 0) {
+                          <small class="ded-breakdown">
+                            @if (item.attendanceDeductions > 0) {
+                              <span>Attn: ₹{{ item.attendanceDeductions | number:'1.0-0' }}</span>
+                            }
+                            @if (item.statutoryDeductions > 0) {
+                              <span>&bull; PF/TDS: ₹{{ item.statutoryDeductions | number:'1.0-0' }}</span>
+                            }
+                          </small>
+                        }
+                      </div>
+                    </td>
+                    <!-- Advance Adjusted -->
+                    <td>
+                      @if (item.advanceAdjusted > 0) {
+                        <span class="advance-adj-chip">
+                          <mat-icon class="inline-icon">account_balance_wallet</mat-icon>
+                          ₹{{ item.advanceAdjusted | number:'1.0-0' }}
+                        </span>
+                      }
+                      @if (item.advanceAdjusted === 0) {
+                        <span style="color: #94a3b8;">₹0</span>
+                      }
+                    </td>
+                    <!-- Net Payable -->
+                    <td>
+                      <strong class="net-payable-amount">₹{{ item.netPaid | number:'1.0-0' }}</strong>
+                    </td>
+                    <!-- Status Badge -->
+                    <td style="white-space: nowrap; min-width: 140px;">
+                      @if (item.isAlreadyPaid) {
+                        <span class="status-chip paid">
+                          <mat-icon>check_circle</mat-icon> Paid ✓
+                        </span>
+                      }
+                      @if (!item.isAlreadyPaid && item.hasSalaryStructure) {
+                        <span class="status-chip ready">
+                          <mat-icon>pending</mat-icon> Ready to Disburse
+                        </span>
+                      }
+                      @if (!item.hasSalaryStructure) {
+                        <span class="status-chip missing" matTooltip="Configure salary structure in Salary Structure tab">
+                          <mat-icon>warning_amber</mat-icon> Missing Structure
+                        </span>
+                      }
+                    </td>
+                    <!-- Row Action -->
+                    <td class="text-center">
+                      @if (item.isAlreadyPaid && item.paidPaymentId) {
+                        <button
+                          mat-flat-button
+                          color="primary"
+                          class="payslip-btn"
+                          (click)="openPayslipForStaff(item)"
+                          matTooltip="View &amp; Print Payslip"
+                          >
+                          <mat-icon>receipt_long</mat-icon> Payslip
+                        </button>
+                      }
+                      @if (!item.isAlreadyPaid) {
+                        <button
+                          mat-stroked-button
+                          class="single-jump-btn"
+                          (click)="quickSelectTeacher(item.teacherId)"
+                          matTooltip="Open individual staff payment workspace"
+                          >
+                          <mat-icon>edit_calendar</mat-icon> Individual
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </mat-card>
+      }
+      <!-- Empty Table State -->
+      @if (filteredBulkItems.length === 0 && !bulkLoading && bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture) {
+        <div class="empty-state">
+          <mat-icon>search_off</mat-icon>
+          <p>No faculty members match the current filter criteria for {{ months[bulkMonth - 1] }} {{ bulkYear }}.</p>
+        </div>
+      }
     </div>
-  </div>
+  }
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -106,9 +106,11 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
         <mat-label>Search Code, Account Title, Description</mat-label>
         <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearchInput($event)" (keyup.enter)="applyFilters()" placeholder="e.g. CASH-MAIN, Furniture, Loan...">
         <mat-icon matPrefix>search</mat-icon>
-        <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="clearSearch()">
-          <mat-icon>clear</mat-icon>
-        </button>
+        @if (searchTerm) {
+          <button mat-icon-button matSuffix (click)="clearSearch()">
+            <mat-icon>clear</mat-icon>
+          </button>
+        }
       </mat-form-field>
 
       <!-- Classification SubType Filter -->
@@ -126,14 +128,18 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
       </mat-form-field>
 
       <!-- Campus / Branch Filter -->
-      <mat-form-field appearance="outline" class="filter-item" *ngIf="branches.length > 0">
-        <mat-label>Campus / Branch</mat-label>
-        <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="applyFilters()">
-          <mat-option [value]="null">All Branches</mat-option>
-          <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
-        </mat-select>
-        <mat-icon matPrefix>apartment</mat-icon>
-      </mat-form-field>
+      @if (branches.length > 0) {
+        <mat-form-field appearance="outline" class="filter-item">
+          <mat-label>Campus / Branch</mat-label>
+          <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="applyFilters()">
+            <mat-option [value]="null">All Branches</mat-option>
+            @for (b of branches; track b) {
+              <mat-option [value]="b.id">{{ b.name }}</mat-option>
+            }
+          </mat-select>
+          <mat-icon matPrefix>apartment</mat-icon>
+        </mat-form-field>
+      }
     </div>
   </div>
 
@@ -175,18 +181,22 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
 
     <!-- Table Container with Overlay Loader -->
     <div class="table-container-wrapper">
-      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="top-progress-bar"></mat-progress-bar>
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="top-progress-bar"></mat-progress-bar>
+      }
 
       <!-- Transparent Loading Overlay with Spinner -->
-      <div class="table-loading-overlay" *ngIf="loading">
-        <div class="loader-content">
-          <mat-spinner diameter="44" strokeWidth="4"></mat-spinner>
-          <div class="loader-text-group">
-            <span class="loading-title">Loading Account Ledgers</span>
-            <span class="loading-sub">Fetching server-side valuations &amp; records...</span>
+      @if (loading) {
+        <div class="table-loading-overlay">
+          <div class="loader-content">
+            <mat-spinner diameter="44" strokeWidth="4"></mat-spinner>
+            <div class="loader-text-group">
+              <span class="loading-title">Loading Account Ledgers</span>
+              <span class="loading-sub">Fetching server-side valuations &amp; records...</span>
+            </div>
           </div>
         </div>
-      </div>
+      }
 
       <div class="table-responsive">
         <table mat-table [dataSource]="ledgers" matSort (matSortChange)="onSortChange($event)" [matSortActive]="sortBy" [matSortDirection]="sortDirection" class="ledger-table">
@@ -195,7 +205,9 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
             <th mat-header-cell *matHeaderCellDef mat-sort-header="code" class="col-code">CODE</th>
             <td mat-cell *matCellDef="let l" class="col-code">
               <span class="code-badge">{{ l.accountCode }}</span>
-              <span class="system-pill" *ngIf="l.isDefault">System Default</span>
+              @if (l.isDefault) {
+                <span class="system-pill">System Default</span>
+              }
             </td>
           </ng-container>
 
@@ -204,8 +216,12 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
             <th mat-header-cell *matHeaderCellDef mat-sort-header="name" class="col-name">LEDGER TITLE &amp; DESCRIPTION</th>
             <td mat-cell *matCellDef="let l" class="col-name">
               <div class="ledger-name">{{ l.accountName }}</div>
-              <div class="text-xs text-muted" *ngIf="l.description">{{ l.description }}</div>
-              <div class="text-xs text-muted branch-info" *ngIf="l.branchName">&bull; Campus: {{ l.branchName }}</div>
+              @if (l.description) {
+                <div class="text-xs text-muted">{{ l.description }}</div>
+              }
+              @if (l.branchName) {
+                <div class="text-xs text-muted branch-info">&bull; Campus: {{ l.branchName }}</div>
+              }
             </td>
           </ng-container>
 
@@ -237,9 +253,11 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
                 <button mat-icon-button color="primary" matTooltip="Edit Ledger" (click)="openEditDialog(l)">
                   <mat-icon>edit</mat-icon>
                 </button>
-                <button mat-icon-button color="warn" matTooltip="Delete Ledger" *ngIf="!l.isDefault" (click)="deleteLedger(l)">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
+                @if (!l.isDefault) {
+                  <button mat-icon-button color="warn" matTooltip="Delete Ledger" (click)="deleteLedger(l)">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                }
               </div>
             </td>
           </ng-container>
@@ -251,17 +269,19 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
       </div>
 
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && ledgers.length === 0">
-        <div class="empty-icon-circle">
-          <mat-icon>account_tree</mat-icon>
+      @if (!loading && ledgers.length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon-circle">
+            <mat-icon>account_tree</mat-icon>
+          </div>
+          <h3>No Account Ledgers Found</h3>
+          <p>No ledgers match your search and filter criteria.</p>
+          <button mat-raised-button color="primary" (click)="openCreateDialog()" style="margin-top: 12px;">
+            <mat-icon>add_circle</mat-icon>
+            <span>Create New Ledger</span>
+          </button>
         </div>
-        <h3>No Account Ledgers Found</h3>
-        <p>No ledgers match your search and filter criteria.</p>
-        <button mat-raised-button color="primary" (click)="openCreateDialog()" style="margin-top: 12px;">
-          <mat-icon>add_circle</mat-icon>
-          <span>Create New Ledger</span>
-        </button>
-      </div>
+      }
 
       <!-- Paginator -->
       <div class="paginator-wrapper">
@@ -277,7 +297,8 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
     </div>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       padding: 0 0 40px;

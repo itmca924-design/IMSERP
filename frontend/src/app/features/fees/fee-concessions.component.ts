@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -35,7 +35,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   ],
   template: `
     <div class="page-container">
-
+    
       <!-- Header Section -->
       <div class="header-card">
         <div class="header-content">
@@ -60,10 +60,12 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
         </div>
       </div>
-
+    
       <!-- Single Global Loader per AGENTS.md rule -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loading" class="global-progress-bar"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="global-progress-bar"></mat-progress-bar>
+      }
+    
       <!-- KPI Metrics Deck -->
       <div class="kpi-grid">
         <div class="kpi-card total-card">
@@ -75,7 +77,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span class="kpi-val">{{ stats?.totalActiveConcessions || 0 }}</span>
           </div>
         </div>
-
+    
         <div class="kpi-card sibling-card">
           <div class="kpi-icon-wrap purple">
             <mat-icon>diversity_3</mat-icon>
@@ -85,7 +87,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span class="kpi-val">{{ stats?.siblingDiscountsActive || 0 }}</span>
           </div>
         </div>
-
+    
         <div class="kpi-card merit-card">
           <div class="kpi-icon-wrap amber">
             <mat-icon>military_tech</mat-icon>
@@ -95,7 +97,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span class="kpi-val">{{ stats?.meritScholarshipsActive || 0 }}</span>
           </div>
         </div>
-
+    
         <div class="kpi-card ews-card">
           <div class="kpi-icon-wrap green">
             <mat-icon>volunteer_activism</mat-icon>
@@ -105,7 +107,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span class="kpi-val">{{ stats?.ewsRteActive || 0 }}</span>
           </div>
         </div>
-
+    
         <div class="kpi-card savings-card">
           <div class="kpi-icon-wrap rose">
             <mat-icon>savings</mat-icon>
@@ -116,7 +118,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
         </div>
       </div>
-
+    
       <!-- Filter Controls Deck (Pure Reactive Forms) -->
       <mat-card class="filter-card">
         <form [formGroup]="filterForm" class="filter-form">
@@ -125,11 +127,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-label>Search Student or Concession Title</mat-label>
               <input matInput formControlName="searchTerm" placeholder="Search by name, roll, adm no..." />
               <mat-icon matPrefix>search</mat-icon>
-              <button mat-icon-button matSuffix *ngIf="filterForm.get('searchTerm')?.value" (click)="filterForm.get('searchTerm')?.setValue('')" type="button">
-                <mat-icon>close</mat-icon>
-              </button>
+              @if (filterForm.get('searchTerm')?.value) {
+                <button mat-icon-button matSuffix (click)="filterForm.get('searchTerm')?.setValue('')" type="button">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="select-field">
               <mat-label>Concession Type</mat-label>
               <mat-select formControlName="concessionType">
@@ -142,7 +146,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <mat-option value="SpecialManagement">🎁 Management Discretion</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="select-field">
               <mat-label>Status</mat-label>
               <mat-select formControlName="status">
@@ -152,252 +156,264 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <mat-option value="Expired">Expired</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <button mat-stroked-button (click)="resetFilters()" type="button" class="reset-btn">
               <mat-icon>clear_all</mat-icon> Reset
             </button>
           </div>
         </form>
       </mat-card>
-
+    
       <!-- Concessions Data Table -->
       <mat-card class="table-card">
         <div class="table-responsive">
-          <table class="custom-table" *ngIf="concessions.length > 0; else noData">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Concession Policy</th>
-                <th>Category</th>
-                <th>Discount Benefit</th>
-                <th>Scope / Applicable Head</th>
-                <th>Validity Window</th>
-                <th>Status</th>
-                <th>Approved By</th>
-                <th style="text-align: right;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let c of concessions">
-                <td>
-                  <div class="student-cell">
-                    <div class="student-avatar">
-                      <mat-icon>person</mat-icon>
-                    </div>
-                    <div class="student-meta">
-                      <span class="st-name">{{ c.studentName }}</span>
-                      <span class="st-sub">
-                        Roll: <strong>{{ c.rollNumber }}</strong>
-                        <span *ngIf="c.admissionNumber"> &bull; Adm: <strong>{{ c.admissionNumber }}</strong></span>
+          @if (concessions.length > 0) {
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Concession Policy</th>
+                  <th>Category</th>
+                  <th>Discount Benefit</th>
+                  <th>Scope / Applicable Head</th>
+                  <th>Validity Window</th>
+                  <th>Status</th>
+                  <th>Approved By</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of concessions; track c) {
+                  <tr>
+                    <td>
+                      <div class="student-cell">
+                        <div class="student-avatar">
+                          <mat-icon>person</mat-icon>
+                        </div>
+                        <div class="student-meta">
+                          <span class="st-name">{{ c.studentName }}</span>
+                          <span class="st-sub">
+                            Roll: <strong>{{ c.rollNumber }}</strong>
+                            @if (c.admissionNumber) {
+                              <span> &bull; Adm: <strong>{{ c.admissionNumber }}</strong></span>
+                            }
+                          </span>
+                          @if (c.classOrBatchName) {
+                            <span class="st-class">{{ c.classOrBatchName }}</span>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="concession-title font-bold">{{ c.title }}</span>
+                      @if (c.remarks) {
+                        <div class="concession-remarks">{{ c.remarks }}</div>
+                      }
+                    </td>
+                    <td>
+                      <span class="badge-cat" [ngClass]="getCategoryBadgeClass(c.concessionType)">
+                        {{ getCategoryLabel(c.concessionType) }}
                       </span>
-                      <span class="st-class" *ngIf="c.classOrBatchName">{{ c.classOrBatchName }}</span>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span class="concession-title font-bold">{{ c.title }}</span>
-                  <div class="concession-remarks" *ngIf="c.remarks">{{ c.remarks }}</div>
-                </td>
-                <td>
-                  <span class="badge-cat" [ngClass]="getCategoryBadgeClass(c.concessionType)">
-                    {{ getCategoryLabel(c.concessionType) }}
-                  </span>
-                </td>
-                <td>
-                  <div class="discount-val-pill">
-                    <span class="val font-bold">
-                      {{ c.discountMode === 'Percentage' ? (c.discountValue + '% Off') : ('₹' + (c.discountValue | number:'1.2-2') + ' Flat') }}
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  <span class="head-pill" [class.all-heads]="!c.feeHeadName">
-                    {{ c.feeHeadName ? c.feeHeadName : 'All Tuition & Applicable Heads' }}
-                  </span>
-                </td>
-                <td>
-                  <div class="validity-wrap">
-                    <span class="valid-from">From: {{ c.applicableFrom | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-                    <span class="valid-to" *ngIf="c.applicableTo">To: {{ c.applicableTo | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-                    <span class="valid-ongoing" *ngIf="!c.applicableTo">Ongoing (Indefinite)</span>
-                  </div>
-                </td>
-                <td>
+                    </td>
+                    <td>
+                      <div class="discount-val-pill">
+                        <span class="val font-bold">
+                          {{ c.discountMode === 'Percentage' ? (c.discountValue + '% Off') : ('₹' + (c.discountValue | number:'1.2-2') + ' Flat') }}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="head-pill" [class.all-heads]="!c.feeHeadName">
+                        {{ c.feeHeadName ? c.feeHeadName : 'All Tuition & Applicable Heads' }}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="validity-wrap">
+                        <span class="valid-from">From: {{ c.applicableFrom | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
+                        @if (c.applicableTo) {
+                          <span class="valid-to">To: {{ c.applicableTo | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
+                        }
+                        @if (!c.applicableTo) {
+                          <span class="valid-ongoing">Ongoing (Indefinite)</span>
+                        }
+                      </div>
+                    </td>
+                    <td>
                   <span class="status-chip" [ngClass]="{
                     'status-active': c.status === 'Active',
                     'status-suspended': c.status === 'Suspended',
                     'status-expired': c.status === 'Expired'
                   }">
-                    {{ c.status }}
-                  </span>
-                </td>
-                <td>
-                  <span class="approved-by text-muted">{{ c.approvedBy || 'Administration' }}</span>
-                </td>
-                <td style="text-align: right;">
-                  <div class="row-actions">
-                    <button mat-icon-button (click)="toggleConcessionStatus(c)" [matTooltip]="c.status === 'Active' ? 'Suspend Concession' : 'Activate Concession'">
-                      <mat-icon [color]="c.status === 'Active' ? 'warn' : 'primary'">
-                        {{ c.status === 'Active' ? 'pause_circle_outline' : 'play_circle_outline' }}
-                      </mat-icon>
-                    </button>
-                    <button mat-icon-button color="warn" (click)="deleteConcession(c)" matTooltip="Delete Concession">
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                        {{ c.status }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="approved-by text-muted">{{ c.approvedBy || 'Administration' }}</span>
+                    </td>
+                    <td style="text-align: right;">
+                      <div class="row-actions">
+                        <button mat-icon-button (click)="toggleConcessionStatus(c)" [matTooltip]="c.status === 'Active' ? 'Suspend Concession' : 'Activate Concession'">
+                          <mat-icon [color]="c.status === 'Active' ? 'warn' : 'primary'">
+                            {{ c.status === 'Active' ? 'pause_circle_outline' : 'play_circle_outline' }}
+                          </mat-icon>
+                        </button>
+                        <button mat-icon-button color="warn" (click)="deleteConcession(c)" matTooltip="Delete Concession">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            @if (!loading) {
+              <div class="empty-state-box">
+                <mat-icon class="empty-icon">card_giftcard</mat-icon>
+                <h3>No Fee Concessions Found</h3>
+                <p>No active scholarship policies or sibling discount records match your current filter selection.</p>
+                <button mat-raised-button color="primary" (click)="openAddModal()">
+                  <mat-icon>add</mat-icon> Grant First Concession
+                </button>
+              </div>
+            }
+          }
         </div>
-
-        <ng-template #noData>
-          <div class="empty-state-box" *ngIf="!loading">
-            <mat-icon class="empty-icon">card_giftcard</mat-icon>
-            <h3>No Fee Concessions Found</h3>
-            <p>No active scholarship policies or sibling discount records match your current filter selection.</p>
-            <button mat-raised-button color="primary" (click)="openAddModal()">
-              <mat-icon>add</mat-icon> Grant First Concession
-            </button>
-          </div>
-        </ng-template>
+    
       </mat-card>
-
+    
       <!-- Grant Concession Modal Dialog -->
-      <div class="custom-modal-backdrop" *ngIf="showAddModal" (click)="closeAddModal()">
-        <div class="custom-modal-box" (click)="$event.stopPropagation()">
-          
-          <!-- Strict Light Blue Gradient Header per AGENTS.md rule -->
-          <div class="dialog-header">
-            <div class="header-icon-wrap">
-              <mat-icon>card_giftcard</mat-icon>
-            </div>
-            <div class="header-titles">
-              <h2 class="main-title">Grant Fee Concession / Scholarship</h2>
-              <p class="subtitle">Enroll a student into institutional sibling discounts, merit waivers, or scholarship schemes</p>
-            </div>
-            <button mat-icon-button type="button" class="close-btn" (click)="closeAddModal()" [disabled]="saving">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <form [formGroup]="concessionForm" (ngSubmit)="submitConcession()" class="modal-form">
-            <div class="modal-body-scroll">
-
-              <!-- Student Search & Selection -->
-              <div class="form-section-title">1. Target Student Selection</div>
-              <div class="student-search-box">
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Search Student (Name, Admission No, Roll No, Phone)</mat-label>
-                  <input matInput [formControl]="studentSearchControl" placeholder="Type at least 2 characters..." />
-                  <mat-icon matPrefix>person_search</mat-icon>
-                  <mat-progress-spinner matSuffix *ngIf="searchingStudents" diameter="20" mode="indeterminate"></mat-progress-spinner>
-                </mat-form-field>
-
-                <!-- Student Candidates List -->
-                <div class="student-candidates-list" *ngIf="candidateStudents.length > 0">
-                  <div class="candidate-row" *ngFor="let st of candidateStudents" (click)="selectStudent(st)" [class.selected]="selectedStudent?.id === st.id">
-                    <mat-icon class="cand-icon">account_circle</mat-icon>
-                    <div class="cand-info">
-                      <strong>{{ st.studentName }}</strong>
-                      <span>Roll: {{ st.rollNumber || 'N/A' }} &bull; Adm: {{ st.admissionNumber || 'N/A' }} &bull; {{ st.className || st.batchName || 'General' }}</span>
-                    </div>
-                    <mat-icon class="cand-check" *ngIf="selectedStudent?.id === st.id">check_circle</mat-icon>
-                  </div>
-                </div>
-
-                <!-- Selected Student Banner -->
-                <div class="selected-student-banner" *ngIf="selectedStudent">
-                  <mat-icon class="banner-icon">check</mat-icon>
-                  <div>
-                    <strong>{{ selectedStudent.studentName }}</strong>
-                    <span class="sub">({{ selectedStudent.rollNumber }} &bull; {{ selectedStudent.className || selectedStudent.batchName }})</span>
-                  </div>
-                  <button mat-button color="warn" type="button" (click)="clearSelectedStudent()" class="change-btn">Change</button>
-                </div>
+      @if (showAddModal) {
+        <div class="custom-modal-backdrop" (click)="closeAddModal()">
+          <div class="custom-modal-box" (click)="$event.stopPropagation()">
+            <!-- Strict Light Blue Gradient Header per AGENTS.md rule -->
+            <div class="dialog-header">
+              <div class="header-icon-wrap">
+                <mat-icon>card_giftcard</mat-icon>
               </div>
-
-              <!-- Concession Policy Details -->
-              <div class="form-section-title" style="margin-top: 16px;">2. Concession Policy &amp; Discount Calculation</div>
-
-              <div class="form-grid-2">
-                <mat-form-field appearance="outline">
-                  <mat-label>Concession Category *</mat-label>
-                  <mat-select formControlName="concessionType" (selectionChange)="onCategoryChanged($event.value)">
-                    <mat-option value="SiblingDiscount">👨‍👩‍👧 Sibling Discount</mat-option>
-                    <mat-option value="MeritScholarship">🌟 Merit Scholarship (Academic/Board)</mat-option>
-                    <mat-option value="StaffWard">👨‍🏫 Staff Ward / Teacher Child</mat-option>
-                    <mat-option value="EWS_RTE">🤝 EWS / RTE Government Scheme</mat-option>
-                    <mat-option value="SportsQuota">🏆 Sports &amp; Extra-curricular Quota</mat-option>
-                    <mat-option value="SpecialManagement">🎁 Management Discretion Waiver</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Concession Policy Title *</mat-label>
-                  <input matInput formControlName="title" placeholder="e.g. 2nd Child Sibling Discount (25%)" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Discount Mode *</mat-label>
-                  <mat-select formControlName="discountMode">
-                    <mat-option value="Percentage">Percentage (% Off Base Fee)</mat-option>
-                    <mat-option value="FixedAmount">Fixed Amount (₹ Flat Deduction)</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Discount Value *</mat-label>
-                  <input matInput type="number" formControlName="discountValue" min="0" placeholder="e.g. 20 or 500" />
-                  <span matSuffix class="suffix-text">{{ concessionForm.get('discountMode')?.value === 'Percentage' ? '%' : '₹' }}</span>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Scope / Target Fee Head</mat-label>
-                  <mat-select formControlName="feeHeadId">
-                    <mat-option [value]="null">All Tuition &amp; Recurring Heads</mat-option>
-                    <mat-option *ngFor="let h of feeHeadsList" [value]="h.id">{{ h.name }} ({{ h.code }})</mat-option>
-                  </mat-select>
-                  <mat-hint>Choose specific head or apply to all tuition</mat-hint>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Authorized By</mat-label>
-                  <input matInput formControlName="approvedBy" placeholder="e.g. Principal / Director" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Valid From Date *</mat-label>
-                  <input matInput type="date" formControlName="applicableFrom" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Valid To Date (Optional)</mat-label>
-                  <input matInput type="date" formControlName="applicableTo" />
-                  <mat-hint>Leave blank for continuous ongoing concession</mat-hint>
-                </mat-form-field>
+              <div class="header-titles">
+                <h2 class="main-title">Grant Fee Concession / Scholarship</h2>
+                <p class="subtitle">Enroll a student into institutional sibling discounts, merit waivers, or scholarship schemes</p>
               </div>
-
-              <mat-form-field appearance="outline" class="full-width" style="margin-top: 8px;">
-                <mat-label>Internal Notes &amp; Verification Details</mat-label>
-                <textarea matInput formControlName="remarks" rows="2" placeholder="e.g. Verified 92% in 10th CBSE; approved by management committee"></textarea>
-              </mat-form-field>
-
-            </div>
-
-            <div class="modal-footer">
-              <button mat-button type="button" (click)="closeAddModal()" [disabled]="saving">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="concessionForm.invalid || !selectedStudent || saving">
-                <mat-icon>check</mat-icon> {{ saving ? 'Granting...' : 'Grant Concession' }}
+              <button mat-icon-button type="button" class="close-btn" (click)="closeAddModal()" [disabled]="saving">
+                <mat-icon>close</mat-icon>
               </button>
             </div>
-          </form>
-
+            <form [formGroup]="concessionForm" (ngSubmit)="submitConcession()" class="modal-form">
+              <div class="modal-body-scroll">
+                <!-- Student Search & Selection -->
+                <div class="form-section-title">1. Target Student Selection</div>
+                <div class="student-search-box">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Search Student (Name, Admission No, Roll No, Phone)</mat-label>
+                    <input matInput [formControl]="studentSearchControl" placeholder="Type at least 2 characters..." />
+                    <mat-icon matPrefix>person_search</mat-icon>
+                    @if (searchingStudents) {
+                      <mat-progress-spinner matSuffix diameter="20" mode="indeterminate"></mat-progress-spinner>
+                    }
+                  </mat-form-field>
+                  <!-- Student Candidates List -->
+                  @if (candidateStudents.length > 0) {
+                    <div class="student-candidates-list">
+                      @for (st of candidateStudents; track st) {
+                        <div class="candidate-row" (click)="selectStudent(st)" [class.selected]="selectedStudent?.id === st.id">
+                          <mat-icon class="cand-icon">account_circle</mat-icon>
+                          <div class="cand-info">
+                            <strong>{{ st.studentName }}</strong>
+                            <span>Roll: {{ st.rollNumber || 'N/A' }} &bull; Adm: {{ st.admissionNumber || 'N/A' }} &bull; {{ st.className || st.batchName || 'General' }}</span>
+                          </div>
+                          @if (selectedStudent?.id === st.id) {
+                            <mat-icon class="cand-check">check_circle</mat-icon>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                  <!-- Selected Student Banner -->
+                  @if (selectedStudent) {
+                    <div class="selected-student-banner">
+                      <mat-icon class="banner-icon">check</mat-icon>
+                      <div>
+                        <strong>{{ selectedStudent.studentName }}</strong>
+                        <span class="sub">({{ selectedStudent.rollNumber }} &bull; {{ selectedStudent.className || selectedStudent.batchName }})</span>
+                      </div>
+                      <button mat-button color="warn" type="button" (click)="clearSelectedStudent()" class="change-btn">Change</button>
+                    </div>
+                  }
+                </div>
+                <!-- Concession Policy Details -->
+                <div class="form-section-title" style="margin-top: 16px;">2. Concession Policy &amp; Discount Calculation</div>
+                <div class="form-grid-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Concession Category *</mat-label>
+                    <mat-select formControlName="concessionType" (selectionChange)="onCategoryChanged($event.value)">
+                      <mat-option value="SiblingDiscount">👨‍👩‍👧 Sibling Discount</mat-option>
+                      <mat-option value="MeritScholarship">🌟 Merit Scholarship (Academic/Board)</mat-option>
+                      <mat-option value="StaffWard">👨‍🏫 Staff Ward / Teacher Child</mat-option>
+                      <mat-option value="EWS_RTE">🤝 EWS / RTE Government Scheme</mat-option>
+                      <mat-option value="SportsQuota">🏆 Sports &amp; Extra-curricular Quota</mat-option>
+                      <mat-option value="SpecialManagement">🎁 Management Discretion Waiver</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Concession Policy Title *</mat-label>
+                    <input matInput formControlName="title" placeholder="e.g. 2nd Child Sibling Discount (25%)" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Discount Mode *</mat-label>
+                    <mat-select formControlName="discountMode">
+                      <mat-option value="Percentage">Percentage (% Off Base Fee)</mat-option>
+                      <mat-option value="FixedAmount">Fixed Amount (₹ Flat Deduction)</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Discount Value *</mat-label>
+                    <input matInput type="number" formControlName="discountValue" min="0" placeholder="e.g. 20 or 500" />
+                    <span matSuffix class="suffix-text">{{ concessionForm.get('discountMode')?.value === 'Percentage' ? '%' : '₹' }}</span>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Scope / Target Fee Head</mat-label>
+                    <mat-select formControlName="feeHeadId">
+                      <mat-option [value]="null">All Tuition &amp; Recurring Heads</mat-option>
+                      @for (h of feeHeadsList; track h) {
+                        <mat-option [value]="h.id">{{ h.name }} ({{ h.code }})</mat-option>
+                      }
+                    </mat-select>
+                    <mat-hint>Choose specific head or apply to all tuition</mat-hint>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Authorized By</mat-label>
+                    <input matInput formControlName="approvedBy" placeholder="e.g. Principal / Director" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Valid From Date *</mat-label>
+                    <input matInput type="date" formControlName="applicableFrom" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Valid To Date (Optional)</mat-label>
+                    <input matInput type="date" formControlName="applicableTo" />
+                    <mat-hint>Leave blank for continuous ongoing concession</mat-hint>
+                  </mat-form-field>
+                </div>
+                <mat-form-field appearance="outline" class="full-width" style="margin-top: 8px;">
+                  <mat-label>Internal Notes &amp; Verification Details</mat-label>
+                  <textarea matInput formControlName="remarks" rows="2" placeholder="e.g. Verified 92% in 10th CBSE; approved by management committee"></textarea>
+                </mat-form-field>
+              </div>
+              <div class="modal-footer">
+                <button mat-button type="button" (click)="closeAddModal()" [disabled]="saving">Cancel</button>
+                <button mat-raised-button color="primary" type="submit" [disabled]="concessionForm.invalid || !selectedStudent || saving">
+                  <mat-icon>check</mat-icon> {{ saving ? 'Granting...' : 'Grant Concession' }}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-
+      }
+    
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

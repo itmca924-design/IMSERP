@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,7 +16,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   selector: 'app-upi-settings-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -26,7 +25,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatSlideToggleModule,
     MatProgressBarModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="upi-settings-container">
       <!-- Strict IMSERP UI Header Rule: Light blue gradient header -->
@@ -46,7 +45,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <mat-icon>close</mat-icon>
         </button>
       </header>
-
+    
       <form [formGroup]="settingsForm" (ngSubmit)="onSaveSettings()" class="settings-form">
         <div class="form-body">
           <div class="info-alert">
@@ -56,7 +55,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               Dynamic UPI QR uses the national NPCI standard. Parents scan with Google Pay, PhonePe, Paytm, or BHIM directly into your school bank account without any 2-3% payment gateway commission.
             </div>
           </div>
-
+    
           <!-- Merchant VPA / UPI ID -->
           <mat-form-field appearance="outline" class="w-100 field-block">
             <mat-label>School / Campus UPI ID (VPA)</mat-label>
@@ -66,14 +65,16 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               formControlName="upiId"
               placeholder="e.g. schoolname@sbi or fees@okhdfcbank"
               autocomplete="off"
-            />
+              />
             <mat-icon matPrefix class="field-icon">alternate_email</mat-icon>
             <mat-hint>The official UPI ID linked to your institute's bank account</mat-hint>
-            <mat-error *ngIf="settingsForm.get('upiId')?.hasError('required')">
-              UPI ID is required to generate payment QR codes.
-            </mat-error>
+            @if (settingsForm.get('upiId')?.hasError('required')) {
+              <mat-error>
+                UPI ID is required to generate payment QR codes.
+              </mat-error>
+            }
           </mat-form-field>
-
+    
           <!-- Payee / Merchant Display Name -->
           <mat-form-field appearance="outline" class="w-100 field-block">
             <mat-label>Payee / Merchant Business Name</mat-label>
@@ -83,14 +84,16 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               formControlName="upiMerchantName"
               placeholder="e.g. Jnandeep Campus"
               autocomplete="off"
-            />
+              />
             <mat-icon matPrefix class="field-icon">business</mat-icon>
             <mat-hint>The verified name that appears on the parent's payment app</mat-hint>
-            <mat-error *ngIf="settingsForm.get('upiMerchantName')?.hasError('required')">
-              Payee Merchant Name is required.
-            </mat-error>
+            @if (settingsForm.get('upiMerchantName')?.hasError('required')) {
+              <mat-error>
+                Payee Merchant Name is required.
+              </mat-error>
+            }
           </mat-form-field>
-
+    
           <div class="form-row-2">
             <!-- Merchant Category Code -->
             <mat-form-field appearance="outline" class="field-block">
@@ -99,7 +102,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-icon matSuffix matTooltip="Locked to 8211 (Official Standard Code for Schools & Educational Services)" style="font-size: 18px; color: #64748b; cursor: default;">lock</mat-icon>
               <mat-hint>🔒 Fixed: 8211 (Schools &amp; Educational Services)</mat-hint>
             </mat-form-field>
-
+    
             <!-- Active Status Box -->
             <div class="status-summary-box">
               <span class="status-label">Gateway Status:</span>
@@ -109,7 +112,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </span>
             </div>
           </div>
-
+    
           <!-- Toggles -->
           <div class="toggles-card">
             <div class="toggle-item">
@@ -119,7 +122,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </div>
               <mat-slide-toggle formControlName="upiQrEnabled" color="primary"></mat-slide-toggle>
             </div>
-
+    
             <div class="toggle-item">
               <div class="toggle-text">
                 <strong class="toggle-title">Automated UTR Verification &amp; Instant Receipt</strong>
@@ -129,7 +132,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </div>
           </div>
         </div>
-
+    
         <div class="dialog-actions">
           <button mat-stroked-button type="button" (click)="dialogRef.close()" [disabled]="saving">
             Cancel
@@ -140,14 +143,17 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             type="submit"
             class="save-btn"
             [disabled]="settingsForm.invalid || saving || loading"
-          >
-            <mat-icon *ngIf="!saving">save</mat-icon>
+            >
+            @if (!saving) {
+              <mat-icon>save</mat-icon>
+            }
             <span>{{ saving ? 'Saving Settings...' : 'Save UPI Settings' }}</span>
           </button>
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .upi-settings-container {
       display: flex;

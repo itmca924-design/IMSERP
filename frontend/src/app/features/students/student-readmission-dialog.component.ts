@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -49,10 +49,18 @@ export interface StudentReadmissionDialogData {
               <span class="st-name">{{ student?.studentName }}</span>
               <span class="meta-dot">•</span>
               <span>Prev Roll: <strong>{{ student?.rollNumber }}</strong></span>
-              <span class="meta-dot" *ngIf="student?.admissionNumber">•</span>
-              <span *ngIf="student?.admissionNumber">SR No: <strong>{{ student?.admissionNumber }}</strong></span>
-              <span class="meta-dot" *ngIf="student?.tcNumber">•</span>
-              <span class="tc-pill" *ngIf="student?.tcNumber">TC: <strong>{{ student?.tcNumber }}</strong></span>
+              @if (student?.admissionNumber) {
+                <span class="meta-dot">•</span>
+              }
+              @if (student?.admissionNumber) {
+                <span>SR No: <strong>{{ student?.admissionNumber }}</strong></span>
+              }
+              @if (student?.tcNumber) {
+                <span class="meta-dot">•</span>
+              }
+              @if (student?.tcNumber) {
+                <span class="tc-pill">TC: <strong>{{ student?.tcNumber }}</strong></span>
+              }
             </div>
           </div>
         </div>
@@ -62,39 +70,45 @@ export interface StudentReadmissionDialogData {
           </button>
         </div>
       </div>
-
+    
       <!-- Departure Info Banner -->
       <div class="departure-summary-banner">
         <div class="banner-item">
           <span class="lbl">Previous Status:</span>
           <span class="val status-tag">Left / TC Issued</span>
         </div>
-        <div class="banner-item" *ngIf="student?.leavingDate">
-          <span class="lbl">Departure Date:</span>
-          <span class="val">{{ student?.leavingDate | date:'mediumDate' }}</span>
-        </div>
-        <div class="banner-item" *ngIf="student?.leavingReason">
-          <span class="lbl">Departure Reason:</span>
-          <span class="val">{{ student?.leavingReason }}</span>
-        </div>
+        @if (student?.leavingDate) {
+          <div class="banner-item">
+            <span class="lbl">Departure Date:</span>
+            <span class="val">{{ $safeNavigationMigration(student?.leavingDate) | date:'mediumDate' }}</span>
+          </div>
+        }
+        @if (student?.leavingReason) {
+          <div class="banner-item">
+            <span class="lbl">Departure Reason:</span>
+            <span class="val">{{ student?.leavingReason }}</span>
+          </div>
+        }
         <div class="banner-item">
           <span class="lbl">Last Enrolled In:</span>
           <span class="val">{{ student?.className ? (student?.className + ' - ' + (student?.sectionName || 'A')) : (student?.batchName || 'N/A') }}</span>
         </div>
       </div>
-
+    
       <!-- Re-Admission Form -->
       <form [formGroup]="readmitForm" (ngSubmit)="submitReAdmission()" class="readmit-form">
         <div class="form-body">
-          
+    
           <div class="form-row two-col">
             <!-- Re-Admission Date -->
             <mat-form-field appearance="outline">
               <mat-label>Re-Admission Date</mat-label>
               <input matInput type="date" formControlName="reAdmissionDate" required />
-              <mat-error *ngIf="readmitForm.get('reAdmissionDate')?.hasError('required')">Date is required</mat-error>
+              @if (readmitForm.get('reAdmissionDate')?.hasError('required')) {
+                <mat-error>Date is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Re-Admission Fee -->
             <mat-form-field appearance="outline">
               <mat-label>Re-Admission Fee (₹)</mat-label>
@@ -102,45 +116,54 @@ export interface StudentReadmissionDialogData {
               <mat-hint>Set ₹0 if waived. If > 0, an invoice will be generated.</mat-hint>
             </mat-form-field>
           </div>
-
+    
           <!-- Academic Stream & Class Allocation -->
           <div class="section-divider">
             <span>Academic Allocation for Re-Admission</span>
           </div>
-
-          <div class="form-row two-col" *ngIf="student?.isSchoolStudent !== false">
-            <!-- Target Class -->
-            <mat-form-field appearance="outline">
-              <mat-label>Target School Class</mat-label>
-              <mat-select formControlName="classId" (selectionChange)="onClassChange($event.value)">
-                <mat-option *ngFor="let c of classes" [value]="c.id">
-                  {{ c.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <!-- Target Section -->
-            <mat-form-field appearance="outline">
-              <mat-label>Target Section</mat-label>
-              <mat-select formControlName="sectionId">
-                <mat-option *ngFor="let s of filteredSections" [value]="s.id">
-                  {{ s.name }} (Max: {{ s.maxCapacity }})
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
+    
+          @if (student?.isSchoolStudent !== false) {
+            <div class="form-row two-col">
+              <!-- Target Class -->
+              <mat-form-field appearance="outline">
+                <mat-label>Target School Class</mat-label>
+                <mat-select formControlName="classId" (selectionChange)="onClassChange($event.value)">
+                  @for (c of classes; track c) {
+                    <mat-option [value]="c.id">
+                      {{ c.name }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <!-- Target Section -->
+              <mat-form-field appearance="outline">
+                <mat-label>Target Section</mat-label>
+                <mat-select formControlName="sectionId">
+                  @for (s of filteredSections; track s) {
+                    <mat-option [value]="s.id">
+                      {{ s.name }} (Max: {{ s.maxCapacity }})
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          }
+    
           <div class="form-row two-col">
             <!-- Target Coaching Batch (if applicable) -->
-            <mat-form-field appearance="outline" *ngIf="student?.isCoachingStudent">
-              <mat-label>Coaching Batch</mat-label>
-              <mat-select formControlName="batchId">
-                <mat-option *ngFor="let b of batches" [value]="b.id">
-                  {{ b.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
+            @if (student?.isCoachingStudent) {
+              <mat-form-field appearance="outline">
+                <mat-label>Coaching Batch</mat-label>
+                <mat-select formControlName="batchId">
+                  @for (b of batches; track b) {
+                    <mat-option [value]="b.id">
+                      {{ b.name }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+    
             <!-- New Roll Number -->
             <mat-form-field appearance="outline">
               <mat-label>New Roll Number (Optional)</mat-label>
@@ -148,7 +171,7 @@ export interface StudentReadmissionDialogData {
               <mat-hint>Leave blank to keep existing roll number</mat-hint>
             </mat-form-field>
           </div>
-
+    
           <!-- Remarks -->
           <div class="form-row">
             <mat-form-field appearance="outline" class="w-full">
@@ -156,7 +179,7 @@ export interface StudentReadmissionDialogData {
               <textarea matInput rows="2" formControlName="remarks" placeholder="e.g. Student re-enrolled after return from hometown / family medical leave"></textarea>
             </mat-form-field>
           </div>
-
+    
           <!-- Reset TC Checkbox -->
           <div class="checkbox-row">
             <mat-checkbox formControlName="resetTC" color="primary">
@@ -164,23 +187,28 @@ export interface StudentReadmissionDialogData {
               <div class="checkbox-subtext">Marks student fully active and clears previous departure flag so student can resume regular attendance and exams.</div>
             </mat-checkbox>
           </div>
-
+    
         </div>
-
+    
         <!-- Footer Actions -->
         <div class="readmit-dialog-footer">
           <button type="button" mat-stroked-button (click)="closeDialog()" [disabled]="submitting">
             Cancel
           </button>
           <button type="submit" mat-flat-button color="primary" class="btn-confirm-readmit" [disabled]="readmitForm.invalid || submitting">
-            <mat-spinner diameter="18" *ngIf="submitting" style="display: inline-block; margin-right: 8px;"></mat-spinner>
-            <mat-icon *ngIf="!submitting">how_to_reg</mat-icon>
+            @if (submitting) {
+              <mat-spinner diameter="18" style="display: inline-block; margin-right: 8px;"></mat-spinner>
+            }
+            @if (!submitting) {
+              <mat-icon>how_to_reg</mat-icon>
+            }
             <span>Confirm Re-Admission</span>
           </button>
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .readmit-dialog-wrapper {
       display: flex;

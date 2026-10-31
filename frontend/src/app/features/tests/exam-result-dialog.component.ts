@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -57,7 +57,7 @@ interface StudentRankRow {
   ],
   template: `
     <div class="result-modal-container">
-
+    
       <!-- ═══════════════════════════════════════════════ -->
       <!-- MODAL TOOLBAR (hidden on print)                 -->
       <!-- ═══════════════════════════════════════════════ -->
@@ -69,7 +69,9 @@ interface StudentRankRow {
           <div class="title-text-group">
             <div class="title-row">
               <span class="main-title">Exam Result &amp; Report Cards</span>
-              <span class="exam-title-badge" *ngIf="data.testTitle">{{ data.testTitle }}</span>
+              @if (data.testTitle) {
+                <span class="exam-title-badge">{{ data.testTitle }}</span>
+              }
             </div>
             <span class="sub-title">
               <span class="meta-item"><mat-icon class="sub-icon">class</mat-icon>{{ data.batchName || 'Batch' }}</span>
@@ -80,7 +82,7 @@ interface StudentRankRow {
             </span>
           </div>
         </div>
-
+    
         <div class="btn-group">
           <!-- View Toggle Tabs -->
           <div class="view-toggle-group">
@@ -91,24 +93,26 @@ interface StudentRankRow {
               <mat-icon>badge</mat-icon> Result Cards
             </button>
           </div>
-
+    
           <div class="header-divider"></div>
-
+    
           <!-- WhatsApp Summary Button -->
-          <button mat-flat-button class="header-action-btn wa-btn" (click)="shareClassSummaryWhatsApp()"
-                  *ngIf="rankedList.length > 0" matTooltip="Share Performance Summary on WhatsApp">
-            <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-            </svg>
-            <span>WhatsApp Summary</span>
-          </button>
-
+          @if (rankedList.length > 0) {
+            <button mat-flat-button class="header-action-btn wa-btn" (click)="shareClassSummaryWhatsApp()"
+              matTooltip="Share Performance Summary on WhatsApp">
+              <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+              </svg>
+              <span>WhatsApp Summary</span>
+            </button>
+          }
+    
           <!-- Print Button -->
           <button mat-flat-button class="header-action-btn print-btn" (click)="printResults()" matTooltip="Print Result / Cards">
             <mat-icon>print</mat-icon>
             <span>Print</span>
           </button>
-
+    
           <!-- Close Button -->
           <button mat-icon-button class="header-close-btn" [mat-dialog-close]="null" matTooltip="Close (Esc)" aria-label="Close dialog">
             <svg class="close-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -118,386 +122,452 @@ interface StudentRankRow {
           </button>
         </div>
       </div>
-
+    
       <!-- ═══════════════════════════════════════════════ -->
       <!-- STATS SUMMARY BAR                               -->
       <!-- ═══════════════════════════════════════════════ -->
-      <div class="stats-bar no-print" *ngIf="!loading && rankedList.length > 0">
-        <div class="stat-chip stat-total">
-          <mat-icon>group</mat-icon>
-          <div>
-            <span class="stat-num">{{ totalAppeared }}</span>
-            <span class="stat-lbl">Appeared</span>
+      @if (!loading && rankedList.length > 0) {
+        <div class="stats-bar no-print">
+          <div class="stat-chip stat-total">
+            <mat-icon>group</mat-icon>
+            <div>
+              <span class="stat-num">{{ totalAppeared }}</span>
+              <span class="stat-lbl">Appeared</span>
+            </div>
           </div>
-        </div>
-        <div class="stat-chip stat-topper">
-          <mat-icon>military_tech</mat-icon>
-          <div>
-            <span class="stat-num">{{ topperMarks }}<span class="stat-denom">/{{ data.maxMarks }}</span></span>
-            <span class="stat-lbl">{{ totalAppeared > 1 ? 'Highest' : 'Score' }}</span>
+          <div class="stat-chip stat-topper">
+            <mat-icon>military_tech</mat-icon>
+            <div>
+              <span class="stat-num">{{ topperMarks }}<span class="stat-denom">/{{ data.maxMarks }}</span></span>
+              <span class="stat-lbl">{{ totalAppeared > 1 ? 'Highest' : 'Score' }}</span>
+            </div>
           </div>
-        </div>
-        <!-- Average: Only displayed when multiple students appeared -->
-        <div class="stat-chip stat-avg" *ngIf="totalAppeared > 1">
-          <mat-icon>analytics</mat-icon>
-          <div>
-            <span class="stat-num">{{ averageMarks | number:'1.1-1' }}</span>
-            <span class="stat-lbl">Average</span>
+          <!-- Average: Only displayed when multiple students appeared -->
+          @if (totalAppeared > 1) {
+            <div class="stat-chip stat-avg">
+              <mat-icon>analytics</mat-icon>
+              <div>
+                <span class="stat-num">{{ averageMarks | number:'1.1-1' }}</span>
+                <span class="stat-lbl">Average</span>
+              </div>
+            </div>
+          }
+          <div class="stat-chip stat-pass">
+            <mat-icon>check_circle</mat-icon>
+            <div>
+              <span class="stat-num">{{ passCount }}</span>
+              <span class="stat-lbl">Passed</span>
+            </div>
           </div>
+          @if (absentCount > 0) {
+            <div class="stat-chip stat-absent">
+              <mat-icon>person_off</mat-icon>
+              <div>
+                <span class="stat-num">{{ absentCount }}</span>
+                <span class="stat-lbl">Absent</span>
+              </div>
+            </div>
+          }
+          <!-- Pass Rate: Only displayed when multiple students appeared -->
+          @if (totalAppeared > 1) {
+            <div class="stat-chip stat-pass-pct">
+              <mat-icon>percent</mat-icon>
+              <div>
+                <span class="stat-num">{{ passPercentage | number:'1.0-0' }}%</span>
+                <span class="stat-lbl">Pass Rate</span>
+              </div>
+            </div>
+          }
         </div>
-        <div class="stat-chip stat-pass">
-          <mat-icon>check_circle</mat-icon>
-          <div>
-            <span class="stat-num">{{ passCount }}</span>
-            <span class="stat-lbl">Passed</span>
-          </div>
-        </div>
-        <div class="stat-chip stat-absent" *ngIf="absentCount > 0">
-          <mat-icon>person_off</mat-icon>
-          <div>
-            <span class="stat-num">{{ absentCount }}</span>
-            <span class="stat-lbl">Absent</span>
-          </div>
-        </div>
-        <!-- Pass Rate: Only displayed when multiple students appeared -->
-        <div class="stat-chip stat-pass-pct" *ngIf="totalAppeared > 1">
-          <mat-icon>percent</mat-icon>
-          <div>
-            <span class="stat-num">{{ passPercentage | number:'1.0-0' }}%</span>
-            <span class="stat-lbl">Pass Rate</span>
-          </div>
-        </div>
-      </div>
-
+      }
+    
       <!-- ═══════════════════════════════════════════════ -->
       <!-- VIEW: LEADERBOARD TABLE                         -->
       <!-- ═══════════════════════════════════════════════ -->
-      <div class="leaderboard-wrap" *ngIf="viewMode === 'leaderboard' && !loading">
-
-        <!-- Print-only header (shown only when printing) -->
-        <div class="print-page-header print-only">
-          <div class="print-institute-name">{{ instituteName }}</div>
-          <div class="print-exam-title">{{ data.testTitle }} — Result Sheet</div>
-          <div class="print-meta">Batch: {{ data.batchName }} &nbsp;|&nbsp; Subject: {{ data.subject }} &nbsp;|&nbsp; Max Marks: {{ data.maxMarks }}</div>
-        </div>
-
-        <div class="no-data-state" *ngIf="rankedList.length === 0">
-          <div class="no-data-icon-box">
-            <mat-icon>assignment_late</mat-icon>
+      @if (viewMode === 'leaderboard' && !loading) {
+        <div class="leaderboard-wrap">
+          <!-- Print-only header (shown only when printing) -->
+          <div class="print-page-header print-only">
+            <div class="print-institute-name">{{ instituteName }}</div>
+            <div class="print-exam-title">{{ data.testTitle }} — Result Sheet</div>
+            <div class="print-meta">Batch: {{ data.batchName }} &nbsp;|&nbsp; Subject: {{ data.subject }} &nbsp;|&nbsp; Max Marks: {{ data.maxMarks }}</div>
           </div>
-          <p>No marks have been entered for this exam yet.</p>
-          <span>Use &ldquo;Enter Marks&rdquo; on the Tests page to record student scores first.</span>
-        </div>
-
-        <div class="leaderboard-table-wrap" *ngIf="rankedList.length > 0">
-          <table class="leaderboard-table">
-            <thead>
-              <tr>
-                <th class="col-rank">Rank</th>
-                <th class="col-roll">Roll No.</th>
-                <th class="col-name">Student Name</th>
-                <th class="col-class">Class / Stream</th>
-                <th class="col-marks">Marks</th>
-                <th class="col-pct">%</th>
-                <th class="col-grade">Grade</th>
-                <th class="col-status">Status</th>
-                <th class="col-remarks no-print">Remarks</th>
-                <th class="col-actions no-print">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let s of rankedList"
-                  [class.row-gold]="s.rank === 1 && !s.isAbsent"
-                  [class.row-silver]="s.rank === 2 && !s.isAbsent"
-                  [class.row-bronze]="s.rank === 3 && !s.isAbsent"
-                  [class.row-absent]="s.isAbsent">
-                <!-- Rank -->
-                <td class="col-rank">
-                  <span class="rank-badge" *ngIf="!s.isAbsent && s.rank === 1">🥇 1</span>
-                  <span class="rank-badge" *ngIf="!s.isAbsent && s.rank === 2">🥈 2</span>
-                  <span class="rank-badge" *ngIf="!s.isAbsent && s.rank === 3">🥉 3</span>
-                  <span class="rank-num"   *ngIf="!s.isAbsent && s.rank > 3">#{{ s.rank }}</span>
-                  <span class="rank-absent" *ngIf="s.isAbsent">—</span>
-                </td>
-                <!-- Roll No -->
-                <td class="col-roll">
-                  <span class="roll-tag">{{ s.rollNumber || '—' }}</span>
-                </td>
-                <!-- Name -->
-                <td class="col-name">
-                  <div class="name-cell">
-                    <span class="avatar-letter" [class.avatar-absent]="s.isAbsent">
-                      {{ s.studentName.charAt(0).toUpperCase() }}
-                    </span>
-                    <div class="name-and-parent">
-                      <span class="student-name">{{ s.studentName }}</span>
-                      <span class="parent-sub" *ngIf="s.parentName">S/O, D/O: {{ s.parentName }}</span>
-                    </div>
-                  </div>
-                </td>
-                <!-- Class / Stream -->
-                <td class="col-class">
-                  <div class="class-stream-cell">
-                    <!-- Dual enrolled (School + Coaching) -->
-                    <ng-container *ngIf="s.isSchoolStudent && s.isCoachingStudent">
-                      <span class="stream-pill dual-pill">
-                        <mat-icon class="pill-icon">verified</mat-icon> School + Coaching
-                      </span>
-                      <div class="stream-meta-rows">
-                        <div class="meta-row school-row" *ngIf="s.className">
-                          <mat-icon class="meta-icon">domain</mat-icon>
-                          <span class="meta-title">{{ s.className }}</span>
-                          <span class="sec-badge" *ngIf="s.sectionName">{{ s.sectionName }}</span>
+          @if (rankedList.length === 0) {
+            <div class="no-data-state">
+              <div class="no-data-icon-box">
+                <mat-icon>assignment_late</mat-icon>
+              </div>
+              <p>No marks have been entered for this exam yet.</p>
+              <span>Use &ldquo;Enter Marks&rdquo; on the Tests page to record student scores first.</span>
+            </div>
+          }
+          @if (rankedList.length > 0) {
+            <div class="leaderboard-table-wrap">
+              <table class="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th class="col-rank">Rank</th>
+                    <th class="col-roll">Roll No.</th>
+                    <th class="col-name">Student Name</th>
+                    <th class="col-class">Class / Stream</th>
+                    <th class="col-marks">Marks</th>
+                    <th class="col-pct">%</th>
+                    <th class="col-grade">Grade</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-remarks no-print">Remarks</th>
+                    <th class="col-actions no-print">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (s of rankedList; track s) {
+                    <tr
+                      [class.row-gold]="s.rank === 1 && !s.isAbsent"
+                      [class.row-silver]="s.rank === 2 && !s.isAbsent"
+                      [class.row-bronze]="s.rank === 3 && !s.isAbsent"
+                      [class.row-absent]="s.isAbsent">
+                      <!-- Rank -->
+                      <td class="col-rank">
+                        @if (!s.isAbsent && s.rank === 1) {
+                          <span class="rank-badge">🥇 1</span>
+                        }
+                        @if (!s.isAbsent && s.rank === 2) {
+                          <span class="rank-badge">🥈 2</span>
+                        }
+                        @if (!s.isAbsent && s.rank === 3) {
+                          <span class="rank-badge">🥉 3</span>
+                        }
+                        @if (!s.isAbsent && s.rank > 3) {
+                          <span class="rank-num"  >#{{ s.rank }}</span>
+                        }
+                        @if (s.isAbsent) {
+                          <span class="rank-absent">—</span>
+                        }
+                      </td>
+                      <!-- Roll No -->
+                      <td class="col-roll">
+                        <span class="roll-tag">{{ s.rollNumber || '—' }}</span>
+                      </td>
+                      <!-- Name -->
+                      <td class="col-name">
+                        <div class="name-cell">
+                          <span class="avatar-letter" [class.avatar-absent]="s.isAbsent">
+                            {{ s.studentName.charAt(0).toUpperCase() }}
+                          </span>
+                          <div class="name-and-parent">
+                            <span class="student-name">{{ s.studentName }}</span>
+                            @if (s.parentName) {
+                              <span class="parent-sub">S/O, D/O: {{ s.parentName }}</span>
+                            }
+                          </div>
                         </div>
-                        <div class="meta-row coaching-row" *ngIf="s.batchName">
-                          <mat-icon class="meta-icon">school</mat-icon>
-                          <span class="meta-title">{{ s.batchName }}</span>
+                      </td>
+                      <!-- Class / Stream -->
+                      <td class="col-class">
+                        <div class="class-stream-cell">
+                          <!-- Dual enrolled (School + Coaching) -->
+                          @if (s.isSchoolStudent && s.isCoachingStudent) {
+                            <span class="stream-pill dual-pill">
+                              <mat-icon class="pill-icon">verified</mat-icon> School + Coaching
+                            </span>
+                            <div class="stream-meta-rows">
+                              @if (s.className) {
+                                <div class="meta-row school-row">
+                                  <mat-icon class="meta-icon">domain</mat-icon>
+                                  <span class="meta-title">{{ s.className }}</span>
+                                  @if (s.sectionName) {
+                                    <span class="sec-badge">{{ s.sectionName }}</span>
+                                  }
+                                </div>
+                              }
+                              @if (s.batchName) {
+                                <div class="meta-row coaching-row">
+                                  <mat-icon class="meta-icon">school</mat-icon>
+                                  <span class="meta-title">{{ s.batchName }}</span>
+                                </div>
+                              }
+                            </div>
+                          }
+                          <!-- School Only -->
+                          @if (s.isSchoolStudent && !s.isCoachingStudent) {
+                            <span class="stream-pill school-pill">
+                              <mat-icon class="pill-icon">domain</mat-icon> School
+                            </span>
+                            <div class="stream-meta-rows">
+                              <div class="meta-row school-row">
+                                <mat-icon class="meta-icon">domain</mat-icon>
+                                <span class="meta-title">{{ s.className || 'School' }}</span>
+                                @if (s.sectionName) {
+                                  <span class="sec-badge">{{ s.sectionName }}</span>
+                                }
+                              </div>
+                            </div>
+                          }
+                          <!-- Coaching Only -->
+                          @if (!s.isSchoolStudent && s.isCoachingStudent) {
+                            <span class="stream-pill coaching-pill">
+                              <mat-icon class="pill-icon">school</mat-icon> Coaching
+                            </span>
+                            <div class="stream-meta-rows">
+                              <div class="meta-row coaching-row">
+                                <mat-icon class="meta-icon">school</mat-icon>
+                                <span class="meta-title">{{ s.batchName || data.batchName || 'Coaching Batch' }}</span>
+                              </div>
+                            </div>
+                          }
+                          <!-- Fallback / Neither explicit -->
+                          @if (!s.isSchoolStudent && !s.isCoachingStudent) {
+                            <div class="stream-meta-rows">
+                              <div class="meta-row">
+                                <mat-icon class="meta-icon">class</mat-icon>
+                                <span class="meta-title">{{ s.className || s.batchName || data.batchName || '—' }}</span>
+                                @if (s.sectionName) {
+                                  <span class="sec-badge">{{ s.sectionName }}</span>
+                                }
+                              </div>
+                            </div>
+                          }
                         </div>
-                      </div>
-                    </ng-container>
-
-                    <!-- School Only -->
-                    <ng-container *ngIf="s.isSchoolStudent && !s.isCoachingStudent">
-                      <span class="stream-pill school-pill">
-                        <mat-icon class="pill-icon">domain</mat-icon> School
-                      </span>
-                      <div class="stream-meta-rows">
-                        <div class="meta-row school-row">
-                          <mat-icon class="meta-icon">domain</mat-icon>
-                          <span class="meta-title">{{ s.className || 'School' }}</span>
-                          <span class="sec-badge" *ngIf="s.sectionName">{{ s.sectionName }}</span>
-                        </div>
-                      </div>
-                    </ng-container>
-
-                    <!-- Coaching Only -->
-                    <ng-container *ngIf="!s.isSchoolStudent && s.isCoachingStudent">
-                      <span class="stream-pill coaching-pill">
-                        <mat-icon class="pill-icon">school</mat-icon> Coaching
-                      </span>
-                      <div class="stream-meta-rows">
-                        <div class="meta-row coaching-row">
-                          <mat-icon class="meta-icon">school</mat-icon>
-                          <span class="meta-title">{{ s.batchName || data.batchName || 'Coaching Batch' }}</span>
-                        </div>
-                      </div>
-                    </ng-container>
-
-                    <!-- Fallback / Neither explicit -->
-                    <ng-container *ngIf="!s.isSchoolStudent && !s.isCoachingStudent">
-                      <div class="stream-meta-rows">
-                        <div class="meta-row">
-                          <mat-icon class="meta-icon">class</mat-icon>
-                          <span class="meta-title">{{ s.className || s.batchName || data.batchName || '—' }}</span>
-                          <span class="sec-badge" *ngIf="s.sectionName">{{ s.sectionName }}</span>
-                        </div>
-                      </div>
-                    </ng-container>
-                  </div>
-                </td>
-                <!-- Marks -->
-                <td class="col-marks">
-                  <span *ngIf="!s.isAbsent" class="marks-val">{{ s.marksObtained }}</span>
-                  <span *ngIf="s.isAbsent" class="absent-label">AB</span>
-                </td>
-                <!-- Percentage -->
-                <td class="col-pct">
-                  <span *ngIf="!s.isAbsent" class="pct-val">{{ s.percentage | number:'1.1-1' }}%</span>
-                  <span *ngIf="s.isAbsent">—</span>
-                </td>
-                <!-- Grade -->
-                <td class="col-grade">
-                  <span *ngIf="!s.isAbsent" class="grade-badge" [ngClass]="s.gradeClass">{{ s.grade }}</span>
-                  <span *ngIf="s.isAbsent">—</span>
-                </td>
-                <!-- Status -->
-                <td class="col-status">
-                  <span class="status-badge" [ngClass]="getPerformanceStatusClass(s)">
-                    {{ getPerformanceStatus(s) }}
-                  </span>
-                </td>
-                <!-- Remarks -->
-                <td class="col-remarks no-print">
-                  <span class="remarks-text">{{ s.remarks || '—' }}</span>
-                </td>
-                <!-- Actions -->
-                <td class="col-actions no-print">
-                  <div class="row-act-btns">
-                    <button mat-icon-button class="mini-wa-btn" (click)="shareWhatsApp(s)"
+                      </td>
+                      <!-- Marks -->
+                      <td class="col-marks">
+                        @if (!s.isAbsent) {
+                          <span class="marks-val">{{ s.marksObtained }}</span>
+                        }
+                        @if (s.isAbsent) {
+                          <span class="absent-label">AB</span>
+                        }
+                      </td>
+                      <!-- Percentage -->
+                      <td class="col-pct">
+                        @if (!s.isAbsent) {
+                          <span class="pct-val">{{ s.percentage | number:'1.1-1' }}%</span>
+                        }
+                        @if (s.isAbsent) {
+                          <span>—</span>
+                        }
+                      </td>
+                      <!-- Grade -->
+                      <td class="col-grade">
+                        @if (!s.isAbsent) {
+                          <span class="grade-badge" [ngClass]="s.gradeClass">{{ s.grade }}</span>
+                        }
+                        @if (s.isAbsent) {
+                          <span>—</span>
+                        }
+                      </td>
+                      <!-- Status -->
+                      <td class="col-status">
+                        <span class="status-badge" [ngClass]="getPerformanceStatusClass(s)">
+                          {{ getPerformanceStatus(s) }}
+                        </span>
+                      </td>
+                      <!-- Remarks -->
+                      <td class="col-remarks no-print">
+                        <span class="remarks-text">{{ s.remarks || '—' }}</span>
+                      </td>
+                      <!-- Actions -->
+                      <td class="col-actions no-print">
+                        <div class="row-act-btns">
+                          <button mat-icon-button class="mini-wa-btn" (click)="shareWhatsApp(s)"
                             [disabled]="!s.parentWhatsAppPhone" matTooltip="WhatsApp Result to Parent">
-                      <mat-icon>chat</mat-icon>
-                    </button>
-                    <button mat-icon-button class="mini-print-btn" (click)="printSingleCard(s)"
+                            <mat-icon>chat</mat-icon>
+                          </button>
+                          <button mat-icon-button class="mini-print-btn" (click)="printSingleCard(s)"
                             matTooltip="Print Individual Card">
-                      <mat-icon>print</mat-icon>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                            <mat-icon>print</mat-icon>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+          <!-- Print footer -->
+          @if (rankedList.length > 0) {
+            <div class="print-footer print-only">
+              <div class="print-stats-row">
+                <span>Total Appeared: {{ totalAppeared }}</span>
+                <span>Highest: {{ topperMarks }}/{{ data.maxMarks }}</span>
+                <span>Average: {{ averageMarks | number:'1.1-1' }}</span>
+                <span>Pass: {{ passCount }} ({{ passPercentage | number:'1.0-0' }}%)</span>
+                <span>Absent: {{ absentCount }}</span>
+              </div>
+            </div>
+          }
         </div>
-
-        <!-- Print footer -->
-        <div class="print-footer print-only" *ngIf="rankedList.length > 0">
-          <div class="print-stats-row">
-            <span>Total Appeared: {{ totalAppeared }}</span>
-            <span>Highest: {{ topperMarks }}/{{ data.maxMarks }}</span>
-            <span>Average: {{ averageMarks | number:'1.1-1' }}</span>
-            <span>Pass: {{ passCount }} ({{ passPercentage | number:'1.0-0' }}%)</span>
-            <span>Absent: {{ absentCount }}</span>
-          </div>
-        </div>
-      </div>
-
+      }
+    
       <!-- ═══════════════════════════════════════════════ -->
       <!-- VIEW: INDIVIDUAL RESULT CARDS (Print per card)  -->
       <!-- ═══════════════════════════════════════════════ -->
-      <div class="result-cards-wrap" *ngIf="viewMode === 'cards' && !loading">
-
-        <div class="no-data-state" *ngIf="rankedList.length === 0">
-          <div class="no-data-icon-box">
-            <mat-icon>assignment_late</mat-icon>
-          </div>
-          <p>No marks have been entered for this exam yet.</p>
-          <span>Use &ldquo;Enter Marks&rdquo; on the Tests page to record student scores first.</span>
-        </div>
-
-        <div class="cards-grid" *ngIf="rankedList.length > 0">
-          <div class="result-card" *ngFor="let s of rankedList">
-
-            <!-- Card Header -->
-            <div class="rc-header">
-              <div class="rc-logo-area">
-                <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" class="rc-inst-logo" alt="Logo" />
-                <div class="rc-logo-circle" *ngIf="!logoUrl || logoFailed">
-                  <mat-icon>school</mat-icon>
-                </div>
+      @if (viewMode === 'cards' && !loading) {
+        <div class="result-cards-wrap">
+          @if (rankedList.length === 0) {
+            <div class="no-data-state">
+              <div class="no-data-icon-box">
+                <mat-icon>assignment_late</mat-icon>
               </div>
-              <div class="rc-institute-info">
-                <div class="rc-institute-name">{{ instituteName }}</div>
-                <div class="rc-card-type">Official Student Result &amp; Performance Card</div>
-              </div>
-              <div class="rc-grade-seal" [ngClass]="s.isAbsent ? 'seal-absent' : s.gradeClass">
-                <span class="seal-grade">{{ s.isAbsent ? 'AB' : s.grade }}</span>
-                <span class="seal-label">Grade</span>
-              </div>
+              <p>No marks have been entered for this exam yet.</p>
+              <span>Use &ldquo;Enter Marks&rdquo; on the Tests page to record student scores first.</span>
             </div>
-
-            <div class="rc-divider"></div>
-
-            <!-- Student Info -->
-            <div class="rc-student-section">
-              <div class="rc-avatar" [class.rc-avatar-absent]="s.isAbsent">
-                {{ s.studentName.charAt(0).toUpperCase() }}
-              </div>
-              <div class="rc-student-details">
-                <div class="rc-student-name">{{ s.studentName }}</div>
-                <div class="rc-meta-row">
-                  <span class="rc-meta-pill"><mat-icon>badge</mat-icon>Roll: {{ s.rollNumber || 'N/A' }}</span>
-                  <span class="rc-meta-pill stream-dual-pill" *ngIf="s.isSchoolStudent && s.isCoachingStudent">
-                    <mat-icon>verified</mat-icon>School + Coaching
-                  </span>
-                  <span class="rc-meta-pill stream-school-pill" *ngIf="s.className">
-                    <mat-icon>domain</mat-icon>{{ s.className }}<span *ngIf="s.sectionName"> ({{ s.sectionName }})</span>
-                  </span>
-                  <span class="rc-meta-pill"><mat-icon>school</mat-icon>{{ s.batchName || data.batchName }}</span>
-                  <span class="rc-meta-pill" *ngIf="s.parentName"><mat-icon>person</mat-icon>{{ s.parentName }}</span>
+          }
+          @if (rankedList.length > 0) {
+            <div class="cards-grid">
+              @for (s of rankedList; track s) {
+                <div class="result-card">
+                  <!-- Card Header -->
+                  <div class="rc-header">
+                    <div class="rc-logo-area">
+                      @if (logoUrl && !logoFailed) {
+                        <img [src]="logoUrl" (error)="logoFailed = true" class="rc-inst-logo" alt="Logo" />
+                      }
+                      @if (!logoUrl || logoFailed) {
+                        <div class="rc-logo-circle">
+                          <mat-icon>school</mat-icon>
+                        </div>
+                      }
+                    </div>
+                    <div class="rc-institute-info">
+                      <div class="rc-institute-name">{{ instituteName }}</div>
+                      <div class="rc-card-type">Official Student Result &amp; Performance Card</div>
+                    </div>
+                    <div class="rc-grade-seal" [ngClass]="s.isAbsent ? 'seal-absent' : s.gradeClass">
+                      <span class="seal-grade">{{ s.isAbsent ? 'AB' : s.grade }}</span>
+                      <span class="seal-label">Grade</span>
+                    </div>
+                  </div>
+                  <div class="rc-divider"></div>
+                  <!-- Student Info -->
+                  <div class="rc-student-section">
+                    <div class="rc-avatar" [class.rc-avatar-absent]="s.isAbsent">
+                      {{ s.studentName.charAt(0).toUpperCase() }}
+                    </div>
+                    <div class="rc-student-details">
+                      <div class="rc-student-name">{{ s.studentName }}</div>
+                      <div class="rc-meta-row">
+                        <span class="rc-meta-pill"><mat-icon>badge</mat-icon>Roll: {{ s.rollNumber || 'N/A' }}</span>
+                        @if (s.isSchoolStudent && s.isCoachingStudent) {
+                          <span class="rc-meta-pill stream-dual-pill">
+                            <mat-icon>verified</mat-icon>School + Coaching
+                          </span>
+                        }
+                        @if (s.className) {
+                          <span class="rc-meta-pill stream-school-pill">
+                            <mat-icon>domain</mat-icon>{{ s.className }}@if (s.sectionName) {
+                            <span> ({{ s.sectionName }})</span>
+                          }
+                        </span>
+                      }
+                      <span class="rc-meta-pill"><mat-icon>school</mat-icon>{{ s.batchName || data.batchName }}</span>
+                      @if (s.parentName) {
+                        <span class="rc-meta-pill"><mat-icon>person</mat-icon>{{ s.parentName }}</span>
+                      }
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <!-- Exam Details -->
-            <div class="rc-exam-section">
-              <div class="rc-exam-detail"><span class="rc-label">Exam</span><span class="rc-val">{{ data.testTitle }}</span></div>
-              <div class="rc-exam-detail"><span class="rc-label">Subject</span><span class="rc-val">{{ data.subject }}</span></div>
-              <div class="rc-exam-detail"><span class="rc-label">Max Marks</span><span class="rc-val">{{ data.maxMarks }}</span></div>
-            </div>
-
-            <div class="rc-divider"></div>
-
-            <!-- Score Display -->
-            <div class="rc-score-section">
-              <div class="rc-score-box" *ngIf="!s.isAbsent">
-                <div class="rc-score-label">Marks Obtained</div>
-                <div class="rc-score-main">
-                  <span class="rc-score-num">{{ s.marksObtained }}</span>
-                  <span class="rc-score-max">/ {{ data.maxMarks }}</span>
+                <!-- Exam Details -->
+                <div class="rc-exam-section">
+                  <div class="rc-exam-detail"><span class="rc-label">Exam</span><span class="rc-val">{{ data.testTitle }}</span></div>
+                  <div class="rc-exam-detail"><span class="rc-label">Subject</span><span class="rc-val">{{ data.subject }}</span></div>
+                  <div class="rc-exam-detail"><span class="rc-label">Max Marks</span><span class="rc-val">{{ data.maxMarks }}</span></div>
                 </div>
-                <div class="rc-score-bar">
-                  <div class="rc-score-fill" [style.width.%]="s.percentage"
-                       [class.fill-excellent]="s.percentage >= 85"
-                       [class.fill-good]="s.percentage >= 60 && s.percentage < 85"
-                       [class.fill-average]="s.percentage >= 35 && s.percentage < 60"
-                       [class.fill-fail]="s.percentage < 35"></div>
+                <div class="rc-divider"></div>
+                <!-- Score Display -->
+                <div class="rc-score-section">
+                  @if (!s.isAbsent) {
+                    <div class="rc-score-box">
+                      <div class="rc-score-label">Marks Obtained</div>
+                      <div class="rc-score-main">
+                        <span class="rc-score-num">{{ s.marksObtained }}</span>
+                        <span class="rc-score-max">/ {{ data.maxMarks }}</span>
+                      </div>
+                      <div class="rc-score-bar">
+                        <div class="rc-score-fill" [style.width.%]="s.percentage"
+                          [class.fill-excellent]="s.percentage >= 85"
+                          [class.fill-good]="s.percentage >= 60 && s.percentage < 85"
+                          [class.fill-average]="s.percentage >= 35 && s.percentage < 60"
+                        [class.fill-fail]="s.percentage < 35"></div>
+                      </div>
+                    </div>
+                  }
+                  @if (s.isAbsent) {
+                    <div class="rc-score-box rc-absent-box">
+                      <mat-icon>person_off</mat-icon>
+                      <div class="rc-absent-text">Absent</div>
+                    </div>
+                  }
+                  @if (!s.isAbsent) {
+                    <div class="rc-score-stats">
+                      <div class="rc-stat">
+                        <span class="rc-stat-val">{{ s.percentage | number:'1.1-1' }}%</span>
+                        <span class="rc-stat-lbl">Percentage</span>
+                      </div>
+                      <div class="rc-stat rc-stat-rank">
+                        <span class="rc-stat-val rank-val">#{{ s.rank }}</span>
+                        <span class="rc-stat-lbl">Class Rank</span>
+                      </div>
+                      <!-- Class Avg: Only show when multiple students appeared -->
+                      @if (totalAppeared > 1) {
+                        <div class="rc-stat">
+                          <span class="rc-stat-val">{{ averageMarks | number:'1.1-1' }}</span>
+                          <span class="rc-stat-lbl">Class Avg</span>
+                        </div>
+                      }
+                      @if (totalAppeared <= 1) {
+                        <div class="rc-stat">
+                          <span class="rc-stat-val" style="color: #2563eb;">{{ s.grade }}</span>
+                          <span class="rc-stat-lbl">Grade</span>
+                        </div>
+                      }
+                    </div>
+                  }
                 </div>
-              </div>
-              <div class="rc-score-box rc-absent-box" *ngIf="s.isAbsent">
-                <mat-icon>person_off</mat-icon>
-                <div class="rc-absent-text">Absent</div>
-              </div>
-
-              <div class="rc-score-stats" *ngIf="!s.isAbsent">
-                <div class="rc-stat">
-                  <span class="rc-stat-val">{{ s.percentage | number:'1.1-1' }}%</span>
-                  <span class="rc-stat-lbl">Percentage</span>
-                </div>
-                <div class="rc-stat rc-stat-rank">
-                  <span class="rc-stat-val rank-val">#{{ s.rank }}</span>
-                  <span class="rc-stat-lbl">Class Rank</span>
-                </div>
-                <!-- Class Avg: Only show when multiple students appeared -->
-                <div class="rc-stat" *ngIf="totalAppeared > 1">
-                  <span class="rc-stat-val">{{ averageMarks | number:'1.1-1' }}</span>
-                  <span class="rc-stat-lbl">Class Avg</span>
-                </div>
-                <div class="rc-stat" *ngIf="totalAppeared <= 1">
-                  <span class="rc-stat-val" style="color: #2563eb;">{{ s.grade }}</span>
-                  <span class="rc-stat-lbl">Grade</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Status + Remarks -->
-            <div class="rc-footer-row">
-              <span class="rc-status-chip"
+                <!-- Status + Remarks -->
+                <div class="rc-footer-row">
+                  <span class="rc-status-chip"
                     [class.chip-pass]="!s.isAbsent && s.percentage >= 35"
                     [class.chip-fail]="!s.isAbsent && s.percentage < 35"
                     [class.chip-absent]="s.isAbsent">
-                <mat-icon>{{ s.isAbsent ? 'person_off' : (s.percentage >= 35 ? 'verified' : 'cancel') }}</mat-icon>
-                {{ getPerformanceStatus(s) }}
-              </span>
-              <span class="rc-remarks" *ngIf="s.remarks">{{ s.remarks }}</span>
-            </div>
-
-            <!-- Card Actions (no-print) -->
-            <div class="rc-card-actions no-print">
-              <button mat-stroked-button class="card-wa-btn" (click)="shareWhatsApp(s)"
-                      [disabled]="!s.parentWhatsAppPhone" matTooltip="Send to Parent on WhatsApp">
-                <mat-icon>chat</mat-icon> WhatsApp
-              </button>
-              <button mat-stroked-button class="card-p-btn" (click)="printSingleCard(s)"
-                      matTooltip="Print this Card Only">
-                <mat-icon>print</mat-icon> Print
-              </button>
-            </div>
-
-            <div class="rc-sign-area print-only">
-              <div class="rc-sign-box">
-                <div class="rc-sign-line"></div>
-                <div class="rc-sign-label">Class Teacher</div>
+                    <mat-icon>{{ s.isAbsent ? 'person_off' : (s.percentage >= 35 ? 'verified' : 'cancel') }}</mat-icon>
+                    {{ getPerformanceStatus(s) }}
+                  </span>
+                  @if (s.remarks) {
+                    <span class="rc-remarks">{{ s.remarks }}</span>
+                  }
+                </div>
+                <!-- Card Actions (no-print) -->
+                <div class="rc-card-actions no-print">
+                  <button mat-stroked-button class="card-wa-btn" (click)="shareWhatsApp(s)"
+                    [disabled]="!s.parentWhatsAppPhone" matTooltip="Send to Parent on WhatsApp">
+                    <mat-icon>chat</mat-icon> WhatsApp
+                  </button>
+                  <button mat-stroked-button class="card-p-btn" (click)="printSingleCard(s)"
+                    matTooltip="Print this Card Only">
+                    <mat-icon>print</mat-icon> Print
+                  </button>
+                </div>
+                <div class="rc-sign-area print-only">
+                  <div class="rc-sign-box">
+                    <div class="rc-sign-line"></div>
+                    <div class="rc-sign-label">Class Teacher</div>
+                  </div>
+                  <div class="rc-sign-box">
+                    <div class="rc-sign-line"></div>
+                    <div class="rc-sign-label">Principal / Director</div>
+                  </div>
+                </div>
               </div>
-              <div class="rc-sign-box">
-                <div class="rc-sign-line"></div>
-                <div class="rc-sign-label">Principal / Director</div>
-              </div>
-            </div>
+            }
           </div>
-        </div>
+        }
       </div>
-
+    }
+    
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

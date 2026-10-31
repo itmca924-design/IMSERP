@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -58,706 +58,814 @@ export interface AssignmentSlot {
   <div class="page-header">
     <div class="page-header-text">
       <h1 class="page-title"><mat-icon>class</mat-icon> Teacher Assignments & Timetable</h1>
-      <p class="page-subtitle" *ngIf="authService.hasSchoolModule() && authService.hasCoachingModule()">Unified assignment hub: Manage School Class Teachers (कक्षा अध्यापक), Coaching Batches, and Timetable schedules.</p>
-      <p class="page-subtitle" *ngIf="!authService.hasSchoolModule() && authService.hasCoachingModule()">Coaching Faculty Assignments: Manage batch schedules, weekly routines, and period clash detection.</p>
-      <p class="page-subtitle" *ngIf="authService.hasSchoolModule() && !authService.hasCoachingModule()">School Faculty Assignments: Manage Class Teachers (कक्षा अध्यापक), section routines, and period timetable.</p>
+      @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
+        <p class="page-subtitle">Unified assignment hub: Manage School Class Teachers (कक्षा अध्यापक), Coaching Batches, and Timetable schedules.</p>
+      }
+      @if (!authService.hasSchoolModule() && authService.hasCoachingModule()) {
+        <p class="page-subtitle">Coaching Faculty Assignments: Manage batch schedules, weekly routines, and period clash detection.</p>
+      }
+      @if (authService.hasSchoolModule() && !authService.hasCoachingModule()) {
+        <p class="page-subtitle">School Faculty Assignments: Manage Class Teachers (कक्षा अध्यापक), section routines, and period timetable.</p>
+      }
     </div>
   </div>
 
   <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers (Hidden if School Module is disabled or user cannot manage staff) -->
-  <div class="primary-nav-bar mat-elevation-z1" *ngIf="authService.hasSchoolModule() && canManage">
-    <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
-      <mat-icon>calendar_view_week</mat-icon>
-      <div class="nav-btn-info">
-        <span class="nav-title">Batch &amp; Subject Timetable</span>
-        <span class="nav-sub">Teaching periods, weekly routine &amp; clash detection</span>
-      </div>
-    </button>
-    <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')">
-      <mat-icon>supervisor_account</mat-icon>
-      <div class="nav-btn-info">
-        <span class="nav-title">School Class Teachers (कक्षा अध्यापक)</span>
-        <span class="nav-sub">Section Incharge allocation &amp; roll-call coverage</span>
-      </div>
-      <span class="nav-badge alert" *ngIf="unassignedClassTeachersCount > 0">
-        {{ unassignedClassTeachersCount }} Unassigned
-      </span>
-      <span class="nav-badge success" *ngIf="classTeachersMatrix.length > 0 && unassignedClassTeachersCount === 0">
-        <mat-icon>check_circle</mat-icon> 100% Assigned
-      </span>
-    </button>
-  </div>
-
-  <ng-container *ngIf="mainTab === 'TIMETABLE'">
-  <!-- 3-Way Assignment Scope Bar (School Classes vs Coaching Batches - Only shown if both modules enabled) -->
-  <div class="scope-switcher-card mat-elevation-z1" *ngIf="authService.hasSchoolModule() && authService.hasCoachingModule()">
-    <div class="scope-label">
-      <mat-icon>tune</mat-icon>
-      <span>Assignment Scope:</span>
-    </div>
-    <div class="scope-buttons">
-      <button type="button" class="scope-btn" [class.active]="selectedScope === 'ALL'" (click)="setScope('ALL')">
-        <mat-icon>dashboard_customize</mat-icon>
-        <span class="btn-main">All (School + Coaching)</span>
-        <span class="scope-pill" *ngIf="batchCoverage">{{totalScopeCount('ALL')}}</span>
-      </button>
-      <button type="button" class="scope-btn school-btn" [class.active]="selectedScope === 'SCHOOL'" (click)="setScope('SCHOOL')">
-        <mat-icon>account_balance</mat-icon>
-        <span class="btn-main">School Classes (Class 9-A, 10-B, etc.)</span>
-        <span class="scope-pill" *ngIf="batchCoverage">{{totalScopeCount('SCHOOL')}}</span>
-      </button>
-      <button type="button" class="scope-btn coaching-btn" [class.active]="selectedScope === 'COACHING'" (click)="setScope('COACHING')">
-        <mat-icon>biotech</mat-icon>
-        <span class="btn-main">Coaching Batches (NEET, JEE, MTH-09-A, etc.)</span>
-        <span class="scope-pill" *ngIf="batchCoverage">{{totalScopeCount('COACHING')}}</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Batch & Class Coverage Overview Banner -->
-  <div class="coverage-alert-banner" *ngIf="canManage && batchCoverage">
-    <div class="coverage-info">
-      <div class="coverage-icon-badge" [class.badge-warning]="scopeCoverageData.unassigned > 0">
-        <mat-icon>{{scopeCoverageData.unassigned > 0 ? 'warning_amber' : 'verified'}}</mat-icon>
-      </div>
-      <div>
-        <div class="coverage-title">
-          <span>{{scopeCoverageData.title}}: <strong>{{scopeCoverageData.percentage}}%</strong></span>
-          <span class="coverage-counts">({{scopeCoverageData.assigned}} / {{scopeCoverageData.total}} Assigned)</span>
+  @if (authService.hasSchoolModule() && canManage) {
+    <div class="primary-nav-bar mat-elevation-z1">
+      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
+        <mat-icon>calendar_view_week</mat-icon>
+        <div class="nav-btn-info">
+          <span class="nav-title">Batch &amp; Subject Timetable</span>
+          <span class="nav-sub">Teaching periods, weekly routine &amp; clash detection</span>
         </div>
-        <p class="coverage-desc" *ngIf="scopeCoverageData.unassigned > 0">
-          {{scopeCoverageData.unassigned}} teaching {{scopeCoverageData.unassigned === 1 ? 'unit has' : 'units have'}} no faculty assigned yet.
-        </p>
-        <p class="coverage-desc success" *ngIf="scopeCoverageData.unassigned === 0">
-          All {{scopeCoverageData.total}} teaching units in this scope have assigned teachers!
-        </p>
-      </div>
-    </div>
-    <div class="coverage-actions" *ngIf="scopeCoverageData.unassigned > 0">
-      <button mat-button class="toggle-unassigned-btn" (click)="showUnassigned = !showUnassigned">
-        <mat-icon>{{showUnassigned ? 'expand_less' : 'expand_more'}}</mat-icon>
-        {{showUnassigned ? 'Hide' : 'View ' + scopeCoverageData.unassigned + ' Unassigned'}}
+      </button>
+      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')">
+        <mat-icon>supervisor_account</mat-icon>
+        <div class="nav-btn-info">
+          <span class="nav-title">School Class Teachers (कक्षा अध्यापक)</span>
+          <span class="nav-sub">Section Incharge allocation &amp; roll-call coverage</span>
+        </div>
+        @if (unassignedClassTeachersCount > 0) {
+          <span class="nav-badge alert">
+            {{ unassignedClassTeachersCount }} Unassigned
+          </span>
+        }
+        @if (classTeachersMatrix.length > 0 && unassignedClassTeachersCount === 0) {
+          <span class="nav-badge success">
+            <mat-icon>check_circle</mat-icon> 100% Assigned
+          </span>
+        }
       </button>
     </div>
-  </div>
+  }
 
-  <!-- Smart Unassigned Batches Hub -->
-  <div class="unassigned-hub" *ngIf="canManage && showUnassigned && batchCoverage && batchCoverage.unassignedBatches.length > 0">
-    <!-- Hub Header -->
-    <div class="hub-header">
-      <div class="hub-header-left">
-        <div class="hub-icon-badge">
-          <mat-icon>pending_actions</mat-icon>
+  @if (mainTab === 'TIMETABLE') {
+    <!-- 3-Way Assignment Scope Bar (School Classes vs Coaching Batches - Only shown if both modules enabled) -->
+    @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
+      <div class="scope-switcher-card mat-elevation-z1">
+        <div class="scope-label">
+          <mat-icon>tune</mat-icon>
+          <span>Assignment Scope:</span>
         </div>
-        <div class="hub-title-group">
-          <div class="hub-title-row">
-            <h3 class="hub-title">Batches Awaiting Teacher Assignment</h3>
-            <span class="hub-count-badge">{{filteredUnassignedBatches.length}} of {{batchCoverage.unassignedBatches.length}} Batches</span>
-            <span class="hub-students-badge" *ngIf="totalUnassignedStudents > 0">
-              <mat-icon>groups</mat-icon> {{totalUnassignedStudents}} Students Impacted
-            </span>
+        <div class="scope-buttons">
+          <button type="button" class="scope-btn" [class.active]="selectedScope === 'ALL'" (click)="setScope('ALL')">
+            <mat-icon>dashboard_customize</mat-icon>
+            <span class="btn-main">All (School + Coaching)</span>
+            @if (batchCoverage) {
+              <span class="scope-pill">{{totalScopeCount('ALL')}}</span>
+            }
+          </button>
+          <button type="button" class="scope-btn school-btn" [class.active]="selectedScope === 'SCHOOL'" (click)="setScope('SCHOOL')">
+            <mat-icon>account_balance</mat-icon>
+            <span class="btn-main">School Classes (Class 9-A, 10-B, etc.)</span>
+            @if (batchCoverage) {
+              <span class="scope-pill">{{totalScopeCount('SCHOOL')}}</span>
+            }
+          </button>
+          <button type="button" class="scope-btn coaching-btn" [class.active]="selectedScope === 'COACHING'" (click)="setScope('COACHING')">
+            <mat-icon>biotech</mat-icon>
+            <span class="btn-main">Coaching Batches (NEET, JEE, MTH-09-A, etc.)</span>
+            @if (batchCoverage) {
+              <span class="scope-pill">{{totalScopeCount('COACHING')}}</span>
+            }
+          </button>
+        </div>
+      </div>
+    }
+    <!-- Batch & Class Coverage Overview Banner -->
+    @if (canManage && batchCoverage) {
+      <div class="coverage-alert-banner">
+        <div class="coverage-info">
+          <div class="coverage-icon-badge" [class.badge-warning]="scopeCoverageData.unassigned > 0">
+            <mat-icon>{{scopeCoverageData.unassigned > 0 ? 'warning_amber' : 'verified'}}</mat-icon>
           </div>
-          <p class="hub-subtitle">Filter, search, and instantly assign batches to teachers with automatic timetable slot loading.</p>
-        </div>
-      </div>
-
-      <div class="hub-header-controls">
-        <!-- View Mode: Cards vs Table -->
-        <div class="view-mode-toggles">
-          <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'cards'" (click)="unassignedViewMode = 'cards'" matTooltip="Card Grid View">
-            <mat-icon>grid_view</mat-icon>
-            <span class="mode-text">Cards</span>
-          </button>
-          <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'table'" (click)="unassignedViewMode = 'table'" matTooltip="Compact Table View">
-            <mat-icon>view_list</mat-icon>
-            <span class="mode-text">Table</span>
-          </button>
-        </div>
-
-        <button mat-icon-button class="hub-close-btn" (click)="showUnassigned = false" matTooltip="Hide this tray">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-    </div>
-
-    <!-- Smart Filter & Search Toolbar -->
-    <div class="hub-toolbar">
-      <div class="search-box">
-        <mat-icon class="search-icon">search</mat-icon>
-        <input type="text" [(ngModel)]="unassignedSearch" (ngModelChange)="onUnassignedFilterChange()" placeholder="Search by batch name, code, or subject (e.g. NEET, 12, Physics)..." />
-        <button type="button" class="clear-search-btn" *ngIf="unassignedSearch" (click)="unassignedSearch = ''; onUnassignedFilterChange()">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      <div class="toolbar-dropdowns">
-        <!-- Class Filter -->
-        <div class="filter-select-wrapper">
-          <label class="dropdown-label"><mat-icon>school</mat-icon> Class:</label>
-          <select [(ngModel)]="unassignedClassFilter" (change)="onUnassignedFilterChange()" class="clean-select">
-            <option *ngFor="let opt of classFilterOptions" [value]="opt.id">{{opt.label}}</option>
-          </select>
-        </div>
-
-        <!-- Sort By -->
-        <div class="filter-select-wrapper">
-          <label class="dropdown-label"><mat-icon>sort</mat-icon> Sort:</label>
-          <select [(ngModel)]="unassignedSortBy" (change)="onUnassignedFilterChange()" class="clean-select">
-            <option value="name-asc">Name (A → Z)</option>
-            <option value="name-desc">Name (Z → A)</option>
-            <option value="subject">Subject</option>
-            <option value="students-desc">Students (High to Low)</option>
-          </select>
-        </div>
-
-        <!-- Reset Button -->
-        <button type="button" class="reset-filter-btn" *ngIf="isFilterActive" (click)="resetUnassignedFilters()">
-          <mat-icon>filter_alt_off</mat-icon> Reset
-        </button>
-      </div>
-    </div>
-
-    <!-- Subject Filter Tabs / Chips Bar -->
-    <div class="subject-chips-bar" *ngIf="unassignedSubjectTabs.length > 1">
-      <div class="chips-scroll-container">
-        <button type="button" *ngFor="let tab of unassignedSubjectTabs"
-          class="subject-chip-btn"
-          [class.active]="unassignedSubjectFilter === tab.name"
-          (click)="setSubjectFilter(tab.name)">
-          <span class="chip-name">{{tab.name}}</span>
-          <span class="chip-count">{{tab.count}}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Active Faculty Context Hint -->
-    <div class="active-teacher-context" *ngIf="selectedTeacher">
-      <div class="context-content">
-        <mat-icon class="context-icon">person</mat-icon>
-        <span>Selected Faculty: <strong>{{selectedTeacher.fullName}}</strong> ({{selectedTeacher.employeeCode}}). Click <em>"Assign to {{selectedTeacher.fullName}}"</em> to load this batch into the assignment schedule builder below.</span>
-      </div>
-    </div>
-    <div class="active-teacher-context hint" *ngIf="!selectedTeacher">
-      <div class="context-content">
-        <mat-icon class="context-icon">lightbulb</mat-icon>
-        <span>No faculty selected yet. Click <strong>"Assign Faculty"</strong> on any batch to choose a teacher, or pick one from the teacher selector below.</span>
-      </div>
-    </div>
-
-    <!-- Body View 1: Cards Grid -->
-    <div class="cards-grid-container" *ngIf="unassignedViewMode === 'cards' && pagedUnassignedBatches.length > 0">
-      <div class="smart-batch-card" *ngFor="let ub of pagedUnassignedBatches">
-        <div class="card-top">
-          <div class="card-badges-left">
-            <span class="scope-category-tag" [class.school]="ub.category === 'School'" [class.coaching]="ub.category !== 'School'">
-              <mat-icon>{{ub.category === 'School' ? 'account_balance' : 'biotech'}}</mat-icon>
-              {{ub.category === 'School' ? 'School Class' : 'Coaching Batch'}}
-            </span>
-            <span class="subject-badge" [ngStyle]="{ 'background-color': getSubjectBadgeStyle(ub.subject).bg, 'color': getSubjectBadgeStyle(ub.subject).color, 'border': '1px solid ' + getSubjectBadgeStyle(ub.subject).border }">
-              {{ub.subject || 'General'}}
-            </span>
-          </div>
-          <span class="status-pill"><mat-icon>schedule</mat-icon> Unassigned</span>
-        </div>
-
-        <div class="card-mid">
-          <h4 class="batch-name" [matTooltip]="ub.name">{{ub.name}}</h4>
-          <div class="batch-meta">
-            <span class="meta-item students-tag" [class.zero-students]="!ub.studentCount">
-              <mat-icon>groups</mat-icon> {{ub.studentCount || 0}} Students
-            </span>
-            <span class="meta-item year-tag" *ngIf="ub.academicYear">
-              <mat-icon>calendar_today</mat-icon> {{ub.academicYear}}
-            </span>
-          </div>
-        </div>
-
-        <div class="card-bottom">
-          <button mat-flat-button color="primary" class="assign-action-btn" (click)="quickAssignBatch(ub)" *ngIf="selectedTeacher" matTooltip="Assign this batch to {{selectedTeacher.fullName}}">
-            <mat-icon>add</mat-icon> Assign to {{selectedTeacher.fullName | slice:0:14}}
-          </button>
-          <button mat-stroked-button color="primary" class="assign-action-btn" (click)="openQuickAssignModal(ub)" *ngIf="!selectedTeacher" matTooltip="Choose a teacher to assign this batch">
-            <mat-icon>person_add</mat-icon> Assign Faculty
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Body View 2: Compact Table -->
-    <div class="table-container" *ngIf="unassignedViewMode === 'table' && pagedUnassignedBatches.length > 0">
-      <table class="compact-unassigned-table">
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Batch / Class Name</th>
-            <th>Subject</th>
-            <th>Enrolled Students</th>
-            <th>Academic Year</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let ub of pagedUnassignedBatches">
-            <td>
-              <span class="scope-category-tag" [class.school]="ub.category === 'School'" [class.coaching]="ub.category !== 'School'">
-                <mat-icon>{{ub.category === 'School' ? 'account_balance' : 'biotech'}}</mat-icon>
-                {{ub.category === 'School' ? 'School' : 'Coaching'}}
-              </span>
-            </td>
-            <td class="batch-col">
-              <strong>{{ub.name}}</strong>
-            </td>
-            <td>
-              <span class="subject-badge" [ngStyle]="{ 'background-color': getSubjectBadgeStyle(ub.subject).bg, 'color': getSubjectBadgeStyle(ub.subject).color, 'border': '1px solid ' + getSubjectBadgeStyle(ub.subject).border }">
-                {{ub.subject || 'General'}}
-              </span>
-            </td>
-            <td>
-              <span class="students-tag" [class.zero-students]="!ub.studentCount">
-                <mat-icon>groups</mat-icon> {{ub.studentCount || 0}} students
-              </span>
-            </td>
-            <td>
-              <span class="year-text">{{ub.academicYear || 'Current'}}</span>
-            </td>
-            <td class="action-col">
-              <button mat-stroked-button color="primary" class="table-assign-btn" (click)="quickAssignBatch(ub)" *ngIf="selectedTeacher">
-                <mat-icon>add</mat-icon> Assign
-              </button>
-              <button mat-stroked-button color="primary" class="table-assign-btn" (click)="openQuickAssignModal(ub)" *ngIf="!selectedTeacher">
-                <mat-icon>person_add</mat-icon> Assign
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Empty State when filter yields 0 -->
-    <div class="hub-empty-state" *ngIf="filteredUnassignedBatches.length === 0">
-      <mat-icon class="empty-icon">search_off</mat-icon>
-      <h4>No Unassigned Batches Found</h4>
-      <p>No batches match the search term "{{unassignedSearch}}" or the selected filters.</p>
-      <button mat-stroked-button color="primary" (click)="resetUnassignedFilters()">
-        <mat-icon>refresh</mat-icon> Reset Filters
-      </button>
-    </div>
-
-    <!-- Hub Footer Pagination -->
-    <div class="hub-footer" *ngIf="filteredUnassignedBatches.length > 0">
-      <div class="footer-left">
-        <span class="page-info">
-          Showing <strong>{{unassignedStartIndex + 1}} – {{unassignedEndIndex}}</strong> of <strong>{{filteredUnassignedBatches.length}}</strong> batches
-        </span>
-        <div class="page-size-selector">
-          <label>Page Size:</label>
-          <button type="button" class="size-btn" [class.active]="unassignedPageSize === 9" (click)="setPageSize(9)">9</button>
-          <button type="button" class="size-btn" [class.active]="unassignedPageSize === 18" (click)="setPageSize(18)">18</button>
-          <button type="button" class="size-btn" [class.active]="unassignedPageSize === 0" (click)="setPageSize(0)">All ({{filteredUnassignedBatches.length}})</button>
-        </div>
-      </div>
-
-      <div class="pagination-controls" *ngIf="unassignedPageSize > 0 && totalUnassignedPages > 1">
-        <button mat-icon-button [disabled]="unassignedPage === 1" (click)="setUnassignedPage(unassignedPage - 1)" matTooltip="Previous page">
-          <mat-icon>chevron_left</mat-icon>
-        </button>
-        <span class="page-current">Page {{unassignedPage}} of {{totalUnassignedPages}}</span>
-        <button mat-icon-button [disabled]="unassignedPage >= totalUnassignedPages" (click)="setUnassignedPage(unassignedPage + 1)" matTooltip="Next page">
-          <mat-icon>chevron_right</mat-icon>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Teacher Selector (Teaching Faculty only) -->
-  <app-teacher-selector [preSelectId]="preSelectId" [staffTypeFilter]="'Teaching'" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
-
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
-  <div *ngIf="!selectedTeacher" class="no-selection">
-    <mat-icon>person_search</mat-icon>
-    <p>Select a teacher above to view existing batch assignments or configure weekly timetable.</p>
-  </div>
-
-  <div *ngIf="selectedTeacher" class="teacher-view-wrapper">
-    <!-- Header with Action Button & View Toggles -->
-    <div class="section-header">
-      <div class="teacher-title-box">
-        <h3>{{selectedTeacher.fullName}}'s Schedule</h3>
-        <span class="badge-count" *ngIf="assignments.length > 0">
-          {{assignments.length}} {{assignments.length === 1 ? 'Batch' : 'Batches'}} Active
-        </span>
-        <span class="badge-workload" *ngIf="assignments.length > 0">
-          {{totalClassesPerWeek}} Classes / Wk
-        </span>
-      </div>
-
-      <div class="header-action-group">
-        <!-- View Switcher -->
-        <div class="view-toggle-bar">
-          <button type="button" class="view-toggle-btn" [class.active]="activeView === 'cards'" (click)="activeView = 'cards'">
-            <mat-icon>grid_view</mat-icon>
-            <span>Batches ({{assignments.length}})</span>
-          </button>
-          <button type="button" class="view-toggle-btn" [class.active]="activeView === 'timetable'" (click)="activeView = 'timetable'">
-            <mat-icon>calendar_view_week</mat-icon>
-            <span>Weekly Timetable</span>
-          </button>
-        </div>
-
-        <button mat-stroked-button class="print-btn" (click)="printTimetable()" [disabled]="assignments.length === 0" matTooltip="Print or Export Faculty Weekly Routine">
-          <mat-icon>print</mat-icon>
-          <span class="btn-text">Print Routine</span>
-        </button>
-
-        <button mat-raised-button color="primary" class="toggle-btn" *ngIf="canManage" (click)="toggleForm()">
-          <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
-          <span class="btn-text">{{showForm ? 'Cancel' : 'Assign New Batch'}}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Dynamic Multi-Row Assignment Builder Form -->
-    <div class="assign-form-container mat-elevation-z2" *ngIf="showForm" id="assignBuilder">
-      <div class="form-banner">
-        <div class="banner-title">
-          <mat-icon color="primary">tune</mat-icon>
           <div>
-            <strong>Smart Batch Assignment Builder</strong>
-            <p>Configure one or more batch slots and save with a single click.</p>
+            <div class="coverage-title">
+              <span>{{scopeCoverageData.title}}: <strong>{{scopeCoverageData.percentage}}%</strong></span>
+              <span class="coverage-counts">({{scopeCoverageData.assigned}} / {{scopeCoverageData.total}} Assigned)</span>
+            </div>
+            @if (scopeCoverageData.unassigned > 0) {
+              <p class="coverage-desc">
+                {{scopeCoverageData.unassigned}} teaching {{scopeCoverageData.unassigned === 1 ? 'unit has' : 'units have'}} no faculty assigned yet.
+              </p>
+            }
+            @if (scopeCoverageData.unassigned === 0) {
+              <p class="coverage-desc success">
+                All {{scopeCoverageData.total}} teaching units in this scope have assigned teachers!
+              </p>
+            }
           </div>
         </div>
-        <div class="workload-live-badge" *ngIf="formClassesPerWeek > 0">
-          <mat-icon>insights</mat-icon>
-          <span>Load: <strong>{{formClassesPerWeek}} classes / week</strong> (~{{formHoursPerWeek}} hrs)</span>
-        </div>
-      </div>
-
-      <!-- Slots List -->
-      <div class="slots-list">
-        <div class="slot-card" *ngFor="let slot of slots; let i = index">
-          <div class="slot-card-header">
-            <div class="slot-tag">
-              <span class="slot-index">Slot #{{i + 1}}</span>
-              <span class="slot-summary-text">
-                {{getSlotSummary(slot)}}
-              </span>
-            </div>
-
-            <!-- Type Selector: School Class vs Coaching Batch -->
-            <div class="slot-type-pills">
-              <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'school'" (click)="setSlotType(slot, 'school')">
-                <mat-icon>account_balance</mat-icon> School Class
-              </button>
-              <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'coaching'" (click)="setSlotType(slot, 'coaching')">
-                <mat-icon>biotech</mat-icon> Coaching Batch
-              </button>
-            </div>
-
-            <button mat-icon-button color="warn" *ngIf="slots.length > 1" (click)="removeSlot(i)" matTooltip="Remove this slot">
-              <mat-icon>delete_outline</mat-icon>
+        @if (scopeCoverageData.unassigned > 0) {
+          <div class="coverage-actions">
+            <button mat-button class="toggle-unassigned-btn" (click)="showUnassigned = !showUnassigned">
+              <mat-icon>{{showUnassigned ? 'expand_less' : 'expand_more'}}</mat-icon>
+              {{showUnassigned ? 'Hide' : 'View ' + scopeCoverageData.unassigned + ' Unassigned'}}
             </button>
           </div>
-
-          <div class="slot-body">
-            <!-- Row 1: If Coaching -> Select Batch. If School -> Select Class + Section -->
-            <div class="slot-row" *ngIf="slot.assignmentType === 'coaching'">
-              <mat-form-field appearance="outline" class="field-batch">
-                <mat-label>Select Coaching Batch *</mat-label>
-                <mat-select [(ngModel)]="slot.batchId" (selectionChange)="onBatchChanged(slot)">
-                  <mat-option *ngFor="let b of batches" [value]="b.id">
-                    <strong>{{b.name}}</strong> <span class="opt-subject" *ngIf="b.subject">({{b.subject}})</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="field-subject">
-                <mat-label>Teaching Subject *</mat-label>
-                <mat-select [(ngModel)]="slot.subject" (selectionChange)="onSubjectChanged(slot)" placeholder="Select Subject">
-                  <mat-option *ngFor="let sub of subjects" [value]="sub.name">
-                    <span class="sub-name">{{sub.name}}</span>
-                    <span class="sub-code" *ngIf="sub.code">[{{sub.code}}]</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
+        }
+      </div>
+    }
+    <!-- Smart Unassigned Batches Hub -->
+    @if (canManage && showUnassigned && batchCoverage && batchCoverage.unassignedBatches.length > 0) {
+      <div class="unassigned-hub">
+        <!-- Hub Header -->
+        <div class="hub-header">
+          <div class="hub-header-left">
+            <div class="hub-icon-badge">
+              <mat-icon>pending_actions</mat-icon>
             </div>
-
-            <div class="slot-row" *ngIf="slot.assignmentType === 'school'">
-              <mat-form-field appearance="outline" class="field-class">
-                <mat-label>Select School Class *</mat-label>
-                <mat-select [(ngModel)]="slot.classId" (selectionChange)="onClassChanged(slot)">
-                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                    <strong>{{c.name}}</strong> <span class="opt-subject" *ngIf="c.code">({{c.code}})</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="field-section">
-                <mat-label>Select Section *</mat-label>
-                <mat-select [(ngModel)]="slot.sectionId" (selectionChange)="onSectionChanged(slot)">
-                  <mat-option *ngFor="let sec of getSectionsForClass(slot.classId)" [value]="sec.id">
-                    <strong>{{sec.name}}</strong> <span class="opt-subject">({{sec.studentCount || 0}} students)</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="field-subject">
-                <mat-label>Teaching Subject *</mat-label>
-                <mat-select [(ngModel)]="slot.subject" (selectionChange)="onSubjectChanged(slot)" placeholder="Select Subject">
-                  <mat-option *ngFor="let sub of subjects" [value]="sub.name">
-                    <span class="sub-name">{{sub.name}}</span>
-                    <span class="sub-code" *ngIf="sub.code">[{{sub.code}}]</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-
-            <!-- Row 2: Days of Week (Quick Presets + Day Pills) -->
-            <div class="slot-section">
-              <div class="section-label-bar">
-                <label class="section-label"><mat-icon>date_range</mat-icon> Routine Days *</label>
-                <span class="days-preview" *ngIf="slot.selectedDays.length > 0">
-                  Selected: <strong>{{slot.selectedDays.join(', ')}}</strong> ({{slot.selectedDays.length}} days/wk)
-                </span>
-                <span class="days-preview empty" *ngIf="slot.selectedDays.length === 0">
-                  No days selected
-                </span>
+            <div class="hub-title-group">
+              <div class="hub-title-row">
+                <h3 class="hub-title">Batches Awaiting Teacher Assignment</h3>
+                <span class="hub-count-badge">{{filteredUnassignedBatches.length}} of {{batchCoverage.unassignedBatches.length}} Batches</span>
+                @if (totalUnassignedStudents > 0) {
+                  <span class="hub-students-badge">
+                    <mat-icon>groups</mat-icon> {{totalUnassignedStudents}} Students Impacted
+                  </span>
+                }
               </div>
-
-              <!-- 1-Click Coaching Presets -->
-              <div class="presets-row">
-                <span class="preset-title">⚡ Quick Presets:</span>
-                <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'MWF')"
-                  [class.preset-active]="isPresetActive(slot, 'MWF')">
-                  MWF (Mon, Wed, Fri)
-                </button>
-                <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'TTS')"
-                  [class.preset-active]="isPresetActive(slot, 'TTS')">
-                  TTS (Tue, Thu, Sat)
-                </button>
-                <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'DAILY')"
-                  [class.preset-active]="isPresetActive(slot, 'DAILY')">
-                  Daily (Mon–Sat)
-                </button>
-                <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'WEEKEND')"
-                  [class.preset-active]="isPresetActive(slot, 'WEEKEND')">
-                  Weekend (Sat, Sun)
-                </button>
-                <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'ALL')"
-                  [class.preset-active]="isPresetActive(slot, 'ALL')">
-                  All 7 Days
-                </button>
-                <button type="button" class="preset-pill clear-pill" (click)="clearDays(slot)" *ngIf="slot.selectedDays.length > 0">
-                  Clear
-                </button>
-              </div>
-
-              <!-- Interactive Day Pills -->
-              <div class="day-pills-row">
-                <button type="button" *ngFor="let day of allDays"
-                  class="day-circle"
-                  [class.day-selected]="isDaySelected(slot, day)"
-                  (click)="toggleDay(slot, day)">
-                  {{day}}
-                </button>
-              </div>
-            </div>
-
-            <!-- Row 3: Time Slot Selector (Popular Slots + Custom Start/End) -->
-            <div class="slot-section">
-              <div class="section-label-bar">
-                <label class="section-label"><mat-icon>schedule</mat-icon> Time Slot *</label>
-                <div class="mode-toggles">
-                  <button type="button" class="mode-btn"
-                    [class.mode-btn-active]="slot.timeSlotMode === 'preset'"
-                    (click)="setTimeSlotMode(slot, 'preset')">
-                    Standard Presets
-                  </button>
-                  <button type="button" class="mode-btn"
-                    [class.mode-btn-active]="slot.timeSlotMode === 'custom'"
-                    (click)="setTimeSlotMode(slot, 'custom')">
-                    Custom Time
-                  </button>
-                </div>
-              </div>
-
-              <!-- Mode A: Common Coaching Shift Chips -->
-              <div class="preset-slots-grid" *ngIf="slot.timeSlotMode === 'preset'">
-                <button type="button" *ngFor="let ps of popularTimeSlots"
-                  class="time-chip"
-                  [class.time-chip-selected]="slot.presetSlot === ps.value"
-                  (click)="selectPresetSlot(slot, ps.value)">
-                  <mat-icon class="chip-icon">access_time</mat-icon>
-                  <span class="chip-label">{{ps.value}}</span>
-                  <span class="chip-duration">{{ps.duration}}</span>
-                </button>
-              </div>
-
-              <!-- Mode B: Custom Start & End Time Picker -->
-              <div class="custom-time-row" *ngIf="slot.timeSlotMode === 'custom'">
-                <div class="time-input-group">
-                  <label>Start Time</label>
-                  <input type="time" class="time-native-input" [(ngModel)]="slot.startTime" (change)="onCustomTimeChange(slot)">
-                </div>
-                <span class="time-sep">to</span>
-                <div class="time-input-group">
-                  <label>End Time</label>
-                  <input type="time" class="time-native-input" [(ngModel)]="slot.endTime" (change)="onCustomTimeChange(slot)">
-                </div>
-                <div class="duration-badge">
-                  <mat-icon>timelapse</mat-icon>
-                  <span>Duration: <strong>{{getCustomDuration(slot)}}</strong></span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Clash Warning Alert Box -->
-            <div class="clash-alert-box" *ngIf="slot.clashWarning">
-              <div class="alert-content">
-                <mat-icon color="warn">warning</mat-icon>
-                <div>
-                  <strong>Schedule Clash Detected:</strong>
-                  <p>{{slot.clashWarning}}</p>
-                </div>
-              </div>
-              <div class="clash-override-action">
-                <mat-checkbox [(ngModel)]="slot.allowClashOverride" color="primary">
-                  This is a <strong>Combined / Merged Batch</strong> (Assign anyway)
-                </mat-checkbox>
-              </div>
+              <p class="hub-subtitle">Filter, search, and instantly assign batches to teachers with automatic timetable slot loading.</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Add Another Slot Button & Form Actions -->
-      <div class="form-footer">
-        <button mat-stroked-button color="primary" class="add-slot-btn" (click)="addSlot()">
-          <mat-icon>add_circle_outline</mat-icon>
-          Add Another Batch Slot
-        </button>
-
-        <div class="action-buttons">
-          <button mat-button (click)="showForm = false">Cancel</button>
-          <button mat-raised-button color="primary" class="save-all-btn" (click)="saveAllSlots()" [disabled]="saving || !isFormValid()">
-            <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
-            {{slots.length > 1 ? ('Save All ' + slots.length + ' Batches') : 'Assign Batch'}}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- VIEW 1: Assigned Batches Cards Grid -->
-    <div class="assignments-section" *ngIf="activeView === 'cards'">
-      <div class="assignments-grid" *ngIf="filteredActiveAssignments.length > 0">
-        <mat-card class="assign-card mat-elevation-z2" *ngFor="let a of filteredActiveAssignments">
-          <div class="card-status-strip"></div>
-          <div class="card-content-wrap">
-            <div class="assign-header">
-              <div class="batch-title-row">
-                <mat-icon class="batch-icon">{{a.classId ? 'account_balance' : 'biotech'}}</mat-icon>
-                <div>
-                  <div class="title-with-tag">
-                    <strong class="batch-name">{{a.batchName}}</strong>
-                    <span class="scope-mini-pill" [class.school]="a.classId" [class.coaching]="!a.classId">
-                      {{a.classId ? 'School' : 'Coaching'}}
-                    </span>
-                  </div>
-                  <div class="subject-chips-list">
-                    <span class="subj-badge" *ngFor="let sub of splitSubjects(a.subject)">
-                      {{sub}}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <button mat-icon-button color="warn" class="remove-btn" *ngIf="canManage" (click)="removeAssignment(a.id)"
-                matTooltip="Remove this batch assignment">
-                <mat-icon>delete_outline</mat-icon>
+          <div class="hub-header-controls">
+            <!-- View Mode: Cards vs Table -->
+            <div class="view-mode-toggles">
+              <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'cards'" (click)="unassignedViewMode = 'cards'" matTooltip="Card Grid View">
+                <mat-icon>grid_view</mat-icon>
+                <span class="mode-text">Cards</span>
+              </button>
+              <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'table'" (click)="unassignedViewMode = 'table'" matTooltip="Compact Table View">
+                <mat-icon>view_list</mat-icon>
+                <span class="mode-text">Table</span>
               </button>
             </div>
-
-            <div class="assign-details-grid">
-              <div class="detail-item" *ngIf="a.daysOfWeek">
-                <mat-icon>date_range</mat-icon>
-                <span><strong>Days:</strong> {{a.daysOfWeek}}</span>
-              </div>
-              <div class="detail-item" *ngIf="a.timeSlot">
-                <mat-icon>schedule</mat-icon>
-                <span><strong>Time:</strong> {{a.timeSlot}}</span>
-              </div>
-              <div class="detail-item">
-                <mat-icon>event_available</mat-icon>
-                <span><strong>Assigned:</strong> {{a.assignedAt | date:'dd MMM yyyy'}}</span>
-              </div>
-            </div>
-          </div>
-        </mat-card>
-      </div>
-
-      <!-- Empty State -->
-      <div class="empty-state" *ngIf="assignments.length === 0 && !loading && !showForm">
-        <mat-icon class="empty-icon">calendar_month</mat-icon>
-        <h3>No Batches Assigned Yet</h3>
-        <p>{{selectedTeacher.fullName}} currently has no active batch assignments. Click "Assign New Batch" above to configure routine schedule.</p>
-        <button mat-raised-button color="primary" *ngIf="canManage" (click)="showForm = true">
-          <mat-icon>add</mat-icon> Assign Batch
-        </button>
-      </div>
-    </div>
-
-    <!-- VIEW 2: Interactive Weekly Timetable Grid -->
-    <div class="timetable-section" *ngIf="activeView === 'timetable'">
-      <div class="timetable-header-card">
-        <div class="tt-header-left">
-          <mat-icon>event_note</mat-icon>
-          <div>
-            <h4>{{selectedTeacher.fullName}} - Weekly Schedule Routine</h4>
-            <span class="tt-sub">{{totalClassesPerWeek}} Classes / Week • Approx {{totalHoursPerWeek}} Teaching Hours</span>
+            <button mat-icon-button class="hub-close-btn" (click)="showUnassigned = false" matTooltip="Hide this tray">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
         </div>
-        <button mat-stroked-button class="print-inner-btn" (click)="printTimetable()">
-          <mat-icon>print</mat-icon> Print Routine
-        </button>
-      </div>
-
-      <div class="timetable-table-container">
-        <table class="timetable-table">
-          <thead>
-            <tr>
-              <th class="time-header-col">Time Slot</th>
-              <th *ngFor="let day of allDays" [class.today-col]="isToday(day)">
-                <div class="th-day-name">{{day}}</div>
-                <div class="th-day-count">{{getDayClassesCount(day)}} Classes</div>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let slot of activeTimetableSlots">
-              <td class="time-cell">
-                <div class="time-slot-label">{{slot}}</div>
-              </td>
-              <td *ngFor="let day of allDays" class="schedule-cell" [class.today-cell]="isToday(day)">
-                <ng-container *ngFor="let a of getAssignmentsForCell(day, slot)">
-                  <div class="tt-class-chip" [class.school-tt-chip]="a.classId" [class.coaching-tt-chip]="!a.classId">
-                    <div class="tt-scope-tag">{{a.classId ? '🏫 School' : '🎯 Coaching'}}</div>
-                    <div class="tt-batch-name">{{a.batchName}}</div>
-                    <div class="tt-subject-name">{{a.subject}}</div>
+        <!-- Smart Filter & Search Toolbar -->
+        <div class="hub-toolbar">
+          <div class="search-box">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input type="text" [(ngModel)]="unassignedSearch" (ngModelChange)="onUnassignedFilterChange()" placeholder="Search by batch name, code, or subject (e.g. NEET, 12, Physics)..." />
+            @if (unassignedSearch) {
+              <button type="button" class="clear-search-btn" (click)="unassignedSearch = ''; onUnassignedFilterChange()">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
+          </div>
+          <div class="toolbar-dropdowns">
+            <!-- Class Filter -->
+            <div class="filter-select-wrapper">
+              <label class="dropdown-label"><mat-icon>school</mat-icon> Class:</label>
+              <select [(ngModel)]="unassignedClassFilter" (change)="onUnassignedFilterChange()" class="clean-select">
+                @for (opt of classFilterOptions; track opt) {
+                  <option [value]="opt.id">{{opt.label}}</option>
+                }
+              </select>
+            </div>
+            <!-- Sort By -->
+            <div class="filter-select-wrapper">
+              <label class="dropdown-label"><mat-icon>sort</mat-icon> Sort:</label>
+              <select [(ngModel)]="unassignedSortBy" (change)="onUnassignedFilterChange()" class="clean-select">
+                <option value="name-asc">Name (A → Z)</option>
+                <option value="name-desc">Name (Z → A)</option>
+                <option value="subject">Subject</option>
+                <option value="students-desc">Students (High to Low)</option>
+              </select>
+            </div>
+            <!-- Reset Button -->
+            @if (isFilterActive) {
+              <button type="button" class="reset-filter-btn" (click)="resetUnassignedFilters()">
+                <mat-icon>filter_alt_off</mat-icon> Reset
+              </button>
+            }
+          </div>
+        </div>
+        <!-- Subject Filter Tabs / Chips Bar -->
+        @if (unassignedSubjectTabs.length > 1) {
+          <div class="subject-chips-bar">
+            <div class="chips-scroll-container">
+              @for (tab of unassignedSubjectTabs; track tab) {
+                <button type="button"
+                  class="subject-chip-btn"
+                  [class.active]="unassignedSubjectFilter === tab.name"
+                  (click)="setSubjectFilter(tab.name)">
+                  <span class="chip-name">{{tab.name}}</span>
+                  <span class="chip-count">{{tab.count}}</span>
+                </button>
+              }
+            </div>
+          </div>
+        }
+        <!-- Active Faculty Context Hint -->
+        @if (selectedTeacher) {
+          <div class="active-teacher-context">
+            <div class="context-content">
+              <mat-icon class="context-icon">person</mat-icon>
+              <span>Selected Faculty: <strong>{{selectedTeacher.fullName}}</strong> ({{selectedTeacher.employeeCode}}). Click <em>"Assign to {{selectedTeacher.fullName}}"</em> to load this batch into the assignment schedule builder below.</span>
+            </div>
+          </div>
+        }
+        @if (!selectedTeacher) {
+          <div class="active-teacher-context hint">
+            <div class="context-content">
+              <mat-icon class="context-icon">lightbulb</mat-icon>
+              <span>No faculty selected yet. Click <strong>"Assign Faculty"</strong> on any batch to choose a teacher, or pick one from the teacher selector below.</span>
+            </div>
+          </div>
+        }
+        <!-- Body View 1: Cards Grid -->
+        @if (unassignedViewMode === 'cards' && pagedUnassignedBatches.length > 0) {
+          <div class="cards-grid-container">
+            @for (ub of pagedUnassignedBatches; track ub) {
+              <div class="smart-batch-card">
+                <div class="card-top">
+                  <div class="card-badges-left">
+                    <span class="scope-category-tag" [class.school]="ub.category === 'School'" [class.coaching]="ub.category !== 'School'">
+                      <mat-icon>{{ub.category === 'School' ? 'account_balance' : 'biotech'}}</mat-icon>
+                      {{ub.category === 'School' ? 'School Class' : 'Coaching Batch'}}
+                    </span>
+                    <span class="subject-badge" [ngStyle]="{ 'background-color': getSubjectBadgeStyle(ub.subject).bg, 'color': getSubjectBadgeStyle(ub.subject).color, 'border': '1px solid ' + getSubjectBadgeStyle(ub.subject).border }">
+                      {{ub.subject || 'General'}}
+                    </span>
                   </div>
-                </ng-container>
-                <div *ngIf="getAssignmentsForCell(day, slot).length === 0" class="tt-empty-slot">
-                  -
+                  <span class="status-pill"><mat-icon>schedule</mat-icon> Unassigned</span>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <div class="card-mid">
+                  <h4 class="batch-name" [matTooltip]="ub.name">{{ub.name}}</h4>
+                  <div class="batch-meta">
+                    <span class="meta-item students-tag" [class.zero-students]="!ub.studentCount">
+                      <mat-icon>groups</mat-icon> {{ub.studentCount || 0}} Students
+                    </span>
+                    @if (ub.academicYear) {
+                      <span class="meta-item year-tag">
+                        <mat-icon>calendar_today</mat-icon> {{ub.academicYear}}
+                      </span>
+                    }
+                  </div>
+                </div>
+                <div class="card-bottom">
+                  @if (selectedTeacher) {
+                    <button mat-flat-button color="primary" class="assign-action-btn" (click)="quickAssignBatch(ub)" matTooltip="Assign this batch to {{selectedTeacher.fullName}}">
+                      <mat-icon>add</mat-icon> Assign to {{selectedTeacher.fullName | slice:0:14}}
+                    </button>
+                  }
+                  @if (!selectedTeacher) {
+                    <button mat-stroked-button color="primary" class="assign-action-btn" (click)="openQuickAssignModal(ub)" matTooltip="Choose a teacher to assign this batch">
+                      <mat-icon>person_add</mat-icon> Assign Faculty
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+        <!-- Body View 2: Compact Table -->
+        @if (unassignedViewMode === 'table' && pagedUnassignedBatches.length > 0) {
+          <div class="table-container">
+            <table class="compact-unassigned-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Batch / Class Name</th>
+                  <th>Subject</th>
+                  <th>Enrolled Students</th>
+                  <th>Academic Year</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (ub of pagedUnassignedBatches; track ub) {
+                  <tr>
+                    <td>
+                      <span class="scope-category-tag" [class.school]="ub.category === 'School'" [class.coaching]="ub.category !== 'School'">
+                        <mat-icon>{{ub.category === 'School' ? 'account_balance' : 'biotech'}}</mat-icon>
+                        {{ub.category === 'School' ? 'School' : 'Coaching'}}
+                      </span>
+                    </td>
+                    <td class="batch-col">
+                      <strong>{{ub.name}}</strong>
+                    </td>
+                    <td>
+                      <span class="subject-badge" [ngStyle]="{ 'background-color': getSubjectBadgeStyle(ub.subject).bg, 'color': getSubjectBadgeStyle(ub.subject).color, 'border': '1px solid ' + getSubjectBadgeStyle(ub.subject).border }">
+                        {{ub.subject || 'General'}}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="students-tag" [class.zero-students]="!ub.studentCount">
+                        <mat-icon>groups</mat-icon> {{ub.studentCount || 0}} students
+                      </span>
+                    </td>
+                    <td>
+                      <span class="year-text">{{ub.academicYear || 'Current'}}</span>
+                    </td>
+                    <td class="action-col">
+                      @if (selectedTeacher) {
+                        <button mat-stroked-button color="primary" class="table-assign-btn" (click)="quickAssignBatch(ub)">
+                          <mat-icon>add</mat-icon> Assign
+                        </button>
+                      }
+                      @if (!selectedTeacher) {
+                        <button mat-stroked-button color="primary" class="table-assign-btn" (click)="openQuickAssignModal(ub)">
+                          <mat-icon>person_add</mat-icon> Assign
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        <!-- Empty State when filter yields 0 -->
+        @if (filteredUnassignedBatches.length === 0) {
+          <div class="hub-empty-state">
+            <mat-icon class="empty-icon">search_off</mat-icon>
+            <h4>No Unassigned Batches Found</h4>
+            <p>No batches match the search term "{{unassignedSearch}}" or the selected filters.</p>
+            <button mat-stroked-button color="primary" (click)="resetUnassignedFilters()">
+              <mat-icon>refresh</mat-icon> Reset Filters
+            </button>
+          </div>
+        }
+        <!-- Hub Footer Pagination -->
+        @if (filteredUnassignedBatches.length > 0) {
+          <div class="hub-footer">
+            <div class="footer-left">
+              <span class="page-info">
+                Showing <strong>{{unassignedStartIndex + 1}} – {{unassignedEndIndex}}</strong> of <strong>{{filteredUnassignedBatches.length}}</strong> batches
+              </span>
+              <div class="page-size-selector">
+                <label>Page Size:</label>
+                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 9" (click)="setPageSize(9)">9</button>
+                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 18" (click)="setPageSize(18)">18</button>
+                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 0" (click)="setPageSize(0)">All ({{filteredUnassignedBatches.length}})</button>
+              </div>
+            </div>
+            @if (unassignedPageSize > 0 && totalUnassignedPages > 1) {
+              <div class="pagination-controls">
+                <button mat-icon-button [disabled]="unassignedPage === 1" (click)="setUnassignedPage(unassignedPage - 1)" matTooltip="Previous page">
+                  <mat-icon>chevron_left</mat-icon>
+                </button>
+                <span class="page-current">Page {{unassignedPage}} of {{totalUnassignedPages}}</span>
+                <button mat-icon-button [disabled]="unassignedPage >= totalUnassignedPages" (click)="setUnassignedPage(unassignedPage + 1)" matTooltip="Next page">
+                  <mat-icon>chevron_right</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        }
       </div>
-    </div>
-
+    }
+    <!-- Teacher Selector (Teaching Faculty only) -->
+    <app-teacher-selector [preSelectId]="preSelectId" [staffTypeFilter]="'Teaching'" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
+    @if (loading) {
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+    @if (!selectedTeacher) {
+      <div class="no-selection">
+        <mat-icon>person_search</mat-icon>
+        <p>Select a teacher above to view existing batch assignments or configure weekly timetable.</p>
+      </div>
+    }
+    @if (selectedTeacher) {
+      <div class="teacher-view-wrapper">
+        <!-- Header with Action Button & View Toggles -->
+        <div class="section-header">
+          <div class="teacher-title-box">
+            <h3>{{selectedTeacher.fullName}}'s Schedule</h3>
+            @if (assignments.length > 0) {
+              <span class="badge-count">
+                {{assignments.length}} {{assignments.length === 1 ? 'Batch' : 'Batches'}} Active
+              </span>
+            }
+            @if (assignments.length > 0) {
+              <span class="badge-workload">
+                {{totalClassesPerWeek}} Classes / Wk
+              </span>
+            }
+          </div>
+          <div class="header-action-group">
+            <!-- View Switcher -->
+            <div class="view-toggle-bar">
+              <button type="button" class="view-toggle-btn" [class.active]="activeView === 'cards'" (click)="activeView = 'cards'">
+                <mat-icon>grid_view</mat-icon>
+                <span>Batches ({{assignments.length}})</span>
+              </button>
+              <button type="button" class="view-toggle-btn" [class.active]="activeView === 'timetable'" (click)="activeView = 'timetable'">
+                <mat-icon>calendar_view_week</mat-icon>
+                <span>Weekly Timetable</span>
+              </button>
+            </div>
+            <button mat-stroked-button class="print-btn" (click)="printTimetable()" [disabled]="assignments.length === 0" matTooltip="Print or Export Faculty Weekly Routine">
+              <mat-icon>print</mat-icon>
+              <span class="btn-text">Print Routine</span>
+            </button>
+            @if (canManage) {
+              <button mat-raised-button color="primary" class="toggle-btn" (click)="toggleForm()">
+                <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
+                <span class="btn-text">{{showForm ? 'Cancel' : 'Assign New Batch'}}</span>
+              </button>
+            }
+          </div>
+        </div>
+        <!-- Dynamic Multi-Row Assignment Builder Form -->
+        @if (showForm) {
+          <div class="assign-form-container mat-elevation-z2" id="assignBuilder">
+            <div class="form-banner">
+              <div class="banner-title">
+                <mat-icon color="primary">tune</mat-icon>
+                <div>
+                  <strong>Smart Batch Assignment Builder</strong>
+                  <p>Configure one or more batch slots and save with a single click.</p>
+                </div>
+              </div>
+              @if (formClassesPerWeek > 0) {
+                <div class="workload-live-badge">
+                  <mat-icon>insights</mat-icon>
+                  <span>Load: <strong>{{formClassesPerWeek}} classes / week</strong> (~{{formHoursPerWeek}} hrs)</span>
+                </div>
+              }
+            </div>
+            <!-- Slots List -->
+            <div class="slots-list">
+              @for (slot of slots; track slot; let i = $index) {
+                <div class="slot-card">
+                  <div class="slot-card-header">
+                    <div class="slot-tag">
+                      <span class="slot-index">Slot #{{i + 1}}</span>
+                      <span class="slot-summary-text">
+                        {{getSlotSummary(slot)}}
+                      </span>
+                    </div>
+                    <!-- Type Selector: School Class vs Coaching Batch -->
+                    <div class="slot-type-pills">
+                      <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'school'" (click)="setSlotType(slot, 'school')">
+                        <mat-icon>account_balance</mat-icon> School Class
+                      </button>
+                      <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'coaching'" (click)="setSlotType(slot, 'coaching')">
+                        <mat-icon>biotech</mat-icon> Coaching Batch
+                      </button>
+                    </div>
+                    @if (slots.length > 1) {
+                      <button mat-icon-button color="warn" (click)="removeSlot(i)" matTooltip="Remove this slot">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    }
+                  </div>
+                  <div class="slot-body">
+                    <!-- Row 1: If Coaching -> Select Batch. If School -> Select Class + Section -->
+                    @if (slot.assignmentType === 'coaching') {
+                      <div class="slot-row">
+                        <mat-form-field appearance="outline" class="field-batch">
+                          <mat-label>Select Coaching Batch *</mat-label>
+                          <mat-select [(ngModel)]="slot.batchId" (selectionChange)="onBatchChanged(slot)">
+                            @for (b of batches; track b) {
+                              <mat-option [value]="b.id">
+                                <strong>{{b.name}}</strong> @if (b.subject) {
+                                <span class="opt-subject">({{b.subject}})</span>
+                              }
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="field-subject">
+                        <mat-label>Teaching Subject *</mat-label>
+                        <mat-select [(ngModel)]="slot.subject" (selectionChange)="onSubjectChanged(slot)" placeholder="Select Subject">
+                          @for (sub of subjects; track sub) {
+                            <mat-option [value]="sub.name">
+                              <span class="sub-name">{{sub.name}}</span>
+                              @if (sub.code) {
+                                <span class="sub-code">[{{sub.code}}]</span>
+                              }
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                  }
+                  @if (slot.assignmentType === 'school') {
+                    <div class="slot-row">
+                      <mat-form-field appearance="outline" class="field-class">
+                        <mat-label>Select School Class *</mat-label>
+                        <mat-select [(ngModel)]="slot.classId" (selectionChange)="onClassChanged(slot)">
+                          @for (c of schoolClasses; track c) {
+                            <mat-option [value]="c.id">
+                              <strong>{{c.name}}</strong> @if (c.code) {
+                              <span class="opt-subject">({{c.code}})</span>
+                            }
+                          </mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="field-section">
+                      <mat-label>Select Section *</mat-label>
+                      <mat-select [(ngModel)]="slot.sectionId" (selectionChange)="onSectionChanged(slot)">
+                        @for (sec of getSectionsForClass(slot.classId); track sec) {
+                          <mat-option [value]="sec.id">
+                            <strong>{{sec.name}}</strong> <span class="opt-subject">({{sec.studentCount || 0}} students)</span>
+                          </mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="field-subject">
+                      <mat-label>Teaching Subject *</mat-label>
+                      <mat-select [(ngModel)]="slot.subject" (selectionChange)="onSubjectChanged(slot)" placeholder="Select Subject">
+                        @for (sub of subjects; track sub) {
+                          <mat-option [value]="sub.name">
+                            <span class="sub-name">{{sub.name}}</span>
+                            @if (sub.code) {
+                              <span class="sub-code">[{{sub.code}}]</span>
+                            }
+                          </mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                }
+                <!-- Row 2: Days of Week (Quick Presets + Day Pills) -->
+                <div class="slot-section">
+                  <div class="section-label-bar">
+                    <label class="section-label"><mat-icon>date_range</mat-icon> Routine Days *</label>
+                    @if (slot.selectedDays.length > 0) {
+                      <span class="days-preview">
+                        Selected: <strong>{{slot.selectedDays.join(', ')}}</strong> ({{slot.selectedDays.length}} days/wk)
+                      </span>
+                    }
+                    @if (slot.selectedDays.length === 0) {
+                      <span class="days-preview empty">
+                        No days selected
+                      </span>
+                    }
+                  </div>
+                  <!-- 1-Click Coaching Presets -->
+                  <div class="presets-row">
+                    <span class="preset-title">⚡ Quick Presets:</span>
+                    <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'MWF')"
+                      [class.preset-active]="isPresetActive(slot, 'MWF')">
+                      MWF (Mon, Wed, Fri)
+                    </button>
+                    <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'TTS')"
+                      [class.preset-active]="isPresetActive(slot, 'TTS')">
+                      TTS (Tue, Thu, Sat)
+                    </button>
+                    <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'DAILY')"
+                      [class.preset-active]="isPresetActive(slot, 'DAILY')">
+                      Daily (Mon–Sat)
+                    </button>
+                    <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'WEEKEND')"
+                      [class.preset-active]="isPresetActive(slot, 'WEEKEND')">
+                      Weekend (Sat, Sun)
+                    </button>
+                    <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'ALL')"
+                      [class.preset-active]="isPresetActive(slot, 'ALL')">
+                      All 7 Days
+                    </button>
+                    @if (slot.selectedDays.length > 0) {
+                      <button type="button" class="preset-pill clear-pill" (click)="clearDays(slot)">
+                        Clear
+                      </button>
+                    }
+                  </div>
+                  <!-- Interactive Day Pills -->
+                  <div class="day-pills-row">
+                    @for (day of allDays; track day) {
+                      <button type="button"
+                        class="day-circle"
+                        [class.day-selected]="isDaySelected(slot, day)"
+                        (click)="toggleDay(slot, day)">
+                        {{day}}
+                      </button>
+                    }
+                  </div>
+                </div>
+                <!-- Row 3: Time Slot Selector (Popular Slots + Custom Start/End) -->
+                <div class="slot-section">
+                  <div class="section-label-bar">
+                    <label class="section-label"><mat-icon>schedule</mat-icon> Time Slot *</label>
+                    <div class="mode-toggles">
+                      <button type="button" class="mode-btn"
+                        [class.mode-btn-active]="slot.timeSlotMode === 'preset'"
+                        (click)="setTimeSlotMode(slot, 'preset')">
+                        Standard Presets
+                      </button>
+                      <button type="button" class="mode-btn"
+                        [class.mode-btn-active]="slot.timeSlotMode === 'custom'"
+                        (click)="setTimeSlotMode(slot, 'custom')">
+                        Custom Time
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Mode A: Common Coaching Shift Chips -->
+                  @if (slot.timeSlotMode === 'preset') {
+                    <div class="preset-slots-grid">
+                      @for (ps of popularTimeSlots; track ps) {
+                        <button type="button"
+                          class="time-chip"
+                          [class.time-chip-selected]="slot.presetSlot === ps.value"
+                          (click)="selectPresetSlot(slot, ps.value)">
+                          <mat-icon class="chip-icon">access_time</mat-icon>
+                          <span class="chip-label">{{ps.value}}</span>
+                          <span class="chip-duration">{{ps.duration}}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                  <!-- Mode B: Custom Start & End Time Picker -->
+                  @if (slot.timeSlotMode === 'custom') {
+                    <div class="custom-time-row">
+                      <div class="time-input-group">
+                        <label>Start Time</label>
+                        <input type="time" class="time-native-input" [(ngModel)]="slot.startTime" (change)="onCustomTimeChange(slot)">
+                      </div>
+                      <span class="time-sep">to</span>
+                      <div class="time-input-group">
+                        <label>End Time</label>
+                        <input type="time" class="time-native-input" [(ngModel)]="slot.endTime" (change)="onCustomTimeChange(slot)">
+                      </div>
+                      <div class="duration-badge">
+                        <mat-icon>timelapse</mat-icon>
+                        <span>Duration: <strong>{{getCustomDuration(slot)}}</strong></span>
+                      </div>
+                    </div>
+                  }
+                </div>
+                <!-- Clash Warning Alert Box -->
+                @if (slot.clashWarning) {
+                  <div class="clash-alert-box">
+                    <div class="alert-content">
+                      <mat-icon color="warn">warning</mat-icon>
+                      <div>
+                        <strong>Schedule Clash Detected:</strong>
+                        <p>{{slot.clashWarning}}</p>
+                      </div>
+                    </div>
+                    <div class="clash-override-action">
+                      <mat-checkbox [(ngModel)]="slot.allowClashOverride" color="primary">
+                        This is a <strong>Combined / Merged Batch</strong> (Assign anyway)
+                      </mat-checkbox>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+        <!-- Add Another Slot Button & Form Actions -->
+        <div class="form-footer">
+          <button mat-stroked-button color="primary" class="add-slot-btn" (click)="addSlot()">
+            <mat-icon>add_circle_outline</mat-icon>
+            Add Another Batch Slot
+          </button>
+          <div class="action-buttons">
+            <button mat-button (click)="showForm = false">Cancel</button>
+            <button mat-raised-button color="primary" class="save-all-btn" (click)="saveAllSlots()" [disabled]="saving || !isFormValid()">
+              <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
+              {{slots.length > 1 ? ('Save All ' + slots.length + ' Batches') : 'Assign Batch'}}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+    <!-- VIEW 1: Assigned Batches Cards Grid -->
+    @if (activeView === 'cards') {
+      <div class="assignments-section">
+        @if (filteredActiveAssignments.length > 0) {
+          <div class="assignments-grid">
+            @for (a of filteredActiveAssignments; track a) {
+              <mat-card class="assign-card mat-elevation-z2">
+                <div class="card-status-strip"></div>
+                <div class="card-content-wrap">
+                  <div class="assign-header">
+                    <div class="batch-title-row">
+                      <mat-icon class="batch-icon">{{a.classId ? 'account_balance' : 'biotech'}}</mat-icon>
+                      <div>
+                        <div class="title-with-tag">
+                          <strong class="batch-name">{{a.batchName}}</strong>
+                          <span class="scope-mini-pill" [class.school]="a.classId" [class.coaching]="!a.classId">
+                            {{a.classId ? 'School' : 'Coaching'}}
+                          </span>
+                        </div>
+                        <div class="subject-chips-list">
+                          @for (sub of splitSubjects(a.subject); track sub) {
+                            <span class="subj-badge">
+                              {{sub}}
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    @if (canManage) {
+                      <button mat-icon-button color="warn" class="remove-btn" (click)="removeAssignment(a.id)"
+                        matTooltip="Remove this batch assignment">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    }
+                  </div>
+                  <div class="assign-details-grid">
+                    @if (a.daysOfWeek) {
+                      <div class="detail-item">
+                        <mat-icon>date_range</mat-icon>
+                        <span><strong>Days:</strong> {{a.daysOfWeek}}</span>
+                      </div>
+                    }
+                    @if (a.timeSlot) {
+                      <div class="detail-item">
+                        <mat-icon>schedule</mat-icon>
+                        <span><strong>Time:</strong> {{a.timeSlot}}</span>
+                      </div>
+                    }
+                    <div class="detail-item">
+                      <mat-icon>event_available</mat-icon>
+                      <span><strong>Assigned:</strong> {{a.assignedAt | date:'dd MMM yyyy'}}</span>
+                    </div>
+                  </div>
+                </div>
+              </mat-card>
+            }
+          </div>
+        }
+        <!-- Empty State -->
+        @if (assignments.length === 0 && !loading && !showForm) {
+          <div class="empty-state">
+            <mat-icon class="empty-icon">calendar_month</mat-icon>
+            <h3>No Batches Assigned Yet</h3>
+            <p>{{selectedTeacher.fullName}} currently has no active batch assignments. Click "Assign New Batch" above to configure routine schedule.</p>
+            @if (canManage) {
+              <button mat-raised-button color="primary" (click)="showForm = true">
+                <mat-icon>add</mat-icon> Assign Batch
+              </button>
+            }
+          </div>
+        }
+      </div>
+    }
+    <!-- VIEW 2: Interactive Weekly Timetable Grid -->
+    @if (activeView === 'timetable') {
+      <div class="timetable-section">
+        <div class="timetable-header-card">
+          <div class="tt-header-left">
+            <mat-icon>event_note</mat-icon>
+            <div>
+              <h4>{{selectedTeacher.fullName}} - Weekly Schedule Routine</h4>
+              <span class="tt-sub">{{totalClassesPerWeek}} Classes / Week • Approx {{totalHoursPerWeek}} Teaching Hours</span>
+            </div>
+          </div>
+          <button mat-stroked-button class="print-inner-btn" (click)="printTimetable()">
+            <mat-icon>print</mat-icon> Print Routine
+          </button>
+        </div>
+        <div class="timetable-table-container">
+          <table class="timetable-table">
+            <thead>
+              <tr>
+                <th class="time-header-col">Time Slot</th>
+                @for (day of allDays; track day) {
+                  <th [class.today-col]="isToday(day)">
+                    <div class="th-day-name">{{day}}</div>
+                    <div class="th-day-count">{{getDayClassesCount(day)}} Classes</div>
+                  </th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (slot of activeTimetableSlots; track slot) {
+                <tr>
+                  <td class="time-cell">
+                    <div class="time-slot-label">{{slot}}</div>
+                  </td>
+                  @for (day of allDays; track day) {
+                    <td class="schedule-cell" [class.today-cell]="isToday(day)">
+                      @for (a of getAssignmentsForCell(day, slot); track a) {
+                        <div class="tt-class-chip" [class.school-tt-chip]="a.classId" [class.coaching-tt-chip]="!a.classId">
+                          <div class="tt-scope-tag">{{a.classId ? '🏫 School' : '🎯 Coaching'}}</div>
+                          <div class="tt-batch-name">{{a.batchName}}</div>
+                          <div class="tt-subject-name">{{a.subject}}</div>
+                        </div>
+                      }
+                      @if (getAssignmentsForCell(day, slot).length === 0) {
+                        <div class="tt-empty-slot">
+                          -
+                        </div>
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
   </div>
-
-  <!-- PRINTABLE ONLY CONTAINER -->
-  <div class="printable-timetable-sheet" id="printable-routine" *ngIf="selectedTeacher">
+}
+<!-- PRINTABLE ONLY CONTAINER -->
+@if (selectedTeacher) {
+  <div class="printable-timetable-sheet" id="printable-routine">
     <div class="print-header">
       <div class="print-institute">
         <h2>IMSERP Coaching & Tuition Institute</h2>
@@ -769,276 +877,174 @@ export interface AssignmentSlot {
         <p><strong>Total Weekly Load:</strong> {{totalClassesPerWeek}} Classes / Week (~{{totalHoursPerWeek}} Hours)</p>
       </div>
     </div>
-
     <table class="print-table">
       <thead>
         <tr>
           <th>Time Slot</th>
-          <th *ngFor="let day of allDays">{{day}}</th>
+          @for (day of allDays; track day) {
+            <th>{{day}}</th>
+          }
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let slot of activeTimetableSlots">
-          <td class="print-time-col">{{slot}}</td>
-          <td *ngFor="let day of allDays" class="print-cell">
-            <div *ngFor="let a of getAssignmentsForCell(day, slot)" class="print-class-card">
-              <strong>{{a.batchName}}</strong>
-              <span>{{a.subject}}</span>
-            </div>
-          </td>
-        </tr>
+        @for (slot of activeTimetableSlots; track slot) {
+          <tr>
+            <td class="print-time-col">{{slot}}</td>
+            @for (day of allDays; track day) {
+              <td class="print-cell">
+                @for (a of getAssignmentsForCell(day, slot); track a) {
+                  <div class="print-class-card">
+                    <strong>{{a.batchName}}</strong>
+                    <span>{{a.subject}}</span>
+                  </div>
+                }
+              </td>
+            }
+          </tr>
+        }
       </tbody>
     </table>
-
     <div class="print-footer">
       <p>Generated via IMSERP Coaching Management ERP on {{todayDate | date:'dd MMM yyyy, hh:mm a'}}</p>
     </div>
   </div>
-  </ng-container>
+}
+}
 
-  <!-- ================= TAB 2: SCHOOL CLASS TEACHERS (कक्षा अध्यापक) ================= -->
-  <ng-container *ngIf="mainTab === 'CLASS_TEACHER'">
-    <!-- Coverage Overview Stat Cards -->
-    <div class="ct-stats-grid">
-      <div class="ct-stat-card">
-        <div class="stat-icon-wrap icon-blue">
-          <mat-icon>school</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-val">{{ matrixUniqueClasses.length }}</span>
-          <span class="stat-lbl">School Classes</span>
-        </div>
+<!-- ================= TAB 2: SCHOOL CLASS TEACHERS (कक्षा अध्यापक) ================= -->
+@if (mainTab === 'CLASS_TEACHER') {
+  <!-- Coverage Overview Stat Cards -->
+  <div class="ct-stats-grid">
+    <div class="ct-stat-card">
+      <div class="stat-icon-wrap icon-blue">
+        <mat-icon>school</mat-icon>
       </div>
-
-      <div class="ct-stat-card">
-        <div class="stat-icon-wrap icon-purple">
-          <mat-icon>meeting_room</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-val">{{ classTeachersMatrix.length }}</span>
-          <span class="stat-lbl">Total Sections</span>
-        </div>
-      </div>
-
-      <div class="ct-stat-card">
-        <div class="stat-icon-wrap icon-green">
-          <mat-icon>verified_user</mat-icon>
-        </div>
-        <div class="stat-content">
-          <div class="stat-val-row">
-            <span class="stat-val">{{ assignedClassTeachersCount }}</span>
-            <span class="coverage-pct-pill">{{ classTeachersCoveragePercent }}%</span>
-          </div>
-          <span class="stat-lbl">Sections with Faculty</span>
-        </div>
-      </div>
-
-      <div class="ct-stat-card" [class.highlight-warn]="unassignedClassTeachersCount > 0">
-        <div class="stat-icon-wrap icon-amber">
-          <mat-icon>{{ unassignedClassTeachersCount > 0 ? 'warning_amber' : 'check_circle' }}</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-val">{{ unassignedClassTeachersCount }}</span>
-          <span class="stat-lbl">{{ unassignedClassTeachersCount > 0 ? 'Unassigned (Needs Action)' : 'All Covered!' }}</span>
-        </div>
-      </div>
-
-      <div class="ct-stat-card">
-        <div class="stat-icon-wrap icon-teal">
-          <mat-icon>groups</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-val">{{ totalSchoolStudentsCount }}</span>
-          <span class="stat-lbl">School Students</span>
-        </div>
+      <div class="stat-content">
+        <span class="stat-val">{{ matrixUniqueClasses.length }}</span>
+        <span class="stat-lbl">School Classes</span>
       </div>
     </div>
-
-    <!-- Filter & Toolbar -->
-    <div class="ct-toolbar-card mat-elevation-z1">
-      <div class="ct-search-box">
-        <mat-icon class="search-icon">search</mat-icon>
-        <input type="text" [(ngModel)]="matrixSearch" (ngModelChange)="applyMatrixFilters()" placeholder="Search class, section, teacher name or code (e.g. 10th, Sharma, EMP001)..." />
-        <button type="button" class="clear-btn" *ngIf="matrixSearch" (click)="matrixSearch = ''; applyMatrixFilters()">
+    <div class="ct-stat-card">
+      <div class="stat-icon-wrap icon-purple">
+        <mat-icon>meeting_room</mat-icon>
+      </div>
+      <div class="stat-content">
+        <span class="stat-val">{{ classTeachersMatrix.length }}</span>
+        <span class="stat-lbl">Total Sections</span>
+      </div>
+    </div>
+    <div class="ct-stat-card">
+      <div class="stat-icon-wrap icon-green">
+        <mat-icon>verified_user</mat-icon>
+      </div>
+      <div class="stat-content">
+        <div class="stat-val-row">
+          <span class="stat-val">{{ assignedClassTeachersCount }}</span>
+          <span class="coverage-pct-pill">{{ classTeachersCoveragePercent }}%</span>
+        </div>
+        <span class="stat-lbl">Sections with Faculty</span>
+      </div>
+    </div>
+    <div class="ct-stat-card" [class.highlight-warn]="unassignedClassTeachersCount > 0">
+      <div class="stat-icon-wrap icon-amber">
+        <mat-icon>{{ unassignedClassTeachersCount > 0 ? 'warning_amber' : 'check_circle' }}</mat-icon>
+      </div>
+      <div class="stat-content">
+        <span class="stat-val">{{ unassignedClassTeachersCount }}</span>
+        <span class="stat-lbl">{{ unassignedClassTeachersCount > 0 ? 'Unassigned (Needs Action)' : 'All Covered!' }}</span>
+      </div>
+    </div>
+    <div class="ct-stat-card">
+      <div class="stat-icon-wrap icon-teal">
+        <mat-icon>groups</mat-icon>
+      </div>
+      <div class="stat-content">
+        <span class="stat-val">{{ totalSchoolStudentsCount }}</span>
+        <span class="stat-lbl">School Students</span>
+      </div>
+    </div>
+  </div>
+  <!-- Filter & Toolbar -->
+  <div class="ct-toolbar-card mat-elevation-z1">
+    <div class="ct-search-box">
+      <mat-icon class="search-icon">search</mat-icon>
+      <input type="text" [(ngModel)]="matrixSearch" (ngModelChange)="applyMatrixFilters()" placeholder="Search class, section, teacher name or code (e.g. 10th, Sharma, EMP001)..." />
+      @if (matrixSearch) {
+        <button type="button" class="clear-btn" (click)="matrixSearch = ''; applyMatrixFilters()">
           <mat-icon>close</mat-icon>
         </button>
+      }
+    </div>
+    <div class="ct-filters">
+      <!-- Class Filter -->
+      <div class="filter-group">
+        <label><mat-icon>school</mat-icon> Class:</label>
+        <select [(ngModel)]="matrixClassFilter" (ngModelChange)="applyMatrixFilters()" class="ct-select">
+          <option value="ALL">All Classes ({{ matrixUniqueClasses.length }})</option>
+          @for (c of matrixUniqueClasses; track c) {
+            <option [value]="c.id">{{ c.name }}</option>
+          }
+        </select>
       </div>
-
-      <div class="ct-filters">
-        <!-- Class Filter -->
-        <div class="filter-group">
-          <label><mat-icon>school</mat-icon> Class:</label>
-          <select [(ngModel)]="matrixClassFilter" (ngModelChange)="applyMatrixFilters()" class="ct-select">
-            <option value="ALL">All Classes ({{ matrixUniqueClasses.length }})</option>
-            <option *ngFor="let c of matrixUniqueClasses" [value]="c.id">{{ c.name }}</option>
-          </select>
-        </div>
-
-        <!-- Status Filter -->
-        <div class="filter-group">
-          <label><mat-icon>filter_list</mat-icon> Status:</label>
-          <select [(ngModel)]="matrixStatusFilter" (ngModelChange)="applyMatrixFilters()" class="ct-select">
-            <option value="ALL">All Sections ({{ classTeachersMatrix.length }})</option>
-            <option value="ASSIGNED">Assigned Only ({{ assignedClassTeachersCount }})</option>
-            <option value="UNASSIGNED">Unassigned Only ({{ unassignedClassTeachersCount }})</option>
-          </select>
-        </div>
-
-        <!-- View Mode Switcher -->
-        <div class="view-mode-buttons">
-          <button type="button" class="v-btn" [class.active]="matrixViewMode === 'cards'" (click)="matrixViewMode = 'cards'" matTooltip="3-Column All Sections Grid">
-            <mat-icon>grid_view</mat-icon>
-            <span class="v-btn-text">3 Columns</span>
-          </button>
-          <button type="button" class="v-btn" [class.active]="matrixViewMode === 'grouped'" (click)="matrixViewMode = 'grouped'" matTooltip="Grouped by Class">
-            <mat-icon>view_agenda</mat-icon>
-            <span class="v-btn-text">By Class</span>
-          </button>
-          <button type="button" class="v-btn" [class.active]="matrixViewMode === 'table'" (click)="matrixViewMode = 'table'" matTooltip="Compact Matrix Table">
-            <mat-icon>view_list</mat-icon>
-            <span class="v-btn-text">Table</span>
-          </button>
-        </div>
-
-        <button mat-icon-button (click)="loadClassTeachersMatrix()" matTooltip="Refresh Matrix" class="refresh-btn">
-          <mat-icon>refresh</mat-icon>
+      <!-- Status Filter -->
+      <div class="filter-group">
+        <label><mat-icon>filter_list</mat-icon> Status:</label>
+        <select [(ngModel)]="matrixStatusFilter" (ngModelChange)="applyMatrixFilters()" class="ct-select">
+          <option value="ALL">All Sections ({{ classTeachersMatrix.length }})</option>
+          <option value="ASSIGNED">Assigned Only ({{ assignedClassTeachersCount }})</option>
+          <option value="UNASSIGNED">Unassigned Only ({{ unassignedClassTeachersCount }})</option>
+        </select>
+      </div>
+      <!-- View Mode Switcher -->
+      <div class="view-mode-buttons">
+        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'cards'" (click)="matrixViewMode = 'cards'" matTooltip="3-Column All Sections Grid">
+          <mat-icon>grid_view</mat-icon>
+          <span class="v-btn-text">3 Columns</span>
+        </button>
+        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'grouped'" (click)="matrixViewMode = 'grouped'" matTooltip="Grouped by Class">
+          <mat-icon>view_agenda</mat-icon>
+          <span class="v-btn-text">By Class</span>
+        </button>
+        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'table'" (click)="matrixViewMode = 'table'" matTooltip="Compact Matrix Table">
+          <mat-icon>view_list</mat-icon>
+          <span class="v-btn-text">Table</span>
         </button>
       </div>
+      <button mat-icon-button (click)="loadClassTeachersMatrix()" matTooltip="Refresh Matrix" class="refresh-btn">
+        <mat-icon>refresh</mat-icon>
+      </button>
     </div>
-
-    <mat-progress-bar mode="indeterminate" *ngIf="matrixLoading"></mat-progress-bar>
-
-    <!-- 3-COLUMN UNIFIED CARDS VIEW (All Sections) -->
-    <div class="ct-cards-grid-3col" *ngIf="matrixViewMode === 'cards' && !matrixLoading && filteredMatrix.length > 0">
-      <div class="section-card mat-elevation-z1" *ngFor="let sec of filteredMatrix; trackBy: trackBySection" [class.is-assigned]="sec.classTeacherId" [class.is-unassigned]="!sec.classTeacherId">
-        <!-- Class Tag Header inside Card -->
-        <div class="sec-card-header">
-          <div class="sec-class-tag">
-            <mat-icon>school</mat-icon>
-            <span class="class-name-text">{{ sec.className }}</span>
-          </div>
-          <span class="status-indicator" [class.assigned]="sec.classTeacherId" [class.unassigned]="!sec.classTeacherId">
-            <mat-icon>{{ sec.classTeacherId ? 'verified' : 'priority_high' }}</mat-icon>
-            {{ sec.classTeacherId ? 'Assigned' : 'Vacant' }}
-          </span>
-        </div>
-
-        <div class="sec-card-top">
-          <div class="sec-pill">
-            <span class="sec-badge">{{ sec.sectionName.startsWith('Section') ? sec.sectionName : 'Section ' + sec.sectionName }}</span>
-            <span class="sec-strength" matTooltip="Students Enrolled / Capacity">
-              <mat-icon>group</mat-icon> {{ sec.studentCount }} / {{ sec.maxCapacity }}
+  </div>
+  @if (matrixLoading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+  <!-- 3-COLUMN UNIFIED CARDS VIEW (All Sections) -->
+  @if (matrixViewMode === 'cards' && !matrixLoading && filteredMatrix.length > 0) {
+    <div class="ct-cards-grid-3col">
+      @for (sec of filteredMatrix; track trackBySection($index, sec)) {
+        <div class="section-card mat-elevation-z1" [class.is-assigned]="sec.classTeacherId" [class.is-unassigned]="!sec.classTeacherId">
+          <!-- Class Tag Header inside Card -->
+          <div class="sec-card-header">
+            <div class="sec-class-tag">
+              <mat-icon>school</mat-icon>
+              <span class="class-name-text">{{ sec.className }}</span>
+            </div>
+            <span class="status-indicator" [class.assigned]="sec.classTeacherId" [class.unassigned]="!sec.classTeacherId">
+              <mat-icon>{{ sec.classTeacherId ? 'verified' : 'priority_high' }}</mat-icon>
+              {{ sec.classTeacherId ? 'Assigned' : 'Vacant' }}
             </span>
           </div>
-        </div>
-
-        <!-- Faculty Info Area -->
-        <div class="faculty-info-box" *ngIf="sec.classTeacherId">
-          <div class="faculty-avatar">
-            <mat-icon>person</mat-icon>
-          </div>
-          <div class="faculty-details">
-            <span class="faculty-name">{{ sec.classTeacherName }}</span>
-            <div class="faculty-meta">
-              <span class="code-pill">{{ sec.classTeacherEmployeeCode || 'Faculty' }}</span>
-              <span class="phone-link" *ngIf="sec.classTeacherPhone">📞 {{ sec.classTeacherPhone }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="unassigned-notice-box" *ngIf="!sec.classTeacherId">
-          <mat-icon>person_off</mat-icon>
-          <span>No Class Teacher assigned. Pick a teacher below.</span>
-        </div>
-
-        <!-- Faculty Action Controls -->
-        <div class="ct-action-row" *ngIf="canManage">
-          <button mat-flat-button color="primary" class="ct-assign-btn" *ngIf="!sec.classTeacherId" (click)="openAssignDialog(sec)">
-            <mat-icon>person_add</mat-icon> Assign Class Teacher
-          </button>
-          <div class="ct-assigned-actions" *ngIf="sec.classTeacherId">
-            <button mat-stroked-button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)">
-              <mat-icon>edit</mat-icon> Change Faculty
-            </button>
-            <button mat-icon-button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
-              <mat-icon>person_remove</mat-icon>
-            </button>
-          </div>
-        </div>
-
-        <!-- Weekly Routine & Subject Coverage Strip -->
-        <div class="sec-routine-strip" (click)="openSectionRoutineDialog(sec)" matTooltip="Click to configure weekly routine & period timetable">
-          <div class="routine-strip-left">
-            <mat-icon class="routine-icon">calendar_month</mat-icon>
-            <div class="routine-text-box">
-              <span class="routine-subj-text" *ngIf="sec.assignedSubjects && sec.assignedSubjects.length > 0">
-                <strong>{{ sec.assignedSubjects.length }} Subjects:</strong> {{ sec.assignedSubjects.slice(0, 3).join(', ') }}{{ sec.assignedSubjects.length > 3 ? '...' : '' }}
-              </span>
-              <span class="routine-subj-text not-set" *ngIf="!sec.assignedSubjects || sec.assignedSubjects.length === 0">
-                Routine not scheduled yet
+          <div class="sec-card-top">
+            <div class="sec-pill">
+              <span class="sec-badge">{{ sec.sectionName.startsWith('Section') ? sec.sectionName : 'Section ' + sec.sectionName }}</span>
+              <span class="sec-strength" matTooltip="Students Enrolled / Capacity">
+                <mat-icon>group</mat-icon> {{ sec.studentCount }} / {{ sec.maxCapacity }}
               </span>
             </div>
           </div>
-          <span class="routine-badge-pill" *ngIf="sec.totalPeriodsCount && sec.totalPeriodsCount > 0">
-            {{ sec.totalPeriodsCount }} Periods/wk
-          </span>
-          <span class="routine-badge-pill setup" *ngIf="!sec.totalPeriodsCount || sec.totalPeriodsCount === 0">
-            + Set Routine
-          </span>
-        </div>
-
-        <!-- Card Bottom Shortcuts -->
-        <div class="sec-card-actions">
-          <a mat-button class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
-            <mat-icon>groups</mat-icon> Students
-          </a>
-          <a mat-button class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
-            <mat-icon>event_available</mat-icon> Roll Call
-          </a>
-          <button mat-button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing">
-            <mat-icon>calendar_view_week</mat-icon> Routine
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- CARDS VIEW (Grouped by Class) -->
-    <div class="ct-cards-view" *ngIf="matrixViewMode === 'grouped' && !matrixLoading">
-      <div class="class-group-card mat-elevation-z1" *ngFor="let grp of groupedMatrixByClass">
-        <div class="class-group-header">
-          <div class="class-group-title">
-            <div class="class-icon-circle">
-              <mat-icon>school</mat-icon>
-            </div>
-            <div>
-              <h3>{{ grp.className }}</h3>
-              <span class="class-subtitle">{{ grp.sections.length }} Section{{ grp.sections.length > 1 ? 's' : '' }}</span>
-            </div>
-          </div>
-          <div class="class-group-summary">
-            <a mat-button class="classes-link" routerLink="/school/classes" matTooltip="Manage Class & Sections in Master Settings">
-              <mat-icon>settings</mat-icon> Manage Class
-            </a>
-          </div>
-        </div>
-
-        <div class="sections-grid">
-          <div class="section-card mat-elevation-z1" *ngFor="let sec of grp.sections; trackBy: trackBySection" [class.is-assigned]="sec.classTeacherId" [class.is-unassigned]="!sec.classTeacherId">
-            <div class="sec-card-top">
-              <div class="sec-pill">
-                <span class="sec-badge">{{ sec.sectionName.startsWith('Section') ? sec.sectionName : 'Section ' + sec.sectionName }}</span>
-                <span class="sec-strength" matTooltip="Students Enrolled / Capacity">
-                  <mat-icon>group</mat-icon> {{ sec.studentCount }} / {{ sec.maxCapacity }}
-                </span>
-              </div>
-              <span class="status-indicator" [class.assigned]="sec.classTeacherId" [class.unassigned]="!sec.classTeacherId">
-                <mat-icon>{{ sec.classTeacherId ? 'verified' : 'priority_high' }}</mat-icon>
-                {{ sec.classTeacherId ? 'Assigned' : 'Vacant' }}
-              </span>
-            </div>
-
-            <!-- Faculty Info Area -->
-            <div class="faculty-info-box" *ngIf="sec.classTeacherId">
+          <!-- Faculty Info Area -->
+          @if (sec.classTeacherId) {
+            <div class="faculty-info-box">
               <div class="faculty-avatar">
                 <mat-icon>person</mat-icon>
               </div>
@@ -1046,71 +1052,212 @@ export interface AssignmentSlot {
                 <span class="faculty-name">{{ sec.classTeacherName }}</span>
                 <div class="faculty-meta">
                   <span class="code-pill">{{ sec.classTeacherEmployeeCode || 'Faculty' }}</span>
-                  <span class="phone-link" *ngIf="sec.classTeacherPhone">📞 {{ sec.classTeacherPhone }}</span>
+                  @if (sec.classTeacherPhone) {
+                    <span class="phone-link">📞 {{ sec.classTeacherPhone }}</span>
+                  }
                 </div>
               </div>
             </div>
-
-            <div class="unassigned-notice-box" *ngIf="!sec.classTeacherId">
+          }
+          @if (!sec.classTeacherId) {
+            <div class="unassigned-notice-box">
               <mat-icon>person_off</mat-icon>
               <span>No Class Teacher assigned. Pick a teacher below.</span>
             </div>
-
-            <!-- Faculty Action Controls -->
-            <div class="ct-action-row" *ngIf="canManage">
-              <button mat-flat-button color="primary" class="ct-assign-btn" *ngIf="!sec.classTeacherId" (click)="openAssignDialog(sec)">
-                <mat-icon>person_add</mat-icon> Assign Class Teacher
-              </button>
-              <div class="ct-assigned-actions" *ngIf="sec.classTeacherId">
-                <button mat-stroked-button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)">
-                  <mat-icon>edit</mat-icon> Change Faculty
+          }
+          <!-- Faculty Action Controls -->
+          @if (canManage) {
+            <div class="ct-action-row">
+              @if (!sec.classTeacherId) {
+                <button mat-flat-button color="primary" class="ct-assign-btn" (click)="openAssignDialog(sec)">
+                  <mat-icon>person_add</mat-icon> Assign Class Teacher
                 </button>
-                <button mat-icon-button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
-                  <mat-icon>person_remove</mat-icon>
-                </button>
-              </div>
+              }
+              @if (sec.classTeacherId) {
+                <div class="ct-assigned-actions">
+                  <button mat-stroked-button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)">
+                    <mat-icon>edit</mat-icon> Change Faculty
+                  </button>
+                  <button mat-icon-button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                    <mat-icon>person_remove</mat-icon>
+                  </button>
+                </div>
+              }
             </div>
-
-            <!-- Weekly Routine & Subject Coverage Strip -->
-            <div class="sec-routine-strip" (click)="openSectionRoutineDialog(sec)" matTooltip="Click to configure weekly routine & period timetable">
-              <div class="routine-strip-left">
-                <mat-icon class="routine-icon">calendar_month</mat-icon>
-                <div class="routine-text-box">
-                  <span class="routine-subj-text" *ngIf="sec.assignedSubjects && sec.assignedSubjects.length > 0">
+          }
+          <!-- Weekly Routine & Subject Coverage Strip -->
+          <div class="sec-routine-strip" (click)="openSectionRoutineDialog(sec)" matTooltip="Click to configure weekly routine & period timetable">
+            <div class="routine-strip-left">
+              <mat-icon class="routine-icon">calendar_month</mat-icon>
+              <div class="routine-text-box">
+                @if (sec.assignedSubjects && sec.assignedSubjects.length > 0) {
+                  <span class="routine-subj-text">
                     <strong>{{ sec.assignedSubjects.length }} Subjects:</strong> {{ sec.assignedSubjects.slice(0, 3).join(', ') }}{{ sec.assignedSubjects.length > 3 ? '...' : '' }}
                   </span>
-                  <span class="routine-subj-text not-set" *ngIf="!sec.assignedSubjects || sec.assignedSubjects.length === 0">
+                }
+                @if (!sec.assignedSubjects || sec.assignedSubjects.length === 0) {
+                  <span class="routine-subj-text not-set">
                     Routine not scheduled yet
                   </span>
-                </div>
+                }
               </div>
-              <span class="routine-badge-pill" *ngIf="sec.totalPeriodsCount && sec.totalPeriodsCount > 0">
+            </div>
+            @if (sec.totalPeriodsCount && sec.totalPeriodsCount > 0) {
+              <span class="routine-badge-pill">
                 {{ sec.totalPeriodsCount }} Periods/wk
               </span>
-              <span class="routine-badge-pill setup" *ngIf="!sec.totalPeriodsCount || sec.totalPeriodsCount === 0">
+            }
+            @if (!sec.totalPeriodsCount || sec.totalPeriodsCount === 0) {
+              <span class="routine-badge-pill setup">
                 + Set Routine
               </span>
-            </div>
-
-            <!-- Card Bottom Shortcuts -->
-            <div class="sec-card-actions">
-              <a mat-button class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
-                <mat-icon>groups</mat-icon> Students
-              </a>
-              <a mat-button class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
-                <mat-icon>event_available</mat-icon> Roll Call
-              </a>
-              <button mat-button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing">
-                <mat-icon>calendar_view_week</mat-icon> Routine
-              </button>
-            </div>
+            }
+          </div>
+          <!-- Card Bottom Shortcuts -->
+          <div class="sec-card-actions">
+            <a mat-button class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
+              <mat-icon>groups</mat-icon> Students
+            </a>
+            <a mat-button class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
+              <mat-icon>event_available</mat-icon> Roll Call
+            </a>
+            <button mat-button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing">
+              <mat-icon>calendar_view_week</mat-icon> Routine
+            </button>
           </div>
         </div>
-      </div>
+      }
     </div>
-
-    <!-- Empty Filter State -->
-    <div class="empty-matrix-state" *ngIf="!matrixLoading && ((matrixViewMode === 'cards' && filteredMatrix.length === 0) || (matrixViewMode === 'grouped' && groupedMatrixByClass.length === 0))">
+  }
+  <!-- CARDS VIEW (Grouped by Class) -->
+  @if (matrixViewMode === 'grouped' && !matrixLoading) {
+    <div class="ct-cards-view">
+      @for (grp of groupedMatrixByClass; track grp) {
+        <div class="class-group-card mat-elevation-z1">
+          <div class="class-group-header">
+            <div class="class-group-title">
+              <div class="class-icon-circle">
+                <mat-icon>school</mat-icon>
+              </div>
+              <div>
+                <h3>{{ grp.className }}</h3>
+                <span class="class-subtitle">{{ grp.sections.length }} Section{{ grp.sections.length > 1 ? 's' : '' }}</span>
+              </div>
+            </div>
+            <div class="class-group-summary">
+              <a mat-button class="classes-link" routerLink="/school/classes" matTooltip="Manage Class & Sections in Master Settings">
+                <mat-icon>settings</mat-icon> Manage Class
+              </a>
+            </div>
+          </div>
+          <div class="sections-grid">
+            @for (sec of grp.sections; track trackBySection($index, sec)) {
+              <div class="section-card mat-elevation-z1" [class.is-assigned]="sec.classTeacherId" [class.is-unassigned]="!sec.classTeacherId">
+                <div class="sec-card-top">
+                  <div class="sec-pill">
+                    <span class="sec-badge">{{ sec.sectionName.startsWith('Section') ? sec.sectionName : 'Section ' + sec.sectionName }}</span>
+                    <span class="sec-strength" matTooltip="Students Enrolled / Capacity">
+                      <mat-icon>group</mat-icon> {{ sec.studentCount }} / {{ sec.maxCapacity }}
+                    </span>
+                  </div>
+                  <span class="status-indicator" [class.assigned]="sec.classTeacherId" [class.unassigned]="!sec.classTeacherId">
+                    <mat-icon>{{ sec.classTeacherId ? 'verified' : 'priority_high' }}</mat-icon>
+                    {{ sec.classTeacherId ? 'Assigned' : 'Vacant' }}
+                  </span>
+                </div>
+                <!-- Faculty Info Area -->
+                @if (sec.classTeacherId) {
+                  <div class="faculty-info-box">
+                    <div class="faculty-avatar">
+                      <mat-icon>person</mat-icon>
+                    </div>
+                    <div class="faculty-details">
+                      <span class="faculty-name">{{ sec.classTeacherName }}</span>
+                      <div class="faculty-meta">
+                        <span class="code-pill">{{ sec.classTeacherEmployeeCode || 'Faculty' }}</span>
+                        @if (sec.classTeacherPhone) {
+                          <span class="phone-link">📞 {{ sec.classTeacherPhone }}</span>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+                @if (!sec.classTeacherId) {
+                  <div class="unassigned-notice-box">
+                    <mat-icon>person_off</mat-icon>
+                    <span>No Class Teacher assigned. Pick a teacher below.</span>
+                  </div>
+                }
+                <!-- Faculty Action Controls -->
+                @if (canManage) {
+                  <div class="ct-action-row">
+                    @if (!sec.classTeacherId) {
+                      <button mat-flat-button color="primary" class="ct-assign-btn" (click)="openAssignDialog(sec)">
+                        <mat-icon>person_add</mat-icon> Assign Class Teacher
+                      </button>
+                    }
+                    @if (sec.classTeacherId) {
+                      <div class="ct-assigned-actions">
+                        <button mat-stroked-button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)">
+                          <mat-icon>edit</mat-icon> Change Faculty
+                        </button>
+                        <button mat-icon-button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                          <mat-icon>person_remove</mat-icon>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+                <!-- Weekly Routine & Subject Coverage Strip -->
+                <div class="sec-routine-strip" (click)="openSectionRoutineDialog(sec)" matTooltip="Click to configure weekly routine & period timetable">
+                  <div class="routine-strip-left">
+                    <mat-icon class="routine-icon">calendar_month</mat-icon>
+                    <div class="routine-text-box">
+                      @if (sec.assignedSubjects && sec.assignedSubjects.length > 0) {
+                        <span class="routine-subj-text">
+                          <strong>{{ sec.assignedSubjects.length }} Subjects:</strong> {{ sec.assignedSubjects.slice(0, 3).join(', ') }}{{ sec.assignedSubjects.length > 3 ? '...' : '' }}
+                        </span>
+                      }
+                      @if (!sec.assignedSubjects || sec.assignedSubjects.length === 0) {
+                        <span class="routine-subj-text not-set">
+                          Routine not scheduled yet
+                        </span>
+                      }
+                    </div>
+                  </div>
+                  @if (sec.totalPeriodsCount && sec.totalPeriodsCount > 0) {
+                    <span class="routine-badge-pill">
+                      {{ sec.totalPeriodsCount }} Periods/wk
+                    </span>
+                  }
+                  @if (!sec.totalPeriodsCount || sec.totalPeriodsCount === 0) {
+                    <span class="routine-badge-pill setup">
+                      + Set Routine
+                    </span>
+                  }
+                </div>
+                <!-- Card Bottom Shortcuts -->
+                <div class="sec-card-actions">
+                  <a mat-button class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
+                    <mat-icon>groups</mat-icon> Students
+                  </a>
+                  <a mat-button class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
+                    <mat-icon>event_available</mat-icon> Roll Call
+                  </a>
+                  <button mat-button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing">
+                    <mat-icon>calendar_view_week</mat-icon> Routine
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+  <!-- Empty Filter State -->
+  @if (!matrixLoading && ((matrixViewMode === 'cards' && filteredMatrix.length === 0) || (matrixViewMode === 'grouped' && groupedMatrixByClass.length === 0))) {
+    <div class="empty-matrix-state">
       <mat-icon>search_off</mat-icon>
       <h3>No sections match your filter</h3>
       <p>Try resetting your search query or changing the class/status filters.</p>
@@ -1118,9 +1265,10 @@ export interface AssignmentSlot {
         <mat-icon>restart_alt</mat-icon> Reset Filters
       </button>
     </div>
-
-    <!-- TABLE VIEW (Compact Matrix Table) -->
-    <div class="ct-table-card mat-elevation-z1" *ngIf="matrixViewMode === 'table' && !matrixLoading">
+  }
+  <!-- TABLE VIEW (Compact Matrix Table) -->
+  @if (matrixViewMode === 'table' && !matrixLoading) {
+    <div class="ct-table-card mat-elevation-z1">
       <div class="table-responsive">
         <table class="matrix-table">
           <thead>
@@ -1134,65 +1282,81 @@ export interface AssignmentSlot {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let sec of filteredMatrix" [class.row-unassigned]="!sec.classTeacherId">
-              <td class="col-class"><strong>{{ sec.className }}</strong></td>
-              <td class="col-section">
-                <span class="table-sec-pill">{{ sec.sectionName }}</span>
-              </td>
-              <td class="col-strength">
-                <span class="strength-tag">{{ sec.studentCount }} / {{ sec.maxCapacity }}</span>
-              </td>
-              <td class="col-teacher">
-                <div class="table-teacher-cell" *ngIf="sec.classTeacherId">
-                  <mat-icon class="t-ico">supervisor_account</mat-icon>
-                  <div>
-                    <div class="t-name">{{ sec.classTeacherName }}</div>
-                    <small class="t-code">{{ sec.classTeacherEmployeeCode }}{{ sec.classTeacherPhone ? ' • ' + sec.classTeacherPhone : '' }}</small>
+            @for (sec of filteredMatrix; track sec) {
+              <tr [class.row-unassigned]="!sec.classTeacherId">
+                <td class="col-class"><strong>{{ sec.className }}</strong></td>
+                <td class="col-section">
+                  <span class="table-sec-pill">{{ sec.sectionName }}</span>
+                </td>
+                <td class="col-strength">
+                  <span class="strength-tag">{{ sec.studentCount }} / {{ sec.maxCapacity }}</span>
+                </td>
+                <td class="col-teacher">
+                  @if (sec.classTeacherId) {
+                    <div class="table-teacher-cell">
+                      <mat-icon class="t-ico">supervisor_account</mat-icon>
+                      <div>
+                        <div class="t-name">{{ sec.classTeacherName }}</div>
+                        <small class="t-code">{{ sec.classTeacherEmployeeCode }}{{ sec.classTeacherPhone ? ' • ' + sec.classTeacherPhone : '' }}</small>
+                      </div>
+                    </div>
+                  }
+                  @if (!sec.classTeacherId) {
+                    <div class="table-unassigned-cell">
+                      <mat-icon>warning</mat-icon>
+                      <span>Unassigned</span>
+                    </div>
+                  }
+                </td>
+                <td class="col-routine">
+                  <div class="table-routine-cell" (click)="openSectionRoutineDialog(sec)" style="cursor: pointer;" matTooltip="Click to open Section Routine">
+                    @if (sec.assignedSubjects && sec.assignedSubjects.length > 0) {
+                      <span class="table-routine-badge">
+                        {{ sec.assignedSubjects.length }} Subjects ({{ sec.totalPeriodsCount }} P/wk)
+                      </span>
+                    }
+                    @if (!sec.assignedSubjects || sec.assignedSubjects.length === 0) {
+                      <span class="table-routine-badge empty">
+                        + Set Routine
+                      </span>
+                    }
                   </div>
-                </div>
-                <div class="table-unassigned-cell" *ngIf="!sec.classTeacherId">
-                  <mat-icon>warning</mat-icon>
-                  <span>Unassigned</span>
-                </div>
-              </td>
-              <td class="col-routine">
-                <div class="table-routine-cell" (click)="openSectionRoutineDialog(sec)" style="cursor: pointer;" matTooltip="Click to open Section Routine">
-                  <span class="table-routine-badge" *ngIf="sec.assignedSubjects && sec.assignedSubjects.length > 0">
-                    {{ sec.assignedSubjects.length }} Subjects ({{ sec.totalPeriodsCount }} P/wk)
-                  </span>
-                  <span class="table-routine-badge empty" *ngIf="!sec.assignedSubjects || sec.assignedSubjects.length === 0">
-                    + Set Routine
-                  </span>
-                </div>
-              </td>
-              <td class="col-actions">
-                <div class="table-action-btns">
-                  <button mat-stroked-button color="primary" class="table-assign-btn" *ngIf="canManage" (click)="openAssignDialog(sec)">
-                    <mat-icon>{{ sec.classTeacherId ? 'edit' : 'person_add' }}</mat-icon>
-                    {{ sec.classTeacherId ? 'Change' : 'Assign' }}
-                  </button>
-                  <button mat-icon-button color="warn" *ngIf="canManage && sec.classTeacherId" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
-                    <mat-icon>person_remove</mat-icon>
-                  </button>
-                  <button mat-icon-button color="primary" (click)="openSectionRoutineDialog(sec)" matTooltip="Class Routine & Period Timetable">
-                    <mat-icon>calendar_view_week</mat-icon>
-                  </button>
-                  <a mat-icon-button color="primary" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View Students">
-                    <mat-icon>people</mat-icon>
-                  </a>
-                  <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take Roll Call">
-                    <mat-icon>event_available</mat-icon>
-                  </a>
-                </div>
-              </td>
-            </tr>
+                </td>
+                <td class="col-actions">
+                  <div class="table-action-btns">
+                    @if (canManage) {
+                      <button mat-stroked-button color="primary" class="table-assign-btn" (click)="openAssignDialog(sec)">
+                        <mat-icon>{{ sec.classTeacherId ? 'edit' : 'person_add' }}</mat-icon>
+                        {{ sec.classTeacherId ? 'Change' : 'Assign' }}
+                      </button>
+                    }
+                    @if (canManage && sec.classTeacherId) {
+                      <button mat-icon-button color="warn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                        <mat-icon>person_remove</mat-icon>
+                      </button>
+                    }
+                    <button mat-icon-button color="primary" (click)="openSectionRoutineDialog(sec)" matTooltip="Class Routine & Period Timetable">
+                      <mat-icon>calendar_view_week</mat-icon>
+                    </button>
+                    <a mat-icon-button color="primary" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View Students">
+                      <mat-icon>people</mat-icon>
+                    </a>
+                    <a mat-icon-button color="primary" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take Roll Call">
+                      <mat-icon>event_available</mat-icon>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
     </div>
-  </ng-container>
+  }
+}
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display:flex; flex-direction:column; gap:20px; }
     .page-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }

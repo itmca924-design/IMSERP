@@ -1,4 +1,4 @@
-import { Component, Inject, inject } from '@angular/core';
+import { Component, Inject, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -39,20 +39,22 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="dialog-content">
         <div class="plan-summary-banner" [class.expired]="data?.subscriptionStatus === 'Expired'">
           <div class="banner-left">
             <span class="status-pill">{{ data?.subscriptionStatus || 'TrialActive' }}</span>
             <strong>Current: {{ data?.subscriptionPlan || 'FreeTrial' }}</strong>
           </div>
-          <span class="expiry-note" *ngIf="data?.trialEndDate">
-            Validity: {{ data?.trialEndDate | date:'mediumDate' }}
-          </span>
+          @if (data?.trialEndDate) {
+            <span class="expiry-note">
+              Validity: {{ $safeNavigationMigration(data?.trialEndDate) | date:'mediumDate' }}
+            </span>
+          }
         </div>
-
+    
         <h4 class="select-plan-title">Select Subscription Plan to Activate:</h4>
-
+    
         <div class="plan-radio-group">
           <!-- Starter -->
           <label class="plan-card-option" [class.selected]="selectedTier === 'Starter'">
@@ -65,7 +67,7 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
               <p class="tier-desc">Up to 150 students &bull; 1 campus &bull; School or Coaching module.</p>
             </div>
           </label>
-
+    
           <!-- Growth / Pro -->
           <label class="plan-card-option recommended" [class.selected]="selectedTier === 'Growth'">
             <div class="rec-badge">RECOMMENDED</div>
@@ -78,7 +80,7 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
               <p class="tier-desc">Up to 500 students &bull; 3 branches &bull; Biometric &amp; WhatsApp included.</p>
             </div>
           </label>
-
+    
           <!-- Enterprise -->
           <label class="plan-card-option" [class.selected]="selectedTier === 'Enterprise'">
             <input type="radio" name="planTier" value="Enterprise" [(ngModel)]="selectedTier" />
@@ -91,7 +93,7 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
             </div>
           </label>
         </div>
-
+    
         <div class="support-contact-strip">
           <mat-icon class="support-icon">headset_mic</mat-icon>
           <div>
@@ -99,13 +101,15 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
             <p>Call or WhatsApp Platform Support at <strong>+91 98765 43210</strong> or ping your Super Admin to approve immediate renewal.</p>
           </div>
         </div>
-
-        <div class="remarks-box" *ngIf="submitted">
-          <mat-icon color="primary">check_circle</mat-icon>
-          <span>Renewal request submitted! Platform Super Admin has been notified to activate your <strong>{{ selectedTier }}</strong> tier.</span>
-        </div>
+    
+        @if (submitted) {
+          <div class="remarks-box">
+            <mat-icon color="primary">check_circle</mat-icon>
+            <span>Renewal request submitted! Platform Super Admin has been notified to activate your <strong>{{ selectedTier }}</strong> tier.</span>
+          </div>
+        }
       </div>
-
+    
       <div class="dialog-actions">
         <button mat-stroked-button (click)="dialogRef.close()">Cancel</button>
         <button mat-raised-button color="primary" [disabled]="submitted" (click)="submitRenewal()">
@@ -114,7 +118,8 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .renewal-dialog-container {
       display: flex;

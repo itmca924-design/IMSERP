@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -57,96 +57,105 @@ export interface ConfirmDialogData {
             <p class="subtitle">{{ getSubtitleText() }}</p>
           </div>
         </div>
-
+    
         <div class="header-right-actions">
           <!-- HIN / EN Switch Pills in Header -->
-          <div class="lang-switch-wrap" *ngIf="hasBilingual()">
-            <button 
-              type="button" 
-              class="lang-pill-btn" 
-              [class.active]="activeLang === 'hi'" 
-              (click)="setLang('hi')"
-              matTooltip="हिन्दी भाषा में देखें">
-              HIN
-            </button>
-            <button 
-              type="button" 
-              class="lang-pill-btn" 
-              [class.active]="activeLang === 'en'" 
-              (click)="setLang('en')"
-              matTooltip="View in English">
-              EN
-            </button>
-          </div>
-
+          @if (hasBilingual()) {
+            <div class="lang-switch-wrap">
+              <button
+                type="button"
+                class="lang-pill-btn"
+                [class.active]="activeLang === 'hi'"
+                (click)="setLang('hi')"
+                matTooltip="हिन्दी भाषा में देखें">
+                HIN
+              </button>
+              <button
+                type="button"
+                class="lang-pill-btn"
+                [class.active]="activeLang === 'en'"
+                (click)="setLang('en')"
+                matTooltip="View in English">
+                EN
+              </button>
+            </div>
+          }
+    
           <button type="button" class="close-btn" (click)="onCancel()" aria-label="Close dialog">
             <mat-icon>close</mat-icon>
           </button>
         </div>
       </div>
-
+    
       <!-- Dialog Body -->
       <mat-dialog-content class="dialog-content">
         <div class="dialog-message-box">
           <!-- Inline Bilingual Lang Bar -->
-          <div class="message-lang-bar" *ngIf="hasBilingual()">
-            <span class="lang-indicator">
-              <mat-icon>{{ activeLang === 'hi' ? 'translate' : 'language' }}</mat-icon>
-              {{ activeLang === 'hi' ? 'हिन्दी विवरण (Hindi Mode)' : 'English Details (EN Mode)' }}
-            </span>
-            <div class="inline-lang-pills">
-              <button 
-                type="button" 
-                class="inline-pill" 
-                [class.active]="activeLang === 'hi'" 
-                (click)="setLang('hi')">
-                हिन्दी (HIN)
-              </button>
-              <button 
-                type="button" 
-                class="inline-pill" 
-                [class.active]="activeLang === 'en'" 
-                (click)="setLang('en')">
-                English (EN)
-              </button>
+          @if (hasBilingual()) {
+            <div class="message-lang-bar">
+              <span class="lang-indicator">
+                <mat-icon>{{ activeLang === 'hi' ? 'translate' : 'language' }}</mat-icon>
+                {{ activeLang === 'hi' ? 'हिन्दी विवरण (Hindi Mode)' : 'English Details (EN Mode)' }}
+              </span>
+              <div class="inline-lang-pills">
+                <button
+                  type="button"
+                  class="inline-pill"
+                  [class.active]="activeLang === 'hi'"
+                  (click)="setLang('hi')">
+                  हिन्दी (HIN)
+                </button>
+                <button
+                  type="button"
+                  class="inline-pill"
+                  [class.active]="activeLang === 'en'"
+                  (click)="setLang('en')">
+                  English (EN)
+                </button>
+              </div>
             </div>
-          </div>
+          }
           <div class="dialog-message" [innerHTML]="currentMessage"></div>
         </div>
-
+    
         <!-- Material Standard Prompt Input Field -->
-        <div class="prompt-field-wrap" *ngIf="data.isPrompt">
-          <mat-form-field appearance="outline" class="prompt-form-field" subscriptSizing="dynamic">
-            <mat-label>{{ data.inputLabel || 'Reason / Remarks' }}</mat-label>
-            <textarea
-              *ngIf="data.inputType === 'textarea'"
-              matInput
-              rows="3"
-              [(ngModel)]="promptValue"
-              [placeholder]="data.inputPlaceholder || 'Enter remarks...'">
-            </textarea>
-            <input
-              *ngIf="data.inputType !== 'textarea'"
-              matInput
-              [(ngModel)]="promptValue"
-              [placeholder]="data.inputPlaceholder || 'Enter remarks...'"
-              (keyup.enter)="onConfirm()" />
-            <mat-icon matPrefix>edit_note</mat-icon>
-          </mat-form-field>
-        </div>
+        @if (data.isPrompt) {
+          <div class="prompt-field-wrap">
+            <mat-form-field appearance="outline" class="prompt-form-field" subscriptSizing="dynamic">
+              <mat-label>{{ data.inputLabel || 'Reason / Remarks' }}</mat-label>
+              @if (data.inputType === 'textarea') {
+                <textarea
+                  matInput
+                  rows="3"
+                  [(ngModel)]="promptValue"
+                  [placeholder]="data.inputPlaceholder || 'Enter remarks...'">
+                </textarea>
+              }
+              @if (data.inputType !== 'textarea') {
+                <input
+                  matInput
+                  [(ngModel)]="promptValue"
+                  [placeholder]="data.inputPlaceholder || 'Enter remarks...'"
+                  (keyup.enter)="onConfirm()" />
+              }
+              <mat-icon matPrefix>edit_note</mat-icon>
+            </mat-form-field>
+          </div>
+        }
       </mat-dialog-content>
-
+    
       <!-- Dialog Footer Actions -->
       <mat-dialog-actions align="end" class="dialog-actions">
-        <button
-          *ngIf="!data.isAlert"
-          mat-stroked-button
-          type="button"
-          class="cancel-btn"
-          (click)="onCancel()">
-          {{ currentCancelText }}
-        </button>
-
+        @if (!data.isAlert) {
+          <button
+            mat-stroked-button
+            type="button"
+            class="cancel-btn"
+            (click)="onCancel()">
+            {{ currentCancelText }}
+          </button>
+        }
+    
         <button
           mat-raised-button
           [color]="getButtonColor()"
@@ -154,13 +163,18 @@ export interface ConfirmDialogData {
           class="confirm-btn"
           [ngClass]="data.type || 'info'"
           (click)="onConfirm()">
-          <mat-icon *ngIf="data.type === 'danger'">delete_outline</mat-icon>
-          <mat-icon *ngIf="data.type !== 'danger'">check</mat-icon>
+          @if (data.type === 'danger') {
+            <mat-icon>delete_outline</mat-icon>
+          }
+          @if (data.type !== 'danger') {
+            <mat-icon>check</mat-icon>
+          }
           <span>{{ currentConfirmText }}</span>
         </button>
       </mat-dialog-actions>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       display: flex;

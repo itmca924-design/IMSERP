@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -76,352 +76,359 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- ── FNF INITIATION / EDIT DRAWER ── -->
-  <div class="fnf-modal-overlay" *ngIf="showDrawer">
-    <mat-card class="fnf-drawer-card mat-elevation-z4">
-      <div class="drawer-header">
-        <div class="hdr-icon"><mat-icon>assignment_turned_in</mat-icon></div>
-        <div class="hdr-text">
-          <h3>Process Full &amp; Final Settlement (FNF)</h3>
-          <p>Verify clearances, compute final pro-rata dues, adjust advances, and finalize offboarding.</p>
+  @if (showDrawer) {
+    <div class="fnf-modal-overlay">
+      <mat-card class="fnf-drawer-card mat-elevation-z4">
+        <div class="drawer-header">
+          <div class="hdr-icon"><mat-icon>assignment_turned_in</mat-icon></div>
+          <div class="hdr-text">
+            <h3>Process Full &amp; Final Settlement (FNF)</h3>
+            <p>Verify clearances, compute final pro-rata dues, adjust advances, and finalize offboarding.</p>
+          </div>
+          <button mat-icon-button (click)="closeDrawer()"><mat-icon>close</mat-icon></button>
         </div>
-        <button mat-icon-button (click)="closeDrawer()"><mat-icon>close</mat-icon></button>
-      </div>
-
-      <div class="drawer-body">
-        <!-- Locked Settlement Notice Banner -->
-        <div class="settled-lock-banner" *ngIf="preview?.isFnFAlreadySettled">
-          <div class="lock-banner-left">
-            <div class="lock-icon-box"><mat-icon>lock</mat-icon></div>
-            <div class="lock-banner-text">
-              <span class="lock-title">Full &amp; Final Settlement Already Completed</span>
-              <span class="lock-sub">{{ preview?.teacherName }} ({{ preview?.employeeCode }}) has already been offboarded and settled. Duplicate FNF processing is strictly prohibited.</span>
+        <div class="drawer-body">
+          <!-- Locked Settlement Notice Banner -->
+          @if (preview?.isFnFAlreadySettled) {
+            <div class="settled-lock-banner">
+              <div class="lock-banner-left">
+                <div class="lock-icon-box"><mat-icon>lock</mat-icon></div>
+                <div class="lock-banner-text">
+                  <span class="lock-title">Full &amp; Final Settlement Already Completed</span>
+                  <span class="lock-sub">{{ preview?.teacherName }} ({{ preview?.employeeCode }}) has already been offboarded and settled. Duplicate FNF processing is strictly prohibited.</span>
+                </div>
+              </div>
+              <button mat-flat-button color="primary" type="button" class="lock-banner-btn" (click)="openExistingSettlementFromPreview()">
+                <mat-icon>receipt_long</mat-icon> View Settlement Statement
+              </button>
+            </div>
+          }
+          <!-- Step 1: Select Teacher -->
+          <div class="section-block">
+            <h4 class="section-title"><mat-icon>person</mat-icon> Step 1: Select Faculty Member</h4>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="flex-2">
+                <mat-label>Select Teacher *</mat-label>
+                <mat-select [(ngModel)]="formData.teacherId" (selectionChange)="onTeacherSelected()" [disabled]="!!preSelectedTeacherId">
+                  @for (t of activeTeachers; track t) {
+                    <mat-option [value]="t.id">
+                      <strong>{{ t.fullName }}</strong> ({{ t.employeeCode }}) - {{ t.specialization || 'General' }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Resignation / Notice Date</mat-label>
+                <input matInput type="date" [(ngModel)]="formData.resignationDate" (change)="recalculateDues()" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Last Working Day *</mat-label>
+                <input matInput type="date" [(ngModel)]="formData.lastWorkingDate" (change)="recalculateDues()" />
+              </mat-form-field>
+            </div>
+            <!-- Notice Period Duration Indicator -->
+            @if (formData.resignationDate && formData.lastWorkingDate) {
+              <div class="notice-period-chip">
+                <mat-icon>schedule</mat-icon>
+                <span>Notice Duration: <strong>{{ getNoticePeriodDays() }} Days</strong></span>
+                @if (getNoticePeriodDays() < 30) {
+                  <span style="color:#b91c1c;font-weight:600;margin-left:8px;">(⚠️ Under 30-day standard norm. Notice Shortfall may apply.)</span>
+                }
+                @if (getNoticePeriodDays() >= 30) {
+                  <span style="color:#15803d;font-weight:600;margin-left:8px;">(✓ Standard Notice Period Served)</span>
+                }
+              </div>
+            }
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Reason for Leaving *</mat-label>
+                <mat-select [(ngModel)]="formData.reasonForLeaving">
+                  <mat-option value="Resignation">Voluntary Resignation</mat-option>
+                  <mat-option value="Contract End">Contract / Session Completion</mat-option>
+                  <mat-option value="Relocation">Relocation / Personal</mat-option>
+                  <mat-option value="Retirement">Retirement</mat-option>
+                  <mat-option value="Medical">Medical / Health Reasons</mat-option>
+                  <mat-option value="Termination">Management Separation</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="flex-2">
+                <mat-label>Remarks / Notes</mat-label>
+                <input matInput [(ngModel)]="formData.remarks" placeholder="Handover details, performance remarks..." />
+              </mat-form-field>
             </div>
           </div>
-          <button mat-flat-button color="primary" type="button" class="lock-banner-btn" (click)="openExistingSettlementFromPreview()">
-            <mat-icon>receipt_long</mat-icon> View Settlement Statement
-          </button>
-        </div>
-
-        <!-- Step 1: Select Teacher -->
-        <div class="section-block">
-          <h4 class="section-title"><mat-icon>person</mat-icon> Step 1: Select Faculty Member</h4>
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="flex-2">
-              <mat-label>Select Teacher *</mat-label>
-              <mat-select [(ngModel)]="formData.teacherId" (selectionChange)="onTeacherSelected()" [disabled]="!!preSelectedTeacherId">
-                <mat-option *ngFor="let t of activeTeachers" [value]="t.id">
-                  <strong>{{ t.fullName }}</strong> ({{ t.employeeCode }}) - {{ t.specialization || 'General' }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Resignation / Notice Date</mat-label>
-              <input matInput type="date" [(ngModel)]="formData.resignationDate" (change)="recalculateDues()" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Last Working Day *</mat-label>
-              <input matInput type="date" [(ngModel)]="formData.lastWorkingDate" (change)="recalculateDues()" />
-            </mat-form-field>
+          <!-- Live Teacher Preview Audit Banner -->
+          @if (preview) {
+            <div class="audit-summary-box">
+              <div class="audit-row">
+                <div class="audit-item">
+                  <span class="lbl">Joining Date:</span>
+                  <span class="val">{{ preview.joiningDate | date:'dd MMM yyyy' }}</span>
+                </div>
+                <div class="audit-item">
+                  <span class="lbl">Monthly Gross:</span>
+                  <span class="val">₹{{ preview.grossMonthlySalary | number:'1.2-2' }}</span>
+                </div>
+                <div class="audit-item">
+                  <span class="lbl">Per Day Rate:</span>
+                  <span class="val">₹{{ preview.perDayRate | number:'1.2-2' }}</span>
+                </div>
+                <div class="audit-item">
+                  <span class="lbl">Current Month Present:</span>
+                  <span class="val font-bold">{{ preview.finalMonthPresentDays }} Days</span>
+                </div>
+              </div>
+              <div class="audit-row" style="margin-top: 8px;">
+                <div class="audit-item" [class.alert-danger]="preview.outstandingAdvanceBalance > 0">
+                  <span class="lbl">Unadjusted Advance:</span>
+                  <span class="val">₹{{ preview.outstandingAdvanceBalance | number:'1.2-2' }}</span>
+                </div>
+                <div class="audit-item" [class.alert-danger]="preview.pendingLibraryBooksCount > 0">
+                  <span class="lbl">Pending Library Books:</span>
+                  <span class="val">{{ preview.pendingLibraryBooksCount }} Books (Fine: ₹{{ preview.pendingLibraryFines }})</span>
+                </div>
+                <div class="audit-item" [class.alert-danger]="preview.isHostelResident">
+                  <span class="lbl">Staff Quarters:</span>
+                  <span class="val">{{ preview.isHostelResident ? 'Rm ' + preview.hostelRoomNumber + ' (Bed ' + preview.hostelBedCode + ')' : 'Not Allocated' }}</span>
+                </div>
+                <div class="audit-item" [class.alert-danger]="preview.isTransportStaff">
+                  <span class="lbl">Transport Facility:</span>
+                  <span class="val">{{ preview.isTransportStaff ? preview.transportRouteName + ' (' + preview.transportStopName + ')' : 'No Transport' }}</span>
+                </div>
+                <div class="audit-item">
+                  <span class="lbl">Active Assignments:</span>
+                  <span class="val">{{ preview.activeBatchesCount }} Batches / {{ preview.assignedSectionsCount }} Sections</span>
+                </div>
+                @if (preview.hasActiveLoginAccount) {
+                  <div class="audit-item">
+                    <span class="lbl">Portal Login:</span>
+                    <span class="val text-blue">&#64;{{ preview.loginUsername }} (Will Auto-Deactivate)</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          <!-- Step 2: Clearances Checklist -->
+          <div class="section-block">
+            <h4 class="section-title"><mat-icon>fact_check</mat-icon> Step 2: Departmental Clearances (No Dues / NOC)</h4>
+            <div class="clearances-grid">
+              <div class="clearance-card" [class.cleared]="formData.academicClearance">
+                <mat-checkbox [(ngModel)]="formData.academicClearance" color="primary">
+                  <strong>Academic Clearance</strong>
+                </mat-checkbox>
+                @if (preview) {
+                  <div class="cl-badge-row">
+                    <span class="cl-badge" [class.badge-ok]="preview.activeBatchesCount === 0 && preview.assignedSectionsCount === 0" [class.badge-pending]="preview.activeBatchesCount > 0 || preview.assignedSectionsCount > 0">
+                      {{ preview.activeBatchesCount === 0 && preview.assignedSectionsCount === 0 ? '✓ Auto-Clear (0 Batches)' : ('⚠️ ' + preview.activeBatchesCount + ' Batches / ' + preview.assignedSectionsCount + ' Secs Active') }}
+                    </span>
+                  </div>
+                }
+                <p>Syllabus completed, exam marks verified, syllabus register handed over.</p>
+              </div>
+              <div class="clearance-card" [class.cleared]="formData.libraryClearance">
+                <mat-checkbox [(ngModel)]="formData.libraryClearance" color="primary">
+                  <strong>Library Clearance</strong>
+                </mat-checkbox>
+                @if (preview) {
+                  <div class="cl-badge-row">
+                    <span class="cl-badge" [class.badge-ok]="preview.pendingLibraryBooksCount === 0" [class.badge-pending]="preview.pendingLibraryBooksCount > 0">
+                      {{ preview.pendingLibraryBooksCount === 0 ? '✓ Auto-Clear (0 Books)' : ('⚠️ ' + preview.pendingLibraryBooksCount + ' Book(s) Issued') }}
+                    </span>
+                  </div>
+                }
+                <p>All issued books returned, no overdue fines or damage penalties pending.</p>
+              </div>
+              <div class="clearance-card" [class.cleared]="formData.assetClearance">
+                <mat-checkbox [(ngModel)]="formData.assetClearance" color="primary">
+                  <strong>Inventory &amp; Asset Clearance</strong>
+                </mat-checkbox>
+                <div class="cl-badge-row">
+                  <span class="cl-badge badge-neutral">Physical Handover</span>
+                </div>
+                <p>Staff ID badge, classroom keys, lab equipment, laptop/tablet handed over.</p>
+              </div>
+              <div class="clearance-card" [class.cleared]="formData.hostelClearance">
+                <mat-checkbox [(ngModel)]="formData.hostelClearance" color="primary">
+                  <strong>Hostel / Quarters Clearance</strong>
+                </mat-checkbox>
+                @if (preview) {
+                  <div class="cl-badge-row">
+                    <span class="cl-badge" [class.badge-ok]="!preview.isHostelResident" [class.badge-pending]="preview.isHostelResident">
+                      {{ preview.isHostelResident ? ('⚠️ Rm ' + preview.hostelRoomNumber + ', Bed ' + preview.hostelBedCode) : '✓ Auto-Clear (Not Allotted)' }}
+                    </span>
+                  </div>
+                }
+                <p>Quarters vacated, warden keys surrendered, utility bills cleared.</p>
+              </div>
+              <div class="clearance-card" [class.cleared]="formData.transportClearance">
+                <mat-checkbox [(ngModel)]="formData.transportClearance" color="primary">
+                  <strong>Transport Clearance</strong>
+                </mat-checkbox>
+                @if (preview) {
+                  <div class="cl-badge-row">
+                    <span class="cl-badge" [class.badge-ok]="!preview.isTransportStaff" [class.badge-pending]="preview.isTransportStaff">
+                      {{ preview.isTransportStaff ? ('⚠️ ' + preview.transportRouteName) : '✓ Auto-Clear (Not Allotted)' }}
+                    </span>
+                  </div>
+                }
+                <p>Bus pass surrendered, transport allocation seat discontinued.</p>
+              </div>
+            </div>
           </div>
-
-          <!-- Notice Period Duration Indicator -->
-          <div class="notice-period-chip" *ngIf="formData.resignationDate && formData.lastWorkingDate">
-            <mat-icon>schedule</mat-icon>
-            <span>Notice Duration: <strong>{{ getNoticePeriodDays() }} Days</strong></span>
-            <span *ngIf="getNoticePeriodDays() < 30" style="color:#b91c1c;font-weight:600;margin-left:8px;">(⚠️ Under 30-day standard norm. Notice Shortfall may apply.)</span>
-            <span *ngIf="getNoticePeriodDays() >= 30" style="color:#15803d;font-weight:600;margin-left:8px;">(✓ Standard Notice Period Served)</span>
+          <!-- Step 3: Financial Reconciliation -->
+          <div class="section-block">
+            <h4 class="section-title"><mat-icon>account_balance_wallet</mat-icon> Step 3: Financial Reconciliation (Payable vs Recoveries)</h4>
+            <div class="financial-grid">
+              <!-- Earnings / Additions -->
+              <div class="fin-col earnings">
+                <div class="fin-col-hdr">
+                  <span><mat-icon>add_circle</mat-icon> Final Month Earnings</span>
+                  <span class="sub-tot">+₹{{ getCalculatedTotalEarnings() | number:'1.2-2' }}</span>
+                </div>
+                <div class="fin-field" [style.background]="preview?.isFinalMonthSalaryPaid ? '#f0fdf4' : ''" [style.padding]="preview?.isFinalMonthSalaryPaid ? '6px 8px' : ''" [style.borderRadius]="preview?.isFinalMonthSalaryPaid ? '6px' : ''">
+                  <div class="fin-label-box">
+                    <label>Unpaid Salary (Pro-rata):</label>
+                    @if (preview && !preview.isFinalMonthSalaryPaid) {
+                      <span class="fin-hint auto">⚡ Auto: {{preview.finalMonthPresentDays}}d attendance</span>
+                    }
+                    @if (preview?.isFinalMonthSalaryPaid) {
+                      <span class="fin-hint" style="color:#15803d;font-weight:700;">
+                        ✓ Final Month Salary Already Paid ({{preview?.finalMonthSalaryReceiptNumber}} — ₹{{$safeNavigationMigration(preview?.finalMonthSalaryPaidAmount) | number:'1.2-2'}})
+                      </span>
+                    }
+                  </div>
+                  <input type="number" [(ngModel)]="formData.unpaidSalary" [style.borderColor]="preview?.isFinalMonthSalaryPaid ? '#86efac' : ''" />
+                </div>
+                <div class="fin-field">
+                  <div class="fin-label-box">
+                    <label>Leave Encashment (PL/EL):</label>
+                    <span class="fin-hint opt">Unused PL × Daily Rate (or 0)</span>
+                  </div>
+                  <input type="number" [(ngModel)]="formData.earnedLeaveEncashment" />
+                </div>
+                <div class="fin-field">
+                  <div class="fin-label-box">
+                    <label>Gratuity / Long Service Bonus:</label>
+                    <span class="fin-hint opt">5+ Yrs service tenure (or 0)</span>
+                  </div>
+                  <input type="number" [(ngModel)]="formData.gratuityOrBonus" />
+                </div>
+                <div class="fin-field">
+                  <div class="fin-label-box">
+                    <label>Other Additions / Allowances:</label>
+                    <span class="fin-hint opt">Approved claims / travel bills (or 0)</span>
+                  </div>
+                  <input type="number" [(ngModel)]="formData.otherAdditions" />
+                </div>
+              </div>
+              <!-- Recoveries / Deductions -->
+              <div class="fin-col deductions">
+                <div class="fin-col-hdr">
+                  <span><mat-icon>remove_circle</mat-icon> Deductions &amp; Recoveries</span>
+                  <span class="sub-tot">-₹{{ getCalculatedTotalDeductions() | number:'1.2-2' }}</span>
+                </div>
+                <div class="fin-field">
+                  <div class="fin-label-box">
+                    <label>Outstanding Advance Recovery:</label>
+                    <span class="fin-hint auto">⚡ Auto: Approved advance</span>
+                  </div>
+                  <input type="number" [(ngModel)]="formData.pendingAdvanceDeduction" />
+                </div>
+                <div class="fin-field">
+                  <div class="fin-label-box">
+                    <label>Notice Shortfall Recovery:</label>
+                    <span class="fin-hint opt">Shortfall days × Daily Rate (or 0)</span>
+                  </div>
+                  <input type="number" [(ngModel)]="formData.noticeShortfallDeduction" />
+                </div>
+                <div class="fin-field">
+                  <div class="fin-label-box">
+                    <label>Library Dues / Lost Books:</label>
+                    <span class="fin-hint auto">⚡ Auto: Overdue library fines</span>
+                  </div>
+                  <input type="number" [(ngModel)]="formData.libraryDuesDeduction" />
+                </div>
+                <div class="fin-field">
+                  <div class="fin-label-box">
+                    <label>Asset Loss / Damage Deduction:</label>
+                    <span class="fin-hint opt">Broken/Lost equipment cost (or 0)</span>
+                  </div>
+                  <input type="number" [(ngModel)]="formData.assetLossDeduction" />
+                </div>
+                <div class="fin-field">
+                  <div class="fin-label-box">
+                    <label>Other Deductions / TDS:</label>
+                    <span class="fin-hint opt">Final TDS tax deduction (or 0)</span>
+                  </div>
+                  <input type="number" [(ngModel)]="formData.otherDeductions" />
+                </div>
+              </div>
+            </div>
+            <!-- Net Settlement Strip -->
+            <div class="net-settlement-strip" [class.payable]="getCalculatedNet() >= 0" [class.recoverable]="getCalculatedNet() < 0">
+              <div>
+                <span class="net-lbl">{{ getCalculatedNet() >= 0 ? 'NET AMOUNT PAYABLE TO TEACHER:' : 'NET AMOUNT RECOVERABLE FROM TEACHER:' }}</span>
+                <p class="net-sub">{{ getCalculatedNet() >= 0 ? 'Institute will disburse this final settlement amount.' : 'Teacher must reimburse this outstanding amount.' }}</p>
+              </div>
+              <div class="net-amount-val">
+                <span class="currency">₹</span>
+                <span class="num">{{ Math.abs(getCalculatedNet()) | number:'1.2-2' }}</span>
+              </div>
+            </div>
           </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Reason for Leaving *</mat-label>
-              <mat-select [(ngModel)]="formData.reasonForLeaving">
-                <mat-option value="Resignation">Voluntary Resignation</mat-option>
-                <mat-option value="Contract End">Contract / Session Completion</mat-option>
-                <mat-option value="Relocation">Relocation / Personal</mat-option>
-                <mat-option value="Retirement">Retirement</mat-option>
-                <mat-option value="Medical">Medical / Health Reasons</mat-option>
-                <mat-option value="Termination">Management Separation</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="flex-2">
-              <mat-label>Remarks / Notes</mat-label>
-              <input matInput [(ngModel)]="formData.remarks" placeholder="Handover details, performance remarks..." />
-            </mat-form-field>
-          </div>
-        </div>
-
-        <!-- Live Teacher Preview Audit Banner -->
-        <div class="audit-summary-box" *ngIf="preview">
-          <div class="audit-row">
-            <div class="audit-item">
-              <span class="lbl">Joining Date:</span>
-              <span class="val">{{ preview.joiningDate | date:'dd MMM yyyy' }}</span>
+          <!-- Step 4: Payment Details & Auto-Offboarding -->
+          <div class="section-block">
+            <h4 class="section-title"><mat-icon>lock</mat-icon> Step 4: Settlement Execution &amp; Auto-Lockdown</h4>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Disbursement Mode</mat-label>
+                <mat-select [(ngModel)]="formData.paymentMode">
+                  <mat-option value="BankTransfer">Direct Bank Transfer (NEFT/RTGS/IMPS)</mat-option>
+                  <mat-option value="Cheque">Account Payee Cheque</mat-option>
+                  <mat-option value="UPI">UPI / Digital Payment</mat-option>
+                  <mat-option value="Cash">Cash Voucher</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="flex-2">
+                <mat-label>Payment Reference / UTR / Cheque No.</mat-label>
+                <input matInput [(ngModel)]="formData.paymentReference" placeholder="e.g. UTR-AXIS-9482942 or CHQ-001294" />
+              </mat-form-field>
             </div>
-            <div class="audit-item">
-              <span class="lbl">Monthly Gross:</span>
-              <span class="val">₹{{ preview.grossMonthlySalary | number:'1.2-2' }}</span>
-            </div>
-            <div class="audit-item">
-              <span class="lbl">Per Day Rate:</span>
-              <span class="val">₹{{ preview.perDayRate | number:'1.2-2' }}</span>
-            </div>
-            <div class="audit-item">
-              <span class="lbl">Current Month Present:</span>
-              <span class="val font-bold">{{ preview.finalMonthPresentDays }} Days</span>
-            </div>
-          </div>
-          <div class="audit-row" style="margin-top: 8px;">
-            <div class="audit-item" [class.alert-danger]="preview.outstandingAdvanceBalance > 0">
-              <span class="lbl">Unadjusted Advance:</span>
-              <span class="val">₹{{ preview.outstandingAdvanceBalance | number:'1.2-2' }}</span>
-            </div>
-            <div class="audit-item" [class.alert-danger]="preview.pendingLibraryBooksCount > 0">
-              <span class="lbl">Pending Library Books:</span>
-              <span class="val">{{ preview.pendingLibraryBooksCount }} Books (Fine: ₹{{ preview.pendingLibraryFines }})</span>
-            </div>
-            <div class="audit-item" [class.alert-danger]="preview.isHostelResident">
-              <span class="lbl">Staff Quarters:</span>
-              <span class="val">{{ preview.isHostelResident ? 'Rm ' + preview.hostelRoomNumber + ' (Bed ' + preview.hostelBedCode + ')' : 'Not Allocated' }}</span>
-            </div>
-            <div class="audit-item" [class.alert-danger]="preview.isTransportStaff">
-              <span class="lbl">Transport Facility:</span>
-              <span class="val">{{ preview.isTransportStaff ? preview.transportRouteName + ' (' + preview.transportStopName + ')' : 'No Transport' }}</span>
-            </div>
-            <div class="audit-item">
-              <span class="lbl">Active Assignments:</span>
-              <span class="val">{{ preview.activeBatchesCount }} Batches / {{ preview.assignedSectionsCount }} Sections</span>
-            </div>
-            <div class="audit-item" *ngIf="preview.hasActiveLoginAccount">
-              <span class="lbl">Portal Login:</span>
-              <span class="val text-blue">&#64;{{ preview.loginUsername }} (Will Auto-Deactivate)</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 2: Clearances Checklist -->
-        <div class="section-block">
-          <h4 class="section-title"><mat-icon>fact_check</mat-icon> Step 2: Departmental Clearances (No Dues / NOC)</h4>
-          <div class="clearances-grid">
-            <div class="clearance-card" [class.cleared]="formData.academicClearance">
-              <mat-checkbox [(ngModel)]="formData.academicClearance" color="primary">
-                <strong>Academic Clearance</strong>
+            <div class="lockdown-notice-card">
+              <mat-checkbox [(ngModel)]="formData.finalizeNow" color="primary">
+                <strong>Execute Final Offboarding immediately upon save</strong>
               </mat-checkbox>
-              <div class="cl-badge-row" *ngIf="preview">
-                <span class="cl-badge" [class.badge-ok]="preview.activeBatchesCount === 0 && preview.assignedSectionsCount === 0" [class.badge-pending]="preview.activeBatchesCount > 0 || preview.assignedSectionsCount > 0">
-                  {{ preview.activeBatchesCount === 0 && preview.assignedSectionsCount === 0 ? '✓ Auto-Clear (0 Batches)' : ('⚠️ ' + preview.activeBatchesCount + ' Batches / ' + preview.assignedSectionsCount + ' Secs Active') }}
-                </span>
-              </div>
-              <p>Syllabus completed, exam marks verified, syllabus register handed over.</p>
-            </div>
-
-            <div class="clearance-card" [class.cleared]="formData.libraryClearance">
-              <mat-checkbox [(ngModel)]="formData.libraryClearance" color="primary">
-                <strong>Library Clearance</strong>
-              </mat-checkbox>
-              <div class="cl-badge-row" *ngIf="preview">
-                <span class="cl-badge" [class.badge-ok]="preview.pendingLibraryBooksCount === 0" [class.badge-pending]="preview.pendingLibraryBooksCount > 0">
-                  {{ preview.pendingLibraryBooksCount === 0 ? '✓ Auto-Clear (0 Books)' : ('⚠️ ' + preview.pendingLibraryBooksCount + ' Book(s) Issued') }}
-                </span>
-              </div>
-              <p>All issued books returned, no overdue fines or damage penalties pending.</p>
-            </div>
-
-            <div class="clearance-card" [class.cleared]="formData.assetClearance">
-              <mat-checkbox [(ngModel)]="formData.assetClearance" color="primary">
-                <strong>Inventory &amp; Asset Clearance</strong>
-              </mat-checkbox>
-              <div class="cl-badge-row">
-                <span class="cl-badge badge-neutral">Physical Handover</span>
-              </div>
-              <p>Staff ID badge, classroom keys, lab equipment, laptop/tablet handed over.</p>
-            </div>
-
-            <div class="clearance-card" [class.cleared]="formData.hostelClearance">
-              <mat-checkbox [(ngModel)]="formData.hostelClearance" color="primary">
-                <strong>Hostel / Quarters Clearance</strong>
-              </mat-checkbox>
-              <div class="cl-badge-row" *ngIf="preview">
-                <span class="cl-badge" [class.badge-ok]="!preview.isHostelResident" [class.badge-pending]="preview.isHostelResident">
-                  {{ preview.isHostelResident ? ('⚠️ Rm ' + preview.hostelRoomNumber + ', Bed ' + preview.hostelBedCode) : '✓ Auto-Clear (Not Allotted)' }}
-                </span>
-              </div>
-              <p>Quarters vacated, warden keys surrendered, utility bills cleared.</p>
-            </div>
-
-            <div class="clearance-card" [class.cleared]="formData.transportClearance">
-              <mat-checkbox [(ngModel)]="formData.transportClearance" color="primary">
-                <strong>Transport Clearance</strong>
-              </mat-checkbox>
-              <div class="cl-badge-row" *ngIf="preview">
-                <span class="cl-badge" [class.badge-ok]="!preview.isTransportStaff" [class.badge-pending]="preview.isTransportStaff">
-                  {{ preview.isTransportStaff ? ('⚠️ ' + preview.transportRouteName) : '✓ Auto-Clear (Not Allotted)' }}
-                </span>
-              </div>
-              <p>Bus pass surrendered, transport allocation seat discontinued.</p>
+              <ul class="lockdown-points">
+                <li>Marks teacher status as <strong>Inactive</strong> with last working day recorded.</li>
+                <li>Instantly deactivates teacher's <strong>ERP Login Account</strong> (prevents portal access).</li>
+                <li>Releases active coaching batch assignments and school class teacher designations.</li>
+                <li>Marks all pending salary advance records as <strong>Adjusted in FNF</strong>.</li>
+              </ul>
             </div>
           </div>
         </div>
-
-        <!-- Step 3: Financial Reconciliation -->
-        <div class="section-block">
-          <h4 class="section-title"><mat-icon>account_balance_wallet</mat-icon> Step 3: Financial Reconciliation (Payable vs Recoveries)</h4>
-          <div class="financial-grid">
-            <!-- Earnings / Additions -->
-            <div class="fin-col earnings">
-              <div class="fin-col-hdr">
-                <span><mat-icon>add_circle</mat-icon> Final Month Earnings</span>
-                <span class="sub-tot">+₹{{ getCalculatedTotalEarnings() | number:'1.2-2' }}</span>
-              </div>
-              <div class="fin-field" [style.background]="preview?.isFinalMonthSalaryPaid ? '#f0fdf4' : ''" [style.padding]="preview?.isFinalMonthSalaryPaid ? '6px 8px' : ''" [style.borderRadius]="preview?.isFinalMonthSalaryPaid ? '6px' : ''">
-                <div class="fin-label-box">
-                  <label>Unpaid Salary (Pro-rata):</label>
-                  <span class="fin-hint auto" *ngIf="preview && !preview.isFinalMonthSalaryPaid">⚡ Auto: {{preview.finalMonthPresentDays}}d attendance</span>
-                  <span class="fin-hint" style="color:#15803d;font-weight:700;" *ngIf="preview?.isFinalMonthSalaryPaid">
-                    ✓ Final Month Salary Already Paid ({{preview?.finalMonthSalaryReceiptNumber}} — ₹{{preview?.finalMonthSalaryPaidAmount | number:'1.2-2'}})
-                  </span>
-                </div>
-                <input type="number" [(ngModel)]="formData.unpaidSalary" [style.borderColor]="preview?.isFinalMonthSalaryPaid ? '#86efac' : ''" />
-              </div>
-              <div class="fin-field">
-                <div class="fin-label-box">
-                  <label>Leave Encashment (PL/EL):</label>
-                  <span class="fin-hint opt">Unused PL × Daily Rate (or 0)</span>
-                </div>
-                <input type="number" [(ngModel)]="formData.earnedLeaveEncashment" />
-              </div>
-              <div class="fin-field">
-                <div class="fin-label-box">
-                  <label>Gratuity / Long Service Bonus:</label>
-                  <span class="fin-hint opt">5+ Yrs service tenure (or 0)</span>
-                </div>
-                <input type="number" [(ngModel)]="formData.gratuityOrBonus" />
-              </div>
-              <div class="fin-field">
-                <div class="fin-label-box">
-                  <label>Other Additions / Allowances:</label>
-                  <span class="fin-hint opt">Approved claims / travel bills (or 0)</span>
-                </div>
-                <input type="number" [(ngModel)]="formData.otherAdditions" />
-              </div>
-            </div>
-
-            <!-- Recoveries / Deductions -->
-            <div class="fin-col deductions">
-              <div class="fin-col-hdr">
-                <span><mat-icon>remove_circle</mat-icon> Deductions &amp; Recoveries</span>
-                <span class="sub-tot">-₹{{ getCalculatedTotalDeductions() | number:'1.2-2' }}</span>
-              </div>
-              <div class="fin-field">
-                <div class="fin-label-box">
-                  <label>Outstanding Advance Recovery:</label>
-                  <span class="fin-hint auto">⚡ Auto: Approved advance</span>
-                </div>
-                <input type="number" [(ngModel)]="formData.pendingAdvanceDeduction" />
-              </div>
-              <div class="fin-field">
-                <div class="fin-label-box">
-                  <label>Notice Shortfall Recovery:</label>
-                  <span class="fin-hint opt">Shortfall days × Daily Rate (or 0)</span>
-                </div>
-                <input type="number" [(ngModel)]="formData.noticeShortfallDeduction" />
-              </div>
-              <div class="fin-field">
-                <div class="fin-label-box">
-                  <label>Library Dues / Lost Books:</label>
-                  <span class="fin-hint auto">⚡ Auto: Overdue library fines</span>
-                </div>
-                <input type="number" [(ngModel)]="formData.libraryDuesDeduction" />
-              </div>
-              <div class="fin-field">
-                <div class="fin-label-box">
-                  <label>Asset Loss / Damage Deduction:</label>
-                  <span class="fin-hint opt">Broken/Lost equipment cost (or 0)</span>
-                </div>
-                <input type="number" [(ngModel)]="formData.assetLossDeduction" />
-              </div>
-              <div class="fin-field">
-                <div class="fin-label-box">
-                  <label>Other Deductions / TDS:</label>
-                  <span class="fin-hint opt">Final TDS tax deduction (or 0)</span>
-                </div>
-                <input type="number" [(ngModel)]="formData.otherDeductions" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Net Settlement Strip -->
-          <div class="net-settlement-strip" [class.payable]="getCalculatedNet() >= 0" [class.recoverable]="getCalculatedNet() < 0">
-            <div>
-              <span class="net-lbl">{{ getCalculatedNet() >= 0 ? 'NET AMOUNT PAYABLE TO TEACHER:' : 'NET AMOUNT RECOVERABLE FROM TEACHER:' }}</span>
-              <p class="net-sub">{{ getCalculatedNet() >= 0 ? 'Institute will disburse this final settlement amount.' : 'Teacher must reimburse this outstanding amount.' }}</p>
-            </div>
-            <div class="net-amount-val">
-              <span class="currency">₹</span>
-              <span class="num">{{ Math.abs(getCalculatedNet()) | number:'1.2-2' }}</span>
-            </div>
-          </div>
+        <div class="drawer-footer">
+          <button mat-button (click)="closeDrawer()">Cancel</button>
+          @if (!preview?.isFnFAlreadySettled) {
+            <button mat-raised-button color="primary" [disabled]="!formData.teacherId || saving" (click)="saveFnFSettlement()">
+              <mat-icon>{{ saving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+              <span>{{ formData.finalizeNow ? 'Finalize & Settle FNF' : 'Save as Draft' }}</span>
+            </button>
+          } @else {
+            <button mat-raised-button color="primary" type="button" (click)="openExistingSettlementFromPreview()">
+              <mat-icon>receipt_long</mat-icon>
+              <span>View Settled Statement</span>
+            </button>
+          }
         </div>
-
-        <!-- Step 4: Payment Details & Auto-Offboarding -->
-        <div class="section-block">
-          <h4 class="section-title"><mat-icon>lock</mat-icon> Step 4: Settlement Execution &amp; Auto-Lockdown</h4>
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Disbursement Mode</mat-label>
-              <mat-select [(ngModel)]="formData.paymentMode">
-                <mat-option value="BankTransfer">Direct Bank Transfer (NEFT/RTGS/IMPS)</mat-option>
-                <mat-option value="Cheque">Account Payee Cheque</mat-option>
-                <mat-option value="UPI">UPI / Digital Payment</mat-option>
-                <mat-option value="Cash">Cash Voucher</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="flex-2">
-              <mat-label>Payment Reference / UTR / Cheque No.</mat-label>
-              <input matInput [(ngModel)]="formData.paymentReference" placeholder="e.g. UTR-AXIS-9482942 or CHQ-001294" />
-            </mat-form-field>
-          </div>
-
-          <div class="lockdown-notice-card">
-            <mat-checkbox [(ngModel)]="formData.finalizeNow" color="primary">
-              <strong>Execute Final Offboarding immediately upon save</strong>
-            </mat-checkbox>
-            <ul class="lockdown-points">
-              <li>Marks teacher status as <strong>Inactive</strong> with last working day recorded.</li>
-              <li>Instantly deactivates teacher's <strong>ERP Login Account</strong> (prevents portal access).</li>
-              <li>Releases active coaching batch assignments and school class teacher designations.</li>
-              <li>Marks all pending salary advance records as <strong>Adjusted in FNF</strong>.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <div class="drawer-footer">
-        <button mat-button (click)="closeDrawer()">Cancel</button>
-
-        <ng-container *ngIf="!preview?.isFnFAlreadySettled; else alreadySettledFooterBtn">
-          <button mat-raised-button color="primary" [disabled]="!formData.teacherId || saving" (click)="saveFnFSettlement()">
-            <mat-icon>{{ saving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
-            <span>{{ formData.finalizeNow ? 'Finalize & Settle FNF' : 'Save as Draft' }}</span>
-          </button>
-        </ng-container>
-
-        <ng-template #alreadySettledFooterBtn>
-          <button mat-raised-button color="primary" type="button" (click)="openExistingSettlementFromPreview()">
-            <mat-icon>receipt_long</mat-icon>
-            <span>View Settled Statement</span>
-          </button>
-        </ng-template>
-      </div>
-    </mat-card>
-  </div>
+      </mat-card>
+    </div>
+  }
 
   <!-- ── SETTLEMENTS & OFFBOARDED TEACHERS TABLE ── -->
   <mat-card class="table-card mat-elevation-z2">
@@ -439,331 +446,339 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
     </div>
 
-    <div class="table-responsive" *ngIf="filteredSettlements.length > 0">
-      <table class="fnf-table">
-        <thead>
-          <tr>
-            <th>Voucher #</th>
-            <th>Teacher Details</th>
-            <th>Last Working Day</th>
-            <th>Reason</th>
-            <th>Clearances</th>
-            <th>Net Settlement</th>
-            <th>Status</th>
-            <th class="text-right">Actions / Documents</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let s of filteredSettlements">
-            <td>
-              <span class="voucher-code">{{ s.settlementVoucherNo }}</span>
-            </td>
-            <td>
-              <div class="t-name"><strong>{{ s.teacherName }}</strong></div>
-              <div class="t-sub">{{ s.employeeCode }} &bull; {{ s.designation || 'Faculty' }}</div>
-            </td>
-            <td>
-              <div class="t-date">{{ s.lastWorkingDate | date:'dd MMM yyyy' }}</div>
-              <small class="t-meta">Joined: {{ s.joiningDate | date:'dd MMM yyyy' }}</small>
-            </td>
-            <td>
-              <span class="reason-pill">{{ s.reasonForLeaving }}</span>
-            </td>
-            <td>
-              <span class="clearance-badge" [class.cleared]="s.allClearancesApproved">
-                <mat-icon>{{ s.allClearancesApproved ? 'check_circle' : 'pending' }}</mat-icon>
-                {{ s.allClearancesApproved ? 'All Cleared' : 'Pending' }}
-              </span>
-            </td>
-            <td>
-              <strong [class.text-green]="s.netPayableAmount >= 0" [class.text-red]="s.netPayableAmount < 0">
-                ₹{{ Math.abs(s.netPayableAmount) | number:'1.2-2' }}
-              </strong>
-              <small class="mode-lbl">{{ s.netPayableAmount >= 0 ? 'Disbursed' : 'Recovered' }} ({{ s.paymentMode }})</small>
-            </td>
-            <td>
-              <span class="status-pill" [class.settled]="s.status === 'Settled'" [class.draft]="s.status === 'Draft'">
-                {{ s.status }}
-              </span>
-            </td>
-            <td class="text-right actions-cell">
-              <button mat-stroked-button class="doc-btn" (click)="viewSettlementStatement(s)" matTooltip="View / Print FNF Statement">
-                <mat-icon>receipt_long</mat-icon> Statement
-              </button>
-              <button mat-raised-button color="primary" class="doc-btn primary" (click)="viewRelievingCertificate(s)" matTooltip="Generate Official Experience & Relieving Certificate">
-                <mat-icon>workspace_premium</mat-icon> Certificate
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    @if (filteredSettlements.length > 0) {
+      <div class="table-responsive">
+        <table class="fnf-table">
+          <thead>
+            <tr>
+              <th>Voucher #</th>
+              <th>Teacher Details</th>
+              <th>Last Working Day</th>
+              <th>Reason</th>
+              <th>Clearances</th>
+              <th>Net Settlement</th>
+              <th>Status</th>
+              <th class="text-right">Actions / Documents</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of filteredSettlements; track s) {
+              <tr>
+                <td>
+                  <span class="voucher-code">{{ s.settlementVoucherNo }}</span>
+                </td>
+                <td>
+                  <div class="t-name"><strong>{{ s.teacherName }}</strong></div>
+                  <div class="t-sub">{{ s.employeeCode }} &bull; {{ s.designation || 'Faculty' }}</div>
+                </td>
+                <td>
+                  <div class="t-date">{{ s.lastWorkingDate | date:'dd MMM yyyy' }}</div>
+                  <small class="t-meta">Joined: {{ s.joiningDate | date:'dd MMM yyyy' }}</small>
+                </td>
+                <td>
+                  <span class="reason-pill">{{ s.reasonForLeaving }}</span>
+                </td>
+                <td>
+                  <span class="clearance-badge" [class.cleared]="s.allClearancesApproved">
+                    <mat-icon>{{ s.allClearancesApproved ? 'check_circle' : 'pending' }}</mat-icon>
+                    {{ s.allClearancesApproved ? 'All Cleared' : 'Pending' }}
+                  </span>
+                </td>
+                <td>
+                  <strong [class.text-green]="s.netPayableAmount >= 0" [class.text-red]="s.netPayableAmount < 0">
+                    ₹{{ Math.abs(s.netPayableAmount) | number:'1.2-2' }}
+                  </strong>
+                  <small class="mode-lbl">{{ s.netPayableAmount >= 0 ? 'Disbursed' : 'Recovered' }} ({{ s.paymentMode }})</small>
+                </td>
+                <td>
+                  <span class="status-pill" [class.settled]="s.status === 'Settled'" [class.draft]="s.status === 'Draft'">
+                    {{ s.status }}
+                  </span>
+                </td>
+                <td class="text-right actions-cell">
+                  <button mat-stroked-button class="doc-btn" (click)="viewSettlementStatement(s)" matTooltip="View / Print FNF Statement">
+                    <mat-icon>receipt_long</mat-icon> Statement
+                  </button>
+                  <button mat-raised-button color="primary" class="doc-btn primary" (click)="viewRelievingCertificate(s)" matTooltip="Generate Official Experience & Relieving Certificate">
+                    <mat-icon>workspace_premium</mat-icon> Certificate
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
 
     <!-- Empty State -->
-    <div class="empty-state" *ngIf="filteredSettlements.length === 0 && !loading">
-      <mat-icon>person_off</mat-icon>
-      <h4>No Exit / FNF Settlements Found</h4>
-      <p>Click "Initiate Exit / FNF" to process offboarding for faculty members who have left the institution.</p>
-    </div>
+    @if (filteredSettlements.length === 0 && !loading) {
+      <div class="empty-state">
+        <mat-icon>person_off</mat-icon>
+        <h4>No Exit / FNF Settlements Found</h4>
+        <p>Click "Initiate Exit / FNF" to process offboarding for faculty members who have left the institution.</p>
+      </div>
+    }
   </mat-card>
 
   <!-- ── PRINTABLE FNF STATEMENT MODAL ── -->
-  <div class="doc-modal-overlay" *ngIf="showStatementModal && activeSettlement">
-    <div class="doc-modal-container">
-      <div class="modal-hdr no-print">
-        <div class="hdr-left">
-          <div class="hdr-icon"><mat-icon>receipt_long</mat-icon></div>
-          <div>
-            <h3>Official Full &amp; Final Settlement Statement</h3>
-            <p>{{ activeSettlement.teacherName }} ({{ activeSettlement.employeeCode }}) &bull; Voucher: {{ activeSettlement.settlementVoucherNo }}</p>
-          </div>
-        </div>
-        <div class="btn-grp">
-          <button mat-raised-button color="primary" (click)="printDocument('fnf-statement-paper')">
-            <mat-icon>print</mat-icon> Print Statement (A4)
-          </button>
-          <button mat-icon-button (click)="showStatementModal = false"><mat-icon>close</mat-icon></button>
-        </div>
-      </div>
-
-      <!-- A4 Statement Paper -->
-      <div class="doc-paper" id="fnf-statement-paper">
-        <div class="paper-header">
-          <div class="inst-info">
-            <h2>{{ instituteName }}</h2>
-            <p>Faculty &amp; Staff Full &amp; Final Settlement Advice (अंतिम भुगतान विवरण)</p>
-          </div>
-          <div class="voucher-box">
-            <span class="v-title">FNF VOUCHER</span>
-            <strong class="v-num">{{ activeSettlement.settlementVoucherNo }}</strong>
-          </div>
-        </div>
-
-        <div class="meta-strip">
-          <div><label>Faculty Name:</label> <strong>{{ activeSettlement.teacherName }}</strong></div>
-          <div><label>Employee Code:</label> <strong>{{ activeSettlement.employeeCode }}</strong></div>
-          <div><label>Department / Subject:</label> <strong>{{ activeSettlement.designation || 'Academic Faculty' }}</strong></div>
-          <div><label>Date of Joining:</label> <strong>{{ activeSettlement.joiningDate | date:'dd-MMM-yyyy' }}</strong></div>
-          <div><label>Last Working Date:</label> <strong>{{ activeSettlement.lastWorkingDate | date:'dd-MMM-yyyy' }}</strong></div>
-          <div><label>Settlement Date:</label> <strong>{{ activeSettlement.settlementDate | date:'dd-MMM-yyyy' }}</strong></div>
-          <div><label>Reason for Exit:</label> <strong>{{ activeSettlement.reasonForLeaving }}</strong></div>
-          <div><label>Payment Mode / Ref:</label> <strong>{{ activeSettlement.paymentMode }} ({{ activeSettlement.paymentReference || 'N/A' }})</strong></div>
-        </div>
-
-        <!-- Clearance Summary Strip -->
-        <div class="clearance-summary-strip">
-          <span class="cs-lbl">Departmental Clearances:</span>
-          <span class="cs-badge">Academic: Cleared</span>
-          <span class="cs-badge">Library: Cleared</span>
-          <span class="cs-badge">Inventory/Assets: Cleared</span>
-          <span class="cs-badge">Hostel/Residential: Cleared</span>
-        </div>
-
-        <!-- Two Column Breakdown -->
-        <div class="breakdown-grid">
-          <!-- Earnings Table -->
-          <div class="bd-col">
-            <table class="bd-table">
-              <thead>
-                <tr>
-                  <th>EARNINGS &amp; ADDITIONS</th>
-                  <th class="text-right">AMOUNT (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Unpaid Final Month Salary</td>
-                  <td class="text-right">{{ activeSettlement.unpaidSalary | number:'1.2-2' }}</td>
-                </tr>
-                <tr>
-                  <td>Earned Leave (PL/EL) Encashment</td>
-                  <td class="text-right">{{ activeSettlement.earnedLeaveEncashment | number:'1.2-2' }}</td>
-                </tr>
-                <tr>
-                  <td>Gratuity / Long Service Bonus</td>
-                  <td class="text-right">{{ activeSettlement.gratuityOrBonus | number:'1.2-2' }}</td>
-                </tr>
-                <tr>
-                  <td>Other Additions / Allowances</td>
-                  <td class="text-right">{{ activeSettlement.otherAdditions | number:'1.2-2' }}</td>
-                </tr>
-                <tr class="total-row">
-                  <td><strong>TOTAL GROSS EARNINGS (A)</strong></td>
-                  <td class="text-right"><strong>₹{{ activeSettlement.totalEarnings | number:'1.2-2' }}</strong></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Deductions Table -->
-          <div class="bd-col">
-            <table class="bd-table">
-              <thead>
-                <tr>
-                  <th>DEDUCTIONS &amp; RECOVERIES</th>
-                  <th class="text-right">AMOUNT (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Pending Salary Advance Recovery</td>
-                  <td class="text-right">{{ activeSettlement.pendingAdvanceDeduction | number:'1.2-2' }}</td>
-                </tr>
-                <tr>
-                  <td>Notice Period Shortfall Recovery</td>
-                  <td class="text-right">{{ activeSettlement.noticeShortfallDeduction | number:'1.2-2' }}</td>
-                </tr>
-                <tr>
-                  <td>Library Dues / Unreturned Books</td>
-                  <td class="text-right">{{ activeSettlement.libraryDuesDeduction | number:'1.2-2' }}</td>
-                </tr>
-                <tr>
-                  <td>Asset Loss / Damage Deduction</td>
-                  <td class="text-right">{{ activeSettlement.assetLossDeduction | number:'1.2-2' }}</td>
-                </tr>
-                <tr>
-                  <td>Other Deductions / Tax</td>
-                  <td class="text-right">{{ activeSettlement.otherDeductions | number:'1.2-2' }}</td>
-                </tr>
-                <tr class="total-row">
-                  <td><strong>TOTAL DEDUCTIONS (B)</strong></td>
-                  <td class="text-right"><strong>₹{{ activeSettlement.totalDeductions | number:'1.2-2' }}</strong></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Net Payable Block -->
-        <div class="paper-net-block">
-          <div>
-            <span class="net-lbl">NET SETTLEMENT AMOUNT (A - B):</span>
-            <div class="net-words">{{ getAmountInWords(Math.abs(activeSettlement.netPayableAmount)) }}</div>
-          </div>
-          <div class="net-val">
-            <span>₹</span>{{ Math.abs(activeSettlement.netPayableAmount) | number:'1.2-2' }}
-          </div>
-        </div>
-
-        <!-- Dual Signature Section -->
-        <div class="paper-signatures">
-          <div class="sig-box">
-            <div class="sig-line"></div>
-            <span>Employee / Faculty Signature</span>
-            <small>I hereby confirm receipt of full and final settlement and have no further claims against the institution.</small>
-          </div>
-          <div class="sig-box text-center">
-            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
-            <div class="stamp-box" *ngIf="!officialSealUrl">
-              <mat-icon>verified</mat-icon>
-              <span>AUDITED &amp; VERIFIED</span>
+  @if (showStatementModal && activeSettlement) {
+    <div class="doc-modal-overlay">
+      <div class="doc-modal-container">
+        <div class="modal-hdr no-print">
+          <div class="hdr-left">
+            <div class="hdr-icon"><mat-icon>receipt_long</mat-icon></div>
+            <div>
+              <h3>Official Full &amp; Final Settlement Statement</h3>
+              <p>{{ activeSettlement.teacherName }} ({{ activeSettlement.employeeCode }}) &bull; Voucher: {{ activeSettlement.settlementVoucherNo }}</p>
             </div>
           </div>
-          <div class="sig-box text-right">
-            <div class="sig-space-img" *ngIf="digitalSignatureUrl">
-              <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+          <div class="btn-grp">
+            <button mat-raised-button color="primary" (click)="printDocument('fnf-statement-paper')">
+              <mat-icon>print</mat-icon> Print Statement (A4)
+            </button>
+            <button mat-icon-button (click)="showStatementModal = false"><mat-icon>close</mat-icon></button>
+          </div>
+        </div>
+        <!-- A4 Statement Paper -->
+        <div class="doc-paper" id="fnf-statement-paper">
+          <div class="paper-header">
+            <div class="inst-info">
+              <h2>{{ instituteName }}</h2>
+              <p>Faculty &amp; Staff Full &amp; Final Settlement Advice (अंतिम भुगतान विवरण)</p>
             </div>
-            <div class="sig-line"></div>
-            <span>Authorized Signatory / Principal</span>
-            <small>{{ instituteName }}</small>
+            <div class="voucher-box">
+              <span class="v-title">FNF VOUCHER</span>
+              <strong class="v-num">{{ activeSettlement.settlementVoucherNo }}</strong>
+            </div>
+          </div>
+          <div class="meta-strip">
+            <div><label>Faculty Name:</label> <strong>{{ activeSettlement.teacherName }}</strong></div>
+            <div><label>Employee Code:</label> <strong>{{ activeSettlement.employeeCode }}</strong></div>
+            <div><label>Department / Subject:</label> <strong>{{ activeSettlement.designation || 'Academic Faculty' }}</strong></div>
+            <div><label>Date of Joining:</label> <strong>{{ activeSettlement.joiningDate | date:'dd-MMM-yyyy' }}</strong></div>
+            <div><label>Last Working Date:</label> <strong>{{ activeSettlement.lastWorkingDate | date:'dd-MMM-yyyy' }}</strong></div>
+            <div><label>Settlement Date:</label> <strong>{{ activeSettlement.settlementDate | date:'dd-MMM-yyyy' }}</strong></div>
+            <div><label>Reason for Exit:</label> <strong>{{ activeSettlement.reasonForLeaving }}</strong></div>
+            <div><label>Payment Mode / Ref:</label> <strong>{{ activeSettlement.paymentMode }} ({{ activeSettlement.paymentReference || 'N/A' }})</strong></div>
+          </div>
+          <!-- Clearance Summary Strip -->
+          <div class="clearance-summary-strip">
+            <span class="cs-lbl">Departmental Clearances:</span>
+            <span class="cs-badge">Academic: Cleared</span>
+            <span class="cs-badge">Library: Cleared</span>
+            <span class="cs-badge">Inventory/Assets: Cleared</span>
+            <span class="cs-badge">Hostel/Residential: Cleared</span>
+          </div>
+          <!-- Two Column Breakdown -->
+          <div class="breakdown-grid">
+            <!-- Earnings Table -->
+            <div class="bd-col">
+              <table class="bd-table">
+                <thead>
+                  <tr>
+                    <th>EARNINGS &amp; ADDITIONS</th>
+                    <th class="text-right">AMOUNT (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Unpaid Final Month Salary</td>
+                    <td class="text-right">{{ activeSettlement.unpaidSalary | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Earned Leave (PL/EL) Encashment</td>
+                    <td class="text-right">{{ activeSettlement.earnedLeaveEncashment | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Gratuity / Long Service Bonus</td>
+                    <td class="text-right">{{ activeSettlement.gratuityOrBonus | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Other Additions / Allowances</td>
+                    <td class="text-right">{{ activeSettlement.otherAdditions | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr class="total-row">
+                    <td><strong>TOTAL GROSS EARNINGS (A)</strong></td>
+                    <td class="text-right"><strong>₹{{ activeSettlement.totalEarnings | number:'1.2-2' }}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- Deductions Table -->
+            <div class="bd-col">
+              <table class="bd-table">
+                <thead>
+                  <tr>
+                    <th>DEDUCTIONS &amp; RECOVERIES</th>
+                    <th class="text-right">AMOUNT (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Pending Salary Advance Recovery</td>
+                    <td class="text-right">{{ activeSettlement.pendingAdvanceDeduction | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Notice Period Shortfall Recovery</td>
+                    <td class="text-right">{{ activeSettlement.noticeShortfallDeduction | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Library Dues / Unreturned Books</td>
+                    <td class="text-right">{{ activeSettlement.libraryDuesDeduction | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Asset Loss / Damage Deduction</td>
+                    <td class="text-right">{{ activeSettlement.assetLossDeduction | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Other Deductions / Tax</td>
+                    <td class="text-right">{{ activeSettlement.otherDeductions | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr class="total-row">
+                    <td><strong>TOTAL DEDUCTIONS (B)</strong></td>
+                    <td class="text-right"><strong>₹{{ activeSettlement.totalDeductions | number:'1.2-2' }}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Net Payable Block -->
+          <div class="paper-net-block">
+            <div>
+              <span class="net-lbl">NET SETTLEMENT AMOUNT (A - B):</span>
+              <div class="net-words">{{ getAmountInWords(Math.abs(activeSettlement.netPayableAmount)) }}</div>
+            </div>
+            <div class="net-val">
+              <span>₹</span>{{ Math.abs(activeSettlement.netPayableAmount) | number:'1.2-2' }}
+            </div>
+          </div>
+          <!-- Dual Signature Section -->
+          <div class="paper-signatures">
+            <div class="sig-box">
+              <div class="sig-line"></div>
+              <span>Employee / Faculty Signature</span>
+              <small>I hereby confirm receipt of full and final settlement and have no further claims against the institution.</small>
+            </div>
+            <div class="sig-box text-center">
+              @if (officialSealUrl) {
+                <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              }
+              @if (!officialSealUrl) {
+                <div class="stamp-box">
+                  <mat-icon>verified</mat-icon>
+                  <span>AUDITED &amp; VERIFIED</span>
+                </div>
+              }
+            </div>
+            <div class="sig-box text-right">
+              @if (digitalSignatureUrl) {
+                <div class="sig-space-img">
+                  <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+                </div>
+              }
+              <div class="sig-line"></div>
+              <span>Authorized Signatory / Principal</span>
+              <small>{{ instituteName }}</small>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  }
 
   <!-- ── PRINTABLE RELIEVING & EXPERIENCE CERTIFICATE MODAL ── -->
-  <div class="doc-modal-overlay" *ngIf="showCertModal && activeSettlement">
-    <div class="doc-modal-container">
-      <div class="modal-hdr no-print">
-        <div class="hdr-left">
-          <div class="hdr-icon"><mat-icon>workspace_premium</mat-icon></div>
-          <div>
-            <h3>Official Relieving &amp; Experience Certificate</h3>
-            <p>{{ activeSettlement.teacherName }} &bull; Formal Institutional Certificate</p>
+  @if (showCertModal && activeSettlement) {
+    <div class="doc-modal-overlay">
+      <div class="doc-modal-container">
+        <div class="modal-hdr no-print">
+          <div class="hdr-left">
+            <div class="hdr-icon"><mat-icon>workspace_premium</mat-icon></div>
+            <div>
+              <h3>Official Relieving &amp; Experience Certificate</h3>
+              <p>{{ activeSettlement.teacherName }} &bull; Formal Institutional Certificate</p>
+            </div>
+          </div>
+          <div class="btn-grp">
+            <button mat-raised-button color="primary" (click)="printDocument('relieving-cert-paper')">
+              <mat-icon>print</mat-icon> Print Certificate (A4)
+            </button>
+            <button mat-icon-button (click)="showCertModal = false"><mat-icon>close</mat-icon></button>
           </div>
         </div>
-        <div class="btn-grp">
-          <button mat-raised-button color="primary" (click)="printDocument('relieving-cert-paper')">
-            <mat-icon>print</mat-icon> Print Certificate (A4)
-          </button>
-          <button mat-icon-button (click)="showCertModal = false"><mat-icon>close</mat-icon></button>
-        </div>
-      </div>
-
-      <!-- Certificate Paper with Border -->
-      <div class="cert-paper" id="relieving-cert-paper">
-        <div class="cert-border">
-          <div class="cert-header">
-            <div class="inst-crest">
-              <mat-icon>school</mat-icon>
-            </div>
-            <h1 class="inst-cert-title">{{ instituteName }}</h1>
-            <p class="inst-cert-sub">Accredited Academic Institution | Quality Education &amp; Holistic Development</p>
-            <div class="cert-ref-strip">
-              <span>Ref No: <strong>CERT/REL/{{ activeSettlement.lastWorkingDate | date:'yyyy' }}/{{ activeSettlement.employeeCode }}</strong></span>
-              <span>Date of Issuance: <strong>{{ todayDate }}</strong></span>
-            </div>
-          </div>
-
-          <div class="cert-title-badge">
-            <h2>RELIEVING &amp; EXPERIENCE CERTIFICATE</h2>
-            <span>अनुभव एवं कार्यमुक्ति प्रमाण पत्र</span>
-          </div>
-
-          <div class="cert-body-text">
-            <p class="to-whom">TO WHOMSOEVER IT MAY CONCERN</p>
-
-            <p class="body-para">
-              This is to formally certify that <strong>{{ activeSettlement.teacherName }}</strong> 
-              (Employee Code: <strong>{{ activeSettlement.employeeCode }}</strong>) was employed with our institution as a 
-              <strong>{{ activeSettlement.designation || 'Faculty Member' }}</strong> from 
-              <strong>{{ activeSettlement.joiningDate | date:'dd MMMM yyyy' }}</strong> to 
-              <strong>{{ activeSettlement.lastWorkingDate | date:'dd MMMM yyyy' }}</strong>.
-            </p>
-
-            <p class="body-para">
-              During their tenure with our institution, <strong>{{ activeSettlement.teacherName }}</strong> demonstrated 
-              commendable dedication, pedagogical proficiency, and disciplined conduct. They successfully fulfilled all teaching, 
-              evaluation, student mentoring, and departmental responsibilities assigned to them.
-            </p>
-
-            <p class="body-para">
-              They have formally completed all departmental handover requirements, returned all institutional assets, and their 
-              Full and Final Settlement (Voucher: <strong>{{ activeSettlement.settlementVoucherNo }}</strong>) has been amicably completed. 
-              They are hereby relieved of all duties and responsibilities with effect from the close of working hours on 
-              <strong>{{ activeSettlement.lastWorkingDate | date:'dd MMMM yyyy' }}</strong>.
-            </p>
-
-            <p class="body-para">
-              We appreciate their valuable contributions and wish them every success in their future professional endeavors.
-            </p>
-          </div>
-
-          <div class="cert-footer">
-            <div class="seal-container">
-              <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img cert-seal" />
-              <div class="gold-seal" *ngIf="!officialSealUrl">
-                <mat-icon>verified</mat-icon>
-                <span>OFFICIAL SEAL</span>
+        <!-- Certificate Paper with Border -->
+        <div class="cert-paper" id="relieving-cert-paper">
+          <div class="cert-border">
+            <div class="cert-header">
+              <div class="inst-crest">
+                <mat-icon>school</mat-icon>
+              </div>
+              <h1 class="inst-cert-title">{{ instituteName }}</h1>
+              <p class="inst-cert-sub">Accredited Academic Institution | Quality Education &amp; Holistic Development</p>
+              <div class="cert-ref-strip">
+                <span>Ref No: <strong>CERT/REL/{{ activeSettlement.lastWorkingDate | date:'yyyy' }}/{{ activeSettlement.employeeCode }}</strong></span>
+                <span>Date of Issuance: <strong>{{ todayDate }}</strong></span>
               </div>
             </div>
-            <div class="principal-sig">
-              <div class="sig-space-img" *ngIf="digitalSignatureUrl">
-                <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+            <div class="cert-title-badge">
+              <h2>RELIEVING &amp; EXPERIENCE CERTIFICATE</h2>
+              <span>अनुभव एवं कार्यमुक्ति प्रमाण पत्र</span>
+            </div>
+            <div class="cert-body-text">
+              <p class="to-whom">TO WHOMSOEVER IT MAY CONCERN</p>
+              <p class="body-para">
+                This is to formally certify that <strong>{{ activeSettlement.teacherName }}</strong>
+                (Employee Code: <strong>{{ activeSettlement.employeeCode }}</strong>) was employed with our institution as a
+                <strong>{{ activeSettlement.designation || 'Faculty Member' }}</strong> from
+                <strong>{{ activeSettlement.joiningDate | date:'dd MMMM yyyy' }}</strong> to
+                <strong>{{ activeSettlement.lastWorkingDate | date:'dd MMMM yyyy' }}</strong>.
+              </p>
+              <p class="body-para">
+                During their tenure with our institution, <strong>{{ activeSettlement.teacherName }}</strong> demonstrated
+                commendable dedication, pedagogical proficiency, and disciplined conduct. They successfully fulfilled all teaching,
+                evaluation, student mentoring, and departmental responsibilities assigned to them.
+              </p>
+              <p class="body-para">
+                They have formally completed all departmental handover requirements, returned all institutional assets, and their
+                Full and Final Settlement (Voucher: <strong>{{ activeSettlement.settlementVoucherNo }}</strong>) has been amicably completed.
+                They are hereby relieved of all duties and responsibilities with effect from the close of working hours on
+                <strong>{{ activeSettlement.lastWorkingDate | date:'dd MMMM yyyy' }}</strong>.
+              </p>
+              <p class="body-para">
+                We appreciate their valuable contributions and wish them every success in their future professional endeavors.
+              </p>
+            </div>
+            <div class="cert-footer">
+              <div class="seal-container">
+                @if (officialSealUrl) {
+                  <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img cert-seal" />
+                }
+                @if (!officialSealUrl) {
+                  <div class="gold-seal">
+                    <mat-icon>verified</mat-icon>
+                    <span>OFFICIAL SEAL</span>
+                  </div>
+                }
               </div>
-              <div class="sig-line-gold"></div>
-              <strong>Principal / Authorized Director</strong>
-              <span>{{ instituteName }}</span>
+              <div class="principal-sig">
+                @if (digitalSignatureUrl) {
+                  <div class="sig-space-img">
+                    <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+                  </div>
+                }
+                <div class="sig-line-gold"></div>
+                <strong>Principal / Authorized Director</strong>
+                <span>{{ instituteName }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  }
 
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display: flex; flex-direction: column; gap: 20px; }
     .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }

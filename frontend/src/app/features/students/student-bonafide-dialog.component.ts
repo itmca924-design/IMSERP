@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -47,7 +47,9 @@ export interface BonafideDialogData {
         <p class="modal-subtitle">
           <strong style="color:#1e40af">{{data.student?.studentName}}</strong>
           <span> &bull; {{data.student?.className || data.student?.batchName || '—'}}</span>
-          <span *ngIf="data.student?.admissionNumber"> &bull; Adm: {{data.student?.admissionNumber}}</span>
+          @if (data.student?.admissionNumber) {
+            <span> &bull; Adm: {{data.student?.admissionNumber}}</span>
+          }
         </p>
       </div>
     </div>
@@ -78,265 +80,350 @@ export interface BonafideDialogData {
   </div>
 
   <!-- Conduct Rating Selector (Only for Character Certificate) -->
-  <div class="conduct-bar no-print" *ngIf="!loading && cert && certType==='Character'">
-    <div class="conduct-hdr">
-      <mat-icon class="p-icon" style="color: #7c3aed;">verified_user</mat-icon>
-      <span class="p-label">Conduct Evaluation (चारित्रिक मूल्यांकन):</span>
-      <div class="conduct-ratings">
-        <button type="button" class="rating-btn" [class.active-rating]="conductRating==='EXEMPLARY'" (click)="conductRating='EXEMPLARY'">
-          ⭐ Exemplary (उत्कृष्ट)
-        </button>
-        <button type="button" class="rating-btn" [class.active-rating]="conductRating==='VERY GOOD'" (click)="conductRating='VERY GOOD'">
-          👍 Very Good (अति उत्तम)
-        </button>
-        <button type="button" class="rating-btn" [class.active-rating]="conductRating==='GOOD'" (click)="conductRating='GOOD'">
-          👌 Good (उत्तम)
-        </button>
+  @if (!loading && cert && certType==='Character') {
+    <div class="conduct-bar no-print">
+      <div class="conduct-hdr">
+        <mat-icon class="p-icon" style="color: #7c3aed;">verified_user</mat-icon>
+        <span class="p-label">Conduct Evaluation (चारित्रिक मूल्यांकन):</span>
+        <div class="conduct-ratings">
+          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='EXEMPLARY'" (click)="conductRating='EXEMPLARY'">
+            ⭐ Exemplary (उत्कृष्ट)
+          </button>
+          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='VERY GOOD'" (click)="conductRating='VERY GOOD'">
+            👍 Very Good (अति उत्तम)
+          </button>
+          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='GOOD'" (click)="conductRating='GOOD'">
+            👌 Good (उत्तम)
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  }
 
   <!-- Purpose of Certificate Selection Toolbar -->
-  <div class="purpose-bar no-print" *ngIf="!loading && cert">
-    <div class="purpose-hdr">
-      <div class="p-title-wrap">
-        <mat-icon class="p-icon">edit_note</mat-icon>
-        <span class="p-label">Purpose of Certificate (प्रयोजन):</span>
+  @if (!loading && cert) {
+    <div class="purpose-bar no-print">
+      <div class="purpose-hdr">
+        <div class="p-title-wrap">
+          <mat-icon class="p-icon">edit_note</mat-icon>
+          <span class="p-label">Purpose of Certificate (प्रयोजन):</span>
+        </div>
+        <div class="p-input-wrap">
+          <input type="text" [(ngModel)]="certPurpose" placeholder="Type custom purpose or click a quick option below..." class="p-input" />
+          @if (certPurpose) {
+            <button class="p-clear-btn" (click)="certPurpose=''" title="Clear Purpose">✕</button>
+          }
+        </div>
       </div>
-      <div class="p-input-wrap">
-        <input type="text" [(ngModel)]="certPurpose" placeholder="Type custom purpose or click a quick option below..." class="p-input" />
-        <button class="p-clear-btn" *ngIf="certPurpose" (click)="certPurpose=''" title="Clear Purpose">✕</button>
-      </div>
+      @if (certType !== 'NoDues') {
+        <div class="p-pills">
+          <span class="p-pill" [class.active-pill]="certPurpose==='Opening a Bank Account'" (click)="setPurpose('Opening a Bank Account')">🏦 Bank Account</span>
+          <span class="p-pill" [class.active-pill]="certPurpose==='Scholarship Application'" (click)="setPurpose('Scholarship Application')">🎓 Scholarship</span>
+          <span class="p-pill" [class.active-pill]="certPurpose==='Passport Verification / Application'" (click)="setPurpose('Passport Verification / Application')">🛂 Passport</span>
+          <span class="p-pill" [class.active-pill]="certPurpose==='Admission to Higher Studies'" (click)="setPurpose('Admission to Higher Studies')">📚 Higher Studies</span>
+          <span class="p-pill" [class.active-pill]="certPurpose==='Bus Pass / Travel Concession'" (click)="setPurpose('Bus Pass / Travel Concession')">🚌 Bus Pass</span>
+          <span class="p-pill" [class.active-pill]="certPurpose==='Official Verification'" (click)="setPurpose('Official Verification')">📄 Official Use</span>
+          <span class="p-pill p-pill-blank" [class.active-pill]="!certPurpose" (click)="certPurpose=''">✍️ Leave Blank (Handwritten)</span>
+        </div>
+      }
+      @if (certType === 'NoDues') {
+        <div class="p-pills">
+          <span class="p-pill" [class.active-pill]="certPurpose==='Board Examination Clearance'" (click)="setPurpose('Board Examination Clearance')">📝 Board Exam Admit Card</span>
+          <span class="p-pill" [class.active-pill]="certPurpose==='Issuance of Transfer Certificate (TC)'" (click)="setPurpose('Issuance of Transfer Certificate (TC)')">📜 TC / School Leaving</span>
+          <span class="p-pill" [class.active-pill]="certPurpose==='Annual Session-End Clearance'" (click)="setPurpose('Annual Session-End Clearance')">🎓 Session End Clearance</span>
+          <span class="p-pill" [class.active-pill]="certPurpose==='Security / Caution Deposit Refund'" (click)="setPurpose('Security / Caution Deposit Refund')">💰 Deposit Refund</span>
+          <span class="p-pill p-pill-blank" [class.active-pill]="!certPurpose" (click)="certPurpose=''">✍️ General Clearance</span>
+        </div>
+      }
     </div>
-    <div class="p-pills" *ngIf="certType !== 'NoDues'">
-      <span class="p-pill" [class.active-pill]="certPurpose==='Opening a Bank Account'" (click)="setPurpose('Opening a Bank Account')">🏦 Bank Account</span>
-      <span class="p-pill" [class.active-pill]="certPurpose==='Scholarship Application'" (click)="setPurpose('Scholarship Application')">🎓 Scholarship</span>
-      <span class="p-pill" [class.active-pill]="certPurpose==='Passport Verification / Application'" (click)="setPurpose('Passport Verification / Application')">🛂 Passport</span>
-      <span class="p-pill" [class.active-pill]="certPurpose==='Admission to Higher Studies'" (click)="setPurpose('Admission to Higher Studies')">📚 Higher Studies</span>
-      <span class="p-pill" [class.active-pill]="certPurpose==='Bus Pass / Travel Concession'" (click)="setPurpose('Bus Pass / Travel Concession')">🚌 Bus Pass</span>
-      <span class="p-pill" [class.active-pill]="certPurpose==='Official Verification'" (click)="setPurpose('Official Verification')">📄 Official Use</span>
-      <span class="p-pill p-pill-blank" [class.active-pill]="!certPurpose" (click)="certPurpose=''">✍️ Leave Blank (Handwritten)</span>
-    </div>
-    <div class="p-pills" *ngIf="certType === 'NoDues'">
-      <span class="p-pill" [class.active-pill]="certPurpose==='Board Examination Clearance'" (click)="setPurpose('Board Examination Clearance')">📝 Board Exam Admit Card</span>
-      <span class="p-pill" [class.active-pill]="certPurpose==='Issuance of Transfer Certificate (TC)'" (click)="setPurpose('Issuance of Transfer Certificate (TC)')">📜 TC / School Leaving</span>
-      <span class="p-pill" [class.active-pill]="certPurpose==='Annual Session-End Clearance'" (click)="setPurpose('Annual Session-End Clearance')">🎓 Session End Clearance</span>
-      <span class="p-pill" [class.active-pill]="certPurpose==='Security / Caution Deposit Refund'" (click)="setPurpose('Security / Caution Deposit Refund')">💰 Deposit Refund</span>
-      <span class="p-pill p-pill-blank" [class.active-pill]="!certPurpose" (click)="certPurpose=''">✍️ General Clearance</span>
-    </div>
-  </div>
+  }
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading" class="no-print"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate" class="no-print"></mat-progress-bar>
+  }
 
   <!-- ============ PRINTABLE CERTIFICATE ============ -->
-  <div class="cert-preview-area" *ngIf="!loading && cert">
-    <div id="bonafide-cert-print" class="certificate print-area">
-
-      <!-- Certificate Top Strip -->
-      <div class="cert-top-stripe"></div>
-
-      <!-- Letterhead -->
-      <div class="letterhead">
-        <div class="lh-logo-wrap">
-          <div class="lh-logo-circle" [class.has-custom-logo]="logoUrl && !logoFailed">
-            <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" class="lh-logo-img" alt="Institute Logo" />
-            <mat-icon *ngIf="!logoUrl || logoFailed" class="lh-icon">account_balance</mat-icon>
+  @if (!loading && cert) {
+    <div class="cert-preview-area">
+      <div id="bonafide-cert-print" class="certificate print-area">
+        <!-- Certificate Top Strip -->
+        <div class="cert-top-stripe"></div>
+        <!-- Letterhead -->
+        <div class="letterhead">
+          <div class="lh-logo-wrap">
+            <div class="lh-logo-circle" [class.has-custom-logo]="logoUrl && !logoFailed">
+              @if (logoUrl && !logoFailed) {
+                <img [src]="logoUrl" (error)="logoFailed = true" class="lh-logo-img" alt="Institute Logo" />
+              }
+              @if (!logoUrl || logoFailed) {
+                <mat-icon class="lh-icon">account_balance</mat-icon>
+              }
+            </div>
           </div>
-        </div>
-        <div class="lh-text">
-          <div class="lh-institution">{{cert.institutionName}}</div>
-          <div class="lh-branch" *ngIf="cert.branchName">{{cert.branchName}}</div>
-          <div class="lh-address" *ngIf="cert.institutionAddress">{{cert.institutionAddress}}</div>
-          <div class="lh-phone" *ngIf="cert.institutionPhone">📞 {{cert.institutionPhone}}</div>
-          <div class="lh-affiliation" *ngIf="cert.affiliationCode">Affiliation: {{cert.affiliationCode}}</div>
-        </div>
-        <div class="lh-photo-area" *ngIf="cert.profilePhoto">
-          <img [src]="getPhotoUrl(cert.profilePhoto)" class="cert-photo" (error)="imgErr($event)">
-        </div>
-      </div>
-
-      <!-- Certificate Title -->
-      <div class="cert-title-section">
-        <div class="cert-title-line"></div>
-        <div class="cert-title-text">
-          <mat-icon class="cert-title-icon">{{getCertIcon()}}</mat-icon>
-          {{getCertTitle()}}
-        </div>
-        <div class="cert-title-line"></div>
-      </div>
-
-      <!-- Serial Number & Date -->
-      <div class="cert-meta-bar">
-        <span>No.: {{ getSerialNo() }}</span>
-        <span>Date: {{cert.generatedOn}}</span>
-      </div>
-
-      <!-- Certificate Body -->
-      <div class="cert-body">
-        <!-- BONAFIDE -->
-        <ng-container *ngIf="cert.certificateType === 'Bonafide'">
-          <p class="cert-text">
-            This is to certify that <strong class="hi">{{cert.studentName}}</strong>
-            <span *ngIf="cert.gender"> {{cert.gender==='Male'?'S/O':'D/O'}}</span>
-            <span *ngIf="cert.parentName"> <strong class="hi">{{cert.parentName}}</strong></span>,
-            is a <em>bonafide student</em> of this institution for the academic year
-            <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
-          </p>
-          <p class="cert-text" *ngIf="cert.className">
-            The student is enrolled in <strong class="hi">Class {{cert.className}}<span *ngIf="cert.sectionName"> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span></strong>.
-          </p>
-          <p class="cert-text">
-            The student was admitted to this institution on
-            <strong class="hi">{{cert.admissionDate | date:'dd MMMM yyyy'}}</strong>
-            <span *ngIf="cert.admissionNumber"> with Admission Number <strong class="hi">{{cert.admissionNumber}}</strong></span>.
-          </p>
-          <p class="cert-text" *ngIf="cert.dateOfBirth">
-            Date of Birth as per school records: <strong class="hi">{{cert.dateOfBirth}}</strong>.
-          </p>
-          <p class="cert-text cert-purpose">
-            This certificate is issued on request of the student/parent for the purpose of
-            <span *ngIf="certPurpose" class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span><span *ngIf="!certPurpose" class="purpose-blank">&nbsp;</span>.
-          </p>
-        </ng-container>
-
-        <!-- CHARACTER -->
-        <ng-container *ngIf="cert.certificateType === 'Character'">
-          <p class="cert-text">
-            This is to certify that <strong class="hi">{{cert.studentName}}</strong>
-            <span *ngIf="cert.parentName">, {{cert.gender==='Male'?'S/O':'D/O'}} <strong class="hi">{{cert.parentName}}</strong></span>,
-            was a regular student of this institution.
-          </p>
-          <p class="cert-text" *ngIf="cert.className">
-            The student studied in <strong class="hi">Class {{cert.className}}<span *ngIf="cert.sectionName"> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span></strong>
-            during the academic year <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
-          </p>
-          <p class="cert-text">
-            During the period of study at this institution, the student's <strong class="hi">character and moral conduct were found to be {{conductRating}}</strong>.
-            The student has consistently exhibited exemplary discipline, obedience, academic integrity, and respectful behavior toward all faculty and peers.
-          </p>
-          <p class="cert-text" *ngIf="cert.admissionDate">
-            The student was admitted on <strong class="hi">{{cert.admissionDate | date:'dd MMMM yyyy'}}</strong>
-            and has maintained an honorable standing with no disciplinary infractions on record.
-          </p>
-          <p class="cert-text cert-purpose">
-            This certificate is issued on request of the student for the purpose of
-            <span *ngIf="certPurpose" class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span><span *ngIf="!certPurpose" class="purpose-blank">&nbsp;</span>.
-          </p>
-        </ng-container>
-
-        <!-- STUDY CERTIFICATE -->
-        <ng-container *ngIf="cert.certificateType === 'StudyCertificate'">
-          <p class="cert-text">
-            This is to certify that <strong class="hi">{{cert.studentName}}</strong>
-            <span *ngIf="cert.gender"> ({{cert.gender}})</span>
-            <span *ngIf="cert.parentName">, {{cert.gender==='Male'?'S/O':'D/O'}} <strong class="hi">{{cert.parentName}}</strong></span>,
-            is studying in this institution.
-          </p>
-          <p class="cert-text" *ngIf="cert.className">
-            Currently studying in <strong class="hi">Class {{cert.className}}<span *ngIf="cert.sectionName"> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span></strong>,
-            Academic Year <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
-          </p>
-          <p class="cert-text" *ngIf="cert.admissionNumber">
-            Admission Number: <strong class="hi">{{cert.admissionNumber}}</strong>
-            <span *ngIf="cert.dateOfBirth"> &bull; Date of Birth: <strong class="hi">{{cert.dateOfBirth}}</strong></span>.
-          </p>
-          <p class="cert-text" *ngIf="cert.address">
-            Permanent Address: <strong class="hi">{{cert.address}}</strong>.
-          </p>
-          <p class="cert-text cert-purpose">
-            This certificate is issued on request for the purpose of
-            <span *ngIf="certPurpose" class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span><span *ngIf="!certPurpose" class="purpose-blank">&nbsp;</span>.
-          </p>
-        </ng-container>
-
-        <!-- NO DUES / CLEARANCE CERTIFICATE -->
-        <ng-container *ngIf="cert.certificateType === 'NoDues'">
-          <p class="cert-text">
-            This is to officially certify that all institutional dues, library accessions, sports amenities, and academic accounts have been fully settled for <strong class="hi">{{cert.studentName}}</strong>
-            <span *ngIf="cert.parentName">, {{cert.gender==='Male'?'S/O':'D/O'}} <strong class="hi">{{cert.parentName}}</strong></span>.
-          </p>
-          <p class="cert-text" *ngIf="cert.className">
-            Enrolled in <strong class="hi">Class {{cert.className}}<span *ngIf="cert.sectionName"> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span></strong>
-            <span *ngIf="cert.schoolRollNumber || cert.rollNumber"> &bull; Roll No: <strong class="hi">{{cert.schoolRollNumber || cert.rollNumber}}</strong></span>
-            <span *ngIf="cert.admissionNumber"> &bull; Adm No: <strong class="hi">{{cert.admissionNumber}}</strong></span>
-            &bull; Academic Year: <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
-          </p>
-
-          <div class="clearance-table-box">
-            <table class="clearance-table">
-              <thead>
-                <tr>
-                  <th style="width: 32%;">Department / Section</th>
-                  <th style="width: 38%;">Dues Clearance Status</th>
-                  <th style="width: 30%;">Verification Authority</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Accounts &amp; Tuition Fee</strong></td>
-                  <td><span class="status-cleared">✓ ALL DUES CLEARED (₹0 PENDING)</span></td>
-                  <td>Accounts Officer / Bursar</td>
-                </tr>
-                <tr>
-                  <td><strong>Central Library &amp; Reading Room</strong></td>
-                  <td><span class="status-cleared">✓ NO BOOKS OVERDUE</span></td>
-                  <td>Chief Librarian</td>
-                </tr>
-                <tr>
-                  <td><strong>Hostel &amp; Transport Facility</strong></td>
-                  <td><span class="status-cleared">✓ CLEARED / N/A</span></td>
-                  <td>Warden / Transport Incharge</td>
-                </tr>
-                <tr>
-                  <td><strong>Laboratories &amp; Sports Department</strong></td>
-                  <td><span class="status-cleared">✓ NO BREAKAGE DUES</span></td>
-                  <td>Lab Incharge / PTI</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="lh-text">
+            <div class="lh-institution">{{cert.institutionName}}</div>
+            @if (cert.branchName) {
+              <div class="lh-branch">{{cert.branchName}}</div>
+            }
+            @if (cert.institutionAddress) {
+              <div class="lh-address">{{cert.institutionAddress}}</div>
+            }
+            @if (cert.institutionPhone) {
+              <div class="lh-phone">📞 {{cert.institutionPhone}}</div>
+            }
+            @if (cert.affiliationCode) {
+              <div class="lh-affiliation">Affiliation: {{cert.affiliationCode}}</div>
+            }
           </div>
-
-          <p class="cert-text" style="margin-top: 14px;">
-            It is hereby certified that the student holds <strong class="hi">NO OUTSTANDING DUES OR LIABILITIES</strong> against this institution as on <strong class="hi">{{cert.generatedOn}}</strong>.
-          </p>
-          <p class="cert-text cert-purpose">
-            Purpose of clearance:
-            <span *ngIf="certPurpose" class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span><span *ngIf="!certPurpose" class="purpose-blank">&nbsp;</span>.
-          </p>
-        </ng-container>
-      </div>
-
-      <!-- Signatures -->
-      <div class="cert-signatures">
-        <div class="sig-block">
-          <div class="sig-line"></div>
-          <div class="sig-name">{{ cert.certificateType === 'NoDues' ? 'Accounts Officer / Bursar' : 'Class Teacher' }}</div>
+          @if (cert.profilePhoto) {
+            <div class="lh-photo-area">
+              <img [src]="getPhotoUrl(cert.profilePhoto)" class="cert-photo" (error)="imgErr($event)">
+            </div>
+          }
         </div>
-        <div class="sig-block center">
-          <div class="school-seal">
-            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
-            <span *ngIf="!officialSealUrl">[ Official Seal ]</span>
+        <!-- Certificate Title -->
+        <div class="cert-title-section">
+          <div class="cert-title-line"></div>
+          <div class="cert-title-text">
+            <mat-icon class="cert-title-icon">{{getCertIcon()}}</mat-icon>
+            {{getCertTitle()}}
           </div>
+          <div class="cert-title-line"></div>
         </div>
-        <div class="sig-block">
-          <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-            <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
-          </div>
-          <div class="sig-line"></div>
-          <div class="sig-name">{{cert.principalName || 'Principal / Head of Institution'}}</div>
-          <div class="sig-desig">Principal</div>
+        <!-- Serial Number & Date -->
+        <div class="cert-meta-bar">
+          <span>No.: {{ getSerialNo() }}</span>
+          <span>Date: {{cert.generatedOn}}</span>
         </div>
-      </div>
-
-      <!-- Bottom Strip -->
-      <div class="cert-bottom-strip">
-        <span>{{cert.institutionName}} &bull; {{cert.academicYear || currentAcadYear}}</span>
-        <span *ngIf="cert.affiliationCode"> &bull; Affiliation: {{cert.affiliationCode}}</span>
-      </div>
-    </div>
-  </div>
-</div>
-  `,
+        <!-- Certificate Body -->
+        <div class="cert-body">
+          <!-- BONAFIDE -->
+          @if (cert.certificateType === 'Bonafide') {
+            <p class="cert-text">
+              This is to certify that <strong class="hi">{{cert.studentName}}</strong>
+              @if (cert.gender) {
+                <span> {{cert.gender==='Male'?'S/O':'D/O'}}</span>
+              }
+              @if (cert.parentName) {
+                <span> <strong class="hi">{{cert.parentName}}</strong></span>
+                },
+                is a <em>bonafide student</em> of this institution for the academic year
+                <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
+              </p>
+              @if (cert.className) {
+                <p class="cert-text">
+                  The student is enrolled in <strong class="hi">Class {{cert.className}}@if (cert.sectionName) {
+                  <span> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span>
+                }</strong>.
+              </p>
+            }
+            <p class="cert-text">
+              The student was admitted to this institution on
+              <strong class="hi">{{cert.admissionDate | date:'dd MMMM yyyy'}}</strong>
+              @if (cert.admissionNumber) {
+                <span> with Admission Number <strong class="hi">{{cert.admissionNumber}}</strong></span>
+                }.
+              </p>
+              @if (cert.dateOfBirth) {
+                <p class="cert-text">
+                  Date of Birth as per school records: <strong class="hi">{{cert.dateOfBirth}}</strong>.
+                </p>
+              }
+              <p class="cert-text cert-purpose">
+                This certificate is issued on request of the student/parent for the purpose of
+                @if (certPurpose) {
+                  <span class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span>
+                  }@if (!certPurpose) {
+                  <span class="purpose-blank">&nbsp;</span>
+                  }.
+                </p>
+              }
+              <!-- CHARACTER -->
+              @if (cert.certificateType === 'Character') {
+                <p class="cert-text">
+                  This is to certify that <strong class="hi">{{cert.studentName}}</strong>
+                  @if (cert.parentName) {
+                    <span>, {{cert.gender==='Male'?'S/O':'D/O'}} <strong class="hi">{{cert.parentName}}</strong></span>
+                    },
+                    was a regular student of this institution.
+                  </p>
+                  @if (cert.className) {
+                    <p class="cert-text">
+                      The student studied in <strong class="hi">Class {{cert.className}}@if (cert.sectionName) {
+                      <span> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span>
+                    }</strong>
+                    during the academic year <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
+                  </p>
+                }
+                <p class="cert-text">
+                  During the period of study at this institution, the student's <strong class="hi">character and moral conduct were found to be {{conductRating}}</strong>.
+                  The student has consistently exhibited exemplary discipline, obedience, academic integrity, and respectful behavior toward all faculty and peers.
+                </p>
+                @if (cert.admissionDate) {
+                  <p class="cert-text">
+                    The student was admitted on <strong class="hi">{{cert.admissionDate | date:'dd MMMM yyyy'}}</strong>
+                    and has maintained an honorable standing with no disciplinary infractions on record.
+                  </p>
+                }
+                <p class="cert-text cert-purpose">
+                  This certificate is issued on request of the student for the purpose of
+                  @if (certPurpose) {
+                    <span class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span>
+                    }@if (!certPurpose) {
+                    <span class="purpose-blank">&nbsp;</span>
+                    }.
+                  </p>
+                }
+                <!-- STUDY CERTIFICATE -->
+                @if (cert.certificateType === 'StudyCertificate') {
+                  <p class="cert-text">
+                    This is to certify that <strong class="hi">{{cert.studentName}}</strong>
+                    @if (cert.gender) {
+                      <span> ({{cert.gender}})</span>
+                    }
+                    @if (cert.parentName) {
+                      <span>, {{cert.gender==='Male'?'S/O':'D/O'}} <strong class="hi">{{cert.parentName}}</strong></span>
+                      },
+                      is studying in this institution.
+                    </p>
+                    @if (cert.className) {
+                      <p class="cert-text">
+                        Currently studying in <strong class="hi">Class {{cert.className}}@if (cert.sectionName) {
+                        <span> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span>
+                      }</strong>,
+                      Academic Year <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
+                    </p>
+                  }
+                  @if (cert.admissionNumber) {
+                    <p class="cert-text">
+                      Admission Number: <strong class="hi">{{cert.admissionNumber}}</strong>
+                      @if (cert.dateOfBirth) {
+                        <span> &bull; Date of Birth: <strong class="hi">{{cert.dateOfBirth}}</strong></span>
+                        }.
+                      </p>
+                    }
+                    @if (cert.address) {
+                      <p class="cert-text">
+                        Permanent Address: <strong class="hi">{{cert.address}}</strong>.
+                      </p>
+                    }
+                    <p class="cert-text cert-purpose">
+                      This certificate is issued on request for the purpose of
+                      @if (certPurpose) {
+                        <span class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span>
+                        }@if (!certPurpose) {
+                        <span class="purpose-blank">&nbsp;</span>
+                        }.
+                      </p>
+                    }
+                    <!-- NO DUES / CLEARANCE CERTIFICATE -->
+                    @if (cert.certificateType === 'NoDues') {
+                      <p class="cert-text">
+                        This is to officially certify that all institutional dues, library accessions, sports amenities, and academic accounts have been fully settled for <strong class="hi">{{cert.studentName}}</strong>
+                        @if (cert.parentName) {
+                          <span>, {{cert.gender==='Male'?'S/O':'D/O'}} <strong class="hi">{{cert.parentName}}</strong></span>
+                          }.
+                        </p>
+                        @if (cert.className) {
+                          <p class="cert-text">
+                            Enrolled in <strong class="hi">Class {{cert.className}}@if (cert.sectionName) {
+                            <span> - {{cert.sectionName.startsWith('Sec') ? cert.sectionName : 'Section ' + cert.sectionName}}</span>
+                          }</strong>
+                          @if (cert.schoolRollNumber || cert.rollNumber) {
+                            <span> &bull; Roll No: <strong class="hi">{{cert.schoolRollNumber || cert.rollNumber}}</strong></span>
+                          }
+                          @if (cert.admissionNumber) {
+                            <span> &bull; Adm No: <strong class="hi">{{cert.admissionNumber}}</strong></span>
+                          }
+                          &bull; Academic Year: <strong class="hi">{{cert.academicYear || currentAcadYear}}</strong>.
+                        </p>
+                      }
+                      <div class="clearance-table-box">
+                        <table class="clearance-table">
+                          <thead>
+                            <tr>
+                              <th style="width: 32%;">Department / Section</th>
+                              <th style="width: 38%;">Dues Clearance Status</th>
+                              <th style="width: 30%;">Verification Authority</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td><strong>Accounts &amp; Tuition Fee</strong></td>
+                              <td><span class="status-cleared">✓ ALL DUES CLEARED (₹0 PENDING)</span></td>
+                              <td>Accounts Officer / Bursar</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Central Library &amp; Reading Room</strong></td>
+                              <td><span class="status-cleared">✓ NO BOOKS OVERDUE</span></td>
+                              <td>Chief Librarian</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Hostel &amp; Transport Facility</strong></td>
+                              <td><span class="status-cleared">✓ CLEARED / N/A</span></td>
+                              <td>Warden / Transport Incharge</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Laboratories &amp; Sports Department</strong></td>
+                              <td><span class="status-cleared">✓ NO BREAKAGE DUES</span></td>
+                              <td>Lab Incharge / PTI</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <p class="cert-text" style="margin-top: 14px;">
+                        It is hereby certified that the student holds <strong class="hi">NO OUTSTANDING DUES OR LIABILITIES</strong> against this institution as on <strong class="hi">{{cert.generatedOn}}</strong>.
+                      </p>
+                      <p class="cert-text cert-purpose">
+                        Purpose of clearance:
+                        @if (certPurpose) {
+                          <span class="purpose-filled"><strong class="hi">{{certPurpose}}</strong></span>
+                          }@if (!certPurpose) {
+                          <span class="purpose-blank">&nbsp;</span>
+                          }.
+                        </p>
+                      }
+                    </div>
+                    <!-- Signatures -->
+                    <div class="cert-signatures">
+                      <div class="sig-block">
+                        <div class="sig-line"></div>
+                        <div class="sig-name">{{ cert.certificateType === 'NoDues' ? 'Accounts Officer / Bursar' : 'Class Teacher' }}</div>
+                      </div>
+                      <div class="sig-block center">
+                        <div class="school-seal">
+                          @if (officialSealUrl) {
+                            <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+                          }
+                          @if (!officialSealUrl) {
+                            <span>[ Official Seal ]</span>
+                          }
+                        </div>
+                      </div>
+                      <div class="sig-block">
+                        @if (digitalSignatureUrl) {
+                          <div class="digital-sign-wrapper">
+                            <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+                          </div>
+                        }
+                        <div class="sig-line"></div>
+                        <div class="sig-name">{{cert.principalName || 'Principal / Head of Institution'}}</div>
+                        <div class="sig-desig">Principal</div>
+                      </div>
+                    </div>
+                    <!-- Bottom Strip -->
+                    <div class="cert-bottom-strip">
+                      <span>{{cert.institutionName}} &bull; {{cert.academicYear || currentAcadYear}}</span>
+                      @if (cert.affiliationCode) {
+                        <span> &bull; Affiliation: {{cert.affiliationCode}}</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .bonafide-wrap{display:flex;flex-direction:column;max-height:90vh;background:#f1f5f9;overflow:hidden}
     .modal-header{background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border-bottom:1px solid #bfdbfe;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}

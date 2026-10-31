@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -23,7 +23,6 @@ export interface RoomDialogData {
   selector: 'app-room-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -33,7 +32,7 @@ export interface RoomDialogData {
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="dialog-wrapper">
       <div class="dialog-header">
@@ -48,10 +47,10 @@ export interface RoomDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="roomForm" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
-
+    
           <!-- Info Callout -->
           <div class="info-callout">
             <mat-icon class="info-icon">auto_awesome</mat-icon>
@@ -59,48 +58,58 @@ export interface RoomDialogData {
               <strong>Classroom Capacity Engine:</strong> Seating capacity defined here ensures optimal batch allocation and prevents over-enrollment during student admissions.
             </div>
           </div>
-
+    
           <!-- Section: Location & Branch -->
           <div class="section-label">
             <mat-icon class="section-icon">storefront</mat-icon>
             <span>Campus &amp; Location Allocation</span>
           </div>
-
+    
           <div class="form-grid">
             <!-- Branch Selector (only on create) -->
-            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.isEditing">
-              <mat-label>Campus Branch *</mat-label>
-              <mat-select formControlName="branchId" placeholder="Select Branch">
-                <mat-option *ngFor="let b of data.branches" [value]="b.id">
-                  {{ b.name }} {{ b.isMainBranch ? '(Main Branch)' : '' }}
-                </mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">storefront</mat-icon>
-              <mat-error *ngIf="roomForm.get('branchId')?.hasError('required')">
-                Branch selection is required.
-              </mat-error>
-            </mat-form-field>
-
+            @if (!data.isEditing) {
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Campus Branch *</mat-label>
+                <mat-select formControlName="branchId" placeholder="Select Branch">
+                  @for (b of data.branches; track b) {
+                    <mat-option [value]="b.id">
+                      {{ b.name }} {{ b.isMainBranch ? '(Main Branch)' : '' }}
+                    </mat-option>
+                  }
+                </mat-select>
+                <mat-icon matSuffix color="primary">storefront</mat-icon>
+                @if (roomForm.get('branchId')?.hasError('required')) {
+                  <mat-error>
+                    Branch selection is required.
+                  </mat-error>
+                }
+              </mat-form-field>
+            }
+    
             <!-- Room Number -->
             <mat-form-field appearance="outline" [class.half-width]="!data.isEditing" [class.full-width]="data.isEditing">
               <mat-label>Room Number / Name *</mat-label>
               <input matInput formControlName="roomNumber" placeholder="e.g. Room 101, Science Lab A" />
               <mat-icon matSuffix color="primary">meeting_room</mat-icon>
-              <mat-error *ngIf="roomForm.get('roomNumber')?.hasError('required')">
-                Room Number is required.
-              </mat-error>
+              @if (roomForm.get('roomNumber')?.hasError('required')) {
+                <mat-error>
+                  Room Number is required.
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Seating Capacity -->
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Seating Capacity (Desk Seats) *</mat-label>
               <input matInput type="number" formControlName="capacity" min="1" placeholder="e.g. 40" />
               <mat-icon matSuffix color="primary">groups</mat-icon>
-              <mat-error *ngIf="roomForm.get('capacity')?.hasError('min')">
-                Must be at least 1.
-              </mat-error>
+              @if (roomForm.get('capacity')?.hasError('min')) {
+                <mat-error>
+                  Must be at least 1.
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Floor / Block Details -->
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Floor / Wing / Block Details</mat-label>
@@ -108,7 +117,7 @@ export interface RoomDialogData {
               <mat-icon matSuffix color="primary">layers</mat-icon>
             </mat-form-field>
           </div>
-
+    
           <!-- Live Preview Card -->
           <div class="preview-box">
             <div class="preview-header">
@@ -134,20 +143,25 @@ export interface RoomDialogData {
               </div>
             </div>
           </div>
-
+    
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="roomForm.invalid || saving" class="submit-btn">
-            <mat-progress-spinner *ngIf="saving" mode="indeterminate" diameter="18" class="btn-spinner"></mat-progress-spinner>
-            <mat-icon *ngIf="!saving">{{ data.isEditing ? 'save' : 'add_task' }}</mat-icon>
+            @if (saving) {
+              <mat-progress-spinner mode="indeterminate" diameter="18" class="btn-spinner"></mat-progress-spinner>
+            }
+            @if (!saving) {
+              <mat-icon>{{ data.isEditing ? 'save' : 'add_task' }}</mat-icon>
+            }
             <span>{{ saving ? 'Saving...' : (data.isEditing ? 'Update Classroom' : 'Create Classroom') }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       padding: 0;

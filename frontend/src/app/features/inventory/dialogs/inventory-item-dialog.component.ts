@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -25,7 +25,6 @@ export interface InventoryItemDialogData {
   selector: 'app-inventory-item-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -35,7 +34,7 @@ export interface InventoryItemDialogData {
     MatIconModule,
     MatTooltipModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <!-- Strict ERP Light-Blue Gradient Header -->
@@ -53,7 +52,7 @@ export interface InventoryItemDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-body">
           <div class="form-grid">
@@ -62,40 +61,48 @@ export interface InventoryItemDialogData {
               <mat-form-field appearance="outline" class="category-select">
                 <mat-label>Item Category</mat-label>
                 <mat-select formControlName="categoryId">
-                  <mat-option *ngFor="let cat of data.categories" [value]="cat.id">
-                    {{ cat.name }} ({{ cat.code }})
-                  </mat-option>
+                  @for (cat of data.categories; track cat) {
+                    <mat-option [value]="cat.id">
+                      {{ cat.name }} ({{ cat.code }})
+                    </mat-option>
+                  }
                 </mat-select>
-                <mat-hint *ngIf="data.categories.length === 0" class="text-danger">
-                  No categories found. Click 'New Category' to create one!
-                </mat-hint>
-                <mat-error *ngIf="form.get('categoryId')?.hasError('required')">
-                  Category is required
-                </mat-error>
+                @if (data.categories.length === 0) {
+                  <mat-hint class="text-danger">
+                    No categories found. Click 'New Category' to create one!
+                  </mat-hint>
+                }
+                @if (form.get('categoryId')?.hasError('required')) {
+                  <mat-error>
+                    Category is required
+                  </mat-error>
+                }
               </mat-form-field>
-
+    
               <button mat-stroked-button color="primary" type="button" class="quick-add-cat-btn" (click)="openAddCategory()" matTooltip="Create a new stock category">
                 <mat-icon>add</mat-icon>
                 <span>New Category</span>
               </button>
             </div>
-
+    
             <!-- Item Name -->
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Item Name</mat-label>
               <input matInput formControlName="itemName" placeholder="e.g. Blue Ballpoint Pen, Boys Shirt 32, Class 10 Maths Book" />
-              <mat-error *ngIf="form.get('itemName')?.hasError('required')">
-                Item name is required
-              </mat-error>
+              @if (form.get('itemName')?.hasError('required')) {
+                <mat-error>
+                  Item name is required
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Item Code / SKU -->
             <mat-form-field appearance="outline">
               <mat-label>Item Code / SKU</mat-label>
               <input matInput formControlName="itemCode" placeholder="Auto-generated if blank" />
               <mat-hint>Unique code (e.g. ITM-PEN-01)</mat-hint>
             </mat-form-field>
-
+    
             <!-- Item Type -->
             <mat-form-field appearance="outline">
               <mat-label>Item Classification</mat-label>
@@ -105,7 +112,7 @@ export interface InventoryItemDialogData {
                 <mat-option value="Asset">Fixed Asset (Computers, Projectors, Furniture)</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <!-- Unit of Measurement (UOM) -->
             <mat-form-field appearance="outline">
               <mat-label>Unit of Measurement (UOM)</mat-label>
@@ -121,39 +128,41 @@ export interface InventoryItemDialogData {
                 <mat-option value="Ream">Ream (500 Sheets)</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <!-- Min Stock Alert Level -->
             <mat-form-field appearance="outline">
               <mat-label>Low Stock Reorder Alert Level</mat-label>
               <input matInput type="number" formControlName="minStockAlertLevel" min="0" />
               <mat-hint>Trigger alert when stock drops below this</mat-hint>
             </mat-form-field>
-
+    
             <!-- Purchase Rate -->
             <mat-form-field appearance="outline">
               <mat-label>Purchase Cost Price (₹)</mat-label>
               <input matInput type="number" formControlName="purchasePrice" min="0" step="0.5" />
             </mat-form-field>
-
+    
             <!-- Selling Price / Student Issue Rate -->
             <mat-form-field appearance="outline">
               <mat-label>Selling / Student Issue MRP (₹)</mat-label>
               <input matInput type="number" formControlName="sellingPrice" min="0" step="0.5" />
             </mat-form-field>
-
+    
             <!-- Initial Opening Stock (Only in Add mode) -->
-            <mat-form-field appearance="outline" *ngIf="!data.isEdit">
-              <mat-label>Opening Physical Stock</mat-label>
-              <input matInput type="number" formControlName="initialStock" min="0" />
-              <mat-hint>Current quantity in store</mat-hint>
-            </mat-form-field>
-
+            @if (!data.isEdit) {
+              <mat-form-field appearance="outline">
+                <mat-label>Opening Physical Stock</mat-label>
+                <input matInput type="number" formControlName="initialStock" min="0" />
+                <mat-hint>Current quantity in store</mat-hint>
+              </mat-form-field>
+            }
+    
             <!-- Rack / Store Location -->
             <mat-form-field appearance="outline" [class.col-span-2]="data.isEdit">
               <mat-label>Rack / Store Location</mat-label>
               <input matInput formControlName="rackOrLocation" placeholder="e.g. Shelf B-2, Science Lab Cupboard" />
             </mat-form-field>
-
+    
             <!-- Description -->
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Description / Specifications</mat-label>
@@ -161,19 +170,22 @@ export interface InventoryItemDialogData {
             </mat-form-field>
           </div>
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
             Cancel
           </button>
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner-btn"></mat-spinner>
+            @if (submitting) {
+              <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
+            }
             <span>{{ data.isEdit ? 'Update Item' : 'Save Item' }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

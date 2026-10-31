@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,7 +23,6 @@ export interface FeeHeadsReportDialogData {
   selector: 'app-fee-heads-report-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -34,7 +33,7 @@ export interface FeeHeadsReportDialogData {
     MatInputModule,
     MatProgressBarModule,
     IstDatetimeDirective
-  ],
+],
   template: `
     <div class="report-modal-container">
       <!-- ─── Top Control Bar (Screen Only) ───────────────────────────────── -->
@@ -47,7 +46,7 @@ export interface FeeHeadsReportDialogData {
             <div class="header-title-group">
               <h2 class="main-title">Fee Heads Master Catalog (फ़ीस हेड सूची)</h2>
               <p class="sub-title">
-                Complete billing heads catalog &bull; 
+                Complete billing heads catalog &bull;
                 <strong>{{ instituteName }}</strong>
               </p>
             </div>
@@ -57,7 +56,7 @@ export interface FeeHeadsReportDialogData {
             <mat-icon>close</mat-icon>
           </button>
         </div>
-
+    
         <div class="top-actions">
           <button mat-flat-button color="primary" class="action-btn print-btn" (click)="printReport()">
             <mat-icon>print</mat-icon>
@@ -73,7 +72,7 @@ export interface FeeHeadsReportDialogData {
           </button>
         </div>
       </div>
-
+    
       <!-- ─── Filter Bar (Screen Only) ────────────────────────────────────── -->
       <div class="filter-strip no-print">
         <div class="filter-group">
@@ -81,10 +80,12 @@ export interface FeeHeadsReportDialogData {
             <mat-label>Category Filter</mat-label>
             <mat-select [(ngModel)]="selectedCategory" (selectionChange)="applyFilters()">
               <mat-option value="ALL">All Categories (सभी)</mat-option>
-              <mat-option *ngFor="let cat of categories" [value]="cat">{{ cat }}</mat-option>
+              @for (cat of categories; track cat) {
+                <mat-option [value]="cat">{{ cat }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Frequency Filter</mat-label>
             <mat-select [(ngModel)]="selectedFrequency" (selectionChange)="applyFilters()">
@@ -95,7 +96,7 @@ export interface FeeHeadsReportDialogData {
               <mat-option value="Annual">Annual</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Status</mat-label>
             <mat-select [(ngModel)]="selectedStatus" (selectionChange)="applyFilters()">
@@ -104,46 +105,56 @@ export interface FeeHeadsReportDialogData {
               <mat-option value="INACTIVE">Inactive Only</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field search-field">
             <mat-label>Quick Search</mat-label>
             <input matInput [(ngModel)]="searchKeyword" (ngModelChange)="applyFilters()" placeholder="Search Code, Name..." />
             <mat-icon matPrefix>search</mat-icon>
           </mat-form-field>
         </div>
-
+    
         <div class="count-badge">
           Showing <strong>{{ filteredHeads.length }}</strong> of {{ allHeads.length }} Heads
         </div>
       </div>
-
+    
       <!-- Single Progress Bar -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="loading-bar"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
+      }
+    
       <!-- ─── Printable Document Area ──────────────────────────────────────── -->
       <div class="printable-document" id="printableFeeHeads">
-        
+    
         <!-- Official Institute Header -->
         <div class="doc-header">
-          <div class="inst-logo-wrap" *ngIf="instituteLogo">
-            <img [src]="instituteLogo" alt="Institute Logo" class="inst-logo" />
-          </div>
+          @if (instituteLogo) {
+            <div class="inst-logo-wrap">
+              <img [src]="instituteLogo" alt="Institute Logo" class="inst-logo" />
+            </div>
+          }
           <div class="inst-text-wrap">
             <h1 class="inst-name">{{ instituteName }}</h1>
-            <p class="inst-sub" *ngIf="affiliationNumber">
-              Affiliation / Reg. No.: <strong>{{ affiliationNumber }}</strong>
-            </p>
-            <p class="inst-address" *ngIf="campusAddress">{{ campusAddress }}</p>
-            <p class="inst-contact" *ngIf="contactInfo">{{ contactInfo }}</p>
+            @if (affiliationNumber) {
+              <p class="inst-sub">
+                Affiliation / Reg. No.: <strong>{{ affiliationNumber }}</strong>
+              </p>
+            }
+            @if (campusAddress) {
+              <p class="inst-address">{{ campusAddress }}</p>
+            }
+            @if (contactInfo) {
+              <p class="inst-contact">{{ contactInfo }}</p>
+            }
           </div>
         </div>
-
+    
         <!-- Document Title Banner -->
         <div class="doc-title-banner">
           <div class="doc-title-text">OFFICIAL MASTER FEE HEADS &amp; BILLING SCHEDULE</div>
           <div class="doc-title-hi">आधिकारिक शुल्क मद एवं बिलिंग आवृत्ति कैटलॉग</div>
         </div>
-
+    
         <!-- Meta Summary Strip -->
         <div class="doc-meta-strip">
           <div class="meta-item">
@@ -163,7 +174,7 @@ export interface FeeHeadsReportDialogData {
             <span class="val">{{ monthlyRecurringCount }}</span>
           </div>
         </div>
-
+    
         <!-- Fee Heads Table in Responsive Scroll Container -->
         <div class="heads-table-wrap">
           <div class="mobile-scroll-hint no-print">
@@ -184,39 +195,45 @@ export interface FeeHeadsReportDialogData {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let h of filteredHeads; let i = index">
-                <td class="td-sno">{{ i + 1 }}</td>
-                <td class="td-code"><span class="code-badge">{{ h.code }}</span></td>
-                <td class="td-name">
-                  <span class="head-title">{{ h.name }}</span>
-                  <span class="preset-tag" *ngIf="h.isDefault">PRESET</span>
-                </td>
-                <td class="td-cat">
-                  <span class="cat-pill cat-{{ h.category.toLowerCase() }}">{{ h.category }}</span>
-                </td>
-                <td class="td-freq">
-                  <span class="freq-pill freq-{{ h.frequency.toLowerCase() }}">{{ h.frequency }}</span>
-                </td>
-                <td class="td-scope">{{ h.applicableTo || 'Both' }}</td>
-                <td class="td-status">
-                  <span class="status-badge" [class.active]="h.isActive">{{ h.isActive ? 'Active' : 'Inactive' }}</span>
-                </td>
-                <td class="td-desc">{{ h.description || '—' }}</td>
-              </tr>
-              <tr *ngIf="filteredHeads.length === 0">
-                <td colspan="8" class="empty-cell">No fee heads match the selected filters.</td>
-              </tr>
+              @for (h of filteredHeads; track h; let i = $index) {
+                <tr>
+                  <td class="td-sno">{{ i + 1 }}</td>
+                  <td class="td-code"><span class="code-badge">{{ h.code }}</span></td>
+                  <td class="td-name">
+                    <span class="head-title">{{ h.name }}</span>
+                    @if (h.isDefault) {
+                      <span class="preset-tag">PRESET</span>
+                    }
+                  </td>
+                  <td class="td-cat">
+                    <span class="cat-pill cat-{{ h.category.toLowerCase() }}">{{ h.category }}</span>
+                  </td>
+                  <td class="td-freq">
+                    <span class="freq-pill freq-{{ h.frequency.toLowerCase() }}">{{ h.frequency }}</span>
+                  </td>
+                  <td class="td-scope">{{ h.applicableTo || 'Both' }}</td>
+                  <td class="td-status">
+                    <span class="status-badge" [class.active]="h.isActive">{{ h.isActive ? 'Active' : 'Inactive' }}</span>
+                  </td>
+                  <td class="td-desc">{{ h.description || '—' }}</td>
+                </tr>
+              }
+              @if (filteredHeads.length === 0) {
+                <tr>
+                  <td colspan="8" class="empty-cell">No fee heads match the selected filters.</td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-
+    
         <!-- Signatures & Verification Stamp Block -->
         <div class="doc-footer-block">
           <div class="footer-note">
             <p><strong>Note:</strong> This master fee head schedule governs all invoicing and ledger entries across the academic year. Any modification requires authorization from the Finance Controller / Management.</p>
             <p class="gen-time">Generated on: <span [appIstDatetime]="nowDate" [format]="'datetime'"></span> (IST Asia/Kolkata)</p>
           </div>
-
+    
           <div class="auth-signatures-group">
             <!-- Prepared By -->
             <div class="sig-card">
@@ -225,17 +242,21 @@ export interface FeeHeadsReportDialogData {
               <span class="sig-title">Accounts Officer / Accountant</span>
               <span class="sig-subtitle">Prepared &amp; Verified</span>
             </div>
-
+    
             <!-- Official Seal (Stamp) -->
-            <div class="seal-card" *ngIf="officialSealUrl">
-              <img [src]="officialSealUrl" alt="Official Seal" class="seal-image" />
-              <span class="seal-label">Official Seal</span>
-            </div>
-
+            @if (officialSealUrl) {
+              <div class="seal-card">
+                <img [src]="officialSealUrl" alt="Official Seal" class="seal-image" />
+                <span class="seal-label">Official Seal</span>
+              </div>
+            }
+    
             <!-- Controller / Principal Sign -->
             <div class="sig-card controller-card">
               <div class="sig-space">
-                <img *ngIf="digitalSignatureUrl" [src]="digitalSignatureUrl" alt="Signature" class="sig-image" />
+                @if (digitalSignatureUrl) {
+                  <img [src]="digitalSignatureUrl" alt="Signature" class="sig-image" />
+                }
               </div>
               <div class="sig-line"></div>
               <span class="sig-title">Principal / Director</span>
@@ -243,10 +264,11 @@ export interface FeeHeadsReportDialogData {
             </div>
           </div>
         </div>
-
+    
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

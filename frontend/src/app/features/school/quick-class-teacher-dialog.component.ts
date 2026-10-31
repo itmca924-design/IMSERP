@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -32,7 +32,6 @@ export interface SectionAssignmentRecord {
   selector: 'app-quick-class-teacher-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -41,7 +40,7 @@ export interface SectionAssignmentRecord {
     MatSelectModule,
     MatProgressBarModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <!-- Strict Light Blue Header matching AGENTS.md Rule -->
@@ -61,7 +60,7 @@ export interface SectionAssignmentRecord {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="dialog-body">
         <!-- Current Status Banner -->
         <div class="current-status-banner" [class.assigned]="data.currentClassTeacherId" [class.unassigned]="!data.currentClassTeacherId">
@@ -72,34 +71,41 @@ export interface SectionAssignmentRecord {
               <strong class="status-val">{{ data.currentClassTeacherName || 'No Teacher Assigned Yet' }}</strong>
             </div>
           </div>
-          <button
-            *ngIf="data.currentClassTeacherId"
-            type="button"
-            class="banner-remove-btn"
-            (click)="unassignTeacher()"
-            [disabled]="saving"
-            matTooltip="Remove current Class Teacher"
-          >
-            <mat-icon>person_remove</mat-icon>
-            <span>Remove Teacher</span>
-          </button>
+          @if (data.currentClassTeacherId) {
+            <button
+              type="button"
+              class="banner-remove-btn"
+              (click)="unassignTeacher()"
+              [disabled]="saving"
+              matTooltip="Remove current Class Teacher"
+              >
+              <mat-icon>person_remove</mat-icon>
+              <span>Remove Teacher</span>
+            </button>
+          }
         </div>
-
+    
         <!-- Conflict Alert if teacher is assigned elsewhere -->
-        <div class="conflict-alert" *ngIf="conflictNotice || getSelectedTeacherOtherAssignmentText()">
-          <div class="conflict-icon">
-            <mat-icon>warning_amber</mat-icon>
+        @if (conflictNotice || getSelectedTeacherOtherAssignmentText()) {
+          <div class="conflict-alert">
+            <div class="conflict-icon">
+              <mat-icon>warning_amber</mat-icon>
+            </div>
+            <div class="conflict-content">
+              <strong>Reassignment Notice</strong>
+              @if (conflictNotice) {
+                <p>{{ conflictNotice }}</p>
+              }
+              @if (!conflictNotice && getSelectedTeacherOtherAssignmentText(); as otherAssigned) {
+                <p>
+                  <strong>{{ selectedTeacher?.fullName }}</strong> is currently assigned as Class Teacher for <strong>{{ otherAssigned }}</strong>.
+                </p>
+              }
+              <small>Saving this assignment will transfer this faculty to <strong>{{ data.className }} - {{ data.sectionName }}</strong>.</small>
+            </div>
           </div>
-          <div class="conflict-content">
-            <strong>Reassignment Notice</strong>
-            <p *ngIf="conflictNotice">{{ conflictNotice }}</p>
-            <p *ngIf="!conflictNotice && getSelectedTeacherOtherAssignmentText() as otherAssigned">
-              <strong>{{ selectedTeacher?.fullName }}</strong> is currently assigned as Class Teacher for <strong>{{ otherAssigned }}</strong>.
-            </p>
-            <small>Saving this assignment will transfer this faculty to <strong>{{ data.className }} - {{ data.sectionName }}</strong>.</small>
-          </div>
-        </div>
-
+        }
+    
         <!-- Teacher Search & Selection -->
         <div class="form-section">
           <!-- Mat Select Dropdown with Sticky In-Dropdown Search Header -->
@@ -111,23 +117,35 @@ export interface SectionAssignmentRecord {
               placeholder="Choose teacher..."
               panelClass="faculty-select-panel"
               (openedChange)="onSelectOpened($event)"
-            >
+              >
               <mat-select-trigger>
-                <div *ngIf="selectedTeacher" class="selected-trigger-box">
-                  <div class="trigger-top">
-                    <strong>{{ selectedTeacher.fullName }}</strong>
-                    <span class="trigger-code">({{ selectedTeacher.employeeCode }})</span>
-                    <span class="assign-badge-mini current" *ngIf="isCurrentSectionTeacher(selectedTeacher.id)">Assigned Here</span>
-                    <span class="assign-badge-mini conflict" *ngIf="getOtherAssignedText(selectedTeacher.id) as otherText">{{ otherText }}</span>
-                    <span class="assign-badge-mini available" *ngIf="!isAssignedAnywhere(selectedTeacher.id)">Available</span>
+                @if (selectedTeacher) {
+                  <div class="selected-trigger-box">
+                    <div class="trigger-top">
+                      <strong>{{ selectedTeacher.fullName }}</strong>
+                      <span class="trigger-code">({{ selectedTeacher.employeeCode }})</span>
+                      @if (isCurrentSectionTeacher(selectedTeacher.id)) {
+                        <span class="assign-badge-mini current">Assigned Here</span>
+                      }
+                      @if (getOtherAssignedText(selectedTeacher.id); as otherText) {
+                        <span class="assign-badge-mini conflict">{{ otherText }}</span>
+                      }
+                      @if (!isAssignedAnywhere(selectedTeacher.id)) {
+                        <span class="assign-badge-mini available">Available</span>
+                      }
+                    </div>
+                    @if (selectedTeacher.specialization) {
+                      <span class="trigger-spec">&bull; {{ selectedTeacher.specialization }}</span>
+                    }
                   </div>
-                  <span class="trigger-spec" *ngIf="selectedTeacher.specialization">&bull; {{ selectedTeacher.specialization }}</span>
-                </div>
-                <span *ngIf="!selectedTeacher" class="placeholder-text">
-                  {{ selectedTeacherId === null ? '-- None (Unassigned) --' : 'Choose teacher...' }}
-                </span>
+                }
+                @if (!selectedTeacher) {
+                  <span class="placeholder-text">
+                    {{ selectedTeacherId === null ? '-- None (Unassigned) --' : 'Choose teacher...' }}
+                  </span>
+                }
               </mat-select-trigger>
-
+    
               <!-- Sticky In-Dropdown Search Header -->
               <div class="dropdown-search-wrapper" (keydown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
                 <mat-icon class="dd-search-icon">search</mat-icon>
@@ -138,106 +156,143 @@ export interface SectionAssignmentRecord {
                   [(ngModel)]="searchQuery"
                   (ngModelChange)="filterTeachers()"
                   placeholder="Type name, code, subject, or assigned class..."
-                />
-                <button *ngIf="searchQuery" type="button" class="dd-clear-btn" (click)="clearSearch()">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </div>
-
-              <mat-option [value]="null">
-                <span class="unassigned-opt">-- None (Unassigned) --</span>
-              </mat-option>
-
-              <mat-option *ngFor="let t of filteredTeachers" [value]="t.id">
-                <div class="teacher-opt-card">
-                  <!-- Row 1: Identity & Class Assignment Status Badge -->
-                  <div class="opt-row-top">
-                    <div class="opt-identity">
-                      <strong class="opt-name">{{ t.fullName }}</strong>
-                      <span class="opt-code">({{ t.employeeCode }})</span>
-                    </div>
-
-                    <!-- Clear Visual Badge: Shows Assigned Class or Available -->
-                    <span class="assign-badge current" *ngIf="isCurrentSectionTeacher(t.id)" matTooltip="Already Class Teacher of this section">
-                      <mat-icon class="b-icon">check_circle</mat-icon> Assigned Here
-                    </span>
-                    <span class="assign-badge conflict" *ngIf="getOtherAssignedText(t.id) as otherText" [matTooltip]="'Already Class Teacher of ' + otherText">
-                      <mat-icon class="b-icon">school</mat-icon> Class Teacher: {{ otherText }}
-                    </span>
-                    <span class="assign-badge available" *ngIf="!isAssignedAnywhere(t.id)" matTooltip="Available - Not assigned as Class Teacher in any class">
-                      <mat-icon class="b-icon">verified_user</mat-icon> Available
-                    </span>
-                  </div>
-
-                  <!-- Row 2: Subject Specialization & Phone -->
-                  <div class="opt-row-bottom">
-                    <span class="opt-spec" *ngIf="t.specialization">
-                      <mat-icon class="sub-icon">menu_book</mat-icon> {{ t.specialization }}
-                    </span>
-                    <span class="opt-spec-placeholder" *ngIf="!t.specialization">&bull; General Faculty</span>
-                    <span class="opt-phone" *ngIf="t.phoneNumber">📞 {{ t.phoneNumber }}</span>
-                  </div>
+                  />
+                  @if (searchQuery) {
+                    <button type="button" class="dd-clear-btn" (click)="clearSearch()">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
                 </div>
-              </mat-option>
-
-              <div class="dd-no-results" *ngIf="filteredTeachers.length === 0">
-                <mat-icon>person_search</mat-icon>
-                <span>No faculty found matching "<strong>{{ searchQuery }}</strong>"</span>
+    
+                <mat-option [value]="null">
+                  <span class="unassigned-opt">-- None (Unassigned) --</span>
+                </mat-option>
+    
+                @for (t of filteredTeachers; track t) {
+                  <mat-option [value]="t.id">
+                    <div class="teacher-opt-card">
+                      <!-- Row 1: Identity & Class Assignment Status Badge -->
+                      <div class="opt-row-top">
+                        <div class="opt-identity">
+                          <strong class="opt-name">{{ t.fullName }}</strong>
+                          <span class="opt-code">({{ t.employeeCode }})</span>
+                        </div>
+                        <!-- Clear Visual Badge: Shows Assigned Class or Available -->
+                        @if (isCurrentSectionTeacher(t.id)) {
+                          <span class="assign-badge current" matTooltip="Already Class Teacher of this section">
+                            <mat-icon class="b-icon">check_circle</mat-icon> Assigned Here
+                          </span>
+                        }
+                        @if (getOtherAssignedText(t.id); as otherText) {
+                          <span class="assign-badge conflict" [matTooltip]="'Already Class Teacher of ' + otherText">
+                            <mat-icon class="b-icon">school</mat-icon> Class Teacher: {{ otherText }}
+                          </span>
+                        }
+                        @if (!isAssignedAnywhere(t.id)) {
+                          <span class="assign-badge available" matTooltip="Available - Not assigned as Class Teacher in any class">
+                            <mat-icon class="b-icon">verified_user</mat-icon> Available
+                          </span>
+                        }
+                      </div>
+                      <!-- Row 2: Subject Specialization & Phone -->
+                      <div class="opt-row-bottom">
+                        @if (t.specialization) {
+                          <span class="opt-spec">
+                            <mat-icon class="sub-icon">menu_book</mat-icon> {{ t.specialization }}
+                          </span>
+                        }
+                        @if (!t.specialization) {
+                          <span class="opt-spec-placeholder">&bull; General Faculty</span>
+                        }
+                        @if (t.phoneNumber) {
+                          <span class="opt-phone">📞 {{ t.phoneNumber }}</span>
+                        }
+                      </div>
+                    </div>
+                  </mat-option>
+                }
+    
+                @if (filteredTeachers.length === 0) {
+                  <div class="dd-no-results">
+                    <mat-icon>person_search</mat-icon>
+                    <span>No faculty found matching "<strong>{{ searchQuery }}</strong>"</span>
+                  </div>
+                }
+              </mat-select>
+              @if (searchQuery) {
+                <mat-hint>
+                  Showing {{ filteredTeachers.length }} of {{ availableTeachers.length }} faculty members
+                </mat-hint>
+              }
+            </mat-form-field>
+          </div>
+    
+          <!-- Selected Teacher Card Preview -->
+          @if (selectedTeacher) {
+            <div class="teacher-preview-card">
+              <div class="preview-avatar">
+                <mat-icon>account_circle</mat-icon>
               </div>
-            </mat-select>
-            <mat-hint *ngIf="searchQuery">
-              Showing {{ filteredTeachers.length }} of {{ availableTeachers.length }} faculty members
-            </mat-hint>
-          </mat-form-field>
-        </div>
-
-        <!-- Selected Teacher Card Preview -->
-        <div class="teacher-preview-card" *ngIf="selectedTeacher">
-          <div class="preview-avatar">
-            <mat-icon>account_circle</mat-icon>
-          </div>
-          <div class="preview-details">
-            <div class="preview-name-row">
-              <span class="preview-name">{{ selectedTeacher.fullName }}</span>
-              <span class="assign-badge-mini current" *ngIf="isCurrentSectionTeacher(selectedTeacher.id)">Assigned Here</span>
-              <span class="assign-badge-mini conflict" *ngIf="getOtherAssignedText(selectedTeacher.id) as ot">Class Teacher: {{ ot }}</span>
-              <span class="assign-badge-mini available" *ngIf="!isAssignedAnywhere(selectedTeacher.id)">Available</span>
+              <div class="preview-details">
+                <div class="preview-name-row">
+                  <span class="preview-name">{{ selectedTeacher.fullName }}</span>
+                  @if (isCurrentSectionTeacher(selectedTeacher.id)) {
+                    <span class="assign-badge-mini current">Assigned Here</span>
+                  }
+                  @if (getOtherAssignedText(selectedTeacher.id); as ot) {
+                    <span class="assign-badge-mini conflict">Class Teacher: {{ ot }}</span>
+                  }
+                  @if (!isAssignedAnywhere(selectedTeacher.id)) {
+                    <span class="assign-badge-mini available">Available</span>
+                  }
+                </div>
+                <div class="preview-sub">
+                  <span>Code: <strong>{{ selectedTeacher.employeeCode }}</strong></span>
+                  @if (selectedTeacher.phoneNumber) {
+                    <span>&bull; 📞 {{ selectedTeacher.phoneNumber }}</span>
+                  }
+                  @if (selectedTeacher.specialization) {
+                    <span>&bull; {{ selectedTeacher.specialization }}</span>
+                  }
+                </div>
+              </div>
             </div>
-            <div class="preview-sub">
-              <span>Code: <strong>{{ selectedTeacher.employeeCode }}</strong></span>
-              <span *ngIf="selectedTeacher.phoneNumber">&bull; 📞 {{ selectedTeacher.phoneNumber }}</span>
-              <span *ngIf="selectedTeacher.specialization">&bull; {{ selectedTeacher.specialization }}</span>
-            </div>
+          }
+    
+          <div class="role-help-note">
+            <mat-icon>lightbulb</mat-icon>
+            <span>The Class Teacher is responsible for student attendance, report card signatures, class discipline, and direct parent communications for this section.</span>
           </div>
         </div>
-
-        <div class="role-help-note">
-          <mat-icon>lightbulb</mat-icon>
-          <span>The Class Teacher is responsible for student attendance, report card signatures, class discipline, and direct parent communications for this section.</span>
+    
+        <!-- Dialog Actions -->
+        <div class="dialog-actions">
+          @if (data.currentClassTeacherId) {
+            <button mat-flat-button color="warn" class="btn-unassign" (click)="unassignTeacher()" [disabled]="saving">
+              <mat-icon>person_remove</mat-icon>
+              <span>Remove Class Teacher</span>
+            </button>
+          }
+          <span class="actions-spacer"></span>
+          <div class="primary-actions">
+            <button mat-button class="btn-cancel" (click)="onClose()" [disabled]="saving">Cancel</button>
+            @if (!conflictNotice && !getSelectedTeacherOtherAssignmentText()) {
+              <button mat-flat-button color="primary" class="btn-save" (click)="saveAssignment(false)" [disabled]="saving || !hasChanged">
+                <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
+                <span>Save Assignment</span>
+              </button>
+            }
+            @if (conflictNotice || getSelectedTeacherOtherAssignmentText()) {
+              <button mat-flat-button color="accent" class="btn-confirm-transfer" (click)="saveAssignment(true)" [disabled]="saving || !hasChanged">
+                <mat-icon>swap_horiz</mat-icon>
+                <span>Confirm & Transfer</span>
+              </button>
+            }
+          </div>
         </div>
       </div>
-
-      <!-- Dialog Actions -->
-      <div class="dialog-actions">
-        <button mat-flat-button color="warn" class="btn-unassign" *ngIf="data.currentClassTeacherId" (click)="unassignTeacher()" [disabled]="saving">
-          <mat-icon>person_remove</mat-icon>
-          <span>Remove Class Teacher</span>
-        </button>
-        <span class="actions-spacer"></span>
-        <div class="primary-actions">
-          <button mat-button class="btn-cancel" (click)="onClose()" [disabled]="saving">Cancel</button>
-          <button mat-flat-button color="primary" class="btn-save" *ngIf="!conflictNotice && !getSelectedTeacherOtherAssignmentText()" (click)="saveAssignment(false)" [disabled]="saving || !hasChanged">
-            <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
-            <span>Save Assignment</span>
-          </button>
-          <button mat-flat-button color="accent" class="btn-confirm-transfer" *ngIf="conflictNotice || getSelectedTeacherOtherAssignmentText()" (click)="saveAssignment(true)" [disabled]="saving || !hasChanged">
-            <mat-icon>swap_horiz</mat-icon>
-            <span>Confirm & Transfer</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       width: 100%;

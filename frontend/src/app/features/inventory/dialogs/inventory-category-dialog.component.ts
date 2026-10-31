@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,7 +20,6 @@ export interface InventoryCategoryDialogData {
   selector: 'app-inventory-category-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -29,7 +28,7 @@ export interface InventoryCategoryDialogData {
     MatIconModule,
     MatSlideToggleModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <!-- Strict ERP Light-Blue Gradient Header -->
@@ -47,7 +46,7 @@ export interface InventoryCategoryDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-body">
           <div class="form-grid">
@@ -55,28 +54,32 @@ export interface InventoryCategoryDialogData {
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Category Name</mat-label>
               <input matInput formControlName="name" placeholder="e.g. Stationery & Consumables, Science Lab, Sports" />
-              <mat-error *ngIf="form.get('name')?.hasError('required')">
-                Category name is required
-              </mat-error>
+              @if (form.get('name')?.hasError('required')) {
+                <mat-error>
+                  Category name is required
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Category Code -->
             <mat-form-field appearance="outline">
               <mat-label>Category Code / SKU Prefix</mat-label>
               <input matInput formControlName="code" placeholder="e.g. STAT, UNIF, BOOK, LAB, SPORT" style="text-transform: uppercase" />
               <mat-hint>Short unique identifier (letters & numbers)</mat-hint>
-              <mat-error *ngIf="form.get('code')?.hasError('required')">
-                Category code is required
-              </mat-error>
+              @if (form.get('code')?.hasError('required')) {
+                <mat-error>
+                  Category code is required
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Status Toggle -->
             <div class="toggle-field">
               <mat-slide-toggle formControlName="isActive" color="primary">
                 <span>Active Category</span>
               </mat-slide-toggle>
             </div>
-
+    
             <!-- Description -->
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Description / Scope</mat-label>
@@ -84,19 +87,22 @@ export interface InventoryCategoryDialogData {
             </mat-form-field>
           </div>
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
             Cancel
           </button>
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner-btn"></mat-spinner>
+            @if (submitting) {
+              <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
+            }
             <span>{{ data.isEdit ? 'Update Category' : 'Save Category' }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

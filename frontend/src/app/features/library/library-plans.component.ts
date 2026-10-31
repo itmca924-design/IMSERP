@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
@@ -60,7 +60,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </button>
         </div>
       </div>
-
+    
       <!-- Quick KPI Summary Cards -->
       <div class="kpi-grid">
         <div class="kpi-card total">
@@ -92,7 +92,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
         </div>
       </div>
-
+    
       <!-- Main Plans Table Card -->
       <mat-card class="table-card">
         <div class="table-card-header">
@@ -104,7 +104,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span>{{ plans.length }} Shifts Configured</span>
           </div>
         </div>
-
+    
         <div class="table-responsive">
           <table mat-table [dataSource]="plans" class="custom-plans-table">
             <!-- Order Column -->
@@ -114,20 +114,22 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <span class="order-badge">{{ p.sortOrder }}</span>
               </td>
             </ng-container>
-
+    
             <!-- Plan Name Column -->
             <ng-container matColumnDef="planName">
               <th mat-header-cell *matHeaderCellDef>Shift / Membership Plan</th>
               <td mat-cell *matCellDef="let p">
                 <div class="plan-name-cell">
                   <strong>{{ p.planName }}</strong>
-                  <span class="timing-sub" *ngIf="p.shiftTiming">
-                    <mat-icon>access_time</mat-icon> {{ p.shiftTiming }}
-                  </span>
+                  @if (p.shiftTiming) {
+                    <span class="timing-sub">
+                      <mat-icon>access_time</mat-icon> {{ p.shiftTiming }}
+                    </span>
+                  }
                 </div>
               </td>
             </ng-container>
-
+    
             <!-- Monthly Fee Column -->
             <ng-container matColumnDef="monthlyFee">
               <th mat-header-cell *matHeaderCellDef>Monthly Fee</th>
@@ -137,7 +139,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </span>
               </td>
             </ng-container>
-
+    
             <!-- Max Books Limit Column -->
             <ng-container matColumnDef="maxBooks">
               <th mat-header-cell *matHeaderCellDef>Borrow Limit</th>
@@ -148,7 +150,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </div>
               </td>
             </ng-container>
-
+    
             <!-- Status Column -->
             <ng-container matColumnDef="isActive">
               <th mat-header-cell *matHeaderCellDef>Status</th>
@@ -158,7 +160,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </span>
               </td>
             </ng-container>
-
+    
             <!-- Actions Column -->
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef style="text-align: right;">Actions</th>
@@ -171,10 +173,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </button>
               </td>
             </ng-container>
-
+    
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="plan-row"></tr>
-
+    
             <!-- Empty Row -->
             <tr class="mat-row" *matNoDataRow>
               <td class="mat-cell empty-table" colspan="6">
@@ -185,84 +187,84 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </table>
         </div>
       </mat-card>
-
+    
       <!-- ============================================================= -->
       <!-- Add / Edit Shift Dialog Overlay (Strict Light Blue Header)     -->
       <!-- ============================================================= -->
-      <div class="modal-backdrop" *ngIf="showModal" (click)="closeModal()">
-        <div class="modal-dialog-card" (click)="$event.stopPropagation()">
-          <!-- STRICT COMPLIANT HEADER -->
-          <div class="modal-header-box">
-            <div class="header-left">
-              <div class="header-icon-box">
-                <mat-icon>{{ isEditMode ? 'edit_note' : 'schedule' }}</mat-icon>
+      @if (showModal) {
+        <div class="modal-backdrop" (click)="closeModal()">
+          <div class="modal-dialog-card" (click)="$event.stopPropagation()">
+            <!-- STRICT COMPLIANT HEADER -->
+            <div class="modal-header-box">
+              <div class="header-left">
+                <div class="header-icon-box">
+                  <mat-icon>{{ isEditMode ? 'edit_note' : 'schedule' }}</mat-icon>
+                </div>
+                <div class="header-title-meta">
+                  <h3 class="header-title">{{ isEditMode ? 'Edit Library Shift / Plan' : 'Add New Library Shift / Plan' }}</h3>
+                  <p class="header-subtitle">
+                    Configure <strong>pricing and book borrow quota</strong> for students opting into this shift.
+                  </p>
+                </div>
               </div>
-              <div class="header-title-meta">
-                <h3 class="header-title">{{ isEditMode ? 'Edit Library Shift / Plan' : 'Add New Library Shift / Plan' }}</h3>
-                <p class="header-subtitle">
-                  Configure <strong>pricing and book borrow quota</strong> for students opting into this shift.
-                </p>
-              </div>
-            </div>
-            <button type="button" class="close-btn" (click)="closeModal()" matTooltip="Close">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <!-- Dialog Body Form -->
-          <form [formGroup]="planForm" (ngSubmit)="savePlan()" class="modal-form-body">
-            <div class="form-grid">
-              <mat-form-field appearance="outline" class="full-span" subscriptSizing="dynamic">
-                <mat-label>Plan / Shift Name *</mat-label>
-                <input matInput formControlName="planName" placeholder="e.g. Morning Study Shift (8AM - 1PM)" />
-                <mat-hint>Name shown in the admission dropdown and fee invoice</mat-hint>
-                <mat-error *ngIf="planForm.get('planName')?.invalid">Plan name is required</mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Shift Timing / Slot</mat-label>
-                <input matInput formControlName="shiftTiming" placeholder="e.g. 8:00 AM - 1:00 PM" />
-                <mat-hint>Timing hours for library access</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Monthly Library Fee (₹) *</mat-label>
-                <input matInput type="number" formControlName="monthlyFee" min="0" placeholder="0" />
-                <mat-hint>Keep ₹0 for free access, or enter fee</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Max Book Borrow Limit *</mat-label>
-                <input matInput type="number" formControlName="maxBooks" min="1" max="20" placeholder="2" />
-                <mat-hint>Max books student can borrow at once</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Display Order</mat-label>
-                <input matInput type="number" formControlName="sortOrder" min="0" placeholder="1" />
-                <mat-hint>Sorting order in dropdowns (lower first)</mat-hint>
-              </mat-form-field>
-
-              <div class="toggle-span" *ngIf="isEditMode">
-                <mat-slide-toggle formControlName="isActive" color="primary">
-                  <span>Shift Status: <strong>{{ planForm.get('isActive')?.value ? 'Active (Available)' : 'Disabled' }}</strong></span>
-                </mat-slide-toggle>
-              </div>
-            </div>
-
-            <!-- Modal Action Buttons -->
-            <div class="modal-footer-actions">
-              <button mat-button type="button" (click)="closeModal()" class="cancel-btn">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="planForm.invalid || saving" class="submit-btn">
-                <mat-icon>{{ saving ? 'hourglass_top' : 'check' }}</mat-icon>
-                <span>{{ saving ? 'Saving Plan...' : (isEditMode ? 'Update Shift' : 'Create Shift') }}</span>
+              <button type="button" class="close-btn" (click)="closeModal()" matTooltip="Close">
+                <mat-icon>close</mat-icon>
               </button>
             </div>
-          </form>
+            <!-- Dialog Body Form -->
+            <form [formGroup]="planForm" (ngSubmit)="savePlan()" class="modal-form-body">
+              <div class="form-grid">
+                <mat-form-field appearance="outline" class="full-span" subscriptSizing="dynamic">
+                  <mat-label>Plan / Shift Name *</mat-label>
+                  <input matInput formControlName="planName" placeholder="e.g. Morning Study Shift (8AM - 1PM)" />
+                  <mat-hint>Name shown in the admission dropdown and fee invoice</mat-hint>
+                  @if (planForm.get('planName')?.invalid) {
+                    <mat-error>Plan name is required</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Shift Timing / Slot</mat-label>
+                  <input matInput formControlName="shiftTiming" placeholder="e.g. 8:00 AM - 1:00 PM" />
+                  <mat-hint>Timing hours for library access</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Monthly Library Fee (₹) *</mat-label>
+                  <input matInput type="number" formControlName="monthlyFee" min="0" placeholder="0" />
+                  <mat-hint>Keep ₹0 for free access, or enter fee</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Max Book Borrow Limit *</mat-label>
+                  <input matInput type="number" formControlName="maxBooks" min="1" max="20" placeholder="2" />
+                  <mat-hint>Max books student can borrow at once</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Display Order</mat-label>
+                  <input matInput type="number" formControlName="sortOrder" min="0" placeholder="1" />
+                  <mat-hint>Sorting order in dropdowns (lower first)</mat-hint>
+                </mat-form-field>
+                @if (isEditMode) {
+                  <div class="toggle-span">
+                    <mat-slide-toggle formControlName="isActive" color="primary">
+                      <span>Shift Status: <strong>{{ planForm.get('isActive')?.value ? 'Active (Available)' : 'Disabled' }}</strong></span>
+                    </mat-slide-toggle>
+                  </div>
+                }
+              </div>
+              <!-- Modal Action Buttons -->
+              <div class="modal-footer-actions">
+                <button mat-button type="button" (click)="closeModal()" class="cancel-btn">Cancel</button>
+                <button mat-raised-button color="primary" type="submit" [disabled]="planForm.invalid || saving" class="submit-btn">
+                  <mat-icon>{{ saving ? 'hourglass_top' : 'check' }}</mat-icon>
+                  <span>{{ saving ? 'Saving Plan...' : (isEditMode ? 'Update Shift' : 'Create Shift') }}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .library-container {
       padding: 0 0 40px;

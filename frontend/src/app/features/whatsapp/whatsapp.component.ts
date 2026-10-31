@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -42,7 +42,7 @@ import { CoachingService } from '../../core/services/coaching.service';
           <p>Track delivery status, IST timestamps, and exact message contents sent to parents.</p>
         </div>
       </div>
-
+    
       <mat-card class="table-card mat-elevation-z2">
         <div class="filter-toolbar">
           <mat-form-field appearance="outline" class="search-field">
@@ -52,12 +52,12 @@ import { CoachingService } from '../../core/services/coaching.service';
               [(ngModel)]="searchTerm"
               (keyup.enter)="onSearch()"
               placeholder="Search by Student, Phone, Content..."
-            />
+              />
             <button mat-icon-button matSuffix (click)="onSearch()" aria-label="Search">
               <mat-icon>search</mat-icon>
             </button>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="type-filter">
             <mat-label>Filter by Message Type</mat-label>
             <mat-select [(ngModel)]="selectedTypeFilter" (selectionChange)="onTypeFilterChange()">
@@ -68,10 +68,10 @@ import { CoachingService } from '../../core/services/coaching.service';
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <mat-card-content class="table-container">
           <table mat-table [dataSource]="logs" matSort (matSortChange)="onSortChange($event)" class="full-width">
-            
+    
             <!-- Time Dispatched (Formatted in IST +05:30) -->
             <ng-container matColumnDef="sentAt">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="sentAt">Time Dispatched (IST)</th>
@@ -82,7 +82,7 @@ import { CoachingService } from '../../core/services/coaching.service';
                 </span>
               </td>
             </ng-container>
-
+    
             <!-- Student Name -->
             <ng-container matColumnDef="studentName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName">Student</th>
@@ -90,7 +90,7 @@ import { CoachingService } from '../../core/services/coaching.service';
                 <strong>{{ log.studentName }}</strong>
               </td>
             </ng-container>
-
+    
             <!-- Parent Phone -->
             <ng-container matColumnDef="recipientPhone">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="recipientPhone">Parent Phone</th>
@@ -101,7 +101,7 @@ import { CoachingService } from '../../core/services/coaching.service';
                 </span>
               </td>
             </ng-container>
-
+    
             <!-- Message Type -->
             <ng-container matColumnDef="messageType">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="messageType">Message Type</th>
@@ -111,7 +111,7 @@ import { CoachingService } from '../../core/services/coaching.service';
                 </span>
               </td>
             </ng-container>
-
+    
             <!-- Message Content -->
             <ng-container matColumnDef="content">
               <th mat-header-cell *matHeaderCellDef>Message Content</th>
@@ -119,7 +119,7 @@ import { CoachingService } from '../../core/services/coaching.service';
                 <div class="msg-content">{{ log.content }}</div>
               </td>
             </ng-container>
-
+    
             <!-- Status -->
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="status">Status</th>
@@ -130,21 +130,23 @@ import { CoachingService } from '../../core/services/coaching.service';
                 </span>
               </td>
             </ng-container>
-
+    
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-
+    
             <tr class="mat-row" *matNoDataRow>
               <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
-                <div class="empty-state" *ngIf="!loading">
-                  <mat-icon class="empty-icon">chat</mat-icon>
-                  <p>No WhatsApp dispatch logs found matching your filter criteria.</p>
-                </div>
+                @if (!loading) {
+                  <div class="empty-state">
+                    <mat-icon class="empty-icon">chat</mat-icon>
+                    <p>No WhatsApp dispatch logs found matching your filter criteria.</p>
+                  </div>
+                }
               </td>
             </tr>
           </table>
         </mat-card-content>
-
+    
         <mat-paginator
           [length]="totalCount"
           [pageSize]="pageSize"
@@ -155,7 +157,8 @@ import { CoachingService } from '../../core/services/coaching.service';
         </mat-paginator>
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .whatsapp-wrapper {
       display: flex;

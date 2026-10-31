@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,7 +13,6 @@ import { SubjectDto, SubjectsService } from '../../core/services/subjects.servic
   selector: 'app-subject-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -21,7 +20,7 @@ import { SubjectDto, SubjectsService } from '../../core/services/subjects.servic
     MatButtonModule,
     MatProgressSpinnerModule,
     MatIconModule
-  ],
+],
   template: `
     <div class="dialog-wrapper">
       <div class="dialog-header">
@@ -36,10 +35,10 @@ import { SubjectDto, SubjectsService } from '../../core/services/subjects.servic
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="subjectForm" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
-
+    
           <!-- Info Callout -->
           <div class="info-callout">
             <mat-icon class="info-icon">auto_awesome</mat-icon>
@@ -47,34 +46,36 @@ import { SubjectDto, SubjectsService } from '../../core/services/subjects.servic
               <strong>Subject Master Catalog:</strong> Subjects defined here are immediately selectable when creating academic batches, scheduling lectures, and recording test marks.
             </div>
           </div>
-
+    
           <!-- Section Label -->
           <div class="section-label">
             <mat-icon class="section-icon">category</mat-icon>
             <span>Subject Information &amp; Code</span>
           </div>
-
+    
           <div class="form-grid">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Subject Name *</mat-label>
               <input matInput formControlName="name" placeholder="e.g. Physics, Chemistry, Mathematics" />
               <mat-icon matSuffix color="primary">menu_book</mat-icon>
-              <mat-error *ngIf="subjectForm.get('name')?.hasError('required')">Subject name is required</mat-error>
+              @if (subjectForm.get('name')?.hasError('required')) {
+                <mat-error>Subject name is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Short Code *</mat-label>
               <input matInput formControlName="code" placeholder="e.g. PHY, CHE, MATH" />
               <mat-icon matSuffix color="primary">tag</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Description &amp; Syllabus Notes</mat-label>
               <input matInput formControlName="description" placeholder="Brief topics, syllabus reference, or textbook name" />
               <mat-icon matSuffix color="primary">notes</mat-icon>
             </mat-form-field>
           </div>
-
+    
           <!-- Live Preview Card -->
           <div class="preview-box">
             <div class="preview-header">
@@ -90,26 +91,33 @@ import { SubjectDto, SubjectsService } from '../../core/services/subjects.servic
                 <span class="preview-label">Short Code:</span>
                 <span class="code-pill">{{ subjectForm.get('code')?.value || 'GEN' }}</span>
               </div>
-              <div class="preview-item" *ngIf="subjectForm.get('description')?.value">
-                <span class="preview-label">Notes:</span>
-                <span class="preview-val text-truncate">{{ subjectForm.get('description')?.value }}</span>
-              </div>
+              @if (subjectForm.get('description')?.value) {
+                <div class="preview-item">
+                  <span class="preview-label">Notes:</span>
+                  <span class="preview-val text-truncate">{{ subjectForm.get('description')?.value }}</span>
+                </div>
+              }
             </div>
           </div>
-
+    
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="subjectForm.invalid || saving" class="submit-btn">
-            <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
-            <mat-icon *ngIf="!saving">{{ isEditMode ? 'save' : 'add_task' }}</mat-icon>
+            @if (saving) {
+              <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+            }
+            @if (!saving) {
+              <mat-icon>{{ isEditMode ? 'save' : 'add_task' }}</mat-icon>
+            }
             <span>{{ saving ? 'Saving...' : (isEditMode ? 'Update Subject' : 'Save Subject') }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       padding: 0;

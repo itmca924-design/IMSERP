@@ -1,16 +1,18 @@
 <!-- ══════════════════════════════════════════════════════════════ -->
 <!-- FLOATING RIGHT-EDGE GEAR TRIGGER (Red Marked Position)        -->
 <!-- ══════════════════════════════════════════════════════════════ -->
-<div class="floating-trigger-wrapper" *ngIf="hasAnyTabPermission()" [class.hidden]="settingsService.isDrawerOpen()">
-  <button
-    type="button"
-    class="floating-settings-btn"
-    (click)="onToggleDrawer()"
-    aria-label="Open ERP Quick Settings">
-    <span class="pulse-ring"></span>
-    <mat-icon class="gear-icon">settings</mat-icon>
-  </button>
-</div>
+@if (hasAnyTabPermission()) {
+  <div class="floating-trigger-wrapper" [class.hidden]="settingsService.isDrawerOpen()">
+    <button
+      type="button"
+      class="floating-settings-btn"
+      (click)="onToggleDrawer()"
+      aria-label="Open ERP Quick Settings">
+      <span class="pulse-ring"></span>
+      <mat-icon class="gear-icon">settings</mat-icon>
+    </button>
+  </div>
+}
 
 <!-- ══════════════════════════════════════════════════════════════ -->
 <!-- BACKDROP OVERLAY                                             -->
@@ -65,896 +67,911 @@
 
   <!-- Tab Navigation Bar (Role-Based Dynamic Visibility) -->
   <div class="drawer-tabs">
-    <button
-      type="button"
-      class="tab-btn"
-      *ngIf="canViewGeneral()"
-      [class.active]="activeTab === 'general'"
-      (click)="activeTab = 'general'">
-      <mat-icon>school</mat-icon>
-      <span>General</span>
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      *ngIf="canViewModules()"
-      [class.active]="activeTab === 'modules'"
-      (click)="activeTab = 'modules'">
-      <mat-icon>hub</mat-icon>
-      <span>Modules</span>
-      <span class="tab-badge" style="background:#2563eb; color:#fff;">SaaS</span>
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      *ngIf="canViewAutomation()"
-      [class.active]="activeTab === 'automation'"
-      (click)="activeTab = 'automation'">
-      <mat-icon>bolt</mat-icon>
-      <span>Automation</span>
-      <span class="tab-badge">Pro</span>
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      *ngIf="canViewAppearance()"
-      [class.active]="activeTab === 'appearance'"
-      (click)="activeTab = 'appearance'">
-      <mat-icon>palette</mat-icon>
-      <span>Theme &amp; Layout</span>
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      *ngIf="canViewShortcuts()"
-      [class.active]="activeTab === 'shortcuts'"
-      (click)="activeTab = 'shortcuts'">
-      <mat-icon>grid_view</mat-icon>
-      <span>Shortcuts</span>
-    </button>
+    @if (canViewGeneral()) {
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab === 'general'"
+        (click)="activeTab = 'general'">
+        <mat-icon>school</mat-icon>
+        <span>General</span>
+      </button>
+    }
+    @if (canViewModules()) {
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab === 'modules'"
+        (click)="activeTab = 'modules'">
+        <mat-icon>hub</mat-icon>
+        <span>Modules</span>
+        <span class="tab-badge" style="background:#2563eb; color:#fff;">SaaS</span>
+      </button>
+    }
+    @if (canViewAutomation()) {
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab === 'automation'"
+        (click)="activeTab = 'automation'">
+        <mat-icon>bolt</mat-icon>
+        <span>Automation</span>
+        <span class="tab-badge">Pro</span>
+      </button>
+    }
+    @if (canViewAppearance()) {
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab === 'appearance'"
+        (click)="activeTab = 'appearance'">
+        <mat-icon>palette</mat-icon>
+        <span>Theme &amp; Layout</span>
+      </button>
+    }
+    @if (canViewShortcuts()) {
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab === 'shortcuts'"
+        (click)="activeTab = 'shortcuts'">
+        <mat-icon>grid_view</mat-icon>
+        <span>Shortcuts</span>
+      </button>
+    }
   </div>
 
   <!-- Drawer Body -->
   <div class="drawer-body">
 
     <!-- ═══════════ TAB 1: GENERAL & SESSION ═══════════ -->
-    <div class="tab-content" *ngIf="activeTab === 'general' && canViewGeneral()">
-      
-      <!-- Academic Session Selector -->
-      <section class="settings-section">
-        <div class="section-title-row">
-          <mat-icon class="section-icon">calendar_month</mat-icon>
-          <div>
-            <h4 class="section-title">Active Academic Session</h4>
-            <p class="section-desc">Current operative school / batch session for records</p>
-          </div>
-        </div>
-
-        <div class="session-grid">
-          <button
-            type="button"
-            *ngFor="let s of academicSessions"
-            class="session-card"
-            [class.selected]="settingsService.academicSession() === s"
-            (click)="setAcademicSession(s)">
-            <div class="session-info">
-              <span class="session-label">{{ s }}</span>
-              <span class="session-tag" *ngIf="s === '2026-2027'">Active Primary</span>
+    @if (activeTab === 'general' && canViewGeneral()) {
+      <div class="tab-content">
+        <!-- Academic Session Selector -->
+        <section class="settings-section">
+          <div class="section-title-row">
+            <mat-icon class="section-icon">calendar_month</mat-icon>
+            <div>
+              <h4 class="section-title">Active Academic Session</h4>
+              <p class="section-desc">Current operative school / batch session for records</p>
             </div>
-            <mat-icon class="check-icon" *ngIf="settingsService.academicSession() === s">check_circle</mat-icon>
-          </button>
-        </div>
-      </section>
-
-      <!-- Active Institute & Branch Context -->
-      <section class="settings-section">
-        <div class="section-title-row">
-          <mat-icon class="section-icon">storefront</mat-icon>
-          <div>
-            <h4 class="section-title">Institute &amp; Campus Info</h4>
-            <p class="section-desc">Currently signed-in campus credentials</p>
           </div>
-        </div>
-
-        <div class="info-card">
-          <div class="info-row">
-            <span class="info-label">Institute Name</span>
-            <span class="info-val font-semibold">{{ authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+          <div class="session-grid">
+            @for (s of academicSessions; track s) {
+              <button
+                type="button"
+                class="session-card"
+                [class.selected]="settingsService.academicSession() === s"
+                (click)="setAcademicSession(s)">
+                <div class="session-info">
+                  <span class="session-label">{{ s }}</span>
+                  @if (s === '2026-2027') {
+                    <span class="session-tag">Active Primary</span>
+                  }
+                </div>
+                @if (settingsService.academicSession() === s) {
+                  <mat-icon class="check-icon">check_circle</mat-icon>
+                }
+              </button>
+            }
           </div>
-          <div class="info-row">
-            <span class="info-label">Tenant Code</span>
-            <span class="info-badge">{{ authService.currentUser()?.tenantCode || 'APEX' }}</span>
+        </section>
+        <!-- Active Institute & Branch Context -->
+        <section class="settings-section">
+          <div class="section-title-row">
+            <mat-icon class="section-icon">storefront</mat-icon>
+            <div>
+              <h4 class="section-title">Institute &amp; Campus Info</h4>
+              <p class="section-desc">Currently signed-in campus credentials</p>
+            </div>
           </div>
-          <div class="info-row">
-            <span class="info-label">Operator</span>
-            <span class="info-val">{{ authService.currentUser()?.fullName || authService.currentUser()?.username || 'Administrator' }}</span>
+          <div class="info-card">
+            <div class="info-row">
+              <span class="info-label">Institute Name</span>
+              <span class="info-val font-semibold">{{ authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Tenant Code</span>
+              <span class="info-badge">{{ authService.currentUser()?.tenantCode || 'APEX' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Operator</span>
+              <span class="info-val">{{ authService.currentUser()?.fullName || authService.currentUser()?.username || 'Administrator' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Role</span>
+              <span class="info-tag">{{ authService.currentUser()?.role || 'Admin' }}</span>
+            </div>
           </div>
-          <div class="info-row">
-            <span class="info-label">Role</span>
-            <span class="info-tag">{{ authService.currentUser()?.role || 'Admin' }}</span>
+        </section>
+        <!-- Regional & Formats -->
+        <section class="settings-section">
+          <div class="section-title-row">
+            <mat-icon class="section-icon">language</mat-icon>
+            <div>
+              <h4 class="section-title">Regional Standards &amp; Locale</h4>
+              <p class="section-desc">Global date format, active currency and timezone presets</p>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <!-- Regional & Formats -->
-      <section class="settings-section">
-        <div class="section-title-row">
-          <mat-icon class="section-icon">language</mat-icon>
-          <div>
-            <h4 class="section-title">Regional Standards &amp; Locale</h4>
-            <p class="section-desc">Global date format, active currency and timezone presets</p>
+          <!-- Language Switcher Card -->
+          <div class="lang-selector-card">
+            <div class="lang-card-header">
+              <span class="lang-card-label">ERP Language</span>
+              <span class="lang-card-badge" [class.badge-hi]="translationService.isHindi()">
+                {{ translationService.isHindi() ? 'हिन्दी सक्रिय' : 'English Active' }}
+              </span>
+            </div>
+            <p class="lang-card-desc">Toggle between English and Hindi interface</p>
+            <div class="lang-toggle-options">
+              <button
+                type="button"
+                class="lang-opt-btn"
+                [class.active]="translationService.isEnglish()"
+                (click)="setLanguage('en')">
+                <span class="lang-flag">🇬🇧</span>
+                <div class="lang-opt-text">
+                  <span class="lang-primary">English</span>
+                  <span class="lang-secondary">Global Standard</span>
+                </div>
+                @if (translationService.isEnglish()) {
+                  <mat-icon class="check-icon">check_circle</mat-icon>
+                }
+              </button>
+              <button
+                type="button"
+                class="lang-opt-btn"
+                [class.active]="translationService.isHindi()"
+                (click)="setLanguage('hi')">
+                <span class="lang-flag">🇮🇳</span>
+                <div class="lang-opt-text">
+                  <span class="lang-primary">हिन्दी</span>
+                  <span class="lang-secondary">राष्ट्रीय भाषा</span>
+                </div>
+                @if (translationService.isHindi()) {
+                  <mat-icon class="check-icon">check_circle</mat-icon>
+                }
+              </button>
+            </div>
           </div>
-        </div>
-
-        <!-- Language Switcher Card -->
-        <div class="lang-selector-card">
-          <div class="lang-card-header">
-            <span class="lang-card-label">ERP Language</span>
-            <span class="lang-card-badge" [class.badge-hi]="translationService.isHindi()">
-              {{ translationService.isHindi() ? 'हिन्दी सक्रिय' : 'English Active' }}
-            </span>
+          <div class="settings-grid-2">
+            <div class="mini-spec-box">
+              <span class="spec-label">Currency Symbol</span>
+              <span class="spec-val">₹ INR (Indian Rupee)</span>
+            </div>
+            <div class="mini-spec-box">
+              <span class="spec-label">Date Format</span>
+              <span class="spec-val">DD/MM/YYYY</span>
+            </div>
+            <div class="mini-spec-box">
+              <span class="spec-label">Timezone (IST)</span>
+              <span class="spec-val">IST (UTC+05:30)</span>
+            </div>
+            <div class="mini-spec-box">
+              <span class="spec-label">SMS Sender ID</span>
+              <span class="spec-val text-green">APEXED (Approved)</span>
+            </div>
           </div>
-          <p class="lang-card-desc">Toggle between English and Hindi interface</p>
-          <div class="lang-toggle-options">
-            <button
-              type="button"
-              class="lang-opt-btn"
-              [class.active]="translationService.isEnglish()"
-              (click)="setLanguage('en')">
-              <span class="lang-flag">🇬🇧</span>
-              <div class="lang-opt-text">
-                <span class="lang-primary">English</span>
-                <span class="lang-secondary">Global Standard</span>
-              </div>
-              <mat-icon class="check-icon" *ngIf="translationService.isEnglish()">check_circle</mat-icon>
-            </button>
-            <button
-              type="button"
-              class="lang-opt-btn"
-              [class.active]="translationService.isHindi()"
-              (click)="setLanguage('hi')">
-              <span class="lang-flag">🇮🇳</span>
-              <div class="lang-opt-text">
-                <span class="lang-primary">हिन्दी</span>
-                <span class="lang-secondary">राष्ट्रीय भाषा</span>
-              </div>
-              <mat-icon class="check-icon" *ngIf="translationService.isHindi()">check_circle</mat-icon>
-            </button>
-          </div>
-        </div>
-
-        <div class="settings-grid-2">
-          <div class="mini-spec-box">
-            <span class="spec-label">Currency Symbol</span>
-            <span class="spec-val">₹ INR (Indian Rupee)</span>
-          </div>
-          <div class="mini-spec-box">
-            <span class="spec-label">Date Format</span>
-            <span class="spec-val">DD/MM/YYYY</span>
-          </div>
-          <div class="mini-spec-box">
-            <span class="spec-label">Timezone (IST)</span>
-            <span class="spec-val">IST (UTC+05:30)</span>
-          </div>
-          <div class="mini-spec-box">
-            <span class="spec-label">SMS Sender ID</span>
-            <span class="spec-val text-green">APEXED (Approved)</span>
-          </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    }
 
     <!-- ═══════════ TAB: MODULAR SAAS LICENSING ═══════════ -->
-    <div class="tab-content" *ngIf="activeTab === 'modules' && canViewModules()">
-      <div class="automation-banner" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #bfdbfe;">
-        <mat-icon class="banner-icon" style="background: #2563eb; color: #fff;">hub</mat-icon>
-        <div class="banner-text">
-          <strong style="color: #1e3a8a;">Modular ERP Licensing &amp; Subscriptions</strong>
-          <span style="color: #3b82f6;">Enable or disable modules according to this institute's plan. Sidebar and forms adapt instantly.</span>
-        </div>
-      </div>
-
-      <section class="settings-section">
-        <div class="section-title-row">
-          <mat-icon class="section-icon">inventory_2</mat-icon>
-          <div>
-            <h4 class="section-title">Active Functional Modules</h4>
-            <p class="section-desc">Toggle modules on/off for client demonstrations or subscription upgrades</p>
+    @if (activeTab === 'modules' && canViewModules()) {
+      <div class="tab-content">
+        <div class="automation-banner" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #bfdbfe;">
+          <mat-icon class="banner-icon" style="background: #2563eb; color: #fff;">hub</mat-icon>
+          <div class="banner-text">
+            <strong style="color: #1e3a8a;">Modular ERP Licensing &amp; Subscriptions</strong>
+            <span style="color: #3b82f6;">Enable or disable modules according to this institute's plan. Sidebar and forms adapt instantly.</span>
           </div>
         </div>
-
-        <!-- Module Updating / Sync Indicator -->
-        <div *ngIf="updatingModules" class="job-status-banner success" style="margin-bottom: 12px;">
-          <mat-icon class="spinning">sync</mat-icon>
-          <div class="banner-msg-content">
-            <strong>Updating Institute Plan...</strong>
-            <span>Saving module settings in background...</span>
-          </div>
-        </div>
-
-        <div *ngIf="moduleSuccessMessage" class="job-status-banner success" style="margin-bottom: 12px;">
-          <mat-icon>check_circle</mat-icon>
-          <div class="banner-msg-content">
-            <strong>Module Preference Saved</strong>
-            <span>Changes applied instantly without reloading the page.</span>
-          </div>
-        </div>
-
-        <div *ngIf="!authService.isSuperAdmin()" class="job-status-banner" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; margin-bottom:14px; display:flex; gap:10px; padding:10px 12px; border-radius:8px; align-items:flex-start;">
-          <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px; margin-top:2px;">verified_user</mat-icon>
-          <div style="font-size:12px; line-height:1.4;">
-            <strong style="color:#1e3a8a;">Subscribed Institute Modules</strong><br>
-            <span>You can toggle your licensed modules on or off below. Modules not included in your plan are locked and can be enabled by your SaaS Administrator.</span>
-          </div>
-        </div>
-
-        <div class="toggles-list">
-
-          <!-- School Academic Module -->
-          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasSchoolModule')">
-            <div class="toggle-icon-wrap school-icon-wrap">
-              <mat-icon>domain</mat-icon>
-            </div>
-            <div class="toggle-details">
-              <div class="toggle-title-row">
-                <span class="toggle-title">School Academic Module</span>
-                <span class="status-pill" *ngIf="isModuleLicensed('hasSchoolModule')" [ngClass]="authService.hasSchoolModule() ? 'green' : 'paused'">
-                  {{ authService.hasSchoolModule() ? 'Active' : 'Disabled' }}
-                </span>
-                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasSchoolModule')">
-                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
-                </span>
-              </div>
-              <p class="toggle-desc">Classes, Sections, Student Promotion, School Exams, Report Cards &amp; Fee Heads.</p>
-            </div>
-            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasSchoolModule')" [matTooltip]="!isModuleLicensed('hasSchoolModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
-              <input
-                type="checkbox"
-                [checked]="authService.hasSchoolModule()"
-                [disabled]="updatingModules || !isModuleLicensed('hasSchoolModule')"
-                (change)="toggleModule('hasSchoolModule')">
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <!-- Coaching & Tuitions Module -->
-          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasCoachingModule')">
-            <div class="toggle-icon-wrap coaching-icon-wrap">
-              <mat-icon>school</mat-icon>
-            </div>
-            <div class="toggle-details">
-              <div class="toggle-title-row">
-                <span class="toggle-title">Coaching &amp; Tuitions Module</span>
-                <span class="status-pill" *ngIf="isModuleLicensed('hasCoachingModule')" [ngClass]="authService.hasCoachingModule() ? 'green' : 'paused'">
-                  {{ authService.hasCoachingModule() ? 'Active' : 'Disabled' }}
-                </span>
-                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasCoachingModule')">
-                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
-                </span>
-              </div>
-              <p class="toggle-desc">Academic Batches, Classrooms, Coaching Test Series &amp; Monthly Tuition Fees.</p>
-            </div>
-            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasCoachingModule')" [matTooltip]="!isModuleLicensed('hasCoachingModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
-              <input
-                type="checkbox"
-                [checked]="authService.hasCoachingModule()"
-                [disabled]="updatingModules || !isModuleLicensed('hasCoachingModule')"
-                (change)="toggleModule('hasCoachingModule')">
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <!-- Hostel & Residential Module -->
-          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasHostelModule')">
-            <div class="toggle-icon-wrap hostel-icon-wrap">
-              <mat-icon>apartment</mat-icon>
-            </div>
-            <div class="toggle-details">
-              <div class="toggle-title-row">
-                <span class="toggle-title">Hostel &amp; Residential Module</span>
-                <span class="status-pill" *ngIf="isModuleLicensed('hasHostelModule')" [ngClass]="authService.hasHostelModule() ? 'green' : 'paused'">
-                  {{ authService.hasHostelModule() ? 'Active' : 'Disabled' }}
-                </span>
-                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasHostelModule')">
-                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
-                </span>
-              </div>
-              <p class="toggle-desc">Hostel Buildings, Bed Allotment, Room Rent, Mess Tracking &amp; Resident Lists.</p>
-            </div>
-            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasHostelModule')" [matTooltip]="!isModuleLicensed('hasHostelModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
-              <input
-                type="checkbox"
-                [checked]="authService.hasHostelModule()"
-                [disabled]="updatingModules || !isModuleLicensed('hasHostelModule')"
-                (change)="toggleModule('hasHostelModule')">
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <!-- Library Management Module -->
-          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasLibraryModule')">
-            <div class="toggle-icon-wrap library-icon-wrap">
-              <mat-icon>local_library</mat-icon>
-            </div>
-            <div class="toggle-details">
-              <div class="toggle-title-row">
-                <span class="toggle-title">Library Management Module</span>
-                <span class="status-pill" *ngIf="isModuleLicensed('hasLibraryModule')" [ngClass]="authService.hasLibraryModule() ? 'green' : 'paused'">
-                  {{ authService.hasLibraryModule() ? 'Active' : 'Disabled' }}
-                </span>
-                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasLibraryModule')">
-                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
-                </span>
-              </div>
-              <p class="toggle-desc">Book Catalog, Circulation Issue/Return, Fines &amp; Reading Shifts.</p>
-            </div>
-            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasLibraryModule')" [matTooltip]="!isModuleLicensed('hasLibraryModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
-              <input
-                type="checkbox"
-                [checked]="authService.hasLibraryModule()"
-                [disabled]="updatingModules || !isModuleLicensed('hasLibraryModule')"
-                (change)="toggleModule('hasLibraryModule')">
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <!-- Transport & Fleet Module -->
-          <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasTransportModule')">
-            <div class="toggle-icon-wrap transport-icon-wrap">
-              <mat-icon>directions_bus</mat-icon>
-            </div>
-            <div class="toggle-details">
-              <div class="toggle-title-row">
-                <span class="toggle-title">Transport &amp; Fleet Module</span>
-                <span class="status-pill" *ngIf="isModuleLicensed('hasTransportModule')" [ngClass]="authService.hasTransportModule() ? 'green' : 'paused'">
-                  {{ authService.hasTransportModule() ? 'Active' : 'Disabled' }}
-                </span>
-                <span class="status-pill locked" *ngIf="!isModuleLicensed('hasTransportModule')">
-                  <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
-                </span>
-              </div>
-              <p class="toggle-desc">Bus Fleet Management, Transport Routes, Stop Allotment &amp; Fees.</p>
-            </div>
-            <label class="switch" [class.locked-switch]="!isModuleLicensed('hasTransportModule')" [matTooltip]="!isModuleLicensed('hasTransportModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
-              <input
-                type="checkbox"
-                [checked]="authService.hasTransportModule()"
-                [disabled]="updatingModules || !isModuleLicensed('hasTransportModule')"
-                (change)="toggleModule('hasTransportModule')">
-              <span class="slider"></span>
-            </label>
-          </div>
-
-        </div>
-      </section>
-    </div>
-
-    <!-- ═══════════ TAB 2: SMART AUTOMATION ═══════════ -->
-    <div class="tab-content" *ngIf="activeTab === 'automation' && canViewAutomation()">
-      <div class="automation-banner">
-        <mat-icon class="banner-icon">auto_awesome</mat-icon>
-        <div class="banner-text">
-          <strong>School Automation Engine</strong>
-          <span>Toggle real-time alerts, biometric syncing, and automated reminders.</span>
-        </div>
-      </div>
-
-      <!-- Realtime Job Run Notification Banner -->
-      <div *ngIf="jobMessage" class="job-status-banner" [class.success]="jobSuccess" [class.error]="!jobSuccess">
-        <mat-icon>{{ jobSuccess ? 'check_circle' : 'error_outline' }}</mat-icon>
-        <div class="banner-msg-content">
-          <strong>{{ jobSuccess ? 'Automation Task Executed' : 'Execution Notice' }}</strong>
-          <span>{{ jobMessage }}</span>
-        </div>
-      </div>
-
-      <div class="toggles-list">
-
-        <!-- WhatsApp Fee Receipt -->
-        <div class="toggle-card">
-          <div class="toggle-icon-wrap wa-icon-wrap">
-            <mat-icon>receipt_long</mat-icon>
-          </div>
-          <div class="toggle-details">
-            <div class="toggle-title-row">
-              <span class="toggle-title">WhatsApp Fee Receipts</span>
-              <span class="status-pill green" [class.paused]="!settingsService.whatsappFeeAlerts()">
-                {{ settingsService.whatsappFeeAlerts() ? 'Instant Auto-Send' : 'Disabled' }}
-              </span>
-            </div>
-            <p class="toggle-desc">Automatically sends branded PDF fee receipts to parents' WhatsApp on payment collection.</p>
-            <div class="toggle-actions-row">
-              <button
-                type="button"
-                class="run-test-btn"
-                (click)="onRunJob('whatsapp-receipts', $event)"
-                [disabled]="runningJob === 'whatsapp-receipts' || !settingsService.whatsappFeeAlerts()"
-                [matTooltip]="!settingsService.whatsappFeeAlerts() ? 'Enable toggle above to test WhatsApp gateway' : 'Test WhatsApp Gateway'">
-                <mat-icon [class.spinning]="runningJob === 'whatsapp-receipts'">{{ runningJob === 'whatsapp-receipts' ? 'sync' : 'bolt' }}</mat-icon>
-                <span>{{ runningJob === 'whatsapp-receipts' ? 'Testing Gateway...' : 'Test WhatsApp Gateway' }}</span>
-              </button>
-            </div>
-          </div>
-          <label class="switch">
-            <input
-              type="checkbox"
-              [checked]="settingsService.whatsappFeeAlerts()"
-              (change)="settingsService.toggleWhatsappFee()">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Absent SMS / WhatsApp Alert -->
-        <div class="toggle-card">
-          <div class="toggle-icon-wrap absent-icon-wrap">
-            <mat-icon>person_off</mat-icon>
-          </div>
-          <div class="toggle-details">
-            <div class="toggle-title-row">
-              <span class="toggle-title">Daily Absentee Alert</span>
-              <span class="status-pill blue" [class.paused]="!settingsService.absentSmsAlerts()">
-                {{ settingsService.absentSmsAlerts() ? 'Scheduled (10:30 AM)' : 'Paused' }}
-              </span>
-            </div>
-            <p class="toggle-desc">Dispatches automated WhatsApp/SMS notifications to parents if student is marked absent.</p>
-            <div class="toggle-actions-row">
-              <button
-                type="button"
-                class="run-test-btn"
-                (click)="onRunJob('absentee-alerts', $event)"
-                [disabled]="runningJob === 'absentee-alerts' || !settingsService.absentSmsAlerts()"
-                [matTooltip]="!settingsService.absentSmsAlerts() ? 'Enable toggle above to run absentee alert' : 'Run Absentee Alert Now'">
-                <mat-icon [class.spinning]="runningJob === 'absentee-alerts'">{{ runningJob === 'absentee-alerts' ? 'sync' : 'play_arrow' }}</mat-icon>
-                <span>{{ runningJob === 'absentee-alerts' ? 'Checking Absences...' : 'Run Absentee Alert Now' }}</span>
-              </button>
-            </div>
-          </div>
-          <label class="switch">
-            <input
-              type="checkbox"
-              [checked]="settingsService.absentSmsAlerts()"
-              (change)="settingsService.toggleAbsentSms()">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Fee Due Reminders -->
-        <div class="toggle-card">
-          <div class="toggle-icon-wrap fee-icon-wrap">
-            <mat-icon>notifications_active</mat-icon>
-          </div>
-          <div class="toggle-details">
-            <div class="toggle-title-row">
-              <span class="toggle-title">Fee Due Auto-Reminders</span>
-              <span class="status-pill amber" [class.paused]="!settingsService.dueFeeReminders()">
-                {{ settingsService.dueFeeReminders() ? 'Active (7-Days Prior)' : 'Paused' }}
-              </span>
-            </div>
-            <p class="toggle-desc">Sends automatic payment reminders before invoice due dates to maintain zero overdue balances.</p>
-            <div class="toggle-actions-row">
-              <button
-                type="button"
-                class="run-test-btn"
-                (click)="onRunJob('fee-reminders', $event)"
-                [disabled]="runningJob === 'fee-reminders' || !settingsService.dueFeeReminders()"
-                [matTooltip]="!settingsService.dueFeeReminders() ? 'Enable toggle above to dispatch fee reminders' : 'Dispatch Due Reminders Now'">
-                <mat-icon [class.spinning]="runningJob === 'fee-reminders'">{{ runningJob === 'fee-reminders' ? 'sync' : 'send' }}</mat-icon>
-                <span>{{ runningJob === 'fee-reminders' ? 'Scanning Invoices...' : 'Dispatch Due Reminders Now' }}</span>
-              </button>
-            </div>
-          </div>
-          <label class="switch">
-            <input
-              type="checkbox"
-              [checked]="settingsService.dueFeeReminders()"
-              (change)="settingsService.toggleDueFeeReminders()">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Auto-Pilot Monthly Fee Invoicing (Pro) -->
-        <div class="toggle-card">
-          <div class="toggle-icon-wrap" style="background: #eff6ff; color: #2563eb;">
-            <mat-icon>bolt</mat-icon>
-          </div>
-          <div class="toggle-details">
-            <div class="toggle-title-row">
-              <span class="toggle-title">Auto-Pilot Fee Invoicing (Pro)</span>
-              <span class="status-pill green" [class.paused]="!settingsService.autoPilotInvoicing()">
-                {{ settingsService.autoPilotInvoicing() ? 'Scheduled (25th of Month)' : 'Disabled' }}
-              </span>
-            </div>
-            <p class="toggle-desc">Automatically generates next month's invoices for all active students on the 25th with a 10th-day due date.</p>
-            <div class="toggle-actions-row">
-              <button
-                type="button"
-                class="run-test-btn"
-                (click)="onRunJob('autopilot', $event)"
-                [disabled]="runningJob === 'autopilot' || !settingsService.autoPilotInvoicing()"
-                [matTooltip]="!settingsService.autoPilotInvoicing() ? 'Please enable toggle above first to run Auto-Pilot' : 'Trigger Auto-Pilot invoice generation now'">
-                <mat-icon [class.spinning]="runningJob === 'autopilot'">{{ runningJob === 'autopilot' ? 'sync' : 'bolt' }}</mat-icon>
-                <span>{{ runningJob === 'autopilot' ? 'Generating Invoices...' : 'Run Auto-Pilot Invoicing Now' }}</span>
-              </button>
-            </div>
-          </div>
-          <label class="switch">
-            <input
-              type="checkbox"
-              [checked]="settingsService.autoPilotInvoicing()"
-              (change)="settingsService.toggleAutoPilotInvoicing()">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Biometric / RFID Device Sync -->
-        <div class="toggle-card">
-          <div class="toggle-icon-wrap rfid-icon-wrap">
-            <mat-icon>fingerprint</mat-icon>
-          </div>
-          <div class="toggle-details">
-            <div class="toggle-title-row">
-              <span class="toggle-title">Biometric / RFID Realtime Sync</span>
-              <span class="status-pill purple" [class.paused]="!settingsService.biometricSync()">
-                {{ settingsService.biometricSync() ? 'Live Polling Engine' : 'Paused' }}
-              </span>
-            </div>
-            <p class="toggle-desc">Polls biometric hardware logs directly at gate entry and auto-marks class attendance.</p>
-            <div class="toggle-actions-row">
-              <button
-                type="button"
-                class="run-test-btn"
-                (click)="onRunJob('biometric-sync', $event)"
-                [disabled]="runningJob === 'biometric-sync' || !settingsService.biometricSync()"
-                [matTooltip]="!settingsService.biometricSync() ? 'Enable toggle above to sync biometric devices' : 'Sync Biometric Gate Now'">
-                <mat-icon [class.spinning]="runningJob === 'biometric-sync'">{{ runningJob === 'biometric-sync' ? 'sync' : 'cached' }}</mat-icon>
-                <span>{{ runningJob === 'biometric-sync' ? 'Syncing Devices...' : 'Sync Biometric Gate Now' }}</span>
-              </button>
-            </div>
-          </div>
-          <label class="switch">
-            <input
-              type="checkbox"
-              [checked]="settingsService.biometricSync()"
-              (change)="settingsService.toggleBiometricSync()">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Late Fee Auto-Calculation -->
-        <div class="toggle-card">
-          <div class="toggle-icon-wrap late-icon-wrap">
-            <mat-icon>update</mat-icon>
-          </div>
-          <div class="toggle-details">
-            <div class="toggle-title-row">
-              <span class="toggle-title">Late Fee Rule Auto-Compute</span>
-              <span class="status-pill" [class.paused]="!settingsService.lateFeeCalc()">
-                {{ settingsService.lateFeeCalc() ? 'Rules Active (₹10/day)' : 'Disabled' }}
-              </span>
-            </div>
-            <p class="toggle-desc">Applies institute fine policy automatically to invoices past the defined grace period.</p>
-            <div class="toggle-actions-row">
-              <button
-                type="button"
-                class="run-test-btn"
-                (click)="onRunJob('late-fee', $event)"
-                [disabled]="runningJob === 'late-fee' || !settingsService.lateFeeCalc()"
-                [matTooltip]="!settingsService.lateFeeCalc() ? 'Enable toggle above to run late fee calculation' : 'Run Late Fee Auto-Compute'">
-                <mat-icon [class.spinning]="runningJob === 'late-fee'">{{ runningJob === 'late-fee' ? 'sync' : 'calculate' }}</mat-icon>
-                <span>{{ runningJob === 'late-fee' ? 'Applying Penalties...' : 'Run Late Fee Auto-Compute' }}</span>
-              </button>
-            </div>
-          </div>
-          <label class="switch">
-            <input
-              type="checkbox"
-              [checked]="settingsService.lateFeeCalc()"
-              (change)="settingsService.toggleLateFeeCalc()">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Audio Chimes on Fee POS -->
-        <div class="toggle-card">
-          <div class="toggle-icon-wrap audio-icon-wrap">
-            <mat-icon>volume_up</mat-icon>
-          </div>
-          <div class="toggle-details">
-            <div class="toggle-title-row">
-              <span class="toggle-title">POS Audio Feedback Chimes</span>
-              <button type="button" class="test-chime-link" (click)="playTestChime()">Test Sound</button>
-            </div>
-            <p class="toggle-desc">Plays a confirmation audio chime whenever fees are settled or attendance is registered.</p>
-          </div>
-          <label class="switch">
-            <input
-              type="checkbox"
-              [checked]="settingsService.soundEffects()"
-              (change)="settingsService.toggleSoundEffects()">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ═══════════ TAB 3: APPEARANCE & THEME ═══════════ -->
-    <div class="tab-content" *ngIf="activeTab === 'appearance' && canViewAppearance()">
-      
-      <!-- Theme Mode -->
-      <section class="settings-section">
-        <h4 class="section-title">Color Scheme / Mode</h4>
-        <p class="section-desc">Choose between daytime light or modern dark slate theme</p>
-
-        <div class="theme-mode-selector">
-          <button
-            type="button"
-            class="mode-btn"
-            [class.active]="settingsService.theme() === 'light'"
-            (click)="setTheme('light')">
-            <mat-icon>light_mode</mat-icon>
-            <span>Light Mode</span>
-            <mat-icon class="mode-check" *ngIf="settingsService.theme() === 'light'">check_circle</mat-icon>
-          </button>
-
-          <button
-            type="button"
-            class="mode-btn"
-            [class.active]="settingsService.theme() === 'dark'"
-            (click)="setTheme('dark')">
-            <mat-icon>dark_mode</mat-icon>
-            <span>Dark Slate</span>
-            <mat-icon class="mode-check" *ngIf="settingsService.theme() === 'dark'">check_circle</mat-icon>
-          </button>
-
-          <button
-            type="button"
-            class="mode-btn"
-            [class.active]="settingsService.theme() === 'auto'"
-            (click)="setTheme('auto')">
-            <mat-icon>brightness_auto</mat-icon>
-            <span>System Auto</span>
-            <mat-icon class="mode-check" *ngIf="settingsService.theme() === 'auto'">check_circle</mat-icon>
-          </button>
-        </div>
-      </section>
-
-      <!-- Brand Accent Color Palette -->
-      <section class="settings-section">
-        <h4 class="section-title">Primary Brand Accent Palette</h4>
-        <p class="section-desc">Select the primary accent color tailored for your institute's identity</p>
-
-        <div class="accent-palette-grid">
-          <button
-            type="button"
-            *ngFor="let acc of accentOptions"
-            class="accent-pill-btn"
-            [class.selected]="settingsService.accent() === acc.id"
-            (click)="setAccent(acc.id)">
-            <span class="color-swatch" [style.background-color]="acc.hex">
-              <mat-icon *ngIf="settingsService.accent() === acc.id">check</mat-icon>
-            </span>
-            <span class="accent-name">{{ acc.name }}</span>
-          </button>
-        </div>
-
-        <!-- Default Color Featured Radio Button -->
-        <button
-          type="button"
-          class="default-color-featured-radio"
-          [class.active]="settingsService.accent() === 'default'"
-          (click)="setAccent('default')">
-          <div class="radio-content">
-            <span class="color-swatch-gradient">
-              <mat-icon *ngIf="settingsService.accent() === 'default'">check</mat-icon>
-            </span>
-            <div class="radio-labels">
-              <strong class="radio-title">Default ERP Theme</strong>
-              <span class="radio-desc">Official Signature Deep Navy &amp; Royal Enterprise Blue</span>
-            </div>
-          </div>
-          <mat-icon class="radio-indicator">{{ settingsService.accent() === 'default' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
-        </button>
-      </section>
-
-      <!-- Header Toolbar Theme -->
-      <section class="settings-section">
-        <h4 class="section-title">Header Toolbar Theme</h4>
-        <p class="section-desc">Choose header styling: auto-sync with brand accent, crisp light, or dark slate</p>
-
-        <div class="theme-mode-selector">
-          <button
-            type="button"
-            class="mode-btn"
-            [class.active]="settingsService.headerTheme() === 'accent'"
-            (click)="setHeaderTheme('accent')">
-            <mat-icon>palette</mat-icon>
-            <span>Brand Accent</span>
-            <mat-icon class="mode-check" *ngIf="settingsService.headerTheme() === 'accent'">check_circle</mat-icon>
-          </button>
-
-          <button
-            type="button"
-            class="mode-btn"
-            [class.active]="settingsService.headerTheme() === 'light'"
-            (click)="setHeaderTheme('light')">
-            <mat-icon>light_mode</mat-icon>
-            <span>Crisp Light</span>
-            <mat-icon class="mode-check" *ngIf="settingsService.headerTheme() === 'light'">check_circle</mat-icon>
-          </button>
-
-          <button
-            type="button"
-            class="mode-btn"
-            [class.active]="settingsService.headerTheme() === 'dark'"
-            (click)="setHeaderTheme('dark')">
-            <mat-icon>dark_mode</mat-icon>
-            <span>Dark Slate</span>
-            <mat-icon class="mode-check" *ngIf="settingsService.headerTheme() === 'dark'">check_circle</mat-icon>
-          </button>
-        </div>
-      </section>
-
-      <!-- Layout Density -->
-      <section class="settings-section">
-        <h4 class="section-title">Display &amp; Table Density</h4>
-        <p class="section-desc">Optimize interface spacing for high-volume fee registers and roster data</p>
-
-        <div class="density-selector">
-          <button
-            type="button"
-            class="density-btn"
-            [class.active]="settingsService.density() === 'comfortable'"
-            (click)="setDensity('comfortable')">
-            <mat-icon>density_medium</mat-icon>
+        <section class="settings-section">
+          <div class="section-title-row">
+            <mat-icon class="section-icon">inventory_2</mat-icon>
             <div>
-              <strong>Comfortable</strong>
-              <span>Default spacious card and table padding</span>
+              <h4 class="section-title">Active Functional Modules</h4>
+              <p class="section-desc">Toggle modules on/off for client demonstrations or subscription upgrades</p>
             </div>
-          </button>
-
-          <button
-            type="button"
-            class="density-btn"
-            [class.active]="settingsService.density() === 'compact'"
-            (click)="setDensity('compact')">
-            <mat-icon>density_small</mat-icon>
-            <div>
-              <strong>Compact Mode</strong>
-              <span>High data density, condensed table rows</span>
-            </div>
-          </button>
-        </div>
-      </section>
-
-    </div>
-
-    <!-- ═══════════ TAB 4: SHORTCUTS & DIAGNOSTICS ═══════════ -->
-    <div class="tab-content" *ngIf="activeTab === 'shortcuts' && canViewShortcuts()">
-      
-      <!-- ERP Quick Master Shortcuts -->
-      <section class="settings-section">
-        <h4 class="section-title">Core Management Shortcuts</h4>
-        <p class="section-desc">Instant access to key school configuration modules</p>
-
-        <div class="shortcuts-grid">
-          <a routerLink="/fees" class="shortcut-card" (click)="onCloseDrawer()">
-            <div class="sc-icon-circle sc-fees">
-              <mat-icon>payments</mat-icon>
-            </div>
-            <div class="sc-text">
-              <span class="sc-title">Fee Collection &amp; Invoices</span>
-              <span class="sc-desc">Collect fees, void invoices &amp; dues</span>
-            </div>
-            <mat-icon class="sc-chevron">chevron_right</mat-icon>
-          </a>
-
-          <a routerLink="/students" class="shortcut-card" (click)="onCloseDrawer()">
-            <div class="sc-icon-circle sc-students">
-              <mat-icon>school</mat-icon>
-            </div>
-            <div class="sc-text">
-              <span class="sc-title">Student Admission Roster</span>
-              <span class="sc-desc">Enroll, batches &amp; student profiles</span>
-            </div>
-            <mat-icon class="sc-chevron">chevron_right</mat-icon>
-          </a>
-
-          <a routerLink="/attendance/reports" class="shortcut-card" (click)="onCloseDrawer()">
-            <div class="sc-icon-circle sc-attend">
-              <mat-icon>how_to_reg</mat-icon>
-            </div>
-            <div class="sc-text">
-              <span class="sc-title">Attendance &amp; Reports</span>
-              <span class="sc-desc">Daily marking, absentee audits</span>
-            </div>
-            <mat-icon class="sc-chevron">chevron_right</mat-icon>
-          </a>
-
-          <a routerLink="/teachers" class="shortcut-card" (click)="onCloseDrawer()">
-            <div class="sc-icon-circle sc-teachers">
-              <mat-icon>badge</mat-icon>
-            </div>
-            <div class="sc-text">
-              <span class="sc-title">Faculty &amp; Staff Master</span>
-              <span class="sc-desc">Teachers, salaries &amp; timetables</span>
-            </div>
-            <mat-icon class="sc-chevron">chevron_right</mat-icon>
-          </a>
-
-          <a routerLink="/holidays" class="shortcut-card" (click)="onCloseDrawer()">
-            <div class="sc-icon-circle sc-holidays">
-              <mat-icon>event</mat-icon>
-            </div>
-            <div class="sc-text">
-              <span class="sc-title">Holiday Calendar</span>
-              <span class="sc-desc">Yearly institute calendar events</span>
-            </div>
-            <mat-icon class="sc-chevron">chevron_right</mat-icon>
-          </a>
-
-          <a routerLink="/roles" class="shortcut-card" (click)="onCloseDrawer()">
-            <div class="sc-icon-circle sc-roles">
-              <mat-icon>admin_panel_settings</mat-icon>
-            </div>
-            <div class="sc-text">
-              <span class="sc-title">Roles &amp; Permissions</span>
-              <span class="sc-desc">Staff access control matrix</span>
-            </div>
-            <mat-icon class="sc-chevron">chevron_right</mat-icon>
-          </a>
-        </div>
-      </section>
-
-      <!-- System Status & Cache Maintenance -->
-      <section class="settings-section">
-        <h4 class="section-title">Diagnostics &amp; Cache Maintenance</h4>
-        <p class="section-desc">Check system connectivity and clear local storage</p>
-
-        <div class="diagnostics-card">
-          <div class="diag-row">
-            <span class="diag-label">API Gateway Status</span>
-            <span class="diag-val online-badge">
-              <span class="live-dot"></span> Online (Active)
-            </span>
           </div>
-          <div class="diag-row">
-            <span class="diag-label">ERP Architecture</span>
-            <span class="diag-val">Multi-Tenant Native Kestrel</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-label">Software Version</span>
-            <span class="diag-val">School ERP Pro v2.4.0</span>
-          </div>
+          <!-- Module Updating / Sync Indicator -->
+          @if (updatingModules) {
+            <div class="job-status-banner success" style="margin-bottom: 12px;">
+              <mat-icon class="spinning">sync</mat-icon>
+              <div class="banner-msg-content">
+                <strong>Updating Institute Plan...</strong>
+                <span>Saving module settings in background...</span>
+              </div>
+            </div>
+          }
+          @if (moduleSuccessMessage) {
+            <div class="job-status-banner success" style="margin-bottom: 12px;">
+              <mat-icon>check_circle</mat-icon>
+              <div class="banner-msg-content">
+                <strong>Module Preference Saved</strong>
+                <span>Changes applied instantly without reloading the page.</span>
+              </div>
+            </div>
+          }
+          @if (!authService.isSuperAdmin()) {
+            <div class="job-status-banner" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; margin-bottom:14px; display:flex; gap:10px; padding:10px 12px; border-radius:8px; align-items:flex-start;">
+              <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px; margin-top:2px;">verified_user</mat-icon>
+              <div style="font-size:12px; line-height:1.4;">
+                <strong style="color:#1e3a8a;">Subscribed Institute Modules</strong><br>
+                <span>You can toggle your licensed modules on or off below. Modules not included in your plan are locked and can be enabled by your SaaS Administrator.</span>
+              </div>
+            </div>
+          }
+          <div class="toggles-list">
+            <!-- School Academic Module -->
+            <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasSchoolModule')">
+              <div class="toggle-icon-wrap school-icon-wrap">
+                <mat-icon>domain</mat-icon>
+              </div>
+              <div class="toggle-details">
+                <div class="toggle-title-row">
+                  <span class="toggle-title">School Academic Module</span>
+                  @if (isModuleLicensed('hasSchoolModule')) {
+                    <span class="status-pill" [ngClass]="authService.hasSchoolModule() ? 'green' : 'paused'">
+                      {{ authService.hasSchoolModule() ? 'Active' : 'Disabled' }}
+                    </span>
+                  }
+                  @if (!isModuleLicensed('hasSchoolModule')) {
+                    <span class="status-pill locked">
+                      <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
+                    </span>
+                  }
+                </div>
+                <p class="toggle-desc">Classes, Sections, Student Promotion, School Exams, Report Cards &amp; Fee Heads.</p>
+              </div>
+              <label class="switch" [class.locked-switch]="!isModuleLicensed('hasSchoolModule')" [matTooltip]="!isModuleLicensed('hasSchoolModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
+                <input
+                  type="checkbox"
+                  [checked]="authService.hasSchoolModule()"
+                  [disabled]="updatingModules || !isModuleLicensed('hasSchoolModule')"
+                  (change)="toggleModule('hasSchoolModule')">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <!-- Coaching & Tuitions Module -->
+              <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasCoachingModule')">
+                <div class="toggle-icon-wrap coaching-icon-wrap">
+                  <mat-icon>school</mat-icon>
+                </div>
+                <div class="toggle-details">
+                  <div class="toggle-title-row">
+                    <span class="toggle-title">Coaching &amp; Tuitions Module</span>
+                    @if (isModuleLicensed('hasCoachingModule')) {
+                      <span class="status-pill" [ngClass]="authService.hasCoachingModule() ? 'green' : 'paused'">
+                        {{ authService.hasCoachingModule() ? 'Active' : 'Disabled' }}
+                      </span>
+                    }
+                    @if (!isModuleLicensed('hasCoachingModule')) {
+                      <span class="status-pill locked">
+                        <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
+                      </span>
+                    }
+                  </div>
+                  <p class="toggle-desc">Academic Batches, Classrooms, Coaching Test Series &amp; Monthly Tuition Fees.</p>
+                </div>
+                <label class="switch" [class.locked-switch]="!isModuleLicensed('hasCoachingModule')" [matTooltip]="!isModuleLicensed('hasCoachingModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
+                  <input
+                    type="checkbox"
+                    [checked]="authService.hasCoachingModule()"
+                    [disabled]="updatingModules || !isModuleLicensed('hasCoachingModule')"
+                    (change)="toggleModule('hasCoachingModule')">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <!-- Hostel & Residential Module -->
+                <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasHostelModule')">
+                  <div class="toggle-icon-wrap hostel-icon-wrap">
+                    <mat-icon>apartment</mat-icon>
+                  </div>
+                  <div class="toggle-details">
+                    <div class="toggle-title-row">
+                      <span class="toggle-title">Hostel &amp; Residential Module</span>
+                      @if (isModuleLicensed('hasHostelModule')) {
+                        <span class="status-pill" [ngClass]="authService.hasHostelModule() ? 'green' : 'paused'">
+                          {{ authService.hasHostelModule() ? 'Active' : 'Disabled' }}
+                        </span>
+                      }
+                      @if (!isModuleLicensed('hasHostelModule')) {
+                        <span class="status-pill locked">
+                          <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
+                        </span>
+                      }
+                    </div>
+                    <p class="toggle-desc">Hostel Buildings, Bed Allotment, Room Rent, Mess Tracking &amp; Resident Lists.</p>
+                  </div>
+                  <label class="switch" [class.locked-switch]="!isModuleLicensed('hasHostelModule')" [matTooltip]="!isModuleLicensed('hasHostelModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
+                    <input
+                      type="checkbox"
+                      [checked]="authService.hasHostelModule()"
+                      [disabled]="updatingModules || !isModuleLicensed('hasHostelModule')"
+                      (change)="toggleModule('hasHostelModule')">
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                  <!-- Library Management Module -->
+                  <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasLibraryModule')">
+                    <div class="toggle-icon-wrap library-icon-wrap">
+                      <mat-icon>local_library</mat-icon>
+                    </div>
+                    <div class="toggle-details">
+                      <div class="toggle-title-row">
+                        <span class="toggle-title">Library Management Module</span>
+                        @if (isModuleLicensed('hasLibraryModule')) {
+                          <span class="status-pill" [ngClass]="authService.hasLibraryModule() ? 'green' : 'paused'">
+                            {{ authService.hasLibraryModule() ? 'Active' : 'Disabled' }}
+                          </span>
+                        }
+                        @if (!isModuleLicensed('hasLibraryModule')) {
+                          <span class="status-pill locked">
+                            <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
+                          </span>
+                        }
+                      </div>
+                      <p class="toggle-desc">Book Catalog, Circulation Issue/Return, Fines &amp; Reading Shifts.</p>
+                    </div>
+                    <label class="switch" [class.locked-switch]="!isModuleLicensed('hasLibraryModule')" [matTooltip]="!isModuleLicensed('hasLibraryModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
+                      <input
+                        type="checkbox"
+                        [checked]="authService.hasLibraryModule()"
+                        [disabled]="updatingModules || !isModuleLicensed('hasLibraryModule')"
+                        (change)="toggleModule('hasLibraryModule')">
+                        <span class="slider"></span>
+                      </label>
+                    </div>
+                    <!-- Transport & Fleet Module -->
+                    <div class="toggle-card" [class.disabled-card]="!isModuleLicensed('hasTransportModule')">
+                      <div class="toggle-icon-wrap transport-icon-wrap">
+                        <mat-icon>directions_bus</mat-icon>
+                      </div>
+                      <div class="toggle-details">
+                        <div class="toggle-title-row">
+                          <span class="toggle-title">Transport &amp; Fleet Module</span>
+                          @if (isModuleLicensed('hasTransportModule')) {
+                            <span class="status-pill" [ngClass]="authService.hasTransportModule() ? 'green' : 'paused'">
+                              {{ authService.hasTransportModule() ? 'Active' : 'Disabled' }}
+                            </span>
+                          }
+                          @if (!isModuleLicensed('hasTransportModule')) {
+                            <span class="status-pill locked">
+                              <mat-icon style="font-size:11px; width:11px; height:11px; vertical-align:middle; margin-right:2px;">lock</mat-icon> Not Subscribed
+                            </span>
+                          }
+                        </div>
+                        <p class="toggle-desc">Bus Fleet Management, Transport Routes, Stop Allotment &amp; Fees.</p>
+                      </div>
+                      <label class="switch" [class.locked-switch]="!isModuleLicensed('hasTransportModule')" [matTooltip]="!isModuleLicensed('hasTransportModule') ? 'Not included in your subscription. Contact SaaS Administrator.' : ''">
+                        <input
+                          type="checkbox"
+                          [checked]="authService.hasTransportModule()"
+                          [disabled]="updatingModules || !isModuleLicensed('hasTransportModule')"
+                          (change)="toggleModule('hasTransportModule')">
+                          <span class="slider"></span>
+                        </label>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              }
 
-          <div class="diag-btn-wrap">
-            <button
-              type="button"
-              class="clear-cache-btn"
-              (click)="clearCacheAndReload()">
-              <mat-icon>delete_sweep</mat-icon>
-              <span>Clear ERP Cache &amp; Refresh</span>
-            </button>
-          </div>
-        </div>
-      </section>
+              <!-- ═══════════ TAB 2: SMART AUTOMATION ═══════════ -->
+              @if (activeTab === 'automation' && canViewAutomation()) {
+                <div class="tab-content">
+                  <div class="automation-banner">
+                    <mat-icon class="banner-icon">auto_awesome</mat-icon>
+                    <div class="banner-text">
+                      <strong>School Automation Engine</strong>
+                      <span>Toggle real-time alerts, biometric syncing, and automated reminders.</span>
+                    </div>
+                  </div>
+                  <!-- Realtime Job Run Notification Banner -->
+                  @if (jobMessage) {
+                    <div class="job-status-banner" [class.success]="jobSuccess" [class.error]="!jobSuccess">
+                      <mat-icon>{{ jobSuccess ? 'check_circle' : 'error_outline' }}</mat-icon>
+                      <div class="banner-msg-content">
+                        <strong>{{ jobSuccess ? 'Automation Task Executed' : 'Execution Notice' }}</strong>
+                        <span>{{ jobMessage }}</span>
+                      </div>
+                    </div>
+                  }
+                  <div class="toggles-list">
+                    <!-- WhatsApp Fee Receipt -->
+                    <div class="toggle-card">
+                      <div class="toggle-icon-wrap wa-icon-wrap">
+                        <mat-icon>receipt_long</mat-icon>
+                      </div>
+                      <div class="toggle-details">
+                        <div class="toggle-title-row">
+                          <span class="toggle-title">WhatsApp Fee Receipts</span>
+                          <span class="status-pill green" [class.paused]="!settingsService.whatsappFeeAlerts()">
+                            {{ settingsService.whatsappFeeAlerts() ? 'Instant Auto-Send' : 'Disabled' }}
+                          </span>
+                        </div>
+                        <p class="toggle-desc">Automatically sends branded PDF fee receipts to parents' WhatsApp on payment collection.</p>
+                        <div class="toggle-actions-row">
+                          <button
+                            type="button"
+                            class="run-test-btn"
+                            (click)="onRunJob('whatsapp-receipts', $event)"
+                            [disabled]="runningJob === 'whatsapp-receipts' || !settingsService.whatsappFeeAlerts()"
+                            [matTooltip]="!settingsService.whatsappFeeAlerts() ? 'Enable toggle above to test WhatsApp gateway' : 'Test WhatsApp Gateway'">
+                            <mat-icon [class.spinning]="runningJob === 'whatsapp-receipts'">{{ runningJob === 'whatsapp-receipts' ? 'sync' : 'bolt' }}</mat-icon>
+                            <span>{{ runningJob === 'whatsapp-receipts' ? 'Testing Gateway...' : 'Test WhatsApp Gateway' }}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          [checked]="settingsService.whatsappFeeAlerts()"
+                          (change)="settingsService.toggleWhatsappFee()">
+                          <span class="slider"></span>
+                        </label>
+                      </div>
+                      <!-- Absent SMS / WhatsApp Alert -->
+                      <div class="toggle-card">
+                        <div class="toggle-icon-wrap absent-icon-wrap">
+                          <mat-icon>person_off</mat-icon>
+                        </div>
+                        <div class="toggle-details">
+                          <div class="toggle-title-row">
+                            <span class="toggle-title">Daily Absentee Alert</span>
+                            <span class="status-pill blue" [class.paused]="!settingsService.absentSmsAlerts()">
+                              {{ settingsService.absentSmsAlerts() ? 'Scheduled (10:30 AM)' : 'Paused' }}
+                            </span>
+                          </div>
+                          <p class="toggle-desc">Dispatches automated WhatsApp/SMS notifications to parents if student is marked absent.</p>
+                          <div class="toggle-actions-row">
+                            <button
+                              type="button"
+                              class="run-test-btn"
+                              (click)="onRunJob('absentee-alerts', $event)"
+                              [disabled]="runningJob === 'absentee-alerts' || !settingsService.absentSmsAlerts()"
+                              [matTooltip]="!settingsService.absentSmsAlerts() ? 'Enable toggle above to run absentee alert' : 'Run Absentee Alert Now'">
+                              <mat-icon [class.spinning]="runningJob === 'absentee-alerts'">{{ runningJob === 'absentee-alerts' ? 'sync' : 'play_arrow' }}</mat-icon>
+                              <span>{{ runningJob === 'absentee-alerts' ? 'Checking Absences...' : 'Run Absentee Alert Now' }}</span>
+                            </button>
+                          </div>
+                        </div>
+                        <label class="switch">
+                          <input
+                            type="checkbox"
+                            [checked]="settingsService.absentSmsAlerts()"
+                            (change)="settingsService.toggleAbsentSms()">
+                            <span class="slider"></span>
+                          </label>
+                        </div>
+                        <!-- Fee Due Reminders -->
+                        <div class="toggle-card">
+                          <div class="toggle-icon-wrap fee-icon-wrap">
+                            <mat-icon>notifications_active</mat-icon>
+                          </div>
+                          <div class="toggle-details">
+                            <div class="toggle-title-row">
+                              <span class="toggle-title">Fee Due Auto-Reminders</span>
+                              <span class="status-pill amber" [class.paused]="!settingsService.dueFeeReminders()">
+                                {{ settingsService.dueFeeReminders() ? 'Active (7-Days Prior)' : 'Paused' }}
+                              </span>
+                            </div>
+                            <p class="toggle-desc">Sends automatic payment reminders before invoice due dates to maintain zero overdue balances.</p>
+                            <div class="toggle-actions-row">
+                              <button
+                                type="button"
+                                class="run-test-btn"
+                                (click)="onRunJob('fee-reminders', $event)"
+                                [disabled]="runningJob === 'fee-reminders' || !settingsService.dueFeeReminders()"
+                                [matTooltip]="!settingsService.dueFeeReminders() ? 'Enable toggle above to dispatch fee reminders' : 'Dispatch Due Reminders Now'">
+                                <mat-icon [class.spinning]="runningJob === 'fee-reminders'">{{ runningJob === 'fee-reminders' ? 'sync' : 'send' }}</mat-icon>
+                                <span>{{ runningJob === 'fee-reminders' ? 'Scanning Invoices...' : 'Dispatch Due Reminders Now' }}</span>
+                              </button>
+                            </div>
+                          </div>
+                          <label class="switch">
+                            <input
+                              type="checkbox"
+                              [checked]="settingsService.dueFeeReminders()"
+                              (change)="settingsService.toggleDueFeeReminders()">
+                              <span class="slider"></span>
+                            </label>
+                          </div>
+                          <!-- Auto-Pilot Monthly Fee Invoicing (Pro) -->
+                          <div class="toggle-card">
+                            <div class="toggle-icon-wrap" style="background: #eff6ff; color: #2563eb;">
+                              <mat-icon>bolt</mat-icon>
+                            </div>
+                            <div class="toggle-details">
+                              <div class="toggle-title-row">
+                                <span class="toggle-title">Auto-Pilot Fee Invoicing (Pro)</span>
+                                <span class="status-pill green" [class.paused]="!settingsService.autoPilotInvoicing()">
+                                  {{ settingsService.autoPilotInvoicing() ? 'Scheduled (25th of Month)' : 'Disabled' }}
+                                </span>
+                              </div>
+                              <p class="toggle-desc">Automatically generates next month's invoices for all active students on the 25th with a 10th-day due date.</p>
+                              <div class="toggle-actions-row">
+                                <button
+                                  type="button"
+                                  class="run-test-btn"
+                                  (click)="onRunJob('autopilot', $event)"
+                                  [disabled]="runningJob === 'autopilot' || !settingsService.autoPilotInvoicing()"
+                                  [matTooltip]="!settingsService.autoPilotInvoicing() ? 'Please enable toggle above first to run Auto-Pilot' : 'Trigger Auto-Pilot invoice generation now'">
+                                  <mat-icon [class.spinning]="runningJob === 'autopilot'">{{ runningJob === 'autopilot' ? 'sync' : 'bolt' }}</mat-icon>
+                                  <span>{{ runningJob === 'autopilot' ? 'Generating Invoices...' : 'Run Auto-Pilot Invoicing Now' }}</span>
+                                </button>
+                              </div>
+                            </div>
+                            <label class="switch">
+                              <input
+                                type="checkbox"
+                                [checked]="settingsService.autoPilotInvoicing()"
+                                (change)="settingsService.toggleAutoPilotInvoicing()">
+                                <span class="slider"></span>
+                              </label>
+                            </div>
+                            <!-- Biometric / RFID Device Sync -->
+                            <div class="toggle-card">
+                              <div class="toggle-icon-wrap rfid-icon-wrap">
+                                <mat-icon>fingerprint</mat-icon>
+                              </div>
+                              <div class="toggle-details">
+                                <div class="toggle-title-row">
+                                  <span class="toggle-title">Biometric / RFID Realtime Sync</span>
+                                  <span class="status-pill purple" [class.paused]="!settingsService.biometricSync()">
+                                    {{ settingsService.biometricSync() ? 'Live Polling Engine' : 'Paused' }}
+                                  </span>
+                                </div>
+                                <p class="toggle-desc">Polls biometric hardware logs directly at gate entry and auto-marks class attendance.</p>
+                                <div class="toggle-actions-row">
+                                  <button
+                                    type="button"
+                                    class="run-test-btn"
+                                    (click)="onRunJob('biometric-sync', $event)"
+                                    [disabled]="runningJob === 'biometric-sync' || !settingsService.biometricSync()"
+                                    [matTooltip]="!settingsService.biometricSync() ? 'Enable toggle above to sync biometric devices' : 'Sync Biometric Gate Now'">
+                                    <mat-icon [class.spinning]="runningJob === 'biometric-sync'">{{ runningJob === 'biometric-sync' ? 'sync' : 'cached' }}</mat-icon>
+                                    <span>{{ runningJob === 'biometric-sync' ? 'Syncing Devices...' : 'Sync Biometric Gate Now' }}</span>
+                                  </button>
+                                </div>
+                              </div>
+                              <label class="switch">
+                                <input
+                                  type="checkbox"
+                                  [checked]="settingsService.biometricSync()"
+                                  (change)="settingsService.toggleBiometricSync()">
+                                  <span class="slider"></span>
+                                </label>
+                              </div>
+                              <!-- Late Fee Auto-Calculation -->
+                              <div class="toggle-card">
+                                <div class="toggle-icon-wrap late-icon-wrap">
+                                  <mat-icon>update</mat-icon>
+                                </div>
+                                <div class="toggle-details">
+                                  <div class="toggle-title-row">
+                                    <span class="toggle-title">Late Fee Rule Auto-Compute</span>
+                                    <span class="status-pill" [class.paused]="!settingsService.lateFeeCalc()">
+                                      {{ settingsService.lateFeeCalc() ? 'Rules Active (₹10/day)' : 'Disabled' }}
+                                    </span>
+                                  </div>
+                                  <p class="toggle-desc">Applies institute fine policy automatically to invoices past the defined grace period.</p>
+                                  <div class="toggle-actions-row">
+                                    <button
+                                      type="button"
+                                      class="run-test-btn"
+                                      (click)="onRunJob('late-fee', $event)"
+                                      [disabled]="runningJob === 'late-fee' || !settingsService.lateFeeCalc()"
+                                      [matTooltip]="!settingsService.lateFeeCalc() ? 'Enable toggle above to run late fee calculation' : 'Run Late Fee Auto-Compute'">
+                                      <mat-icon [class.spinning]="runningJob === 'late-fee'">{{ runningJob === 'late-fee' ? 'sync' : 'calculate' }}</mat-icon>
+                                      <span>{{ runningJob === 'late-fee' ? 'Applying Penalties...' : 'Run Late Fee Auto-Compute' }}</span>
+                                    </button>
+                                  </div>
+                                </div>
+                                <label class="switch">
+                                  <input
+                                    type="checkbox"
+                                    [checked]="settingsService.lateFeeCalc()"
+                                    (change)="settingsService.toggleLateFeeCalc()">
+                                    <span class="slider"></span>
+                                  </label>
+                                </div>
+                                <!-- Audio Chimes on Fee POS -->
+                                <div class="toggle-card">
+                                  <div class="toggle-icon-wrap audio-icon-wrap">
+                                    <mat-icon>volume_up</mat-icon>
+                                  </div>
+                                  <div class="toggle-details">
+                                    <div class="toggle-title-row">
+                                      <span class="toggle-title">POS Audio Feedback Chimes</span>
+                                      <button type="button" class="test-chime-link" (click)="playTestChime()">Test Sound</button>
+                                    </div>
+                                    <p class="toggle-desc">Plays a confirmation audio chime whenever fees are settled or attendance is registered.</p>
+                                  </div>
+                                  <label class="switch">
+                                    <input
+                                      type="checkbox"
+                                      [checked]="settingsService.soundEffects()"
+                                      (change)="settingsService.toggleSoundEffects()">
+                                      <span class="slider"></span>
+                                    </label>
+                                  </div>
+                                </div>
+                              </div>
+                            }
 
-    </div>
+                            <!-- ═══════════ TAB 3: APPEARANCE & THEME ═══════════ -->
+                            @if (activeTab === 'appearance' && canViewAppearance()) {
+                              <div class="tab-content">
+                                <!-- Theme Mode -->
+                                <section class="settings-section">
+                                  <h4 class="section-title">Color Scheme / Mode</h4>
+                                  <p class="section-desc">Choose between daytime light or modern dark slate theme</p>
+                                  <div class="theme-mode-selector">
+                                    <button
+                                      type="button"
+                                      class="mode-btn"
+                                      [class.active]="settingsService.theme() === 'light'"
+                                      (click)="setTheme('light')">
+                                      <mat-icon>light_mode</mat-icon>
+                                      <span>Light Mode</span>
+                                      @if (settingsService.theme() === 'light') {
+                                        <mat-icon class="mode-check">check_circle</mat-icon>
+                                      }
+                                    </button>
+                                    <button
+                                      type="button"
+                                      class="mode-btn"
+                                      [class.active]="settingsService.theme() === 'dark'"
+                                      (click)="setTheme('dark')">
+                                      <mat-icon>dark_mode</mat-icon>
+                                      <span>Dark Slate</span>
+                                      @if (settingsService.theme() === 'dark') {
+                                        <mat-icon class="mode-check">check_circle</mat-icon>
+                                      }
+                                    </button>
+                                    <button
+                                      type="button"
+                                      class="mode-btn"
+                                      [class.active]="settingsService.theme() === 'auto'"
+                                      (click)="setTheme('auto')">
+                                      <mat-icon>brightness_auto</mat-icon>
+                                      <span>System Auto</span>
+                                      @if (settingsService.theme() === 'auto') {
+                                        <mat-icon class="mode-check">check_circle</mat-icon>
+                                      }
+                                    </button>
+                                  </div>
+                                </section>
+                                <!-- Brand Accent Color Palette -->
+                                <section class="settings-section">
+                                  <h4 class="section-title">Primary Brand Accent Palette</h4>
+                                  <p class="section-desc">Select the primary accent color tailored for your institute's identity</p>
+                                  <div class="accent-palette-grid">
+                                    @for (acc of accentOptions; track acc) {
+                                      <button
+                                        type="button"
+                                        class="accent-pill-btn"
+                                        [class.selected]="settingsService.accent() === acc.id"
+                                        (click)="setAccent(acc.id)">
+                                        <span class="color-swatch" [style.background-color]="acc.hex">
+                                          @if (settingsService.accent() === acc.id) {
+                                            <mat-icon>check</mat-icon>
+                                          }
+                                        </span>
+                                        <span class="accent-name">{{ acc.name }}</span>
+                                      </button>
+                                    }
+                                  </div>
+                                  <!-- Default Color Featured Radio Button -->
+                                  <button
+                                    type="button"
+                                    class="default-color-featured-radio"
+                                    [class.active]="settingsService.accent() === 'default'"
+                                    (click)="setAccent('default')">
+                                  <div class="radio-content">
+                                    <span class="color-swatch-gradient">
+                                      @if (settingsService.accent() === 'default') {
+                                        <mat-icon>check</mat-icon>
+                                      }
+                                    </span>
+                                    <div class="radio-labels">
+                                      <strong class="radio-title">Default ERP Theme</strong>
+                                      <span class="radio-desc">Official Signature Deep Navy &amp; Royal Enterprise Blue</span>
+                                    </div>
+                                  </div>
+                                  <mat-icon class="radio-indicator">{{ settingsService.accent() === 'default' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                                </button>
+                              </section>
+                              <!-- Header Toolbar Theme -->
+                              <section class="settings-section">
+                                <h4 class="section-title">Header Toolbar Theme</h4>
+                                <p class="section-desc">Choose header styling: auto-sync with brand accent, crisp light, or dark slate</p>
+                                <div class="theme-mode-selector">
+                                  <button
+                                    type="button"
+                                    class="mode-btn"
+                                    [class.active]="settingsService.headerTheme() === 'accent'"
+                                    (click)="setHeaderTheme('accent')">
+                                    <mat-icon>palette</mat-icon>
+                                    <span>Brand Accent</span>
+                                    @if (settingsService.headerTheme() === 'accent') {
+                                      <mat-icon class="mode-check">check_circle</mat-icon>
+                                    }
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="mode-btn"
+                                    [class.active]="settingsService.headerTheme() === 'light'"
+                                    (click)="setHeaderTheme('light')">
+                                    <mat-icon>light_mode</mat-icon>
+                                    <span>Crisp Light</span>
+                                    @if (settingsService.headerTheme() === 'light') {
+                                      <mat-icon class="mode-check">check_circle</mat-icon>
+                                    }
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="mode-btn"
+                                    [class.active]="settingsService.headerTheme() === 'dark'"
+                                    (click)="setHeaderTheme('dark')">
+                                    <mat-icon>dark_mode</mat-icon>
+                                    <span>Dark Slate</span>
+                                    @if (settingsService.headerTheme() === 'dark') {
+                                      <mat-icon class="mode-check">check_circle</mat-icon>
+                                    }
+                                  </button>
+                                </div>
+                              </section>
+                              <!-- Layout Density -->
+                              <section class="settings-section">
+                                <h4 class="section-title">Display &amp; Table Density</h4>
+                                <p class="section-desc">Optimize interface spacing for high-volume fee registers and roster data</p>
+                                <div class="density-selector">
+                                  <button
+                                    type="button"
+                                    class="density-btn"
+                                    [class.active]="settingsService.density() === 'comfortable'"
+                                    (click)="setDensity('comfortable')">
+                                    <mat-icon>density_medium</mat-icon>
+                                    <div>
+                                      <strong>Comfortable</strong>
+                                      <span>Default spacious card and table padding</span>
+                                    </div>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="density-btn"
+                                    [class.active]="settingsService.density() === 'compact'"
+                                    (click)="setDensity('compact')">
+                                    <mat-icon>density_small</mat-icon>
+                                    <div>
+                                      <strong>Compact Mode</strong>
+                                      <span>High data density, condensed table rows</span>
+                                    </div>
+                                  </button>
+                                </div>
+                              </section>
+                            </div>
+                          }
 
-  </div>
+                          <!-- ═══════════ TAB 4: SHORTCUTS & DIAGNOSTICS ═══════════ -->
+                          @if (activeTab === 'shortcuts' && canViewShortcuts()) {
+                            <div class="tab-content">
+                              <!-- ERP Quick Master Shortcuts -->
+                              <section class="settings-section">
+                                <h4 class="section-title">Core Management Shortcuts</h4>
+                                <p class="section-desc">Instant access to key school configuration modules</p>
+                                <div class="shortcuts-grid">
+                                  <a routerLink="/fees" class="shortcut-card" (click)="onCloseDrawer()">
+                                    <div class="sc-icon-circle sc-fees">
+                                      <mat-icon>payments</mat-icon>
+                                    </div>
+                                    <div class="sc-text">
+                                      <span class="sc-title">Fee Collection &amp; Invoices</span>
+                                      <span class="sc-desc">Collect fees, void invoices &amp; dues</span>
+                                    </div>
+                                    <mat-icon class="sc-chevron">chevron_right</mat-icon>
+                                  </a>
+                                  <a routerLink="/students" class="shortcut-card" (click)="onCloseDrawer()">
+                                    <div class="sc-icon-circle sc-students">
+                                      <mat-icon>school</mat-icon>
+                                    </div>
+                                    <div class="sc-text">
+                                      <span class="sc-title">Student Admission Roster</span>
+                                      <span class="sc-desc">Enroll, batches &amp; student profiles</span>
+                                    </div>
+                                    <mat-icon class="sc-chevron">chevron_right</mat-icon>
+                                  </a>
+                                  <a routerLink="/attendance/reports" class="shortcut-card" (click)="onCloseDrawer()">
+                                    <div class="sc-icon-circle sc-attend">
+                                      <mat-icon>how_to_reg</mat-icon>
+                                    </div>
+                                    <div class="sc-text">
+                                      <span class="sc-title">Attendance &amp; Reports</span>
+                                      <span class="sc-desc">Daily marking, absentee audits</span>
+                                    </div>
+                                    <mat-icon class="sc-chevron">chevron_right</mat-icon>
+                                  </a>
+                                  <a routerLink="/teachers" class="shortcut-card" (click)="onCloseDrawer()">
+                                    <div class="sc-icon-circle sc-teachers">
+                                      <mat-icon>badge</mat-icon>
+                                    </div>
+                                    <div class="sc-text">
+                                      <span class="sc-title">Faculty &amp; Staff Master</span>
+                                      <span class="sc-desc">Teachers, salaries &amp; timetables</span>
+                                    </div>
+                                    <mat-icon class="sc-chevron">chevron_right</mat-icon>
+                                  </a>
+                                  <a routerLink="/holidays" class="shortcut-card" (click)="onCloseDrawer()">
+                                    <div class="sc-icon-circle sc-holidays">
+                                      <mat-icon>event</mat-icon>
+                                    </div>
+                                    <div class="sc-text">
+                                      <span class="sc-title">Holiday Calendar</span>
+                                      <span class="sc-desc">Yearly institute calendar events</span>
+                                    </div>
+                                    <mat-icon class="sc-chevron">chevron_right</mat-icon>
+                                  </a>
+                                  <a routerLink="/roles" class="shortcut-card" (click)="onCloseDrawer()">
+                                    <div class="sc-icon-circle sc-roles">
+                                      <mat-icon>admin_panel_settings</mat-icon>
+                                    </div>
+                                    <div class="sc-text">
+                                      <span class="sc-title">Roles &amp; Permissions</span>
+                                      <span class="sc-desc">Staff access control matrix</span>
+                                    </div>
+                                    <mat-icon class="sc-chevron">chevron_right</mat-icon>
+                                  </a>
+                                </div>
+                              </section>
+                              <!-- System Status & Cache Maintenance -->
+                              <section class="settings-section">
+                                <h4 class="section-title">Diagnostics &amp; Cache Maintenance</h4>
+                                <p class="section-desc">Check system connectivity and clear local storage</p>
+                                <div class="diagnostics-card">
+                                  <div class="diag-row">
+                                    <span class="diag-label">API Gateway Status</span>
+                                    <span class="diag-val online-badge">
+                                      <span class="live-dot"></span> Online (Active)
+                                    </span>
+                                  </div>
+                                  <div class="diag-row">
+                                    <span class="diag-label">ERP Architecture</span>
+                                    <span class="diag-val">Multi-Tenant Native Kestrel</span>
+                                  </div>
+                                  <div class="diag-row">
+                                    <span class="diag-label">Software Version</span>
+                                    <span class="diag-val">School ERP Pro v2.4.0</span>
+                                  </div>
+                                  <div class="diag-btn-wrap">
+                                    <button
+                                      type="button"
+                                      class="clear-cache-btn"
+                                      (click)="clearCacheAndReload()">
+                                      <mat-icon>delete_sweep</mat-icon>
+                                      <span>Clear ERP Cache &amp; Refresh</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </section>
+                            </div>
+                          }
 
-  <!-- Drawer Footer -->
-  <div class="drawer-footer">
-    <div class="footer-status">
-      <span class="status-indicator"></span>
-      <span class="status-text">All preferences synced</span>
-    </div>
-    <button
-      type="button"
-      class="done-btn"
-      (click)="onCloseDrawer()">
-      Done
-    </button>
-  </div>
+                        </div>
 
-</aside>
+                        <!-- Drawer Footer -->
+                        <div class="drawer-footer">
+                          <div class="footer-status">
+                            <span class="status-indicator"></span>
+                            <span class="status-text">All preferences synced</span>
+                          </div>
+                          <button
+                            type="button"
+                            class="done-btn"
+                            (click)="onCloseDrawer()">
+                            Done
+                          </button>
+                        </div>
+
+                      </aside>

@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,12 +9,11 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
   selector: 'app-idle-warning-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule
-  ],
+],
   template: `
     <div class="idle-modal-container">
       <div class="idle-icon-wrapper">
@@ -46,6 +45,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .idle-modal-container {
       padding: 24px 20px 20px;

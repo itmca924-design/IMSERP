@@ -1,4 +1,4 @@
-import { Component, Inject, inject } from '@angular/core';
+import { Component, Inject, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -25,8 +25,12 @@ import { environment } from '../../../environments/environment';
             <h2 class="main-title" [title]="data.material.title">{{ data.material.title }}</h2>
             <p class="subtitle">
               <span>{{ data.material.subject }}</span>
-              <span *ngIf="data.material.chapterName">&bull; {{ data.material.chapterName }}</span>
-              <span *ngIf="data.material.targetExam">&bull; <strong>{{ data.material.targetExam }}</strong></span>
+              @if (data.material.chapterName) {
+                <span>&bull; {{ data.material.chapterName }}</span>
+              }
+              @if (data.material.targetExam) {
+                <span>&bull; <strong>{{ data.material.targetExam }}</strong></span>
+              }
               <span class="type-badge">{{ data.material.materialType }}</span>
             </p>
           </div>
@@ -35,64 +39,69 @@ import { environment } from '../../../environments/environment';
             <mat-icon>close</mat-icon>
           </button>
         </div>
-
+    
         <div class="header-actions">
           <!-- Solution PDF toggle if available -->
-          <button 
-            mat-stroked-button 
-            color="accent" 
-            class="solution-btn"
-            *ngIf="data.material.solutionFileUrl"
-            (click)="toggleSolutionView()">
-            <mat-icon>{{ viewingSolution ? 'description' : 'key' }}</mat-icon>
-            <span>{{ viewingSolution ? 'View Question' : 'View Solutions' }}</span>
-          </button>
-
+          @if (data.material.solutionFileUrl) {
+            <button
+              mat-stroked-button
+              color="accent"
+              class="solution-btn"
+              (click)="toggleSolutionView()">
+              <mat-icon>{{ viewingSolution ? 'description' : 'key' }}</mat-icon>
+              <span>{{ viewingSolution ? 'View Question' : 'View Solutions' }}</span>
+            </button>
+          }
+    
           <!-- Download Button with auto counter -->
           <button mat-flat-button color="primary" class="download-btn" (click)="downloadCurrentFile()">
             <mat-icon>download</mat-icon>
             <span>Download {{ viewingSolution ? 'Solution' : 'Material' }}</span>
           </button>
-
+    
           <!-- Desktop Close Button -->
           <button mat-icon-button class="close-btn desktop-close-btn" (click)="dialogRef.close()" matTooltip="Close viewer">
             <mat-icon>close</mat-icon>
           </button>
         </div>
       </div>
-
+    
       <div class="viewer-body">
         <!-- Embedded IFrame for PDFs -->
-        <div class="iframe-container" *ngIf="isPdf(activeUrl)">
-          <iframe [src]="safeUrl" class="doc-iframe" title="Document Viewer"></iframe>
-        </div>
-
-        <!-- Fallback for Non-PDF files (DOCX, PPTX, ZIP, etc.) -->
-        <div class="non-pdf-fallback" *ngIf="!isPdf(activeUrl)">
-          <div class="fallback-card">
-            <div class="fallback-icon-wrap" [ngClass]="data.material.fileFormat">
-              <mat-icon>{{ getFormatIcon(data.material.fileFormat) }}</mat-icon>
-            </div>
-            <h3>{{ data.material.fileName }}</h3>
-            <p>This is a <strong>{{ data.material.fileFormat | uppercase }}</strong> file. Click below to download and open it on your device.</p>
-            
-            <div class="meta-strip">
-              <span>Size: <strong>{{ formatBytes(data.material.fileSizeBytes) }}</strong></span>
-              <span>Uploaded by: <strong>{{ data.material.uploadedByName }}</strong></span>
-            </div>
-
-            <button mat-flat-button color="primary" class="big-dl-btn" (click)="downloadCurrentFile()">
-              <mat-icon>download</mat-icon> Download {{ data.material.fileName }}
-            </button>
-
-            <a *ngIf="data.material.externalLink" [href]="data.material.externalLink" target="_blank" class="ext-link-btn">
-              <mat-icon>open_in_new</mat-icon> Open External Drive/Video Link
-            </a>
+        @if (isPdf(activeUrl)) {
+          <div class="iframe-container">
+            <iframe [src]="safeUrl" class="doc-iframe" title="Document Viewer"></iframe>
           </div>
-        </div>
+        }
+    
+        <!-- Fallback for Non-PDF files (DOCX, PPTX, ZIP, etc.) -->
+        @if (!isPdf(activeUrl)) {
+          <div class="non-pdf-fallback">
+            <div class="fallback-card">
+              <div class="fallback-icon-wrap" [ngClass]="data.material.fileFormat">
+                <mat-icon>{{ getFormatIcon(data.material.fileFormat) }}</mat-icon>
+              </div>
+              <h3>{{ data.material.fileName }}</h3>
+              <p>This is a <strong>{{ data.material.fileFormat | uppercase }}</strong> file. Click below to download and open it on your device.</p>
+              <div class="meta-strip">
+                <span>Size: <strong>{{ formatBytes(data.material.fileSizeBytes) }}</strong></span>
+                <span>Uploaded by: <strong>{{ data.material.uploadedByName }}</strong></span>
+              </div>
+              <button mat-flat-button color="primary" class="big-dl-btn" (click)="downloadCurrentFile()">
+                <mat-icon>download</mat-icon> Download {{ data.material.fileName }}
+              </button>
+              @if (data.material.externalLink) {
+                <a [href]="data.material.externalLink" target="_blank" class="ext-link-btn">
+                  <mat-icon>open_in_new</mat-icon> Open External Drive/Video Link
+                </a>
+              }
+            </div>
+          </div>
+        }
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       display: flex;

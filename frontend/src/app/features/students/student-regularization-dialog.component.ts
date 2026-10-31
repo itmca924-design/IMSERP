@@ -1,5 +1,6 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -55,10 +56,17 @@ export interface StudentAttendanceRegularizationDto {
   selector: 'app-apply-student-regularization-dialog',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, ReactiveFormsModule, MatDialogModule,
-    MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatTooltipModule, MatProgressBarModule
-  ],
+    FormsModule,
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatTooltipModule,
+    MatProgressBarModule
+],
   template: `
     <div class="fd-dialog-md">
       <!-- Header (Light Blue Gradient Matching ERP Rule) -->
@@ -74,41 +82,53 @@ export interface StudentAttendanceRegularizationDto {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="submitting"></mat-progress-bar>
-
+    
+      @if (submitting) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
       <form [formGroup]="form" (ngSubmit)="submit()">
         <div class="fd-dialog-body">
-
+    
           <!-- Student Profile Summary Pill -->
-          <div class="student-info-pill" *ngIf="preselectedStudent">
-            <div class="pill-avatar">{{ getInitials(preselectedStudent.studentName) }}</div>
-            <div class="pill-details">
-              <strong>{{ preselectedStudent.studentName }}</strong>
-              <small>Roll No: {{ preselectedStudent.rollNumber }} &bull; Class: {{ preselectedStudent.className || 'General' }} {{ preselectedStudent.sectionName ? '(' + preselectedStudent.sectionName + ')' : '' }}</small>
+          @if (preselectedStudent) {
+            <div class="student-info-pill">
+              <div class="pill-avatar">{{ getInitials(preselectedStudent.studentName) }}</div>
+              <div class="pill-details">
+                <strong>{{ preselectedStudent.studentName }}</strong>
+                <small>Roll No: {{ preselectedStudent.rollNumber }} &bull; Class: {{ preselectedStudent.className || 'General' }} {{ preselectedStudent.sectionName ? '(' + preselectedStudent.sectionName + ')' : '' }}</small>
+              </div>
+              <span class="locked-badge"><mat-icon>verified</mat-icon> Selected</span>
             </div>
-            <span class="locked-badge"><mat-icon>verified</mat-icon> Selected</span>
-          </div>
-
+          }
+    
           <!-- Student Selector (if not preselected) -->
-          <mat-form-field appearance="outline" class="w-100" *ngIf="!preselectedStudent">
-            <mat-label>Select Student *</mat-label>
-            <mat-select formControlName="studentId">
-              <mat-option *ngFor="let s of studentsList" [value]="s.id">
-                {{ s.studentName }} (Roll: {{ s.rollNumber }}) - {{ s.className || '' }} {{ s.sectionName || '' }}
-              </mat-option>
-            </mat-select>
-            <mat-error *ngIf="form.get('studentId')?.hasError('required')">Please select a student.</mat-error>
-          </mat-form-field>
-
+          @if (!preselectedStudent) {
+            <mat-form-field appearance="outline" class="w-100">
+              <mat-label>Select Student *</mat-label>
+              <mat-select formControlName="studentId">
+                @for (s of studentsList; track s) {
+                  <mat-option [value]="s.id">
+                    {{ s.studentName }} (Roll: {{ s.rollNumber }}) - {{ s.className || '' }} {{ s.sectionName || '' }}
+                  </mat-option>
+                }
+              </mat-select>
+              @if (form.get('studentId')?.hasError('required')) {
+                <mat-error>Please select a student.</mat-error>
+              }
+            </mat-form-field>
+          }
+    
           <!-- Attendance Date & Category Row -->
           <div class="form-row">
             <mat-form-field appearance="outline" class="flex-1">
               <mat-label>Attendance Date *</mat-label>
               <input matInput type="date" formControlName="attendanceDate" [max]="todayStr">
-              <mat-error *ngIf="form.get('attendanceDate')?.hasError('required')">Date is required.</mat-error>
+              @if (form.get('attendanceDate')?.hasError('required')) {
+                <mat-error>Date is required.</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="flex-1">
               <mat-label>Reason Category *</mat-label>
               <mat-select formControlName="reasonCategory">
@@ -120,7 +140,7 @@ export interface StudentAttendanceRegularizationDto {
               </mat-select>
             </mat-form-field>
           </div>
-
+    
           <!-- Requested Status & Document URL -->
           <div class="form-row">
             <mat-form-field appearance="outline" class="flex-1">
@@ -132,21 +152,23 @@ export interface StudentAttendanceRegularizationDto {
                 <mat-option value="Leave">Excused / Medical Leave</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="flex-1">
               <mat-label>Attachment / Proof URL (Optional)</mat-label>
               <input matInput formControlName="attachmentUrl" placeholder="https://... or certificate drive link">
               <mat-icon matSuffix>attachment</mat-icon>
             </mat-form-field>
           </div>
-
+    
           <!-- Reason / Details -->
           <mat-form-field appearance="outline" class="w-100">
             <mat-label>Reason & Justification *</mat-label>
             <textarea matInput formControlName="reason" rows="3" placeholder="Provide detailed justification (e.g. participated in Inter-school basketball championship, was present in biology lab during roll call, etc.)"></textarea>
-            <mat-error *ngIf="form.get('reason')?.hasError('required')">Reason is required for school records.</mat-error>
+            @if (form.get('reason')?.hasError('required')) {
+              <mat-error>Reason is required for school records.</mat-error>
+            }
           </mat-form-field>
-
+    
           <!-- Explanatory Notice -->
           <div class="info-alert-strip">
             <mat-icon>info</mat-icon>
@@ -155,15 +177,17 @@ export interface StudentAttendanceRegularizationDto {
               <p>Once submitted, this request will appear in your Class Teacher's regularizations inbox. When approved, the attendance register will be automatically updated.</p>
             </div>
           </div>
-
+    
           <!-- Error message -->
-          <div class="error-msg-strip" *ngIf="errorMsg">
-            <mat-icon>error_outline</mat-icon>
-            <span>{{ errorMsg }}</span>
-          </div>
-
+          @if (errorMsg) {
+            <div class="error-msg-strip">
+              <mat-icon>error_outline</mat-icon>
+              <span>{{ errorMsg }}</span>
+            </div>
+          }
+    
         </div>
-
+    
         <!-- Dialog Actions -->
         <div class="fd-dialog-actions">
           <button mat-stroked-button type="button" (click)="dialogRef.close(false)" [disabled]="submitting">Cancel</button>
@@ -174,7 +198,8 @@ export interface StudentAttendanceRegularizationDto {
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .fd-dialog-md {
       width: 100%;
@@ -392,10 +417,18 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
   selector: 'app-review-student-regularization-dialog',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, ReactiveFormsModule, MatDialogModule,
-    MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatTooltipModule, MatProgressBarModule
-  ],
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatTooltipModule,
+    MatProgressBarModule
+],
   template: `
     <div class="fd-dialog-md">
       <!-- Header -->
@@ -411,21 +444,25 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="submitting"></mat-progress-bar>
-
+    
+      @if (submitting) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
       <div class="fd-dialog-body">
-
+    
         <!-- Student & Date Overview Card -->
         <div class="review-details-card">
           <div class="detail-row">
             <span class="lbl">Student:</span>
             <strong class="val student-val">{{ reg.studentName }} (Roll: {{ reg.rollNumber }})</strong>
           </div>
-          <div class="detail-row" *ngIf="reg.className">
-            <span class="lbl">Class & Section:</span>
-            <span class="val">{{ reg.className }} {{ reg.sectionName ? '- Section ' + reg.sectionName : '' }}</span>
-          </div>
+          @if (reg.className) {
+            <div class="detail-row">
+              <span class="lbl">Class & Section:</span>
+              <span class="val">{{ reg.className }} {{ reg.sectionName ? '- Section ' + reg.sectionName : '' }}</span>
+            </div>
+          }
           <div class="detail-row">
             <span class="lbl">Attendance Date:</span>
             <strong class="val date-val">{{ reg.attendanceDate | date:'EEEE, dd MMMM yyyy' }}</strong>
@@ -440,18 +477,20 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
             <span class="lbl">Requested Status:</span>
             <span class="status-pill present">{{ reg.requestedStatus }}</span>
           </div>
-          <div class="detail-row" *ngIf="reg.attachmentUrl">
-            <span class="lbl">Supporting Proof:</span>
-            <a [href]="reg.attachmentUrl" target="_blank" class="attachment-link">
-              <mat-icon>open_in_new</mat-icon> View Attached Document
-            </a>
-          </div>
+          @if (reg.attachmentUrl) {
+            <div class="detail-row">
+              <span class="lbl">Supporting Proof:</span>
+              <a [href]="reg.attachmentUrl" target="_blank" class="attachment-link">
+                <mat-icon>open_in_new</mat-icon> View Attached Document
+              </a>
+            </div>
+          }
           <div class="reason-quote-box">
             <span class="quote-lbl">Student / Parent Justification:</span>
             <p class="quote-text">{{ reg.reason }}</p>
           </div>
         </div>
-
+    
         <!-- Decision Selector -->
         <div class="decision-section">
           <label class="decision-lbl">Decision *</label>
@@ -472,45 +511,50 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
             </button>
           </div>
         </div>
-
+    
         <!-- Custom Status Override if Approved -->
-        <mat-form-field appearance="outline" class="w-100" *ngIf="decision === 'Approve'">
-          <mat-label>Final Attendance Status</mat-label>
-          <mat-select [(ngModel)]="approvedStatus">
-            <mat-option value="Present">Present (Default)</mat-option>
-            <mat-option value="Late">Late Arrival</mat-option>
-            <mat-option value="HalfDay">Half Day</mat-option>
-            <mat-option value="Leave">Sanctioned Leave / OD</mat-option>
-          </mat-select>
-        </mat-form-field>
-
+        @if (decision === 'Approve') {
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Final Attendance Status</mat-label>
+            <mat-select [(ngModel)]="approvedStatus">
+              <mat-option value="Present">Present (Default)</mat-option>
+              <mat-option value="Late">Late Arrival</mat-option>
+              <mat-option value="HalfDay">Half Day</mat-option>
+              <mat-option value="Leave">Sanctioned Leave / OD</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
+    
         <!-- Remarks Input -->
         <mat-form-field appearance="outline" class="w-100">
           <mat-label>{{ decision === 'Approve' ? 'Teacher Remarks (Optional)' : 'Rejection Reason *' }}</mat-label>
           <textarea matInput [(ngModel)]="reviewRemarks" rows="2" [placeholder]="decision === 'Approve' ? 'e.g. Verified with event coordinator, present confirmed.' : 'Please explain why this request is rejected...'"></textarea>
         </mat-form-field>
-
+    
         <!-- Error Msg -->
-        <div class="error-msg-strip" *ngIf="errorMsg">
-          <mat-icon>error_outline</mat-icon>
-          <span>{{ errorMsg }}</span>
-        </div>
-
+        @if (errorMsg) {
+          <div class="error-msg-strip">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ errorMsg }}</span>
+          </div>
+        }
+    
       </div>
-
+    
       <!-- Dialog Actions -->
       <div class="fd-dialog-actions">
         <button mat-stroked-button type="button" (click)="dialogRef.close(false)" [disabled]="submitting">Dismiss</button>
         <button mat-raised-button
-                [color]="decision === 'Approve' ? 'primary' : 'warn'"
-                (click)="submitDecision()"
-                [disabled]="submitting || (decision === 'Reject' && (!reviewRemarks || reviewRemarks.trim().length === 0))">
+          [color]="decision === 'Approve' ? 'primary' : 'warn'"
+          (click)="submitDecision()"
+          [disabled]="submitting || (decision === 'Reject' && (!reviewRemarks || reviewRemarks.trim().length === 0))">
           <mat-icon>{{ submitting ? 'hourglass_top' : (decision === 'Approve' ? 'check' : 'close') }}</mat-icon>
           <span>{{ submitting ? 'Processing...' : (decision === 'Approve' ? 'Confirm Approval' : 'Confirm Rejection') }}</span>
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .fd-dialog-md {
       width: 100%;

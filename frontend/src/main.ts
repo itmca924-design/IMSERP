@@ -1,3 +1,4 @@
+import { provideZoneChangeDetection } from "@angular/core";
 import { bootstrapApplication } from '@angular/platform-browser';
 import { AppComponent } from './app/app.component';
 import { appConfig } from './app/app.config';
@@ -100,7 +101,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   }
 }
 
-bootstrapApplication(AppComponent, appConfig)
+bootstrapApplication(AppComponent, {...appConfig, providers: [provideZoneChangeDetection(), ...appConfig.providers]})
   .then(() => {
     // ── Progressive Web App (PWA) Service Worker Registration ──
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {

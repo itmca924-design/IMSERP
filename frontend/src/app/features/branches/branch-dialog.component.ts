@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -20,7 +20,6 @@ export interface BranchDialogData {
   selector: 'app-branch-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -31,7 +30,7 @@ export interface BranchDialogData {
     MatProgressBarModule,
     MatSlideToggleModule,
     MatIconModule
-  ],
+],
   template: `
     <div class="dialog-wrapper">
       <!-- Standard Dialog Header (Consistent with Batches & IMSERP Design) -->
@@ -47,12 +46,14 @@ export interface BranchDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="saving" class="dialog-loader"></mat-progress-bar>
-
+    
+      @if (saving) {
+        <mat-progress-bar mode="indeterminate" class="dialog-loader"></mat-progress-bar>
+      }
+    
       <form [formGroup]="branchForm" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
-
+    
           <!-- Info Callout -->
           <div class="info-callout">
             <mat-icon class="info-icon">auto_awesome</mat-icon>
@@ -60,80 +61,90 @@ export interface BranchDialogData {
               <strong>Multi-Campus Infrastructure:</strong> Branches enable localized fee collections, classroom allocations, teacher rosters, and batch tracking across physical centers.
             </div>
           </div>
-
+    
           <!-- Section: Identity & Location -->
           <div class="section-label">
             <mat-icon class="section-icon">storefront</mat-icon>
             <span>Campus Identity &amp; Location</span>
           </div>
-
+    
           <div class="form-grid">
             <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
               <mat-label>Branch Name *</mat-label>
               <input matInput formControlName="name" placeholder="e.g. Zenith Coaching Academy - South Extension" />
               <mat-icon matSuffix color="primary">store</mat-icon>
-              <mat-error *ngIf="branchForm.get('name')?.hasError('required')">Branch name is required</mat-error>
+              @if (branchForm.get('name')?.hasError('required')) {
+                <mat-error>Branch name is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Branch Code *</mat-label>
               <input matInput formControlName="code" placeholder="e.g. SOUTH, MAIN, EXT" (input)="onCodeInput($event)" />
               <mat-icon matSuffix color="primary">qr_code</mat-icon>
-              <mat-hint *ngIf="!isEditMode">Uppercase unique code</mat-hint>
-              <mat-error *ngIf="branchForm.get('code')?.hasError('required')">Code is required</mat-error>
+              @if (!isEditMode) {
+                <mat-hint>Uppercase unique code</mat-hint>
+              }
+              @if (branchForm.get('code')?.hasError('required')) {
+                <mat-error>Code is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Contact Phone</mat-label>
               <input matInput formControlName="contactPhone" placeholder="+91 98765 43210" />
               <mat-icon matSuffix color="primary">call</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Branch Email</mat-label>
               <input matInput formControlName="email" type="email" placeholder="campus@institute.com" />
               <mat-icon matSuffix color="primary">email</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
               <mat-label>Address &amp; Landmark</mat-label>
               <textarea matInput formControlName="address" rows="2" placeholder="Full physical street address, institutional area, or landmark..."></textarea>
               <mat-icon matSuffix color="primary">place</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="third-width" subscriptSizing="dynamic">
               <mat-label>City</mat-label>
               <input matInput formControlName="city" placeholder="e.g. Patna" />
               <mat-icon matSuffix color="primary">location_city</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="third-width" subscriptSizing="dynamic">
               <mat-label>State</mat-label>
               <input matInput formControlName="state" placeholder="e.g. Bihar" />
               <mat-icon matSuffix color="primary">map</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="third-width" subscriptSizing="dynamic">
               <mat-label>Pincode</mat-label>
               <input matInput formControlName="pincode" placeholder="e.g. 800001" maxlength="10" />
               <mat-icon matSuffix color="primary">pin_drop</mat-icon>
             </mat-form-field>
-
+    
             <!-- Main Branch Toggle (Creating only) -->
-            <div class="full-width toggle-card" *ngIf="!isEditMode">
-              <mat-slide-toggle formControlName="isMainBranch" color="primary">
-                <span class="toggle-text">Mark as Main Branch / Head Office</span>
-              </mat-slide-toggle>
-            </div>
-
+            @if (!isEditMode) {
+              <div class="full-width toggle-card">
+                <mat-slide-toggle formControlName="isMainBranch" color="primary">
+                  <span class="toggle-text">Mark as Main Branch / Head Office</span>
+                </mat-slide-toggle>
+              </div>
+            }
+    
             <!-- Active Status Toggle (Editing only) -->
-            <div class="full-width toggle-card" *ngIf="isEditMode">
-              <mat-slide-toggle formControlName="isActive" color="primary">
-                <span class="toggle-text">Active Branch (Accepting student admissions &amp; batches)</span>
-              </mat-slide-toggle>
-            </div>
+            @if (isEditMode) {
+              <div class="full-width toggle-card">
+                <mat-slide-toggle formControlName="isActive" color="primary">
+                  <span class="toggle-text">Active Branch (Accepting student admissions &amp; batches)</span>
+                </mat-slide-toggle>
+              </div>
+            }
           </div>
-
+    
           <!-- Live Summary Preview Card -->
           <div class="preview-box">
             <div class="preview-header">
@@ -141,49 +152,66 @@ export interface BranchDialogData {
                 <mat-icon class="preview-header-icon">summarize</mat-icon>
                 <span>Branch Summary Preview</span>
               </div>
-              <span class="code-pill" *ngIf="branchForm.get('code')?.value">{{ branchForm.get('code')?.value }}</span>
+              @if (branchForm.get('code')?.value) {
+                <span class="code-pill">{{ branchForm.get('code')?.value }}</span>
+              }
             </div>
             <div class="preview-body">
               <div class="preview-main-row">
                 <span class="preview-label">Branch:</span>
                 <strong class="preview-val highlight">{{ branchForm.get('name')?.value || '—' }}</strong>
               </div>
-              <div class="preview-meta-row" *ngIf="branchForm.get('contactPhone')?.value || branchForm.get('email')?.value || branchForm.get('address')?.value || branchForm.get('city')?.value">
-                <span *ngIf="branchForm.get('contactPhone')?.value" class="meta-item">
-                  <mat-icon class="meta-icon">call</mat-icon>
-                  <span>{{ branchForm.get('contactPhone')?.value }}</span>
-                </span>
-                <span *ngIf="branchForm.get('email')?.value" class="meta-item">
-                  <mat-icon class="meta-icon">email</mat-icon>
-                  <span>{{ branchForm.get('email')?.value }}</span>
-                </span>
-                <span *ngIf="getPreviewAddress()" class="meta-item meta-addr" [title]="getPreviewAddress()">
-                  <mat-icon class="meta-icon">place</mat-icon>
-                  <span>{{ getPreviewAddress() }}</span>
-                </span>
-              </div>
+              @if (branchForm.get('contactPhone')?.value || branchForm.get('email')?.value || branchForm.get('address')?.value || branchForm.get('city')?.value) {
+                <div class="preview-meta-row">
+                  @if (branchForm.get('contactPhone')?.value) {
+                    <span class="meta-item">
+                      <mat-icon class="meta-icon">call</mat-icon>
+                      <span>{{ branchForm.get('contactPhone')?.value }}</span>
+                    </span>
+                  }
+                  @if (branchForm.get('email')?.value) {
+                    <span class="meta-item">
+                      <mat-icon class="meta-icon">email</mat-icon>
+                      <span>{{ branchForm.get('email')?.value }}</span>
+                    </span>
+                  }
+                  @if (getPreviewAddress()) {
+                    <span class="meta-item meta-addr" [title]="getPreviewAddress()">
+                      <mat-icon class="meta-icon">place</mat-icon>
+                      <span>{{ getPreviewAddress() }}</span>
+                    </span>
+                  }
+                </div>
+              }
             </div>
           </div>
-
+    
           <!-- Error Alert Banner -->
-          <div *ngIf="errorMessage" class="error-banner">
-            <mat-icon>error_outline</mat-icon>
-            <span>{{ errorMessage }}</span>
-          </div>
-
+          @if (errorMessage) {
+            <div class="error-banner">
+              <mat-icon>error_outline</mat-icon>
+              <span>{{ errorMessage }}</span>
+            </div>
+          }
+    
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="branchForm.invalid || saving" class="submit-btn">
-            <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
-            <mat-icon *ngIf="!saving">{{ isEditMode ? 'save' : 'add_business' }}</mat-icon>
+            @if (saving) {
+              <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+            }
+            @if (!saving) {
+              <mat-icon>{{ isEditMode ? 'save' : 'add_business' }}</mat-icon>
+            }
             <span>{{ saving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Create Branch') }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

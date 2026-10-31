@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -48,33 +48,41 @@ import { AuthService } from '../../core/services/auth.service';
         <div class="unit-details">
           <span class="unit-label">Financial Period</span>
           <mat-select formControlName="financialYear" class="unit-select fy-select">
-            <mat-option *ngFor="let fy of availableFinancialYears" [value]="fy.value">
-              {{ fy.label }}
-            </mat-option>
+            @for (fy of availableFinancialYears; track fy) {
+              <mat-option [value]="fy.value">
+                {{ fy.label }}
+              </mat-option>
+            }
           </mat-select>
         </div>
       </div>
 
-      <div class="unit-separator" *ngIf="branches.length > 0"></div>
+      @if (branches.length > 0) {
+        <div class="unit-separator"></div>
+      }
 
       <!-- Campus / Branch Filter -->
-      <div class="control-unit unit-branch" *ngIf="branches.length > 0">
-        <div class="unit-icon-badge">
-          <mat-icon>apartment</mat-icon>
+      @if (branches.length > 0) {
+        <div class="control-unit unit-branch">
+          <div class="unit-icon-badge">
+            <mat-icon>apartment</mat-icon>
+          </div>
+          <div class="unit-details">
+            <span class="unit-label">Campus Scope</span>
+            <mat-select formControlName="branchId" class="unit-select branch-select">
+              <mat-select-trigger>
+                <span class="select-value-text">{{ getSelectedBranchName() }}</span>
+              </mat-select-trigger>
+              <mat-option [value]="null">All Campuses Consolidated</mat-option>
+              @for (b of branches; track b) {
+                <mat-option [value]="b.id">
+                  {{ b.name }}
+                </mat-option>
+              }
+            </mat-select>
+          </div>
         </div>
-        <div class="unit-details">
-          <span class="unit-label">Campus Scope</span>
-          <mat-select formControlName="branchId" class="unit-select branch-select">
-            <mat-select-trigger>
-              <span class="select-value-text">{{ getSelectedBranchName() }}</span>
-            </mat-select-trigger>
-            <mat-option [value]="null">All Campuses Consolidated</mat-option>
-            <mat-option *ngFor="let b of branches" [value]="b.id">
-              {{ b.name }}
-            </mat-option>
-          </mat-select>
-        </div>
-      </div>
+      }
 
       <div class="unit-separator"></div>
 
@@ -110,268 +118,286 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- Printable Header (Visible Only on Print) -->
   <div class="print-header only-print">
     <div class="print-title-box">
       <h2>IMSERP EDUCATIONAL INSTITUTION</h2>
       <h3>PROFIT &amp; LOSS STATEMENT (INCOME &amp; EXPENDITURE A/C)</h3>
-      <p>Financial Period: <strong>{{ report?.financialYear }}</strong> ({{ report?.fromDate | date:'mediumDate' }} to {{ report?.toDate | date:'mediumDate' }}) &bull; Campus: <strong>{{ report?.branchName }}</strong> &bull; Scope: <strong>{{ selectedAcademicScope === 'All' ? 'Hybrid Consolidated' : (selectedAcademicScope + ' Division') }}</strong></p>
+      <p>Financial Period: <strong>{{ report?.financialYear }}</strong> ({{ $safeNavigationMigration(report?.fromDate) | date:'mediumDate' }} to {{ $safeNavigationMigration(report?.toDate) | date:'mediumDate' }}) &bull; Campus: <strong>{{ report?.branchName }}</strong> &bull; Scope: <strong>{{ selectedAcademicScope === 'All' ? 'Hybrid Consolidated' : (selectedAcademicScope + ' Division') }}</strong></p>
     </div>
   </div>
 
   <!-- KPI Metrics Grid -->
-  <div class="kpi-grid" *ngIf="report">
-    <div class="kpi-card income">
-      <div class="kpi-icon income"><mat-icon>trending_up</mat-icon></div>
-      <div class="kpi-info">
-        <span class="kpi-label">Earned Revenue (Accrual)</span>
-        <span class="kpi-value text-green">₹{{ report.totalDirectIncome | number:'1.2-2' }}</span>
-        <div class="kpi-mini-stats">
-          <span class="stat-tag realized" matTooltip="Actual cash received in counter & bank">
-            Cash Collected: <strong>₹{{ (report.realizedCashCollections || 0) | number:'1.2-2' }}</strong>
+  @if (report) {
+    <div class="kpi-grid">
+      <div class="kpi-card income">
+        <div class="kpi-icon income"><mat-icon>trending_up</mat-icon></div>
+        <div class="kpi-info">
+          <span class="kpi-label">Earned Revenue (Accrual)</span>
+          <span class="kpi-value text-green">₹{{ report.totalDirectIncome | number:'1.2-2' }}</span>
+          <div class="kpi-mini-stats">
+            <span class="stat-tag realized" matTooltip="Actual cash received in counter & bank">
+              Cash Collected: <strong>₹{{ (report.realizedCashCollections || 0) | number:'1.2-2' }}</strong>
+            </span>
+            @if (report.accruedFeeReceivables) {
+              <span class="stat-tag pending" matTooltip="Billed tuition fees awaiting collection">
+                Pending Dues: <strong>₹{{ (report.accruedFeeReceivables || 0) | number:'1.2-2' }}</strong>
+              </span>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="kpi-card payroll">
+        <div class="kpi-icon payroll"><mat-icon>groups</mat-icon></div>
+        <div class="kpi-info">
+          <span class="kpi-label">Staff Payroll Outflow</span>
+          <span class="kpi-value text-orange">₹{{ report.totalPayrollExpense | number:'1.2-2' }}</span>
+          <span class="kpi-sub">{{ getPayrollShare() }}% of total institutional expenditure</span>
+        </div>
+      </div>
+      <div class="kpi-card opex">
+        <div class="kpi-icon opex"><mat-icon>storefront</mat-icon></div>
+        <div class="kpi-info">
+          <span class="kpi-label">Operational Outflow</span>
+          <span class="kpi-value text-amber">₹{{ report.totalOperatingExpense | number:'1.2-2' }}</span>
+          <span class="kpi-sub">Campus rent, fuel, utilities &amp; supplies</span>
+        </div>
+      </div>
+      <div class="kpi-card surplus" [ngClass]="{ 'loss': !report.isSurplus }">
+        <div class="kpi-icon" [ngClass]="report.isSurplus ? 'surplus' : 'loss'">
+          <mat-icon>{{ report.isSurplus ? 'verified' : 'warning' }}</mat-icon>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-label">{{ report.isSurplus ? 'Net Operating Surplus (Profit)' : 'Net Operating Deficit (Loss)' }}</span>
+          <span class="kpi-value" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
+            ₹{{ (report.isSurplus ? report.netProfitOrLoss : -report.netProfitOrLoss) | number:'1.2-2' }}
           </span>
-          <span class="stat-tag pending" *ngIf="report.accruedFeeReceivables" matTooltip="Billed tuition fees awaiting collection">
-            Pending Dues: <strong>₹{{ (report.accruedFeeReceivables || 0) | number:'1.2-2' }}</strong>
-          </span>
+          <span class="kpi-sub">Net Profit Margin: <strong>{{ report.profitMarginPercentage }}%</strong></span>
         </div>
       </div>
     </div>
-
-    <div class="kpi-card payroll">
-      <div class="kpi-icon payroll"><mat-icon>groups</mat-icon></div>
-      <div class="kpi-info">
-        <span class="kpi-label">Staff Payroll Outflow</span>
-        <span class="kpi-value text-orange">₹{{ report.totalPayrollExpense | number:'1.2-2' }}</span>
-        <span class="kpi-sub">{{ getPayrollShare() }}% of total institutional expenditure</span>
-      </div>
-    </div>
-
-    <div class="kpi-card opex">
-      <div class="kpi-icon opex"><mat-icon>storefront</mat-icon></div>
-      <div class="kpi-info">
-        <span class="kpi-label">Operational Outflow</span>
-        <span class="kpi-value text-amber">₹{{ report.totalOperatingExpense | number:'1.2-2' }}</span>
-        <span class="kpi-sub">Campus rent, fuel, utilities &amp; supplies</span>
-      </div>
-    </div>
-
-    <div class="kpi-card surplus" [ngClass]="{ 'loss': !report.isSurplus }">
-      <div class="kpi-icon" [ngClass]="report.isSurplus ? 'surplus' : 'loss'">
-        <mat-icon>{{ report.isSurplus ? 'verified' : 'warning' }}</mat-icon>
-      </div>
-      <div class="kpi-info">
-        <span class="kpi-label">{{ report.isSurplus ? 'Net Operating Surplus (Profit)' : 'Net Operating Deficit (Loss)' }}</span>
-        <span class="kpi-value" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
-          ₹{{ (report.isSurplus ? report.netProfitOrLoss : -report.netProfitOrLoss) | number:'1.2-2' }}
-        </span>
-        <span class="kpi-sub">Net Profit Margin: <strong>{{ report.profitMarginPercentage }}%</strong></span>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- Two-Column Statement Layout (Incomes vs Expenses) -->
-  <div class="statement-grid" *ngIf="report">
-    <!-- Left Column: Incomes / Receipts -->
-    <div class="statement-card income-side">
-      <div class="statement-header income">
-        <div class="card-title-group">
-          <mat-icon>add_circle_outline</mat-icon>
-          <h3>Direct Incomes &amp; Academic Receipts (Credit)</h3>
+  @if (report) {
+    <div class="statement-grid">
+      <!-- Left Column: Incomes / Receipts -->
+      <div class="statement-card income-side">
+        <div class="statement-header income">
+          <div class="card-title-group">
+            <mat-icon>add_circle_outline</mat-icon>
+            <h3>Direct Incomes &amp; Academic Receipts (Credit)</h3>
+          </div>
+          <span class="header-total text-green">₹{{ report.totalDirectIncome | number:'1.2-2' }}</span>
         </div>
-        <span class="header-total text-green">₹{{ report.totalDirectIncome | number:'1.2-2' }}</span>
+        <div class="statement-body">
+          <table class="statement-table">
+            <thead>
+              <tr>
+                <th>Particulars (Fee Heads)</th>
+                <th class="text-right">Share %</th>
+                <th class="text-right">Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (inc of report.incomes; track inc) {
+                <tr>
+                  <td>
+                    <div class="head-title-row">
+                      <span class="head-title">{{ inc.headName }}</span>
+                      @if (inc.division) {
+                        <span class="division-badge">{{ inc.division }}</span>
+                      }
+                    </div>
+                    <div class="progress-wrap">
+                      <div class="progress-bar-fill green" [style.width.%]="inc.percentageOfTotal"></div>
+                    </div>
+                  </td>
+                  <td class="text-right text-muted">{{ inc.percentageOfTotal }}%</td>
+                  <td class="text-right font-bold">₹{{ inc.amount | number:'1.2-2' }}</td>
+                </tr>
+              }
+              @if (report.incomes.length === 0) {
+                <tr>
+                  <td colspan="3" class="text-center text-muted empty-cell">No fee receipts recorded in this financial period.</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="total-row income-total">
+                <td>Total Receipts &amp; Incomes (A)</td>
+                <td class="text-right">100.0%</td>
+                <td class="text-right">₹{{ report.totalDirectIncome | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
-
-      <div class="statement-body">
-        <table class="statement-table">
-          <thead>
-            <tr>
-              <th>Particulars (Fee Heads)</th>
-              <th class="text-right">Share %</th>
-              <th class="text-right">Amount (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let inc of report.incomes">
-              <td>
-                <div class="head-title-row">
-                  <span class="head-title">{{ inc.headName }}</span>
-                  <span class="division-badge" *ngIf="inc.division">{{ inc.division }}</span>
-                </div>
-                <div class="progress-wrap">
-                  <div class="progress-bar-fill green" [style.width.%]="inc.percentageOfTotal"></div>
-                </div>
-              </td>
-              <td class="text-right text-muted">{{ inc.percentageOfTotal }}%</td>
-              <td class="text-right font-bold">₹{{ inc.amount | number:'1.2-2' }}</td>
-            </tr>
-            <tr *ngIf="report.incomes.length === 0">
-              <td colspan="3" class="text-center text-muted empty-cell">No fee receipts recorded in this financial period.</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr class="total-row income-total">
-              <td>Total Receipts &amp; Incomes (A)</td>
-              <td class="text-right">100.0%</td>
-              <td class="text-right">₹{{ report.totalDirectIncome | number:'1.2-2' }}</td>
-            </tr>
-          </tfoot>
-        </table>
+      <!-- Right Column: Operating & Personnel Expenditures -->
+      <div class="statement-card expense-side">
+        <div class="statement-header expense">
+          <div class="card-title-group">
+            <mat-icon>remove_circle_outline</mat-icon>
+            <h3>Expenditures &amp; Operational Costs (Debit)</h3>
+          </div>
+          <span class="header-total text-red">₹{{ report.totalExpense | number:'1.2-2' }}</span>
+        </div>
+        <div class="statement-body">
+          <table class="statement-table">
+            <thead>
+              <tr>
+                <th>Particulars (Expense Heads)</th>
+                <th class="text-right">Share %</th>
+                <th class="text-right">Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (exp of report.expenses; track exp) {
+                <tr>
+                  <td>
+                    <div class="head-title">
+                      {{ exp.headName }}
+                      @if (exp.isPayroll) {
+                        <span class="payroll-tag">HR / Payroll</span>
+                      }
+                    </div>
+                    <div class="progress-wrap">
+                      <div class="progress-bar-fill red" [style.width.%]="exp.percentageOfTotal"></div>
+                    </div>
+                  </td>
+                  <td class="text-right text-muted">{{ exp.percentageOfTotal }}%</td>
+                  <td class="text-right font-bold">₹{{ exp.amount | number:'1.2-2' }}</td>
+                </tr>
+              }
+              @if (report.expenses.length === 0) {
+                <tr>
+                  <td colspan="3" class="text-center text-muted empty-cell">No expense vouchers or salary payments recorded in this period.</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="total-row expense-total">
+                <td>Total Operating Costs (B)</td>
+                <td class="text-right">100.0%</td>
+                <td class="text-right">₹{{ report.totalExpense | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
     </div>
-
-    <!-- Right Column: Operating & Personnel Expenditures -->
-    <div class="statement-card expense-side">
-      <div class="statement-header expense">
-        <div class="card-title-group">
-          <mat-icon>remove_circle_outline</mat-icon>
-          <h3>Expenditures &amp; Operational Costs (Debit)</h3>
-        </div>
-        <span class="header-total text-red">₹{{ report.totalExpense | number:'1.2-2' }}</span>
-      </div>
-
-      <div class="statement-body">
-        <table class="statement-table">
-          <thead>
-            <tr>
-              <th>Particulars (Expense Heads)</th>
-              <th class="text-right">Share %</th>
-              <th class="text-right">Amount (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let exp of report.expenses">
-              <td>
-                <div class="head-title">
-                  {{ exp.headName }}
-                  <span class="payroll-tag" *ngIf="exp.isPayroll">HR / Payroll</span>
-                </div>
-                <div class="progress-wrap">
-                  <div class="progress-bar-fill red" [style.width.%]="exp.percentageOfTotal"></div>
-                </div>
-              </td>
-              <td class="text-right text-muted">{{ exp.percentageOfTotal }}%</td>
-              <td class="text-right font-bold">₹{{ exp.amount | number:'1.2-2' }}</td>
-            </tr>
-            <tr *ngIf="report.expenses.length === 0">
-              <td colspan="3" class="text-center text-muted empty-cell">No expense vouchers or salary payments recorded in this period.</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr class="total-row expense-total">
-              <td>Total Operating Costs (B)</td>
-              <td class="text-right">100.0%</td>
-              <td class="text-right">₹{{ report.totalExpense | number:'1.2-2' }}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- Summary Balance Strip -->
-  <div class="summary-balance-strip" *ngIf="report" [ngClass]="report.isSurplus ? 'surplus' : 'deficit'">
-    <div class="strip-left">
-      <mat-icon class="strip-icon">{{ report.isSurplus ? 'monetization_on' : 'error' }}</mat-icon>
-      <div>
-        <h4>{{ report.isSurplus ? 'NET SURPLUS TRANSFERRED TO BALANCE SHEET EQUITY' : 'NET OPERATING DEFICIT (LOSS)' }}</h4>
-        <p>Calculation: Total Incomes (₹{{ report.totalDirectIncome | number:'1.2-2' }}) &minus; Total Expenditures (₹{{ report.totalExpense | number:'1.2-2' }})</p>
+  @if (report) {
+    <div class="summary-balance-strip" [ngClass]="report.isSurplus ? 'surplus' : 'deficit'">
+      <div class="strip-left">
+        <mat-icon class="strip-icon">{{ report.isSurplus ? 'monetization_on' : 'error' }}</mat-icon>
+        <div>
+          <h4>{{ report.isSurplus ? 'NET SURPLUS TRANSFERRED TO BALANCE SHEET EQUITY' : 'NET OPERATING DEFICIT (LOSS)' }}</h4>
+          <p>Calculation: Total Incomes (₹{{ report.totalDirectIncome | number:'1.2-2' }}) &minus; Total Expenditures (₹{{ report.totalExpense | number:'1.2-2' }})</p>
+        </div>
+      </div>
+      <div class="strip-right">
+        <div class="strip-amount">{{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}</div>
+        <div class="strip-margin">{{ report.profitMarginPercentage }}% Net Profit Margin</div>
       </div>
     </div>
-    <div class="strip-right">
-      <div class="strip-amount">{{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}</div>
-      <div class="strip-margin">{{ report.profitMarginPercentage }}% Net Profit Margin</div>
-    </div>
-  </div>
+  }
 
   <!-- 12-Month Monthly Trend Grid -->
-  <div class="trend-card no-print" *ngIf="report && report.monthlyTrends.length > 0">
-    <div class="trend-header">
-      <div class="card-title-group">
-        <mat-icon>calendar_month</mat-icon>
-        <h3>Monthly Financial Breakdown &amp; Cash Flow Trends</h3>
+  @if (report && report.monthlyTrends.length > 0) {
+    <div class="trend-card no-print">
+      <div class="trend-header">
+        <div class="card-title-group">
+          <mat-icon>calendar_month</mat-icon>
+          <h3>Monthly Financial Breakdown &amp; Cash Flow Trends</h3>
+        </div>
+        <span class="text-xs text-muted">12-Month Progression (April &minus; March)</span>
       </div>
-      <span class="text-xs text-muted">12-Month Progression (April &minus; March)</span>
+      <div class="trend-table-wrapper">
+        <table class="trend-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th class="text-right">Monthly Income (अर्जित आय)</th>
+              <th class="text-right">Fees Collected (वसूल शुल्क)</th>
+              <th class="text-right">Total Outflow (कुल खर्च)</th>
+              <th class="text-right">Net Surplus / Deficit</th>
+              <th class="text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of report.monthlyTrends; track m) {
+              <tr>
+                <td class="font-bold">{{ m.monthName }}</td>
+                <td class="text-right text-green font-bold">₹{{ m.totalIncome | number:'1.2-2' }}</td>
+                <td class="text-right font-medium">₹{{ (m.realizedCollections ?? m.totalIncome) | number:'1.2-2' }}</td>
+                <td class="text-right text-red font-semibold">₹{{ m.totalExpense | number:'1.2-2' }}</td>
+                <td class="text-right font-bold" [ngClass]="m.netSurplus > 0 ? 'text-green' : (m.netSurplus < 0 ? 'text-red' : 'text-muted')">
+                  {{ m.netSurplus < 0 ? '-₹' + ((-m.netSurplus) | number:'1.2-2') : '₹' + (m.netSurplus | number:'1.2-2') }}
+                </td>
+                <td class="text-center">
+                  <span class="status-pill" [ngClass]="m.netSurplus > 0 ? 'pill-surplus' : (m.netSurplus < 0 ? 'pill-deficit' : 'pill-neutral')">
+                    {{ m.netSurplus > 0 ? 'Surplus' : (m.netSurplus < 0 ? 'Deficit' : 'Nil') }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="trend-total-row" [ngClass]="report.isSurplus ? 'total-surplus' : 'total-deficit'">
+              <td class="font-extrabold total-cell-title">
+                <div class="total-title-wrap">
+                  <mat-icon class="total-icon">{{ report.isSurplus ? 'trending_up' : 'trending_down' }}</mat-icon>
+                  <span>Annual Cumulative Total (FY {{ report.financialYear }})</span>
+                </div>
+              </td>
+              <td class="text-right text-green font-extrabold total-val">₹{{ report.totalDirectIncome | number:'1.2-2' }}</td>
+              <td class="text-right font-extrabold total-val">₹{{ (report.realizedCashCollections || 0) | number:'1.2-2' }}</td>
+              <td class="text-right text-red font-extrabold total-val">₹{{ report.totalExpense | number:'1.2-2' }}</td>
+              <td class="text-right font-black total-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
+                {{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}
+              </td>
+              <td class="text-center">
+                <span class="status-pill total-pill" [ngClass]="report.isSurplus ? 'pill-surplus' : 'pill-deficit'">
+                  {{ report.isSurplus ? 'Full Year Profit' : 'Full Year Deficit' }}
+                </span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <!-- Annual Financial Health Highlights Footer -->
+      <div class="trend-footer-banner" [ngClass]="report.isSurplus ? 'surplus' : 'deficit'">
+        <div class="banner-stat">
+          <span class="stat-lbl">Annual Income (कुल वार्षिक आय)</span>
+          <strong class="stat-val text-green">₹{{ report.totalDirectIncome | number:'1.2-2' }}</strong>
+        </div>
+        <div class="banner-divider"></div>
+        <div class="banner-stat">
+          <span class="stat-lbl">Annual Expenses (कुल वार्षिक खर्चे)</span>
+          <strong class="stat-val text-red">₹{{ report.totalExpense | number:'1.2-2' }}</strong>
+        </div>
+        <div class="banner-divider"></div>
+        <div class="banner-stat main-result">
+          <span class="stat-lbl">{{ report.isSurplus ? 'Net Annual Profit (पूरे साल का शुद्ध लाभ)' : 'Net Annual Deficit (पूरे साल का कुल घाटा)' }}</span>
+          <strong class="stat-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
+            {{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}
+          </strong>
+        </div>
+        <div class="banner-divider"></div>
+        <div class="banner-stat">
+          <span class="stat-lbl">Net Margin</span>
+          <strong class="stat-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">{{ report.profitMarginPercentage }}%</strong>
+        </div>
+      </div>
     </div>
-
-    <div class="trend-table-wrapper">
-      <table class="trend-table">
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th class="text-right">Monthly Income (अर्जित आय)</th>
-            <th class="text-right">Fees Collected (वसूल शुल्क)</th>
-            <th class="text-right">Total Outflow (कुल खर्च)</th>
-            <th class="text-right">Net Surplus / Deficit</th>
-            <th class="text-center">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let m of report.monthlyTrends">
-            <td class="font-bold">{{ m.monthName }}</td>
-            <td class="text-right text-green font-bold">₹{{ m.totalIncome | number:'1.2-2' }}</td>
-            <td class="text-right font-medium">₹{{ (m.realizedCollections ?? m.totalIncome) | number:'1.2-2' }}</td>
-            <td class="text-right text-red font-semibold">₹{{ m.totalExpense | number:'1.2-2' }}</td>
-            <td class="text-right font-bold" [ngClass]="m.netSurplus > 0 ? 'text-green' : (m.netSurplus < 0 ? 'text-red' : 'text-muted')">
-              {{ m.netSurplus < 0 ? '-₹' + ((-m.netSurplus) | number:'1.2-2') : '₹' + (m.netSurplus | number:'1.2-2') }}
-            </td>
-            <td class="text-center">
-              <span class="status-pill" [ngClass]="m.netSurplus > 0 ? 'pill-surplus' : (m.netSurplus < 0 ? 'pill-deficit' : 'pill-neutral')">
-                {{ m.netSurplus > 0 ? 'Surplus' : (m.netSurplus < 0 ? 'Deficit' : 'Nil') }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr class="trend-total-row" [ngClass]="report.isSurplus ? 'total-surplus' : 'total-deficit'">
-            <td class="font-extrabold total-cell-title">
-              <div class="total-title-wrap">
-                <mat-icon class="total-icon">{{ report.isSurplus ? 'trending_up' : 'trending_down' }}</mat-icon>
-                <span>Annual Cumulative Total (FY {{ report.financialYear }})</span>
-              </div>
-            </td>
-            <td class="text-right text-green font-extrabold total-val">₹{{ report.totalDirectIncome | number:'1.2-2' }}</td>
-            <td class="text-right font-extrabold total-val">₹{{ (report.realizedCashCollections || 0) | number:'1.2-2' }}</td>
-            <td class="text-right text-red font-extrabold total-val">₹{{ report.totalExpense | number:'1.2-2' }}</td>
-            <td class="text-right font-black total-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
-              {{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}
-            </td>
-            <td class="text-center">
-              <span class="status-pill total-pill" [ngClass]="report.isSurplus ? 'pill-surplus' : 'pill-deficit'">
-                {{ report.isSurplus ? 'Full Year Profit' : 'Full Year Deficit' }}
-              </span>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-
-    <!-- Annual Financial Health Highlights Footer -->
-    <div class="trend-footer-banner" [ngClass]="report.isSurplus ? 'surplus' : 'deficit'">
-      <div class="banner-stat">
-        <span class="stat-lbl">Annual Income (कुल वार्षिक आय)</span>
-        <strong class="stat-val text-green">₹{{ report.totalDirectIncome | number:'1.2-2' }}</strong>
-      </div>
-      <div class="banner-divider"></div>
-      <div class="banner-stat">
-        <span class="stat-lbl">Annual Expenses (कुल वार्षिक खर्चे)</span>
-        <strong class="stat-val text-red">₹{{ report.totalExpense | number:'1.2-2' }}</strong>
-      </div>
-      <div class="banner-divider"></div>
-      <div class="banner-stat main-result">
-        <span class="stat-lbl">{{ report.isSurplus ? 'Net Annual Profit (पूरे साल का शुद्ध लाभ)' : 'Net Annual Deficit (पूरे साल का कुल घाटा)' }}</span>
-        <strong class="stat-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">
-          {{ report.netProfitOrLoss < 0 ? '-₹' + ((-report.netProfitOrLoss) | number:'1.2-2') : '₹' + (report.netProfitOrLoss | number:'1.2-2') }}
-        </strong>
-      </div>
-      <div class="banner-divider"></div>
-      <div class="banner-stat">
-        <span class="stat-lbl">Net Margin</span>
-        <strong class="stat-val" [ngClass]="report.isSurplus ? 'text-green' : 'text-red'">{{ report.profitMarginPercentage }}%</strong>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- Signature Row (Print Only) -->
   <div class="print-signatures only-print">
@@ -389,7 +415,8 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       padding: 0 0 40px;

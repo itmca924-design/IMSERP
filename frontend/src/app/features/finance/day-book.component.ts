@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,7 +22,6 @@ import { BranchService, BranchDto } from '../../core/services/branch.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
-import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 
 @Component({
   selector: 'app-day-book',
@@ -44,8 +43,7 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
     MatChipsModule,
     MatPaginatorModule,
     MatSortModule,
-    IstDatetimeDirective,
-    LocalDatetimePipe
+    IstDatetimeDirective
   ],
   template: `
 <div class="page-container" [formGroup]="filterForm">
@@ -79,26 +77,32 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
         </div>
       </div>
 
-      <div class="unit-separator" *ngIf="branches.length > 0"></div>
+      @if (branches.length > 0) {
+        <div class="unit-separator"></div>
+      }
 
       <!-- Campus / Branch Filter -->
-      <div class="control-unit branch-unit" *ngIf="branches.length > 0">
-        <div class="unit-icon-badge">
-          <mat-icon>apartment</mat-icon>
+      @if (branches.length > 0) {
+        <div class="control-unit branch-unit">
+          <div class="unit-icon-badge">
+            <mat-icon>apartment</mat-icon>
+          </div>
+          <div class="unit-details">
+            <span class="unit-label">Campus Scope</span>
+            <mat-select formControlName="branchId" class="unit-select branch-select">
+              <mat-select-trigger>
+                <span class="select-value-text">{{ getSelectedBranchName() }}</span>
+              </mat-select-trigger>
+              <mat-option [value]="null">All Campuses Consolidated</mat-option>
+              @for (b of branches; track b) {
+                <mat-option [value]="b.id">
+                  {{ b.name }}
+                </mat-option>
+              }
+            </mat-select>
+          </div>
         </div>
-        <div class="unit-details">
-          <span class="unit-label">Campus Scope</span>
-          <mat-select formControlName="branchId" class="unit-select branch-select">
-            <mat-select-trigger>
-              <span class="select-value-text">{{ getSelectedBranchName() }}</span>
-            </mat-select-trigger>
-            <mat-option [value]="null">All Campuses Consolidated</mat-option>
-            <mat-option *ngFor="let b of branches" [value]="b.id">
-              {{ b.name }}
-            </mat-option>
-          </mat-select>
-        </div>
-      </div>
+      }
 
       <div class="unit-separator"></div>
 
@@ -120,45 +124,51 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
       <div class="unit-separator"></div>
 
       <!-- Action Buttons -->
-        <div class="deck-actions">
-          <button mat-button class="smart-btn refresh-btn" (click)="loadDayBook()" matTooltip="Reload Day Book" [disabled]="loading">
-            <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
-            <span class="btn-text">Refresh</span>
-          </button>
+      <div class="deck-actions">
+        <button mat-button class="smart-btn refresh-btn" (click)="loadDayBook()" matTooltip="Reload Day Book" [disabled]="loading">
+          <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
+          <span class="btn-text">Refresh</span>
+        </button>
 
-          <button mat-flat-button color="primary" class="smart-btn print-btn" (click)="printDayBook()" matTooltip="Print Daily Journal Sheet" [disabled]="loading || !report">
-            <mat-icon>print</mat-icon>
-            <span class="btn-text">Print Day Book</span>
-          </button>
+        <button mat-flat-button color="primary" class="smart-btn print-btn" (click)="printDayBook()" matTooltip="Print Daily Journal Sheet" [disabled]="loading || !report">
+          <mat-icon>print</mat-icon>
+          <span class="btn-text">Print Day Book</span>
+        </button>
 
-          <button mat-stroked-button class="smart-btn export-btn" (click)="exportToCSV()" matTooltip="Export to CSV / Excel" [disabled]="loading || !filteredTransactions.length">
-            <mat-icon>download</mat-icon>
-            <span class="btn-text">Export CSV</span>
-          </button>
-        </div>
+        <button mat-stroked-button class="smart-btn export-btn" (click)="exportToCSV()" matTooltip="Export to CSV / Excel" [disabled]="loading || !filteredTransactions.length">
+          <mat-icon>download</mat-icon>
+          <span class="btn-text">Export CSV</span>
+        </button>
       </div>
     </div>
+  </div>
 
   <!-- Loading Bar -->
-  <mat-progress-bar *ngIf="loading" mode="indeterminate" class="global-progress no-print"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate" class="global-progress no-print"></mat-progress-bar>
+  }
 
   <!-- Error Alert -->
-  <div *ngIf="error" class="error-banner no-print">
-    <mat-icon>error_outline</mat-icon>
-    <span>{{ error }}</span>
-    <button mat-button (click)="loadDayBook()">Try Again</button>
-  </div>
+  @if (error) {
+    <div class="error-banner no-print">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+      <button mat-button (click)="loadDayBook()">Try Again</button>
+    </div>
+  }
 
   <!-- Date Preset Fast Switcher & Filter Pills -->
   <div class="filters-strip no-print">
     <div class="presets-group">
       <span class="strip-label">Quick Jump:</span>
-      <button *ngFor="let p of quickDatePresets"
-              class="preset-pill"
-              [class.active]="isPresetDateActive(p.date)"
-              (click)="setPresetDate(p.date)">
-        {{ p.label }}
-      </button>
+      @for (p of quickDatePresets; track p) {
+        <button
+          class="preset-pill"
+          [class.active]="isPresetDateActive(p.date)"
+          (click)="setPresetDate(p.date)">
+          {{ p.label }}
+        </button>
+      }
     </div>
 
     <div class="type-filter-group">
@@ -183,226 +193,246 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
     <div class="search-input-box">
       <mat-icon>search</mat-icon>
       <input type="text" formControlName="searchTerm" placeholder="Filter by voucher, student, payee, head...">
-      <mat-icon *ngIf="searchTerm" class="clear-icon" (click)="clearSearch()">close</mat-icon>
+      @if (searchTerm) {
+        <mat-icon class="clear-icon" (click)="clearSearch()">close</mat-icon>
+      }
     </div>
   </div>
 
   <!-- Summary KPI Cards -->
-  <div class="kpi-grid no-print" *ngIf="report">
-    <!-- Opening Balance Card -->
-    <div class="kpi-card opening-card">
-      <div class="kpi-icon-wrap opening-icon">
-        <mat-icon>account_balance</mat-icon>
+  @if (report) {
+    <div class="kpi-grid no-print">
+      <!-- Opening Balance Card -->
+      <div class="kpi-card opening-card">
+        <div class="kpi-icon-wrap opening-icon">
+          <mat-icon>account_balance</mat-icon>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-title">Opening Balance (प्रारंभिक शेष)</span>
+          <span class="kpi-value">₹{{ report.openingBalance | number:'1.2-2' }}</span>
+          <span class="kpi-sub">Liquid Cash &amp; Bank float at day start</span>
+        </div>
       </div>
-      <div class="kpi-body">
-        <span class="kpi-title">Opening Balance (प्रारंभिक शेष)</span>
-        <span class="kpi-value">₹{{ report.openingBalance | number:'1.2-2' }}</span>
-        <span class="kpi-sub">Liquid Cash &amp; Bank float at day start</span>
+      <!-- Total Inflow (Receipts) Card -->
+      <div class="kpi-card inflow-card">
+        <div class="kpi-icon-wrap inflow-icon">
+          <mat-icon>arrow_downward</mat-icon>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-title">Total Receipts (कुल आवक / जमा)</span>
+          <span class="kpi-value text-green">+₹{{ report.totalInflow | number:'1.2-2' }}</span>
+          <div class="kpi-split">
+            <span class="split-tag">Cash: ₹{{ report.cashInflow | number:'1.2-2' }}</span>
+            <span class="split-tag">Bank/UPI: ₹{{ report.bankInflow | number:'1.2-2' }}</span>
+          </div>
+        </div>
       </div>
-    </div>
-
-    <!-- Total Inflow (Receipts) Card -->
-    <div class="kpi-card inflow-card">
-      <div class="kpi-icon-wrap inflow-icon">
-        <mat-icon>arrow_downward</mat-icon>
+      <!-- Total Outflow (Payments) Card -->
+      <div class="kpi-card outflow-card">
+        <div class="kpi-icon-wrap outflow-icon">
+          <mat-icon>arrow_upward</mat-icon>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-title">Total Payments (कुल भुगतान / निकासी)</span>
+          <span class="kpi-value text-rose">-₹{{ report.totalOutflow | number:'1.2-2' }}</span>
+          <div class="kpi-split">
+            <span class="split-tag">Cash: ₹{{ report.cashOutflow | number:'1.2-2' }}</span>
+            <span class="split-tag">Bank/UPI: ₹{{ report.bankOutflow | number:'1.2-2' }}</span>
+          </div>
+        </div>
       </div>
-      <div class="kpi-body">
-        <span class="kpi-title">Total Receipts (कुल आवक / जमा)</span>
-        <span class="kpi-value text-green">+₹{{ report.totalInflow | number:'1.2-2' }}</span>
-        <div class="kpi-split">
-          <span class="split-tag">Cash: ₹{{ report.cashInflow | number:'1.2-2' }}</span>
-          <span class="split-tag">Bank/UPI: ₹{{ report.bankInflow | number:'1.2-2' }}</span>
+      <!-- Closing Balance Card -->
+      <div class="kpi-card closing-card">
+        <div class="kpi-icon-wrap closing-icon">
+          <mat-icon>savings</mat-icon>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-title">Closing Day Balance (अंतिम रोकड़)</span>
+          <span class="kpi-value text-blue">₹{{ report.closingBalance | number:'1.2-2' }}</span>
+          <div class="kpi-split">
+            <span class="net-tag" [class.surplus]="report.netDailyChange >= 0" [class.deficit]="report.netDailyChange < 0">
+              Net Change: {{ report.netDailyChange >= 0 ? '+' : '' }}₹{{ report.netDailyChange | number:'1.2-2' }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
-
-    <!-- Total Outflow (Payments) Card -->
-    <div class="kpi-card outflow-card">
-      <div class="kpi-icon-wrap outflow-icon">
-        <mat-icon>arrow_upward</mat-icon>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-title">Total Payments (कुल भुगतान / निकासी)</span>
-        <span class="kpi-value text-rose">-₹{{ report.totalOutflow | number:'1.2-2' }}</span>
-        <div class="kpi-split">
-          <span class="split-tag">Cash: ₹{{ report.cashOutflow | number:'1.2-2' }}</span>
-          <span class="split-tag">Bank/UPI: ₹{{ report.bankOutflow | number:'1.2-2' }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Closing Balance Card -->
-    <div class="kpi-card closing-card">
-      <div class="kpi-icon-wrap closing-icon">
-        <mat-icon>savings</mat-icon>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-title">Closing Day Balance (अंतिम रोकड़)</span>
-        <span class="kpi-value text-blue">₹{{ report.closingBalance | number:'1.2-2' }}</span>
-        <div class="kpi-split">
-          <span class="net-tag" [class.surplus]="report.netDailyChange >= 0" [class.deficit]="report.netDailyChange < 0">
-            Net Change: {{ report.netDailyChange >= 0 ? '+' : '' }}₹{{ report.netDailyChange | number:'1.2-2' }}
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- Day Book Register Table Card -->
-  <div class="content-card no-print" *ngIf="report">
-    <div class="card-header-row">
-      <div class="card-title-wrap">
-        <mat-icon class="title-icon">view_list</mat-icon>
-        <span class="card-title">Chronological Day Book Register</span>
-        <span class="count-badge">{{ report.totalCount !== undefined ? report.totalCount : filteredTransactions.length }} Entries</span>
-      </div>
-      <div class="table-legend">
-        <span class="legend-item"><span class="legend-bullet receipt"></span> Receipt (Credit / Inflow)</span>
-        <span class="legend-item"><span class="legend-bullet payment"></span> Payment (Debit / Outflow)</span>
-      </div>
-    </div>
-
-    <!-- Table Top Progress Loader -->
-    <mat-progress-bar *ngIf="loading" mode="indeterminate" class="table-progress-bar"></mat-progress-bar>
-
-    <div class="table-container-relative">
-      <!-- Loading Overlay -->
-      <div class="grid-loading-overlay" *ngIf="loading">
-        <div class="loader-content">
-          <mat-spinner diameter="42" strokeWidth="3.5"></mat-spinner>
-          <span class="loader-text">Loading Day Book records...</span>
+  @if (report) {
+    <div class="content-card no-print">
+      <div class="card-header-row">
+        <div class="card-title-wrap">
+          <mat-icon class="title-icon">view_list</mat-icon>
+          <span class="card-title">Chronological Day Book Register</span>
+          <span class="count-badge">{{ report.totalCount !== undefined ? report.totalCount : filteredTransactions.length }} Entries</span>
+        </div>
+        <div class="table-legend">
+          <span class="legend-item"><span class="legend-bullet receipt"></span> Receipt (Credit / Inflow)</span>
+          <span class="legend-item"><span class="legend-bullet payment"></span> Payment (Debit / Outflow)</span>
         </div>
       </div>
-
-      <!-- Transactions Table -->
-      <div class="table-responsive" *ngIf="filteredTransactions.length > 0; else noTransactions">
-        <table class="daybook-table" matSort [matSortActive]="sortBy" [matSortDirection]="sortDescending ? 'desc' : 'asc'" (matSortChange)="onSortChange($event)">
-          <thead>
-            <tr>
-              <th class="col-index">#</th>
-              <th class="col-time" mat-sort-header="timestamp">Time (IST)</th>
-              <th class="col-voucher" mat-sort-header="voucherNumber">Voucher No</th>
-              <th class="col-type text-center" mat-sort-header="voucherType">Type</th>
-              <th class="col-account" mat-sort-header="accountHead">Account Head</th>
-              <th class="col-particulars" mat-sort-header="particulars">Particulars &amp; Beneficiary</th>
-              <th class="col-mode" mat-sort-header="paymentMode">Payment Mode</th>
-              <th class="col-debit text-right" mat-sort-header="debitAmount">Debit / Outflow (₹)</th>
-              <th class="col-credit text-right" mat-sort-header="creditAmount">Credit / Inflow (₹)</th>
-              <th class="col-balance text-right" mat-sort-header="runningBalance">Running Balance (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Day Opening Row (shown on page 1 when no search is active) -->
-            <tr class="day-opening-row" *ngIf="pageIndex === 0 && !searchTerm.trim() && voucherTypeFilter === 'All'">
-              <td colspan="9">
-                <div class="opening-label-wrap">
-                  <mat-icon class="op-icon">history</mat-icon>
-                  <strong>DAY OPENING BALANCE (प्रारंभिक शेष)</strong>
-                  <span class="op-sub">as of {{ selectedDate | date:'fullDate' }} 00:00 AM IST</span>
-                </div>
-              </td>
-              <td class="text-right opening-amount">
-                <strong>₹{{ report.openingBalance | number:'1.2-2' }}</strong>
-              </td>
-            </tr>
-
-            <!-- Dynamic Transactions -->
-            <tr *ngFor="let t of filteredTransactions; let i = index" class="tx-row" [class.receipt-row]="t.voucherType === 'Receipt'" [class.payment-row]="t.voucherType === 'Payment'">
-              <td class="col-index text-muted">{{ (pageIndex * pageSize) + i + 1 }}</td>
-              <td class="col-time">
-                <span class="time-text" [appIstDatetime]="t.timestamp" format="timeSec"></span>
-              </td>
-              <td class="col-voucher">
-                <span class="voucher-tag" (click)="copyVoucher(t.voucherNumber)" matTooltip="Click to copy voucher number">
-                  <span class="v-num">{{ t.voucherNumber }}</span>
-                  <mat-icon class="copy-icon">content_copy</mat-icon>
-                </span>
-              </td>
-              <td class="col-type text-center">
-                <span class="badge-pill" [class.badge-receipt]="t.voucherType === 'Receipt'" [class.badge-payment]="t.voucherType === 'Payment'">
-                  {{ t.voucherType }}
-                </span>
-              </td>
-              <td class="col-account">
-                <div class="head-title">{{ t.accountHead }}</div>
-                <span class="scope-tag" [class.school-tag]="t.division === 'School'" [class.coaching-tag]="t.division === 'Coaching'" [class.integrated-tag]="t.division === 'Integrated'">
-                  {{ t.division }}
-                </span>
-              </td>
-              <td class="col-particulars">
-                <div class="particulars-text">{{ t.particulars }}</div>
-                <div class="remarks-sub" *ngIf="t.remarks">{{ t.remarks }}</div>
-              </td>
-              <td class="col-mode">
-                <div class="mode-pill-box">
-                  <mat-icon class="mode-icon">{{ getModeIcon(t.paymentMode) }}</mat-icon>
-                  <span>{{ t.paymentMode }}</span>
-                </div>
-                <div class="ref-sub" *ngIf="t.referenceNumber">Ref: {{ t.referenceNumber }}</div>
-              </td>
-              <td class="col-debit text-right">
-                <span *ngIf="t.debitAmount > 0" class="debit-val">₹{{ t.debitAmount | number:'1.2-2' }}</span>
-                <span *ngIf="t.debitAmount === 0" class="text-muted">-</span>
-              </td>
-              <td class="col-credit text-right">
-                <span *ngIf="t.creditAmount > 0" class="credit-val">₹{{ t.creditAmount | number:'1.2-2' }}</span>
-                <span *ngIf="t.creditAmount === 0" class="text-muted">-</span>
-              </td>
-              <td class="col-balance text-right">
-                <strong class="balance-val">₹{{ t.runningBalance | number:'1.2-2' }}</strong>
-              </td>
-            </tr>
-
-            <!-- Day Summary Total Row (shown on last page or single page) -->
-            <tr class="day-closing-row" *ngIf="isLastPage()">
-              <td colspan="7" class="text-right">
-                <strong>DAILY TOTALS &amp; CLOSING BALANCE (दैनिक सारांश):</strong>
-              </td>
-              <td class="text-right total-debit">
-                <strong>-₹{{ report.totalOutflow | number:'1.2-2' }}</strong>
-              </td>
-              <td class="text-right total-credit">
-                <strong>+₹{{ report.totalInflow | number:'1.2-2' }}</strong>
-              </td>
-              <td class="text-right grand-closing">
-                <strong>₹{{ report.closingBalance | number:'1.2-2' }}</strong>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Table Top Progress Loader -->
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="table-progress-bar"></mat-progress-bar>
+      }
+      <div class="table-container-relative">
+        <!-- Loading Overlay -->
+        @if (loading) {
+          <div class="grid-loading-overlay">
+            <div class="loader-content">
+              <mat-spinner diameter="42" strokeWidth="3.5"></mat-spinner>
+              <span class="loader-text">Loading Day Book records...</span>
+            </div>
+          </div>
+        }
+        <!-- Transactions Table -->
+        @if (filteredTransactions.length > 0) {
+          <div class="table-responsive">
+            <table class="daybook-table" matSort [matSortActive]="sortBy" [matSortDirection]="sortDescending ? 'desc' : 'asc'" (matSortChange)="onSortChange($event)">
+              <thead>
+                <tr>
+                  <th class="col-index">#</th>
+                  <th class="col-time" mat-sort-header="timestamp">Time (IST)</th>
+                  <th class="col-voucher" mat-sort-header="voucherNumber">Voucher No</th>
+                  <th class="col-type text-center" mat-sort-header="voucherType">Type</th>
+                  <th class="col-account" mat-sort-header="accountHead">Account Head</th>
+                  <th class="col-particulars" mat-sort-header="particulars">Particulars &amp; Beneficiary</th>
+                  <th class="col-mode" mat-sort-header="paymentMode">Payment Mode</th>
+                  <th class="col-debit text-right" mat-sort-header="debitAmount">Debit / Outflow (₹)</th>
+                  <th class="col-credit text-right" mat-sort-header="creditAmount">Credit / Inflow (₹)</th>
+                  <th class="col-balance text-right" mat-sort-header="runningBalance">Running Balance (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Day Opening Row (shown on page 1 when no search is active) -->
+                @if (pageIndex === 0 && !searchTerm.trim() && voucherTypeFilter === 'All') {
+                  <tr class="day-opening-row">
+                    <td colspan="9">
+                      <div class="opening-label-wrap">
+                        <mat-icon class="op-icon">history</mat-icon>
+                        <strong>DAY OPENING BALANCE (प्रारंभिक शेष)</strong>
+                        <span class="op-sub">as of {{ selectedDate | date:'fullDate' }} 00:00 AM IST</span>
+                      </div>
+                    </td>
+                    <td class="text-right opening-amount">
+                      <strong>₹{{ report.openingBalance | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                }
+                <!-- Dynamic Transactions -->
+                @for (t of filteredTransactions; track t; let i = $index) {
+                  <tr class="tx-row" [class.receipt-row]="t.voucherType === 'Receipt'" [class.payment-row]="t.voucherType === 'Payment'">
+                    <td class="col-index text-muted">{{ (pageIndex * pageSize) + i + 1 }}</td>
+                    <td class="col-time">
+                      <span class="time-text" [appIstDatetime]="t.timestamp" format="timeSec"></span>
+                    </td>
+                    <td class="col-voucher">
+                      <span class="voucher-tag" (click)="copyVoucher(t.voucherNumber)" matTooltip="Click to copy voucher number">
+                        <span class="v-num">{{ t.voucherNumber }}</span>
+                        <mat-icon class="copy-icon">content_copy</mat-icon>
+                      </span>
+                    </td>
+                    <td class="col-type text-center">
+                      <span class="badge-pill" [class.badge-receipt]="t.voucherType === 'Receipt'" [class.badge-payment]="t.voucherType === 'Payment'">
+                        {{ t.voucherType }}
+                      </span>
+                    </td>
+                    <td class="col-account">
+                      <div class="head-title">{{ t.accountHead }}</div>
+                      <span class="scope-tag" [class.school-tag]="t.division === 'School'" [class.coaching-tag]="t.division === 'Coaching'" [class.integrated-tag]="t.division === 'Integrated'">
+                        {{ t.division }}
+                      </span>
+                    </td>
+                    <td class="col-particulars">
+                      <div class="particulars-text">{{ t.particulars }}</div>
+                      @if (t.remarks) {
+                        <div class="remarks-sub">{{ t.remarks }}</div>
+                      }
+                    </td>
+                    <td class="col-mode">
+                      <div class="mode-pill-box">
+                        <mat-icon class="mode-icon">{{ getModeIcon(t.paymentMode) }}</mat-icon>
+                        <span>{{ t.paymentMode }}</span>
+                      </div>
+                      @if (t.referenceNumber) {
+                        <div class="ref-sub">Ref: {{ t.referenceNumber }}</div>
+                      }
+                    </td>
+                    <td class="col-debit text-right">
+                      @if (t.debitAmount > 0) {
+                        <span class="debit-val">₹{{ t.debitAmount | number:'1.2-2' }}</span>
+                      }
+                      @if (t.debitAmount === 0) {
+                        <span class="text-muted">-</span>
+                      }
+                    </td>
+                    <td class="col-credit text-right">
+                      @if (t.creditAmount > 0) {
+                        <span class="credit-val">₹{{ t.creditAmount | number:'1.2-2' }}</span>
+                      }
+                      @if (t.creditAmount === 0) {
+                        <span class="text-muted">-</span>
+                      }
+                    </td>
+                    <td class="col-balance text-right">
+                      <strong class="balance-val">₹{{ t.runningBalance | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                }
+                <!-- Day Summary Total Row (shown on last page or single page) -->
+                @if (isLastPage()) {
+                  <tr class="day-closing-row">
+                    <td colspan="7" class="text-right">
+                      <strong>DAILY TOTALS &amp; CLOSING BALANCE (दैनिक सारांश):</strong>
+                    </td>
+                    <td class="text-right total-debit">
+                      <strong>-₹{{ report.totalOutflow | number:'1.2-2' }}</strong>
+                    </td>
+                    <td class="text-right total-credit">
+                      <strong>+₹{{ report.totalInflow | number:'1.2-2' }}</strong>
+                    </td>
+                    <td class="text-right grand-closing">
+                      <strong>₹{{ report.closingBalance | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="empty-state">
+            <mat-icon class="empty-icon">event_busy</mat-icon>
+            <h3>No Transactions Found For This Date</h3>
+            <p>No fee receipts, expense vouchers, or payroll entries were recorded on {{ selectedDate | date:'mediumDate' }}.</p>
+            <div class="empty-actions">
+              <button mat-flat-button color="primary" (click)="setPreset('today')">
+                <mat-icon>today</mat-icon> Go to Today
+              </button>
+              <button mat-stroked-button (click)="setPreset('yesterday')">
+                <mat-icon>history</mat-icon> View Yesterday
+              </button>
+            </div>
+          </div>
+        }
+        <!-- Server-Side Pagination Bar -->
+        @if ((report.totalCount || 0) > 0) {
+          <mat-paginator
+            [length]="report.totalCount || 0"
+            [pageSize]="pageSize"
+            [pageIndex]="pageIndex"
+            [pageSizeOptions]="pageSizeOptions"
+            (page)="onPageChange($event)"
+            showFirstLastButtons
+            aria-label="Select page of Day Book transactions"
+            class="custom-table-paginator no-print">
+          </mat-paginator>
+        }
       </div>
-
-      <!-- Server-Side Pagination Bar -->
-      <mat-paginator
-        *ngIf="(report.totalCount || 0) > 0"
-        [length]="report.totalCount || 0"
-        [pageSize]="pageSize"
-        [pageIndex]="pageIndex"
-        [pageSizeOptions]="pageSizeOptions"
-        (page)="onPageChange($event)"
-        showFirstLastButtons
-        aria-label="Select page of Day Book transactions"
-        class="custom-table-paginator no-print">
-      </mat-paginator>
+      <!-- Empty State -->
     </div>
-
-    <!-- Empty State -->
-    <ng-template #noTransactions>
-      <div class="empty-state">
-        <mat-icon class="empty-icon">event_busy</mat-icon>
-        <h3>No Transactions Found For This Date</h3>
-        <p>No fee receipts, expense vouchers, or payroll entries were recorded on {{ selectedDate | date:'mediumDate' }}.</p>
-        <div class="empty-actions">
-          <button mat-flat-button color="primary" (click)="setPreset('today')">
-            <mat-icon>today</mat-icon> Go to Today
-          </button>
-          <button mat-stroked-button (click)="setPreset('yesterday')">
-            <mat-icon>history</mat-icon> View Yesterday
-          </button>
-        </div>
-      </div>
-    </ng-template>
-  </div>
+  }
 
   <!-- Hidden Printable A4 Day Book Sheet -->
   <div id="printableDayBook" class="only-print">
@@ -422,19 +452,19 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
     <div class="print-kpi-strip">
       <div class="pk-item">
         <span class="pk-lbl">Opening Balance</span>
-        <span class="pk-val">₹{{ report?.openingBalance | number:'1.2-2' }}</span>
+        <span class="pk-val">₹{{ $safeNavigationMigration(report?.openingBalance) | number:'1.2-2' }}</span>
       </div>
       <div class="pk-item">
         <span class="pk-lbl">Total Receipts (Cr)</span>
-        <span class="pk-val text-green">+₹{{ report?.totalInflow | number:'1.2-2' }}</span>
+        <span class="pk-val text-green">+₹{{ $safeNavigationMigration(report?.totalInflow) | number:'1.2-2' }}</span>
       </div>
       <div class="pk-item">
         <span class="pk-lbl">Total Payments (Dr)</span>
-        <span class="pk-val text-rose">-₹{{ report?.totalOutflow | number:'1.2-2' }}</span>
+        <span class="pk-val text-rose">-₹{{ $safeNavigationMigration(report?.totalOutflow) | number:'1.2-2' }}</span>
       </div>
       <div class="pk-item">
         <span class="pk-lbl">Closing Day Balance</span>
-        <span class="pk-val text-blue">₹{{ report?.closingBalance | number:'1.2-2' }}</span>
+        <span class="pk-val text-blue">₹{{ $safeNavigationMigration(report?.closingBalance) | number:'1.2-2' }}</span>
       </div>
     </div>
 
@@ -456,25 +486,27 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
       <tbody>
         <tr>
           <td colspan="9"><strong>OPENING BALANCE B/F:</strong></td>
-          <td class="text-right"><strong>₹{{ report?.openingBalance | number:'1.2-2' }}</strong></td>
+          <td class="text-right"><strong>₹{{ $safeNavigationMigration(report?.openingBalance) | number:'1.2-2' }}</strong></td>
         </tr>
-        <tr *ngFor="let t of filteredTransactions; let i = index">
-          <td>{{ i + 1 }}</td>
-          <td [appIstDatetime]="t.timestamp" format="timeSec"></td>
-          <td>{{ t.voucherNumber }}</td>
-          <td>{{ t.voucherType }}</td>
-          <td>{{ t.accountHead }}</td>
-          <td>{{ t.particulars }}</td>
-          <td>{{ t.paymentMode }}</td>
-          <td class="text-right">{{ t.debitAmount > 0 ? (t.debitAmount | number:'1.2-2') : '-' }}</td>
-          <td class="text-right">{{ t.creditAmount > 0 ? (t.creditAmount | number:'1.2-2') : '-' }}</td>
-          <td class="text-right">{{ t.runningBalance | number:'1.2-2' }}</td>
-        </tr>
+        @for (t of filteredTransactions; track t; let i = $index) {
+          <tr>
+            <td>{{ i + 1 }}</td>
+            <td [appIstDatetime]="t.timestamp" format="timeSec"></td>
+            <td>{{ t.voucherNumber }}</td>
+            <td>{{ t.voucherType }}</td>
+            <td>{{ t.accountHead }}</td>
+            <td>{{ t.particulars }}</td>
+            <td>{{ t.paymentMode }}</td>
+            <td class="text-right">{{ t.debitAmount > 0 ? (t.debitAmount | number:'1.2-2') : '-' }}</td>
+            <td class="text-right">{{ t.creditAmount > 0 ? (t.creditAmount | number:'1.2-2') : '-' }}</td>
+            <td class="text-right">{{ t.runningBalance | number:'1.2-2' }}</td>
+          </tr>
+        }
         <tr class="print-total-row">
           <td colspan="7" class="text-right"><strong>DAILY TOTALS:</strong></td>
-          <td class="text-right"><strong>₹{{ report?.totalOutflow | number:'1.2-2' }}</strong></td>
-          <td class="text-right"><strong>₹{{ report?.totalInflow | number:'1.2-2' }}</strong></td>
-          <td class="text-right"><strong>₹{{ report?.closingBalance | number:'1.2-2' }}</strong></td>
+          <td class="text-right"><strong>₹{{ $safeNavigationMigration(report?.totalOutflow) | number:'1.2-2' }}</strong></td>
+          <td class="text-right"><strong>₹{{ $safeNavigationMigration(report?.totalInflow) | number:'1.2-2' }}</strong></td>
+          <td class="text-right"><strong>₹{{ $safeNavigationMigration(report?.closingBalance) | number:'1.2-2' }}</strong></td>
         </tr>
       </tbody>
     </table>
@@ -495,7 +527,8 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
     </div>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

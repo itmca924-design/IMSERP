@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -52,381 +52,414 @@ import { MatSelectModule } from '@angular/material/select';
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <div class="ledger-body" *ngIf="ledger">
-        <!-- Student Info & Outstanding KPI Card -->
-        <div class="ledger-kpi-card mat-elevation-z1">
-          <div class="student-profile">
-            <div class="profile-avatar">
-              <mat-icon>person</mat-icon>
-            </div>
-            <div class="profile-info">
-              <h3 class="st-name">{{ ledger.studentName }}</h3>
-              <div class="st-meta-row">
-                <span class="st-roll">Roll: <strong>{{ ledger.rollNumber }}</strong></span>
-                <span class="st-sep">|</span>
-                <span class="st-batch">Batch: <strong>{{ ledger.batchName }}</strong></span>
-                <ng-container *ngIf="effectiveBranchName">
+    
+      @if (ledger) {
+        <div class="ledger-body">
+          <!-- Student Info & Outstanding KPI Card -->
+          <div class="ledger-kpi-card mat-elevation-z1">
+            <div class="student-profile">
+              <div class="profile-avatar">
+                <mat-icon>person</mat-icon>
+              </div>
+              <div class="profile-info">
+                <h3 class="st-name">{{ ledger.studentName }}</h3>
+                <div class="st-meta-row">
+                  <span class="st-roll">Roll: <strong>{{ ledger.rollNumber }}</strong></span>
                   <span class="st-sep">|</span>
-                  <span class="st-branch">🏛️ Branch: <strong>{{ effectiveBranchName }}</strong></span>
-                </ng-container>
+                  <span class="st-batch">Batch: <strong>{{ ledger.batchName }}</strong></span>
+                  @if (effectiveBranchName) {
+                    <span class="st-sep">|</span>
+                    <span class="st-branch">🏛️ Branch: <strong>{{ effectiveBranchName }}</strong></span>
+                  }
+                </div>
+                <span class="st-parent">Parent: {{ ledger.parentName }} (WA: {{ ledger.parentWhatsAppPhone }})</span>
               </div>
-              <span class="st-parent">Parent: {{ ledger.parentName }} (WA: {{ ledger.parentWhatsAppPhone }})</span>
+            </div>
+            <div class="kpi-metrics">
+              <div class="metric-box">
+                <span class="m-label">
+                  <span class="d-only">Total Charged:</span>
+                  <span class="m-only">Total Fee</span>
+                </span>
+                <strong class="m-value charged">₹{{ ledger.totalFeesCharged | number:'1.2-2' }}</strong>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">
+                  <span class="d-only">Total Fees Paid:</span>
+                  <span class="m-only">Fee Paid</span>
+                </span>
+                <strong class="m-value paid">₹{{ ledger.totalFeesPaid | number:'1.2-2' }}</strong>
+              </div>
+              <div class="metric-box due-highlight">
+                <span class="m-label">
+                  <span class="d-only">Net Outstanding Due:</span>
+                  <span class="m-only">Net Due</span>
+                </span>
+                <strong class="m-value due">₹{{ ledger.totalOutstandingDue | number:'1.2-2' }}</strong>
+              </div>
+              @if (ledger.pendingLibraryFine && ledger.pendingLibraryFine > 0) {
+                <div class="metric-box lib-due-box">
+                  <span class="m-label">
+                    <span class="d-only">Library Fine Due:</span>
+                    <span class="m-only">Lib Fine</span>
+                  </span>
+                  <strong class="m-value lib-fine">₹{{ ledger.pendingLibraryFine | number:'1.2-2' }}</strong>
+                </div>
+              }
             </div>
           </div>
-
-          <div class="kpi-metrics">
-            <div class="metric-box">
-              <span class="m-label">
-                <span class="d-only">Total Charged:</span>
-                <span class="m-only">Total Fee</span>
-              </span>
-              <strong class="m-value charged">₹{{ ledger.totalFeesCharged | number:'1.2-2' }}</strong>
-            </div>
-            <div class="metric-box">
-              <span class="m-label">
-                <span class="d-only">Total Fees Paid:</span>
-                <span class="m-only">Fee Paid</span>
-              </span>
-              <strong class="m-value paid">₹{{ ledger.totalFeesPaid | number:'1.2-2' }}</strong>
-            </div>
-            <div class="metric-box due-highlight">
-              <span class="m-label">
-                <span class="d-only">Net Outstanding Due:</span>
-                <span class="m-only">Net Due</span>
-              </span>
-              <strong class="m-value due">₹{{ ledger.totalOutstandingDue | number:'1.2-2' }}</strong>
-            </div>
-            <div class="metric-box lib-due-box" *ngIf="ledger.pendingLibraryFine && ledger.pendingLibraryFine > 0">
-              <span class="m-label">
-                <span class="d-only">Library Fine Due:</span>
-                <span class="m-only">Lib Fine</span>
-              </span>
-              <strong class="m-value lib-fine">₹{{ ledger.pendingLibraryFine | number:'1.2-2' }}</strong>
-            </div>
-          </div>
-        </div>
-
-        <!-- Ledger Tabs (Invoices, Receipts, Reversals) -->
-        <mat-tab-group class="ledger-tabs" animationDuration="0ms">
-          <!-- Tab 1: Month-Wise Invoices & Arrears -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-label-icon">receipt</mat-icon>
-              <span class="tab-label-desktop">Month-Wise Invoices & Arrears ({{ ledger.invoices.length }})</span>
-              <span class="tab-label-mobile">Invoices ({{ ledger.invoices.length }})</span>
-            </ng-template>
-            <div class="tab-content">
-              <div class="mobile-swipe-hint">
-                <mat-icon>swipe_left</mat-icon>
-                <span>Swipe horizontally to view full table details</span>
-              </div>
-              <div class="table-responsive">
-                <table class="ledger-table">
-                  <thead>
-                    <tr>
-                      <th class="nowrap-col text-left">Invoice No</th>
-                      <th class="text-left">Month / Billing Period</th>
-                      <th class="nowrap-col text-left">Due Date</th>
-                      <th class="text-right nowrap-col">Total Fee (₹)</th>
-                      <th class="text-right nowrap-col">Paid (₹)</th>
-                      <th class="text-right nowrap-col">Balance Due (₹)</th>
-                      <th class="text-center nowrap-col">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
-                      <td class="nowrap-col"><strong>{{ inv.invoiceNumber }}</strong></td>
-                      <td>
-                        <div class="billing-period-pill">
-                          <mat-icon class="cal-mini-icon">calendar_month</mat-icon>
-                          <span class="period-title-text">{{ inv.title }}</span>
-                          <span class="period-months-detail" *ngIf="getShortMonthsSummary(inv) as shortSummary">({{ shortSummary }})</span>
-                        </div>
-                        <div *ngIf="inv.items && inv.items.length > 0" class="mini-heads-row">
-                          <span *ngFor="let it of getSortedInvoiceItems(inv.items)" class="mini-head-chip" [class.tuition-head-chip]="isTuitionHead(it.headName)">
-                            <span class="chip-head-name">{{ it.headName }}:</span>
-                            <strong class="chip-head-amt">₹{{ it.amount | number:'1.0-0' }}</strong>
-                            <span class="chip-month-tag" *ngIf="getHeadMonthNote(it, inv) as note">({{ note }})</span>
-                          </span>
-                        </div>
-                        <span *ngIf="inv.status === 'Cancelled'" class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
-                        <span *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="settled-waiver-label" [matTooltip]="inv.cancellationReason">WAIVED &amp; SETTLED</span>
-                      </td>
-                      <td class="nowrap-col">{{ inv.dueDate | date:'mediumDate' }}</td>
-                      <td class="text-right amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</td>
-                      <td class="text-right text-success amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}</td>
-                      <td class="text-right text-danger amount-col nowrap-col">
-                        <strong>{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</strong>
-                      </td>
-                      <td class="text-center nowrap-col">
-                        <span *ngIf="inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="status-badge settled" [matTooltip]="inv.cancellationReason">
-                          Settled (Waived)
-                        </span>
-                        <span *ngIf="!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')" class="status-badge" [ngClass]="inv.status.toLowerCase()" [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''">
-                          {{ inv.status }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="tab-bottom-spacer"></div>
-            </div>
-          </mat-tab>
-
-          <!-- Tab 2: Payment Receipts History -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-label-icon">history_edu</mat-icon>
-              <span class="tab-label-desktop">Payment Receipts History ({{ ledger.payments.length }})</span>
-              <span class="tab-label-mobile">Receipts ({{ ledger.payments.length }})</span>
-            </ng-template>
-            <div class="tab-content">
-              <!-- DEDICATED REVERSAL WORKFLOW CARD OUTSIDE HORIZONTAL SCROLL -->
-              <div *ngIf="reversingPayment" class="reverse-confirm-box" #reversalBoxRef>
-                <div class="rev-header-bar">
-                  <div class="rev-title-group">
-                    <mat-icon class="rev-warn-icon">warning_amber</mat-icon>
-                    <div class="rev-confirm-title">
-                      <strong>Reverse Payment Receipt: {{ reversingPayment.receiptNumber }} (₹{{ reversingPayment.amountPaid | number:'1.2-2' }})</strong>
-                      <span>{{ reversalLang === 'HI' ? 'रिवर्स करने का प्रकार और विवरण चुनें' : 'Choose reversal action and audit details' }}</span>
-                    </div>
-                  </div>
-                  <div class="lang-toggle-pill" (click)="toggleLanguage()" [matTooltip]="reversalLang === 'EN' ? 'हिंदी में देखने के लिए क्लिक करें' : 'Switch to English'">
-                    <mat-icon class="lang-icon">translate</mat-icon>
-                    <span [class.active]="reversalLang === 'EN'">EN</span>
-                    <span class="sep">/</span>
-                    <span [class.active]="reversalLang === 'HI'">HI</span>
-                  </div>
+          <!-- Ledger Tabs (Invoices, Receipts, Reversals) -->
+          <mat-tab-group class="ledger-tabs" animationDuration="0ms">
+            <!-- Tab 1: Month-Wise Invoices & Arrears -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-label-icon">receipt</mat-icon>
+                <span class="tab-label-desktop">Month-Wise Invoices & Arrears ({{ ledger.invoices.length }})</span>
+                <span class="tab-label-mobile">Invoices ({{ ledger.invoices.length }})</span>
+              </ng-template>
+              <div class="tab-content">
+                <div class="mobile-swipe-hint">
+                  <mat-icon>swipe_left</mat-icon>
+                  <span>Swipe horizontally to view full table details</span>
                 </div>
-
-                <!-- Options Selector Cards -->
-                <div class="rev-options-grid">
-                  <div
-                    class="rev-option-card"
-                    [class.selected]="reversalTypeControl.value === 'ClericalCorrection'"
-                    (click)="setReversalType('ClericalCorrection')"
-                  >
-                    <div class="card-radio">
-                      <mat-icon>{{ reversalTypeControl.value === 'ClericalCorrection' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
-                    </div>
-                    <div class="card-body">
-                      <div class="card-title">{{ reversalLang === 'HI' ? '1. गलत प्रविष्टि सुधार (Clerical Typo / Void)' : '1. Clerical Error / Void Entry' }}</div>
-                      <div class="card-desc">{{ reversalLang === 'HI' ? 'पैसे किसी को वापस नहीं दिए गए। केवल गलत एंट्री हटाई जा रही है और छात्र का इनवॉइस बकाया बहाल किया जाएगा।' : 'No money returned to anyone. Just removing wrongful clerk entry and restoring student invoice due balance.' }}</div>
-                    </div>
-                  </div>
-
-                  <div
-                    class="rev-option-card"
-                    [class.selected]="reversalTypeControl.value === 'RefundToParent'"
-                    (click)="setReversalType('RefundToParent')"
-                  >
-                    <div class="card-radio">
-                      <mat-icon>{{ reversalTypeControl.value === 'RefundToParent' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
-                    </div>
-                    <div class="card-body">
-                      <div class="card-title">{{ reversalLang === 'HI' ? '2. अभिभावक को नकद/बैंक रिफंड (Refund to Parent)' : '2. Actual Fee Refund to Parent' }}</div>
-                      <div class="card-desc">{{ reversalLang === 'HI' ? ('₹' + (reversingPayment.amountPaid | number:'1.2-2') + ' अभिभावक को वापस लौटाए गए। Day Book में भुगतान वापसी (Outflow) दर्ज होगी।') : ('₹' + (reversingPayment.amountPaid | number:'1.2-2') + ' returned to parent. An Outflow refund voucher will be recorded in Day Book.') }}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Refund Fields (shown only when RefundToParent selected) -->
-                <div class="rev-fields-row" *ngIf="reversalTypeControl.value === 'RefundToParent'">
-                  <mat-form-field appearance="outline" class="density-compact rev-field">
-                    <mat-label>{{ reversalLang === 'HI' ? 'रिफंड पेमेंट मोड' : 'Refund Payment Mode' }}</mat-label>
-                    <mat-select [formControl]="reversalRefundModeControl">
-                      <mat-option value="Cash">{{ reversalLang === 'HI' ? 'Cash (नकद गल्ले से)' : 'Cash (Counter Drawer)' }}</mat-option>
-                      <mat-option value="BankTransfer">{{ reversalLang === 'HI' ? 'Bank Transfer / NEFT' : 'Bank Transfer / NEFT' }}</mat-option>
-                      <mat-option value="UPI">{{ reversalLang === 'HI' ? 'UPI / Online' : 'UPI (Google Pay / PhonePe)' }}</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline" class="density-compact rev-field">
-                    <mat-label>{{ reversalLang === 'HI' ? 'रिफंड प्राप्तकर्ता (अभिभावक/छात्र)' : 'Refunded To (Parent / Student Name)' }}</mat-label>
-                    <input matInput [formControl]="reversalRecipientControl" [placeholder]="reversalLang === 'HI' ? 'अभिभावक या छात्र का नाम' : 'Parent or Student Name'" />
-                  </mat-form-field>
-                </div>
-
-                <!-- Reason Field -->
-                <div class="rev-reason-row">
-                  <mat-form-field appearance="outline" class="density-compact reason-field">
-                    <mat-label>{{ reversalLang === 'HI' ? 'रिवर्स करने का कारण / रिमार्क्स' : 'Reversal Reason / Remarks' }}</mat-label>
-                    <input matInput [formControl]="reversalReasonControl" [placeholder]="reversalLang === 'HI' ? 'जैसे: गलत छात्र पर एंट्री हो गई थी / छात्र ने नाम वापस लिया' : 'e.g. Wrong student selected / Admission withdrawn by parent'" />
-                  </mat-form-field>
-                </div>
-
-                <div class="rev-confirm-actions">
-                  <button mat-stroked-button (click)="cancelReverse()" [disabled]="reversingInProgress" class="btn-cancel-rev">
-                    {{ reversalLang === 'HI' ? 'रद्द करें (Cancel)' : 'Cancel' }}
-                  </button>
-                  <button mat-raised-button color="warn" (click)="confirmReversePayment(reversingPayment)" [disabled]="reversingInProgress" class="btn-confirm-rev">
-                    <mat-icon *ngIf="!reversingInProgress">undo</mat-icon>
-                    <mat-icon class="spinning-icon" *ngIf="reversingInProgress">sync</mat-icon>
-                    <span>
-                      {{ reversingInProgress 
-                          ? (reversalLang === 'HI' ? 'प्रोसेसिंग...' : 'Processing...') 
-                          : (reversalTypeControl.value === 'RefundToParent' 
-                              ? (reversalLang === 'HI' ? 'रिफंड और रिवर्स कन्फर्म करें' : 'Confirm Refund & Reverse') 
-                              : (reversalLang === 'HI' ? 'रिवर्स कन्फर्म करें' : 'Confirm Void & Reverse')) }}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="mobile-swipe-hint">
-                <mat-icon>swipe_left</mat-icon>
-                <span>Swipe horizontally to view full table details</span>
-              </div>
-
-              <div class="table-responsive">
-                <table class="ledger-table">
-                  <thead>
-                    <tr>
-                      <th class="nowrap-col text-left">Receipt No</th>
-                      <th class="nowrap-col text-left">Payment Date (IST)</th>
-                      <th class="nowrap-col text-left">Invoice Ref</th>
-                      <th class="nowrap-col text-left">Payment Mode</th>
-                      <th class="text-right nowrap-col">Amount Paid (₹)</th>
-                      <th class="text-left">Remarks</th>
-                      <th class="text-center nowrap-col" style="width: 70px;">Print</th>
-                      <th class="text-center nowrap-col" style="width: 90px;">Reverse</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <ng-container *ngFor="let p of ledger.payments">
-                      <tr [class.reversing-row]="reversingPaymentId === p.paymentId">
-                        <td class="nowrap-col"><strong class="receipt-no-text">{{ p.receiptNumber }}</strong></td>
-                        <td class="nowrap-col date-col">{{ formatToIST(p.paymentDate) }}</td>
-                        <td class="nowrap-col inv-ref-text">{{ p.invoiceNumber || '—' }}</td>
-                        <td class="nowrap-col">
-                          <span class="mode-badge">{{ getPaymentModeName(p.mode) }}</span>
-                        </td>
-                        <td class="text-right text-success nowrap-col amount-text"><strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong></td>
-                        <td class="remarks-cell"><small>{{ p.transactionRef || 'N/A' }} ({{ p.remarks || '-' }})</small></td>
-                        <td class="text-center nowrap-col">
-                          <button mat-icon-button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt">
-                            <mat-icon>print</mat-icon>
-                          </button>
-                        </td>
-                        <td class="text-center nowrap-col">
-                          <button
-                            mat-icon-button
-                            color="warn"
-                            (click)="startReversePayment(p)"
-                            matTooltip="Reverse / Undo this payment"
-                            *ngIf="reversingPaymentId !== p.paymentId"
-                          >
-                            <mat-icon>undo</mat-icon>
-                          </button>
-                          <button
-                            mat-icon-button
-                            color="warn"
-                            (click)="cancelReverse()"
-                            matTooltip="Cancel reversal"
-                            *ngIf="reversingPaymentId === p.paymentId"
-                          >
-                            <mat-icon>close</mat-icon>
-                          </button>
-                        </td>
+                <div class="table-responsive">
+                  <table class="ledger-table">
+                    <thead>
+                      <tr>
+                        <th class="nowrap-col text-left">Invoice No</th>
+                        <th class="text-left">Month / Billing Period</th>
+                        <th class="nowrap-col text-left">Due Date</th>
+                        <th class="text-right nowrap-col">Total Fee (₹)</th>
+                        <th class="text-right nowrap-col">Paid (₹)</th>
+                        <th class="text-right nowrap-col">Balance Due (₹)</th>
+                        <th class="text-center nowrap-col">Status</th>
                       </tr>
-                    </ng-container>
-                    <tr *ngIf="ledger.payments.length === 0">
-                      <td colspan="8" class="text-center empty-cell">No active payment receipts found.</td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      @for (inv of ledger.invoices; track inv) {
+                        <tr [class.cancelled-row]="inv.status === 'Cancelled'">
+                          <td class="nowrap-col"><strong>{{ inv.invoiceNumber }}</strong></td>
+                          <td>
+                            <div class="billing-period-pill">
+                              <mat-icon class="cal-mini-icon">calendar_month</mat-icon>
+                              <span class="period-title-text">{{ inv.title }}</span>
+                              @if (getShortMonthsSummary(inv); as shortSummary) {
+                                <span class="period-months-detail">({{ shortSummary }})</span>
+                              }
+                            </div>
+                            @if (inv.items && inv.items.length > 0) {
+                              <div class="mini-heads-row">
+                                @for (it of getSortedInvoiceItems(inv.items); track it) {
+                                  <span class="mini-head-chip" [class.tuition-head-chip]="isTuitionHead(it.headName)">
+                                    <span class="chip-head-name">{{ it.headName }}:</span>
+                                    <strong class="chip-head-amt">₹{{ it.amount | number:'1.0-0' }}</strong>
+                                    @if (getHeadMonthNote(it, inv); as note) {
+                                      <span class="chip-month-tag">({{ note }})</span>
+                                    }
+                                  </span>
+                                }
+                              </div>
+                            }
+                            @if (inv.status === 'Cancelled') {
+                              <span class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
+                            }
+                            @if (inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')) {
+                              <span class="settled-waiver-label" [matTooltip]="inv.cancellationReason">WAIVED &amp; SETTLED</span>
+                            }
+                          </td>
+                          <td class="nowrap-col">{{ inv.dueDate | date:'mediumDate' }}</td>
+                          <td class="text-right amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</td>
+                          <td class="text-right text-success amount-col nowrap-col">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}</td>
+                          <td class="text-right text-danger amount-col nowrap-col">
+                            <strong>{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</strong>
+                          </td>
+                          <td class="text-center nowrap-col">
+                            @if (inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')) {
+                              <span class="status-badge settled" [matTooltip]="inv.cancellationReason">
+                                Settled (Waived)
+                              </span>
+                            }
+                            @if (!inv.cancellationReason || !inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')) {
+                              <span class="status-badge" [ngClass]="inv.status.toLowerCase()" [matTooltip]="inv.status === 'Cancelled' ? ('Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')) : ''">
+                                {{ inv.status }}
+                              </span>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <div class="tab-bottom-spacer"></div>
               </div>
-              <div class="tab-bottom-spacer"></div>
-            </div>
-          </mat-tab>
-
-          <!-- Tab 3: Reversed / Refunded Receipts History -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-label-icon text-warn">assignment_return</mat-icon>
-              <span class="tab-label-desktop">Reversed & Refunded History ({{ ledger.reversedPayments?.length || 0 }})</span>
-              <span class="tab-label-mobile">Reversals ({{ ledger.reversedPayments?.length || 0 }})</span>
-            </ng-template>
-            <div class="tab-content">
-              <div class="mobile-swipe-hint">
-                <mat-icon>swipe_left</mat-icon>
-                <span>Swipe horizontally to view full table details</span>
-              </div>
-              <div class="table-responsive">
-                <table class="ledger-table reversed-table">
-                  <thead>
-                    <tr>
-                      <th class="nowrap-col text-left">Receipt No</th>
-                      <th class="nowrap-col text-left">Original Paid Date</th>
-                      <th class="nowrap-col text-left">Invoice Ref</th>
-                      <th class="text-right nowrap-col">Amount (₹)</th>
-                      <th class="nowrap-col text-left">Action / Type</th>
-                      <th class="nowrap-col text-left">Recipient & Mode</th>
-                      <th class="nowrap-col text-left">Reversed At (IST)</th>
-                      <th class="nowrap-col text-left">Reversed By</th>
-                      <th class="text-left">Reason / Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let rp of ledger.reversedPayments">
-                      <td class="nowrap-col">
-                        <span class="strikethrough-receipt">{{ rp.receiptNumber }}</span>
-                      </td>
-                      <td class="nowrap-col date-col">{{ formatToIST(rp.paymentDate) }}</td>
-                      <td class="nowrap-col inv-ref-text">{{ rp.invoiceNumber || '—' }}</td>
-                      <td class="text-right nowrap-col">
-                        <strong class="strikethrough-amount">₹{{ rp.amountPaid | number:'1.2-2' }}</strong>
-                      </td>
-                      <td class="nowrap-col">
-                        <span class="reversal-type-badge" [class.is-refund]="rp.reversalType === 'RefundToParent'">
-                          <mat-icon class="rev-type-icon">{{ rp.reversalType === 'RefundToParent' ? 'payments' : 'cancel' }}</mat-icon>
-                          <span>{{ rp.reversalType === 'RefundToParent' ? 'Refunded to Parent' : 'Clerical Void' }}</span>
-                        </span>
-                      </td>
-                      <td class="nowrap-col">
-                        <div class="recipient-cell">
-                          <span class="recip-name">{{ rp.refundRecipient || '—' }}</span>
-                          <small class="recip-mode" *ngIf="rp.refundMode">({{ rp.refundMode }})</small>
+            </mat-tab>
+            <!-- Tab 2: Payment Receipts History -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-label-icon">history_edu</mat-icon>
+                <span class="tab-label-desktop">Payment Receipts History ({{ ledger.payments.length }})</span>
+                <span class="tab-label-mobile">Receipts ({{ ledger.payments.length }})</span>
+              </ng-template>
+              <div class="tab-content">
+                <!-- DEDICATED REVERSAL WORKFLOW CARD OUTSIDE HORIZONTAL SCROLL -->
+                @if (reversingPayment) {
+                  <div class="reverse-confirm-box" #reversalBoxRef>
+                    <div class="rev-header-bar">
+                      <div class="rev-title-group">
+                        <mat-icon class="rev-warn-icon">warning_amber</mat-icon>
+                        <div class="rev-confirm-title">
+                          <strong>Reverse Payment Receipt: {{ reversingPayment.receiptNumber }} (₹{{ reversingPayment.amountPaid | number:'1.2-2' }})</strong>
+                          <span>{{ reversalLang === 'HI' ? 'रिवर्स करने का प्रकार और विवरण चुनें' : 'Choose reversal action and audit details' }}</span>
                         </div>
-                      </td>
-                      <td class="nowrap-col date-col">{{ rp.reversedAt ? formatToIST(rp.reversedAt) : '—' }}</td>
-                      <td class="nowrap-col user-col">
-                        <span class="user-pill">{{ rp.reversedBy || 'Admin' }}</span>
-                      </td>
-                      <td class="remarks-cell">
-                        <small class="reversal-reason-text">{{ rp.reversalReason || 'Reversed by admin' }}</small>
-                      </td>
-                    </tr>
-                    <tr *ngIf="!ledger.reversedPayments || ledger.reversedPayments.length === 0">
-                      <td colspan="9" class="text-center empty-cell">No reversed or refunded payment records found.</td>
-                    </tr>
-                  </tbody>
-                </table>
+                      </div>
+                      <div class="lang-toggle-pill" (click)="toggleLanguage()" [matTooltip]="reversalLang === 'EN' ? 'हिंदी में देखने के लिए क्लिक करें' : 'Switch to English'">
+                        <mat-icon class="lang-icon">translate</mat-icon>
+                        <span [class.active]="reversalLang === 'EN'">EN</span>
+                        <span class="sep">/</span>
+                        <span [class.active]="reversalLang === 'HI'">HI</span>
+                      </div>
+                    </div>
+                    <!-- Options Selector Cards -->
+                    <div class="rev-options-grid">
+                      <div
+                        class="rev-option-card"
+                        [class.selected]="reversalTypeControl.value === 'ClericalCorrection'"
+                        (click)="setReversalType('ClericalCorrection')"
+                        >
+                        <div class="card-radio">
+                          <mat-icon>{{ reversalTypeControl.value === 'ClericalCorrection' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                        </div>
+                        <div class="card-body">
+                          <div class="card-title">{{ reversalLang === 'HI' ? '1. गलत प्रविष्टि सुधार (Clerical Typo / Void)' : '1. Clerical Error / Void Entry' }}</div>
+                          <div class="card-desc">{{ reversalLang === 'HI' ? 'पैसे किसी को वापस नहीं दिए गए। केवल गलत एंट्री हटाई जा रही है और छात्र का इनवॉइस बकाया बहाल किया जाएगा।' : 'No money returned to anyone. Just removing wrongful clerk entry and restoring student invoice due balance.' }}</div>
+                        </div>
+                      </div>
+                      <div
+                        class="rev-option-card"
+                        [class.selected]="reversalTypeControl.value === 'RefundToParent'"
+                        (click)="setReversalType('RefundToParent')"
+                        >
+                        <div class="card-radio">
+                          <mat-icon>{{ reversalTypeControl.value === 'RefundToParent' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                        </div>
+                        <div class="card-body">
+                          <div class="card-title">{{ reversalLang === 'HI' ? '2. अभिभावक को नकद/बैंक रिफंड (Refund to Parent)' : '2. Actual Fee Refund to Parent' }}</div>
+                          <div class="card-desc">{{ reversalLang === 'HI' ? ('₹' + (reversingPayment.amountPaid | number:'1.2-2') + ' अभिभावक को वापस लौटाए गए। Day Book में भुगतान वापसी (Outflow) दर्ज होगी।') : ('₹' + (reversingPayment.amountPaid | number:'1.2-2') + ' returned to parent. An Outflow refund voucher will be recorded in Day Book.') }}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Refund Fields (shown only when RefundToParent selected) -->
+                    @if (reversalTypeControl.value === 'RefundToParent') {
+                      <div class="rev-fields-row">
+                        <mat-form-field appearance="outline" class="density-compact rev-field">
+                          <mat-label>{{ reversalLang === 'HI' ? 'रिफंड पेमेंट मोड' : 'Refund Payment Mode' }}</mat-label>
+                          <mat-select [formControl]="reversalRefundModeControl">
+                            <mat-option value="Cash">{{ reversalLang === 'HI' ? 'Cash (नकद गल्ले से)' : 'Cash (Counter Drawer)' }}</mat-option>
+                            <mat-option value="BankTransfer">{{ reversalLang === 'HI' ? 'Bank Transfer / NEFT' : 'Bank Transfer / NEFT' }}</mat-option>
+                            <mat-option value="UPI">{{ reversalLang === 'HI' ? 'UPI / Online' : 'UPI (Google Pay / PhonePe)' }}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="density-compact rev-field">
+                          <mat-label>{{ reversalLang === 'HI' ? 'रिफंड प्राप्तकर्ता (अभिभावक/छात्र)' : 'Refunded To (Parent / Student Name)' }}</mat-label>
+                          <input matInput [formControl]="reversalRecipientControl" [placeholder]="reversalLang === 'HI' ? 'अभिभावक या छात्र का नाम' : 'Parent or Student Name'" />
+                        </mat-form-field>
+                      </div>
+                    }
+                    <!-- Reason Field -->
+                    <div class="rev-reason-row">
+                      <mat-form-field appearance="outline" class="density-compact reason-field">
+                        <mat-label>{{ reversalLang === 'HI' ? 'रिवर्स करने का कारण / रिमार्क्स' : 'Reversal Reason / Remarks' }}</mat-label>
+                        <input matInput [formControl]="reversalReasonControl" [placeholder]="reversalLang === 'HI' ? 'जैसे: गलत छात्र पर एंट्री हो गई थी / छात्र ने नाम वापस लिया' : 'e.g. Wrong student selected / Admission withdrawn by parent'" />
+                      </mat-form-field>
+                    </div>
+                    <div class="rev-confirm-actions">
+                      <button mat-stroked-button (click)="cancelReverse()" [disabled]="reversingInProgress" class="btn-cancel-rev">
+                        {{ reversalLang === 'HI' ? 'रद्द करें (Cancel)' : 'Cancel' }}
+                      </button>
+                      <button mat-raised-button color="warn" (click)="confirmReversePayment(reversingPayment)" [disabled]="reversingInProgress" class="btn-confirm-rev">
+                        @if (!reversingInProgress) {
+                          <mat-icon>undo</mat-icon>
+                        }
+                        @if (reversingInProgress) {
+                          <mat-icon class="spinning-icon">sync</mat-icon>
+                        }
+                        <span>
+                          {{ reversingInProgress
+                          ? (reversalLang === 'HI' ? 'प्रोसेसिंग...' : 'Processing...')
+                          : (reversalTypeControl.value === 'RefundToParent'
+                          ? (reversalLang === 'HI' ? 'रिफंड और रिवर्स कन्फर्म करें' : 'Confirm Refund & Reverse')
+                          : (reversalLang === 'HI' ? 'रिवर्स कन्फर्म करें' : 'Confirm Void & Reverse')) }}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                }
+                <div class="mobile-swipe-hint">
+                  <mat-icon>swipe_left</mat-icon>
+                  <span>Swipe horizontally to view full table details</span>
+                </div>
+                <div class="table-responsive">
+                  <table class="ledger-table">
+                    <thead>
+                      <tr>
+                        <th class="nowrap-col text-left">Receipt No</th>
+                        <th class="nowrap-col text-left">Payment Date (IST)</th>
+                        <th class="nowrap-col text-left">Invoice Ref</th>
+                        <th class="nowrap-col text-left">Payment Mode</th>
+                        <th class="text-right nowrap-col">Amount Paid (₹)</th>
+                        <th class="text-left">Remarks</th>
+                        <th class="text-center nowrap-col" style="width: 70px;">Print</th>
+                        <th class="text-center nowrap-col" style="width: 90px;">Reverse</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (p of ledger.payments; track p) {
+                        <tr [class.reversing-row]="reversingPaymentId === p.paymentId">
+                          <td class="nowrap-col"><strong class="receipt-no-text">{{ p.receiptNumber }}</strong></td>
+                          <td class="nowrap-col date-col">{{ formatToIST(p.paymentDate) }}</td>
+                          <td class="nowrap-col inv-ref-text">{{ p.invoiceNumber || '—' }}</td>
+                          <td class="nowrap-col">
+                            <span class="mode-badge">{{ getPaymentModeName(p.mode) }}</span>
+                          </td>
+                          <td class="text-right text-success nowrap-col amount-text"><strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong></td>
+                          <td class="remarks-cell"><small>{{ p.transactionRef || 'N/A' }} ({{ p.remarks || '-' }})</small></td>
+                          <td class="text-center nowrap-col">
+                            <button mat-icon-button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt">
+                              <mat-icon>print</mat-icon>
+                            </button>
+                          </td>
+                          <td class="text-center nowrap-col">
+                            @if (reversingPaymentId !== p.paymentId) {
+                              <button
+                                mat-icon-button
+                                color="warn"
+                                (click)="startReversePayment(p)"
+                                matTooltip="Reverse / Undo this payment"
+                                >
+                                <mat-icon>undo</mat-icon>
+                              </button>
+                            }
+                            @if (reversingPaymentId === p.paymentId) {
+                              <button
+                                mat-icon-button
+                                color="warn"
+                                (click)="cancelReverse()"
+                                matTooltip="Cancel reversal"
+                                >
+                                <mat-icon>close</mat-icon>
+                              </button>
+                            }
+                          </td>
+                        </tr>
+                      }
+                      @if (ledger.payments.length === 0) {
+                        <tr>
+                          <td colspan="8" class="text-center empty-cell">No active payment receipts found.</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <div class="tab-bottom-spacer"></div>
               </div>
-              <div class="tab-bottom-spacer"></div>
-            </div>
-          </mat-tab>
-        </mat-tab-group>
-      </div>
-
+            </mat-tab>
+            <!-- Tab 3: Reversed / Refunded Receipts History -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-label-icon text-warn">assignment_return</mat-icon>
+                <span class="tab-label-desktop">Reversed & Refunded History ({{ ledger.reversedPayments?.length || 0 }})</span>
+                <span class="tab-label-mobile">Reversals ({{ ledger.reversedPayments?.length || 0 }})</span>
+              </ng-template>
+              <div class="tab-content">
+                <div class="mobile-swipe-hint">
+                  <mat-icon>swipe_left</mat-icon>
+                  <span>Swipe horizontally to view full table details</span>
+                </div>
+                <div class="table-responsive">
+                  <table class="ledger-table reversed-table">
+                    <thead>
+                      <tr>
+                        <th class="nowrap-col text-left">Receipt No</th>
+                        <th class="nowrap-col text-left">Original Paid Date</th>
+                        <th class="nowrap-col text-left">Invoice Ref</th>
+                        <th class="text-right nowrap-col">Amount (₹)</th>
+                        <th class="nowrap-col text-left">Action / Type</th>
+                        <th class="nowrap-col text-left">Recipient & Mode</th>
+                        <th class="nowrap-col text-left">Reversed At (IST)</th>
+                        <th class="nowrap-col text-left">Reversed By</th>
+                        <th class="text-left">Reason / Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (rp of ledger.reversedPayments; track rp) {
+                        <tr>
+                          <td class="nowrap-col">
+                            <span class="strikethrough-receipt">{{ rp.receiptNumber }}</span>
+                          </td>
+                          <td class="nowrap-col date-col">{{ formatToIST(rp.paymentDate) }}</td>
+                          <td class="nowrap-col inv-ref-text">{{ rp.invoiceNumber || '—' }}</td>
+                          <td class="text-right nowrap-col">
+                            <strong class="strikethrough-amount">₹{{ rp.amountPaid | number:'1.2-2' }}</strong>
+                          </td>
+                          <td class="nowrap-col">
+                            <span class="reversal-type-badge" [class.is-refund]="rp.reversalType === 'RefundToParent'">
+                              <mat-icon class="rev-type-icon">{{ rp.reversalType === 'RefundToParent' ? 'payments' : 'cancel' }}</mat-icon>
+                              <span>{{ rp.reversalType === 'RefundToParent' ? 'Refunded to Parent' : 'Clerical Void' }}</span>
+                            </span>
+                          </td>
+                          <td class="nowrap-col">
+                            <div class="recipient-cell">
+                              <span class="recip-name">{{ rp.refundRecipient || '—' }}</span>
+                              @if (rp.refundMode) {
+                                <small class="recip-mode">({{ rp.refundMode }})</small>
+                              }
+                            </div>
+                          </td>
+                          <td class="nowrap-col date-col">{{ rp.reversedAt ? formatToIST(rp.reversedAt) : '—' }}</td>
+                          <td class="nowrap-col user-col">
+                            <span class="user-pill">{{ rp.reversedBy || 'Admin' }}</span>
+                          </td>
+                          <td class="remarks-cell">
+                            <small class="reversal-reason-text">{{ rp.reversalReason || 'Reversed by admin' }}</small>
+                          </td>
+                        </tr>
+                      }
+                      @if (!ledger.reversedPayments || ledger.reversedPayments.length === 0) {
+                        <tr>
+                          <td colspan="9" class="text-center empty-cell">No reversed or refunded payment records found.</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <div class="tab-bottom-spacer"></div>
+              </div>
+            </mat-tab>
+          </mat-tab-group>
+        </div>
+      }
+    
       <div class="dialog-actions">
-        <button mat-stroked-button color="warn" (click)="openDueSlip()" *ngIf="ledger && ledger.totalOutstandingDue > 0" class="btn-due-slip">
-          <mat-icon>receipt_long</mat-icon>
-          <span class="btn-text-full">Print Due Slip (बकाया पर्ची)</span>
-          <span class="btn-text-short">Due Slip</span>
-        </button>
-        <button mat-stroked-button color="primary" (click)="collectFeeModal()" *ngIf="ledger && ledger.totalOutstandingDue > 0" class="btn-collect">
-          <mat-icon>payments</mat-icon>
-          <span>Collect Fee</span>
-        </button>
+        @if (ledger && ledger.totalOutstandingDue > 0) {
+          <button mat-stroked-button color="warn" (click)="openDueSlip()" class="btn-due-slip">
+            <mat-icon>receipt_long</mat-icon>
+            <span class="btn-text-full">Print Due Slip (बकाया पर्ची)</span>
+            <span class="btn-text-short">Due Slip</span>
+          </button>
+        }
+        @if (ledger && ledger.totalOutstandingDue > 0) {
+          <button mat-stroked-button color="primary" (click)="collectFeeModal()" class="btn-collect">
+            <mat-icon>payments</mat-icon>
+            <span>Collect Fee</span>
+          </button>
+        }
         <button mat-raised-button color="primary" (click)="onClose()" class="btn-done">
           Done
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .ledger-dialog-container {
       padding: 16px 20px;

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -89,1121 +89,1329 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
 
     <!-- TAB 1: Faculty Workload & Allocation -->
-    <div class="tab-content" *ngIf="selectedTab === 'workload'">
-      <!-- KPI Metric Cards -->
-      <div class="kpi-grid" *ngIf="workloadReport">
-        <div class="kpi-card blue">
-          <div class="kpi-icon"><mat-icon>groups</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Active Faculty</span>
-            <span class="kpi-val">{{workloadReport.totalActiveTeachers}}</span>
-          </div>
-        </div>
-        <div class="kpi-card purple">
-          <div class="kpi-icon"><mat-icon>school</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Assigned Batches</span>
-            <span class="kpi-val">{{workloadReport.totalAssignedBatches}}</span>
-          </div>
-        </div>
-        <div class="kpi-card teal">
-          <div class="kpi-icon"><mat-icon>event_repeat</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Weekly Classes</span>
-            <span class="kpi-val">{{workloadReport.totalWeeklyClasses}}</span>
-          </div>
-        </div>
-        <div class="kpi-card orange">
-          <div class="kpi-icon"><mat-icon>hourglass_top</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Weekly Load</span>
-            <span class="kpi-val">{{workloadReport.totalWeeklyHours}} hrs</span>
-          </div>
-        </div>
-        <div class="kpi-card emerald">
-          <div class="kpi-icon"><mat-icon>person_pin</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Students Reached</span>
-            <span class="kpi-val">{{workloadReport.totalStudentsReached}}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Filter / Search Row -->
-      <div class="filter-card">
-        <div class="search-input-wrap">
-          <mat-icon>search</mat-icon>
-          <input type="text" placeholder="Search by faculty name or employee code..." [(ngModel)]="workloadSearch" (ngModelChange)="onWorkloadSearchChange()">
-          <button type="button" class="clear-search-btn" *ngIf="workloadSearch" (click)="clearWorkloadSearch()" matTooltip="Clear search">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-        <div class="filter-select-wrap">
-          <label>Load Category:</label>
-          <select [(ngModel)]="workloadFilter" (change)="onWorkloadFilterChange()">
-            <option value="all">All Workload Levels</option>
-            <option value="no_load">No Load (0 hrs)</option>
-            <option value="light">Light Load (&lt; 10 hrs/wk)</option>
-            <option value="optimal">Optimal Load (10 – 25 hrs/wk)</option>
-            <option value="heavy">Heavy Load (&gt; 25 hrs/wk)</option>
-          </select>
-        </div>
-        <button mat-stroked-button class="refresh-workload-btn" (click)="loadWorkloadReport(workloadPage)" matTooltip="Refresh report">
-          <mat-icon>refresh</mat-icon> Refresh
-        </button>
-      </div>
-
-      <!-- Workload Table -->
-      <div class="table-responsive-container">
-        <mat-progress-bar mode="indeterminate" *ngIf="loadingWorkload" class="table-progress-bar"></mat-progress-bar>
-        <table class="report-table workload-table" [class.table-loading]="loadingWorkload">
-          <thead>
-            <tr>
-              <th class="sortable-th col-faculty" (click)="onWorkloadSort('name')">
-                <div class="th-content">
-                  <span>Faculty Name &amp; Code</span>
-                  <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'name'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'name'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="sortable-th col-qual" (click)="onWorkloadSort('qualification')">
-                <div class="th-content">
-                  <span>Qualification / Specialization</span>
-                  <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'qualification'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'qualification'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-center sortable-th col-batches" (click)="onWorkloadSort('batches')">
-                <div class="th-content text-center">
-                  <span>{{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'Assigned Classes' : (authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Classes / Batches' : 'Assigned Batches') }}</span>
-                  <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'batches'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'batches'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-center sortable-th col-classes" (click)="onWorkloadSort('classes')">
-                <div class="th-content text-center">
-                  <span>Classes / Week</span>
-                  <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'classes'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'classes'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-center sortable-th col-hours" (click)="onWorkloadSort('hours')">
-                <div class="th-content text-center">
-                  <span>Weekly Hours</span>
-                  <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'hours'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'hours'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-center sortable-th col-status" (click)="onWorkloadSort('status')">
-                <div class="th-content text-center">
-                  <span>Load Status</span>
-                  <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'status'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'status'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-center sortable-th col-reach" (click)="onWorkloadSort('reach')">
-                <div class="th-content text-center">
-                  <span>Student Reach</span>
-                  <mat-icon class="sort-ico" *ngIf="workloadSortBy === 'reach'">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="workloadSortBy !== 'reach'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-center actions-th">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of displayedWorkloadTeachers" class="report-table-row" (click)="openBatchDetails(item)">
-              <td class="col-faculty">
-                <div class="faculty-name-cell">
-                  <div class="avatar-circle">
-                    <img
-                      *ngIf="getTeacherPhoto(item) && !imgErrors[item.teacherId]"
-                      [src]="getTeacherPhoto(item)"
-                      (error)="imgErrors[item.teacherId] = true"
-                      class="faculty-photo-img"
-                      [alt]="item.teacherName"
-                    />
-                    <span *ngIf="!getTeacherPhoto(item) || imgErrors[item.teacherId]" class="avatar-initials">
-                      {{ getInitials(item.teacherName) }}
-                    </span>
-                  </div>
-                  <div>
-                    <span class="name-bold">{{item.teacherName}}</span>
-                    <span class="code-sub">{{item.employeeCode}}</span>
-                  </div>
-                </div>
-              </td>
-              <td class="col-qual">
-                <div class="qual-cell" [matTooltip]="(item.qualification || 'N/A') + (item.specialization ? ' • ' + item.specialization : '')">
-                  <span class="qual-text">{{item.qualification || 'N/A'}}</span>
-                  <span class="spec-sub" *ngIf="item.specialization">{{item.specialization}}</span>
-                </div>
-              </td>
-              <td class="text-center col-batches">
-                <span class="badge-num" [class.badge-zero]="item.assignedBatchCount === 0">
-                  {{item.assignedBatchCount}} {{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'Classes' : (authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Units' : 'Batches') }}
-                </span>
-              </td>
-              <td class="text-center col-classes">
-                <strong class="metric-num">{{item.weeklyClassesCount}}</strong>
-              </td>
-              <td class="text-center col-hours">
-                <span class="metric-hours">{{item.weeklyHours}} hrs</span>
-              </td>
-              <td class="text-center col-status">
-                <span class="status-chip" [ngClass]="getWorkloadStatusClass(item.weeklyHours)">
-                  {{getWorkloadStatusText(item.weeklyHours)}}
-                </span>
-              </td>
-              <td class="text-center col-reach">
-                <span class="reach-pill">
-                  <mat-icon>school</mat-icon> {{item.totalStudentReach}}
-                </span>
-              </td>
-              <td class="text-center actions-td" (click)="$event.stopPropagation()">
-                <button
-                  mat-icon-button
-                  [matMenuTriggerFor]="routineMenu"
-                  class="action-menu-btn"
-                  matTooltip="Actions"
-                >
-                  <mat-icon>more_vert</mat-icon>
-                </button>
-                <mat-menu #routineMenu="matMenu" xPosition="before" class="compact-action-menu">
-                  <button mat-menu-item (click)="openBatchDetails(item)">
-                    <mat-icon style="color: #2563eb;">visibility</mat-icon>
-                    <span>Routine Preview</span>
-                  </button>
-                </mat-menu>
-              </td>
-            </tr>
-            <tr *ngIf="!loadingWorkload && displayedWorkloadTeachers.length === 0">
-              <td colspan="8" class="empty-table-cell">No faculty found matching the search criteria.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination Footer Bar -->
-      <div class="pagination-footer-bar" *ngIf="workloadReport && workloadTotalCount > 0">
-        <div class="pagination-left">
-          <span class="page-summary">
-            Showing <strong>{{workloadStartIndex + 1}} – {{workloadEndIndex}}</strong> of <strong>{{workloadTotalCount}}</strong> faculty members
-          </span>
-          <div class="page-size-wrap">
-            <label>Rows per page:</label>
-            <div class="size-btn-group">
-              <button type="button" class="size-pill" [class.active]="workloadPageSize === 10" (click)="setWorkloadPageSize(10)">10</button>
-              <button type="button" class="size-pill" [class.active]="workloadPageSize === 25" (click)="setWorkloadPageSize(25)">25</button>
-              <button type="button" class="size-pill" [class.active]="workloadPageSize === 50" (click)="setWorkloadPageSize(50)">50</button>
-              <button type="button" class="size-pill" [class.active]="workloadPageSize === 100" (click)="setWorkloadPageSize(100)">100</button>
+    @if (selectedTab === 'workload') {
+      <div class="tab-content">
+        <!-- KPI Metric Cards -->
+        @if (workloadReport) {
+          <div class="kpi-grid">
+            <div class="kpi-card blue">
+              <div class="kpi-icon"><mat-icon>groups</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Active Faculty</span>
+                <span class="kpi-val">{{workloadReport.totalActiveTeachers}}</span>
+              </div>
+            </div>
+            <div class="kpi-card purple">
+              <div class="kpi-icon"><mat-icon>school</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Assigned Batches</span>
+                <span class="kpi-val">{{workloadReport.totalAssignedBatches}}</span>
+              </div>
+            </div>
+            <div class="kpi-card teal">
+              <div class="kpi-icon"><mat-icon>event_repeat</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Weekly Classes</span>
+                <span class="kpi-val">{{workloadReport.totalWeeklyClasses}}</span>
+              </div>
+            </div>
+            <div class="kpi-card orange">
+              <div class="kpi-icon"><mat-icon>hourglass_top</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Weekly Load</span>
+                <span class="kpi-val">{{workloadReport.totalWeeklyHours}} hrs</span>
+              </div>
+            </div>
+            <div class="kpi-card emerald">
+              <div class="kpi-icon"><mat-icon>person_pin</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Students Reached</span>
+                <span class="kpi-val">{{workloadReport.totalStudentsReached}}</span>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="pagination-right" *ngIf="totalWorkloadPages > 1">
-          <button type="button" class="nav-page-btn" [disabled]="workloadPage === 1 || loadingWorkload" (click)="setWorkloadPage(1)" matTooltip="First Page">
-            <mat-icon>first_page</mat-icon>
-          </button>
-          <button type="button" class="nav-page-btn" [disabled]="workloadPage === 1 || loadingWorkload" (click)="setWorkloadPage(workloadPage - 1)" matTooltip="Previous Page">
-            <mat-icon>chevron_left</mat-icon>
-          </button>
-          <div class="page-current-badge">
-            <span>Page</span>
-            <strong>{{workloadPage}}</strong>
-            <span>of</span>
-            <strong>{{totalWorkloadPages}}</strong>
+        }
+        <!-- Filter / Search Row -->
+        <div class="filter-card">
+          <div class="search-input-wrap">
+            <mat-icon>search</mat-icon>
+            <input type="text" placeholder="Search by faculty name or employee code..." [(ngModel)]="workloadSearch" (ngModelChange)="onWorkloadSearchChange()">
+            @if (workloadSearch) {
+              <button type="button" class="clear-search-btn" (click)="clearWorkloadSearch()" matTooltip="Clear search">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </div>
-          <button type="button" class="nav-page-btn" [disabled]="workloadPage >= totalWorkloadPages || loadingWorkload" (click)="setWorkloadPage(workloadPage + 1)" matTooltip="Next Page">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
-          <button type="button" class="nav-page-btn" [disabled]="workloadPage >= totalWorkloadPages || loadingWorkload" (click)="setWorkloadPage(totalWorkloadPages)" matTooltip="Last Page">
-            <mat-icon>last_page</mat-icon>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 2: Faculty Attendance Register -->
-    <div class="tab-content" *ngIf="selectedTab === 'attendance'">
-      <!-- Controls Bar -->
-      <div class="filter-card">
-        <div class="month-selector-group">
-          <div class="select-field">
-            <label>Month:</label>
-            <select [(ngModel)]="attendanceMonth" (change)="loadAttendanceReport(1)">
-              <option *ngFor="let m of months; let i = index" [value]="i + 1">{{m}}</option>
+          <div class="filter-select-wrap">
+            <label>Load Category:</label>
+            <select [(ngModel)]="workloadFilter" (change)="onWorkloadFilterChange()">
+              <option value="all">All Workload Levels</option>
+              <option value="no_load">No Load (0 hrs)</option>
+              <option value="light">Light Load (&lt; 10 hrs/wk)</option>
+              <option value="optimal">Optimal Load (10 – 25 hrs/wk)</option>
+              <option value="heavy">Heavy Load (&gt; 25 hrs/wk)</option>
             </select>
           </div>
-          <div class="select-field">
-            <label>Year:</label>
-            <select [(ngModel)]="attendanceYear" (change)="loadAttendanceReport(1)">
-              <option *ngFor="let y of years" [value]="y">{{y}}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="search-input-wrap">
-          <mat-icon>search</mat-icon>
-          <input type="text" placeholder="Search faculty by name or code..." [(ngModel)]="attendanceSearch" (ngModelChange)="onAttendanceSearchChange()">
-          <button type="button" class="clear-search-btn" *ngIf="attendanceSearch" (click)="clearAttendanceSearch()" matTooltip="Clear search">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <div class="filter-select-wrap">
-          <label>Rating:</label>
-          <select [(ngModel)]="attendanceStatusFilter" (change)="onAttendanceFilterChange()">
-            <option value="all">All Punctuality Ratings</option>
-            <option value="flawless">100% On-Time (Flawless)</option>
-            <option value="good">Good Regular (&ge; 75%)</option>
-            <option value="late">Has Late Arrivals</option>
-            <option value="low">Critical Low (&lt; 50%)</option>
-          </select>
-        </div>
-
-        <div class="matrix-toggle-group">
-          <button mat-stroked-button class="refresh-workload-btn" (click)="loadAttendanceReport(attendancePage)" matTooltip="Refresh attendance register">
+          <button mat-stroked-button class="refresh-workload-btn" (click)="loadWorkloadReport(workloadPage)" matTooltip="Refresh report">
             <mat-icon>refresh</mat-icon> Refresh
           </button>
-          <button mat-stroked-button class="matrix-bulk-btn" (click)="toggleExpandAll()">
-            <mat-icon>{{expandAllDays ? 'unfold_less' : 'calendar_view_month'}}</mat-icon>
-            <span>{{expandAllDays ? 'Collapse Matrices' : 'Expand 30-Day'}}</span>
-          </button>
         </div>
-      </div>
-
-      <!-- Attendance KPIs -->
-      <div class="kpi-grid" *ngIf="attendanceReport">
-        <div class="kpi-card blue">
-          <div class="kpi-icon"><mat-icon>badge</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Total Faculty</span>
-            <span class="kpi-val">{{attendanceReport.totalRecords}}</span>
-          </div>
-        </div>
-        <div class="kpi-card emerald">
-          <div class="kpi-icon"><mat-icon>check_circle</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Total Present</span>
-            <span class="kpi-val">{{attendanceReport.totalPresent}}</span>
-          </div>
-        </div>
-        <div class="kpi-card rose">
-          <div class="kpi-icon"><mat-icon>cancel</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Total Absent</span>
-            <span class="kpi-val">{{attendanceReport.totalAbsent}}</span>
-          </div>
-        </div>
-        <div class="kpi-card amber">
-          <div class="kpi-icon"><mat-icon>access_time</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Late Days</span>
-            <span class="kpi-val">{{attendanceReport.totalLate}}</span>
-          </div>
-        </div>
-        <div class="kpi-card purple">
-          <div class="kpi-icon"><mat-icon>donut_large</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Avg Attendance</span>
-            <span class="kpi-val">{{overallAttendanceRate}}%</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Attendance Table -->
-      <div class="table-responsive-container" *ngIf="attendanceReport">
-        <mat-progress-bar mode="indeterminate" *ngIf="loadingAttendance" class="table-progress-bar"></mat-progress-bar>
-        <table class="report-table" [class.table-loading]="loadingAttendance">
-          <thead>
-            <tr>
-              <th class="sortable-th" (click)="onAttendanceSort('name')" style="min-width: 200px;">
-                <span class="th-content">
-                  Faculty Member
-                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'name'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'name'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="text-center sortable-th" (click)="onAttendanceSort('present')" style="min-width: 80px;">
-                <span class="th-content text-center">
-                  Present
-                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'present'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'present'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="text-center sortable-th" (click)="onAttendanceSort('absent')" style="min-width: 80px;">
-                <span class="th-content text-center">
-                  Absent
-                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'absent'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'absent'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="text-center sortable-th" (click)="onAttendanceSort('late')" style="min-width: 80px;">
-                <span class="th-content text-center">
-                  Late
-                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'late'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'late'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="text-center sortable-th" (click)="onAttendanceSort('half')" style="min-width: 85px;">
-                <span class="th-content text-center">
-                  Half Days
-                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'half'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'half'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="text-center" style="min-width: 80px;">Off/Sundays</th>
-              <th class="text-center" style="min-width: 85px;">Working Days</th>
-              <th class="text-center sortable-th" (click)="onAttendanceSort('percentage')" style="min-width: 170px;">
-                <span class="th-content text-center">
-                  Attendance %
-                  <mat-icon class="sort-ico" *ngIf="attendanceSortBy === 'percentage'">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="attendanceSortBy !== 'percentage'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="text-center" style="min-width: 210px;">Punctuality Rating</th>
-              <th class="text-center" style="min-width: 130px;">Daily Matrix</th>
-            </tr>
-          </thead>
-          <tbody>
-            <ng-container *ngFor="let row of displayedAttendanceRows">
-              <tr class="faculty-main-row" [class.expanded-row]="isExpanded(row.personId)">
-                <td>
-                  <div class="faculty-name-cell">
-                    <div class="avatar-circle">
-                      <img
-                        *ngIf="getTeacherPhoto(row) && !imgErrors[row.personId]"
-                        [src]="getTeacherPhoto(row)"
-                        (error)="imgErrors[row.personId] = true"
-                        class="faculty-photo-img"
-                        [alt]="row.personName || row.name"
-                      />
-                      <span *ngIf="!getTeacherPhoto(row) || imgErrors[row.personId]" class="avatar-initials">
-                        {{ getInitials(row.personName || row.name) }}
-                      </span>
-                    </div>
-                    <div>
-                      <span class="name-bold">{{row.personName || row.name}}</span>
-                      <span class="code-sub">{{row.code}}</span>
-                    </div>
+        <!-- Workload Table -->
+        <div class="table-responsive-container">
+          @if (loadingWorkload) {
+            <mat-progress-bar mode="indeterminate" class="table-progress-bar"></mat-progress-bar>
+          }
+          <table class="report-table workload-table" [class.table-loading]="loadingWorkload">
+            <thead>
+              <tr>
+                <th class="sortable-th col-faculty" (click)="onWorkloadSort('name')">
+                  <div class="th-content">
+                    <span>Faculty Name &amp; Code</span>
+                    @if (workloadSortBy === 'name') {
+                      <mat-icon class="sort-ico">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                    }
+                    @if (workloadSortBy !== 'name') {
+                      <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                    }
                   </div>
-                </td>
-                <td class="text-center text-emerald">
-                  <span class="stat-pill pill-present"><strong>{{row.presentDays}}</strong></span>
-                </td>
-                <td class="text-center text-rose">
-                  <span class="stat-pill pill-absent"><strong>{{row.absentDays}}</strong></span>
-                </td>
-                <td class="text-center text-amber">
-                  <span class="stat-pill pill-late"><strong>{{row.lateDays}}</strong></span>
-                </td>
-                <td class="text-center text-purple">
-                  <span class="stat-pill pill-half"><strong>{{row.halfDays}}</strong></span>
-                </td>
-                <td class="text-center">
-                  <span class="stat-pill pill-off">{{row.holidayDays}}</span>
-                </td>
-                <td class="text-center">
-                  <span class="stat-pill pill-work">{{row.totalWorkingDays}}</span>
-                </td>
-                <td>
-                  <div class="attendance-calc-cell">
-                    <div class="pct-top-row">
-                      <span class="pct-value" [style.color]="getPctColor(getMonthlyPct(row))">
-                        {{getMonthlyPct(row)}}%
-                      </span>
-                      <span class="pct-type-badge" [ngClass]="isLimitedData(row) ? 'badge-mtd-warn' : 'badge-mtd-ok'">
-                        {{isLimitedData(row) ? '1 Day Marked' : 'Full Month'}}
-                      </span>
-                    </div>
-                    <div class="pct-bar-bg">
-                      <div class="pct-bar-fill"
-                        [style.width.%]="getMonthlyPct(row)"
-                        [style.background]="getPctColor(getMonthlyPct(row))">
+                </th>
+                <th class="sortable-th col-qual" (click)="onWorkloadSort('qualification')">
+                  <div class="th-content">
+                    <span>Qualification / Specialization</span>
+                    @if (workloadSortBy === 'qualification') {
+                      <mat-icon class="sort-ico">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                    }
+                    @if (workloadSortBy !== 'qualification') {
+                      <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                    }
+                  </div>
+                </th>
+                <th class="text-center sortable-th col-batches" (click)="onWorkloadSort('batches')">
+                  <div class="th-content text-center">
+                    <span>{{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'Assigned Classes' : (authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Classes / Batches' : 'Assigned Batches') }}</span>
+                    @if (workloadSortBy === 'batches') {
+                      <mat-icon class="sort-ico">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                    }
+                    @if (workloadSortBy !== 'batches') {
+                      <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                    }
+                  </div>
+                </th>
+                <th class="text-center sortable-th col-classes" (click)="onWorkloadSort('classes')">
+                  <div class="th-content text-center">
+                    <span>Classes / Week</span>
+                    @if (workloadSortBy === 'classes') {
+                      <mat-icon class="sort-ico">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                    }
+                    @if (workloadSortBy !== 'classes') {
+                      <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                    }
+                  </div>
+                </th>
+                <th class="text-center sortable-th col-hours" (click)="onWorkloadSort('hours')">
+                  <div class="th-content text-center">
+                    <span>Weekly Hours</span>
+                    @if (workloadSortBy === 'hours') {
+                      <mat-icon class="sort-ico">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                    }
+                    @if (workloadSortBy !== 'hours') {
+                      <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                    }
+                  </div>
+                </th>
+                <th class="text-center sortable-th col-status" (click)="onWorkloadSort('status')">
+                  <div class="th-content text-center">
+                    <span>Load Status</span>
+                    @if (workloadSortBy === 'status') {
+                      <mat-icon class="sort-ico">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                    }
+                    @if (workloadSortBy !== 'status') {
+                      <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                    }
+                  </div>
+                </th>
+                <th class="text-center sortable-th col-reach" (click)="onWorkloadSort('reach')">
+                  <div class="th-content text-center">
+                    <span>Student Reach</span>
+                    @if (workloadSortBy === 'reach') {
+                      <mat-icon class="sort-ico">{{ workloadSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                    }
+                    @if (workloadSortBy !== 'reach') {
+                      <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                    }
+                  </div>
+                </th>
+                <th class="text-center actions-th">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of displayedWorkloadTeachers; track item) {
+                <tr class="report-table-row" (click)="openBatchDetails(item)">
+                  <td class="col-faculty">
+                    <div class="faculty-name-cell">
+                      <div class="avatar-circle">
+                        @if (getTeacherPhoto(item) && !imgErrors[item.teacherId]) {
+                          <img
+                            [src]="getTeacherPhoto(item)"
+                            (error)="imgErrors[item.teacherId] = true"
+                            class="faculty-photo-img"
+                            [alt]="item.teacherName"
+                            />
+                        }
+                        @if (!getTeacherPhoto(item) || imgErrors[item.teacherId]) {
+                          <span class="avatar-initials">
+                            {{ getInitials(item.teacherName) }}
+                          </span>
+                        }
+                      </div>
+                      <div>
+                        <span class="name-bold">{{item.teacherName}}</span>
+                        <span class="code-sub">{{item.employeeCode}}</span>
                       </div>
                     </div>
-                    <div class="pct-sub-text">
-                      <span *ngIf="isLimitedData(row)">
-                        MTD: <strong>{{getMtdPct(row)}}%</strong> ({{getEvaluatedDays(row)}}/{{row.totalWorkingDays}} days marked)
-                      </span>
-                      <span *ngIf="!isLimitedData(row)">
-                        {{row.presentDays + row.lateDays}} / {{row.totalWorkingDays}} working days attended
-                      </span>
+                  </td>
+                  <td class="col-qual">
+                    <div class="qual-cell" [matTooltip]="(item.qualification || 'N/A') + (item.specialization ? ' • ' + item.specialization : '')">
+                      <span class="qual-text">{{item.qualification || 'N/A'}}</span>
+                      @if (item.specialization) {
+                        <span class="spec-sub">{{item.specialization}}</span>
+                      }
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <div class="rating-badge-box" [ngClass]="getPunctualityRating(row).badgeClass" [matTooltip]="getPunctualityRating(row).tooltip">
-                    <div class="rb-header">
-                      <mat-icon class="rb-icon">{{getPunctualityRating(row).icon}}</mat-icon>
-                      <span class="rb-title">{{getPunctualityRating(row).title}}</span>
-                    </div>
-                    <div class="rb-subtitle" *ngIf="getPunctualityRating(row).subtitle">
-                      {{getPunctualityRating(row).subtitle}}
-                    </div>
-                  </div>
-                </td>
-                <td class="text-center">
-                  <button mat-stroked-button class="matrix-action-btn"
-                    [class.matrix-open]="isExpanded(row.personId)"
-                    (click)="toggleTeacherCalendar(row.personId)">
-                    <mat-icon>{{isExpanded(row.personId) ? 'expand_less' : 'calendar_month'}}</mat-icon>
-                    <span>{{isExpanded(row.personId) ? 'Hide Matrix' : 'Daily Matrix'}}</span>
-                  </button>
-                </td>
-              </tr>
+                  </td>
+                  <td class="text-center col-batches">
+                    <span class="badge-num" [class.badge-zero]="item.assignedBatchCount === 0">
+                      {{item.assignedBatchCount}} {{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'Classes' : (authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Units' : 'Batches') }}
+                    </span>
+                  </td>
+                  <td class="text-center col-classes">
+                    <strong class="metric-num">{{item.weeklyClassesCount}}</strong>
+                  </td>
+                  <td class="text-center col-hours">
+                    <span class="metric-hours">{{item.weeklyHours}} hrs</span>
+                  </td>
+                  <td class="text-center col-status">
+                    <span class="status-chip" [ngClass]="getWorkloadStatusClass(item.weeklyHours)">
+                      {{getWorkloadStatusText(item.weeklyHours)}}
+                    </span>
+                  </td>
+                  <td class="text-center col-reach">
+                    <span class="reach-pill">
+                      <mat-icon>school</mat-icon> {{item.totalStudentReach}}
+                    </span>
+                  </td>
+                  <td class="text-center actions-td" (click)="$event.stopPropagation()">
+                    <button
+                      mat-icon-button
+                      [matMenuTriggerFor]="routineMenu"
+                      class="action-menu-btn"
+                      matTooltip="Actions"
+                      >
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #routineMenu="matMenu" xPosition="before" class="compact-action-menu">
+                      <button mat-menu-item (click)="openBatchDetails(item)">
+                        <mat-icon style="color: #2563eb;">visibility</mat-icon>
+                        <span>Routine Preview</span>
+                      </button>
+                    </mat-menu>
+                  </td>
+                </tr>
+              }
+              @if (!loadingWorkload && displayedWorkloadTeachers.length === 0) {
+                <tr>
+                  <td colspan="8" class="empty-table-cell">No faculty found matching the search criteria.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <!-- Pagination Footer Bar -->
+        @if (workloadReport && workloadTotalCount > 0) {
+          <div class="pagination-footer-bar">
+            <div class="pagination-left">
+              <span class="page-summary">
+                Showing <strong>{{workloadStartIndex + 1}} – {{workloadEndIndex}}</strong> of <strong>{{workloadTotalCount}}</strong> faculty members
+              </span>
+              <div class="page-size-wrap">
+                <label>Rows per page:</label>
+                <div class="size-btn-group">
+                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 10" (click)="setWorkloadPageSize(10)">10</button>
+                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 25" (click)="setWorkloadPageSize(25)">25</button>
+                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 50" (click)="setWorkloadPageSize(50)">50</button>
+                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 100" (click)="setWorkloadPageSize(100)">100</button>
+                </div>
+              </div>
+            </div>
+            @if (totalWorkloadPages > 1) {
+              <div class="pagination-right">
+                <button type="button" class="nav-page-btn" [disabled]="workloadPage === 1 || loadingWorkload" (click)="setWorkloadPage(1)" matTooltip="First Page">
+                  <mat-icon>first_page</mat-icon>
+                </button>
+                <button type="button" class="nav-page-btn" [disabled]="workloadPage === 1 || loadingWorkload" (click)="setWorkloadPage(workloadPage - 1)" matTooltip="Previous Page">
+                  <mat-icon>chevron_left</mat-icon>
+                </button>
+                <div class="page-current-badge">
+                  <span>Page</span>
+                  <strong>{{workloadPage}}</strong>
+                  <span>of</span>
+                  <strong>{{totalWorkloadPages}}</strong>
+                </div>
+                <button type="button" class="nav-page-btn" [disabled]="workloadPage >= totalWorkloadPages || loadingWorkload" (click)="setWorkloadPage(workloadPage + 1)" matTooltip="Next Page">
+                  <mat-icon>chevron_right</mat-icon>
+                </button>
+                <button type="button" class="nav-page-btn" [disabled]="workloadPage >= totalWorkloadPages || loadingWorkload" (click)="setWorkloadPage(totalWorkloadPages)" matTooltip="Last Page">
+                  <mat-icon>last_page</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
 
-              <!-- EXPANDED 30-DAY CALENDAR MATRIX DRAWER -->
-              <tr *ngIf="isExpanded(row.personId)" class="matrix-drawer-row">
-                <td colspan="10" class="matrix-drawer-container">
-                  <div class="matrix-drawer-card">
-                    <div class="md-header">
-                      <div class="md-title-left">
-                        <mat-icon class="md-icon">date_range</mat-icon>
+    <!-- TAB 2: Faculty Attendance Register -->
+    @if (selectedTab === 'attendance') {
+      <div class="tab-content">
+        <!-- Controls Bar -->
+        <div class="filter-card">
+          <div class="month-selector-group">
+            <div class="select-field">
+              <label>Month:</label>
+              <select [(ngModel)]="attendanceMonth" (change)="loadAttendanceReport(1)">
+                @for (m of months; track m; let i = $index) {
+                  <option [value]="i + 1">{{m}}</option>
+                }
+              </select>
+            </div>
+            <div class="select-field">
+              <label>Year:</label>
+              <select [(ngModel)]="attendanceYear" (change)="loadAttendanceReport(1)">
+                @for (y of years; track y) {
+                  <option [value]="y">{{y}}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="search-input-wrap">
+            <mat-icon>search</mat-icon>
+            <input type="text" placeholder="Search faculty by name or code..." [(ngModel)]="attendanceSearch" (ngModelChange)="onAttendanceSearchChange()">
+            @if (attendanceSearch) {
+              <button type="button" class="clear-search-btn" (click)="clearAttendanceSearch()" matTooltip="Clear search">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
+          </div>
+          <div class="filter-select-wrap">
+            <label>Rating:</label>
+            <select [(ngModel)]="attendanceStatusFilter" (change)="onAttendanceFilterChange()">
+              <option value="all">All Punctuality Ratings</option>
+              <option value="flawless">100% On-Time (Flawless)</option>
+              <option value="good">Good Regular (&ge; 75%)</option>
+              <option value="late">Has Late Arrivals</option>
+              <option value="low">Critical Low (&lt; 50%)</option>
+            </select>
+          </div>
+          <div class="matrix-toggle-group">
+            <button mat-stroked-button class="refresh-workload-btn" (click)="loadAttendanceReport(attendancePage)" matTooltip="Refresh attendance register">
+              <mat-icon>refresh</mat-icon> Refresh
+            </button>
+            <button mat-stroked-button class="matrix-bulk-btn" (click)="toggleExpandAll()">
+              <mat-icon>{{expandAllDays ? 'unfold_less' : 'calendar_view_month'}}</mat-icon>
+              <span>{{expandAllDays ? 'Collapse Matrices' : 'Expand 30-Day'}}</span>
+            </button>
+          </div>
+        </div>
+        <!-- Attendance KPIs -->
+        @if (attendanceReport) {
+          <div class="kpi-grid">
+            <div class="kpi-card blue">
+              <div class="kpi-icon"><mat-icon>badge</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Total Faculty</span>
+                <span class="kpi-val">{{attendanceReport.totalRecords}}</span>
+              </div>
+            </div>
+            <div class="kpi-card emerald">
+              <div class="kpi-icon"><mat-icon>check_circle</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Total Present</span>
+                <span class="kpi-val">{{attendanceReport.totalPresent}}</span>
+              </div>
+            </div>
+            <div class="kpi-card rose">
+              <div class="kpi-icon"><mat-icon>cancel</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Total Absent</span>
+                <span class="kpi-val">{{attendanceReport.totalAbsent}}</span>
+              </div>
+            </div>
+            <div class="kpi-card amber">
+              <div class="kpi-icon"><mat-icon>access_time</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Late Days</span>
+                <span class="kpi-val">{{attendanceReport.totalLate}}</span>
+              </div>
+            </div>
+            <div class="kpi-card purple">
+              <div class="kpi-icon"><mat-icon>donut_large</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Avg Attendance</span>
+                <span class="kpi-val">{{overallAttendanceRate}}%</span>
+              </div>
+            </div>
+          </div>
+        }
+        <!-- Attendance Table -->
+        @if (attendanceReport) {
+          <div class="table-responsive-container">
+            @if (loadingAttendance) {
+              <mat-progress-bar mode="indeterminate" class="table-progress-bar"></mat-progress-bar>
+            }
+            <table class="report-table" [class.table-loading]="loadingAttendance">
+              <thead>
+                <tr>
+                  <th class="sortable-th" (click)="onAttendanceSort('name')" style="min-width: 200px;">
+                    <span class="th-content">
+                      Faculty Member
+                      @if (attendanceSortBy === 'name') {
+                        <mat-icon class="sort-ico">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (attendanceSortBy !== 'name') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="text-center sortable-th" (click)="onAttendanceSort('present')" style="min-width: 80px;">
+                    <span class="th-content text-center">
+                      Present
+                      @if (attendanceSortBy === 'present') {
+                        <mat-icon class="sort-ico">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (attendanceSortBy !== 'present') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="text-center sortable-th" (click)="onAttendanceSort('absent')" style="min-width: 80px;">
+                    <span class="th-content text-center">
+                      Absent
+                      @if (attendanceSortBy === 'absent') {
+                        <mat-icon class="sort-ico">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (attendanceSortBy !== 'absent') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="text-center sortable-th" (click)="onAttendanceSort('late')" style="min-width: 80px;">
+                    <span class="th-content text-center">
+                      Late
+                      @if (attendanceSortBy === 'late') {
+                        <mat-icon class="sort-ico">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (attendanceSortBy !== 'late') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="text-center sortable-th" (click)="onAttendanceSort('half')" style="min-width: 85px;">
+                    <span class="th-content text-center">
+                      Half Days
+                      @if (attendanceSortBy === 'half') {
+                        <mat-icon class="sort-ico">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (attendanceSortBy !== 'half') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="text-center" style="min-width: 80px;">Off/Sundays</th>
+                  <th class="text-center" style="min-width: 85px;">Working Days</th>
+                  <th class="text-center sortable-th" (click)="onAttendanceSort('percentage')" style="min-width: 170px;">
+                    <span class="th-content text-center">
+                      Attendance %
+                      @if (attendanceSortBy === 'percentage') {
+                        <mat-icon class="sort-ico">{{attendanceSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (attendanceSortBy !== 'percentage') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="text-center" style="min-width: 210px;">Punctuality Rating</th>
+                  <th class="text-center" style="min-width: 130px;">Daily Matrix</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of displayedAttendanceRows; track row) {
+                  <tr class="faculty-main-row" [class.expanded-row]="isExpanded(row.personId)">
+                    <td>
+                      <div class="faculty-name-cell">
+                        <div class="avatar-circle">
+                          @if (getTeacherPhoto(row) && !imgErrors[row.personId]) {
+                            <img
+                              [src]="getTeacherPhoto(row)"
+                              (error)="imgErrors[row.personId] = true"
+                              class="faculty-photo-img"
+                              [alt]="row.personName || row.name"
+                              />
+                          }
+                          @if (!getTeacherPhoto(row) || imgErrors[row.personId]) {
+                            <span class="avatar-initials">
+                              {{ getInitials(row.personName || row.name) }}
+                            </span>
+                          }
+                        </div>
                         <div>
-                          <strong class="md-title">{{months[attendanceMonth - 1]}} {{attendanceYear}} Daily Attendance Strip</strong>
-                          <span class="md-subtitle">{{row.personName || row.name}} ({{row.code}}) • 1 to {{getDaysInMonth()}} {{months[attendanceMonth - 1]}}</span>
+                          <span class="name-bold">{{row.personName || row.name}}</span>
+                          <span class="code-sub">{{row.code}}</span>
                         </div>
                       </div>
-                      <div class="md-summary-chips">
-                        <span class="md-chip chip-p">🟢 Present: {{row.presentDays}}</span>
-                        <span class="md-chip chip-l">🟡 Late: {{row.lateDays}}</span>
-                        <span class="md-chip chip-a">🔴 Absent: {{row.absentDays}}</span>
-                        <span class="md-chip chip-hd">🟣 Half: {{row.halfDays}}</span>
-                        <span class="md-chip chip-off">⚪ Sun/Off: {{row.holidayDays}}</span>
-                        <span class="md-chip chip-unmarked">➖ Unmarked: {{getUnmarkedDays(row)}}</span>
+                    </td>
+                    <td class="text-center text-emerald">
+                      <span class="stat-pill pill-present"><strong>{{row.presentDays}}</strong></span>
+                    </td>
+                    <td class="text-center text-rose">
+                      <span class="stat-pill pill-absent"><strong>{{row.absentDays}}</strong></span>
+                    </td>
+                    <td class="text-center text-amber">
+                      <span class="stat-pill pill-late"><strong>{{row.lateDays}}</strong></span>
+                    </td>
+                    <td class="text-center text-purple">
+                      <span class="stat-pill pill-half"><strong>{{row.halfDays}}</strong></span>
+                    </td>
+                    <td class="text-center">
+                      <span class="stat-pill pill-off">{{row.holidayDays}}</span>
+                    </td>
+                    <td class="text-center">
+                      <span class="stat-pill pill-work">{{row.totalWorkingDays}}</span>
+                    </td>
+                    <td>
+                      <div class="attendance-calc-cell">
+                        <div class="pct-top-row">
+                          <span class="pct-value" [style.color]="getPctColor(getMonthlyPct(row))">
+                            {{getMonthlyPct(row)}}%
+                          </span>
+                          <span class="pct-type-badge" [ngClass]="isLimitedData(row) ? 'badge-mtd-warn' : 'badge-mtd-ok'">
+                            {{isLimitedData(row) ? '1 Day Marked' : 'Full Month'}}
+                          </span>
+                        </div>
+                        <div class="pct-bar-bg">
+                          <div class="pct-bar-fill"
+                            [style.width.%]="getMonthlyPct(row)"
+                            [style.background]="getPctColor(getMonthlyPct(row))">
+                          </div>
+                        </div>
+                        <div class="pct-sub-text">
+                          @if (isLimitedData(row)) {
+                            <span>
+                              MTD: <strong>{{getMtdPct(row)}}%</strong> ({{getEvaluatedDays(row)}}/{{row.totalWorkingDays}} days marked)
+                            </span>
+                          }
+                          @if (!isLimitedData(row)) {
+                            <span>
+                              {{row.presentDays + row.lateDays}} / {{row.totalWorkingDays}} working days attended
+                            </span>
+                          }
+                        </div>
                       </div>
-                    </div>
-
-                    <!-- Day Cards Horizontal Strip -->
-                    <div class="daily-strip-container">
-                      <div class="day-card" *ngFor="let d of getTeacherDailyMatrix(row)"
-                        [ngClass]="'day-' + d.status.toLowerCase()"
-                        [class.day-is-sunday]="d.isSunday"
-                        [matTooltip]="d.label">
-                        <span class="day-card-num">{{d.day < 10 ? '0' + d.day : d.day}}</span>
-                        <span class="day-card-name">{{d.dayOfWeek}}</span>
-                        <span class="day-card-badge">{{d.status}}</span>
+                    </td>
+                    <td>
+                      <div class="rating-badge-box" [ngClass]="getPunctualityRating(row).badgeClass" [matTooltip]="getPunctualityRating(row).tooltip">
+                        <div class="rb-header">
+                          <mat-icon class="rb-icon">{{getPunctualityRating(row).icon}}</mat-icon>
+                          <span class="rb-title">{{getPunctualityRating(row).title}}</span>
+                        </div>
+                        @if (getPunctualityRating(row).subtitle) {
+                          <div class="rb-subtitle">
+                            {{getPunctualityRating(row).subtitle}}
+                          </div>
+                        }
                       </div>
-                    </div>
-
-                    <!-- Legend footer -->
-                    <div class="matrix-legend">
-                      <span class="leg-item"><span class="leg-dot dot-p"></span> <strong>P</strong> = Present</span>
-                      <span class="leg-item"><span class="leg-dot dot-l"></span> <strong>L</strong> = Sanctioned Leave</span>
-                      <span class="leg-item"><span class="leg-dot dot-lt"></span> <strong>LT</strong> = Late Arrival</span>
-                      <span class="leg-item"><span class="leg-dot dot-a"></span> <strong>A</strong> = Absent</span>
-                      <span class="leg-item"><span class="leg-dot dot-hd"></span> <strong>HD</strong> = Half Day</span>
-                      <span class="leg-item"><span class="leg-dot dot-off"></span> <strong>OFF</strong> = Sunday / Holiday</span>
-                      <span class="leg-item"><span class="leg-dot dot-unmarked"></span> <strong>—</strong> = Unmarked / Future Date</span>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            </ng-container>
-            <tr *ngIf="!loadingAttendance && displayedAttendanceRows.length === 0">
-              <td colspan="10" class="empty-table-cell">No attendance records found matching the search criteria for {{months[attendanceMonth - 1]}} {{attendanceYear}}.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination Footer Bar for Attendance -->
-      <div class="pagination-footer-bar" *ngIf="attendanceReport && attendanceTotalCount > 0">
-        <div class="pagination-left">
-          <span class="page-summary">
-            Showing <strong>{{attendanceStartIndex + 1}} – {{attendanceEndIndex}}</strong> of <strong>{{attendanceTotalCount}}</strong> faculty
-          </span>
-          <div class="page-size-wrap">
-            <label>Rows per page:</label>
-            <div class="size-btn-group">
-              <button type="button" class="size-pill" [class.active]="attendancePageSize === 10" (click)="setAttendancePageSize(10)">10</button>
-              <button type="button" class="size-pill" [class.active]="attendancePageSize === 25" (click)="setAttendancePageSize(25)">25</button>
-              <button type="button" class="size-pill" [class.active]="attendancePageSize === 50" (click)="setAttendancePageSize(50)">50</button>
-              <button type="button" class="size-pill" [class.active]="attendancePageSize === 100" (click)="setAttendancePageSize(100)">100</button>
+                    </td>
+                    <td class="text-center">
+                      <button mat-stroked-button class="matrix-action-btn"
+                        [class.matrix-open]="isExpanded(row.personId)"
+                        (click)="toggleTeacherCalendar(row.personId)">
+                        <mat-icon>{{isExpanded(row.personId) ? 'expand_less' : 'calendar_month'}}</mat-icon>
+                        <span>{{isExpanded(row.personId) ? 'Hide Matrix' : 'Daily Matrix'}}</span>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- EXPANDED 30-DAY CALENDAR MATRIX DRAWER -->
+                  @if (isExpanded(row.personId)) {
+                    <tr class="matrix-drawer-row">
+                      <td colspan="10" class="matrix-drawer-container">
+                        <div class="matrix-drawer-card">
+                          <div class="md-header">
+                            <div class="md-title-left">
+                              <mat-icon class="md-icon">date_range</mat-icon>
+                              <div>
+                                <strong class="md-title">{{months[attendanceMonth - 1]}} {{attendanceYear}} Daily Attendance Strip</strong>
+                                <span class="md-subtitle">{{row.personName || row.name}} ({{row.code}}) • 1 to {{getDaysInMonth()}} {{months[attendanceMonth - 1]}}</span>
+                              </div>
+                            </div>
+                            <div class="md-summary-chips">
+                              <span class="md-chip chip-p">🟢 Present: {{row.presentDays}}</span>
+                              <span class="md-chip chip-l">🟡 Late: {{row.lateDays}}</span>
+                              <span class="md-chip chip-a">🔴 Absent: {{row.absentDays}}</span>
+                              <span class="md-chip chip-hd">🟣 Half: {{row.halfDays}}</span>
+                              <span class="md-chip chip-off">⚪ Sun/Off: {{row.holidayDays}}</span>
+                              <span class="md-chip chip-unmarked">➖ Unmarked: {{getUnmarkedDays(row)}}</span>
+                            </div>
+                          </div>
+                          <!-- Day Cards Horizontal Strip -->
+                          <div class="daily-strip-container">
+                            @for (d of getTeacherDailyMatrix(row); track d) {
+                              <div class="day-card"
+                                [ngClass]="'day-' + d.status.toLowerCase()"
+                                [class.day-is-sunday]="d.isSunday"
+                                [matTooltip]="d.label">
+                                <span class="day-card-num">{{d.day < 10 ? '0' + d.day : d.day}}</span>
+                                <span class="day-card-name">{{d.dayOfWeek}}</span>
+                                <span class="day-card-badge">{{d.status}}</span>
+                              </div>
+                            }
+                          </div>
+                          <!-- Legend footer -->
+                          <div class="matrix-legend">
+                            <span class="leg-item"><span class="leg-dot dot-p"></span> <strong>P</strong> = Present</span>
+                            <span class="leg-item"><span class="leg-dot dot-l"></span> <strong>L</strong> = Sanctioned Leave</span>
+                            <span class="leg-item"><span class="leg-dot dot-lt"></span> <strong>LT</strong> = Late Arrival</span>
+                            <span class="leg-item"><span class="leg-dot dot-a"></span> <strong>A</strong> = Absent</span>
+                            <span class="leg-item"><span class="leg-dot dot-hd"></span> <strong>HD</strong> = Half Day</span>
+                            <span class="leg-item"><span class="leg-dot dot-off"></span> <strong>OFF</strong> = Sunday / Holiday</span>
+                            <span class="leg-item"><span class="leg-dot dot-unmarked"></span> <strong>—</strong> = Unmarked / Future Date</span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                }
+                @if (!loadingAttendance && displayedAttendanceRows.length === 0) {
+                  <tr>
+                    <td colspan="10" class="empty-table-cell">No attendance records found matching the search criteria for {{months[attendanceMonth - 1]}} {{attendanceYear}}.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        <!-- Pagination Footer Bar for Attendance -->
+        @if (attendanceReport && attendanceTotalCount > 0) {
+          <div class="pagination-footer-bar">
+            <div class="pagination-left">
+              <span class="page-summary">
+                Showing <strong>{{attendanceStartIndex + 1}} – {{attendanceEndIndex}}</strong> of <strong>{{attendanceTotalCount}}</strong> faculty
+              </span>
+              <div class="page-size-wrap">
+                <label>Rows per page:</label>
+                <div class="size-btn-group">
+                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 10" (click)="setAttendancePageSize(10)">10</button>
+                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 25" (click)="setAttendancePageSize(25)">25</button>
+                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 50" (click)="setAttendancePageSize(50)">50</button>
+                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 100" (click)="setAttendancePageSize(100)">100</button>
+                </div>
+              </div>
+            </div>
+            <div class="pagination-right">
+              <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(1)" matTooltip="First Page">
+                <mat-icon>first_page</mat-icon>
+              </button>
+              <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(attendancePage - 1)" matTooltip="Previous Page">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <div class="page-current-badge">
+                Page <strong>{{attendancePage}}</strong> of <strong>{{totalAttendancePages}}</strong>
+              </div>
+              <button type="button" class="nav-page-btn" [disabled]="attendancePage >= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(attendancePage + 1)" matTooltip="Next Page">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+              <button type="button" class="nav-page-btn" [disabled]="attendancePage >= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(totalAttendancePages)" matTooltip="Last Page">
+                <mat-icon>last_page</mat-icon>
+              </button>
             </div>
           </div>
-        </div>
-        <div class="pagination-right">
-          <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(1)" matTooltip="First Page">
-            <mat-icon>first_page</mat-icon>
-          </button>
-          <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(attendancePage - 1)" matTooltip="Previous Page">
-            <mat-icon>chevron_left</mat-icon>
-          </button>
-          <div class="page-current-badge">
-            Page <strong>{{attendancePage}}</strong> of <strong>{{totalAttendancePages}}</strong>
-          </div>
-          <button type="button" class="nav-page-btn" [disabled]="attendancePage >= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(attendancePage + 1)" matTooltip="Next Page">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
-          <button type="button" class="nav-page-btn" [disabled]="attendancePage >= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(totalAttendancePages)" matTooltip="Last Page">
-            <mat-icon>last_page</mat-icon>
-          </button>
-        </div>
+        }
       </div>
-    </div>
+    }
 
     <!-- TAB 3: Faculty Payroll Register -->
-    <div class="tab-content" *ngIf="selectedTab === 'payroll'">
-      <!-- Controls Bar -->
-      <div class="filter-card">
-        <div class="month-selector-group">
-          <div class="select-field">
-            <label>Month:</label>
-            <select [(ngModel)]="payrollMonth" (change)="loadPayrollReport(1)">
-              <option *ngFor="let m of months; let i = index" [value]="i + 1">{{m}}</option>
-            </select>
-          </div>
-          <div class="select-field">
-            <label>Year:</label>
-            <select [(ngModel)]="payrollYear" (change)="loadPayrollReport(1)">
-              <option *ngFor="let y of years" [value]="y">{{y}}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="search-input-wrap">
-          <mat-icon>search</mat-icon>
-          <input type="text" placeholder="Search by faculty, code, receipt #..." [(ngModel)]="payrollSearch" (ngModelChange)="onPayrollSearchChange()">
-          <button type="button" class="clear-search-btn" *ngIf="payrollSearch" (click)="clearPayrollSearch()" matTooltip="Clear search">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <div class="filter-select-wrap">
-          <label>Mode:</label>
-          <select [(ngModel)]="payrollModeFilter" (change)="onPayrollFilterChange()">
-            <option value="all">All Modes</option>
-            <option value="Cash">Cash</option>
-            <option value="BankTransfer">Bank Transfer</option>
-            <option value="Cheque">Cheque</option>
-            <option value="UPI">UPI</option>
-          </select>
-        </div>
-
-        <button mat-stroked-button class="refresh-workload-btn" (click)="loadPayrollReport(payrollPage)" matTooltip="Refresh payroll register">
-          <mat-icon>refresh</mat-icon> Refresh
-        </button>
-      </div>
-
-      <!-- Payroll KPIs -->
-      <div class="kpi-grid" *ngIf="payrollReport">
-        <div class="kpi-card blue">
-          <div class="kpi-icon"><mat-icon>payments</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Gross Payroll</span>
-            <span class="kpi-val">₹{{payrollReport.totalGrossAmount | number:'1.0-0'}}</span>
-          </div>
-        </div>
-        <div class="kpi-card rose">
-          <div class="kpi-icon"><mat-icon>remove_circle_outline</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Total Deductions</span>
-            <span class="kpi-val">₹{{payrollReport.totalDeductions | number:'1.0-0'}}</span>
-          </div>
-        </div>
-        <div class="kpi-card amber">
-          <div class="kpi-icon"><mat-icon>price_change</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Advances Adjusted</span>
-            <span class="kpi-val">₹{{payrollReport.totalAdvancesAdjusted | number:'1.0-0'}}</span>
-          </div>
-        </div>
-        <div class="kpi-card emerald">
-          <div class="kpi-icon"><mat-icon>account_balance_wallet</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Total Net Paid</span>
-            <span class="kpi-val">₹{{payrollReport.totalNetPaid | number:'1.0-0'}}</span>
-          </div>
-        </div>
-        <div class="kpi-card teal">
-          <div class="kpi-icon"><mat-icon>done_all</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Disbursement Ratio</span>
-            <span class="kpi-val">{{payrollReport.paidTeachersCount}} / {{payrollReport.totalTeachers}}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Payroll Table -->
-      <div class="table-responsive-container" *ngIf="payrollReport">
-        <mat-progress-bar mode="indeterminate" *ngIf="loadingPayroll" class="table-progress-bar"></mat-progress-bar>
-        <table class="report-table payroll-table" [class.table-loading]="loadingPayroll">
-          <thead>
-            <tr>
-              <th class="sortable-th col-receipt" (click)="onPayrollSort('receipt')">
-                <div class="th-content">
-                  <span>Receipt #</span>
-                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'receipt'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'receipt'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="sortable-th col-faculty" (click)="onPayrollSort('name')">
-                <div class="th-content">
-                  <span>Faculty Name &amp; Code</span>
-                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'name'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'name'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="sortable-th col-paydate" (click)="onPayrollSort('date')">
-                <div class="th-content">
-                  <span>Payment Date</span>
-                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'date'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'date'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-right sortable-th col-amount" (click)="onPayrollSort('gross')">
-                <div class="th-content text-right">
-                  <span>Gross Amount</span>
-                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'gross'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'gross'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-right sortable-th col-deduct" (click)="onPayrollSort('deductions')">
-                <div class="th-content text-right">
-                  <span>Deductions</span>
-                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'deductions'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'deductions'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-right sortable-th col-advance" (click)="onPayrollSort('advance')">
-                <div class="th-content text-right">
-                  <span>Advance Adj</span>
-                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'advance'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'advance'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-right sortable-th col-net" (click)="onPayrollSort('net')">
-                <div class="th-content text-right">
-                  <span>Net Paid</span>
-                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'net'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'net'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="text-center sortable-th col-mode" (click)="onPayrollSort('mode')">
-                <div class="th-content text-center">
-                  <span>Mode</span>
-                  <mat-icon class="sort-ico" *ngIf="payrollSortBy === 'mode'">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="payrollSortBy !== 'mode'">unfold_more</mat-icon>
-                </div>
-              </th>
-              <th class="col-ref">Transaction Ref</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let p of displayedPayrollPayments">
-              <td class="col-receipt">
-                <span class="receipt-badge">{{p.receiptNumber}}</span>
-              </td>
-              <td class="col-faculty">
-                <div class="faculty-name-cell">
-                  <div class="avatar-circle">
-                    <img
-                      *ngIf="getTeacherPhoto(p) && !imgErrors[p.teacherId]"
-                      [src]="getTeacherPhoto(p)"
-                      (error)="imgErrors[p.teacherId] = true"
-                      class="faculty-photo-img"
-                      [alt]="p.teacherName"
-                    />
-                    <span *ngIf="!getTeacherPhoto(p) || imgErrors[p.teacherId]" class="avatar-initials">
-                      {{ getInitials(p.teacherName) }}
-                    </span>
-                  </div>
-                  <div>
-                    <span class="name-bold">{{p.teacherName}}</span>
-                    <span class="code-sub">{{p.employeeCode}}</span>
-                  </div>
-                </div>
-              </td>
-              <td class="col-paydate">{{p.paymentDate | date:'dd MMM yyyy'}}</td>
-              <td class="text-right col-amount">₹{{p.grossAmount | number:'1.2-2'}}</td>
-              <td class="text-right text-rose col-deduct">₹{{p.deductions | number:'1.2-2'}}</td>
-              <td class="text-right text-amber col-advance">₹{{p.advanceAdjusted | number:'1.2-2'}}</td>
-              <td class="text-right text-emerald font-bold col-net">₹{{p.netPaid | number:'1.2-2'}}</td>
-              <td class="text-center col-mode">
-                <span class="mode-chip">{{p.paymentMode}}</span>
-              </td>
-              <td class="col-ref">
-                <span class="ref-text">{{p.transactionRef || 'N/A'}}</span>
-              </td>
-            </tr>
-            <tr *ngIf="!loadingPayroll && displayedPayrollPayments.length === 0">
-              <td colspan="9" class="empty-table-cell">
-                No salary payments found matching the search criteria for {{payrollReport.monthName || ''}}.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination Footer Bar for Payroll -->
-      <div class="pagination-footer-bar" *ngIf="payrollReport && payrollTotalCount > 0">
-        <div class="pagination-left">
-          <span class="page-summary">
-            Showing <strong>{{payrollStartIndex + 1}} – {{payrollEndIndex}}</strong> of <strong>{{payrollTotalCount}}</strong> receipts
-          </span>
-          <div class="page-size-wrap">
-            <label>Rows per page:</label>
-            <div class="size-btn-group">
-              <button type="button" class="size-pill" [class.active]="payrollPageSize === 10" (click)="setPayrollPageSize(10)">10</button>
-              <button type="button" class="size-pill" [class.active]="payrollPageSize === 25" (click)="setPayrollPageSize(25)">25</button>
-              <button type="button" class="size-pill" [class.active]="payrollPageSize === 50" (click)="setPayrollPageSize(50)">50</button>
-              <button type="button" class="size-pill" [class.active]="payrollPageSize === 100" (click)="setPayrollPageSize(100)">100</button>
+    @if (selectedTab === 'payroll') {
+      <div class="tab-content">
+        <!-- Controls Bar -->
+        <div class="filter-card">
+          <div class="month-selector-group">
+            <div class="select-field">
+              <label>Month:</label>
+              <select [(ngModel)]="payrollMonth" (change)="loadPayrollReport(1)">
+                @for (m of months; track m; let i = $index) {
+                  <option [value]="i + 1">{{m}}</option>
+                }
+              </select>
+            </div>
+            <div class="select-field">
+              <label>Year:</label>
+              <select [(ngModel)]="payrollYear" (change)="loadPayrollReport(1)">
+                @for (y of years; track y) {
+                  <option [value]="y">{{y}}</option>
+                }
+              </select>
             </div>
           </div>
-        </div>
-
-        <div class="pagination-right" *ngIf="totalPayrollPages > 1">
-          <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(1)" matTooltip="First Page">
-            <mat-icon>first_page</mat-icon>
-          </button>
-          <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(payrollPage - 1)" matTooltip="Previous Page">
-            <mat-icon>chevron_left</mat-icon>
-          </button>
-          <div class="page-current-badge">
-            <span>Page</span>
-            <strong>{{payrollPage}}</strong>
-            <span>of</span>
-            <strong>{{totalPayrollPages}}</strong>
+          <div class="search-input-wrap">
+            <mat-icon>search</mat-icon>
+            <input type="text" placeholder="Search by faculty, code, receipt #..." [(ngModel)]="payrollSearch" (ngModelChange)="onPayrollSearchChange()">
+            @if (payrollSearch) {
+              <button type="button" class="clear-search-btn" (click)="clearPayrollSearch()" matTooltip="Clear search">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </div>
-          <button type="button" class="nav-page-btn" [disabled]="payrollPage >= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(payrollPage + 1)" matTooltip="Next Page">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
-          <button type="button" class="nav-page-btn" [disabled]="payrollPage >= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(totalPayrollPages)" matTooltip="Last Page">
-            <mat-icon>last_page</mat-icon>
+          <div class="filter-select-wrap">
+            <label>Mode:</label>
+            <select [(ngModel)]="payrollModeFilter" (change)="onPayrollFilterChange()">
+              <option value="all">All Modes</option>
+              <option value="Cash">Cash</option>
+              <option value="BankTransfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+              <option value="UPI">UPI</option>
+            </select>
+          </div>
+          <button mat-stroked-button class="refresh-workload-btn" (click)="loadPayrollReport(payrollPage)" matTooltip="Refresh payroll register">
+            <mat-icon>refresh</mat-icon> Refresh
           </button>
         </div>
+        <!-- Payroll KPIs -->
+        @if (payrollReport) {
+          <div class="kpi-grid">
+            <div class="kpi-card blue">
+              <div class="kpi-icon"><mat-icon>payments</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Gross Payroll</span>
+                <span class="kpi-val">₹{{payrollReport.totalGrossAmount | number:'1.0-0'}}</span>
+              </div>
+            </div>
+            <div class="kpi-card rose">
+              <div class="kpi-icon"><mat-icon>remove_circle_outline</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Total Deductions</span>
+                <span class="kpi-val">₹{{payrollReport.totalDeductions | number:'1.0-0'}}</span>
+              </div>
+            </div>
+            <div class="kpi-card amber">
+              <div class="kpi-icon"><mat-icon>price_change</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Advances Adjusted</span>
+                <span class="kpi-val">₹{{payrollReport.totalAdvancesAdjusted | number:'1.0-0'}}</span>
+              </div>
+            </div>
+            <div class="kpi-card emerald">
+              <div class="kpi-icon"><mat-icon>account_balance_wallet</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Total Net Paid</span>
+                <span class="kpi-val">₹{{payrollReport.totalNetPaid | number:'1.0-0'}}</span>
+              </div>
+            </div>
+            <div class="kpi-card teal">
+              <div class="kpi-icon"><mat-icon>done_all</mat-icon></div>
+              <div class="kpi-data">
+                <span class="kpi-label">Disbursement Ratio</span>
+                <span class="kpi-val">{{payrollReport.paidTeachersCount}} / {{payrollReport.totalTeachers}}</span>
+              </div>
+            </div>
+          </div>
+        }
+        <!-- Payroll Table -->
+        @if (payrollReport) {
+          <div class="table-responsive-container">
+            @if (loadingPayroll) {
+              <mat-progress-bar mode="indeterminate" class="table-progress-bar"></mat-progress-bar>
+            }
+            <table class="report-table payroll-table" [class.table-loading]="loadingPayroll">
+              <thead>
+                <tr>
+                  <th class="sortable-th col-receipt" (click)="onPayrollSort('receipt')">
+                    <div class="th-content">
+                      <span>Receipt #</span>
+                      @if (payrollSortBy === 'receipt') {
+                        <mat-icon class="sort-ico">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                      }
+                      @if (payrollSortBy !== 'receipt') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </div>
+                  </th>
+                  <th class="sortable-th col-faculty" (click)="onPayrollSort('name')">
+                    <div class="th-content">
+                      <span>Faculty Name &amp; Code</span>
+                      @if (payrollSortBy === 'name') {
+                        <mat-icon class="sort-ico">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                      }
+                      @if (payrollSortBy !== 'name') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </div>
+                  </th>
+                  <th class="sortable-th col-paydate" (click)="onPayrollSort('date')">
+                    <div class="th-content">
+                      <span>Payment Date</span>
+                      @if (payrollSortBy === 'date') {
+                        <mat-icon class="sort-ico">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                      }
+                      @if (payrollSortBy !== 'date') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </div>
+                  </th>
+                  <th class="text-right sortable-th col-amount" (click)="onPayrollSort('gross')">
+                    <div class="th-content text-right">
+                      <span>Gross Amount</span>
+                      @if (payrollSortBy === 'gross') {
+                        <mat-icon class="sort-ico">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                      }
+                      @if (payrollSortBy !== 'gross') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </div>
+                  </th>
+                  <th class="text-right sortable-th col-deduct" (click)="onPayrollSort('deductions')">
+                    <div class="th-content text-right">
+                      <span>Deductions</span>
+                      @if (payrollSortBy === 'deductions') {
+                        <mat-icon class="sort-ico">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                      }
+                      @if (payrollSortBy !== 'deductions') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </div>
+                  </th>
+                  <th class="text-right sortable-th col-advance" (click)="onPayrollSort('advance')">
+                    <div class="th-content text-right">
+                      <span>Advance Adj</span>
+                      @if (payrollSortBy === 'advance') {
+                        <mat-icon class="sort-ico">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                      }
+                      @if (payrollSortBy !== 'advance') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </div>
+                  </th>
+                  <th class="text-right sortable-th col-net" (click)="onPayrollSort('net')">
+                    <div class="th-content text-right">
+                      <span>Net Paid</span>
+                      @if (payrollSortBy === 'net') {
+                        <mat-icon class="sort-ico">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                      }
+                      @if (payrollSortBy !== 'net') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </div>
+                  </th>
+                  <th class="text-center sortable-th col-mode" (click)="onPayrollSort('mode')">
+                    <div class="th-content text-center">
+                      <span>Mode</span>
+                      @if (payrollSortBy === 'mode') {
+                        <mat-icon class="sort-ico">{{ payrollSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                      }
+                      @if (payrollSortBy !== 'mode') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </div>
+                  </th>
+                  <th class="col-ref">Transaction Ref</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of displayedPayrollPayments; track p) {
+                  <tr>
+                    <td class="col-receipt">
+                      <span class="receipt-badge">{{p.receiptNumber}}</span>
+                    </td>
+                    <td class="col-faculty">
+                      <div class="faculty-name-cell">
+                        <div class="avatar-circle">
+                          @if (getTeacherPhoto(p) && !imgErrors[p.teacherId]) {
+                            <img
+                              [src]="getTeacherPhoto(p)"
+                              (error)="imgErrors[p.teacherId] = true"
+                              class="faculty-photo-img"
+                              [alt]="p.teacherName"
+                              />
+                          }
+                          @if (!getTeacherPhoto(p) || imgErrors[p.teacherId]) {
+                            <span class="avatar-initials">
+                              {{ getInitials(p.teacherName) }}
+                            </span>
+                          }
+                        </div>
+                        <div>
+                          <span class="name-bold">{{p.teacherName}}</span>
+                          <span class="code-sub">{{p.employeeCode}}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="col-paydate">{{p.paymentDate | date:'dd MMM yyyy'}}</td>
+                    <td class="text-right col-amount">₹{{p.grossAmount | number:'1.2-2'}}</td>
+                    <td class="text-right text-rose col-deduct">₹{{p.deductions | number:'1.2-2'}}</td>
+                    <td class="text-right text-amber col-advance">₹{{p.advanceAdjusted | number:'1.2-2'}}</td>
+                    <td class="text-right text-emerald font-bold col-net">₹{{p.netPaid | number:'1.2-2'}}</td>
+                    <td class="text-center col-mode">
+                      <span class="mode-chip">{{p.paymentMode}}</span>
+                    </td>
+                    <td class="col-ref">
+                      <span class="ref-text">{{p.transactionRef || 'N/A'}}</span>
+                    </td>
+                  </tr>
+                }
+                @if (!loadingPayroll && displayedPayrollPayments.length === 0) {
+                  <tr>
+                    <td colspan="9" class="empty-table-cell">
+                      No salary payments found matching the search criteria for {{payrollReport.monthName || ''}}.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        <!-- Pagination Footer Bar for Payroll -->
+        @if (payrollReport && payrollTotalCount > 0) {
+          <div class="pagination-footer-bar">
+            <div class="pagination-left">
+              <span class="page-summary">
+                Showing <strong>{{payrollStartIndex + 1}} – {{payrollEndIndex}}</strong> of <strong>{{payrollTotalCount}}</strong> receipts
+              </span>
+              <div class="page-size-wrap">
+                <label>Rows per page:</label>
+                <div class="size-btn-group">
+                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 10" (click)="setPayrollPageSize(10)">10</button>
+                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 25" (click)="setPayrollPageSize(25)">25</button>
+                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 50" (click)="setPayrollPageSize(50)">50</button>
+                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 100" (click)="setPayrollPageSize(100)">100</button>
+                </div>
+              </div>
+            </div>
+            @if (totalPayrollPages > 1) {
+              <div class="pagination-right">
+                <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(1)" matTooltip="First Page">
+                  <mat-icon>first_page</mat-icon>
+                </button>
+                <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(payrollPage - 1)" matTooltip="Previous Page">
+                  <mat-icon>chevron_left</mat-icon>
+                </button>
+                <div class="page-current-badge">
+                  <span>Page</span>
+                  <strong>{{payrollPage}}</strong>
+                  <span>of</span>
+                  <strong>{{totalPayrollPages}}</strong>
+                </div>
+                <button type="button" class="nav-page-btn" [disabled]="payrollPage >= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(payrollPage + 1)" matTooltip="Next Page">
+                  <mat-icon>chevron_right</mat-icon>
+                </button>
+                <button type="button" class="nav-page-btn" [disabled]="payrollPage >= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(totalPayrollPages)" matTooltip="Last Page">
+                  <mat-icon>last_page</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        }
       </div>
-    </div>
+    }
 
     <!-- TAB 4: Master Timetable Routine Matrix -->
-    <div class="tab-content" *ngIf="selectedTab === 'master_timetable'">
-      <!-- Master Routine KPIs -->
-      <div class="kpi-grid">
-        <div class="kpi-card blue">
-          <div class="kpi-icon"><mat-icon>event_note</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Routine Slots</span>
-            <span class="kpi-val">{{masterTotalCount || masterTotalSlots}}</span>
+    @if (selectedTab === 'master_timetable') {
+      <div class="tab-content">
+        <!-- Master Routine KPIs -->
+        <div class="kpi-grid">
+          <div class="kpi-card blue">
+            <div class="kpi-icon"><mat-icon>event_note</mat-icon></div>
+            <div class="kpi-data">
+              <span class="kpi-label">Routine Slots</span>
+              <span class="kpi-val">{{masterTotalCount || masterTotalSlots}}</span>
+            </div>
+          </div>
+          <div class="kpi-card emerald">
+            <div class="kpi-icon"><mat-icon>groups</mat-icon></div>
+            <div class="kpi-data">
+              <span class="kpi-label">Active Teachers</span>
+              <span class="kpi-val">{{masterUniqueTeachersCount}}</span>
+            </div>
+          </div>
+          <div class="kpi-card purple">
+            <div class="kpi-icon"><mat-icon>school</mat-icon></div>
+            <div class="kpi-data">
+              <span class="kpi-label">Batches / Classes</span>
+              <span class="kpi-val">{{masterUniqueBatchesCount}}</span>
+            </div>
+          </div>
+          <div class="kpi-card orange">
+            <div class="kpi-icon"><mat-icon>menu_book</mat-icon></div>
+            <div class="kpi-data">
+              <span class="kpi-label">Subjects Covered</span>
+              <span class="kpi-val">{{masterUniqueSubjectsCount}}</span>
+            </div>
           </div>
         </div>
-        <div class="kpi-card emerald">
-          <div class="kpi-icon"><mat-icon>groups</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Active Teachers</span>
-            <span class="kpi-val">{{masterUniqueTeachersCount}}</span>
+        <!-- Controls & View Mode Bar -->
+        <div class="filter-card">
+          <div class="search-input-wrap">
+            <mat-icon>search</mat-icon>
+            <input type="text" placeholder="Search faculty, batch, subject, room..." [(ngModel)]="masterSearch" (ngModelChange)="onMasterSearchChange()">
+            @if (masterSearch) {
+              <button type="button" class="clear-search-btn" (click)="clearMasterSearch()" matTooltip="Clear search">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </div>
-        </div>
-        <div class="kpi-card purple">
-          <div class="kpi-icon"><mat-icon>school</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Batches / Classes</span>
-            <span class="kpi-val">{{masterUniqueBatchesCount}}</span>
+          <div class="filter-select-wrap">
+            <label>Filter Day:</label>
+            <select [(ngModel)]="masterDayFilter" (change)="onMasterDayFilterChange()">
+              <option value="all">All Days (Mon - Sun)</option>
+              @for (d of allDays; track d) {
+                <option [value]="d">{{d}}</option>
+              }
+            </select>
           </div>
-        </div>
-        <div class="kpi-card orange">
-          <div class="kpi-icon"><mat-icon>menu_book</mat-icon></div>
-          <div class="kpi-data">
-            <span class="kpi-label">Subjects Covered</span>
-            <span class="kpi-val">{{masterUniqueSubjectsCount}}</span>
+          <button mat-stroked-button class="quick-today-btn" (click)="filterByToday()" matTooltip="Quick filter today's scheduled classes">
+            <mat-icon>today</mat-icon> Today ({{todayDayName}})
+          </button>
+          <div class="view-mode-toggle-group">
+            <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'list'" (click)="masterViewMode = 'list'" matTooltip="Tabular List View">
+              <mat-icon>format_list_bulleted</mat-icon> List
+            </button>
+            <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'matrix'" (click)="masterViewMode = 'matrix'" matTooltip="Weekly Schedule Matrix">
+              <mat-icon>calendar_view_week</mat-icon> Matrix
+            </button>
           </div>
-        </div>
-      </div>
-
-      <!-- Controls & View Mode Bar -->
-      <div class="filter-card">
-        <div class="search-input-wrap">
-          <mat-icon>search</mat-icon>
-          <input type="text" placeholder="Search faculty, batch, subject, room..." [(ngModel)]="masterSearch" (ngModelChange)="onMasterSearchChange()">
-          <button type="button" class="clear-search-btn" *ngIf="masterSearch" (click)="clearMasterSearch()" matTooltip="Clear search">
-            <mat-icon>close</mat-icon>
+          <button mat-stroked-button class="refresh-workload-btn" (click)="loadMasterTimetable(masterPage)" matTooltip="Refresh master routine">
+            <mat-icon>refresh</mat-icon> Refresh
           </button>
         </div>
-
-        <div class="filter-select-wrap">
-          <label>Filter Day:</label>
-          <select [(ngModel)]="masterDayFilter" (change)="onMasterDayFilterChange()">
-            <option value="all">All Days (Mon - Sun)</option>
-            <option *ngFor="let d of allDays" [value]="d">{{d}}</option>
-          </select>
-        </div>
-
-        <button mat-stroked-button class="quick-today-btn" (click)="filterByToday()" matTooltip="Quick filter today's scheduled classes">
-          <mat-icon>today</mat-icon> Today ({{todayDayName}})
-        </button>
-
-        <div class="view-mode-toggle-group">
-          <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'list'" (click)="masterViewMode = 'list'" matTooltip="Tabular List View">
-            <mat-icon>format_list_bulleted</mat-icon> List
-          </button>
-          <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'matrix'" (click)="masterViewMode = 'matrix'" matTooltip="Weekly Schedule Matrix">
-            <mat-icon>calendar_view_week</mat-icon> Matrix
-          </button>
-        </div>
-
-        <button mat-stroked-button class="refresh-workload-btn" (click)="loadMasterTimetable(masterPage)" matTooltip="Refresh master routine">
-          <mat-icon>refresh</mat-icon> Refresh
-        </button>
-      </div>
-
-      <!-- Single Loader -->
-      <mat-progress-bar mode="indeterminate" *ngIf="loadingMasterTimetable" class="table-progress-bar"></mat-progress-bar>
-
-      <!-- View 1: List View -->
-      <div class="table-responsive-container" *ngIf="masterViewMode === 'list'">
-        <table class="report-table" [class.table-loading]="loadingMasterTimetable">
-          <thead>
-            <tr>
-              <th class="sortable-th" (click)="onMasterSort('teacher')" style="min-width: 180px;">
-                <span class="th-content">
-                  Faculty Name
-                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'teacher'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'teacher'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="sortable-th" (click)="onMasterSort('batch')" style="min-width: 160px;">
-                <span class="th-content">
-                  Batch / Class
-                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'batch'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'batch'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="sortable-th" (click)="onMasterSort('subject')" style="min-width: 140px;">
-                <span class="th-content">
-                  Subject
-                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'subject'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'subject'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="sortable-th" (click)="onMasterSort('day')" style="min-width: 130px;">
-                <span class="th-content">
-                  Routine Days
-                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'day'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'day'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="sortable-th" (click)="onMasterSort('slot')" style="min-width: 150px;">
-                <span class="th-content">
-                  Time Slot
-                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'slot'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'slot'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="sortable-th" (click)="onMasterSort('room')" style="min-width: 110px;">
-                <span class="th-content">
-                  Room
-                  <mat-icon class="sort-ico" *ngIf="masterSortBy === 'room'">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
-                  <mat-icon class="sort-ico-idle" *ngIf="masterSortBy !== 'room'">unfold_more</mat-icon>
-                </span>
-              </th>
-              <th class="text-center" style="min-width: 90px;">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let m of displayedMasterTimetable">
-              <td>
-                <div class="faculty-name-cell">
-                  <div class="avatar-circle">
-                    <img
-                      *ngIf="getTeacherPhoto(m) && !imgErrors[m.teacherId]"
-                      [src]="getTeacherPhoto(m)"
-                      (error)="imgErrors[m.teacherId] = true"
-                      class="faculty-photo-img"
-                      [alt]="m.teacherName"
-                    />
-                    <span *ngIf="!getTeacherPhoto(m) || imgErrors[m.teacherId]" class="avatar-initials">
-                      {{ getInitials(m.teacherName) }}
+        <!-- Single Loader -->
+        @if (loadingMasterTimetable) {
+          <mat-progress-bar mode="indeterminate" class="table-progress-bar"></mat-progress-bar>
+        }
+        <!-- View 1: List View -->
+        @if (masterViewMode === 'list') {
+          <div class="table-responsive-container">
+            <table class="report-table" [class.table-loading]="loadingMasterTimetable">
+              <thead>
+                <tr>
+                  <th class="sortable-th" (click)="onMasterSort('teacher')" style="min-width: 180px;">
+                    <span class="th-content">
+                      Faculty Name
+                      @if (masterSortBy === 'teacher') {
+                        <mat-icon class="sort-ico">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (masterSortBy !== 'teacher') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
                     </span>
-                  </div>
-                  <div>
-                    <span class="name-bold">{{m.teacherName}}</span>
-                    <span class="code-sub" *ngIf="m.employeeCode">{{m.employeeCode}}</span>
-                  </div>
+                  </th>
+                  <th class="sortable-th" (click)="onMasterSort('batch')" style="min-width: 160px;">
+                    <span class="th-content">
+                      Batch / Class
+                      @if (masterSortBy === 'batch') {
+                        <mat-icon class="sort-ico">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (masterSortBy !== 'batch') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="sortable-th" (click)="onMasterSort('subject')" style="min-width: 140px;">
+                    <span class="th-content">
+                      Subject
+                      @if (masterSortBy === 'subject') {
+                        <mat-icon class="sort-ico">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (masterSortBy !== 'subject') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="sortable-th" (click)="onMasterSort('day')" style="min-width: 130px;">
+                    <span class="th-content">
+                      Routine Days
+                      @if (masterSortBy === 'day') {
+                        <mat-icon class="sort-ico">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (masterSortBy !== 'day') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="sortable-th" (click)="onMasterSort('slot')" style="min-width: 150px;">
+                    <span class="th-content">
+                      Time Slot
+                      @if (masterSortBy === 'slot') {
+                        <mat-icon class="sort-ico">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (masterSortBy !== 'slot') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="sortable-th" (click)="onMasterSort('room')" style="min-width: 110px;">
+                    <span class="th-content">
+                      Room
+                      @if (masterSortBy === 'room') {
+                        <mat-icon class="sort-ico">{{masterSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+                      }
+                      @if (masterSortBy !== 'room') {
+                        <mat-icon class="sort-ico-idle">unfold_more</mat-icon>
+                      }
+                    </span>
+                  </th>
+                  <th class="text-center" style="min-width: 90px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (m of displayedMasterTimetable; track m) {
+                  <tr>
+                    <td>
+                      <div class="faculty-name-cell">
+                        <div class="avatar-circle">
+                          @if (getTeacherPhoto(m) && !imgErrors[m.teacherId]) {
+                            <img
+                              [src]="getTeacherPhoto(m)"
+                              (error)="imgErrors[m.teacherId] = true"
+                              class="faculty-photo-img"
+                              [alt]="m.teacherName"
+                              />
+                          }
+                          @if (!getTeacherPhoto(m) || imgErrors[m.teacherId]) {
+                            <span class="avatar-initials">
+                              {{ getInitials(m.teacherName) }}
+                            </span>
+                          }
+                        </div>
+                        <div>
+                          <span class="name-bold">{{m.teacherName}}</span>
+                          @if (m.employeeCode) {
+                            <span class="code-sub">{{m.employeeCode}}</span>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <strong class="batch-col-name">{{m.batchName || m.className}}</strong>
+                    </td>
+                    <td>
+                      <span class="subject-chip">{{m.subject}}</span>
+                    </td>
+                    <td>
+                      <span class="days-badge">{{m.daysOfWeek || 'All Days'}}</span>
+                    </td>
+                    <td>
+                      <span class="slot-badge"><mat-icon class="inline-icon">schedule</mat-icon> {{m.timeSlot || 'Standard Slot'}}</span>
+                    </td>
+                    <td>
+                      @if (m.roomNumber) {
+                        <span class="room-pill"><mat-icon class="inline-icon">meeting_room</mat-icon> {{m.roomNumber}}</span>
+                      }
+                      @if (!m.roomNumber) {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td class="text-center">
+                      <span class="status-chip active-chip">Active</span>
+                    </td>
+                  </tr>
+                }
+                @if (!loadingMasterTimetable && displayedMasterTimetable.length === 0) {
+                  <tr>
+                    <td colspan="7" class="empty-table-cell">No routine assignments match the search query.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        <!-- Pagination Footer Bar for Master Routine -->
+        @if (masterViewMode === 'list' && masterTotalCount > 0) {
+          <div class="pagination-footer-bar">
+            <div class="pagination-left">
+              <span class="page-summary">
+                Showing <strong>{{masterStartIndex + 1}} – {{masterEndIndex}}</strong> of <strong>{{masterTotalCount}}</strong> routine slots
+              </span>
+              <div class="page-size-wrap">
+                <label>Rows per page:</label>
+                <div class="size-btn-group">
+                  <button type="button" class="size-pill" [class.active]="masterPageSize === 10" (click)="setMasterPageSize(10)">10</button>
+                  <button type="button" class="size-pill" [class.active]="masterPageSize === 25" (click)="setMasterPageSize(25)">25</button>
+                  <button type="button" class="size-pill" [class.active]="masterPageSize === 50" (click)="setMasterPageSize(50)">50</button>
+                  <button type="button" class="size-pill" [class.active]="masterPageSize === 100" (click)="setMasterPageSize(100)">100</button>
                 </div>
-              </td>
-              <td>
-                <strong class="batch-col-name">{{m.batchName || m.className}}</strong>
-              </td>
-              <td>
-                <span class="subject-chip">{{m.subject}}</span>
-              </td>
-              <td>
-                <span class="days-badge">{{m.daysOfWeek || 'All Days'}}</span>
-              </td>
-              <td>
-                <span class="slot-badge"><mat-icon class="inline-icon">schedule</mat-icon> {{m.timeSlot || 'Standard Slot'}}</span>
-              </td>
-              <td>
-                <span class="room-pill" *ngIf="m.roomNumber"><mat-icon class="inline-icon">meeting_room</mat-icon> {{m.roomNumber}}</span>
-                <span class="text-muted" *ngIf="!m.roomNumber">—</span>
-              </td>
-              <td class="text-center">
-                <span class="status-chip active-chip">Active</span>
-              </td>
-            </tr>
-            <tr *ngIf="!loadingMasterTimetable && displayedMasterTimetable.length === 0">
-              <td colspan="7" class="empty-table-cell">No routine assignments match the search query.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination Footer Bar for Master Routine -->
-      <div class="pagination-footer-bar" *ngIf="masterViewMode === 'list' && masterTotalCount > 0">
-        <div class="pagination-left">
-          <span class="page-summary">
-            Showing <strong>{{masterStartIndex + 1}} – {{masterEndIndex}}</strong> of <strong>{{masterTotalCount}}</strong> routine slots
-          </span>
-          <div class="page-size-wrap">
-            <label>Rows per page:</label>
-            <div class="size-btn-group">
-              <button type="button" class="size-pill" [class.active]="masterPageSize === 10" (click)="setMasterPageSize(10)">10</button>
-              <button type="button" class="size-pill" [class.active]="masterPageSize === 25" (click)="setMasterPageSize(25)">25</button>
-              <button type="button" class="size-pill" [class.active]="masterPageSize === 50" (click)="setMasterPageSize(50)">50</button>
-              <button type="button" class="size-pill" [class.active]="masterPageSize === 100" (click)="setMasterPageSize(100)">100</button>
-            </div>
-          </div>
-        </div>
-        <div class="pagination-right">
-          <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(1)" matTooltip="First Page">
-            <mat-icon>first_page</mat-icon>
-          </button>
-          <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(masterPage - 1)" matTooltip="Previous Page">
-            <mat-icon>chevron_left</mat-icon>
-          </button>
-          <div class="page-current-badge">
-            Page <strong>{{masterPage}}</strong> of <strong>{{totalMasterPages}}</strong>
-          </div>
-          <button type="button" class="nav-page-btn" [disabled]="masterPage >= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(masterPage + 1)" matTooltip="Next Page">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
-          <button type="button" class="nav-page-btn" [disabled]="masterPage >= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(totalMasterPages)" matTooltip="Last Page">
-            <mat-icon>last_page</mat-icon>
-          </button>
-        </div>
-      </div>
-
-      <!-- View 2: Weekly Matrix Grid View -->
-      <div class="weekly-routine-matrix" *ngIf="masterViewMode === 'matrix'">
-        <div class="matrix-day-card" *ngFor="let dayGroup of routineGroupedByDay" [class.is-today-card]="dayGroup.isToday">
-          <div class="matrix-day-header">
-            <div class="day-title-box">
-              <span class="day-title">{{dayGroup.dayFullName}}</span>
-              <span class="today-tag" *ngIf="dayGroup.isToday">Today</span>
-            </div>
-            <span class="day-slot-count">{{dayGroup.items.length}} Class{{dayGroup.items.length === 1 ? '' : 'es'}}</span>
-          </div>
-
-          <div class="matrix-slots-list" *ngIf="dayGroup.items.length > 0">
-            <div class="routine-slot-item" *ngFor="let s of dayGroup.items">
-              <div class="slot-item-time">
-                <mat-icon>schedule</mat-icon>
-                <span>{{s.timeSlot || 'Scheduled Slot'}}</span>
               </div>
-              <div class="slot-item-body">
-                <div class="slot-teacher">
-                  <div class="mini-avatar">
-                    <img *ngIf="getTeacherPhoto(s) && !imgErrors[s.teacherId]" [src]="getTeacherPhoto(s)" (error)="imgErrors[s.teacherId] = true" class="mini-img" />
-                    <span *ngIf="!getTeacherPhoto(s) || imgErrors[s.teacherId]" class="mini-initials">{{getInitials(s.teacherName)}}</span>
-                  </div>
-                  <div class="slot-teacher-info">
-                    <span class="slot-teacher-name">{{s.teacherName}}</span>
-                    <span class="slot-subject-badge">{{s.subject}}</span>
-                  </div>
-                </div>
-                <div class="slot-meta-row">
-                  <span class="slot-batch-badge"><mat-icon>class</mat-icon> {{s.batchName || s.className}}</span>
-                  <span class="slot-room-badge" *ngIf="s.roomNumber"><mat-icon>meeting_room</mat-icon> {{s.roomNumber}}</span>
-                </div>
+            </div>
+            <div class="pagination-right">
+              <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(1)" matTooltip="First Page">
+                <mat-icon>first_page</mat-icon>
+              </button>
+              <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(masterPage - 1)" matTooltip="Previous Page">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <div class="page-current-badge">
+                Page <strong>{{masterPage}}</strong> of <strong>{{totalMasterPages}}</strong>
               </div>
+              <button type="button" class="nav-page-btn" [disabled]="masterPage >= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(masterPage + 1)" matTooltip="Next Page">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+              <button type="button" class="nav-page-btn" [disabled]="masterPage >= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(totalMasterPages)" matTooltip="Last Page">
+                <mat-icon>last_page</mat-icon>
+              </button>
             </div>
           </div>
-
-          <div class="matrix-empty-day" *ngIf="dayGroup.items.length === 0">
-            <mat-icon>event_busy</mat-icon>
-            <span>No routine classes scheduled for {{dayGroup.dayFullName}}</span>
+        }
+        <!-- View 2: Weekly Matrix Grid View -->
+        @if (masterViewMode === 'matrix') {
+          <div class="weekly-routine-matrix">
+            @for (dayGroup of routineGroupedByDay; track dayGroup) {
+              <div class="matrix-day-card" [class.is-today-card]="dayGroup.isToday">
+                <div class="matrix-day-header">
+                  <div class="day-title-box">
+                    <span class="day-title">{{dayGroup.dayFullName}}</span>
+                    @if (dayGroup.isToday) {
+                      <span class="today-tag">Today</span>
+                    }
+                  </div>
+                  <span class="day-slot-count">{{dayGroup.items.length}} Class{{dayGroup.items.length === 1 ? '' : 'es'}}</span>
+                </div>
+                @if (dayGroup.items.length > 0) {
+                  <div class="matrix-slots-list">
+                    @for (s of dayGroup.items; track s) {
+                      <div class="routine-slot-item">
+                        <div class="slot-item-time">
+                          <mat-icon>schedule</mat-icon>
+                          <span>{{s.timeSlot || 'Scheduled Slot'}}</span>
+                        </div>
+                        <div class="slot-item-body">
+                          <div class="slot-teacher">
+                            <div class="mini-avatar">
+                              @if (getTeacherPhoto(s) && !imgErrors[s.teacherId]) {
+                                <img [src]="getTeacherPhoto(s)" (error)="imgErrors[s.teacherId] = true" class="mini-img" />
+                              }
+                              @if (!getTeacherPhoto(s) || imgErrors[s.teacherId]) {
+                                <span class="mini-initials">{{getInitials(s.teacherName)}}</span>
+                              }
+                            </div>
+                            <div class="slot-teacher-info">
+                              <span class="slot-teacher-name">{{s.teacherName}}</span>
+                              <span class="slot-subject-badge">{{s.subject}}</span>
+                            </div>
+                          </div>
+                          <div class="slot-meta-row">
+                            <span class="slot-batch-badge"><mat-icon>class</mat-icon> {{s.batchName || s.className}}</span>
+                            @if (s.roomNumber) {
+                              <span class="slot-room-badge"><mat-icon>meeting_room</mat-icon> {{s.roomNumber}}</span>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+                @if (dayGroup.items.length === 0) {
+                  <div class="matrix-empty-day">
+                    <mat-icon>event_busy</mat-icon>
+                    <span>No routine classes scheduled for {{dayGroup.dayFullName}}</span>
+                  </div>
+                }
+              </div>
+            }
           </div>
-        </div>
+        }
       </div>
-    </div>
+    }
   </div>
 
   <!-- SLOTS DETAILS MODAL -->
-  <div class="modal-backdrop" *ngIf="selectedTeacherDetails" (click)="selectedTeacherDetails = null">
-    <div class="modal-card" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <div class="modal-title-box">
-          <div class="modal-icon-box">
-            <img
-              *ngIf="getTeacherPhoto(selectedTeacherDetails) && !imgErrors[selectedTeacherDetails.teacherId]"
-              [src]="getTeacherPhoto(selectedTeacherDetails)"
-              (error)="imgErrors[selectedTeacherDetails.teacherId] = true"
-              class="modal-photo-img"
-              [alt]="selectedTeacherDetails.teacherName"
-            />
-            <span *ngIf="!getTeacherPhoto(selectedTeacherDetails) || imgErrors[selectedTeacherDetails.teacherId]" class="modal-initials">
-              {{ getInitials(selectedTeacherDetails.teacherName) }}
-            </span>
-          </div>
-          <div>
-            <h3>{{selectedTeacherDetails.teacherName}}</h3>
-            <p><strong>{{selectedTeacherDetails.employeeCode}}</strong> • {{selectedTeacherDetails.qualification}}</p>
-          </div>
-        </div>
-        <button mat-icon-button class="modal-close-btn" (click)="selectedTeacherDetails = null">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      <div class="modal-body">
-        <div class="modal-kpis">
-          <div class="modal-kpi">
-            <span>{{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'Total Classes' : (authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Classes / Batches' : 'Total Batches') }}</span>
-            <strong>{{selectedTeacherDetails.assignedBatchCount}}</strong>
-          </div>
-          <div class="modal-kpi">
-            <span>Classes / Week</span>
-            <strong>{{selectedTeacherDetails.weeklyClassesCount}}</strong>
-          </div>
-          <div class="modal-kpi">
-            <span>Hours / Week</span>
-            <strong>{{selectedTeacherDetails.weeklyHours}} hrs</strong>
-          </div>
-          <div class="modal-kpi">
-            <span>Students Reached</span>
-            <strong>{{selectedTeacherDetails.totalStudentReach}}</strong>
-          </div>
-        </div>
-
-        <h4>Assigned Routine Slots:</h4>
-        <div class="slots-breakdown-list">
-          <div class="slot-breakdown-card" *ngFor="let s of selectedTeacherDetails.assignedBatches">
-            <div class="sbc-title">
-              <div class="title-with-pill" style="display: flex; align-items: center; gap: 8px;">
-                <strong>{{ s.batchName || (s.className ? (s.className + (s.sectionName ? ' - ' + s.sectionName : '')) : 'Teaching Unit') }}</strong>
-                <span class="badge-scope school" *ngIf="s.classId || s.className" style="font-size: 0.7rem; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; border: 1px solid #bae6fd;">
-                  School Class
+  @if (selectedTeacherDetails) {
+    <div class="modal-backdrop" (click)="selectedTeacherDetails = null">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-title-box">
+            <div class="modal-icon-box">
+              @if (getTeacherPhoto(selectedTeacherDetails) && !imgErrors[selectedTeacherDetails.teacherId]) {
+                <img
+                  [src]="getTeacherPhoto(selectedTeacherDetails)"
+                  (error)="imgErrors[selectedTeacherDetails.teacherId] = true"
+                  class="modal-photo-img"
+                  [alt]="selectedTeacherDetails.teacherName"
+                  />
+              }
+              @if (!getTeacherPhoto(selectedTeacherDetails) || imgErrors[selectedTeacherDetails.teacherId]) {
+                <span class="modal-initials">
+                  {{ getInitials(selectedTeacherDetails.teacherName) }}
                 </span>
-                <span class="badge-scope coaching" *ngIf="!s.classId && !s.className" style="font-size: 0.7rem; font-weight: 700; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; border: 1px solid #a7f3d0;">
-                  Coaching Batch
-                </span>
+              }
+            </div>
+            <div>
+              <h3>{{selectedTeacherDetails.teacherName}}</h3>
+              <p><strong>{{selectedTeacherDetails.employeeCode}}</strong> • {{selectedTeacherDetails.qualification}}</p>
+            </div>
+          </div>
+          <button mat-icon-button class="modal-close-btn" (click)="selectedTeacherDetails = null">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-kpis">
+            <div class="modal-kpi">
+              <span>{{ authService.hasSchoolModule() && !authService.hasCoachingModule() ? 'Total Classes' : (authService.hasSchoolModule() && authService.hasCoachingModule() ? 'Classes / Batches' : 'Total Batches') }}</span>
+              <strong>{{selectedTeacherDetails.assignedBatchCount}}</strong>
+            </div>
+            <div class="modal-kpi">
+              <span>Classes / Week</span>
+              <strong>{{selectedTeacherDetails.weeklyClassesCount}}</strong>
+            </div>
+            <div class="modal-kpi">
+              <span>Hours / Week</span>
+              <strong>{{selectedTeacherDetails.weeklyHours}} hrs</strong>
+            </div>
+            <div class="modal-kpi">
+              <span>Students Reached</span>
+              <strong>{{selectedTeacherDetails.totalStudentReach}}</strong>
+            </div>
+          </div>
+          <h4>Assigned Routine Slots:</h4>
+          <div class="slots-breakdown-list">
+            @for (s of selectedTeacherDetails.assignedBatches; track s) {
+              <div class="slot-breakdown-card">
+                <div class="sbc-title">
+                  <div class="title-with-pill" style="display: flex; align-items: center; gap: 8px;">
+                    <strong>{{ s.batchName || (s.className ? (s.className + (s.sectionName ? ' - ' + s.sectionName : '')) : 'Teaching Unit') }}</strong>
+                    @if (s.classId || s.className) {
+                      <span class="badge-scope school" style="font-size: 0.7rem; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; border: 1px solid #bae6fd;">
+                        School Class
+                      </span>
+                    }
+                    @if (!s.classId && !s.className) {
+                      <span class="badge-scope coaching" style="font-size: 0.7rem; font-weight: 700; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; border: 1px solid #a7f3d0;">
+                        Coaching Batch
+                      </span>
+                    }
+                  </div>
+                  <span class="sbc-sub">{{s.subject}}</span>
+                </div>
+                <div class="sbc-details">
+                  <span><mat-icon>date_range</mat-icon> {{s.daysOfWeek}}</span>
+                  <span><mat-icon>schedule</mat-icon> {{s.timeSlot}}</span>
+                </div>
               </div>
-              <span class="sbc-sub">{{s.subject}}</span>
-            </div>
-            <div class="sbc-details">
-              <span><mat-icon>date_range</mat-icon> {{s.daysOfWeek}}</span>
-              <span><mat-icon>schedule</mat-icon> {{s.timeSlot}}</span>
-            </div>
-          </div>
-          <div *ngIf="selectedTeacherDetails.assignedBatches.length === 0" class="empty-slots-msg">
-            No routine slots assigned yet for this faculty member.
+            }
+            @if (selectedTeacherDetails.assignedBatches.length === 0) {
+              <div class="empty-slots-msg">
+                No routine slots assigned yet for this faculty member.
+              </div>
+            }
           </div>
         </div>
       </div>
     </div>
-  </div>
+  }
 
   <!-- PRINTABLE ONLY TEMPLATE (SMART EXECUTIVE AUDIT REPORT) -->
   <div class="printable-report-sheet" id="printable-area">
@@ -1211,8 +1419,12 @@ import { AuthService } from '../../core/services/auth.service';
     <div class="print-letterhead">
       <div class="print-brand-left">
         <div class="print-logo-box" [class.has-img]="logoUrl && !logoFailed">
-          <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="print-logo-img">
-          <span *ngIf="!logoUrl || logoFailed">{{ tenantCode }}</span>
+          @if (logoUrl && !logoFailed) {
+            <img [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="print-logo-img">
+          }
+          @if (!logoUrl || logoFailed) {
+            <span>{{ tenantCode }}</span>
+          }
         </div>
         <div class="print-institute-details">
           <h1 class="print-inst-name">{{instituteName}}</h1>
@@ -1240,74 +1452,80 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
 
     <!-- Executive Summary KPI Tiles -->
-    <div class="print-kpi-summary" *ngIf="selectedTab === 'attendance' && attendanceReport">
-      <div class="pkpi-box">
-        <span class="pkpi-label">Total Faculty</span>
-        <strong class="pkpi-value">{{attendanceReport.totalRecords}}</strong>
+    @if (selectedTab === 'attendance' && attendanceReport) {
+      <div class="print-kpi-summary">
+        <div class="pkpi-box">
+          <span class="pkpi-label">Total Faculty</span>
+          <strong class="pkpi-value">{{attendanceReport.totalRecords}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Total Present</span>
+          <strong class="pkpi-value text-emerald">{{attendanceReport.totalPresent}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Total Absent</span>
+          <strong class="pkpi-value text-rose">{{attendanceReport.totalAbsent}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Late Days</span>
+          <strong class="pkpi-value text-amber">{{attendanceReport.totalLate}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Avg Attendance</span>
+          <strong class="pkpi-value">{{overallAttendanceRate}}%</strong>
+        </div>
       </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Total Present</span>
-        <strong class="pkpi-value text-emerald">{{attendanceReport.totalPresent}}</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Total Absent</span>
-        <strong class="pkpi-value text-rose">{{attendanceReport.totalAbsent}}</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Late Days</span>
-        <strong class="pkpi-value text-amber">{{attendanceReport.totalLate}}</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Avg Attendance</span>
-        <strong class="pkpi-value">{{overallAttendanceRate}}%</strong>
-      </div>
-    </div>
+    }
 
-    <div class="print-kpi-summary" *ngIf="selectedTab === 'workload' && workloadReport">
-      <div class="pkpi-box">
-        <span class="pkpi-label">Active Faculty</span>
-        <strong class="pkpi-value">{{workloadReport.totalActiveTeachers}}</strong>
+    @if (selectedTab === 'workload' && workloadReport) {
+      <div class="print-kpi-summary">
+        <div class="pkpi-box">
+          <span class="pkpi-label">Active Faculty</span>
+          <strong class="pkpi-value">{{workloadReport.totalActiveTeachers}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Assigned Batches</span>
+          <strong class="pkpi-value">{{workloadReport.totalAssignedBatches}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Weekly Classes</span>
+          <strong class="pkpi-value">{{workloadReport.totalWeeklyClasses}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Weekly Load</span>
+          <strong class="pkpi-value">{{workloadReport.totalWeeklyHours}} hrs</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Students Reached</span>
+          <strong class="pkpi-value">{{workloadReport.totalStudentsReached}}</strong>
+        </div>
       </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Assigned Batches</span>
-        <strong class="pkpi-value">{{workloadReport.totalAssignedBatches}}</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Weekly Classes</span>
-        <strong class="pkpi-value">{{workloadReport.totalWeeklyClasses}}</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Weekly Load</span>
-        <strong class="pkpi-value">{{workloadReport.totalWeeklyHours}} hrs</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Students Reached</span>
-        <strong class="pkpi-value">{{workloadReport.totalStudentsReached}}</strong>
-      </div>
-    </div>
+    }
 
-    <div class="print-kpi-summary" *ngIf="selectedTab === 'payroll' && payrollReport">
-      <div class="pkpi-box">
-        <span class="pkpi-label">Gross Payroll</span>
-        <strong class="pkpi-value">₹{{payrollReport.totalGrossAmount | number:'1.0-0'}}</strong>
+    @if (selectedTab === 'payroll' && payrollReport) {
+      <div class="print-kpi-summary">
+        <div class="pkpi-box">
+          <span class="pkpi-label">Gross Payroll</span>
+          <strong class="pkpi-value">₹{{payrollReport.totalGrossAmount | number:'1.0-0'}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Total Deductions</span>
+          <strong class="pkpi-value text-rose">₹{{payrollReport.totalDeductions | number:'1.0-0'}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Advances Adjusted</span>
+          <strong class="pkpi-value text-amber">₹{{payrollReport.totalAdvancesAdjusted | number:'1.0-0'}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Net Paid</span>
+          <strong class="pkpi-value text-emerald">₹{{payrollReport.totalNetPaid | number:'1.0-0'}}</strong>
+        </div>
+        <div class="pkpi-box">
+          <span class="pkpi-label">Disbursement Ratio</span>
+          <strong class="pkpi-value">{{payrollReport.paidTeachersCount}} / {{payrollReport.totalTeachers}}</strong>
+        </div>
       </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Total Deductions</span>
-        <strong class="pkpi-value text-rose">₹{{payrollReport.totalDeductions | number:'1.0-0'}}</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Advances Adjusted</span>
-        <strong class="pkpi-value text-amber">₹{{payrollReport.totalAdvancesAdjusted | number:'1.0-0'}}</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Net Paid</span>
-        <strong class="pkpi-value text-emerald">₹{{payrollReport.totalNetPaid | number:'1.0-0'}}</strong>
-      </div>
-      <div class="pkpi-box">
-        <span class="pkpi-label">Disbursement Ratio</span>
-        <strong class="pkpi-value">{{payrollReport.paidTeachersCount}} / {{payrollReport.totalTeachers}}</strong>
-      </div>
-    </div>
+    }
 
     <!-- Data Table -->
     <div class="print-table-wrapper" [innerHTML]="printableTableHtml"></div>
@@ -1341,7 +1559,8 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

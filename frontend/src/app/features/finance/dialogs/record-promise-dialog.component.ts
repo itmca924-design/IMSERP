@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -47,7 +47,7 @@ export interface RecordPromiseDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="dialog-form">
         <mat-dialog-content class="dialog-content">
           <div class="form-grid">
@@ -55,31 +55,39 @@ export interface RecordPromiseDialogData {
               <mat-label>Promised Amount (₹)</mat-label>
               <input matInput type="number" formControlName="promisedAmount" min="1" [max]="data.plan.totalOverdueAmount" placeholder="Enter amount" />
               <mat-icon matPrefix>currency_rupee</mat-icon>
-              <mat-error *ngIf="form.get('promisedAmount')?.hasError('required')">Amount is required</mat-error>
+              @if (form.get('promisedAmount')?.hasError('required')) {
+                <mat-error>Amount is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Promised Date</mat-label>
               <input matInput [matDatepicker]="picker" formControlName="promisedDate" [min]="minDate" placeholder="Choose date" />
               <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
               <mat-datepicker #picker></mat-datepicker>
-              <mat-error *ngIf="form.get('promisedDate')?.hasError('required')">Promised date is required</mat-error>
+              @if (form.get('promisedDate')?.hasError('required')) {
+                <mat-error>Promised date is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Contact Person (Parent / Guardian)</mat-label>
               <input matInput formControlName="contactPerson" placeholder="e.g. Father (Rajesh Kumar)" />
               <mat-icon matPrefix>person</mat-icon>
-              <mat-error *ngIf="form.get('contactPerson')?.hasError('required')">Contact person is required</mat-error>
+              @if (form.get('contactPerson')?.hasError('required')) {
+                <mat-error>Contact person is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Contact Phone Number</mat-label>
               <input matInput formControlName="contactPhone" placeholder="e.g. 9876543210" />
               <mat-icon matPrefix>phone</mat-icon>
-              <mat-error *ngIf="form.get('contactPhone')?.hasError('required')">Phone number is required</mat-error>
+              @if (form.get('contactPhone')?.hasError('required')) {
+                <mat-error>Phone number is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width remarks-field">
               <mat-label>Conversation Notes / Parent Remarks</mat-label>
               <textarea matInput formControlName="notes" rows="3" placeholder="e.g. Spoke to father, promised payment upon salary disbursement on 5th Nov."></textarea>
@@ -87,7 +95,7 @@ export interface RecordPromiseDialogData {
             </mat-form-field>
           </div>
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-stroked-button type="button" (click)="dialogRef.close()" class="cancel-btn">
             Cancel
@@ -99,7 +107,8 @@ export interface RecordPromiseDialogData {
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

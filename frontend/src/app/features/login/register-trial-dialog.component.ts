@@ -1,5 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -17,7 +17,6 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
   selector: 'app-register-trial-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -28,7 +27,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
     MatCheckboxModule,
     MatProgressSpinnerModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="dialog-box">
       <!-- Strict ERP Standard Header -->
@@ -48,10 +47,10 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="dialog-body">
         <form [formGroup]="regForm" (ngSubmit)="onSubmit()">
-          
+    
           <!-- Banner Information -->
           <div class="trial-perks-banner">
             <div class="perk-item">
@@ -67,64 +66,80 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
               <span>Instant Auto-Login</span>
             </div>
           </div>
-
+    
           <!-- Section 1: Institute Info -->
           <div class="section-title">
             <mat-icon>school</mat-icon>
             <span>1. Institute Details</span>
           </div>
-
+    
           <div class="form-row">
             <mat-form-field appearance="outline" class="col-7">
               <mat-label>Institute Name</mat-label>
               <input matInput formControlName="name" placeholder="e.g. Apex International Academy" (input)="onNameInput($event)">
               <mat-icon matSuffix>business</mat-icon>
-              <mat-error *ngIf="regForm.get('name')?.hasError('required')">Institute name is required</mat-error>
+              @if (regForm.get('name')?.hasError('required')) {
+                <mat-error>Institute name is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="col-5">
               <mat-label>Unique Code</mat-label>
               <input matInput formControlName="code" placeholder="e.g. APEX" (input)="onCodeInput($event)">
-              <mat-spinner matSuffix diameter="18" *ngIf="checkingCode"></mat-spinner>
-              <mat-icon matSuffix *ngIf="!checkingCode && codeStatus === 'available'" 
-                        class="status-icon-ok" 
-                        [matTooltip]="codeStatusMessage" 
-                        matTooltipPosition="above">check_circle</mat-icon>
-              <mat-icon matSuffix *ngIf="!checkingCode && codeStatus === 'taken'" 
-                        class="status-icon-err" 
-                        [matTooltip]="codeStatusMessage" 
-                        matTooltipPosition="above">cancel</mat-icon>
-              <mat-hint *ngIf="codeStatus === 'available'" class="hint-ok" [matTooltip]="codeStatusMessage" matTooltipPosition="below">
-                ✓ Code is available
-              </mat-hint>
-              <mat-hint *ngIf="codeStatus === 'taken'" class="hint-err" [matTooltip]="codeStatusMessage" matTooltipPosition="below">
-                ✗ Code already taken
-              </mat-hint>
-              <mat-error *ngIf="regForm.get('code')?.hasError('required')">Code is required</mat-error>
+              @if (checkingCode) {
+                <mat-spinner matSuffix diameter="18"></mat-spinner>
+              }
+              @if (!checkingCode && codeStatus === 'available') {
+                <mat-icon matSuffix
+                  class="status-icon-ok"
+                  [matTooltip]="codeStatusMessage"
+                matTooltipPosition="above">check_circle</mat-icon>
+              }
+              @if (!checkingCode && codeStatus === 'taken') {
+                <mat-icon matSuffix
+                  class="status-icon-err"
+                  [matTooltip]="codeStatusMessage"
+                matTooltipPosition="above">cancel</mat-icon>
+              }
+              @if (codeStatus === 'available') {
+                <mat-hint class="hint-ok" [matTooltip]="codeStatusMessage" matTooltipPosition="below">
+                  ✓ Code is available
+                </mat-hint>
+              }
+              @if (codeStatus === 'taken') {
+                <mat-hint class="hint-err" [matTooltip]="codeStatusMessage" matTooltipPosition="below">
+                  ✗ Code already taken
+                </mat-hint>
+              }
+              @if (regForm.get('code')?.hasError('required')) {
+                <mat-error>Code is required</mat-error>
+              }
             </mat-form-field>
           </div>
-
+    
           <div class="form-row">
             <mat-form-field appearance="outline" class="col-6">
               <mat-label>Mobile / WhatsApp Phone</mat-label>
               <input matInput formControlName="contactPhone" placeholder="e.g. 9876543210">
               <mat-icon matSuffix>phone</mat-icon>
-              <mat-error *ngIf="regForm.get('contactPhone')?.hasError('required')">Phone is required</mat-error>
+              @if (regForm.get('contactPhone')?.hasError('required')) {
+                <mat-error>Phone is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="col-6">
               <mat-label>City / Location</mat-label>
               <input matInput formControlName="address" placeholder="e.g. Jaipur, Rajasthan">
               <mat-icon matSuffix>location_on</mat-icon>
             </mat-form-field>
           </div>
-
+    
           <!-- Section 2: Modules -->
           <div class="section-title">
             <mat-icon>apps</mat-icon>
             <span>2. Select Modules to Test</span>
           </div>
-
+    
           <div class="modules-grid">
             <label class="module-check" [class.selected]="regForm.get('hasSchoolModule')?.value">
               <mat-checkbox formControlName="hasSchoolModule" color="primary"></mat-checkbox>
@@ -133,7 +148,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
                 <span>Classes, Sections, Routine, Exams</span>
               </div>
             </label>
-
+    
             <label class="module-check" [class.selected]="regForm.get('hasCoachingModule')?.value">
               <mat-checkbox formControlName="hasCoachingModule" color="primary"></mat-checkbox>
               <div class="mod-info">
@@ -141,7 +156,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
                 <span>Batches, Attendance, Fees</span>
               </div>
             </label>
-
+    
             <label class="module-check" [class.selected]="regForm.get('hasHostelModule')?.value">
               <mat-checkbox formControlName="hasHostelModule" color="primary"></mat-checkbox>
               <div class="mod-info">
@@ -149,7 +164,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
                 <span>Beds, Allocations, Inmates</span>
               </div>
             </label>
-
+    
             <label class="module-check" [class.selected]="regForm.get('hasLibraryModule')?.value">
               <mat-checkbox formControlName="hasLibraryModule" color="primary"></mat-checkbox>
               <div class="mod-info">
@@ -157,7 +172,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
                 <span>Books, Circulation, Fines</span>
               </div>
             </label>
-
+    
             <label class="module-check" [class.selected]="regForm.get('hasTransportModule')?.value">
               <mat-checkbox formControlName="hasTransportModule" color="primary"></mat-checkbox>
               <div class="mod-info">
@@ -166,37 +181,41 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
               </div>
             </label>
           </div>
-
+    
           <!-- Section 3: Admin Credentials -->
           <div class="section-title">
             <mat-icon>admin_panel_settings</mat-icon>
             <span>3. Administrator Login Account</span>
           </div>
-
+    
           <div class="form-row">
             <mat-form-field appearance="outline" class="col-4">
               <mat-label>Admin Full Name</mat-label>
               <input matInput formControlName="adminFullName" placeholder="e.g. Director Name">
               <mat-icon matSuffix>badge</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="col-4">
               <mat-label>Admin Username</mat-label>
               <input matInput formControlName="adminUsername" placeholder="e.g. admin">
               <mat-icon matSuffix>person</mat-icon>
-              <mat-error *ngIf="regForm.get('adminUsername')?.hasError('required')">Username is required</mat-error>
+              @if (regForm.get('adminUsername')?.hasError('required')) {
+                <mat-error>Username is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="col-4">
               <mat-label>Admin Password</mat-label>
               <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="adminPassword">
               <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
                 <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
               </button>
-              <mat-error *ngIf="regForm.get('adminPassword')?.hasError('required')">Password is required</mat-error>
+              @if (regForm.get('adminPassword')?.hasError('required')) {
+                <mat-error>Password is required</mat-error>
+              }
             </mat-form-field>
           </div>
-
+    
           <!-- Section 4: Sample Demo Data -->
           <div class="sample-data-card">
             <mat-checkbox formControlName="seedSampleDemoData" color="primary">
@@ -206,28 +225,35 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
               </div>
             </mat-checkbox>
           </div>
-
-          <div *ngIf="errorMessage" class="error-banner">
-            <mat-icon>error</mat-icon>
-            <span>{{ errorMessage }}</span>
-          </div>
-
+    
+          @if (errorMessage) {
+            <div class="error-banner">
+              <mat-icon>error</mat-icon>
+              <span>{{ errorMessage }}</span>
+            </div>
+          }
+    
           <!-- Action Buttons -->
           <div class="dialog-actions">
             <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
               Cancel
             </button>
             <button mat-raised-button color="primary" type="submit" class="submit-action-btn" [disabled]="regForm.invalid || submitting || codeStatus === 'taken'">
-              <mat-spinner diameter="20" *ngIf="submitting" style="display:inline-block; margin-right:8px;"></mat-spinner>
-              <mat-icon *ngIf="!submitting">check_circle</mat-icon>
+              @if (submitting) {
+                <mat-spinner diameter="20" style="display:inline-block; margin-right:8px;"></mat-spinner>
+              }
+              @if (!submitting) {
+                <mat-icon>check_circle</mat-icon>
+              }
               <span>{{ submitting ? 'Provisioning Institute...' : 'Create & Launch Instant Demo' }}</span>
             </button>
           </div>
-
+    
         </form>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-box {
       width: 100%;

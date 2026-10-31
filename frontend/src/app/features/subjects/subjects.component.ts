@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -87,42 +87,50 @@ interface ClassSubjectRowState {
           </div>
         </div>
         <div class="header-actions">
-          <button mat-raised-button color="primary" class="add-btn" *ngIf="activeTabIndex === 0" (click)="openSubjectModal()">
-            <mat-icon>add</mat-icon>
-            <span>Add New Subject</span>
-          </button>
-          <button mat-raised-button color="primary" class="add-btn" *ngIf="activeTabIndex === 1" (click)="saveClassAllocation()" [disabled]="savingAllocation || !selectedClass">
-            <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'save' }}</mat-icon>
-            <span>Save Allocation for {{ selectedClass?.className || 'Class' }}</span>
-          </button>
+          @if (activeTabIndex === 0) {
+            <button mat-raised-button color="primary" class="add-btn" (click)="openSubjectModal()">
+              <mat-icon>add</mat-icon>
+              <span>Add New Subject</span>
+            </button>
+          }
+          @if (activeTabIndex === 1) {
+            <button mat-raised-button color="primary" class="add-btn" (click)="saveClassAllocation()" [disabled]="savingAllocation || !selectedClass">
+              <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'save' }}</mat-icon>
+              <span>Save Allocation for {{ selectedClass?.className || 'Class' }}</span>
+            </button>
+          }
         </div>
       </div>
-
+    
       <!-- Main Tabs -->
       <mat-card class="main-tab-card mat-elevation-z1">
         <mat-tab-group [(selectedIndex)]="activeTabIndex" (selectedIndexChange)="onTabChange($event)" class="custom-tabs">
-          
+    
           <!-- TAB 1: Global Subjects Catalog -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">library_books</mat-icon>
               <span>All Subjects Catalog</span>
-              <span class="tab-badge" *ngIf="totalCount > 0">{{ totalCount }}</span>
+              @if (totalCount > 0) {
+                <span class="tab-badge">{{ totalCount }}</span>
+              }
             </ng-template>
-
+    
             <div class="tab-content">
               <div class="filter-toolbar">
                 <mat-form-field appearance="outline" class="search-field">
                   <mat-label>Search Subjects...</mat-label>
                   <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearchInput($event)" (input)="onSearchInput(searchTerm)" (keyup.enter)="onSearch()" placeholder="Search by name, code or description" />
-                  <button *ngIf="searchTerm" matSuffix mat-icon-button aria-label="Clear" (click)="clearSearch()">
-                    <mat-icon>close</mat-icon>
-                  </button>
+                  @if (searchTerm) {
+                    <button matSuffix mat-icon-button aria-label="Clear" (click)="clearSearch()">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
                   <button matSuffix mat-icon-button (click)="onSearch()">
                     <mat-icon>search</mat-icon>
                   </button>
                 </mat-form-field>
-
+    
                 <mat-form-field appearance="outline" class="status-filter">
                   <mat-label>Status Filter</mat-label>
                   <mat-select [(ngModel)]="statusFilter" (selectionChange)="onStatusFilterChange()">
@@ -131,17 +139,17 @@ interface ClassSubjectRowState {
                     <mat-option [value]="false">Inactive Only</mat-option>
                   </mat-select>
                 </mat-form-field>
-
+    
                 <div class="spacer"></div>
                 <button mat-stroked-button color="primary" (click)="loadSubjects()">
                   <mat-icon>refresh</mat-icon> Refresh Catalog
                 </button>
               </div>
-
-
+    
+    
               <div class="table-responsive">
                 <table mat-table [dataSource]="subjects" matSort (matSortChange)="onSortChange($event)" class="mat-elevation-z0 full-width-table">
-                  
+    
                   <ng-container matColumnDef="name">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header="name"> Subject Name </th>
                     <td mat-cell *matCellDef="let element">
@@ -151,7 +159,7 @@ interface ClassSubjectRowState {
                       </div>
                     </td>
                   </ng-container>
-
+    
                   <ng-container matColumnDef="code">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header="code"> Subject Code </th>
                     <td mat-cell *matCellDef="let element">
@@ -160,14 +168,14 @@ interface ClassSubjectRowState {
                       </mat-chip-option>
                     </td>
                   </ng-container>
-
+    
                   <ng-container matColumnDef="description">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header="description"> Description / Syllabus Notes </th>
                     <td mat-cell *matCellDef="let element">
                       <span class="desc-text">{{ element.description || '—' }}</span>
                     </td>
                   </ng-container>
-
+    
                   <ng-container matColumnDef="status">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header="status"> Status </th>
                     <td mat-cell *matCellDef="let element">
@@ -176,7 +184,7 @@ interface ClassSubjectRowState {
                       </span>
                     </td>
                   </ng-container>
-
+    
                   <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef class="text-right"> Actions </th>
                     <td mat-cell *matCellDef="let element" class="text-right">
@@ -188,10 +196,10 @@ interface ClassSubjectRowState {
                       </button>
                     </td>
                   </ng-container>
-
+    
                   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
                   <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-
+    
                   <tr class="mat-row" *matNoDataRow>
                     <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
                       <div class="empty-state">
@@ -202,8 +210,8 @@ interface ClassSubjectRowState {
                   </tr>
                 </table>
               </div>
-
-              <mat-paginator 
+    
+              <mat-paginator
                 [length]="totalCount"
                 [pageSize]="pageSize"
                 [pageIndex]="pageIndex"
@@ -213,15 +221,17 @@ interface ClassSubjectRowState {
               </mat-paginator>
             </div>
           </mat-tab>
-
+    
           <!-- TAB 2: Class-Wise Subject Allocation -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">class</mat-icon>
               <span>Class-Wise Curriculum Mapping</span>
-              <span class="tab-badge blue" *ngIf="classSummaries.length > 0">{{ classSummaries.length }} Classes</span>
+              @if (classSummaries.length > 0) {
+                <span class="tab-badge blue">{{ classSummaries.length }} Classes</span>
+              }
             </ng-template>
-
+    
             <div class="tab-content allocation-layout">
               <!-- Left Sidebar: Class Selector -->
               <div class="classes-sidebar">
@@ -232,175 +242,196 @@ interface ClassSubjectRowState {
                   </div>
                   <span class="sidebar-count">{{ classSummaries.length }} Total</span>
                 </div>
-
+    
                 <div class="classes-list">
-                  <div 
-                    class="class-item" 
-                    *ngFor="let c of classSummaries" 
-                    [class.active-class]="selectedClass?.classId === c.classId"
-                    (click)="selectClass(c)">
-                    <div class="class-item-main">
-                      <div class="class-item-name">{{ c.className }}</div>
-                      <div class="class-item-code" *ngIf="c.classCode">{{ c.classCode }}</div>
+                  @for (c of classSummaries; track c) {
+                    <div
+                      class="class-item"
+                      [class.active-class]="selectedClass?.classId === c.classId"
+                      (click)="selectClass(c)">
+                      <div class="class-item-main">
+                        <div class="class-item-name">{{ c.className }}</div>
+                        @if (c.classCode) {
+                          <div class="class-item-code">{{ c.classCode }}</div>
+                        }
+                      </div>
+                      <span class="assigned-pill" [class.has-subjects]="c.assignedSubjectsCount > 0">
+                        {{ c.assignedSubjectsCount }} Subject{{ c.assignedSubjectsCount === 1 ? '' : 's' }}
+                      </span>
                     </div>
-                    <span class="assigned-pill" [class.has-subjects]="c.assignedSubjectsCount > 0">
-                      {{ c.assignedSubjectsCount }} Subject{{ c.assignedSubjectsCount === 1 ? '' : 's' }}
-                    </span>
-                  </div>
-
-                  <div class="empty-classes" *ngIf="classSummaries.length === 0 && !loadingAllocation">
-                    <p>No active classes found.</p>
-                  </div>
+                  }
+    
+                  @if (classSummaries.length === 0 && !loadingAllocation) {
+                    <div class="empty-classes">
+                      <p>No active classes found.</p>
+                    </div>
+                  }
                 </div>
               </div>
-
+    
               <!-- Right Panel: Subject Checklist & Configuration for Selected Class -->
               <div class="allocation-panel">
-                <div class="panel-header-bar" *ngIf="selectedClass">
-                  <div class="ph-title-wrap">
-                    <div class="ph-icon-box">
-                      <mat-icon>tune</mat-icon>
+                @if (selectedClass) {
+                  <div class="panel-header-bar">
+                    <div class="ph-title-wrap">
+                      <div class="ph-icon-box">
+                        <mat-icon>tune</mat-icon>
+                      </div>
+                      <div>
+                        <h2 class="ph-headline">Curriculum for <strong>{{ selectedClass.className }}</strong></h2>
+                        <p class="ph-subheadline">
+                          <span>Select the subjects taught in this class, assign respective subject teachers, and set passing benchmarks.</span>
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 class="ph-headline">Curriculum for <strong>{{ selectedClass.className }}</strong></h2>
-                      <p class="ph-subheadline">
-                        <span>Select the subjects taught in this class, assign respective subject teachers, and set passing benchmarks.</span>
-                      </p>
+                    <div class="ph-actions-wrap">
+                      <!-- Copy from Class Dropdown -->
+                      <button mat-stroked-button [matMenuTriggerFor]="copyMenu" class="copy-btn" [disabled]="classSummaries.length <= 1">
+                        <mat-icon>content_copy</mat-icon>
+                        <span>Copy From Class</span>
+                        <mat-icon>arrow_drop_down</mat-icon>
+                      </button>
+                      <mat-menu #copyMenu="matMenu">
+                        <div class="menu-header">Copy Subject Setup From:</div>
+                        @for (other of classSummaries; track other) {
+                          @if (other.classId !== selectedClass.classId && other.assignedSubjectsCount > 0) {
+                            <button mat-menu-item (click)="copyFromClass(other)">
+                              <mat-icon>school</mat-icon>
+                              <span>{{ other.className }} ({{ other.assignedSubjectsCount }} Subjects)</span>
+                            </button>
+                          }
+                        }
+                      </mat-menu>
+                      <!-- Save Allocation Button -->
+                      <button mat-raised-button color="primary" class="save-alloc-btn" (click)="saveClassAllocation()" [disabled]="savingAllocation">
+                        <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+                        <span>{{ savingAllocation ? 'Saving...' : 'Save Allocation' }}</span>
+                      </button>
                     </div>
                   </div>
-
-                  <div class="ph-actions-wrap">
-                    <!-- Copy from Class Dropdown -->
-                    <button mat-stroked-button [matMenuTriggerFor]="copyMenu" class="copy-btn" [disabled]="classSummaries.length <= 1">
-                      <mat-icon>content_copy</mat-icon>
-                      <span>Copy From Class</span>
-                      <mat-icon>arrow_drop_down</mat-icon>
-                    </button>
-                    <mat-menu #copyMenu="matMenu">
-                      <div class="menu-header">Copy Subject Setup From:</div>
-                      <ng-container *ngFor="let other of classSummaries">
-                        <button mat-menu-item *ngIf="other.classId !== selectedClass.classId && other.assignedSubjectsCount > 0" (click)="copyFromClass(other)">
-                          <mat-icon>school</mat-icon>
-                          <span>{{ other.className }} ({{ other.assignedSubjectsCount }} Subjects)</span>
-                        </button>
-                      </ng-container>
-                    </mat-menu>
-
-                    <!-- Save Allocation Button -->
-                    <button mat-raised-button color="primary" class="save-alloc-btn" (click)="saveClassAllocation()" [disabled]="savingAllocation">
-                      <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
-                      <span>{{ savingAllocation ? 'Saving...' : 'Save Allocation' }}</span>
-                    </button>
-                  </div>
-                </div>
-
+                }
+    
                 <!-- Stats summary banner for selected class -->
-                <div class="selection-meta-bar" *ngIf="selectedClass">
-                  <div class="meta-pill">
-                    <strong>{{ selectedSubjectsCount }}</strong> / {{ subjectRows.length }} Subjects Selected
+                @if (selectedClass) {
+                  <div class="selection-meta-bar">
+                    <div class="meta-pill">
+                      <strong>{{ selectedSubjectsCount }}</strong> / {{ subjectRows.length }} Subjects Selected
+                    </div>
+                    <div class="meta-pill text-blue">
+                      <strong>{{ compulsorySubjectsCount }}</strong> Compulsory Subjects
+                    </div>
+                    <div class="meta-actions">
+                      <button type="button" class="quick-link-btn" (click)="selectAllSubjects(true)">Select All</button>
+                      <span class="sep">&bull;</span>
+                      <button type="button" class="quick-link-btn" (click)="selectAllSubjects(false)">Deselect All</button>
+                    </div>
                   </div>
-                  <div class="meta-pill text-blue">
-                    <strong>{{ compulsorySubjectsCount }}</strong> Compulsory Subjects
-                  </div>
-                  <div class="meta-actions">
-                    <button type="button" class="quick-link-btn" (click)="selectAllSubjects(true)">Select All</button>
-                    <span class="sep">&bull;</span>
-                    <button type="button" class="quick-link-btn" (click)="selectAllSubjects(false)">Deselect All</button>
-                  </div>
-                </div>
-
-
+                }
+    
+    
                 <!-- Subject Rows Checklist Table -->
-                <div class="subject-rows-table-wrap" *ngIf="!loadingAllocation && selectedClass">
-                  <table class="alloc-table">
-                    <thead>
-                      <tr>
-                        <th style="width: 44px; text-align: center;">Active</th>
-                        <th style="width: 28%;">Subject Name</th>
-                        <th style="width: 32%;">Assigned Subject Teacher</th>
-                        <th style="width: 16%;">Subject Type</th>
-                        <th style="width: 12%;">Max Marks</th>
-                        <th style="width: 12%;">Pass Marks</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let row of subjectRows" [class.row-selected]="row.isSelected">
-                        <td style="text-align: center;">
-                          <mat-checkbox 
-                            [(ngModel)]="row.isSelected" 
-                            color="primary"
-                            (change)="onRowToggle(row)">
-                          </mat-checkbox>
-                        </td>
-                        <td>
-                          <div class="subj-name-cell" (click)="row.isSelected = !row.isSelected">
-                            <strong>{{ row.subjectName }}</strong>
-                            <span class="subj-code-tag" *ngIf="row.subjectCode">{{ row.subjectCode }}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <mat-form-field appearance="outline" class="dense-field teacher-select-field">
-                            <mat-select [(ngModel)]="row.teacherId" [disabled]="!row.isSelected" placeholder="-- Unassigned / General --">
-                              <mat-option [value]="null">-- Unassigned / General --</mat-option>
-                              <mat-option *ngFor="let t of teachers" [value]="t.id">
-                                👨‍🏫 {{ t.fullName }} ({{ t.employeeCode }})
-                              </mat-option>
-                            </mat-select>
-                          </mat-form-field>
-                        </td>
-                        <td>
-                          <mat-slide-toggle 
-                            [(ngModel)]="row.isCompulsory" 
-                            color="primary" 
-                            [disabled]="!row.isSelected">
-                            <span class="toggle-label">{{ row.isCompulsory ? 'Compulsory' : 'Optional' }}</span>
-                          </mat-slide-toggle>
-                        </td>
-                        <td>
-                          <input 
-                            type="number" 
-                            [(ngModel)]="row.totalMarks" 
-                            class="marks-input" 
-                            [disabled]="!row.isSelected" 
-                            min="1" />
-                        </td>
-                        <td>
-                          <input 
-                            type="number" 
-                            [(ngModel)]="row.passingMarks" 
-                            class="marks-input" 
-                            [disabled]="!row.isSelected" 
-                            min="1" />
-                        </td>
-                      </tr>
-
-                      <tr *ngIf="subjectRows.length === 0">
-                        <td colspan="6" class="empty-alloc-msg">
-                          No subjects defined in catalog. Please add subjects in Tab 1 first.
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Footer Save Bar -->
-                <div class="allocation-footer-bar" *ngIf="selectedClass && subjectRows.length > 0">
-                  <div class="footer-hint">
-                    <mat-icon>info</mat-icon>
-                    <span>Allocating subjects here dynamically filters subjects in School Exams, Routine Timetable, and Homework modules.</span>
+                @if (!loadingAllocation && selectedClass) {
+                  <div class="subject-rows-table-wrap">
+                    <table class="alloc-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 44px; text-align: center;">Active</th>
+                          <th style="width: 28%;">Subject Name</th>
+                          <th style="width: 32%;">Assigned Subject Teacher</th>
+                          <th style="width: 16%;">Subject Type</th>
+                          <th style="width: 12%;">Max Marks</th>
+                          <th style="width: 12%;">Pass Marks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (row of subjectRows; track row) {
+                          <tr [class.row-selected]="row.isSelected">
+                            <td style="text-align: center;">
+                              <mat-checkbox
+                                [(ngModel)]="row.isSelected"
+                                color="primary"
+                                (change)="onRowToggle(row)">
+                              </mat-checkbox>
+                            </td>
+                            <td>
+                              <div class="subj-name-cell" (click)="row.isSelected = !row.isSelected">
+                                <strong>{{ row.subjectName }}</strong>
+                                @if (row.subjectCode) {
+                                  <span class="subj-code-tag">{{ row.subjectCode }}</span>
+                                }
+                              </div>
+                            </td>
+                            <td>
+                              <mat-form-field appearance="outline" class="dense-field teacher-select-field">
+                                <mat-select [(ngModel)]="row.teacherId" [disabled]="!row.isSelected" placeholder="-- Unassigned / General --">
+                                  <mat-option [value]="null">-- Unassigned / General --</mat-option>
+                                  @for (t of teachers; track t) {
+                                    <mat-option [value]="t.id">
+                                      👨‍🏫 {{ t.fullName }} ({{ t.employeeCode }})
+                                    </mat-option>
+                                  }
+                                </mat-select>
+                              </mat-form-field>
+                            </td>
+                            <td>
+                              <mat-slide-toggle
+                                [(ngModel)]="row.isCompulsory"
+                                color="primary"
+                                [disabled]="!row.isSelected">
+                                <span class="toggle-label">{{ row.isCompulsory ? 'Compulsory' : 'Optional' }}</span>
+                              </mat-slide-toggle>
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                [(ngModel)]="row.totalMarks"
+                                class="marks-input"
+                                [disabled]="!row.isSelected"
+                                min="1" />
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                [(ngModel)]="row.passingMarks"
+                                class="marks-input"
+                                [disabled]="!row.isSelected"
+                                min="1" />
+                            </td>
+                          </tr>
+                        }
+                        @if (subjectRows.length === 0) {
+                          <tr>
+                            <td colspan="6" class="empty-alloc-msg">
+                              No subjects defined in catalog. Please add subjects in Tab 1 first.
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
                   </div>
-                  <button mat-raised-button color="primary" class="save-alloc-btn" (click)="saveClassAllocation()" [disabled]="savingAllocation">
-                    <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'save' }}</mat-icon>
-                    <span>Save Allocation for {{ selectedClass.className }}</span>
-                  </button>
-                </div>
+                }
+    
+                <!-- Footer Save Bar -->
+                @if (selectedClass && subjectRows.length > 0) {
+                  <div class="allocation-footer-bar">
+                    <div class="footer-hint">
+                      <mat-icon>info</mat-icon>
+                      <span>Allocating subjects here dynamically filters subjects in School Exams, Routine Timetable, and Homework modules.</span>
+                    </div>
+                    <button mat-raised-button color="primary" class="save-alloc-btn" (click)="saveClassAllocation()" [disabled]="savingAllocation">
+                      <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'save' }}</mat-icon>
+                      <span>Save Allocation for {{ selectedClass.className }}</span>
+                    </button>
+                  </div>
+                }
               </div>
             </div>
           </mat-tab>
         </mat-tab-group>
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

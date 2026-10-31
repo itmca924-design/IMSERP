@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, FormControl, FormGroupDirective, NgForm, ReactiveFormsModule, Validators, AbstractControl } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -30,7 +30,6 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
   selector: 'app-user-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -40,7 +39,7 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
     MatProgressSpinnerModule,
     MatIconModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="dialog-wrapper">
       <div class="dialog-header">
@@ -55,15 +54,19 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="userForm" (ngSubmit)="onSubmit()" class="dialog-form">
         <mat-dialog-content class="dialog-content">
-
+    
           <!-- Section: Profile Photo -->
           <div class="photo-upload-row">
             <div class="avatar-preview-box">
-              <img *ngIf="photoPreview" [src]="photoPreview" class="avatar-preview-img" alt="User Avatar" />
-              <mat-icon *ngIf="!photoPreview" class="avatar-fallback-icon">account_circle</mat-icon>
+              @if (photoPreview) {
+                <img [src]="photoPreview" class="avatar-preview-img" alt="User Avatar" />
+              }
+              @if (!photoPreview) {
+                <mat-icon class="avatar-fallback-icon">account_circle</mat-icon>
+              }
             </div>
             <div class="photo-meta-group">
               <div class="photo-title">Profile Image (Avatar)</div>
@@ -74,39 +77,47 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
                   <mat-icon>photo_camera</mat-icon>
                   <span>{{ photoPreview ? 'Change Photo' : 'Upload Photo' }}</span>
                 </button>
-                <button mat-button color="warn" type="button" class="remove-btn" *ngIf="photoPreview" (click)="removePhoto()">
-                  <mat-icon>delete_outline</mat-icon>
-                  <span>Remove</span>
-                </button>
+                @if (photoPreview) {
+                  <button mat-button color="warn" type="button" class="remove-btn" (click)="removePhoto()">
+                    <mat-icon>delete_outline</mat-icon>
+                    <span>Remove</span>
+                  </button>
+                }
               </div>
             </div>
           </div>
-
+    
           <!-- Section: Credentials & Role -->
           <div class="section-label">
             <mat-icon class="section-icon">verified_user</mat-icon>
             <span>Account Credentials &amp; Access Role</span>
           </div>
-
+    
           <div class="form-grid">
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Username *</mat-label>
               <input matInput formControlName="username" [readonly]="isEditMode" placeholder="e.g. rajesh.admin" />
               <mat-icon matSuffix color="primary">person</mat-icon>
-              <mat-error *ngIf="userForm.get('username')?.hasError('required')">Username is required</mat-error>
+              @if (userForm.get('username')?.hasError('required')) {
+                <mat-error>Username is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Assign Role &amp; Rights *</mat-label>
               <mat-select formControlName="roleId">
-                <mat-option *ngFor="let role of roles" [value]="role.id">
-                  {{ role.name }}
-                </mat-option>
+                @for (role of roles; track role) {
+                  <mat-option [value]="role.id">
+                    {{ role.name }}
+                  </mat-option>
+                }
               </mat-select>
               <mat-icon matSuffix color="primary">shield</mat-icon>
-              <mat-error *ngIf="userForm.get('roleId')?.hasError('required')">Role selection is required</mat-error>
+              @if (userForm.get('roleId')?.hasError('required')) {
+                <mat-error>Role selection is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
               <mat-label>{{ isEditMode ? 'Password (Leave blank to keep unchanged)' : 'Account Password *' }}</mat-label>
               <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="••••••••" />
@@ -119,37 +130,43 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
                 aria-label="Toggle password visibility">
                 <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
-              <mat-error *ngIf="userForm.get('password')?.hasError('required')">Password is required</mat-error>
+              @if (userForm.get('password')?.hasError('required')) {
+                <mat-error>Password is required</mat-error>
+              }
             </mat-form-field>
           </div>
-
+    
           <!-- Section: Personal Info & Branch -->
           <div class="section-label">
             <mat-icon class="section-icon">badge</mat-icon>
             <span>Personal Profile &amp; Campus Assignment</span>
           </div>
-
+    
           <div class="form-grid">
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Full Name *</mat-label>
               <input matInput formControlName="fullName" placeholder="e.g. Prof. Rajesh Sharma" />
               <mat-icon matSuffix color="primary">badge</mat-icon>
-              <mat-error *ngIf="userForm.get('fullName')?.hasError('required')">Full name is required</mat-error>
+              @if (userForm.get('fullName')?.hasError('required')) {
+                <mat-error>Full name is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Assigned Branch Campus</mat-label>
               <mat-select formControlName="branchId" placeholder="Select Branch (Optional)">
                 <mat-option [value]="null">
                   <em>🌐 All Branches / Head Office (Global)</em>
                 </mat-option>
-                <mat-option *ngFor="let branch of branches" [value]="branch.id">
-                  🏫 {{ branch.name }} ({{ branch.code }})
-                </mat-option>
+                @for (branch of branches; track branch) {
+                  <mat-option [value]="branch.id">
+                    🏫 {{ branch.name }} ({{ branch.code }})
+                  </mat-option>
+                }
               </mat-select>
               <mat-icon matSuffix color="primary">storefront</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Email Address</mat-label>
               <input
@@ -160,14 +177,18 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
                 (blur)="checkEmailDuplicate()"
                 placeholder="rajesh@apexcoaching.com" />
               <mat-icon matSuffix [color]="emailDuplicate || userForm.get('email')?.hasError('duplicate') ? 'warn' : 'primary'">mail</mat-icon>
-              <mat-error *ngIf="emailDuplicate || userForm.get('email')?.hasError('duplicate')">
-                Email already registered with another user
-              </mat-error>
-              <mat-error *ngIf="userForm.get('email')?.hasError('email') && !emailDuplicate && !userForm.get('email')?.hasError('duplicate')">
-                Invalid email address format
-              </mat-error>
+              @if (emailDuplicate || userForm.get('email')?.hasError('duplicate')) {
+                <mat-error>
+                  Email already registered with another user
+                </mat-error>
+              }
+              @if (userForm.get('email')?.hasError('email') && !emailDuplicate && !userForm.get('email')?.hasError('duplicate')) {
+                <mat-error>
+                  Invalid email address format
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="half-width" subscriptSizing="dynamic">
               <mat-label>Phone Number</mat-label>
               <input
@@ -177,21 +198,29 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
                 (blur)="checkPhoneDuplicate()"
                 placeholder="+91 9876543210" />
               <mat-icon matSuffix [color]="phoneDuplicate || userForm.get('phoneNumber')?.hasError('duplicate') ? 'warn' : 'primary'">call</mat-icon>
-              <mat-error *ngIf="phoneDuplicate || userForm.get('phoneNumber')?.hasError('duplicate')">
-                Phone number already registered with another user
-              </mat-error>
+              @if (phoneDuplicate || userForm.get('phoneNumber')?.hasError('duplicate')) {
+                <mat-error>
+                  Phone number already registered with another user
+                </mat-error>
+              }
             </mat-form-field>
           </div>
-
+    
           <!-- Highlight Conflict Banner if Duplicates Detected -->
-          <div class="duplicate-banner" *ngIf="emailDuplicate || phoneDuplicate">
-            <mat-icon class="dup-icon">error</mat-icon>
-            <div class="dup-text">
-              <div *ngIf="emailDuplicate"><strong>Email Already Exists:</strong> This email is already registered with another user in the database.</div>
-              <div *ngIf="phoneDuplicate"><strong>Phone Already Exists:</strong> This mobile number is already registered with another user in the database.</div>
+          @if (emailDuplicate || phoneDuplicate) {
+            <div class="duplicate-banner">
+              <mat-icon class="dup-icon">error</mat-icon>
+              <div class="dup-text">
+                @if (emailDuplicate) {
+                  <div><strong>Email Already Exists:</strong> This email is already registered with another user in the database.</div>
+                }
+                @if (phoneDuplicate) {
+                  <div><strong>Phone Already Exists:</strong> This mobile number is already registered with another user in the database.</div>
+                }
+              </div>
             </div>
-          </div>
-
+          }
+    
           <!-- Live Preview Card -->
           <div class="preview-box">
             <div class="preview-header">
@@ -212,20 +241,25 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
               </div>
             </div>
           </div>
-
+    
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="userForm.invalid || emailDuplicate || phoneDuplicate || saving" class="submit-btn">
-            <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
-            <mat-icon *ngIf="!saving">{{ isEditMode ? 'save' : 'person_add' }}</mat-icon>
+            @if (saving) {
+              <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+            }
+            @if (!saving) {
+              <mat-icon>{{ isEditMode ? 'save' : 'person_add' }}</mat-icon>
+            }
             <span>{{ saving ? 'Saving...' : (isEditMode ? 'Update User' : 'Create User') }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

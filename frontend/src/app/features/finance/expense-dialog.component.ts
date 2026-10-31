@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,7 +22,6 @@ export interface ExpenseDialogData {
   selector: 'app-expense-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -33,7 +32,7 @@ export interface ExpenseDialogData {
     MatDatepickerModule,
     MatNativeDateModule,
     MatProgressBarModule
-  ],
+],
   template: `
 <div class="expense-modal-container">
   <!-- Strictly compliant light-blue gradient header (AGENTS.md) -->
@@ -52,7 +51,9 @@ export interface ExpenseDialogData {
     </button>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <div class="modal-body">
     <div class="form-grid">
@@ -67,9 +68,11 @@ export interface ExpenseDialogData {
       <mat-form-field appearance="outline">
         <mat-label>Expense Category *</mat-label>
         <mat-select [(ngModel)]="selectedCategoryId" required>
-          <mat-option *ngFor="let cat of categories" [value]="cat.id">
-            {{ cat.name }} ({{ cat.code }})
-          </mat-option>
+          @for (cat of categories; track cat) {
+            <mat-option [value]="cat.id">
+              {{ cat.name }} ({{ cat.code }})
+            </mat-option>
+          }
         </mat-select>
         <mat-icon matPrefix>category</mat-icon>
       </mat-form-field>
@@ -103,16 +106,20 @@ export interface ExpenseDialogData {
       </mat-form-field>
 
       <!-- Branch (if branches exist) -->
-      <mat-form-field appearance="outline" *ngIf="branches.length > 0">
-        <mat-label>Campus / Branch</mat-label>
-        <mat-select [(ngModel)]="selectedBranchId">
-          <mat-option [value]="null">Main Branch / Default</mat-option>
-          <mat-option *ngFor="let b of branches" [value]="b.id">
-            {{ b.name }}
-          </mat-option>
-        </mat-select>
-        <mat-icon matPrefix>apartment</mat-icon>
-      </mat-form-field>
+      @if (branches.length > 0) {
+        <mat-form-field appearance="outline">
+          <mat-label>Campus / Branch</mat-label>
+          <mat-select [(ngModel)]="selectedBranchId">
+            <mat-option [value]="null">Main Branch / Default</mat-option>
+            @for (b of branches; track b) {
+              <mat-option [value]="b.id">
+                {{ b.name }}
+              </mat-option>
+            }
+          </mat-select>
+          <mat-icon matPrefix>apartment</mat-icon>
+        </mat-form-field>
+      }
 
       <!-- Vendor Name -->
       <mat-form-field appearance="outline">
@@ -142,10 +149,12 @@ export interface ExpenseDialogData {
       </mat-form-field>
     </div>
 
-    <div class="alert-error" *ngIf="errorMessage">
-      <mat-icon>error_outline</mat-icon>
-      <span>{{ errorMessage }}</span>
-    </div>
+    @if (errorMessage) {
+      <div class="alert-error">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+    }
   </div>
 
   <div class="modal-footer">
@@ -156,7 +165,8 @@ export interface ExpenseDialogData {
     </button>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .expense-modal-container {
       width: 100%;

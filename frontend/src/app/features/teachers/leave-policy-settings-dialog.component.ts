@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -16,7 +16,6 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
   selector: 'app-leave-policy-settings-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -27,7 +26,7 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
     MatSelectModule,
     MatSlideToggleModule,
     MatProgressBarModule
-  ],
+],
   template: `
     <div class="policy-dialog-container">
       <!-- Strict Light Blue Header matching IMSERP UI Rule -->
@@ -45,141 +44,132 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar *ngIf="loading || saving" mode="indeterminate" class="policy-loader"></mat-progress-bar>
-
-      <form [formGroup]="form" (ngSubmit)="submit()" *ngIf="!loading">
-        <div class="policy-dialog-body">
-
-          <!-- Section 1: Annual Leave Quotas -->
-          <div class="section-title">
-            <mat-icon>date_range</mat-icon>
-            <span>Annual Leave Allotment (Per Academic Year)</span>
-          </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Casual Leave (CL) Quota</mat-label>
-              <input matInput type="number" formControlName="annualCasualLeaveQuota" min="0" max="60" step="0.5" />
-              <mat-hint>Days per year (default: 12)</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Sick / Medical Leave (SL)</mat-label>
-              <input matInput type="number" formControlName="annualSickLeaveQuota" min="0" max="60" step="0.5" />
-              <mat-hint>Days per year (default: 10)</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Earned / Privilege Leave (EL)</mat-label>
-              <input matInput type="number" formControlName="annualEarnedLeaveQuota" min="0" max="60" step="0.5" />
-              <mat-hint>Days per year (default: 15)</mat-hint>
-            </mat-form-field>
-          </div>
-
-          <!-- Section 2: Accrual Frequency -->
-          <div class="section-title">
-            <mat-icon>timelapse</mat-icon>
-            <span>Leave Accrual & Credit Schedule</span>
-          </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Accrual Frequency</mat-label>
-              <mat-select formControlName="leaveAccrualFrequency">
-                <mat-option value="Monthly">Monthly Accrual (Credited on 1st of each month)</mat-option>
-                <mat-option value="AnnualUpfront">Annual Lump-Sum (Credited at Session Start)</mat-option>
-              </mat-select>
-              <mat-hint>How leave quotas become available</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="form-col" *ngIf="form.get('leaveAccrualFrequency')?.value === 'Monthly'">
-              <mat-label>Monthly CL Accrual Rate</mat-label>
-              <input matInput type="number" formControlName="monthlyCasualLeaveAccrual" min="0.5" max="5" step="0.25" />
-              <mat-hint>CL credited per month (e.g. 1.0 or 1.25)</mat-hint>
-            </mat-form-field>
-          </div>
-
-          <!-- Section 3: Attendance Regularization Rules -->
-          <div class="section-title">
-            <mat-icon>build_circle</mat-icon>
-            <span>Attendance Regularization Limits</span>
-          </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Max Backdated Days Allowed</mat-label>
-              <input matInput type="number" formControlName="maxRegularizationDaysBackdated" min="1" max="90" />
-              <mat-hint>Days in past a request can be raised (default: 15)</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Max Requests Per Month</mat-label>
-              <input matInput type="number" formControlName="maxRegularizationPerMonth" min="1" max="15" />
-              <mat-hint>Max monthly regularization requests per teacher (default: 3)</mat-hint>
-            </mat-form-field>
-          </div>
-
-          <!-- Section 4: Biometric & Manual Conflict Rules -->
-          <div class="section-title">
-            <mat-icon>sync_problem</mat-icon>
-            <span>Conflict Resolution Automation</span>
-          </div>
-
-          <div class="toggle-card">
-            <div class="toggle-info">
-              <strong>Auto-Cancel Leave on Biometric Punch (Recommended)</strong>
-              <p>If an employee has an approved leave but punches in at turnstile/device, automatically mark Present, override leave, and restore their leave balance quota.</p>
+    
+      @if (loading || saving) {
+        <mat-progress-bar mode="indeterminate" class="policy-loader"></mat-progress-bar>
+      }
+    
+      @if (!loading) {
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <div class="policy-dialog-body">
+            <!-- Section 1: Annual Leave Quotas -->
+            <div class="section-title">
+              <mat-icon>date_range</mat-icon>
+              <span>Annual Leave Allotment (Per Academic Year)</span>
             </div>
-            <mat-slide-toggle formControlName="autoCancelLeaveOnBiometricPunch" color="primary"></mat-slide-toggle>
-          </div>
-
-          <div class="toggle-card">
-            <div class="toggle-info">
-              <strong>Allow Full-Day Leave when Marked Present</strong>
-              <p>When disabled, teachers cannot apply for a full-day leave on dates where they are already marked Present (half-day or regularization required).</p>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Casual Leave (CL) Quota</mat-label>
+                <input matInput type="number" formControlName="annualCasualLeaveQuota" min="0" max="60" step="0.5" />
+                <mat-hint>Days per year (default: 12)</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Sick / Medical Leave (SL)</mat-label>
+                <input matInput type="number" formControlName="annualSickLeaveQuota" min="0" max="60" step="0.5" />
+                <mat-hint>Days per year (default: 10)</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Earned / Privilege Leave (EL)</mat-label>
+                <input matInput type="number" formControlName="annualEarnedLeaveQuota" min="0" max="60" step="0.5" />
+                <mat-hint>Days per year (default: 15)</mat-hint>
+              </mat-form-field>
             </div>
-            <mat-slide-toggle formControlName="allowFullDayLeaveIfMarkedPresent" color="primary"></mat-slide-toggle>
-          </div>
-
-          <!-- Section 5: Holidays & Weekends Exclusion -->
-          <div class="section-title">
-            <mat-icon>celebration</mat-icon>
-            <span>Holidays & Weekends Deductible Policy</span>
-          </div>
-
-          <div class="toggle-card">
-            <div class="toggle-info">
-              <strong>Exclude Official Holidays from Leave Count (Recommended)</strong>
-              <p>When enabled, official gazetted and declared school holidays falling within the leave period are NOT deducted from the teacher's leave balance.</p>
+            <!-- Section 2: Accrual Frequency -->
+            <div class="section-title">
+              <mat-icon>timelapse</mat-icon>
+              <span>Leave Accrual & Credit Schedule</span>
             </div>
-            <mat-slide-toggle formControlName="excludeHolidaysFromLeaveCount" color="primary"></mat-slide-toggle>
-          </div>
-
-          <div class="toggle-card">
-            <div class="toggle-info">
-              <strong>Exclude Sundays from Leave Count (Weekly Off)</strong>
-              <p>When enabled, Sundays falling within the leave period are treated as week-off and will NOT be deducted from the leave quota.</p>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Accrual Frequency</mat-label>
+                <mat-select formControlName="leaveAccrualFrequency">
+                  <mat-option value="Monthly">Monthly Accrual (Credited on 1st of each month)</mat-option>
+                  <mat-option value="AnnualUpfront">Annual Lump-Sum (Credited at Session Start)</mat-option>
+                </mat-select>
+                <mat-hint>How leave quotas become available</mat-hint>
+              </mat-form-field>
+              @if (form.get('leaveAccrualFrequency')?.value === 'Monthly') {
+                <mat-form-field appearance="outline" class="form-col">
+                  <mat-label>Monthly CL Accrual Rate</mat-label>
+                  <input matInput type="number" formControlName="monthlyCasualLeaveAccrual" min="0.5" max="5" step="0.25" />
+                  <mat-hint>CL credited per month (e.g. 1.0 or 1.25)</mat-hint>
+                </mat-form-field>
+              }
             </div>
-            <mat-slide-toggle formControlName="excludeSundaysFromLeaveCount" color="primary"></mat-slide-toggle>
+            <!-- Section 3: Attendance Regularization Rules -->
+            <div class="section-title">
+              <mat-icon>build_circle</mat-icon>
+              <span>Attendance Regularization Limits</span>
+            </div>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Max Backdated Days Allowed</mat-label>
+                <input matInput type="number" formControlName="maxRegularizationDaysBackdated" min="1" max="90" />
+                <mat-hint>Days in past a request can be raised (default: 15)</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Max Requests Per Month</mat-label>
+                <input matInput type="number" formControlName="maxRegularizationPerMonth" min="1" max="15" />
+                <mat-hint>Max monthly regularization requests per teacher (default: 3)</mat-hint>
+              </mat-form-field>
+            </div>
+            <!-- Section 4: Biometric & Manual Conflict Rules -->
+            <div class="section-title">
+              <mat-icon>sync_problem</mat-icon>
+              <span>Conflict Resolution Automation</span>
+            </div>
+            <div class="toggle-card">
+              <div class="toggle-info">
+                <strong>Auto-Cancel Leave on Biometric Punch (Recommended)</strong>
+                <p>If an employee has an approved leave but punches in at turnstile/device, automatically mark Present, override leave, and restore their leave balance quota.</p>
+              </div>
+              <mat-slide-toggle formControlName="autoCancelLeaveOnBiometricPunch" color="primary"></mat-slide-toggle>
+            </div>
+            <div class="toggle-card">
+              <div class="toggle-info">
+                <strong>Allow Full-Day Leave when Marked Present</strong>
+                <p>When disabled, teachers cannot apply for a full-day leave on dates where they are already marked Present (half-day or regularization required).</p>
+              </div>
+              <mat-slide-toggle formControlName="allowFullDayLeaveIfMarkedPresent" color="primary"></mat-slide-toggle>
+            </div>
+            <!-- Section 5: Holidays & Weekends Exclusion -->
+            <div class="section-title">
+              <mat-icon>celebration</mat-icon>
+              <span>Holidays & Weekends Deductible Policy</span>
+            </div>
+            <div class="toggle-card">
+              <div class="toggle-info">
+                <strong>Exclude Official Holidays from Leave Count (Recommended)</strong>
+                <p>When enabled, official gazetted and declared school holidays falling within the leave period are NOT deducted from the teacher's leave balance.</p>
+              </div>
+              <mat-slide-toggle formControlName="excludeHolidaysFromLeaveCount" color="primary"></mat-slide-toggle>
+            </div>
+            <div class="toggle-card">
+              <div class="toggle-info">
+                <strong>Exclude Sundays from Leave Count (Weekly Off)</strong>
+                <p>When enabled, Sundays falling within the leave period are treated as week-off and will NOT be deducted from the leave quota.</p>
+              </div>
+              <mat-slide-toggle formControlName="excludeSundaysFromLeaveCount" color="primary"></mat-slide-toggle>
+            </div>
+            @if (errorMessage) {
+              <div class="error-banner">
+                <mat-icon>error</mat-icon>
+                <span>{{errorMessage}}</span>
+              </div>
+            }
           </div>
-
-          <div class="error-banner" *ngIf="errorMessage">
-            <mat-icon>error</mat-icon>
-            <span>{{errorMessage}}</span>
+          <div class="policy-dialog-footer">
+            <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+            <button mat-flat-button class="btn-save" type="submit" [disabled]="saving || form.invalid">
+              <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
+              {{saving ? 'Saving...' : 'Save Policy Settings'}}
+            </button>
           </div>
-        </div>
-
-        <div class="policy-dialog-footer">
-          <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-          <button mat-flat-button class="btn-save" type="submit" [disabled]="saving || form.invalid">
-            <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
-            {{saving ? 'Saving...' : 'Save Policy Settings'}}
-          </button>
-        </div>
-      </form>
+        </form>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .policy-dialog-container {
       width: 100%;

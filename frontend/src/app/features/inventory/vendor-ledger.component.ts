@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
@@ -69,7 +69,7 @@ import {
             </div>
           </div>
         </div>
-
+    
         <div class="action-btn-group">
           <button
             mat-flat-button
@@ -79,13 +79,13 @@ import {
             <mat-icon>person_add</mat-icon>
             <span>New Vendor</span>
           </button>
-
+    
           <button mat-icon-button (click)="loadVendors()" matTooltip="Refresh Data" class="refresh-btn">
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
       </div>
-
+    
       <!-- Module Sub-Nav Bar -->
       <div class="module-nav-bar no-print">
         <a mat-button [routerLink]="['/inventory']" class="nav-tab">
@@ -101,10 +101,12 @@ import {
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
         </a>
       </div>
-
+    
       <!-- Single Prominent Loader Rule -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="global-loader no-print"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="global-loader no-print"></mat-progress-bar>
+      }
+    
       <!-- 2. KPI Metrics Deck -->
       <div class="kpi-grid no-print">
         <mat-card class="kpi-card mat-elevation-z1">
@@ -119,7 +121,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -132,7 +134,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -145,7 +147,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -159,7 +161,7 @@ import {
           </div>
         </mat-card>
       </div>
-
+    
       <!-- 4. Workspace Controls & Layout View Mode Switcher -->
       <div class="workspace-nav-bar no-print">
         <div class="workspace-title-box">
@@ -175,7 +177,7 @@ import {
             </p>
           </div>
         </div>
-
+    
         <div class="view-mode-toggle-group">
           <button
             mat-button
@@ -197,736 +199,830 @@ import {
           </button>
         </div>
       </div>
-
+    
       <!-- 6. SPLIT VIEW: Left Supplier Cards Deck + Right Ledger Workspace -->
-      <div class="ledger-layout-grid no-print" *ngIf="viewMode === 'split'">
-        <!-- LEFT: Elegant Supplier Directory Card -->
-        <mat-card class="directory-card mat-elevation-z1">
+      @if (viewMode === 'split') {
+        <div class="ledger-layout-grid no-print">
+          <!-- LEFT: Elegant Supplier Directory Card -->
+          <mat-card class="directory-card mat-elevation-z1">
+            <div class="card-section-header">
+              <div class="section-title-wrap">
+                <mat-icon class="section-icon">contacts</mat-icon>
+                <div>
+                  <h3 class="section-title">Supplier Directory</h3>
+                  <span class="section-sub">{{ filteredVendors.length }} of {{ vendorsList.length }} suppliers</span>
+                </div>
+              </div>
+              <button mat-icon-button (click)="openVendorDialog()" matTooltip="Add New Vendor" class="mini-add-btn" type="button">
+                <mat-icon>person_add</mat-icon>
+              </button>
+            </div>
+            <!-- Search & Filter Controls -->
+            <div class="directory-search-wrap">
+              <form [formGroup]="filterForm" class="filter-inputs">
+                <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+                  <mat-icon matPrefix>search</mat-icon>
+                  <input matInput formControlName="search" placeholder="Search supplier, GST, phone...">
+                  @if (filterForm.get('search')?.value) {
+                    <button mat-icon-button matSuffix (click)="filterForm.get('search')?.setValue('')" type="button">
+                      <mat-icon class="icon-xs">close</mat-icon>
+                    </button>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="select-field" subscriptSizing="dynamic">
+                  <mat-select formControlName="status">
+                    <mat-option value="ALL">All Suppliers ({{ vendorsList.length }})</mat-option>
+                    <mat-option value="DUE_ONLY">With Balance Due</mat-option>
+                    <mat-option value="NIL_ONLY">Settled / Nil Balance</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </form>
+            </div>
+            <!-- Clean Vertical Vendor Card List (No Squished 7-Column Table!) -->
+            <div class="vendor-cards-deck">
+              @for (v of filteredVendors; track v) {
+                <div
+                  (click)="selectVendor(v)"
+                  class="vendor-card-item"
+                  [class.active-vendor-card]="selectedVendor?.id === v.id">
+                  <div class="card-top-row">
+                    <div class="vendor-title-block">
+                      <div class="vendor-name-row">
+                        <span class="vendor-name-text">{{ v.vendorName || v.name }}</span>
+                        @if (selectedVendor?.id === v.id) {
+                          <mat-icon class="active-dot-icon" matTooltip="Currently Active">check_circle</mat-icon>
+                        }
+                      </div>
+                      @if (v.contactPerson) {
+                        <span class="vendor-contact-person">
+                          {{ v.contactPerson }} {{ v.phone ? '• ' + v.phone : '' }}
+                        </span>
+                      }
+                    </div>
+                    <span class="balance-pill" [class.pill-due]="(v.balanceDue ?? 0) > 0" [class.pill-settled]="(v.balanceDue ?? 0) <= 0">
+                      {{ (v.balanceDue ?? 0) > 0 ? ('₹' + ((v.balanceDue ?? 0) | number:'1.2-2') + ' Due') : 'Settled' }}
+                    </span>
+                  </div>
+                  <div class="card-bottom-row">
+                    @if (v.gstin) {
+                      <span class="gstin-badge">GST: {{ v.gstin }}</span>
+                    }
+                    @if (!v.gstin && v.address) {
+                      <span class="city-text">{{ v.address }}</span>
+                    }
+                    @if (!v.gstin && !v.address) {
+                      <span class="city-text">Regular Supplier</span>
+                    }
+                    <span class="total-purchased-sub">Billed: ₹{{ (v.totalPurchased ?? 0) | number:'1.0-0' }}</span>
+                  </div>
+                </div>
+              }
+              @if (filteredVendors.length === 0) {
+                <div class="empty-vendors-deck">
+                  <mat-icon class="empty-deck-icon">search_off</mat-icon>
+                  <p>No suppliers matching filter</p>
+                  <button mat-stroked-button color="primary" class="btn-xs" (click)="openVendorDialog()">
+                    <mat-icon>add</mat-icon> Add Vendor
+                  </button>
+                </div>
+              }
+            </div>
+          </mat-card>
+          <!-- RIGHT: Dedicated Vendor Account Ledger Statement Workspace -->
+          <mat-card class="statement-card mat-elevation-z1">
+            @if (!selectedVendor) {
+              <div class="no-selection-state">
+                <mat-icon class="big-icon">receipt_long</mat-icon>
+                <h3>No Supplier Selected</h3>
+                <p>Select any vendor from the directory on the left to view their detailed live account ledger, debit/credit transactions, and print statements.</p>
+              </div>
+            }
+            @if (selectedVendor) {
+              <div class="statement-content">
+                <!-- Selected Vendor Header Strip -->
+                <div class="statement-header-strip">
+                  <div class="vendor-headline">
+                    <div class="avatar-box">
+                      <mat-icon>store</mat-icon>
+                    </div>
+                    <div class="headline-info">
+                      <div class="title-with-actions">
+                        <h2 class="vendor-headline-name">{{ selectedVendor.vendorName || selectedVendor.name }}</h2>
+                        <button
+                          mat-button
+                          class="edit-profile-btn"
+                          (click)="openVendorDialog(selectedVendor)"
+                          matTooltip="Edit Supplier Profile (Phone, GSTIN, Address, Payment Terms)"
+                          type="button">
+                          <mat-icon class="icon-xs">edit</mat-icon>
+                          <span>Edit Profile</span>
+                        </button>
+                      </div>
+                      <div class="vendor-chips-row">
+                        @if (selectedVendor.contactPerson) {
+                          <span class="meta-tag">
+                            <mat-icon class="icon-xs">person</mat-icon> {{ selectedVendor.contactPerson }}
+                          </span>
+                        }
+                        @if (selectedVendor.phone) {
+                          <span class="meta-tag">
+                            <mat-icon class="icon-xs">phone</mat-icon> {{ selectedVendor.phone }}
+                          </span>
+                        }
+                        @if (selectedVendor.email) {
+                          <span class="meta-tag">
+                            <mat-icon class="icon-xs">email</mat-icon> {{ selectedVendor.email }}
+                          </span>
+                        }
+                        @if (selectedVendor.gstin) {
+                          <span class="meta-tag">
+                            <mat-icon class="icon-xs">fingerprint</mat-icon> GST: {{ selectedVendor.gstin }}
+                          </span>
+                        }
+                        @if (selectedVendor.paymentTerms) {
+                          <span class="meta-tag terms-tag">
+                            <mat-icon class="icon-xs">schedule</mat-icon> {{ selectedVendor.paymentTerms }}
+                          </span>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  <div class="statement-balance-box" [class.balance-credit-box]="(selectedVendor.balanceDue ?? 0) < 0">
+                    <span class="statement-lbl">
+                      {{ (selectedVendor.balanceDue ?? 0) < 0 ? 'Advance Credit Balance (Debit Note)' : ((selectedVendor.balanceDue ?? 0) === 0 ? 'Current Balance (Settled)' : 'Current Outstanding Due') }}
+                    </span>
+                    <span class="statement-amt" [class.text-danger]="(selectedVendor.balanceDue ?? 0) > 0" [class.text-emerald]="(selectedVendor.balanceDue ?? 0) < 0" [class.text-muted]="(selectedVendor.balanceDue ?? 0) === 0">
+                      ₹{{ Math.abs(selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
+                      @if ((selectedVendor.balanceDue ?? 0) < 0) {
+                        <small class="credit-pill">Credit (Supplier owes)</small>
+                      }
+                      @if ((selectedVendor.balanceDue ?? 0) > 0) {
+                        <small class="due-pill">Payable</small>
+                      }
+                      @if ((selectedVendor.balanceDue ?? 0) === 0) {
+                        <small class="settled-pill">Nil / Settled</small>
+                      }
+                    </span>
+                    <div class="statement-actions-row">
+                      <!-- If vendor owes refund (balanceDue < 0), show prominent 'Receive Refund' button! -->
+                      @if ((selectedVendor.balanceDue ?? 0) < 0) {
+                        <button mat-flat-button class="btn-action btn-refund" (click)="quickRefundVendor(selectedVendor)">
+                          <mat-icon class="icon-sm">call_received</mat-icon> Receive Refund
+                        </button>
+                      }
+                      @if ((selectedVendor.balanceDue ?? 0) > 0) {
+                        <button mat-flat-button color="primary" class="btn-action" (click)="quickPayVendor(selectedVendor)">
+                          <mat-icon class="icon-sm">payment</mat-icon> Pay Now
+                        </button>
+                      }
+                      <button mat-stroked-button class="btn-action" (click)="printStatement()">
+                        <mat-icon class="icon-sm">print</mat-icon> Print
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <!-- Ledger Summary Mini Cards -->
+                <div class="statement-mini-grid">
+                  <div class="mini-stat-card">
+                    <span class="mini-label">Total Billed Purchases</span>
+                    <span class="mini-val">₹{{ (ledgerSummary?.totalPurchased ?? selectedVendor.totalPurchased ?? 0) | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="mini-stat-card">
+                    <span class="mini-label">Total Payments Settled</span>
+                    <span class="mini-val text-emerald">₹{{ (ledgerSummary?.totalPaid ?? selectedVendor.totalPaid ?? 0) | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="mini-stat-card">
+                    <span class="mini-label">Total Debit Notes (PR)</span>
+                    <span class="mini-val text-amber">₹{{ (ledgerSummary?.totalReturns ?? selectedVendor.totalReturns ?? 0) | number:'1.2-2' }}</span>
+                  </div>
+                  @if ((ledgerSummary?.totalRefunds ?? selectedVendor.totalRefunds ?? 0) > 0) {
+                    <div class="mini-stat-card">
+                      <span class="mini-label">Refunds Received</span>
+                      <span class="mini-val text-emerald">₹{{ (ledgerSummary?.totalRefunds ?? selectedVendor.totalRefunds ?? 0) | number:'1.2-2' }}</span>
+                    </div>
+                  }
+                  <div class="mini-stat-card highlight-mini-card" [class.highlight-credit]="(selectedVendor.balanceDue ?? 0) < 0">
+                    <span class="mini-label">
+                      {{ (selectedVendor.balanceDue ?? 0) < 0 ? 'Net Advance Credit' : 'Net Balance Payable' }}
+                    </span>
+                    <span class="mini-val" [class.text-danger]="(selectedVendor.balanceDue ?? 0) > 0" [class.text-emerald]="(selectedVendor.balanceDue ?? 0) < 0" [class.text-muted]="(selectedVendor.balanceDue ?? 0) === 0">
+                      ₹{{ Math.abs(ledgerSummary?.balanceDue ?? selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
+                      @if ((selectedVendor.balanceDue ?? 0) < 0) {
+                        <small> (Cr)</small>
+                      }
+                      @if ((selectedVendor.balanceDue ?? 0) > 0) {
+                        <small> (Dr)</small>
+                      }
+                    </span>
+                  </div>
+                </div>
+                <!-- Server-Side Search, Filter & Date Bar -->
+                <div class="statement-filters-bar">
+                  <form [formGroup]="dateFilterForm" (ngSubmit)="applyDateFilter()" class="statement-filter-deck">
+                    <!-- Row 1: Search, Transaction Type, Payment Mode -->
+                    <div class="filter-primary-row">
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-search-box">
+                        <mat-icon matPrefix>search</mat-icon>
+                        <input matInput formControlName="search" placeholder="Search voucher #, bill #...">
+                        @if (dateFilterForm.get('search')?.value) {
+                          <button mat-icon-button matSuffix (click)="clearSearch()" type="button" matTooltip="Clear Search">
+                            <mat-icon class="icon-xs">close</mat-icon>
+                          </button>
+                        }
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-select-box">
+                        <mat-label>Transaction Type</mat-label>
+                        <mat-select formControlName="entryType">
+                          <mat-option value="ALL">All Types</mat-option>
+                          <mat-option value="InwardPurchase">Purchases / Inwards</mat-option>
+                          <mat-option value="VendorPayment">Payment Vouchers</mat-option>
+                          <mat-option value="VendorRefund">Refund Receipts</mat-option>
+                          <mat-option value="PurchaseReturn">Debit Notes (PR)</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-select-box">
+                        <mat-label>Payment Mode</mat-label>
+                        <mat-select formControlName="paymentMode">
+                          <mat-option value="ALL">All Modes</mat-option>
+                          <mat-option value="Cash">Cash</mat-option>
+                          <mat-option value="BankTransfer">Bank Transfer</mat-option>
+                          <mat-option value="UPI">UPI</mat-option>
+                          <mat-option value="Cheque">Cheque</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                    <!-- Row 2: Preset Chips, Date Range, Filter & Reset -->
+                    <div class="filter-secondary-row">
+                      <div class="preset-chips-deck">
+                        <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'ALL'" (click)="setDatePreset('ALL')">All Dates</button>
+                        <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_MONTH'" (click)="setDatePreset('THIS_MONTH')">This Month</button>
+                        <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'LAST_MONTH'" (click)="setDatePreset('LAST_MONTH')">Last Month</button>
+                        <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_FY'" (click)="setDatePreset('THIS_FY')">Current FY</button>
+                      </div>
+                      <div class="date-controls-line">
+                        <div class="date-inputs-pair">
+                          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field">
+                            <mat-label>Start Date</mat-label>
+                            <input matInput type="date" formControlName="startDate" [max]="dateFilterForm.get('endDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
+                          </mat-form-field>
+                          <span class="date-sep">to</span>
+                          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field" [class.field-has-error]="dateFilterForm.errors?.['dateRangeInvalid']">
+                            <mat-label>End Date</mat-label>
+                            <input matInput type="date" formControlName="endDate" [min]="dateFilterForm.get('startDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
+                          </mat-form-field>
+                        </div>
+                        <div class="date-action-btns">
+                          <button mat-flat-button color="primary" type="submit" class="filter-submit-btn" [disabled]="$safeNavigationMigration(dateFilterForm.errors?.['dateRangeInvalid'])">
+                            <mat-icon class="icon-sm">filter_list</mat-icon> Filter
+                          </button>
+                          <button mat-button type="button" (click)="resetDateFilter()" class="reset-filter-btn">
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Real-time Date Range Validation Alert -->
+                    @if (dateFilterForm.errors?.['dateRangeInvalid']) {
+                      <div class="date-validation-alert">
+                        <mat-icon class="icon-xs">error_outline</mat-icon>
+                        <span>Start Date cannot be later than End Date. Please select a valid date range.</span>
+                      </div>
+                    }
+                  </form>
+                </div>
+                <!-- Single Prominent Table Loader -->
+                @if (loadingLedger) {
+                  <mat-progress-bar mode="indeterminate" class="table-loader-bar"></mat-progress-bar>
+                }
+                <!-- Chronological Ledger Entries Table with Server-Side Sorting & Pagination -->
+                <div class="table-responsive statement-table-wrap">
+                  <table class="erp-table statement-table">
+                    <thead>
+                      <tr>
+                        <th class="sortable-th" [class.active-sort]="sortBy === 'date'" (click)="onSort('date')">
+                          <div class="th-content">
+                            <span>Date &amp; Time (IST)</span>
+                            <mat-icon class="sort-icon">{{ sortBy === 'date' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                          </div>
+                        </th>
+                        <th class="sortable-th" [class.active-sort]="sortBy === 'type'" (click)="onSort('type')">
+                          <div class="th-content">
+                            <span>Type</span>
+                            <mat-icon class="sort-icon">{{ sortBy === 'type' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                          </div>
+                        </th>
+                        <th class="sortable-th" [class.active-sort]="sortBy === 'ref'" (click)="onSort('ref')">
+                          <div class="th-content">
+                            <span>Ref / Voucher #</span>
+                            <mat-icon class="sort-icon">{{ sortBy === 'ref' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                          </div>
+                        </th>
+                        <th class="sortable-th" [class.active-sort]="sortBy === 'description'" (click)="onSort('description')">
+                          <div class="th-content">
+                            <span>Particulars &amp; Item Details</span>
+                            <mat-icon class="sort-icon">{{ sortBy === 'description' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                          </div>
+                        </th>
+                        <th class="sortable-th text-right" [class.active-sort]="sortBy === 'debit'" (click)="onSort('debit')">
+                          <div class="th-content th-right">
+                            <span>Debit (Paid/Return)</span>
+                            <mat-icon class="sort-icon">{{ sortBy === 'debit' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                          </div>
+                        </th>
+                        <th class="sortable-th text-right" [class.active-sort]="sortBy === 'credit'" (click)="onSort('credit')">
+                          <div class="th-content th-right">
+                            <span>Credit (Purchased)</span>
+                            <mat-icon class="sort-icon">{{ sortBy === 'credit' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                          </div>
+                        </th>
+                        <th class="sortable-th text-right" [class.active-sort]="sortBy === 'runningBalance'" (click)="onSort('runningBalance')">
+                          <div class="th-content th-right">
+                            <span>Running Balance</span>
+                            <mat-icon class="sort-icon">{{ sortBy === 'runningBalance' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (e of ledgerEntries; track e) {
+                        <tr>
+                          <td class="font-mono text-sm whitespace-nowrap">
+                            <span [appIstDatetime]="e.date" format="datetime"></span>
+                          </td>
+                          <td>
+                            <span class="entry-type-chip" [ngClass]="getEntryTypeClass(e.entryType)">
+                              {{ getEntryTypeLabel(e.entryType) }}
+                            </span>
+                          </td>
+                          <td class="font-mono font-medium">{{ e.referenceNumber || '—' }}</td>
+                          <td class="particulars-cell">{{ e.description || e.particulars || '—' }}</td>
+                          <td class="text-right font-mono text-emerald font-semibold">
+                            @if (e.debit > 0) {
+                              <span>₹{{ e.debit | number:'1.2-2' }}</span>
+                            }
+                            @if (e.debit === 0) {
+                              <span class="text-muted">—</span>
+                            }
+                          </td>
+                          <td class="text-right font-mono text-slate font-semibold">
+                            @if (e.credit > 0) {
+                              <span>₹{{ e.credit | number:'1.2-2' }}</span>
+                            }
+                            @if (e.credit === 0) {
+                              <span class="text-muted">—</span>
+                            }
+                          </td>
+                          <td class="text-right font-mono font-bold" [class.text-danger]="e.runningBalance > 0" [class.text-emerald]="e.runningBalance < 0" [class.text-muted]="e.runningBalance === 0">
+                            <span>₹{{ Math.abs(e.runningBalance) | number:'1.2-2' }}</span>
+                            @if (e.runningBalance > 0) {
+                              <small class="ledger-tag due-tag">Dr</small>
+                            }
+                            @if (e.runningBalance < 0) {
+                              <small class="ledger-tag credit-tag">Cr</small>
+                            }
+                          </td>
+                        </tr>
+                      }
+                      @if (ledgerEntries.length === 0 && !loadingLedger) {
+                        <tr>
+                          <td colspan="7" class="empty-cell">
+                            <div class="empty-state">
+                              <mat-icon class="empty-icon">receipt</mat-icon>
+                              <p>No transactions found for this supplier matching filter criteria</p>
+                              <button mat-stroked-button (click)="resetDateFilter()" class="mt-2" type="button">Reset Filters</button>
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                  <!-- Server-side Material Paginator -->
+                  <mat-paginator
+                    [length]="totalEntries"
+                    [pageSize]="pageSize"
+                    [pageSizeOptions]="[10, 25, 50, 100]"
+                    [pageIndex]="pageIndex"
+                    (page)="onPageChange($event)"
+                    showFirstLastButtons
+                    class="statement-paginator">
+                  </mat-paginator>
+                </div>
+              </div>
+            }
+          </mat-card>
+        </div>
+      }
+    
+      <!-- 7. FULL DIRECTORY TABLE VIEW (When user switches to All Suppliers Spreadsheet Mode) -->
+      @if (viewMode === 'table') {
+        <mat-card class="full-directory-card mat-elevation-z1 no-print">
           <div class="card-section-header">
             <div class="section-title-wrap">
-              <mat-icon class="section-icon">contacts</mat-icon>
+              <mat-icon class="section-icon">table_chart</mat-icon>
               <div>
-                <h3 class="section-title">Supplier Directory</h3>
-                <span class="section-sub">{{ filteredVendors.length }} of {{ vendorsList.length }} suppliers</span>
+                <h3 class="section-title">All Registered Suppliers Registry</h3>
+                <span class="section-sub">{{ filteredVendors.length }} supplier(s) matching current criteria</span>
               </div>
             </div>
-
-            <button mat-icon-button (click)="openVendorDialog()" matTooltip="Add New Vendor" class="mini-add-btn" type="button">
-              <mat-icon>person_add</mat-icon>
-            </button>
-          </div>
-
-          <!-- Search & Filter Controls -->
-          <div class="directory-search-wrap">
-            <form [formGroup]="filterForm" class="filter-inputs">
-              <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>search</mat-icon>
-                <input matInput formControlName="search" placeholder="Search supplier, GST, phone...">
-                <button mat-icon-button matSuffix *ngIf="filterForm.get('search')?.value" (click)="filterForm.get('search')?.setValue('')" type="button">
-                  <mat-icon class="icon-xs">close</mat-icon>
-                </button>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="select-field" subscriptSizing="dynamic">
-                <mat-select formControlName="status">
-                  <mat-option value="ALL">All Suppliers ({{ vendorsList.length }})</mat-option>
-                  <mat-option value="DUE_ONLY">With Balance Due</mat-option>
-                  <mat-option value="NIL_ONLY">Settled / Nil Balance</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </form>
-          </div>
-
-          <!-- Clean Vertical Vendor Card List (No Squished 7-Column Table!) -->
-          <div class="vendor-cards-deck">
-            <div
-              *ngFor="let v of filteredVendors"
-              (click)="selectVendor(v)"
-              class="vendor-card-item"
-              [class.active-vendor-card]="selectedVendor?.id === v.id">
-
-              <div class="card-top-row">
-                <div class="vendor-title-block">
-                  <div class="vendor-name-row">
-                    <span class="vendor-name-text">{{ v.vendorName || v.name }}</span>
-                    <mat-icon *ngIf="selectedVendor?.id === v.id" class="active-dot-icon" matTooltip="Currently Active">check_circle</mat-icon>
-                  </div>
-                  <span *ngIf="v.contactPerson" class="vendor-contact-person">
-                    {{ v.contactPerson }} {{ v.phone ? '• ' + v.phone : '' }}
-                  </span>
-                </div>
-                <span class="balance-pill" [class.pill-due]="(v.balanceDue ?? 0) > 0" [class.pill-settled]="(v.balanceDue ?? 0) <= 0">
-                  {{ (v.balanceDue ?? 0) > 0 ? ('₹' + ((v.balanceDue ?? 0) | number:'1.2-2') + ' Due') : 'Settled' }}
-                </span>
-              </div>
-
-              <div class="card-bottom-row">
-                <span class="gstin-badge" *ngIf="v.gstin">GST: {{ v.gstin }}</span>
-                <span class="city-text" *ngIf="!v.gstin && v.address">{{ v.address }}</span>
-                <span class="city-text" *ngIf="!v.gstin && !v.address">Regular Supplier</span>
-                <span class="total-purchased-sub">Billed: ₹{{ (v.totalPurchased ?? 0) | number:'1.0-0' }}</span>
-              </div>
-            </div>
-
-            <div *ngIf="filteredVendors.length === 0" class="empty-vendors-deck">
-              <mat-icon class="empty-deck-icon">search_off</mat-icon>
-              <p>No suppliers matching filter</p>
-              <button mat-stroked-button color="primary" class="btn-xs" (click)="openVendorDialog()">
-                <mat-icon>add</mat-icon> Add Vendor
+            <div class="header-right-actions">
+              <form [formGroup]="filterForm" class="filter-inputs">
+                <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+                  <mat-icon matPrefix>search</mat-icon>
+                  <input matInput formControlName="search" placeholder="Search supplier, GST, phone...">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="select-field" subscriptSizing="dynamic">
+                  <mat-select formControlName="status">
+                    <mat-option value="ALL">All Suppliers ({{ vendorsList.length }})</mat-option>
+                    <mat-option value="DUE_ONLY">With Balance Due</mat-option>
+                    <mat-option value="NIL_ONLY">Settled / Nil Balance</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </form>
+              <button mat-flat-button color="primary" (click)="openVendorDialog()" class="erp-btn">
+                <mat-icon>person_add</mat-icon>
+                <span>New Vendor</span>
               </button>
             </div>
           </div>
-        </mat-card>
-
-        <!-- RIGHT: Dedicated Vendor Account Ledger Statement Workspace -->
-        <mat-card class="statement-card mat-elevation-z1">
-          <div *ngIf="!selectedVendor" class="no-selection-state">
-            <mat-icon class="big-icon">receipt_long</mat-icon>
-            <h3>No Supplier Selected</h3>
-            <p>Select any vendor from the directory on the left to view their detailed live account ledger, debit/credit transactions, and print statements.</p>
-          </div>
-
-          <div *ngIf="selectedVendor" class="statement-content">
-            <!-- Selected Vendor Header Strip -->
-            <div class="statement-header-strip">
-              <div class="vendor-headline">
-                <div class="avatar-box">
-                  <mat-icon>store</mat-icon>
-                </div>
-                <div class="headline-info">
-                  <div class="title-with-actions">
-                    <h2 class="vendor-headline-name">{{ selectedVendor.vendorName || selectedVendor.name }}</h2>
-                    <button
-                      mat-button
-                      class="edit-profile-btn"
-                      (click)="openVendorDialog(selectedVendor)"
-                      matTooltip="Edit Supplier Profile (Phone, GSTIN, Address, Payment Terms)"
-                      type="button">
-                      <mat-icon class="icon-xs">edit</mat-icon>
-                      <span>Edit Profile</span>
-                    </button>
-                  </div>
-                  <div class="vendor-chips-row">
-                    <span *ngIf="selectedVendor.contactPerson" class="meta-tag">
-                      <mat-icon class="icon-xs">person</mat-icon> {{ selectedVendor.contactPerson }}
-                    </span>
-                    <span *ngIf="selectedVendor.phone" class="meta-tag">
-                      <mat-icon class="icon-xs">phone</mat-icon> {{ selectedVendor.phone }}
-                    </span>
-                    <span *ngIf="selectedVendor.email" class="meta-tag">
-                      <mat-icon class="icon-xs">email</mat-icon> {{ selectedVendor.email }}
-                    </span>
-                    <span *ngIf="selectedVendor.gstin" class="meta-tag">
-                      <mat-icon class="icon-xs">fingerprint</mat-icon> GST: {{ selectedVendor.gstin }}
-                    </span>
-                    <span *ngIf="selectedVendor.paymentTerms" class="meta-tag terms-tag">
-                      <mat-icon class="icon-xs">schedule</mat-icon> {{ selectedVendor.paymentTerms }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="statement-balance-box" [class.balance-credit-box]="(selectedVendor.balanceDue ?? 0) < 0">
-                <span class="statement-lbl">
-                  {{ (selectedVendor.balanceDue ?? 0) < 0 ? 'Advance Credit Balance (Debit Note)' : ((selectedVendor.balanceDue ?? 0) === 0 ? 'Current Balance (Settled)' : 'Current Outstanding Due') }}
-                </span>
-                <span class="statement-amt" [class.text-danger]="(selectedVendor.balanceDue ?? 0) > 0" [class.text-emerald]="(selectedVendor.balanceDue ?? 0) < 0" [class.text-muted]="(selectedVendor.balanceDue ?? 0) === 0">
-                  ₹{{ Math.abs(selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
-                  <small *ngIf="(selectedVendor.balanceDue ?? 0) < 0" class="credit-pill">Credit (Supplier owes)</small>
-                  <small *ngIf="(selectedVendor.balanceDue ?? 0) > 0" class="due-pill">Payable</small>
-                  <small *ngIf="(selectedVendor.balanceDue ?? 0) === 0" class="settled-pill">Nil / Settled</small>
-                </span>
-                <div class="statement-actions-row">
-                  <!-- If vendor owes refund (balanceDue < 0), show prominent 'Receive Refund' button! -->
-                  <button *ngIf="(selectedVendor.balanceDue ?? 0) < 0" mat-flat-button class="btn-action btn-refund" (click)="quickRefundVendor(selectedVendor)">
-                    <mat-icon class="icon-sm">call_received</mat-icon> Receive Refund
-                  </button>
-                  <button *ngIf="(selectedVendor.balanceDue ?? 0) > 0" mat-flat-button color="primary" class="btn-action" (click)="quickPayVendor(selectedVendor)">
-                    <mat-icon class="icon-sm">payment</mat-icon> Pay Now
-                  </button>
-                  <button mat-stroked-button class="btn-action" (click)="printStatement()">
-                    <mat-icon class="icon-sm">print</mat-icon> Print
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Ledger Summary Mini Cards -->
-            <div class="statement-mini-grid">
-              <div class="mini-stat-card">
-                <span class="mini-label">Total Billed Purchases</span>
-                <span class="mini-val">₹{{ (ledgerSummary?.totalPurchased ?? selectedVendor.totalPurchased ?? 0) | number:'1.2-2' }}</span>
-              </div>
-              <div class="mini-stat-card">
-                <span class="mini-label">Total Payments Settled</span>
-                <span class="mini-val text-emerald">₹{{ (ledgerSummary?.totalPaid ?? selectedVendor.totalPaid ?? 0) | number:'1.2-2' }}</span>
-              </div>
-              <div class="mini-stat-card">
-                <span class="mini-label">Total Debit Notes (PR)</span>
-                <span class="mini-val text-amber">₹{{ (ledgerSummary?.totalReturns ?? selectedVendor.totalReturns ?? 0) | number:'1.2-2' }}</span>
-              </div>
-              <div class="mini-stat-card" *ngIf="(ledgerSummary?.totalRefunds ?? selectedVendor.totalRefunds ?? 0) > 0">
-                <span class="mini-label">Refunds Received</span>
-                <span class="mini-val text-emerald">₹{{ (ledgerSummary?.totalRefunds ?? selectedVendor.totalRefunds ?? 0) | number:'1.2-2' }}</span>
-              </div>
-              <div class="mini-stat-card highlight-mini-card" [class.highlight-credit]="(selectedVendor.balanceDue ?? 0) < 0">
-                <span class="mini-label">
-                  {{ (selectedVendor.balanceDue ?? 0) < 0 ? 'Net Advance Credit' : 'Net Balance Payable' }}
-                </span>
-                <span class="mini-val" [class.text-danger]="(selectedVendor.balanceDue ?? 0) > 0" [class.text-emerald]="(selectedVendor.balanceDue ?? 0) < 0" [class.text-muted]="(selectedVendor.balanceDue ?? 0) === 0">
-                  ₹{{ Math.abs(ledgerSummary?.balanceDue ?? selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
-                  <small *ngIf="(selectedVendor.balanceDue ?? 0) < 0"> (Cr)</small>
-                  <small *ngIf="(selectedVendor.balanceDue ?? 0) > 0"> (Dr)</small>
-                </span>
-              </div>
-            </div>
-
-            <!-- Server-Side Search, Filter & Date Bar -->
-            <div class="statement-filters-bar">
-              <form [formGroup]="dateFilterForm" (ngSubmit)="applyDateFilter()" class="statement-filter-deck">
-                <!-- Row 1: Search, Transaction Type, Payment Mode -->
-                <div class="filter-primary-row">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-search-box">
-                    <mat-icon matPrefix>search</mat-icon>
-                    <input matInput formControlName="search" placeholder="Search voucher #, bill #...">
-                    <button mat-icon-button matSuffix *ngIf="dateFilterForm.get('search')?.value" (click)="clearSearch()" type="button" matTooltip="Clear Search">
-                      <mat-icon class="icon-xs">close</mat-icon>
-                    </button>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-select-box">
-                    <mat-label>Transaction Type</mat-label>
-                    <mat-select formControlName="entryType">
-                      <mat-option value="ALL">All Types</mat-option>
-                      <mat-option value="InwardPurchase">Purchases / Inwards</mat-option>
-                      <mat-option value="VendorPayment">Payment Vouchers</mat-option>
-                      <mat-option value="VendorRefund">Refund Receipts</mat-option>
-                      <mat-option value="PurchaseReturn">Debit Notes (PR)</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-select-box">
-                    <mat-label>Payment Mode</mat-label>
-                    <mat-select formControlName="paymentMode">
-                      <mat-option value="ALL">All Modes</mat-option>
-                      <mat-option value="Cash">Cash</mat-option>
-                      <mat-option value="BankTransfer">Bank Transfer</mat-option>
-                      <mat-option value="UPI">UPI</mat-option>
-                      <mat-option value="Cheque">Cheque</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                </div>
-
-                <!-- Row 2: Preset Chips, Date Range, Filter & Reset -->
-                <div class="filter-secondary-row">
-                  <div class="preset-chips-deck">
-                    <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'ALL'" (click)="setDatePreset('ALL')">All Dates</button>
-                    <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_MONTH'" (click)="setDatePreset('THIS_MONTH')">This Month</button>
-                    <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'LAST_MONTH'" (click)="setDatePreset('LAST_MONTH')">Last Month</button>
-                    <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_FY'" (click)="setDatePreset('THIS_FY')">Current FY</button>
-                  </div>
-
-                  <div class="date-controls-line">
-                    <div class="date-inputs-pair">
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field">
-                        <mat-label>Start Date</mat-label>
-                        <input matInput type="date" formControlName="startDate" [max]="dateFilterForm.get('endDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
-                      </mat-form-field>
-
-                      <span class="date-sep">to</span>
-
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="date-input-field" [class.field-has-error]="dateFilterForm.errors?.['dateRangeInvalid']">
-                        <mat-label>End Date</mat-label>
-                        <input matInput type="date" formControlName="endDate" [min]="dateFilterForm.get('startDate')?.value || ''" (change)="activeDatePreset = 'CUSTOM'">
-                      </mat-form-field>
-                    </div>
-
-                    <div class="date-action-btns">
-                      <button mat-flat-button color="primary" type="submit" class="filter-submit-btn" [disabled]="dateFilterForm.errors?.['dateRangeInvalid']">
-                        <mat-icon class="icon-sm">filter_list</mat-icon> Filter
-                      </button>
-                      <button mat-button type="button" (click)="resetDateFilter()" class="reset-filter-btn">
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Real-time Date Range Validation Alert -->
-                <div *ngIf="dateFilterForm.errors?.['dateRangeInvalid']" class="date-validation-alert">
-                  <mat-icon class="icon-xs">error_outline</mat-icon>
-                  <span>Start Date cannot be later than End Date. Please select a valid date range.</span>
-                </div>
-              </form>
-            </div>
-
-            <!-- Single Prominent Table Loader -->
-            <mat-progress-bar *ngIf="loadingLedger" mode="indeterminate" class="table-loader-bar"></mat-progress-bar>
-
-            <!-- Chronological Ledger Entries Table with Server-Side Sorting & Pagination -->
-            <div class="table-responsive statement-table-wrap">
-              <table class="erp-table statement-table">
-                <thead>
-                  <tr>
-                    <th class="sortable-th" [class.active-sort]="sortBy === 'date'" (click)="onSort('date')">
-                      <div class="th-content">
-                        <span>Date &amp; Time (IST)</span>
-                        <mat-icon class="sort-icon">{{ sortBy === 'date' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
-                      </div>
-                    </th>
-                    <th class="sortable-th" [class.active-sort]="sortBy === 'type'" (click)="onSort('type')">
-                      <div class="th-content">
-                        <span>Type</span>
-                        <mat-icon class="sort-icon">{{ sortBy === 'type' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
-                      </div>
-                    </th>
-                    <th class="sortable-th" [class.active-sort]="sortBy === 'ref'" (click)="onSort('ref')">
-                      <div class="th-content">
-                        <span>Ref / Voucher #</span>
-                        <mat-icon class="sort-icon">{{ sortBy === 'ref' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
-                      </div>
-                    </th>
-                    <th class="sortable-th" [class.active-sort]="sortBy === 'description'" (click)="onSort('description')">
-                      <div class="th-content">
-                        <span>Particulars &amp; Item Details</span>
-                        <mat-icon class="sort-icon">{{ sortBy === 'description' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
-                      </div>
-                    </th>
-                    <th class="sortable-th text-right" [class.active-sort]="sortBy === 'debit'" (click)="onSort('debit')">
-                      <div class="th-content th-right">
-                        <span>Debit (Paid/Return)</span>
-                        <mat-icon class="sort-icon">{{ sortBy === 'debit' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
-                      </div>
-                    </th>
-                    <th class="sortable-th text-right" [class.active-sort]="sortBy === 'credit'" (click)="onSort('credit')">
-                      <div class="th-content th-right">
-                        <span>Credit (Purchased)</span>
-                        <mat-icon class="sort-icon">{{ sortBy === 'credit' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
-                      </div>
-                    </th>
-                    <th class="sortable-th text-right" [class.active-sort]="sortBy === 'runningBalance'" (click)="onSort('runningBalance')">
-                      <div class="th-content th-right">
-                        <span>Running Balance</span>
-                        <mat-icon class="sort-icon">{{ sortBy === 'runningBalance' ? (sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more' }}</mat-icon>
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let e of ledgerEntries">
-                    <td class="font-mono text-sm whitespace-nowrap">
-                      <span [appIstDatetime]="e.date" format="datetime"></span>
+          <div class="table-responsive">
+            <table class="erp-table master-directory-table" matSort (matSortChange)="onMasterSortChange($event)">
+              <thead>
+                <tr>
+                  <th mat-sort-header="vendorName">Vendor / Business Name</th>
+                  <th mat-sort-header="contactPerson">Contact Person &amp; Phone</th>
+                  <th mat-sort-header="gstin">GSTIN / PAN</th>
+                  <th>Address / Location</th>
+                  <th mat-sort-header="paymentTerms">Payment Terms</th>
+                  <th mat-sort-header="totalPurchased" class="text-right">Total Purchased</th>
+                  <th mat-sort-header="totalPaid" class="text-right">Total Paid</th>
+                  <th mat-sort-header="totalReturns" class="text-right">Returns</th>
+                  <th mat-sort-header="balanceDue" class="text-right">Balance Due</th>
+                  <th class="text-center" style="min-width: 140px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (v of pagedVendors; track v) {
+                  <tr class="master-table-row">
+                    <td>
+                      <div class="vendor-primary-name font-bold">{{ v.vendorName || v.name }}</div>
+                      @if (v.email) {
+                        <span class="text-muted text-xs">{{ v.email }}</span>
+                      }
                     </td>
                     <td>
-                      <span class="entry-type-chip" [ngClass]="getEntryTypeClass(e.entryType)">
-                        {{ getEntryTypeLabel(e.entryType) }}
+                      <div>{{ v.contactPerson || '—' }}</div>
+                      @if (v.phone) {
+                        <div class="text-muted text-xs">{{ v.phone }}</div>
+                      }
+                    </td>
+                    <td>
+                      <div>{{ v.gstin || '—' }}</div>
+                      @if (v.pan) {
+                        <div class="text-muted text-xs">PAN: {{ v.pan }}</div>
+                      }
+                    </td>
+                    <td class="address-cell">{{ v.address || '—' }}</td>
+                    <td>{{ v.paymentTerms || 'Regular' }}</td>
+                    <td class="text-right font-mono font-medium">₹{{ (v.totalPurchased ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-right font-mono text-emerald font-semibold">₹{{ (v.totalPaid ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-right font-mono text-muted">₹{{ (v.totalReturns ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-right">
+                      <span class="balance-badge"
+                        [class.balance-due]="(v.balanceDue ?? 0) > 0"
+                        [class.balance-credit]="(v.balanceDue ?? 0) < 0"
+                        [class.balance-settled]="(v.balanceDue ?? 0) === 0">
+                        ₹{{ Math.abs(v.balanceDue ?? 0) | number:'1.2-2' }}
+                        @if ((v.balanceDue ?? 0) < 0) {
+                          <small> Cr</small>
+                        }
+                        @if ((v.balanceDue ?? 0) > 0) {
+                          <small> Dr</small>
+                        }
                       </span>
                     </td>
-                    <td class="font-mono font-medium">{{ e.referenceNumber || '—' }}</td>
-                    <td class="particulars-cell">{{ e.description || e.particulars || '—' }}</td>
-                    <td class="text-right font-mono text-emerald font-semibold">
-                      <span *ngIf="e.debit > 0">₹{{ e.debit | number:'1.2-2' }}</span>
-                      <span *ngIf="e.debit === 0" class="text-muted">—</span>
-                    </td>
-                    <td class="text-right font-mono text-slate font-semibold">
-                      <span *ngIf="e.credit > 0">₹{{ e.credit | number:'1.2-2' }}</span>
-                      <span *ngIf="e.credit === 0" class="text-muted">—</span>
-                    </td>
-                    <td class="text-right font-mono font-bold" [class.text-danger]="e.runningBalance > 0" [class.text-emerald]="e.runningBalance < 0" [class.text-muted]="e.runningBalance === 0">
-                      <span>₹{{ Math.abs(e.runningBalance) | number:'1.2-2' }}</span>
-                      <small class="ledger-tag due-tag" *ngIf="e.runningBalance > 0">Dr</small>
-                      <small class="ledger-tag credit-tag" *ngIf="e.runningBalance < 0">Cr</small>
-                    </td>
-                  </tr>
-
-                  <tr *ngIf="ledgerEntries.length === 0 && !loadingLedger">
-                    <td colspan="7" class="empty-cell">
-                      <div class="empty-state">
-                        <mat-icon class="empty-icon">receipt</mat-icon>
-                        <p>No transactions found for this supplier matching filter criteria</p>
-                        <button mat-stroked-button (click)="resetDateFilter()" class="mt-2" type="button">Reset Filters</button>
+                    <td class="text-center">
+                      <div class="table-actions-group">
+                        <button mat-flat-button color="primary" class="btn-xs" (click)="viewVendorLedger(v)" matTooltip="Open Live Statement">
+                          <mat-icon class="icon-xs">receipt_long</mat-icon> Ledger
+                        </button>
+                        @if ((v.balanceDue ?? 0) < 0) {
+                          <button mat-stroked-button class="btn-xs btn-refund-xs" (click)="quickRefundVendor(v)" matTooltip="Receive Refund from Supplier">
+                            <mat-icon class="icon-xs">call_received</mat-icon> Refund
+                          </button>
+                        }
+                        @if ((v.balanceDue ?? 0) > 0) {
+                          <button mat-stroked-button color="accent" class="btn-xs" (click)="quickPayVendor(v)" matTooltip="Disburse Payment">
+                            <mat-icon class="icon-xs">payment</mat-icon> Pay
+                          </button>
+                        }
+                        <button mat-icon-button (click)="openVendorDialog(v)" matTooltip="Edit Profile" class="btn-icon-xs">
+                          <mat-icon>edit</mat-icon>
+                        </button>
                       </div>
                     </td>
                   </tr>
-                </tbody>
-              </table>
-
-              <!-- Server-side Material Paginator -->
-              <mat-paginator
-                [length]="totalEntries"
-                [pageSize]="pageSize"
-                [pageSizeOptions]="[10, 25, 50, 100]"
-                [pageIndex]="pageIndex"
-                (page)="onPageChange($event)"
-                showFirstLastButtons
-                class="statement-paginator">
-              </mat-paginator>
-            </div>
+                }
+                @if (filteredVendors.length === 0) {
+                  <tr>
+                    <td colspan="10" class="empty-cell">
+                      <div class="empty-state">
+                        <mat-icon class="empty-icon">search_off</mat-icon>
+                        <p>No vendors found matching filter criteria</p>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
+          <mat-paginator
+            [length]="filteredVendors.length"
+            [pageSize]="masterPageSize"
+            [pageIndex]="masterPageIndex"
+            [pageSizeOptions]="[10, 25, 50, 100]"
+            (page)="onMasterPageChange($event)"
+            showFirstLastButtons
+            class="statement-paginator">
+          </mat-paginator>
         </mat-card>
-      </div>
-
-      <!-- 7. FULL DIRECTORY TABLE VIEW (When user switches to All Suppliers Spreadsheet Mode) -->
-      <mat-card class="full-directory-card mat-elevation-z1 no-print" *ngIf="viewMode === 'table'">
-        <div class="card-section-header">
-          <div class="section-title-wrap">
-            <mat-icon class="section-icon">table_chart</mat-icon>
-            <div>
-              <h3 class="section-title">All Registered Suppliers Registry</h3>
-              <span class="section-sub">{{ filteredVendors.length }} supplier(s) matching current criteria</span>
+      }
+    
+      <!-- 6. Executive Printable Vendor Statement of Account (Only visible on print) -->
+      @if (selectedVendor) {
+        <div class="only-print printable-ledger-sheet">
+          <!-- 1. Institution Header -->
+          <div class="print-doc-header">
+            <div class="inst-info-group">
+              @if (getInstituteLogoUrl()) {
+                <div class="print-logo-box">
+                  <img [src]="getInstituteLogoUrl()" alt="Logo" class="print-inst-logo">
+                </div>
+              }
+              <div class="inst-info">
+                <h1 class="inst-title">{{ instituteName }}</h1>
+                <p class="inst-subtitle">Accounts &amp; Financial Operations &bull; Central Procurement &amp; Inventory</p>
+                <p class="inst-branch">Campus / Branch: <strong>{{ activeBranchName }}</strong></p>
+              </div>
+            </div>
+            <div class="doc-badge-block">
+              <div class="badge-title">SUPPLIER STATEMENT OF ACCOUNT</div>
+              <div class="badge-sub">वित्तीय आपूर्तिकर्ता खाता विवरण (लेजर)</div>
+              <div class="badge-date">
+                Generated: <span [appIstDatetime]="todayDate" format="datetime"></span>
+              </div>
             </div>
           </div>
-
-          <div class="header-right-actions">
-            <form [formGroup]="filterForm" class="filter-inputs">
-              <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>search</mat-icon>
-                <input matInput formControlName="search" placeholder="Search supplier, GST, phone...">
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="select-field" subscriptSizing="dynamic">
-                <mat-select formControlName="status">
-                  <mat-option value="ALL">All Suppliers ({{ vendorsList.length }})</mat-option>
-                  <mat-option value="DUE_ONLY">With Balance Due</mat-option>
-                  <mat-option value="NIL_ONLY">Settled / Nil Balance</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </form>
-
-            <button mat-flat-button color="primary" (click)="openVendorDialog()" class="erp-btn">
-              <mat-icon>person_add</mat-icon>
-              <span>New Vendor</span>
-            </button>
+          <!-- 2. Vendor & Statement Details Strip -->
+          <div class="print-meta-grid">
+            <div class="vendor-box">
+              <div class="box-label">VENDOR / SUPPLIER DETAILS</div>
+              <div class="vendor-name-row">
+                <strong>{{ selectedVendor.name }}</strong>
+                @if (selectedVendor.gstin) {
+                  <span class="gst-tag">GSTIN: {{ selectedVendor.gstin }}</span>
+                }
+              </div>
+              <div class="vendor-details-lines">
+                @if (selectedVendor.contactPerson) {
+                  <span><strong>Contact Person:</strong> {{ selectedVendor.contactPerson }}</span>
+                }
+                @if (selectedVendor.phone) {
+                  <span> &bull; <strong>Phone:</strong> {{ selectedVendor.phone }}</span>
+                }
+                @if (selectedVendor.email) {
+                  <span> &bull; <strong>Email:</strong> {{ selectedVendor.email }}</span>
+                }
+                @if (selectedVendor.address) {
+                  <div class="address-line"><strong>Address:</strong> {{ selectedVendor.address }}</div>
+                }
+                @if (selectedVendor.bankDetails) {
+                  <div class="bank-line"><strong>Bank / UPI:</strong> {{ selectedVendor.bankDetails }}</div>
+                }
+              </div>
+            </div>
+            <div class="period-box">
+              <div class="box-label">STATEMENT PERIOD &amp; STATUS</div>
+              <div class="period-line">
+                <strong>Period:</strong>
+                @if (dateFilterForm.value.startDate && dateFilterForm.value.endDate) {
+                  <span>
+                    {{ dateFilterForm.value.startDate }} to {{ dateFilterForm.value.endDate }}
+                  </span>
+                }
+                @if (!dateFilterForm.value.startDate || !dateFilterForm.value.endDate) {
+                  <span>
+                    Complete Transaction History (All Dates)
+                  </span>
+                }
+              </div>
+              <div class="status-callout" [class.callout-due]="(selectedVendor.balanceDue ?? 0) > 0" [class.callout-settled]="(selectedVendor.balanceDue ?? 0) <= 0">
+                <span class="status-lbl">CURRENT OUTSTANDING DUE</span>
+                <span class="status-val">₹{{ (selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}</span>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div class="table-responsive">
-          <table class="erp-table master-directory-table" matSort (matSortChange)="onMasterSortChange($event)">
+          <!-- 3. Summary KPI Box -->
+          <div class="print-kpi-summary">
+            <div class="print-kpi-col">
+              <span class="kpi-tag">TOTAL BILLED PURCHASES</span>
+              <span class="kpi-num">₹{{ (ledgerSummary?.totalPurchased ?? selectedVendor.totalPurchased ?? 0) | number:'1.2-2' }}</span>
+            </div>
+            <div class="print-kpi-col">
+              <span class="kpi-tag">TOTAL PAYMENTS SETTLED</span>
+              <span class="kpi-num text-emerald">₹{{ (ledgerSummary?.totalPaid ?? selectedVendor.totalPaid ?? 0) | number:'1.2-2' }}</span>
+            </div>
+            <div class="print-kpi-col">
+              <span class="kpi-tag">TOTAL RETURNS / DEBIT NOTES</span>
+              <span class="kpi-num text-amber">₹{{ (ledgerSummary?.totalReturns ?? selectedVendor.totalReturns ?? 0) | number:'1.2-2' }}</span>
+            </div>
+            <div class="print-kpi-col highlight-col">
+              <span class="kpi-tag">NET BALANCE PAYABLE</span>
+              <span class="kpi-num text-danger">₹{{ (ledgerSummary?.balanceDue ?? selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          <!-- 4. Chronological Ledger Table -->
+          <table class="print-table">
             <thead>
               <tr>
-                <th mat-sort-header="vendorName">Vendor / Business Name</th>
-                <th mat-sort-header="contactPerson">Contact Person &amp; Phone</th>
-                <th mat-sort-header="gstin">GSTIN / PAN</th>
-                <th>Address / Location</th>
-                <th mat-sort-header="paymentTerms">Payment Terms</th>
-                <th mat-sort-header="totalPurchased" class="text-right">Total Purchased</th>
-                <th mat-sort-header="totalPaid" class="text-right">Total Paid</th>
-                <th mat-sort-header="totalReturns" class="text-right">Returns</th>
-                <th mat-sort-header="balanceDue" class="text-right">Balance Due</th>
-                <th class="text-center" style="min-width: 140px;">Actions</th>
+                <th style="width: 32px;">#</th>
+                <th style="width: 125px;">Date &amp; Time (IST)</th>
+                <th style="width: 95px;">Type</th>
+                <th style="width: 110px;">Ref / Voucher #</th>
+                <th>Particulars &amp; Item Details</th>
+                <th style="width: 105px;" class="text-right">Debit (Paid/Return)</th>
+                <th style="width: 105px;" class="text-right">Credit (Purchased)</th>
+                <th style="width: 110px;" class="text-right">Running Balance</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let v of pagedVendors" class="master-table-row">
-                <td>
-                  <div class="vendor-primary-name font-bold">{{ v.vendorName || v.name }}</div>
-                  <span *ngIf="v.email" class="text-muted text-xs">{{ v.email }}</span>
-                </td>
-                <td>
-                  <div>{{ v.contactPerson || '—' }}</div>
-                  <div *ngIf="v.phone" class="text-muted text-xs">{{ v.phone }}</div>
-                </td>
-                <td>
-                  <div>{{ v.gstin || '—' }}</div>
-                  <div *ngIf="v.pan" class="text-muted text-xs">PAN: {{ v.pan }}</div>
-                </td>
-                <td class="address-cell">{{ v.address || '—' }}</td>
-                <td>{{ v.paymentTerms || 'Regular' }}</td>
-                <td class="text-right font-mono font-medium">₹{{ (v.totalPurchased ?? 0) | number:'1.2-2' }}</td>
-                <td class="text-right font-mono text-emerald font-semibold">₹{{ (v.totalPaid ?? 0) | number:'1.2-2' }}</td>
-                <td class="text-right font-mono text-muted">₹{{ (v.totalReturns ?? 0) | number:'1.2-2' }}</td>
-                <td class="text-right">
-                  <span class="balance-badge" 
-                    [class.balance-due]="(v.balanceDue ?? 0) > 0" 
-                    [class.balance-credit]="(v.balanceDue ?? 0) < 0" 
-                    [class.balance-settled]="(v.balanceDue ?? 0) === 0">
-                    ₹{{ Math.abs(v.balanceDue ?? 0) | number:'1.2-2' }}
-                    <small *ngIf="(v.balanceDue ?? 0) < 0"> Cr</small>
-                    <small *ngIf="(v.balanceDue ?? 0) > 0"> Dr</small>
-                  </span>
-                </td>
-                <td class="text-center">
-                  <div class="table-actions-group">
-                    <button mat-flat-button color="primary" class="btn-xs" (click)="viewVendorLedger(v)" matTooltip="Open Live Statement">
-                      <mat-icon class="icon-xs">receipt_long</mat-icon> Ledger
-                    </button>
-                    <button *ngIf="(v.balanceDue ?? 0) < 0" mat-stroked-button class="btn-xs btn-refund-xs" (click)="quickRefundVendor(v)" matTooltip="Receive Refund from Supplier">
-                      <mat-icon class="icon-xs">call_received</mat-icon> Refund
-                    </button>
-                    <button *ngIf="(v.balanceDue ?? 0) > 0" mat-stroked-button color="accent" class="btn-xs" (click)="quickPayVendor(v)" matTooltip="Disburse Payment">
-                      <mat-icon class="icon-xs">payment</mat-icon> Pay
-                    </button>
-                    <button mat-icon-button (click)="openVendorDialog(v)" matTooltip="Edit Profile" class="btn-icon-xs">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr *ngIf="filteredVendors.length === 0">
-                <td colspan="10" class="empty-cell">
-                  <div class="empty-state">
-                    <mat-icon class="empty-icon">search_off</mat-icon>
-                    <p>No vendors found matching filter criteria</p>
-                  </div>
-                </td>
-              </tr>
+              @for (e of ledgerEntries; track e; let idx = $index) {
+                <tr>
+                  <td class="text-center font-mono">{{ idx + 1 }}</td>
+                  <td class="font-mono">
+                    <span [appIstDatetime]="e.date" format="datetime"></span>
+                  </td>
+                  <td>
+                    <span class="print-entry-pill">{{ getEntryTypeLabel(e.entryType) }}</span>
+                  </td>
+                  <td class="font-mono font-bold">{{ e.referenceNumber || '—' }}</td>
+                  <td>{{ e.description || e.particulars || '—' }}</td>
+                  <td class="text-right font-mono">
+                    @if (e.debit > 0) {
+                      <span>₹{{ e.debit | number:'1.2-2' }}</span>
+                    }
+                    @if (!e.debit || e.debit === 0) {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
+                  <td class="text-right font-mono">
+                    @if (e.credit > 0) {
+                      <span>₹{{ e.credit | number:'1.2-2' }}</span>
+                    }
+                    @if (!e.credit || e.credit === 0) {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
+                  <td class="text-right font-mono font-bold" [class.text-danger]="e.runningBalance > 0" [class.text-emerald]="e.runningBalance < 0">
+                    ₹{{ Math.abs(e.runningBalance) | number:'1.2-2' }}
+                    @if (e.runningBalance > 0) {
+                      <small> Dr</small>
+                    }
+                    @if (e.runningBalance < 0) {
+                      <small> Cr</small>
+                    }
+                  </td>
+                </tr>
+              }
+              @if (ledgerEntries.length === 0) {
+                <tr>
+                  <td colspan="8" class="text-center" style="padding: 24px; color: #64748b;">
+                    No transactions recorded for this vendor within the selected period.
+                  </td>
+                </tr>
+              }
             </tbody>
+            <tfoot>
+              <tr class="tfoot-row">
+                <td colspan="5" class="text-right font-bold">TOTALS &amp; CLOSING BALANCE:</td>
+                <td class="text-right font-mono font-bold">₹{{ totalLedgerDebit | number:'1.2-2' }}</td>
+                <td class="text-right font-mono font-bold">₹{{ totalLedgerCredit | number:'1.2-2' }}</td>
+                <td class="text-right font-mono font-bold text-danger">
+                  ₹{{ (selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+          <!-- 5. Signatures & Verification Block -->
+          <div class="print-signatures-block">
+            <div class="sig-col">
+              <div class="sig-line"></div>
+              <span class="sig-title">Prepared By (Store / Accounts)</span>
+            </div>
+            <div class="sig-col">
+              <div class="sig-line"></div>
+              <span class="sig-title">Verified By (Accountant / CFO)</span>
+            </div>
+            <div class="sig-col">
+              <div class="sig-line"></div>
+              <span class="sig-title">Authorized Signatory / Principal</span>
+            </div>
+            <div class="sig-col">
+              <div class="sig-line"></div>
+              <span class="sig-title">Supplier Signature &amp; Stamp</span>
+            </div>
+          </div>
+          <!-- 6. Print Footer Note -->
+          <div class="print-footer-note">
+            <span>This is a computer-generated ledger statement issued by IMSERP. All amounts are in INR (₹).</span>
+            <span>Page 1 of 1</span>
+          </div>
+        </div>
+      }
+    
+      <!-- 7. Printable Master Supplier Directory (Only visible on print when no vendor is selected) -->
+      @if (!selectedVendor) {
+        <div class="only-print printable-ledger-sheet">
+          <div class="print-doc-header">
+            <div class="inst-info-group">
+              @if (getInstituteLogoUrl()) {
+                <div class="print-logo-box">
+                  <img [src]="getInstituteLogoUrl()" alt="Logo" class="print-inst-logo">
+                </div>
+              }
+              <div class="inst-info">
+                <h1 class="inst-title">{{ instituteName }}</h1>
+                <p class="inst-subtitle">Accounts &amp; Financial Operations &bull; Central Procurement &amp; Inventory</p>
+                <p class="inst-branch">Campus / Branch: <strong>{{ activeBranchName }}</strong></p>
+              </div>
+            </div>
+            <div class="doc-badge-block">
+              <div class="badge-title">MASTER SUPPLIER DIRECTORY</div>
+              <div class="badge-sub">आपूर्तिकर्ता सूची एवं कुल बकाया</div>
+              <div class="badge-date">
+                Generated: <span [appIstDatetime]="todayDate" format="datetime"></span>
+              </div>
+            </div>
+          </div>
+          <div class="print-kpi-summary">
+            <div class="print-kpi-col">
+              <span class="kpi-tag">TOTAL REGISTERED VENDORS</span>
+              <span class="kpi-num">{{ vendorsList.length }}</span>
+            </div>
+            <div class="print-kpi-col">
+              <span class="kpi-tag">TOTAL PURCHASES BILLED</span>
+              <span class="kpi-num">₹{{ totalPurchasedValue | number:'1.2-2' }}</span>
+            </div>
+            <div class="print-kpi-col">
+              <span class="kpi-tag">TOTAL PAYMENTS DISBURSED</span>
+              <span class="kpi-num text-emerald">₹{{ totalPaidValue | number:'1.2-2' }}</span>
+            </div>
+            <div class="print-kpi-col highlight-col">
+              <span class="kpi-tag">TOTAL OUTSTANDING BALANCE DUE</span>
+              <span class="kpi-num text-danger">₹{{ totalBalanceDueValue | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          <table class="print-table">
+            <thead>
+              <tr>
+                <th style="width: 32px;">#</th>
+                <th>Vendor Name</th>
+                <th>Contact &amp; Phone</th>
+                <th>GSTIN / Address</th>
+                <th style="width: 110px;" class="text-right">Total Purchased</th>
+                <th style="width: 110px;" class="text-right">Total Paid</th>
+                <th style="width: 90px;" class="text-right">Returns</th>
+                <th style="width: 120px;" class="text-right">Balance Due</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (v of filteredVendors; track v; let idx = $index) {
+                <tr>
+                  <td class="text-center font-mono">{{ idx + 1 }}</td>
+                  <td><strong>{{ v.name }}</strong></td>
+                  <td>{{ v.contactPerson || '—' }} {{ v.phone ? '• ' + v.phone : '' }}</td>
+                  <td>{{ v.gstin || '—' }} {{ v.address ? '• ' + v.address : '' }}</td>
+                  <td class="text-right font-mono">₹{{ (v.totalPurchased ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-right font-mono text-emerald">₹{{ (v.totalPaid ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-right font-mono text-muted">₹{{ (v.totalReturns ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-right font-mono font-bold text-danger">₹{{ (v.balanceDue ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="tfoot-row">
+                <td colspan="4" class="text-right font-bold">TOTAL CONSOLIDATED DUE:</td>
+                <td class="text-right font-mono font-bold">₹{{ totalPurchasedValue | number:'1.2-2' }}</td>
+                <td class="text-right font-mono font-bold">₹{{ totalPaidValue | number:'1.2-2' }}</td>
+                <td class="text-right font-mono font-bold">₹{{ totalReturnsValue | number:'1.2-2' }}</td>
+                <td class="text-right font-mono font-bold text-danger">₹{{ totalBalanceDueValue | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
-
-        <mat-paginator
-          [length]="filteredVendors.length"
-          [pageSize]="masterPageSize"
-          [pageIndex]="masterPageIndex"
-          [pageSizeOptions]="[10, 25, 50, 100]"
-          (page)="onMasterPageChange($event)"
-          showFirstLastButtons
-          class="statement-paginator">
-        </mat-paginator>
-      </mat-card>
-
-      <!-- 6. Executive Printable Vendor Statement of Account (Only visible on print) -->
-      <div class="only-print printable-ledger-sheet" *ngIf="selectedVendor">
-        <!-- 1. Institution Header -->
-        <div class="print-doc-header">
-          <div class="inst-info-group">
-            <div class="print-logo-box" *ngIf="getInstituteLogoUrl()">
-              <img [src]="getInstituteLogoUrl()" alt="Logo" class="print-inst-logo">
-            </div>
-            <div class="inst-info">
-              <h1 class="inst-title">{{ instituteName }}</h1>
-              <p class="inst-subtitle">Accounts &amp; Financial Operations &bull; Central Procurement &amp; Inventory</p>
-              <p class="inst-branch">Campus / Branch: <strong>{{ activeBranchName }}</strong></p>
-            </div>
-          </div>
-          <div class="doc-badge-block">
-            <div class="badge-title">SUPPLIER STATEMENT OF ACCOUNT</div>
-            <div class="badge-sub">वित्तीय आपूर्तिकर्ता खाता विवरण (लेजर)</div>
-            <div class="badge-date">
-              Generated: <span [appIstDatetime]="todayDate" format="datetime"></span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. Vendor & Statement Details Strip -->
-        <div class="print-meta-grid">
-          <div class="vendor-box">
-            <div class="box-label">VENDOR / SUPPLIER DETAILS</div>
-            <div class="vendor-name-row">
-              <strong>{{ selectedVendor.name }}</strong>
-              <span *ngIf="selectedVendor.gstin" class="gst-tag">GSTIN: {{ selectedVendor.gstin }}</span>
-            </div>
-            <div class="vendor-details-lines">
-              <span *ngIf="selectedVendor.contactPerson"><strong>Contact Person:</strong> {{ selectedVendor.contactPerson }}</span>
-              <span *ngIf="selectedVendor.phone"> &bull; <strong>Phone:</strong> {{ selectedVendor.phone }}</span>
-              <span *ngIf="selectedVendor.email"> &bull; <strong>Email:</strong> {{ selectedVendor.email }}</span>
-              <div *ngIf="selectedVendor.address" class="address-line"><strong>Address:</strong> {{ selectedVendor.address }}</div>
-              <div *ngIf="selectedVendor.bankDetails" class="bank-line"><strong>Bank / UPI:</strong> {{ selectedVendor.bankDetails }}</div>
-            </div>
-          </div>
-
-          <div class="period-box">
-            <div class="box-label">STATEMENT PERIOD &amp; STATUS</div>
-            <div class="period-line">
-              <strong>Period:</strong>
-              <span *ngIf="dateFilterForm.value.startDate && dateFilterForm.value.endDate">
-                {{ dateFilterForm.value.startDate }} to {{ dateFilterForm.value.endDate }}
-              </span>
-              <span *ngIf="!dateFilterForm.value.startDate || !dateFilterForm.value.endDate">
-                Complete Transaction History (All Dates)
-              </span>
-            </div>
-            <div class="status-callout" [class.callout-due]="(selectedVendor.balanceDue ?? 0) > 0" [class.callout-settled]="(selectedVendor.balanceDue ?? 0) <= 0">
-              <span class="status-lbl">CURRENT OUTSTANDING DUE</span>
-              <span class="status-val">₹{{ (selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. Summary KPI Box -->
-        <div class="print-kpi-summary">
-          <div class="print-kpi-col">
-            <span class="kpi-tag">TOTAL BILLED PURCHASES</span>
-            <span class="kpi-num">₹{{ (ledgerSummary?.totalPurchased ?? selectedVendor.totalPurchased ?? 0) | number:'1.2-2' }}</span>
-          </div>
-          <div class="print-kpi-col">
-            <span class="kpi-tag">TOTAL PAYMENTS SETTLED</span>
-            <span class="kpi-num text-emerald">₹{{ (ledgerSummary?.totalPaid ?? selectedVendor.totalPaid ?? 0) | number:'1.2-2' }}</span>
-          </div>
-          <div class="print-kpi-col">
-            <span class="kpi-tag">TOTAL RETURNS / DEBIT NOTES</span>
-            <span class="kpi-num text-amber">₹{{ (ledgerSummary?.totalReturns ?? selectedVendor.totalReturns ?? 0) | number:'1.2-2' }}</span>
-          </div>
-          <div class="print-kpi-col highlight-col">
-            <span class="kpi-tag">NET BALANCE PAYABLE</span>
-            <span class="kpi-num text-danger">₹{{ (ledgerSummary?.balanceDue ?? selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}</span>
-          </div>
-        </div>
-
-        <!-- 4. Chronological Ledger Table -->
-        <table class="print-table">
-          <thead>
-            <tr>
-              <th style="width: 32px;">#</th>
-              <th style="width: 125px;">Date &amp; Time (IST)</th>
-              <th style="width: 95px;">Type</th>
-              <th style="width: 110px;">Ref / Voucher #</th>
-              <th>Particulars &amp; Item Details</th>
-              <th style="width: 105px;" class="text-right">Debit (Paid/Return)</th>
-              <th style="width: 105px;" class="text-right">Credit (Purchased)</th>
-              <th style="width: 110px;" class="text-right">Running Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let e of ledgerEntries; let idx = index">
-              <td class="text-center font-mono">{{ idx + 1 }}</td>
-              <td class="font-mono">
-                <span [appIstDatetime]="e.date" format="datetime"></span>
-              </td>
-              <td>
-                <span class="print-entry-pill">{{ getEntryTypeLabel(e.entryType) }}</span>
-              </td>
-              <td class="font-mono font-bold">{{ e.referenceNumber || '—' }}</td>
-              <td>{{ e.description || e.particulars || '—' }}</td>
-              <td class="text-right font-mono">
-                <span *ngIf="e.debit > 0">₹{{ e.debit | number:'1.2-2' }}</span>
-                <span *ngIf="!e.debit || e.debit === 0" class="text-muted">—</span>
-              </td>
-              <td class="text-right font-mono">
-                <span *ngIf="e.credit > 0">₹{{ e.credit | number:'1.2-2' }}</span>
-                <span *ngIf="!e.credit || e.credit === 0" class="text-muted">—</span>
-              </td>
-              <td class="text-right font-mono font-bold" [class.text-danger]="e.runningBalance > 0" [class.text-emerald]="e.runningBalance < 0">
-                ₹{{ Math.abs(e.runningBalance) | number:'1.2-2' }}
-                <small *ngIf="e.runningBalance > 0"> Dr</small>
-                <small *ngIf="e.runningBalance < 0"> Cr</small>
-              </td>
-            </tr>
-            <tr *ngIf="ledgerEntries.length === 0">
-              <td colspan="8" class="text-center" style="padding: 24px; color: #64748b;">
-                No transactions recorded for this vendor within the selected period.
-              </td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr class="tfoot-row">
-              <td colspan="5" class="text-right font-bold">TOTALS &amp; CLOSING BALANCE:</td>
-              <td class="text-right font-mono font-bold">₹{{ totalLedgerDebit | number:'1.2-2' }}</td>
-              <td class="text-right font-mono font-bold">₹{{ totalLedgerCredit | number:'1.2-2' }}</td>
-              <td class="text-right font-mono font-bold text-danger">
-                ₹{{ (selectedVendor.balanceDue ?? 0) | number:'1.2-2' }}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <!-- 5. Signatures & Verification Block -->
-        <div class="print-signatures-block">
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <span class="sig-title">Prepared By (Store / Accounts)</span>
-          </div>
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <span class="sig-title">Verified By (Accountant / CFO)</span>
-          </div>
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <span class="sig-title">Authorized Signatory / Principal</span>
-          </div>
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <span class="sig-title">Supplier Signature &amp; Stamp</span>
-          </div>
-        </div>
-
-        <!-- 6. Print Footer Note -->
-        <div class="print-footer-note">
-          <span>This is a computer-generated ledger statement issued by IMSERP. All amounts are in INR (₹).</span>
-          <span>Page 1 of 1</span>
-        </div>
-      </div>
-
-      <!-- 7. Printable Master Supplier Directory (Only visible on print when no vendor is selected) -->
-      <div class="only-print printable-ledger-sheet" *ngIf="!selectedVendor">
-        <div class="print-doc-header">
-          <div class="inst-info-group">
-            <div class="print-logo-box" *ngIf="getInstituteLogoUrl()">
-              <img [src]="getInstituteLogoUrl()" alt="Logo" class="print-inst-logo">
-            </div>
-            <div class="inst-info">
-              <h1 class="inst-title">{{ instituteName }}</h1>
-              <p class="inst-subtitle">Accounts &amp; Financial Operations &bull; Central Procurement &amp; Inventory</p>
-              <p class="inst-branch">Campus / Branch: <strong>{{ activeBranchName }}</strong></p>
-            </div>
-          </div>
-          <div class="doc-badge-block">
-            <div class="badge-title">MASTER SUPPLIER DIRECTORY</div>
-            <div class="badge-sub">आपूर्तिकर्ता सूची एवं कुल बकाया</div>
-            <div class="badge-date">
-              Generated: <span [appIstDatetime]="todayDate" format="datetime"></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="print-kpi-summary">
-          <div class="print-kpi-col">
-            <span class="kpi-tag">TOTAL REGISTERED VENDORS</span>
-            <span class="kpi-num">{{ vendorsList.length }}</span>
-          </div>
-          <div class="print-kpi-col">
-            <span class="kpi-tag">TOTAL PURCHASES BILLED</span>
-            <span class="kpi-num">₹{{ totalPurchasedValue | number:'1.2-2' }}</span>
-          </div>
-          <div class="print-kpi-col">
-            <span class="kpi-tag">TOTAL PAYMENTS DISBURSED</span>
-            <span class="kpi-num text-emerald">₹{{ totalPaidValue | number:'1.2-2' }}</span>
-          </div>
-          <div class="print-kpi-col highlight-col">
-            <span class="kpi-tag">TOTAL OUTSTANDING BALANCE DUE</span>
-            <span class="kpi-num text-danger">₹{{ totalBalanceDueValue | number:'1.2-2' }}</span>
-          </div>
-        </div>
-
-        <table class="print-table">
-          <thead>
-            <tr>
-              <th style="width: 32px;">#</th>
-              <th>Vendor Name</th>
-              <th>Contact &amp; Phone</th>
-              <th>GSTIN / Address</th>
-              <th style="width: 110px;" class="text-right">Total Purchased</th>
-              <th style="width: 110px;" class="text-right">Total Paid</th>
-              <th style="width: 90px;" class="text-right">Returns</th>
-              <th style="width: 120px;" class="text-right">Balance Due</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let v of filteredVendors; let idx = index">
-              <td class="text-center font-mono">{{ idx + 1 }}</td>
-              <td><strong>{{ v.name }}</strong></td>
-              <td>{{ v.contactPerson || '—' }} {{ v.phone ? '• ' + v.phone : '' }}</td>
-              <td>{{ v.gstin || '—' }} {{ v.address ? '• ' + v.address : '' }}</td>
-              <td class="text-right font-mono">₹{{ (v.totalPurchased ?? 0) | number:'1.2-2' }}</td>
-              <td class="text-right font-mono text-emerald">₹{{ (v.totalPaid ?? 0) | number:'1.2-2' }}</td>
-              <td class="text-right font-mono text-muted">₹{{ (v.totalReturns ?? 0) | number:'1.2-2' }}</td>
-              <td class="text-right font-mono font-bold text-danger">₹{{ (v.balanceDue ?? 0) | number:'1.2-2' }}</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr class="tfoot-row">
-              <td colspan="4" class="text-right font-bold">TOTAL CONSOLIDATED DUE:</td>
-              <td class="text-right font-mono font-bold">₹{{ totalPurchasedValue | number:'1.2-2' }}</td>
-              <td class="text-right font-mono font-bold">₹{{ totalPaidValue | number:'1.2-2' }}</td>
-              <td class="text-right font-mono font-bold">₹{{ totalReturnsValue | number:'1.2-2' }}</td>
-              <td class="text-right font-mono font-bold text-danger">₹{{ totalBalanceDueValue | number:'1.2-2' }}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

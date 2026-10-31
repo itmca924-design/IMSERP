@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -46,7 +46,9 @@ export interface TeacherDocumentsDialogData {
     </button>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <div class="modal-body">
     <!-- Top Action Row -->
@@ -62,116 +64,128 @@ export interface TeacherDocumentsDialogData {
     </div>
 
     <!-- Inline Add Document Form -->
-    <div class="add-form-card" *ngIf="showAddForm">
-      <h4><mat-icon>cloud_upload</mat-icon> Upload & Attach New Document</h4>
-      <div class="form-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>Document Type *</mat-label>
-          <mat-select [(ngModel)]="newDoc.documentType">
-            <mat-option value="Aadhaar">Aadhaar Card (आधार कार्ड)</mat-option>
-            <mat-option value="PAN">PAN Card (पैन कार्ड)</mat-option>
-            <mat-option value="Degree">Degree / Graduation Certificate</mat-option>
-            <mat-option value="BEd">B.Ed / Teaching Diploma</mat-option>
-            <mat-option value="PoliceVerification">Police Verification Certificate</mat-option>
-            <mat-option value="AppointmentLetter">Appointment / Joining Letter</mat-option>
-            <mat-option value="Experience">Past Experience Letter</mat-option>
-            <mat-option value="Resume">Curriculum Vitae / Resume</mat-option>
-            <mat-option value="Other">Other Document</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Document Title *</mat-label>
-          <input matInput [(ngModel)]="newDoc.title" placeholder="e.g. Master's in Physics Degree">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Document Number (ID / Reg No)</mat-label>
-          <input matInput [(ngModel)]="newDoc.documentNumber" placeholder="e.g. XXXX-XXXX-1234">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Document File URL / Cloud Link</mat-label>
-          <input matInput [(ngModel)]="newDoc.fileUrl" placeholder="https://... or drive link">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="col-full">
-          <mat-label>Remarks / Notes</mat-label>
-          <input matInput [(ngModel)]="newDoc.remarks" placeholder="Original verified on joining date">
-        </mat-form-field>
+    @if (showAddForm) {
+      <div class="add-form-card">
+        <h4><mat-icon>cloud_upload</mat-icon> Upload & Attach New Document</h4>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Document Type *</mat-label>
+            <mat-select [(ngModel)]="newDoc.documentType">
+              <mat-option value="Aadhaar">Aadhaar Card (आधार कार्ड)</mat-option>
+              <mat-option value="PAN">PAN Card (पैन कार्ड)</mat-option>
+              <mat-option value="Degree">Degree / Graduation Certificate</mat-option>
+              <mat-option value="BEd">B.Ed / Teaching Diploma</mat-option>
+              <mat-option value="PoliceVerification">Police Verification Certificate</mat-option>
+              <mat-option value="AppointmentLetter">Appointment / Joining Letter</mat-option>
+              <mat-option value="Experience">Past Experience Letter</mat-option>
+              <mat-option value="Resume">Curriculum Vitae / Resume</mat-option>
+              <mat-option value="Other">Other Document</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Document Title *</mat-label>
+            <input matInput [(ngModel)]="newDoc.title" placeholder="e.g. Master's in Physics Degree">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Document Number (ID / Reg No)</mat-label>
+            <input matInput [(ngModel)]="newDoc.documentNumber" placeholder="e.g. XXXX-XXXX-1234">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Document File URL / Cloud Link</mat-label>
+            <input matInput [(ngModel)]="newDoc.fileUrl" placeholder="https://... or drive link">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="col-full">
+            <mat-label>Remarks / Notes</mat-label>
+            <input matInput [(ngModel)]="newDoc.remarks" placeholder="Original verified on joining date">
+          </mat-form-field>
+        </div>
+        <div class="form-actions">
+          <button mat-button (click)="showAddForm = false">Cancel</button>
+          <button mat-raised-button color="primary" [disabled]="saving || !newDoc.documentType || !newDoc.title" (click)="saveDocument()">
+            @if (!saving) {
+              <mat-icon>save</mat-icon>
+            }
+            <span>{{saving ? 'Saving...' : 'Save Document'}}</span>
+          </button>
+        </div>
       </div>
-
-      <div class="form-actions">
-        <button mat-button (click)="showAddForm = false">Cancel</button>
-        <button mat-raised-button color="primary" [disabled]="saving || !newDoc.documentType || !newDoc.title" (click)="saveDocument()">
-          <mat-icon *ngIf="!saving">save</mat-icon>
-          <span>{{saving ? 'Saving...' : 'Save Document'}}</span>
-        </button>
-      </div>
-    </div>
+    }
 
     <!-- Documents List -->
-    <div class="docs-list" *ngIf="documents.length > 0">
-      <div class="doc-card" *ngFor="let doc of documents">
-        <div class="doc-icon-col">
-          <div class="doc-type-icon" [ngClass]="'type-' + doc.documentType.toLowerCase()">
-            <mat-icon>{{getDocIcon(doc.documentType)}}</mat-icon>
+    @if (documents.length > 0) {
+      <div class="docs-list">
+        @for (doc of documents; track doc) {
+          <div class="doc-card">
+            <div class="doc-icon-col">
+              <div class="doc-type-icon" [ngClass]="'type-' + doc.documentType.toLowerCase()">
+                <mat-icon>{{getDocIcon(doc.documentType)}}</mat-icon>
+              </div>
+            </div>
+            <div class="doc-info-col">
+              <div class="doc-title-row">
+                <h4 class="doc-title">{{doc.title}}</h4>
+                <span class="status-chip" [ngClass]="'status-' + doc.verificationStatus.toLowerCase()">
+                  {{doc.verificationStatus}}
+                </span>
+              </div>
+              <div class="doc-meta-row">
+                <span class="doc-type-badge">{{doc.documentType}}</span>
+                @if (doc.documentNumber) {
+                  <span class="doc-num"><strong>No:</strong> {{doc.documentNumber}}</span>
+                }
+                <span class="doc-date">Uploaded: {{doc.createdAt | date:'dd MMM yyyy'}}</span>
+              </div>
+              @if (doc.verificationStatus === 'Verified') {
+                <div class="doc-verify-info">
+                  <mat-icon>verified</mat-icon>
+                  <span>Verified by <strong>{{doc.verifiedBy}}</strong> on {{doc.verifiedAt | date:'dd MMM yyyy'}}</span>
+                </div>
+              }
+              @if (doc.remarks) {
+                <div class="doc-remarks">
+                  <em>{{doc.remarks}}</em>
+                </div>
+              }
+              @if (doc.fileUrl) {
+                <div class="doc-link-box">
+                  <a [href]="doc.fileUrl" target="_blank" class="doc-url-link">
+                    <mat-icon>open_in_new</mat-icon> Open Document File
+                  </a>
+                </div>
+              }
+            </div>
+            <div class="doc-actions-col">
+              @if (doc.verificationStatus !== 'Verified') {
+                <button mat-stroked-button color="primary" class="action-btn" (click)="verifyDoc(doc, 'Verified')">
+                  <mat-icon>check_circle</mat-icon> Verify
+                </button>
+              }
+              @if (doc.verificationStatus === 'Verified') {
+                <button mat-stroked-button color="warn" class="action-btn" (click)="verifyDoc(doc, 'Pending')">
+                  <mat-icon>undo</mat-icon> Unverify
+                </button>
+              }
+              <button mat-icon-button color="warn" matTooltip="Delete Document" (click)="deleteDoc(doc.id)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
           </div>
-        </div>
-
-        <div class="doc-info-col">
-          <div class="doc-title-row">
-            <h4 class="doc-title">{{doc.title}}</h4>
-            <span class="status-chip" [ngClass]="'status-' + doc.verificationStatus.toLowerCase()">
-              {{doc.verificationStatus}}
-            </span>
-          </div>
-
-          <div class="doc-meta-row">
-            <span class="doc-type-badge">{{doc.documentType}}</span>
-            <span class="doc-num" *ngIf="doc.documentNumber"><strong>No:</strong> {{doc.documentNumber}}</span>
-            <span class="doc-date">Uploaded: {{doc.createdAt | date:'dd MMM yyyy'}}</span>
-          </div>
-
-          <div class="doc-verify-info" *ngIf="doc.verificationStatus === 'Verified'">
-            <mat-icon>verified</mat-icon>
-            <span>Verified by <strong>{{doc.verifiedBy}}</strong> on {{doc.verifiedAt | date:'dd MMM yyyy'}}</span>
-          </div>
-
-          <div class="doc-remarks" *ngIf="doc.remarks">
-            <em>{{doc.remarks}}</em>
-          </div>
-
-          <div class="doc-link-box" *ngIf="doc.fileUrl">
-            <a [href]="doc.fileUrl" target="_blank" class="doc-url-link">
-              <mat-icon>open_in_new</mat-icon> Open Document File
-            </a>
-          </div>
-        </div>
-
-        <div class="doc-actions-col">
-          <button mat-stroked-button color="primary" class="action-btn" *ngIf="doc.verificationStatus !== 'Verified'" (click)="verifyDoc(doc, 'Verified')">
-            <mat-icon>check_circle</mat-icon> Verify
-          </button>
-          <button mat-stroked-button color="warn" class="action-btn" *ngIf="doc.verificationStatus === 'Verified'" (click)="verifyDoc(doc, 'Pending')">
-            <mat-icon>undo</mat-icon> Unverify
-          </button>
-          <button mat-icon-button color="warn" matTooltip="Delete Document" (click)="deleteDoc(doc.id)">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </div>
+        }
       </div>
-    </div>
+    }
 
     <!-- Empty State -->
-    <div class="empty-docs" *ngIf="!loading && documents.length === 0">
-      <mat-icon class="empty-icon">folder_open</mat-icon>
-      <h3>No Documents Attached</h3>
-      <p>No documents or KYC certificates have been uploaded for this faculty member yet.</p>
-    </div>
+    @if (!loading && documents.length === 0) {
+      <div class="empty-docs">
+        <mat-icon class="empty-icon">folder_open</mat-icon>
+        <h3>No Documents Attached</h3>
+        <p>No documents or KYC certificates have been uploaded for this faculty member yet.</p>
+      </div>
+    }
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .docs-modal-container {
       display: flex;

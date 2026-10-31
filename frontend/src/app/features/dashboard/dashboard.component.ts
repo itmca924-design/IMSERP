@@ -42,7 +42,7 @@ import ApexCharts from 'apexcharts';
       <!-- ========================================== -->
       @if (authService.isStudentOrParent()) {
         @if (studentSummary(); as st) {
-
+    
           <!-- Student 6 KPI Stat Cards -->
           <div class="card-container">
             <!-- 1. Attendance -->
@@ -63,7 +63,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 2. Fee Dues -->
             <mat-card class="stat-card orange mat-elevation-z2" routerLink="/students/my-profile">
               <mat-card-content class="stat-content">
@@ -90,7 +90,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 3. Upcoming Tests -->
             <mat-card class="stat-card purple mat-elevation-z2" routerLink="/school/exams">
               <mat-card-content class="stat-content">
@@ -109,7 +109,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 4. Today's Homework -->
             <mat-card class="stat-card blue mat-elevation-z2" routerLink="/school/homework">
               <mat-card-content class="stat-content">
@@ -128,7 +128,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 5. Library Books -->
             <mat-card class="stat-card teal mat-elevation-z2">
               <mat-card-content class="stat-content">
@@ -152,7 +152,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 6. Wall of Fame -->
             <mat-card class="stat-card whatsapp mat-elevation-z2" routerLink="/students/my-profile">
               <mat-card-content class="stat-content">
@@ -172,7 +172,7 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
           </div>
-
+    
           <!-- Student Identity Hero Banner -->
           <div class="role-hero-banner student-theme mat-elevation-z2">
             <div class="hero-left">
@@ -184,7 +184,9 @@ import ApexCharts from 'apexcharts';
                 <div class="hero-name-row">
                   <h3 class="hero-name">{{ st.studentName }}</h3>
                   <span class="hero-badge badge-grade">{{ st.className ? (st.sectionName ? st.className + ' - ' + st.sectionName : st.className) : (st.batchName || 'Enrolled Student') }}</span>
-                  <span class="hero-badge badge-active" *ngIf="st.isStarPerformer">{{ st.performanceBadge || 'Star Scholar' }}</span>
+                  @if (st.isStarPerformer) {
+                    <span class="hero-badge badge-active">{{ st.performanceBadge || 'Star Scholar' }}</span>
+                  }
                 </div>
                 <div class="hero-meta-row">
                   <span><mat-icon>badge</mat-icon> Roll No: <strong>{{ st.rollNumber || '-' }}</strong></span>
@@ -200,7 +202,7 @@ import ApexCharts from 'apexcharts';
               </a>
             </div>
           </div>
-
+    
           <!-- Student Row 1: Today's Routine & Timetable + Today's Homework Diary -->
           <div class="hub-grid-2col">
             <!-- Left: Today's Timetable -->
@@ -228,11 +230,15 @@ import ApexCharts from 'apexcharts';
                         <div class="routine-details">
                           <div class="subj-row">
                             <span class="subj-name">{{ item.subject }}</span>
-                            <span class="room-chip" *ngIf="item.roomNumber"><mat-icon>meeting_room</mat-icon> Room {{ item.roomNumber }}</span>
+                            @if (item.roomNumber) {
+                              <span class="room-chip"><mat-icon>meeting_room</mat-icon> Room {{ item.roomNumber }}</span>
+                            }
                           </div>
-                          <span class="teacher-lbl" *ngIf="item.teacherName">
-                            <mat-icon>person</mat-icon> {{ item.teacherName }}
-                          </span>
+                          @if (item.teacherName) {
+                            <span class="teacher-lbl">
+                              <mat-icon>person</mat-icon> {{ item.teacherName }}
+                            </span>
+                          }
                         </div>
                       </div>
                     }
@@ -246,7 +252,7 @@ import ApexCharts from 'apexcharts';
                 }
               </mat-card-content>
             </mat-card>
-
+    
             <!-- Right: Today's Homework Diary -->
             <mat-card class="hub-card mat-elevation-z2">
               <div class="widget-header">
@@ -274,7 +280,9 @@ import ApexCharts from 'apexcharts';
                           <span class="hw-due-pill">Due: {{ hw.dueDate | date:'dd MMM' }}</span>
                         </div>
                         <h4 class="hw-title">{{ hw.title }}</h4>
-                        <p class="hw-desc" *ngIf="hw.description">{{ hw.description }}</p>
+                        @if (hw.description) {
+                          <p class="hw-desc">{{ hw.description }}</p>
+                        }
                         <div class="hw-bottom-row">
                           <span class="hw-teacher"><mat-icon>school</mat-icon> By {{ hw.teacherName || 'Faculty' }}</span>
                           <span class="hw-date">Assigned {{ hw.assignedDate | date:'dd MMM' }}</span>
@@ -292,7 +300,7 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
           </div>
-
+    
           <!-- Student Row 2: Upcoming Tests & Exams + Borrowed Library Books -->
           <div class="hub-grid-2col">
             <!-- Left: Upcoming Tests -->
@@ -327,9 +335,11 @@ import ApexCharts from 'apexcharts';
                             <span class="test-marks-chip">{{ t.maxMarks }} Marks</span>
                           </div>
                           <span class="test-subj"><mat-icon>menu_book</mat-icon> {{ t.subject }}</span>
-                          <p class="test-syllabus" *ngIf="t.batchOrClass">
-                            <strong>Target:</strong> {{ t.batchOrClass }}
-                          </p>
+                          @if (t.batchOrClass) {
+                            <p class="test-syllabus">
+                              <strong>Target:</strong> {{ t.batchOrClass }}
+                            </p>
+                          }
                         </div>
                       </div>
                     }
@@ -343,7 +353,7 @@ import ApexCharts from 'apexcharts';
                 }
               </mat-card-content>
             </mat-card>
-
+    
             <!-- Right: Borrowed Library Books -->
             <mat-card class="hub-card mat-elevation-z2">
               <div class="widget-header">
@@ -372,7 +382,9 @@ import ApexCharts from 'apexcharts';
                               {{ b.isOverdue ? 'Overdue' : 'Issued' }}
                             </span>
                           </div>
-                          <span class="book-author" *ngIf="b.accessionNumber">Acc: {{ b.accessionNumber }}</span>
+                          @if (b.accessionNumber) {
+                            <span class="book-author">Acc: {{ b.accessionNumber }}</span>
+                          }
                           <div class="book-dates-row">
                             <span>Issued: {{ b.issueDate | date:'dd MMM yyyy' }}</span>
                             <span class="due-text" [class.text-red]="b.isOverdue">
@@ -393,7 +405,7 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
           </div>
-
+    
           <!-- Student Row 3: Official Circulars & Notices + School Celebrations Radar -->
           <div class="hub-grid-2col">
             <!-- Left: Official Notices & Circulars -->
@@ -436,8 +448,8 @@ import ApexCharts from 'apexcharts';
                 }
               </mat-card-content>
             </mat-card>
-
-
+    
+    
             <!-- Right: Campus Happenings & Birthday Radar -->
             <mat-card class="hub-card mat-elevation-z2">
               <div class="widget-header">
@@ -457,10 +469,14 @@ import ApexCharts from 'apexcharts';
                     @for (b of celebrations()!.todayBirthdays; track b.id) {
                       <div class="bday-item-card">
                         <div class="bday-avatar-wrap">
-                          <img *ngIf="b.photoUrl" [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
-                          <div *ngIf="!b.photoUrl" class="bday-avatar-fallback">
-                            {{ b.name.substring(0, 1) | uppercase }}
-                          </div>
+                          @if (b.photoUrl) {
+                            <img [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
+                          }
+                          @if (!b.photoUrl) {
+                            <div class="bday-avatar-fallback">
+                              {{ b.name.substring(0, 1) | uppercase }}
+                            </div>
+                          }
                           <span class="confetti-emoji">🎉</span>
                         </div>
                         <div class="bday-details">
@@ -485,7 +501,7 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
           </div>
-
+    
         } @else if (!loading()) {
           <div class="dashboard-fallback-state mat-elevation-z1">
             <div class="fallback-icon-box">
@@ -499,13 +515,13 @@ import ApexCharts from 'apexcharts';
           </div>
         }
       }
-
+    
       <!-- ========================================== -->
       <!-- 👨‍🏫 2. TEACHER & FACULTY OPERATIONS HUB     -->
       <!-- ========================================== -->
       @if (authService.isTeacher()) {
         @if (teacherSummary(); as tc) {
-
+    
           <!-- Teacher 6 KPI Stat Cards -->
           <div class="card-container">
             <!-- 1. Today's Lectures -->
@@ -526,7 +542,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 2. Assigned Batches -->
             <mat-card class="stat-card teal mat-elevation-z2" routerLink="/batches">
               <mat-card-content class="stat-content">
@@ -545,7 +561,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 3. Pending Marks Entry -->
             <mat-card class="stat-card orange mat-elevation-z2" routerLink="/tests" style="cursor: pointer;">
               <mat-card-content class="stat-content">
@@ -564,7 +580,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 4. Homework Given This Week -->
             <mat-card class="stat-card purple mat-elevation-z2" routerLink="/school/homework">
               <mat-card-content class="stat-content">
@@ -583,7 +599,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 5. Leave Balance -->
             <mat-card class="stat-card emerald mat-elevation-z2">
               <mat-card-content class="stat-content">
@@ -602,7 +618,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- 6. Punch Status -->
             <mat-card class="stat-card whatsapp mat-elevation-z2">
               <mat-card-content class="stat-content">
@@ -622,7 +638,7 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
           </div>
-
+    
           <!-- Teacher Identity Hero Banner -->
           <div class="role-hero-banner teacher-theme mat-elevation-z2">
             <div class="hero-left">
@@ -634,7 +650,9 @@ import ApexCharts from 'apexcharts';
                 <div class="hero-name-row">
                   <h3 class="hero-name">{{ tc.teacherName }}</h3>
                   <span class="hero-badge badge-grade">{{ tc.designation || 'Faculty Member' }}</span>
-                  <span class="hero-badge badge-dept" *ngIf="tc.department">{{ tc.department }}</span>
+                  @if (tc.department) {
+                    <span class="hero-badge badge-dept">{{ tc.department }}</span>
+                  }
                 </div>
                 <div class="hero-meta-row">
                   <span><mat-icon>badge</mat-icon> Emp Code: <strong>{{ tc.employeeCode || '-' }}</strong></span>
@@ -650,7 +668,7 @@ import ApexCharts from 'apexcharts';
               </a>
             </div>
           </div>
-
+    
           <!-- Teacher Row 1: Today's Teaching Schedule + Pending Marks Entry -->
           <div class="hub-grid-2col">
             <!-- Left: Today's Teaching Schedule -->
@@ -678,7 +696,9 @@ import ApexCharts from 'apexcharts';
                         <div class="routine-details">
                           <div class="subj-row">
                             <span class="subj-name">{{ lec.subject }}</span>
-                            <span class="room-chip" *ngIf="lec.roomNumber"><mat-icon>meeting_room</mat-icon> Room {{ lec.roomNumber }}</span>
+                            @if (lec.roomNumber) {
+                              <span class="room-chip"><mat-icon>meeting_room</mat-icon> Room {{ lec.roomNumber }}</span>
+                            }
                           </div>
                           <span class="teacher-lbl">
                             <mat-icon>groups</mat-icon> {{ lec.classOrBatch }}
@@ -696,7 +716,7 @@ import ApexCharts from 'apexcharts';
                 }
               </mat-card-content>
             </mat-card>
-
+    
             <!-- Right: Pending Marks Entry -->
             <mat-card class="hub-card mat-elevation-z2">
               <div class="widget-header">
@@ -749,7 +769,7 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
           </div>
-
+    
           <!-- Teacher Row 2: Faculty Quick Operations + Campus Celebrations -->
           <div class="hub-grid-2col">
             <!-- Left: Quick Actions Grid -->
@@ -790,7 +810,7 @@ import ApexCharts from 'apexcharts';
                 </div>
               </mat-card-content>
             </mat-card>
-
+    
             <!-- Right: Campus Happenings & Birthdays Radar -->
             <mat-card class="hub-card mat-elevation-z2">
               <div class="widget-header">
@@ -810,10 +830,14 @@ import ApexCharts from 'apexcharts';
                     @for (b of celebrations()!.todayBirthdays; track b.id) {
                       <div class="bday-item-card">
                         <div class="bday-avatar-wrap">
-                          <img *ngIf="b.photoUrl" [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
-                          <div *ngIf="!b.photoUrl" class="bday-avatar-fallback">
-                            {{ b.name.substring(0, 1) | uppercase }}
-                          </div>
+                          @if (b.photoUrl) {
+                            <img [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
+                          }
+                          @if (!b.photoUrl) {
+                            <div class="bday-avatar-fallback">
+                              {{ b.name.substring(0, 1) | uppercase }}
+                            </div>
+                          }
                           <span class="confetti-emoji">🎉</span>
                         </div>
                         <div class="bday-details">
@@ -825,16 +849,17 @@ import ApexCharts from 'apexcharts';
                             {{ b.classOrDepartment || 'Student' }} • Turning {{ b.ageTurning }} yrs
                           </span>
                         </div>
-                        <button
-                          *ngIf="b.whatsAppPhone"
-                          mat-flat-button
-                          class="wa-wish-btn"
-                          (click)="sendWhatsAppWish(b)"
-                          [matTooltip]="'Send Birthday Greeting via WhatsApp'"
-                        >
-                          <mat-icon class="wa-icon">chat</mat-icon>
-                          <span>Wish</span>
-                        </button>
+                        @if (b.whatsAppPhone) {
+                          <button
+                            mat-flat-button
+                            class="wa-wish-btn"
+                            (click)="sendWhatsAppWish(b)"
+                            [matTooltip]="'Send Birthday Greeting via WhatsApp'"
+                            >
+                            <mat-icon class="wa-icon">chat</mat-icon>
+                            <span>Wish</span>
+                          </button>
+                        }
                       </div>
                     }
                   </div>
@@ -848,7 +873,7 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
           </div>
-
+    
         } @else if (!loading()) {
           <div class="dashboard-fallback-state mat-elevation-z1">
             <div class="fallback-icon-box">
@@ -862,559 +887,582 @@ import ApexCharts from 'apexcharts';
           </div>
         }
       }
-
+    
       <!-- ========================================== -->
       <!-- 🏢 3. EXECUTIVE & MANAGEMENT OVERVIEW       -->
       <!-- ========================================== -->
       @if (!authService.isStudentOrParent() && !authService.isTeacher()) {
         @if (summary(); as summary) {
-
+    
           <!-- 1. Top KPI Stat Cards -->
           <div class="card-container">
             <mat-card class="stat-card blue mat-elevation-z2">
-            <mat-card-content class="stat-content">
-              <div class="stat-header">
-                <span class="label">Total Active Students</span>
-                <div class="stat-icon-wrap">
-                  <mat-icon class="stat-icon">people</mat-icon>
-                </div>
-              </div>
-              <div class="stat-body">
-                <span class="value">{{ summary.totalStudents }}</span>
-                <div class="stat-footer">
-                  <span class="stat-badge-pill">Live Roster</span>
-                  <span class="sub-label">Enrolled in institute</span>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="stat-card green mat-elevation-z2">
-            <mat-card-content class="stat-content">
-              <div class="stat-header">
-                <span class="label">Monthly Fee Collected</span>
-                <div class="stat-icon-wrap">
-                  <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
-                </div>
-              </div>
-              <div class="stat-body">
-                <span class="value">₹{{ summary.totalFeeCollectedThisMonth | number:'1.0-0' }}</span>
-                <div class="stat-footer">
-                  <span class="stat-badge-pill">This Month</span>
-                  <span class="sub-label">Received this month</span>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="stat-card orange mat-elevation-z2">
-            <mat-card-content class="stat-content">
-              <div class="stat-header">
-                <span class="label">Pending Fee Dues</span>
-                <div class="stat-icon-wrap">
-                  <mat-icon class="stat-icon">warning_amber</mat-icon>
-                </div>
-              </div>
-              <div class="stat-body">
-                <span class="value">₹{{ summary.pendingFeesTotal | number:'1.0-0' }}</span>
-                <div class="stat-footer">
-                  <span class="stat-badge-pill">Receivables</span>
-                  <span class="sub-label">Outstanding balance</span>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="stat-card purple mat-elevation-z2">
-            <mat-card-content class="stat-content">
-              <div class="stat-header">
-                <span class="label">Tests Conducted</span>
-                <div class="stat-icon-wrap">
-                  <mat-icon class="stat-icon">quiz</mat-icon>
-                </div>
-              </div>
-              <div class="stat-body">
-                <span class="value">{{ summary.totalTestsConducted }}</span>
-                <div class="stat-footer">
-                  <span class="stat-badge-pill">Academic</span>
-                  <span class="sub-label">Exams evaluated</span>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="stat-card teal mat-elevation-z2">
-            <mat-card-content class="stat-content">
-              <div class="stat-header">
-                <span class="label">Active Batches</span>
-                <div class="stat-icon-wrap">
-                  <mat-icon class="stat-icon">groups</mat-icon>
-                </div>
-              </div>
-              <div class="stat-body">
-                <span class="value">{{ summary.activeBatches }}</span>
-                <div class="stat-footer">
-                  <span class="stat-badge-pill">Running</span>
-                  <span class="sub-label">Academic classrooms</span>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="stat-card emerald mat-elevation-z2" routerLink="/students/attendance" style="cursor: pointer;" matTooltip="Open Student Attendance & Roll Call">
-            <mat-card-content class="stat-content">
-              <div class="stat-header">
-                <span class="label">Today's Attendance</span>
-                <div class="stat-icon-wrap">
-                  <mat-icon class="stat-icon">how_to_reg</mat-icon>
-                </div>
-              </div>
-              <div class="stat-body">
-                <span class="value">{{ summary.todayAttendance ? summary.todayAttendance.attendancePercentage + '%' : 'Pending' }}</span>
-                <div class="stat-footer">
-                  <span class="stat-badge-pill" *ngIf="summary.todayAttendance">
-                    {{ summary.todayAttendance.presentCount }}/{{ summary.todayAttendance.totalMarked }} Present
-                  </span>
-                  <span class="stat-badge-pill" *ngIf="!summary.todayAttendance">
-                    Live Status
-                  </span>
-                  <span class="sub-label" *ngIf="summary.todayAttendance?.lastMarkedTime" matTooltip="Last Batch Attendance Timestamp">
-                    At {{ summary.todayAttendance.lastMarkedTime }}
-                  </span>
-                  <span class="sub-label" *ngIf="!summary.todayAttendance?.lastMarkedTime">
-                    Not marked yet
-                  </span>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        </div>
-
-        <!-- 2. Dynamic Interactive Charts Row -->
-        <div class="charts-row">
-
-          <!-- Left Chart: 6-Month Fee Revenue & Collection Trend -->
-          <mat-card class="chart-card large-chart-card mat-elevation-z2">
-            <div class="chart-header">
-              <div class="chart-header-left">
-                <div class="chart-icon-box blue-box">
-                  <mat-icon>bar_chart</mat-icon>
-                </div>
-                <div>
-                  <h3 class="chart-title">Monthly Revenue &amp; Collection Trend</h3>
-                  <p class="chart-subtitle">6-Month database comparison: Billed Tuition Fees vs Collected Payments (₹)</p>
-                </div>
-              </div>
-              <div class="chart-header-actions">
-                <div class="chart-type-toggle">
-                  <button type="button" class="type-btn" [class.active]="revenueChartType === 'area'" (click)="toggleRevenueChartType('area')">
-                    <mat-icon>show_chart</mat-icon> Wave
-                  </button>
-                  <button type="button" class="type-btn" [class.active]="revenueChartType === 'bar'" (click)="toggleRevenueChartType('bar')">
-                    <mat-icon>bar_chart</mat-icon> Bars
-                  </button>
-                </div>
-                <div class="chart-legend-pills">
-                  <span class="pill pill-billed"
-                        [matTooltip]="billedTooltip()"
-                        matTooltipClass="multiline-tooltip"
-                        matTooltipPosition="below">
-                    <span class="legend-dot dot-billed"></span>
-                    <span>Billed: ₹{{ totalBilled() | number:'1.0-0' }}</span>
-                    <mat-icon class="pill-info-icon">info</mat-icon>
-                  </span>
-                  <span class="pill pill-collected"
-                        [matTooltip]="collectedTooltip()"
-                        matTooltipClass="multiline-tooltip"
-                        matTooltipPosition="below">
-                    <span class="legend-dot dot-collected"></span>
-                    <span>Collected: ₹{{ totalCollected() | number:'1.0-0' }}</span>
-                    <mat-icon class="pill-info-icon">info</mat-icon>
-                  </span>
-                </div>
-              </div>
-            </div>
-            <mat-card-content class="chart-canvas-box">
-              <div #revenueChart class="apex-chart-wrap"></div>
-            </mat-card-content>
-          </mat-card>
-
-          <!-- Right Chart: Overall Fee Recovery & Dues Donut -->
-          <mat-card class="chart-card small-chart-card mat-elevation-z2">
-            <div class="chart-header">
-              <div class="chart-header-left">
-                <div class="chart-icon-box teal-box">
-                  <mat-icon>donut_large</mat-icon>
-                </div>
-                <div>
-                  <h3 class="chart-title">Fee Recovery Ratio</h3>
-                  <p class="chart-subtitle">Overall settled vs outstanding</p>
-                </div>
-              </div>
-              <span class="recovery-badge" [class.high]="(summary.feeBreakdown?.recoveryPercentage || 0) >= 50">
-                {{ summary.feeBreakdown?.recoveryPercentage || 0 }}% Settled
-              </span>
-            </div>
-            <mat-card-content class="donut-body">
-              <div class="donut-canvas-container">
-                <div #feeBreakdownChart class="apex-donut-wrap"></div>
-              </div>
-              <div class="donut-summary-list">
-                <div class="summary-item">
-                  <span class="item-lbl"><span class="legend-dot dot-collected"></span> Total Paid</span>
-                  <strong class="item-val text-green">₹{{ summary.feeBreakdown?.totalPaid | number:'1.0-0' }}</strong>
-                </div>
-                <div class="summary-item">
-                  <span class="item-lbl"><span class="legend-dot dot-pending"></span> Pending Dues</span>
-                  <strong class="item-val text-orange">₹{{ summary.feeBreakdown?.totalPending | number:'1.0-0' }}</strong>
-                </div>
-                <div class="summary-item total-item"
-                     matTooltip="Total Invoices Generated across institute history (Paid ₹{{ summary.feeBreakdown?.totalPaid | number:'1.0-0' }} + Pending ₹{{ summary.feeBreakdown?.totalPending | number:'1.0-0' }})"
-                     matTooltipPosition="above">
-                  <span class="item-lbl">Total Billed</span>
-                  <strong class="item-val">₹{{ summary.feeBreakdown?.totalBilled | number:'1.0-0' }}</strong>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-        </div>
-
-        <!-- 3. Batch Enrollment & Fee Potential Chart -->
-        <mat-card class="chart-card full-chart-card mat-elevation-z2" *ngIf="summary.batchDistributions && summary.batchDistributions.length > 0">
-          <div class="chart-header">
-            <div class="chart-header-left">
-              <div class="chart-icon-box purple-box">
-                <mat-icon>school</mat-icon>
-              </div>
-              <div>
-                <h3 class="chart-title">Batch-Wise Enrollment &amp; Monthly Revenue Capacity</h3>
-                <p class="chart-subtitle">Live student enrollment distribution across active academic batches</p>
-              </div>
-            </div>
-            <div class="chart-header-right">
-              <div class="batch-filter-toggle">
-                <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'top10'" (click)="setBatchViewFilter('top10')">
-                  Top 10 Batches
-                </button>
-                <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'active'" (click)="setBatchViewFilter('active')">
-                  Active (With Students)
-                </button>
-                <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'all'" (click)="setBatchViewFilter('all')">
-                  All Batches ({{ summary.batchDistributions.length }})
-                </button>
-              </div>
-            </div>
-          </div>
-          <mat-card-content class="batch-canvas-box">
-            <div #batchChart class="apex-chart-wrap"></div>
-          </mat-card-content>
-        </mat-card>
-
-        <!-- 3.5 School Happenings & Celebration Radar -->
-        <div class="celebration-radar-grid">
-          <!-- Left: Upcoming Events & Celebrations (62%) -->
-          <mat-card class="radar-card events-box mat-elevation-z2">
-            <div class="radar-header">
-              <div class="radar-title-wrap">
-                <div class="radar-icon-badge events-badge">
-                  <mat-icon>celebration</mat-icon>
-                </div>
-                <div>
-                  <h3 class="radar-title">School Happenings & Upcoming Events</h3>
-                  <p class="radar-sub">Annual Day, 15 Aug, Farewell, Sports Meet & Official Circulars</p>
-                </div>
-              </div>
-              <div class="radar-actions">
-                <a mat-stroked-button routerLink="/events" class="view-events-btn">
-                  <span>View All</span>
-                  <mat-icon>arrow_forward</mat-icon>
-                </a>
-                <button mat-raised-button color="primary" class="new-event-btn" (click)="openCreateEventDialog()">
-                  <mat-icon>add</mat-icon>
-                  <span>New Event</span>
-                </button>
-              </div>
-            </div>
-
-            <mat-card-content class="events-content">
-              @if (celebrations()?.upcomingEvents?.length) {
-                <div class="events-cards-row">
-                  @for (ev of celebrations()!.upcomingEvents; track ev.id) {
-                    <div class="event-mini-card">
-                      <div class="event-banner" [style.background-image]="ev.bannerUrl ? 'url(' + ev.bannerUrl + ')' : getFallbackGradient(ev.category)">
-                        <span class="cat-chip" [ngClass]="ev.category.toLowerCase()">
-                          {{ getCategoryEmoji(ev.category) }} {{ ev.category }}
-                        </span>
-                        <div class="event-date-flag">
-                          <span class="m">{{ ev.startDate | date:'MMM' | uppercase }}</span>
-                          <span class="d">{{ ev.startDate | date:'dd' }}</span>
-                        </div>
-                      </div>
-                      <div class="event-info">
-                        <h4 class="event-name" [title]="ev.title">{{ ev.title }}</h4>
-                        <div class="meta-row" *ngIf="ev.venue">
-                          <mat-icon>place</mat-icon>
-                          <span>{{ ev.venue }}</span>
-                        </div>
-                        <div class="meta-row" *ngIf="ev.startTime">
-                          <mat-icon>schedule</mat-icon>
-                          <span>{{ ev.startTime }}</span>
-                        </div>
-                        <div class="bottom-actions">
-                          <a *ngIf="ev.attachmentPdfUrl" [href]="ev.attachmentPdfUrl" target="_blank" class="pdf-tag" download>
-                            <mat-icon>picture_as_pdf</mat-icon> Circular
-                          </a>
-                          <button class="memories-tag" (click)="openEventGallery(ev)">
-                            <mat-icon>photo_camera</mat-icon> {{ ev.photosCount }} Memories
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  }
-                </div>
-              } @else {
-                <div class="empty-events-radar">
-                  <div class="empty-events-icon">
-                    <mat-icon>event_available</mat-icon>
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Total Active Students</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">people</mat-icon>
                   </div>
-                  <p class="empty-main">No Upcoming Events Scheduled</p>
-                  <p class="empty-desc">Schedule your annual day, 15 Aug, sports meet, or cultural celebration to keep everyone informed.</p>
-                  <button mat-flat-button color="primary" (click)="openCreateEventDialog()">
-                    <mat-icon>add</mat-icon> Schedule First Event
-                  </button>
                 </div>
-              }
-            </mat-card-content>
-          </mat-card>
-
-          <!-- Right: Today's Celebrations & Birthdays Radar (38%) -->
-          <mat-card class="radar-card birthdays-box mat-elevation-z2">
-            <div class="radar-header">
-              <div class="radar-title-wrap">
-                <div class="radar-icon-badge bday-badge">
-                  <mat-icon>cake</mat-icon>
-                </div>
-                <div>
-                  <h3 class="radar-title">Celebrations & Birthdays</h3>
-                  <p class="radar-sub">{{ birthdayRadarSubtitle() }}</p>
-                </div>
-              </div>
-              <span class="bday-count-pill" *ngIf="celebrations()?.todayBirthdays?.length">
-                {{ celebrations()!.todayBirthdays.length }} Today 🎂
-              </span>
-            </div>
-
-            <mat-card-content class="birthdays-content">
-              @if (celebrations()?.todayBirthdays?.length) {
-                <div class="today-bday-list">
-                  @for (b of celebrations()!.todayBirthdays; track b.id) {
-                    <div class="bday-item-card">
-                      <div class="bday-avatar-wrap">
-                        <img *ngIf="b.photoUrl" [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
-                        <div *ngIf="!b.photoUrl" class="bday-avatar-fallback">
-                          {{ b.name.substring(0, 1) | uppercase }}
-                        </div>
-                        <span class="confetti-emoji">🎉</span>
-                      </div>
-                      <div class="bday-details">
-                        <div class="bday-name-row">
-                          <span class="person-name">{{ b.name }}</span>
-                          <span class="role-pill" [class.staff]="b.role === 'Staff'">{{ b.role }}</span>
-                        </div>
-                        <span class="bday-meta">
-                          {{ b.classOrDepartment || 'Student' }} • Turning {{ b.ageTurning }} yrs
-                        </span>
-                      </div>
-                      <button
-                        *ngIf="b.whatsAppPhone"
-                        mat-flat-button
-                        class="wa-wish-btn"
-                        (click)="sendWhatsAppWish(b)"
-                        [matTooltip]="'Send Birthday Greeting via WhatsApp'"
-                      >
-                        <mat-icon class="wa-icon">chat</mat-icon>
-                        <span>Wish</span>
-                      </button>
-                    </div>
-                  }
-                </div>
-              } @else {
-                <div class="no-bday-today">
-                  <div class="bday-cal-icon">
-                    <mat-icon>sentiment_satisfied_alt</mat-icon>
+                <div class="stat-body">
+                  <span class="value">{{ summary.totalStudents }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Live Roster</span>
+                    <span class="sub-label">Enrolled in institute</span>
                   </div>
-                  <p class="no-bday-text">No birthdays today</p>
-                  <p class="no-bday-sub">Everyone's growing a little older gracefully! Check upcoming birthdays below.</p>
                 </div>
-              }
-
-              <!-- Upcoming Birthdays Next 7 Days -->
-              @if (celebrations()?.upcomingBirthdaysThisWeek?.length) {
-                <div class="upcoming-bdays-section">
-                  <span class="upcoming-header-label">
-                    <mat-icon>calendar_month</mat-icon> Next 7 Days Birthdays
-                  </span>
-                  <div class="upcoming-chips-row">
-                    @for (ub of celebrations()!.upcomingBirthdaysThisWeek; track ub.id) {
-                      <div class="upcoming-chip">
-                        <span class="ub-date">{{ ub.birthdayDateFormatted }}</span>
-                        <span class="ub-name">{{ ub.name }}</span>
-                        <span class="ub-role">({{ ub.role }})</span>
-                      </div>
+              </mat-card-content>
+            </mat-card>
+    
+            <mat-card class="stat-card green mat-elevation-z2">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Monthly Fee Collected</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">₹{{ summary.totalFeeCollectedThisMonth | number:'1.0-0' }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">This Month</span>
+                    <span class="sub-label">Received this month</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+    
+            <mat-card class="stat-card orange mat-elevation-z2">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Pending Fee Dues</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">warning_amber</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">₹{{ summary.pendingFeesTotal | number:'1.0-0' }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Receivables</span>
+                    <span class="sub-label">Outstanding balance</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+    
+            <mat-card class="stat-card purple mat-elevation-z2">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Tests Conducted</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">quiz</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ summary.totalTestsConducted }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Academic</span>
+                    <span class="sub-label">Exams evaluated</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+    
+            <mat-card class="stat-card teal mat-elevation-z2">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Active Batches</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">groups</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ summary.activeBatches }}</span>
+                  <div class="stat-footer">
+                    <span class="stat-badge-pill">Running</span>
+                    <span class="sub-label">Academic classrooms</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+    
+            <mat-card class="stat-card emerald mat-elevation-z2" routerLink="/students/attendance" style="cursor: pointer;" matTooltip="Open Student Attendance & Roll Call">
+              <mat-card-content class="stat-content">
+                <div class="stat-header">
+                  <span class="label">Today's Attendance</span>
+                  <div class="stat-icon-wrap">
+                    <mat-icon class="stat-icon">how_to_reg</mat-icon>
+                  </div>
+                </div>
+                <div class="stat-body">
+                  <span class="value">{{ summary.todayAttendance ? summary.todayAttendance.attendancePercentage + '%' : 'Pending' }}</span>
+                  <div class="stat-footer">
+                    @if (summary.todayAttendance) {
+                      <span class="stat-badge-pill">
+                        {{ summary.todayAttendance.presentCount }}/{{ summary.todayAttendance.totalMarked }} Present
+                      </span>
+                    }
+                    @if (!summary.todayAttendance) {
+                      <span class="stat-badge-pill">
+                        Live Status
+                      </span>
+                    }
+                    @if (summary.todayAttendance?.lastMarkedTime) {
+                      <span class="sub-label" matTooltip="Last Batch Attendance Timestamp">
+                        At {{ summary.todayAttendance.lastMarkedTime }}
+                      </span>
+                    }
+                    @if (!summary.todayAttendance?.lastMarkedTime) {
+                      <span class="sub-label">
+                        Not marked yet
+                      </span>
                     }
                   </div>
                 </div>
-              }
-            </mat-card-content>
-          </mat-card>
-        </div>
-
-        <!-- 4. Tables Row (Overdue Reminders & Recent Tests) -->
-        <div class="bottom-grid">
-
-          <!-- Overdue Fee Reminders -->
-          <mat-card class="table-card mat-elevation-z2">
-            <div class="section-header">
-              <div class="section-title">
-                <mat-icon class="section-icon warning-icon">warning_amber</mat-icon>
-                <div>
-                  <h3>Urgent Pending Fee Reminders</h3>
-                  <p>Students with overdue fee invoices</p>
+              </mat-card-content>
+            </mat-card>
+          </div>
+    
+          <!-- 2. Dynamic Interactive Charts Row -->
+          <div class="charts-row">
+    
+            <!-- Left Chart: 6-Month Fee Revenue & Collection Trend -->
+            <mat-card class="chart-card large-chart-card mat-elevation-z2">
+              <div class="chart-header">
+                <div class="chart-header-left">
+                  <div class="chart-icon-box blue-box">
+                    <mat-icon>bar_chart</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="chart-title">Monthly Revenue &amp; Collection Trend</h3>
+                    <p class="chart-subtitle">6-Month database comparison: Billed Tuition Fees vs Collected Payments (₹)</p>
+                  </div>
                 </div>
-              </div>
-              <a mat-stroked-button color="warn" routerLink="/fees" class="view-all-btn">
-                View All <mat-icon>arrow_forward</mat-icon>
-              </a>
-            </div>
-            <mat-card-content>
-              <table mat-table [dataSource]="summary.overdueInvoices" class="full-width">
-                <ng-container matColumnDef="studentName">
-                  <th mat-header-cell *matHeaderCellDef>Student</th>
-                  <td mat-cell *matCellDef="let el">
-                    <div class="student-cell">
-                      <span class="student-avatar-badge">{{ (el.studentName || 'S').charAt(0).toUpperCase() }}</span>
-                      <div class="student-info">
-                        <strong>{{ el.studentName }}</strong>
-                        <small>{{ el.rollNumber }}</small>
-                      </div>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <ng-container matColumnDef="invoiceNumber">
-                  <th mat-header-cell *matHeaderCellDef>Invoice</th>
-                  <td mat-cell *matCellDef="let el">{{ el.invoiceNumber }}</td>
-                </ng-container>
-
-                <ng-container matColumnDef="dueAmount">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">Amount Due</th>
-                  <td mat-cell *matCellDef="let el" class="amount-due text-right">
-                    ₹{{ el.dueAmount | number:'1.0-0' }}
-                  </td>
-                </ng-container>
-
-                <ng-container matColumnDef="dueDate">
-                  <th mat-header-cell *matHeaderCellDef>Due Date</th>
-                  <td mat-cell *matCellDef="let el">{{ el.dueDate | date:'mediumDate' }}</td>
-                </ng-container>
-
-                <ng-container matColumnDef="actions">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">WhatsApp</th>
-                  <td mat-cell *matCellDef="let el" class="text-right">
-                    <button mat-flat-button class="wa-remind-btn" (click)="sendReminder(el)" matTooltip="Send Fee Reminder on WhatsApp">
-                      <mat-icon>chat</mat-icon> Remind
+                <div class="chart-header-actions">
+                  <div class="chart-type-toggle">
+                    <button type="button" class="type-btn" [class.active]="revenueChartType === 'area'" (click)="toggleRevenueChartType('area')">
+                      <mat-icon>show_chart</mat-icon> Wave
                     </button>
-                  </td>
-                </ng-container>
-
-                <tr mat-header-row *matHeaderRowDef="feeColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: feeColumns;"></tr>
-
-                <tr class="mat-row" *matNoDataRow>
-                  <td class="mat-cell" [attr.colspan]="feeColumns.length">
-                    <div class="empty-inline">
-                      <mat-icon style="color:#16a34a">check_circle</mat-icon>
-                      <span>No overdue fee invoices. All fees are up to date! 🎉</span>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </mat-card-content>
-          </mat-card>
-
-          <!-- Recent Tests -->
-          <mat-card class="table-card mat-elevation-z2">
-            <div class="section-header">
-              <div class="section-title">
-                <mat-icon class="section-icon test-icon">quiz</mat-icon>
-                <div>
-                  <h3>Recent Test Exams</h3>
-                  <p>Last 5 exams conducted</p>
+                    <button type="button" class="type-btn" [class.active]="revenueChartType === 'bar'" (click)="toggleRevenueChartType('bar')">
+                      <mat-icon>bar_chart</mat-icon> Bars
+                    </button>
+                  </div>
+                  <div class="chart-legend-pills">
+                    <span class="pill pill-billed"
+                      [matTooltip]="billedTooltip()"
+                      matTooltipClass="multiline-tooltip"
+                      matTooltipPosition="below">
+                      <span class="legend-dot dot-billed"></span>
+                      <span>Billed: ₹{{ totalBilled() | number:'1.0-0' }}</span>
+                      <mat-icon class="pill-info-icon">info</mat-icon>
+                    </span>
+                    <span class="pill pill-collected"
+                      [matTooltip]="collectedTooltip()"
+                      matTooltipClass="multiline-tooltip"
+                      matTooltipPosition="below">
+                      <span class="legend-dot dot-collected"></span>
+                      <span>Collected: ₹{{ totalCollected() | number:'1.0-0' }}</span>
+                      <mat-icon class="pill-info-icon">info</mat-icon>
+                    </span>
+                  </div>
                 </div>
               </div>
-              <a mat-stroked-button color="primary" routerLink="/tests" class="view-all-btn">
-                View All <mat-icon>arrow_forward</mat-icon>
-              </a>
-            </div>
-            <mat-card-content>
-              <table mat-table [dataSource]="summary.recentTests" class="full-width recent-tests-table">
-
-                <ng-container matColumnDef="title">
-                  <th mat-header-cell *matHeaderCellDef>Test Title</th>
-                  <td mat-cell *matCellDef="let t">
-                    <div class="test-cell">
-                      <strong>{{ t.title }}</strong>
-                      <small>{{ t.subject }}</small>
+              <mat-card-content class="chart-canvas-box">
+                <div #revenueChart class="apex-chart-wrap"></div>
+              </mat-card-content>
+            </mat-card>
+    
+            <!-- Right Chart: Overall Fee Recovery & Dues Donut -->
+            <mat-card class="chart-card small-chart-card mat-elevation-z2">
+              <div class="chart-header">
+                <div class="chart-header-left">
+                  <div class="chart-icon-box teal-box">
+                    <mat-icon>donut_large</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="chart-title">Fee Recovery Ratio</h3>
+                    <p class="chart-subtitle">Overall settled vs outstanding</p>
+                  </div>
+                </div>
+                <span class="recovery-badge" [class.high]="(summary.feeBreakdown?.recoveryPercentage || 0) >= 50">
+                  {{ summary.feeBreakdown?.recoveryPercentage || 0 }}% Settled
+                </span>
+              </div>
+              <mat-card-content class="donut-body">
+                <div class="donut-canvas-container">
+                  <div #feeBreakdownChart class="apex-donut-wrap"></div>
+                </div>
+                <div class="donut-summary-list">
+                  <div class="summary-item">
+                    <span class="item-lbl"><span class="legend-dot dot-collected"></span> Total Paid</span>
+                    <strong class="item-val text-green">₹{{ $safeNavigationMigration(summary.feeBreakdown?.totalPaid) | number:'1.0-0' }}</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span class="item-lbl"><span class="legend-dot dot-pending"></span> Pending Dues</span>
+                    <strong class="item-val text-orange">₹{{ $safeNavigationMigration(summary.feeBreakdown?.totalPending) | number:'1.0-0' }}</strong>
+                  </div>
+                  <div class="summary-item total-item"
+                    matTooltip="Total Invoices Generated across institute history (Paid ₹{{ $safeNavigationMigration(summary.feeBreakdown?.totalPaid) | number:'1.0-0' }} + Pending ₹{{ $safeNavigationMigration(summary.feeBreakdown?.totalPending) | number:'1.0-0' }})"
+                    matTooltipPosition="above">
+                    <span class="item-lbl">Total Billed</span>
+                    <strong class="item-val">₹{{ $safeNavigationMigration(summary.feeBreakdown?.totalBilled) | number:'1.0-0' }}</strong>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+    
+          </div>
+    
+          <!-- 3. Batch Enrollment & Fee Potential Chart -->
+          @if (summary.batchDistributions && summary.batchDistributions.length > 0) {
+            <mat-card class="chart-card full-chart-card mat-elevation-z2">
+              <div class="chart-header">
+                <div class="chart-header-left">
+                  <div class="chart-icon-box purple-box">
+                    <mat-icon>school</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="chart-title">Batch-Wise Enrollment &amp; Monthly Revenue Capacity</h3>
+                    <p class="chart-subtitle">Live student enrollment distribution across active academic batches</p>
+                  </div>
+                </div>
+                <div class="chart-header-right">
+                  <div class="batch-filter-toggle">
+                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'top10'" (click)="setBatchViewFilter('top10')">
+                      Top 10 Batches
+                    </button>
+                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'active'" (click)="setBatchViewFilter('active')">
+                      Active (With Students)
+                    </button>
+                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'all'" (click)="setBatchViewFilter('all')">
+                      All Batches ({{ summary.batchDistributions.length }})
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <mat-card-content class="batch-canvas-box">
+                <div #batchChart class="apex-chart-wrap"></div>
+              </mat-card-content>
+            </mat-card>
+          }
+    
+          <!-- 3.5 School Happenings & Celebration Radar -->
+          <div class="celebration-radar-grid">
+            <!-- Left: Upcoming Events & Celebrations (62%) -->
+            <mat-card class="radar-card events-box mat-elevation-z2">
+              <div class="radar-header">
+                <div class="radar-title-wrap">
+                  <div class="radar-icon-badge events-badge">
+                    <mat-icon>celebration</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="radar-title">School Happenings & Upcoming Events</h3>
+                    <p class="radar-sub">Annual Day, 15 Aug, Farewell, Sports Meet & Official Circulars</p>
+                  </div>
+                </div>
+                <div class="radar-actions">
+                  <a mat-stroked-button routerLink="/events" class="view-events-btn">
+                    <span>View All</span>
+                    <mat-icon>arrow_forward</mat-icon>
+                  </a>
+                  <button mat-raised-button color="primary" class="new-event-btn" (click)="openCreateEventDialog()">
+                    <mat-icon>add</mat-icon>
+                    <span>New Event</span>
+                  </button>
+                </div>
+              </div>
+    
+              <mat-card-content class="events-content">
+                @if (celebrations()?.upcomingEvents?.length) {
+                  <div class="events-cards-row">
+                    @for (ev of celebrations()!.upcomingEvents; track ev.id) {
+                      <div class="event-mini-card">
+                        <div class="event-banner" [style.background-image]="ev.bannerUrl ? 'url(' + ev.bannerUrl + ')' : getFallbackGradient(ev.category)">
+                          <span class="cat-chip" [ngClass]="ev.category.toLowerCase()">
+                            {{ getCategoryEmoji(ev.category) }} {{ ev.category }}
+                          </span>
+                          <div class="event-date-flag">
+                            <span class="m">{{ ev.startDate | date:'MMM' | uppercase }}</span>
+                            <span class="d">{{ ev.startDate | date:'dd' }}</span>
+                          </div>
+                        </div>
+                        <div class="event-info">
+                          <h4 class="event-name" [title]="ev.title">{{ ev.title }}</h4>
+                          @if (ev.venue) {
+                            <div class="meta-row">
+                              <mat-icon>place</mat-icon>
+                              <span>{{ ev.venue }}</span>
+                            </div>
+                          }
+                          @if (ev.startTime) {
+                            <div class="meta-row">
+                              <mat-icon>schedule</mat-icon>
+                              <span>{{ ev.startTime }}</span>
+                            </div>
+                          }
+                          <div class="bottom-actions">
+                            @if (ev.attachmentPdfUrl) {
+                              <a [href]="ev.attachmentPdfUrl" target="_blank" class="pdf-tag" download>
+                                <mat-icon>picture_as_pdf</mat-icon> Circular
+                              </a>
+                            }
+                            <button class="memories-tag" (click)="openEventGallery(ev)">
+                              <mat-icon>photo_camera</mat-icon> {{ ev.photosCount }} Memories
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="empty-events-radar">
+                    <div class="empty-events-icon">
+                      <mat-icon>event_available</mat-icon>
                     </div>
-                  </td>
-                </ng-container>
-
-                <ng-container matColumnDef="batchName">
-                  <th mat-header-cell *matHeaderCellDef>Batch</th>
-                  <td mat-cell *matCellDef="let t">
-                    <span class="batch-badge" [matTooltip]="t.batchName">{{ t.batchName }}</span>
-                  </td>
-                </ng-container>
-
-                <ng-container matColumnDef="maxMarks">
-                  <th mat-header-cell *matHeaderCellDef class="text-center">Max Marks</th>
-                  <td mat-cell *matCellDef="let t" class="text-center">
-                    <span class="marks-badge">{{ t.maxMarks }}</span>
-                  </td>
-                </ng-container>
-
-                <ng-container matColumnDef="marksEnteredCount">
-                  <th mat-header-cell *matHeaderCellDef class="text-center">Entries</th>
-                  <td mat-cell *matCellDef="let t" class="text-center">
-                    <span class="entries-badge" [class.no-entries]="(t.totalStudentsEvaluated ?? t.marksEnteredCount ?? 0) === 0">
-                      {{ (t.totalStudentsEvaluated ?? t.marksEnteredCount ?? 0) === 0 ? 'Pending' : (t.totalStudentsEvaluated ?? t.marksEnteredCount) + ' evaluated' }}
+                    <p class="empty-main">No Upcoming Events Scheduled</p>
+                    <p class="empty-desc">Schedule your annual day, 15 Aug, sports meet, or cultural celebration to keep everyone informed.</p>
+                    <button mat-flat-button color="primary" (click)="openCreateEventDialog()">
+                      <mat-icon>add</mat-icon> Schedule First Event
+                    </button>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+    
+            <!-- Right: Today's Celebrations & Birthdays Radar (38%) -->
+            <mat-card class="radar-card birthdays-box mat-elevation-z2">
+              <div class="radar-header">
+                <div class="radar-title-wrap">
+                  <div class="radar-icon-badge bday-badge">
+                    <mat-icon>cake</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="radar-title">Celebrations & Birthdays</h3>
+                    <p class="radar-sub">{{ birthdayRadarSubtitle() }}</p>
+                  </div>
+                </div>
+                @if (celebrations()?.todayBirthdays?.length) {
+                  <span class="bday-count-pill">
+                    {{ celebrations()!.todayBirthdays.length }} Today 🎂
+                  </span>
+                }
+              </div>
+    
+              <mat-card-content class="birthdays-content">
+                @if (celebrations()?.todayBirthdays?.length) {
+                  <div class="today-bday-list">
+                    @for (b of celebrations()!.todayBirthdays; track b.id) {
+                      <div class="bday-item-card">
+                        <div class="bday-avatar-wrap">
+                          @if (b.photoUrl) {
+                            <img [src]="b.photoUrl" [alt]="b.name" class="bday-avatar" />
+                          }
+                          @if (!b.photoUrl) {
+                            <div class="bday-avatar-fallback">
+                              {{ b.name.substring(0, 1) | uppercase }}
+                            </div>
+                          }
+                          <span class="confetti-emoji">🎉</span>
+                        </div>
+                        <div class="bday-details">
+                          <div class="bday-name-row">
+                            <span class="person-name">{{ b.name }}</span>
+                            <span class="role-pill" [class.staff]="b.role === 'Staff'">{{ b.role }}</span>
+                          </div>
+                          <span class="bday-meta">
+                            {{ b.classOrDepartment || 'Student' }} • Turning {{ b.ageTurning }} yrs
+                          </span>
+                        </div>
+                        @if (b.whatsAppPhone) {
+                          <button
+                            mat-flat-button
+                            class="wa-wish-btn"
+                            (click)="sendWhatsAppWish(b)"
+                            [matTooltip]="'Send Birthday Greeting via WhatsApp'"
+                            >
+                            <mat-icon class="wa-icon">chat</mat-icon>
+                            <span>Wish</span>
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="no-bday-today">
+                    <div class="bday-cal-icon">
+                      <mat-icon>sentiment_satisfied_alt</mat-icon>
+                    </div>
+                    <p class="no-bday-text">No birthdays today</p>
+                    <p class="no-bday-sub">Everyone's growing a little older gracefully! Check upcoming birthdays below.</p>
+                  </div>
+                }
+    
+                <!-- Upcoming Birthdays Next 7 Days -->
+                @if (celebrations()?.upcomingBirthdaysThisWeek?.length) {
+                  <div class="upcoming-bdays-section">
+                    <span class="upcoming-header-label">
+                      <mat-icon>calendar_month</mat-icon> Next 7 Days Birthdays
                     </span>
-                  </td>
-                </ng-container>
-
-                <ng-container matColumnDef="testDate">
-                  <th mat-header-cell *matHeaderCellDef class="text-right">Date</th>
-                  <td mat-cell *matCellDef="let t" class="date-cell text-right">{{ t.testDate | date:'dd MMM yyyy' }}</td>
-                </ng-container>
-
-                <tr mat-header-row *matHeaderRowDef="testColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: testColumns;"></tr>
-
-                <tr class="mat-row" *matNoDataRow>
-                  <td class="mat-cell" [attr.colspan]="testColumns.length">
-                    <div class="empty-inline">
-                      <mat-icon style="color:#7c3aed">quiz</mat-icon>
-                      <span>No tests scheduled yet. Go to <a routerLink="/tests">Tests</a> to schedule one.</span>
+                    <div class="upcoming-chips-row">
+                      @for (ub of celebrations()!.upcomingBirthdaysThisWeek; track ub.id) {
+                        <div class="upcoming-chip">
+                          <span class="ub-date">{{ ub.birthdayDateFormatted }}</span>
+                          <span class="ub-name">{{ ub.name }}</span>
+                          <span class="ub-role">({{ ub.role }})</span>
+                        </div>
+                      }
                     </div>
-                  </td>
-                </tr>
-              </table>
-            </mat-card-content>
-          </mat-card>
-
-        </div>
-
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+          </div>
+    
+          <!-- 4. Tables Row (Overdue Reminders & Recent Tests) -->
+          <div class="bottom-grid">
+    
+            <!-- Overdue Fee Reminders -->
+            <mat-card class="table-card mat-elevation-z2">
+              <div class="section-header">
+                <div class="section-title">
+                  <mat-icon class="section-icon warning-icon">warning_amber</mat-icon>
+                  <div>
+                    <h3>Urgent Pending Fee Reminders</h3>
+                    <p>Students with overdue fee invoices</p>
+                  </div>
+                </div>
+                <a mat-stroked-button color="warn" routerLink="/fees" class="view-all-btn">
+                  View All <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+              <mat-card-content>
+                <table mat-table [dataSource]="summary.overdueInvoices" class="full-width">
+                  <ng-container matColumnDef="studentName">
+                    <th mat-header-cell *matHeaderCellDef>Student</th>
+                    <td mat-cell *matCellDef="let el">
+                      <div class="student-cell">
+                        <span class="student-avatar-badge">{{ (el.studentName || 'S').charAt(0).toUpperCase() }}</span>
+                        <div class="student-info">
+                          <strong>{{ el.studentName }}</strong>
+                          <small>{{ el.rollNumber }}</small>
+                        </div>
+                      </div>
+                    </td>
+                  </ng-container>
+    
+                  <ng-container matColumnDef="invoiceNumber">
+                    <th mat-header-cell *matHeaderCellDef>Invoice</th>
+                    <td mat-cell *matCellDef="let el">{{ el.invoiceNumber }}</td>
+                  </ng-container>
+    
+                  <ng-container matColumnDef="dueAmount">
+                    <th mat-header-cell *matHeaderCellDef class="text-right">Amount Due</th>
+                    <td mat-cell *matCellDef="let el" class="amount-due text-right">
+                      ₹{{ el.dueAmount | number:'1.0-0' }}
+                    </td>
+                  </ng-container>
+    
+                  <ng-container matColumnDef="dueDate">
+                    <th mat-header-cell *matHeaderCellDef>Due Date</th>
+                    <td mat-cell *matCellDef="let el">{{ el.dueDate | date:'mediumDate' }}</td>
+                  </ng-container>
+    
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef class="text-right">WhatsApp</th>
+                    <td mat-cell *matCellDef="let el" class="text-right">
+                      <button mat-flat-button class="wa-remind-btn" (click)="sendReminder(el)" matTooltip="Send Fee Reminder on WhatsApp">
+                        <mat-icon>chat</mat-icon> Remind
+                      </button>
+                    </td>
+                  </ng-container>
+    
+                  <tr mat-header-row *matHeaderRowDef="feeColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: feeColumns;"></tr>
+    
+                  <tr class="mat-row" *matNoDataRow>
+                    <td class="mat-cell" [attr.colspan]="feeColumns.length">
+                      <div class="empty-inline">
+                        <mat-icon style="color:#16a34a">check_circle</mat-icon>
+                        <span>No overdue fee invoices. All fees are up to date! 🎉</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </mat-card-content>
+            </mat-card>
+    
+            <!-- Recent Tests -->
+            <mat-card class="table-card mat-elevation-z2">
+              <div class="section-header">
+                <div class="section-title">
+                  <mat-icon class="section-icon test-icon">quiz</mat-icon>
+                  <div>
+                    <h3>Recent Test Exams</h3>
+                    <p>Last 5 exams conducted</p>
+                  </div>
+                </div>
+                <a mat-stroked-button color="primary" routerLink="/tests" class="view-all-btn">
+                  View All <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+              <mat-card-content>
+                <table mat-table [dataSource]="summary.recentTests" class="full-width recent-tests-table">
+    
+                  <ng-container matColumnDef="title">
+                    <th mat-header-cell *matHeaderCellDef>Test Title</th>
+                    <td mat-cell *matCellDef="let t">
+                      <div class="test-cell">
+                        <strong>{{ t.title }}</strong>
+                        <small>{{ t.subject }}</small>
+                      </div>
+                    </td>
+                  </ng-container>
+    
+                  <ng-container matColumnDef="batchName">
+                    <th mat-header-cell *matHeaderCellDef>Batch</th>
+                    <td mat-cell *matCellDef="let t">
+                      <span class="batch-badge" [matTooltip]="t.batchName">{{ t.batchName }}</span>
+                    </td>
+                  </ng-container>
+    
+                  <ng-container matColumnDef="maxMarks">
+                    <th mat-header-cell *matHeaderCellDef class="text-center">Max Marks</th>
+                    <td mat-cell *matCellDef="let t" class="text-center">
+                      <span class="marks-badge">{{ t.maxMarks }}</span>
+                    </td>
+                  </ng-container>
+    
+                  <ng-container matColumnDef="marksEnteredCount">
+                    <th mat-header-cell *matHeaderCellDef class="text-center">Entries</th>
+                    <td mat-cell *matCellDef="let t" class="text-center">
+                      <span class="entries-badge" [class.no-entries]="(t.totalStudentsEvaluated ?? t.marksEnteredCount ?? 0) === 0">
+                        {{ (t.totalStudentsEvaluated ?? t.marksEnteredCount ?? 0) === 0 ? 'Pending' : (t.totalStudentsEvaluated ?? t.marksEnteredCount) + ' evaluated' }}
+                      </span>
+                    </td>
+                  </ng-container>
+    
+                  <ng-container matColumnDef="testDate">
+                    <th mat-header-cell *matHeaderCellDef class="text-right">Date</th>
+                    <td mat-cell *matCellDef="let t" class="date-cell text-right">{{ t.testDate | date:'dd MMM yyyy' }}</td>
+                  </ng-container>
+    
+                  <tr mat-header-row *matHeaderRowDef="testColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: testColumns;"></tr>
+    
+                  <tr class="mat-row" *matNoDataRow>
+                    <td class="mat-cell" [attr.colspan]="testColumns.length">
+                      <div class="empty-inline">
+                        <mat-icon style="color:#7c3aed">quiz</mat-icon>
+                        <span>No tests scheduled yet. Go to <a routerLink="/tests">Tests</a> to schedule one.</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </mat-card-content>
+            </mat-card>
+    
+          </div>
+    
         } @else if (!loading()) {
           <div class="dashboard-fallback-state mat-elevation-z1">
             <div class="fallback-icon-box">
@@ -1429,7 +1477,7 @@ import ApexCharts from 'apexcharts';
         }
       }
     </div>
-  `,
+    `,
   styles: [`
     .dashboard-wrapper {
       display: flex;

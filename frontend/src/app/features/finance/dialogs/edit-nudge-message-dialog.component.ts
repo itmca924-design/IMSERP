@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,7 +20,6 @@ export interface EditNudgeDialogData {
   selector: 'app-edit-nudge-message-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -28,7 +27,7 @@ export interface EditNudgeDialogData {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <div class="dialog-header">
@@ -47,25 +46,27 @@ export interface EditNudgeDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="dialog-form">
         <mat-dialog-content class="dialog-content">
-          <div class="ai-rationale-box" *ngIf="data.plan.aiRationale">
-            <div class="rationale-header">
-              <mat-icon>auto_awesome</mat-icon>
-              <span>AI Agent Rationale (Risk: {{ data.plan.riskLevel }})</span>
+          @if (data.plan.aiRationale) {
+            <div class="ai-rationale-box">
+              <div class="rationale-header">
+                <mat-icon>auto_awesome</mat-icon>
+                <span>AI Agent Rationale (Risk: {{ data.plan.riskLevel }})</span>
+              </div>
+              <p class="rationale-text">{{ data.plan.aiRationale }}</p>
             </div>
-            <p class="rationale-text">{{ data.plan.aiRationale }}</p>
-          </div>
-
+          }
+    
           <div class="free-whatsapp-tip">
             <mat-icon class="tip-icon">verified</mat-icon>
             <div class="tip-text">
-              <strong>100% Free WhatsApp Dispatch:</strong> No paid API key or third-party subscription required. 
+              <strong>100% Free WhatsApp Dispatch:</strong> No paid API key or third-party subscription required.
               Clicking <em>Send via WhatsApp</em> directly opens WhatsApp Web / App with this pre-filled personalized message.
             </div>
           </div>
-
+    
           <div class="form-fields">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Communication Channel</mat-label>
@@ -76,7 +77,7 @@ export interface EditNudgeDialogData {
               </mat-select>
               <mat-icon matPrefix>send</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Personalized Message Body</mat-label>
               <textarea matInput formControlName="message" rows="8" placeholder="Message content..."></textarea>
@@ -84,7 +85,7 @@ export interface EditNudgeDialogData {
             </mat-form-field>
           </div>
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-stroked-button type="button" (click)="dialogRef.close()" class="cancel-btn">
             Cancel
@@ -96,7 +97,8 @@ export interface EditNudgeDialogData {
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

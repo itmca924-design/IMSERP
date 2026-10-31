@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -50,1126 +50,1234 @@ import { environment } from '../../../environments/environment';
           <h2 class="page-title">{{ isSuperAdmin ? 'Coaching Institutes &amp; Tenants Management' : 'My Institute Profile &amp; Settings' }}</h2>
           <p class="page-subtitle">{{ isSuperAdmin ? 'Platform SaaS provisioning, multi-tenant instances, subscription tiers, student quotas, and module licensing.' : 'Manage your institute profile, contact branding, campus branches, and view subscription entitlements.' }}</p>
         </div>
-        <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()" *ngIf="isSuperAdmin">
-          <mat-icon>add_business</mat-icon>
-          <span>Provision New Institute</span>
-        </button>
+        @if (isSuperAdmin) {
+          <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()">
+            <mat-icon>add_business</mat-icon>
+            <span>Provision New Institute</span>
+          </button>
+        }
       </div>
-
+    
       <!-- KPI Summary Cards - Super Admin View -->
-      <div class="kpi-container" *ngIf="isSuperAdmin">
-        <mat-card class="kpi-card blue">
-          <div class="kpi-inner">
-            <div>
-              <span class="kpi-label">Total Institutes</span>
-              <span class="kpi-val">{{ tenants.length }}</span>
+      @if (isSuperAdmin) {
+        <div class="kpi-container">
+          <mat-card class="kpi-card blue">
+            <div class="kpi-inner">
+              <div>
+                <span class="kpi-label">Total Institutes</span>
+                <span class="kpi-val">{{ tenants.length }}</span>
+              </div>
+              <div class="kpi-icon-box">
+                <mat-icon>corporate_fare</mat-icon>
+              </div>
             </div>
-            <div class="kpi-icon-box">
-              <mat-icon>corporate_fare</mat-icon>
+          </mat-card>
+          <mat-card class="kpi-card emerald">
+            <div class="kpi-inner">
+              <div>
+                <span class="kpi-label">Active Tenants</span>
+                <span class="kpi-val">{{ activeCount }}</span>
+              </div>
+              <div class="kpi-icon-box">
+                <mat-icon>check_circle</mat-icon>
+              </div>
             </div>
-          </div>
-        </mat-card>
-
-        <mat-card class="kpi-card emerald">
-          <div class="kpi-inner">
-            <div>
-              <span class="kpi-label">Active Tenants</span>
-              <span class="kpi-val">{{ activeCount }}</span>
+          </mat-card>
+          <mat-card class="kpi-card violet">
+            <div class="kpi-inner">
+              <div>
+                <span class="kpi-label">Total Students Across SaaS</span>
+                <span class="kpi-val">{{ totalStudents }}</span>
+              </div>
+              <div class="kpi-icon-box">
+                <mat-icon>school</mat-icon>
+              </div>
             </div>
-            <div class="kpi-icon-box">
-              <mat-icon>check_circle</mat-icon>
+          </mat-card>
+          <mat-card class="kpi-card amber">
+            <div class="kpi-inner">
+              <div>
+                <span class="kpi-label">Active Batches Total</span>
+                <span class="kpi-val">{{ totalBatches }}</span>
+              </div>
+              <div class="kpi-icon-box">
+                <mat-icon>groups</mat-icon>
+              </div>
             </div>
-          </div>
-        </mat-card>
-
-        <mat-card class="kpi-card violet">
-          <div class="kpi-inner">
-            <div>
-              <span class="kpi-label">Total Students Across SaaS</span>
-              <span class="kpi-val">{{ totalStudents }}</span>
-            </div>
-            <div class="kpi-icon-box">
-              <mat-icon>school</mat-icon>
-            </div>
-          </div>
-        </mat-card>
-
-        <mat-card class="kpi-card amber">
-          <div class="kpi-inner">
-            <div>
-              <span class="kpi-label">Active Batches Total</span>
-              <span class="kpi-val">{{ totalBatches }}</span>
-            </div>
-            <div class="kpi-icon-box">
-              <mat-icon>groups</mat-icon>
-            </div>
-          </div>
-        </mat-card>
-      </div>
-
-      <!-- KPI Summary Cards - Institute Admin View -->
-      <div class="kpi-container" *ngIf="!isSuperAdmin">
-        <mat-card class="kpi-card blue">
-          <div class="kpi-inner">
-            <div>
-              <span class="kpi-label">Current Plan</span>
-              <span class="kpi-val" style="font-size:1.35rem;">{{ currentTenantPlan }}</span>
-            </div>
-            <div class="kpi-icon-box">
-              <mat-icon>workspace_premium</mat-icon>
-            </div>
-          </div>
-        </mat-card>
-
-        <mat-card class="kpi-card emerald">
-          <div class="kpi-inner">
-            <div>
-              <span class="kpi-label">Student Quota Used</span>
-              <span class="kpi-val">{{ totalStudents }} / {{ currentMaxStudents }}</span>
-            </div>
-            <div class="kpi-icon-box">
-              <mat-icon>school</mat-icon>
-            </div>
-          </div>
-        </mat-card>
-
-        <mat-card class="kpi-card violet">
-          <div class="kpi-inner">
-            <div>
-              <span class="kpi-label">Active Batches</span>
-              <span class="kpi-val">{{ totalBatches }}</span>
-            </div>
-            <div class="kpi-icon-box">
-              <mat-icon>groups</mat-icon>
-            </div>
-          </div>
-        </mat-card>
-
-        <mat-card class="kpi-card amber">
-          <div class="kpi-inner">
-            <div>
-              <span class="kpi-label">Subscription Status</span>
-              <span class="kpi-val" style="font-size:1.25rem;">{{ currentTenantStatus }}</span>
-            </div>
-            <div class="kpi-icon-box">
-              <mat-icon>verified</mat-icon>
-            </div>
-          </div>
-        </mat-card>
-      </div>
-
-      <!-- Search & Controls Bar -->
-      <div class="controls-bar" *ngIf="isSuperAdmin || filteredTenants.length > 1">
-        <div class="search-box">
-          <mat-icon class="search-icon">search</mat-icon>
-          <input type="text" placeholder="Search institute name or code..." [(ngModel)]="searchQuery" (input)="filterTenants()">
+          </mat-card>
         </div>
-        <button mat-stroked-button (click)="loadTenants()" class="refresh-btn" matTooltip="Refresh institutes list">
-          <mat-icon [class.spin]="loading">sync</mat-icon>
-          <span>Refresh</span>
-        </button>
-      </div>
-
+      }
+    
+      <!-- KPI Summary Cards - Institute Admin View -->
+      @if (!isSuperAdmin) {
+        <div class="kpi-container">
+          <mat-card class="kpi-card blue">
+            <div class="kpi-inner">
+              <div>
+                <span class="kpi-label">Current Plan</span>
+                <span class="kpi-val" style="font-size:1.35rem;">{{ currentTenantPlan }}</span>
+              </div>
+              <div class="kpi-icon-box">
+                <mat-icon>workspace_premium</mat-icon>
+              </div>
+            </div>
+          </mat-card>
+          <mat-card class="kpi-card emerald">
+            <div class="kpi-inner">
+              <div>
+                <span class="kpi-label">Student Quota Used</span>
+                <span class="kpi-val">{{ totalStudents }} / {{ currentMaxStudents }}</span>
+              </div>
+              <div class="kpi-icon-box">
+                <mat-icon>school</mat-icon>
+              </div>
+            </div>
+          </mat-card>
+          <mat-card class="kpi-card violet">
+            <div class="kpi-inner">
+              <div>
+                <span class="kpi-label">Active Batches</span>
+                <span class="kpi-val">{{ totalBatches }}</span>
+              </div>
+              <div class="kpi-icon-box">
+                <mat-icon>groups</mat-icon>
+              </div>
+            </div>
+          </mat-card>
+          <mat-card class="kpi-card amber">
+            <div class="kpi-inner">
+              <div>
+                <span class="kpi-label">Subscription Status</span>
+                <span class="kpi-val" style="font-size:1.25rem;">{{ currentTenantStatus }}</span>
+              </div>
+              <div class="kpi-icon-box">
+                <mat-icon>verified</mat-icon>
+              </div>
+            </div>
+          </mat-card>
+        </div>
+      }
+    
+      <!-- Search & Controls Bar -->
+      @if (isSuperAdmin || filteredTenants.length > 1) {
+        <div class="controls-bar">
+          <div class="search-box">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input type="text" placeholder="Search institute name or code..." [(ngModel)]="searchQuery" (input)="filterTenants()">
+          </div>
+          <button mat-stroked-button (click)="loadTenants()" class="refresh-btn" matTooltip="Refresh institutes list">
+            <mat-icon [class.spin]="loading">sync</mat-icon>
+            <span>Refresh</span>
+          </button>
+        </div>
+      }
+    
       <!-- Institutes Grid -->
-      <div class="tenants-grid" *ngIf="!loading || tenants.length > 0">
-        <mat-card *ngFor="let t of filteredTenants" class="tenant-card mat-elevation-z2" [class.inactive-card]="!t.isActive">
-          <div class="card-top-bar">
-            <span class="code-pill">{{ t.code }}</span>
-            <span class="status-badge" [class.active]="t.isActive" [class.inactive]="!t.isActive">
-              {{ t.isActive ? 'Active' : 'Suspended' }}
-            </span>
-          </div>
-
-          <div class="institute-identity">
-            <div class="logo-box">
-              <img *ngIf="t.profilePhoto" [src]="getPhotoUrl(t.profilePhoto)" [alt]="t.name" class="logo-img">
-              <mat-icon *ngIf="!t.profilePhoto" class="default-logo-icon">account_balance</mat-icon>
-            </div>
-            <div class="name-meta">
-              <h3 class="institute-name" [matTooltip]="t.name">{{ t.name }}</h3>
-              <span class="created-meta">Registered {{ t.createdAt | date:'mediumDate' }}</span>
-            </div>
-          </div>
-
-          <div class="info-list">
-            <div class="info-item" *ngIf="t.email">
-              <mat-icon class="item-icon">email</mat-icon>
-              <span>{{ t.email }}</span>
-            </div>
-            <div class="info-item">
-              <mat-icon class="item-icon">phone</mat-icon>
-              <span>{{ t.contactPhone || 'No contact phone' }}</span>
-            </div>
-            <div class="info-item">
-              <mat-icon class="item-icon">location_on</mat-icon>
-              <span class="address-text" [matTooltip]="formatFullAddress(t)">{{ formatFullAddress(t) || 'Address not configured' }}</span>
-            </div>
-            <div class="info-item" *ngIf="t.website">
-              <mat-icon class="item-icon">language</mat-icon>
-              <span style="color:#2563eb;">{{ t.website }}</span>
-            </div>
-          </div>
-
-          <div class="metrics-strip">
-            <div class="metric-cell">
-              <span class="metric-count">{{ t.studentCount }}</span>
-              <span class="metric-lbl">Students</span>
-            </div>
-            <div class="metric-divider"></div>
-            <div class="metric-cell">
-              <span class="metric-count">{{ t.batchCount }}</span>
-              <span class="metric-lbl">Batches</span>
-            </div>
-            <div class="metric-divider"></div>
-            <div class="metric-cell">
-              <span class="metric-count">
-                <mat-icon class="wa-icon" [class.wa-ready]="!!t.whatsAppPhoneId">
-                  {{ t.whatsAppPhoneId ? 'verified' : 'pending' }}
-                </mat-icon>
-              </span>
-              <span class="metric-lbl">WhatsApp</span>
-            </div>
-            <div class="metric-divider"></div>
-            <div class="metric-cell" [matTooltip]="t.upiId ? 'UPI Active: ' + t.upiId : 'UPI Gateway Not Configured'">
-              <span class="metric-count">
-                <mat-icon class="upi-status-icon" [style.color]="t.upiId && t.upiQrEnabled !== false ? '#16a34a' : '#94a3b8'">
-                  {{ t.upiId && t.upiQrEnabled !== false ? 'qr_code_2' : 'qr_code_scanner' }}
-                </mat-icon>
-              </span>
-              <span class="metric-lbl">UPI Pay</span>
-            </div>
-          </div>
-
-          <!-- Subscription Plan & Quota Details Strip -->
-          <div class="subscription-strip" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; padding:8px 12px; border-radius:8px; margin: 4px 0 6px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <mat-icon style="font-size:18px; width:18px; height:18px; color:#2563eb;">verified_user</mat-icon>
-              <strong style="color:#1e3a8a; font-size:12px;">{{ t.subscriptionPlan || 'FreeTrial' }}</strong>
-              <span [style.background]="t.subscriptionStatus === 'Active' ? '#dcfce7' : '#e0f2fe'"
+      @if (!loading || tenants.length > 0) {
+        <div class="tenants-grid">
+          @for (t of filteredTenants; track t) {
+            <mat-card class="tenant-card mat-elevation-z2" [class.inactive-card]="!t.isActive">
+              <div class="card-top-bar">
+                <span class="code-pill">{{ t.code }}</span>
+                <span class="status-badge" [class.active]="t.isActive" [class.inactive]="!t.isActive">
+                  {{ t.isActive ? 'Active' : 'Suspended' }}
+                </span>
+              </div>
+              <div class="institute-identity">
+                <div class="logo-box">
+                  @if (t.profilePhoto) {
+                    <img [src]="getPhotoUrl(t.profilePhoto)" [alt]="t.name" class="logo-img">
+                  }
+                  @if (!t.profilePhoto) {
+                    <mat-icon class="default-logo-icon">account_balance</mat-icon>
+                  }
+                </div>
+                <div class="name-meta">
+                  <h3 class="institute-name" [matTooltip]="t.name">{{ t.name }}</h3>
+                  <span class="created-meta">Registered {{ t.createdAt | date:'mediumDate' }}</span>
+                </div>
+              </div>
+              <div class="info-list">
+                @if (t.email) {
+                  <div class="info-item">
+                    <mat-icon class="item-icon">email</mat-icon>
+                    <span>{{ t.email }}</span>
+                  </div>
+                }
+                <div class="info-item">
+                  <mat-icon class="item-icon">phone</mat-icon>
+                  <span>{{ t.contactPhone || 'No contact phone' }}</span>
+                </div>
+                <div class="info-item">
+                  <mat-icon class="item-icon">location_on</mat-icon>
+                  <span class="address-text" [matTooltip]="formatFullAddress(t)">{{ formatFullAddress(t) || 'Address not configured' }}</span>
+                </div>
+                @if (t.website) {
+                  <div class="info-item">
+                    <mat-icon class="item-icon">language</mat-icon>
+                    <span style="color:#2563eb;">{{ t.website }}</span>
+                  </div>
+                }
+              </div>
+              <div class="metrics-strip">
+                <div class="metric-cell">
+                  <span class="metric-count">{{ t.studentCount }}</span>
+                  <span class="metric-lbl">Students</span>
+                </div>
+                <div class="metric-divider"></div>
+                <div class="metric-cell">
+                  <span class="metric-count">{{ t.batchCount }}</span>
+                  <span class="metric-lbl">Batches</span>
+                </div>
+                <div class="metric-divider"></div>
+                <div class="metric-cell">
+                  <span class="metric-count">
+                    <mat-icon class="wa-icon" [class.wa-ready]="!!t.whatsAppPhoneId">
+                      {{ t.whatsAppPhoneId ? 'verified' : 'pending' }}
+                    </mat-icon>
+                  </span>
+                  <span class="metric-lbl">WhatsApp</span>
+                </div>
+                <div class="metric-divider"></div>
+                <div class="metric-cell" [matTooltip]="t.upiId ? 'UPI Active: ' + t.upiId : 'UPI Gateway Not Configured'">
+                  <span class="metric-count">
+                    <mat-icon class="upi-status-icon" [style.color]="t.upiId && t.upiQrEnabled !== false ? '#16a34a' : '#94a3b8'">
+                      {{ t.upiId && t.upiQrEnabled !== false ? 'qr_code_2' : 'qr_code_scanner' }}
+                    </mat-icon>
+                  </span>
+                  <span class="metric-lbl">UPI Pay</span>
+                </div>
+              </div>
+              <!-- Subscription Plan & Quota Details Strip -->
+              <div class="subscription-strip" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; padding:8px 12px; border-radius:8px; margin: 4px 0 6px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <mat-icon style="font-size:18px; width:18px; height:18px; color:#2563eb;">verified_user</mat-icon>
+                  <strong style="color:#1e3a8a; font-size:12px;">{{ t.subscriptionPlan || 'FreeTrial' }}</strong>
+                  <span [style.background]="t.subscriptionStatus === 'Active' ? '#dcfce7' : '#e0f2fe'"
                     [style.color]="t.subscriptionStatus === 'Active' ? '#15803d' : '#0369a1'"
                     style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:12px;">
-                {{ t.subscriptionStatus || 'TrialActive' }}
-              </span>
-            </div>
-            <span *ngIf="t.trialEndDate" style="font-size:11px; color:#64748b; font-weight:600;">
-              {{ getTrialDaysText(t) }}
-            </span>
-          </div>
-
-          <div class="tenant-limits-row">
-            <span class="limit-badge">
-              <mat-icon>groups</mat-icon>
-              <span>Max Students: <strong>{{ t.maxStudentsLimit || 50 }}</strong></span>
-            </span>
-            <span class="limit-badge">
-              <mat-icon>apartment</mat-icon>
-              <span>Max Branches: <strong>{{ t.maxBranchesLimit || 2 }}</strong></span>
-            </span>
-          </div>
-
-          <div class="tenant-modules-strip">
-            <span *ngIf="isTenantModuleActive(t, 'school')" class="mod-pill school" matTooltip="School Module Active">
-              <mat-icon>school</mat-icon>
-              <span>School</span>
-            </span>
-            <span *ngIf="isTenantModuleActive(t, 'coaching')" class="mod-pill coaching" matTooltip="Coaching Module Active">
-              <mat-icon>menu_book</mat-icon>
-              <span>Coaching</span>
-            </span>
-            <span *ngIf="isTenantModuleActive(t, 'hostel')" class="mod-pill hostel" matTooltip="Hostel Module Active">
-              <mat-icon>hotel</mat-icon>
-              <span>Hostel</span>
-            </span>
-            <span *ngIf="isTenantModuleActive(t, 'library')" class="mod-pill library" matTooltip="Library Module Active">
-              <mat-icon>local_library</mat-icon>
-              <span>Library</span>
-            </span>
-            <span *ngIf="isTenantModuleActive(t, 'transport')" class="mod-pill transport" matTooltip="Transport Module Active">
-              <mat-icon>directions_bus</mat-icon>
-              <span>Transport</span>
-            </span>
-          </div>
-
-          <div class="card-actions">
-            <button mat-stroked-button color="primary" class="edit-btn" (click)="openEditModal(t)">
-              <mat-icon>edit</mat-icon>
-              <span>{{ isSuperAdmin ? 'Configure Institute' : 'Edit Profile' }}</span>
-            </button>
-            <button mat-stroked-button class="upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Zero-Fee Dynamic UPI QR &amp; VPA">
-              <mat-icon class="upi-btn-icon">qr_code_2</mat-icon>
-              <span>UPI Gateway</span>
-            </button>
-            <button *ngIf="isSuperAdmin" mat-button [color]="t.isActive ? 'warn' : 'accent'" (click)="toggleStatus(t)">
-              <mat-icon>{{ t.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
-              <span>{{ t.isActive ? 'Deactivate' : 'Activate' }}</span>
-            </button>
-          </div>
-        </mat-card>
-
-        <div *ngIf="filteredTenants.length === 0 && !loading" class="empty-state">
-          <mat-icon class="empty-icon">domain_disabled</mat-icon>
-          <h3>No Coaching Institutes Found</h3>
-          <p>No institutes match your search or no tenants have been provisioned yet.</p>
-          <button mat-raised-button color="primary" (click)="openCreateModal()" *ngIf="isSuperAdmin">Provision First Institute</button>
-        </div>
-      </div>
-
-      <!-- Create / Edit Modal Backdrop (Clicks outside do NOT close modal to prevent accidental data loss) -->
-      <div class="modal-backdrop" *ngIf="showModal">
-        <div class="modal-dialog" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <div class="modal-title-group">
-              <div class="header-icon-box" [style.background]="activeModalTab === 'upi' ? '#059669' : '#2563eb'">
-                <mat-icon *ngIf="!isEditing">add_business</mat-icon>
-                <mat-icon *ngIf="isEditing && activeModalTab === 'profile'">business</mat-icon>
-                <mat-icon *ngIf="isEditing && activeModalTab === 'upi'">qr_code_2</mat-icon>
-                <mat-icon *ngIf="isEditing && activeModalTab === 'whatsapp'">chat</mat-icon>
-                <mat-icon *ngIf="isEditing && activeModalTab === 'modules'">hub</mat-icon>
-              </div>
-              <div class="modal-title-texts">
-                <h3 *ngIf="!isEditing">Provision New Institute</h3>
-                <h3 *ngIf="isEditing && activeModalTab === 'profile'">{{ isSuperAdmin ? 'Configure Institute' : 'Edit Institute Profile' }}</h3>
-                <h3 *ngIf="isEditing && activeModalTab === 'upi'">Dynamic UPI Gateway</h3>
-                <h3 *ngIf="isEditing && activeModalTab === 'whatsapp'">WhatsApp API Integration</h3>
-                <h3 *ngIf="isEditing && activeModalTab === 'modules'">Modules &amp; Licensing</h3>
-
-                <p *ngIf="!isEditing">Deploy a new multi-tenant instance</p>
-                <p *ngIf="isEditing && activeModalTab === 'profile'">Institute branding, contact phone &amp; campus address</p>
-                <p *ngIf="isEditing && activeModalTab === 'upi'">0% fee direct bank settlements via UPI QR</p>
-                <p *ngIf="isEditing && activeModalTab === 'whatsapp'">Automated digital fee receipts &amp; parent alerts</p>
-                <p *ngIf="isEditing && activeModalTab === 'modules'">Manage active modules &amp; student/branch limits</p>
-              </div>
-            </div>
-            <div class="modal-header-actions">
-              <button
-                *ngIf="isEditing && activeModalTab !== 'profile'"
-                type="button"
-                mat-stroked-button
-                class="header-back-btn"
-                (click)="activeModalTab = 'profile'"
-                matTooltip="Return to Institute Profile">
-                <mat-icon>arrow_back</mat-icon>
-                <span class="back-text">Back</span>
-              </button>
-              <button mat-icon-button (click)="closeModal()" class="close-btn" matTooltip="Close dialog">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <!-- Smart Modal Navigation Tabs (When Editing) -->
-          <div class="modal-nav-tabs" *ngIf="isEditing">
-            <button
-              type="button"
-              class="modal-tab-btn"
-              [class.active]="activeModalTab === 'profile'"
-              (click)="activeModalTab = 'profile'">
-              <mat-icon>business</mat-icon>
-              <span>Profile &amp; Contact</span>
-            </button>
-
-            <button
-              type="button"
-              class="modal-tab-btn upi-tab"
-              [class.active]="activeModalTab === 'upi'"
-              (click)="activeModalTab = 'upi'">
-              <mat-icon class="tab-upi-icon">qr_code_2</mat-icon>
-              <span>Dynamic UPI Gateway</span>
-              <span *ngIf="tenantForm.get('upiId')?.value" class="tab-status-dot online" matTooltip="UPI Gateway Configured &amp; Active"></span>
-              <span *ngIf="!tenantForm.get('upiId')?.value" class="tab-status-badge warn">Setup</span>
-            </button>
-
-            <button
-              type="button"
-              class="modal-tab-btn"
-              [class.active]="activeModalTab === 'whatsapp'"
-              (click)="activeModalTab = 'whatsapp'">
-              <mat-icon>chat</mat-icon>
-              <span>WhatsApp Alerts</span>
-              <span *ngIf="tenantForm.get('whatsAppPhoneId')?.value" class="tab-status-dot online" matTooltip="WhatsApp Configured"></span>
-            </button>
-
-            <button
-              type="button"
-              class="modal-tab-btn"
-              [class.active]="activeModalTab === 'modules'"
-              (click)="activeModalTab = 'modules'">
-              <mat-icon>hub</mat-icon>
-              <span>Modules &amp; Licensing</span>
-            </button>
-          </div>
-
-          <form [formGroup]="tenantForm" (ngSubmit)="saveTenant()" class="modal-body">
-            <!-- TAB 1: Profile & Contact -->
-            <div *ngIf="!isEditing || activeModalTab === 'profile'" class="tab-pane">
-              <!-- Branding & Official Assets Upload Deck (Logo, Official Seal & Digital Signature) -->
-              <div class="branding-assets-deck">
-                <!-- 1. Institute Logo / Emblem -->
-                <div class="asset-card">
-                  <div class="asset-header">
-                    <span class="asset-title">Institute Logo</span>
-                    <span class="asset-tag">Header &amp; ID</span>
-                  </div>
-                  <div class="asset-body">
-                    <div class="asset-preview-box">
-                      <img *ngIf="profilePhotoPreview" [src]="getPhotoUrl(profilePhotoPreview)" alt="Logo Preview" class="asset-img logo-img">
-                      <mat-icon *ngIf="!profilePhotoPreview" class="asset-placeholder-icon">school</mat-icon>
-                    </div>
-                    <div class="asset-actions">
-                      <label class="asset-upload-btn">
-                        <mat-icon>cloud_upload</mat-icon>
-                        <span>{{ profilePhotoPreview ? 'Change' : 'Upload' }}</span>
-                        <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none;">
-                      </label>
-                      <button type="button" *ngIf="profilePhotoPreview" mat-button color="warn" class="remove-asset-btn" (click)="removePhoto()">
-                        <mat-icon>delete_outline</mat-icon>
-                        <span>Remove</span>
-                      </button>
-                    </div>
-                  </div>
-                  <span class="asset-hint">Square PNG/JPG • Header &amp; Cards</span>
-                </div>
-
-                <!-- 2. Official Seal / Rubber Stamp (मुहर) -->
-                <div class="asset-card seal-card">
-                  <div class="asset-header">
-                    <span class="asset-title">Official Seal (मुहर / Stamp)</span>
-                    <button type="button" class="library-toggle-pill seal-pill" (click)="showSealsLibrary = !showSealsLibrary" [matTooltip]="'View & Manage all saved seals (' + savedSeals.length + ')'">
-                      <mat-icon class="pill-icon">collections_bookmark</mat-icon>
-                      <span>Vault ({{ savedSeals.length }})</span>
-                      <mat-icon class="pill-arrow">{{ showSealsLibrary ? 'expand_less' : 'expand_more' }}</mat-icon>
-                    </button>
-                  </div>
-                  <div class="asset-body">
-                    <div class="asset-preview-box seal-preview-box">
-                      <img *ngIf="officialSealPreview" [src]="getPhotoUrl(officialSealPreview)" alt="Official Seal" class="asset-img seal-img">
-                      <mat-icon *ngIf="!officialSealPreview" class="asset-placeholder-icon seal-ph">verified</mat-icon>
-                    </div>
-                    <div class="asset-actions">
-                      <button type="button" mat-stroked-button color="primary" class="generator-btn seal-gen-btn" (click)="openStampMaker()" matTooltip="Create circular/oval digital rubber stamp in real-time">
-                        <mat-icon>auto_awesome</mat-icon>
-                        <span>Generate (मुहर बनाएं)</span>
-                      </button>
-                      <label class="asset-upload-btn seal-btn">
-                        <mat-icon>upload_file</mat-icon>
-                        <span>Upload File</span>
-                        <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onSealSelected($event)" style="display:none;">
-                      </label>
-                      <button type="button" *ngIf="officialSealPreview" mat-button color="warn" class="remove-asset-btn" (click)="removeSeal()">
-                        <mat-icon>delete_outline</mat-icon>
-                        <span>Remove</span>
-                      </button>
-                    </div>
-                  </div>
-                  <span class="asset-hint">Transparent circular PNG • Crisp &amp; sharp on all prints</span>
-
-                  <!-- Multi-Seal Vault / Saved Presets Tray -->
-                  <div class="asset-vault-tray" *ngIf="showSealsLibrary">
-                    <div class="vault-tray-header">
-                      <span class="tray-title">Saved Seals Library (मुहरें):</span>
-                      <button type="button" mat-button class="tray-add-btn" (click)="openStampMaker()">
-                        <mat-icon>add</mat-icon> New Seal
-                      </button>
-                    </div>
-                    <div class="vault-items-grid" *ngIf="savedSeals.length > 0">
-                      <div
-                        *ngFor="let s of savedSeals"
-                        class="vault-item-card"
-                        [class.active-default]="s.isDefault || s.url === officialSealPreview"
-                        (click)="selectDefaultSeal(s)">
-                        <div class="vault-item-thumb">
-                          <img *ngIf="s.url" [src]="getPhotoUrl(s.url)" alt="{{ s.title }}" (error)="$any($event.target).style.display='none'" />
-                          <mat-icon *ngIf="!s.url" class="vault-fallback-icon">verified</mat-icon>
-                        </div>
-                        <div class="vault-item-info">
-                          <span class="vault-item-name" [matTooltip]="s.title">{{ s.title }}</span>
-                          <span class="vault-status-badge" [class.is-default]="s.isDefault || s.url === officialSealPreview">
-                            {{ (s.isDefault || s.url === officialSealPreview) ? '★ Default (लागू)' : 'Click to Apply' }}
-                          </span>
-                        </div>
-                        <button type="button" class="vault-del-btn" (click)="deleteSeal(s, $event)" matTooltip="Delete from library" aria-label="Delete">
-                          <mat-icon>close</mat-icon>
-                        </button>
-                      </div>
-                    </div>
-                    <p class="empty-tray-msg" *ngIf="savedSeals.length === 0">No additional seals saved yet. Click "+ New Seal" to generate one.</p>
-                  </div>
-                </div>
-
-                <!-- 3. Authority / Principal Digital Signature -->
-                <div class="asset-card sign-card">
-                  <div class="asset-header">
-                    <span class="asset-title">Principal / Controller Sign</span>
-                    <button type="button" class="library-toggle-pill sign-pill" (click)="showSignaturesLibrary = !showSignaturesLibrary" [matTooltip]="'View & Manage all saved signatures (' + savedSignatures.length + ')'">
-                      <mat-icon class="pill-icon">collections_bookmark</mat-icon>
-                      <span>Vault ({{ savedSignatures.length }})</span>
-                      <mat-icon class="pill-arrow">{{ showSignaturesLibrary ? 'expand_less' : 'expand_more' }}</mat-icon>
-                    </button>
-                  </div>
-                  <div class="asset-body">
-                    <div class="asset-preview-box sign-preview-box">
-                      <img *ngIf="digitalSignaturePreview" [src]="getPhotoUrl(digitalSignaturePreview)" alt="Digital Signature" class="asset-img sign-img">
-                      <mat-icon *ngIf="!digitalSignaturePreview" class="asset-placeholder-icon sign-ph">draw</mat-icon>
-                    </div>
-                    <div class="asset-actions">
-                      <button type="button" mat-stroked-button color="primary" class="generator-btn sign-gen-btn" (click)="openSignatureStudio()" matTooltip="Draw or generate cursive digital signature in real-time">
-                        <mat-icon>draw</mat-icon>
-                        <span>Create / Draw (साइन बनाएं)</span>
-                      </button>
-                      <label class="asset-upload-btn sign-btn">
-                        <mat-icon>upload_file</mat-icon>
-                        <span>Upload File</span>
-                        <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onSignatureSelected($event)" style="display:none;">
-                      </label>
-                      <button type="button" *ngIf="digitalSignaturePreview" mat-button color="warn" class="remove-asset-btn" (click)="removeSignature()">
-                        <mat-icon>delete_outline</mat-icon>
-                        <span>Remove</span>
-                      </button>
-                    </div>
-                  </div>
-                  <span class="asset-hint">Transparent PNG sign • Marksheets, Admit Cards &amp; Certificates</span>
-
-                  <!-- Multi-Signature Vault / Saved Presets Tray -->
-                  <div class="asset-vault-tray" *ngIf="showSignaturesLibrary">
-                    <div class="vault-tray-header">
-                      <span class="tray-title">Saved Signatures Library (हस्ताक्षर):</span>
-                      <button type="button" mat-button class="tray-add-btn" (click)="openSignatureStudio()">
-                        <mat-icon>add</mat-icon> New Sign
-                      </button>
-                    </div>
-                    <div class="vault-items-grid" *ngIf="savedSignatures.length > 0">
-                      <div
-                        *ngFor="let sg of savedSignatures"
-                        class="vault-item-card"
-                        [class.active-default]="sg.isDefault || sg.url === digitalSignaturePreview"
-                        (click)="selectDefaultSignature(sg)">
-                        <div class="vault-item-thumb sign-thumb">
-                          <img *ngIf="sg.url" [src]="getPhotoUrl(sg.url)" alt="{{ sg.title }}" (error)="$any($event.target).style.display='none'" />
-                          <mat-icon *ngIf="!sg.url" class="vault-fallback-icon">draw</mat-icon>
-                        </div>
-                        <div class="vault-item-info">
-                          <span class="vault-item-name" [matTooltip]="sg.title">{{ sg.title }}</span>
-                          <span class="vault-status-badge" [class.is-default]="sg.isDefault || sg.url === digitalSignaturePreview">
-                            {{ (sg.isDefault || sg.url === digitalSignaturePreview) ? '★ Default (लागू)' : 'Click to Apply' }}
-                          </span>
-                        </div>
-                        <button type="button" class="vault-del-btn" (click)="deleteSignature(sg, $event)" matTooltip="Delete from library" aria-label="Delete">
-                          <mat-icon>close</mat-icon>
-                        </button>
-                      </div>
-                    </div>
-                    <p class="empty-tray-msg" *ngIf="savedSignatures.length === 0">No additional signatures saved yet. Click "+ New Sign" to draw or generate one.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-grid">
-                <!-- Code (Only for new) -->
-                <mat-form-field appearance="outline" *ngIf="!isEditing" class="span-1">
-                  <mat-label>Company / Institute Code (Unique)</mat-label>
-                  <input matInput formControlName="code" placeholder="e.g. APEX, EXCEL" (input)="onCodeInput($event)">
-                  <mat-icon matSuffix>vpn_key</mat-icon>
-                  <mat-hint>Used by users to sign in</mat-hint>
-                  <mat-error *ngIf="tenantForm.get('code')?.hasError('required')">Code is required</mat-error>
-                </mat-form-field>
-
-                <!-- Name -->
-                <mat-form-field appearance="outline" [class.span-2]="isEditing" [class.span-1]="!isEditing">
-                  <mat-label>Institute Name *</mat-label>
-                  <input matInput formControlName="name" placeholder="e.g. Apex Coaching Academy">
-                  <mat-icon matSuffix>school</mat-icon>
-                  <mat-error *ngIf="tenantForm.get('name')?.hasError('required')">Name is required</mat-error>
-                </mat-form-field>
-
-                <!-- Email -->
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Official Email</mat-label>
-                  <input matInput type="email" formControlName="email" placeholder="e.g. info@jnandeep.in">
-                  <mat-icon matSuffix>email</mat-icon>
-                  <mat-error *ngIf="tenantForm.get('email')?.hasError('email')">Invalid email address</mat-error>
-                </mat-form-field>
-
-                <!-- Phone -->
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Contact Phone / Mobile</mat-label>
-                  <input matInput formControlName="contactPhone" placeholder="e.g. +91 9876543210">
-                  <mat-icon matSuffix>phone</mat-icon>
-                </mat-form-field>
-
-                <!-- Website -->
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Website / Portal URL</mat-label>
-                  <input matInput formControlName="website" placeholder="e.g. https://jnandeep.in">
-                  <mat-icon matSuffix>language</mat-icon>
-                </mat-form-field>
-
-                <!-- Affiliation / Registration No. -->
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Affiliation / Registration No.</mat-label>
-                  <input matInput formControlName="affiliationNumber" placeholder="e.g. CBSE/2026/0491 or Reg. No.">
-                  <mat-icon matSuffix>verified</mat-icon>
-                </mat-form-field>
-
-                <!-- Established Year -->
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Established Year</mat-label>
-                  <input matInput formControlName="establishedYear" placeholder="e.g. 2015">
-                  <mat-icon matSuffix>calendar_today</mat-icon>
-                </mat-form-field>
-
-                <!-- Address -->
-                <mat-form-field appearance="outline" class="span-2">
-                  <mat-label>Campus Street Address</mat-label>
-                  <input matInput formControlName="address" placeholder="e.g. Main Road, Jnandeep Campus">
-                  <mat-icon matSuffix>location_on</mat-icon>
-                </mat-form-field>
-
-                <!-- City -->
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>City / District</mat-label>
-                  <input matInput formControlName="city" placeholder="e.g. Patna / Siwan">
-                  <mat-icon matSuffix>apartment</mat-icon>
-                </mat-form-field>
-
-                <!-- State -->
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>State</mat-label>
-                  <input matInput formControlName="state" placeholder="e.g. Bihar / UP">
-                  <mat-icon matSuffix>map</mat-icon>
-                </mat-form-field>
-
-                <!-- Pincode -->
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>PIN Code (Pincode)</mat-label>
-                  <input matInput formControlName="pincode" placeholder="e.g. 841301" maxlength="10">
-                  <mat-icon matSuffix>pin_drop</mat-icon>
-                </mat-form-field>
-              </div>
-            </div>
-
-            <!-- TAB 2: Dynamic UPI Payment Gateway -->
-            <div *ngIf="isEditing && activeModalTab === 'upi'" class="tab-pane">
-              <!-- Live Status & Gateway Intro Banner -->
-              <div class="upi-config-banner">
-                <div class="upi-banner-icon">
-                  <mat-icon>{{ tenantForm.get('upiId')?.value ? 'verified' : 'account_balance_wallet' }}</mat-icon>
-                </div>
-                <div class="upi-banner-text">
-                  <div class="upi-banner-header">
-                    <strong>Zero-Cost Bharat Dynamic UPI Gateway (Direct Bank-to-Bank)</strong>
-                    <span class="upi-live-badge" [class.active]="!!tenantForm.get('upiId')?.value">
-                      <mat-icon style="font-size:12px; width:12px; height:12px; vertical-align:middle; margin-right:3px;">{{ tenantForm.get('upiId')?.value ? 'check_circle' : 'pending' }}</mat-icon><span>{{ tenantForm.get('upiId')?.value ? 'Active: ' + tenantForm.get('upiId')?.value : 'Setup Required' }}</span>
-                    </span>
-                  </div>
-                  <p>All student fee payments made via GPay, PhonePe, Paytm, or BHIM settle <strong>instantly into your institute bank account</strong> with zero middleman gateway commission.</p>
-                </div>
-              </div>
-
-              <!-- Two-Column Layout for Spacious Wide Popup -->
-              <div class="upi-two-col-layout">
-                <!-- Left Column: Inputs & Controls -->
-                <div class="upi-col-fields">
-                  <!-- Institute VPA -->
-                  <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Institute / Campus UPI ID (VPA)</mat-label>
-                    <input
-                      matInput
-                      formControlName="upiId"
-                      placeholder="e.g. jnandeep@sbi or 8088377282@ybl"
-                      autocomplete="off"
-                    />
-                    <mat-icon matPrefix class="field-icon">alternate_email</mat-icon>
-                    <mat-hint>The official UPI ID linked directly to your school/coaching bank account</mat-hint>
-                  </mat-form-field>
-
-                  <div class="form-grid-inner">
-                    <!-- Payee Display Name -->
-                    <mat-form-field appearance="outline">
-                      <mat-label>Payee / Merchant Business Name</mat-label>
-                      <input
-                        matInput
-                        formControlName="upiMerchantName"
-                        placeholder="e.g. Jnandeep Campus"
-                        autocomplete="off"
-                      />
-                      <mat-icon matPrefix class="field-icon">business</mat-icon>
-                      <mat-hint>Verified name on payer app</mat-hint>
-                    </mat-form-field>
-
-                    <!-- MCC Code (Locked to 8211) -->
-                    <mat-form-field appearance="outline">
-                      <mat-label>Merchant Category Code (MCC)</mat-label>
-                      <input
-                        matInput
-                        formControlName="upiMerchantCode"
-                        placeholder="8211"
-                        [readonly]="true"
-                      />
-                      <mat-icon matSuffix matTooltip="Locked to 8211 (Official NPCI Standard Code for Educational Services)" style="font-size:18px; color:#64748b;">lock</mat-icon>
-                      <mat-hint class="single-line-hint" matTooltip="Official NPCI Standard Code (Fixed: 8211)">Official NPCI Standard Code (Fixed: 8211)</mat-hint>
-                    </mat-form-field>
-                  </div>
-
-                  <!-- Company Settlement Bank Account Details (Mapped to Tenant & Branches) -->
-                  <div class="bank-account-setup-card">
-                    <div class="bank-card-header">
-                      <div class="header-left">
-                        <mat-icon class="bank-card-icon">account_balance</mat-icon>
-                        <div class="header-titles">
-                          <strong class="title">Company Settlement Bank Account</strong>
-                          <span class="sub">Official Institute Bank details for NPCI direct settlements &amp; audit records</span>
-                        </div>
-                      </div>
-                      <span class="verified-pill" *ngIf="tenantForm.get('bankAccountNumber')?.value && !tenantForm.get('bankAccountNumber')?.invalid">
-                        <mat-icon style="font-size:13px; width:13px; height:13px; vertical-align:middle; margin-right:3px;">check_circle</mat-icon>
-                        <span>Standard Verified</span>
-                      </span>
-                    </div>
-
-                    <div class="form-grid-inner">
-                      <!-- Bank Name with Autocomplete of Popular Indian Banks -->
-                      <mat-form-field appearance="outline">
-                        <mat-label>Bank Name</mat-label>
-                        <input
-                          matInput
-                          formControlName="bankName"
-                          placeholder="e.g. State Bank of India"
-                          [matAutocomplete]="autoBank"
-                          autocomplete="off"
-                        />
-                        <mat-icon matPrefix class="field-icon">account_balance</mat-icon>
-                        <mat-autocomplete #autoBank="matAutocomplete">
-                          <mat-option *ngFor="let b of filteredBanks" [value]="b">{{ b }}</mat-option>
-                        </mat-autocomplete>
-                        <mat-hint class="single-line-hint" matTooltip="Bank where school/coaching account is maintained">Bank where account is maintained</mat-hint>
-                      </mat-form-field>
-
-                      <!-- Account Type -->
-                      <mat-form-field appearance="outline">
-                        <mat-label>Account Type</mat-label>
-                        <mat-select formControlName="bankAccountType">
-                          <mat-option value="Current">Current Account (Institutional)</mat-option>
-                          <mat-option value="Savings">Savings Account</mat-option>
-                          <mat-option value="OD/CC">Cash Credit / Overdraft (CC/OD)</mat-option>
-                        </mat-select>
-                        <mat-icon matPrefix class="field-icon">account_box</mat-icon>
-                        <mat-hint class="single-line-hint" matTooltip="Institutional standard is Current A/C">Institutional standard: Current A/C</mat-hint>
-                      </mat-form-field>
-                    </div>
-
-                    <div class="form-grid-inner">
-                      <!-- Bank Account Number -->
-                      <mat-form-field appearance="outline">
-                        <mat-label>Bank Account Number</mat-label>
-                        <input
-                          matInput
-                          formControlName="bankAccountNumber"
-                          placeholder="9 to 18 digits Account No"
-                          (input)="onAccountNumberInput($event)"
-                          maxlength="18"
-                          autocomplete="off"
-                        />
-                        <mat-icon matPrefix class="field-icon">credit_card</mat-icon>
-                        <mat-hint class="single-line-hint" matTooltip="9 to 18 digits numeric account number">9 to 18 numeric digits</mat-hint>
-                        <mat-error *ngIf="tenantForm.get('bankAccountNumber')?.hasError('pattern')">
-                          Must be 9 to 18 numeric digits
-                        </mat-error>
-                      </mat-form-field>
-
-                      <!-- Confirm Account Number -->
-                      <mat-form-field appearance="outline">
-                        <mat-label>Confirm Account Number</mat-label>
-                        <input
-                          matInput
-                          formControlName="confirmAccountNumber"
-                          placeholder="Re-enter to verify"
-                          (input)="onConfirmAccountNumberInput($event)"
-                          maxlength="18"
-                          autocomplete="off"
-                        />
-                        <mat-icon matPrefix class="field-icon">verified</mat-icon>
-                        <mat-hint class="single-line-hint" matTooltip="Re-type account number to prevent typo errors">Re-type to prevent typo errors</mat-hint>
-                        <mat-error *ngIf="tenantForm.get('confirmAccountNumber')?.hasError('mismatch')">
-                          Account numbers do not match
-                        </mat-error>
-                      </mat-form-field>
-                    </div>
-
-                    <div class="form-grid-inner">
-                      <!-- Bank IFSC Code -->
-                      <mat-form-field appearance="outline">
-                        <mat-label>Bank IFSC Code</mat-label>
-                        <input
-                          matInput
-                          formControlName="bankIfscCode"
-                          placeholder="e.g. SBIN0001234"
-                          (input)="onIfscInput($event)"
-                          maxlength="11"
-                          style="text-transform: uppercase; font-family: monospace; font-weight: 600;"
-                          autocomplete="off"
-                        />
-                        <mat-icon matPrefix class="field-icon">pin</mat-icon>
-                        <mat-hint class="single-line-hint" matTooltip="11-character RBI standard code (e.g. SBIN0001234)">11-character RBI standard code</mat-hint>
-                        <mat-error *ngIf="tenantForm.get('bankIfscCode')?.hasError('pattern')">
-                          Invalid IFSC (e.g. SBIN0001234)
-                        </mat-error>
-                      </mat-form-field>
-
-                      <!-- Bank Branch Location -->
-                      <mat-form-field appearance="outline">
-                        <mat-label>Bank Branch / City</mat-label>
-                        <input
-                          matInput
-                          formControlName="bankBranch"
-                          placeholder="e.g. Main Branch, Patna"
-                          autocomplete="off"
-                        />
-                        <mat-icon matPrefix class="field-icon">location_city</mat-icon>
-                        <mat-hint class="single-line-hint" matTooltip="Bank branch location or city">Branch location or city</mat-hint>
-                      </mat-form-field>
-                    </div>
-
-                    <!-- Account Holder Legal Beneficiary Name -->
-                    <mat-form-field appearance="outline" class="w-100">
-                      <mat-label>Account Holder / Beneficiary Name</mat-label>
-                      <input
-                        matInput
-                        formControlName="bankAccountHolderName"
-                        placeholder="e.g. Jnandeep Campus Educational Trust"
-                        autocomplete="off"
-                      />
-                      <mat-icon matPrefix class="field-icon">badge</mat-icon>
-                      <mat-hint class="single-line-hint" matTooltip="Official beneficiary legal title registered with bank">Official beneficiary title registered with bank</mat-hint>
-                    </mat-form-field>
-                  </div>
-
-                  <!-- Toggles Card -->
-                  <div class="toggles-card">
-                    <div class="toggle-item">
-                      <div class="toggle-text">
-                        <strong class="toggle-title">Enable Dynamic UPI QR on Invoices &amp; Receipts</strong>
-                        <p class="toggle-sub">Shows instant scan &amp; pay QR codes on student portals, fee counters, and public receipt links.</p>
-                      </div>
-                      <mat-slide-toggle formControlName="upiQrEnabled" color="primary"></mat-slide-toggle>
-                    </div>
-
-                    <div class="toggle-item">
-                      <div class="toggle-text">
-                        <strong class="toggle-title">Automated UTR Verification &amp; Instant Settlement</strong>
-                        <p class="toggle-sub">When parents submit a valid 12-digit UTR, automatically clear invoice dues, settle in Day Book, and generate receipt.</p>
-                      </div>
-                      <mat-slide-toggle formControlName="upiAutoVerify" color="primary"></mat-slide-toggle>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Right Column: Interactive Live Preview Card -->
-                <div class="upi-col-preview">
-                  <div class="upi-preview-card">
-                    <div class="preview-header">
-                      <span class="preview-title">
-                        <mat-icon>smartphone</mat-icon>
-                        <span>Payer Screen Live Preview</span>
-                      </span>
-                      <span class="commission-pill">0% Fee (NPCI)</span>
-                    </div>
-                    <div class="preview-body">
-                      <div class="preview-details">
-                        <div class="preview-row">
-                          <span class="lbl">Payee:</span>
-                          <strong class="val">{{ tenantForm.get('upiMerchantName')?.value || tenantForm.get('name')?.value || 'Your Institute Name' }}</strong>
-                        </div>
-                        <div class="preview-row">
-                          <span class="lbl">UPI VPA:</span>
-                          <span class="vpa-tag">{{ tenantForm.get('upiId')?.value || 'upi-id@bank (enter on left)' }}</span>
-                        </div>
-                        <div class="preview-row">
-                          <span class="lbl">Category:</span>
-                          <span class="val">8211 (Educational Services)</span>
-                        </div>
-                        <div class="preview-row">
-                          <span class="lbl">Direct Bank:</span>
-                          <span class="val" style="color:#16a34a; font-weight:700;">Instant Direct Credit</span>
-                        </div>
-                        <div class="preview-row" *ngIf="tenantForm.get('bankName')?.value">
-                          <span class="lbl">Settlement Bank:</span>
-                          <span class="val" style="font-weight:600; color:#0f172a;">{{ tenantForm.get('bankName')?.value }} ({{ getMaskedAccount() }})</span>
-                        </div>
-                        <div class="preview-row" *ngIf="tenantForm.get('bankIfscCode')?.value">
-                          <span class="lbl">Bank IFSC:</span>
-                          <span class="val" style="font-family:monospace; font-weight:700; color:#1e40af;">{{ tenantForm.get('bankIfscCode')?.value }}</span>
-                        </div>
-                        <div class="preview-row" *ngIf="tenantForm.get('bankAccountHolderName')?.value">
-                          <span class="lbl">Beneficiary:</span>
-                          <span class="val" style="font-weight:600;">{{ tenantForm.get('bankAccountHolderName')?.value }}</span>
-                        </div>
-                      </div>
-
-                      <div class="supported-apps">
-                        <span class="apps-label">Supported Apps:</span>
-                        <div class="apps-badges">
-                          <span class="app-chip gpay">Google Pay</span>
-                          <span class="app-chip phonepe">PhonePe</span>
-                          <span class="app-chip paytm">Paytm</span>
-                          <span class="app-chip bhim">BHIM UPI</span>
-                          <span class="app-chip cred">CRED</span>
-                          <span class="app-chip any">Any UPI App</span>
-                        </div>
-                      </div>
-
-                      <div class="settlement-verified-badge" *ngIf="tenantForm.get('bankAccountNumber')?.value">
-                        <mat-icon>verified_user</mat-icon>
-                        <span>Direct NPCI Settlement Bank Mapped</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- TAB 3: WhatsApp Cloud API -->
-            <div *ngIf="isEditing && activeModalTab === 'whatsapp'" class="tab-pane">
-              <div class="wa-config-banner">
-                <div class="wa-banner-icon">
-                  <mat-icon>chat</mat-icon>
-                </div>
-                <div class="wa-banner-text">
-                  <strong>Meta Cloud WhatsApp API Integration</strong>
-                  <p>Send automated digital fee receipts, balance due notices, homework alerts, and exam report cards directly to parents' WhatsApp.</p>
-                </div>
-              </div>
-
-              <div class="form-grid">
-                <!-- WhatsApp Phone ID -->
-                <mat-form-field appearance="outline" class="span-2">
-                  <mat-label>WhatsApp Phone Number ID</mat-label>
-                  <input matInput formControlName="whatsAppPhoneId" placeholder="e.g. 104829103982">
-                  <mat-icon matPrefix>chat</mat-icon>
-                  <mat-hint>Meta Cloud API Phone Number ID</mat-hint>
-                </mat-form-field>
-
-                <!-- WhatsApp Access Token -->
-                <mat-form-field appearance="outline" class="span-2">
-                  <mat-label>WhatsApp Permanent Access Token</mat-label>
-                  <input matInput formControlName="whatsAppAccessToken" placeholder="Meta Graph API System User Token">
-                  <mat-icon matPrefix>security</mat-icon>
-                  <mat-hint>System User Permanent Token from Meta Business Suite</mat-hint>
-                </mat-form-field>
-              </div>
-            </div>
-
-            <!-- TAB 4: Modules & Licensing -->
-            <div *ngIf="!isEditing || activeModalTab === 'modules'" class="tab-pane">
-              <!-- ERP Module Packaging / Subscription Selection -->
-              <div class="modules-setup-block" style="margin: 0 0 16px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-                  <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0; font-size:14px; font-weight:700; color:#1e3a8a;">
-                    <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">hub</mat-icon>
-                    <span>Subscribed Modules &amp; Licensing</span>
-                  </h4>
-                  <span *ngIf="!isSuperAdmin" style="font-size:11px; font-weight:700; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:2px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;">
-                    <mat-icon style="font-size:13px; width:13px; height:13px;">lock</mat-icon> Managed by Super Admin
+                    {{ t.subscriptionStatus || 'TrialActive' }}
                   </span>
                 </div>
-                <p style="margin:0 0 12px; font-size:12px; color:#64748b;">
-                  {{ isSuperAdmin ? 'Configure which modules are licensed for this institute. Unchecked modules will be completely hidden from their sidebar and student forms.' : 'The functional modules enabled for your institute. Contact SaaS support to subscribe to additional modules.' }}
-                </p>
-                
-                <div class="modules-checkbox-grid">
-                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <input type="checkbox" formControlName="hasSchoolModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <mat-icon class="mod-check-icon school">school</mat-icon>
-                    <span class="mod-check-label">School Module</span>
-                  </label>
-                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <input type="checkbox" formControlName="hasCoachingModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <mat-icon class="mod-check-icon coaching">menu_book</mat-icon>
-                    <span class="mod-check-label">Coaching Module</span>
-                  </label>
-                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <input type="checkbox" formControlName="hasHostelModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <mat-icon class="mod-check-icon hostel">hotel</mat-icon>
-                    <span class="mod-check-label">Hostel &amp; Residential</span>
-                  </label>
-                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <input type="checkbox" formControlName="hasLibraryModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <mat-icon class="mod-check-icon library">local_library</mat-icon>
-                    <span class="mod-check-label">Library Management</span>
-                  </label>
-                  <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <input type="checkbox" formControlName="hasTransportModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
-                    <mat-icon class="mod-check-icon transport">directions_bus</mat-icon>
-                    <span class="mod-check-label">Transport &amp; Fleet</span>
-                  </label>
-                </div>
+                @if (t.trialEndDate) {
+                  <span style="font-size:11px; color:#64748b; font-weight:600;">
+                    {{ getTrialDaysText(t) }}
+                  </span>
+                }
               </div>
-
-              <!-- Subscription Plan & Quota Tier -->
-              <div class="subscription-setup-block" style="margin: 0 0 16px; padding: 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
-                <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:14px; font-weight:700; color:#1e3a8a;">
-                  <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">workspace_premium</mat-icon>
-                  <span>Subscription Plan &amp; Quotas</span>
-                </h4>
-                <p *ngIf="!isSuperAdmin" style="margin:0 0 10px; font-size:12px; color:#1e40af;">
-                  Subscription tier and limits are controlled by your SaaS administrator.
-                </p>
-
-                <div class="form-grid" *ngIf="isSuperAdmin">
-                  <mat-form-field appearance="outline" class="span-1">
-                    <mat-label>Subscription Plan</mat-label>
-                    <input matInput formControlName="subscriptionPlan" placeholder="FreeTrial, Starter, Growth, Enterprise">
-                    <mat-icon matSuffix>card_membership</mat-icon>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline" class="span-1">
-                    <mat-label>Subscription Status</mat-label>
-                    <input matInput formControlName="subscriptionStatus" placeholder="TrialActive, Active, Expired">
-                    <mat-icon matSuffix>verified</mat-icon>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline" class="span-1">
-                    <mat-label>Max Students Quota</mat-label>
-                    <input matInput type="number" formControlName="maxStudentsLimit" placeholder="e.g. 50">
-                    <mat-icon matSuffix>school</mat-icon>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline" class="span-1">
-                    <mat-label>Max Branches Limit</mat-label>
-                    <input matInput type="number" formControlName="maxBranchesLimit" placeholder="e.g. 2">
-                    <mat-icon matSuffix>apartment</mat-icon>
-                  </mat-form-field>
-                </div>
-
-                <div *ngIf="!isSuperAdmin" style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#1e3a8a; background:#ffffff; padding:10px 14px; border-radius:6px; border:1px solid #dbeafe;">
-                  <div>Plan: <strong>{{ tenantForm.get('subscriptionPlan')?.value || 'FreeTrial' }}</strong></div>
-                  <div>Status: <strong>{{ tenantForm.get('subscriptionStatus')?.value || 'TrialActive' }}</strong></div>
-                  <div>Max Students: <strong>{{ tenantForm.get('maxStudentsLimit')?.value || 50 }}</strong></div>
-                  <div>Max Branches: <strong>{{ tenantForm.get('maxBranchesLimit')?.value || 2 }}</strong></div>
-                </div>
+              <div class="tenant-limits-row">
+                <span class="limit-badge">
+                  <mat-icon>groups</mat-icon>
+                  <span>Max Students: <strong>{{ t.maxStudentsLimit || 50 }}</strong></span>
+                </span>
+                <span class="limit-badge">
+                  <mat-icon>apartment</mat-icon>
+                  <span>Max Branches: <strong>{{ t.maxBranchesLimit || 2 }}</strong></span>
+                </span>
               </div>
+              <div class="tenant-modules-strip">
+                @if (isTenantModuleActive(t, 'school')) {
+                  <span class="mod-pill school" matTooltip="School Module Active">
+                    <mat-icon>school</mat-icon>
+                    <span>School</span>
+                  </span>
+                }
+                @if (isTenantModuleActive(t, 'coaching')) {
+                  <span class="mod-pill coaching" matTooltip="Coaching Module Active">
+                    <mat-icon>menu_book</mat-icon>
+                    <span>Coaching</span>
+                  </span>
+                }
+                @if (isTenantModuleActive(t, 'hostel')) {
+                  <span class="mod-pill hostel" matTooltip="Hostel Module Active">
+                    <mat-icon>hotel</mat-icon>
+                    <span>Hostel</span>
+                  </span>
+                }
+                @if (isTenantModuleActive(t, 'library')) {
+                  <span class="mod-pill library" matTooltip="Library Module Active">
+                    <mat-icon>local_library</mat-icon>
+                    <span>Library</span>
+                  </span>
+                }
+                @if (isTenantModuleActive(t, 'transport')) {
+                  <span class="mod-pill transport" matTooltip="Transport Module Active">
+                    <mat-icon>directions_bus</mat-icon>
+                    <span>Transport</span>
+                  </span>
+                }
+              </div>
+              <div class="card-actions">
+                <button mat-stroked-button color="primary" class="edit-btn" (click)="openEditModal(t)">
+                  <mat-icon>edit</mat-icon>
+                  <span>{{ isSuperAdmin ? 'Configure Institute' : 'Edit Profile' }}</span>
+                </button>
+                <button mat-stroked-button class="upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Zero-Fee Dynamic UPI QR &amp; VPA">
+                  <mat-icon class="upi-btn-icon">qr_code_2</mat-icon>
+                  <span>UPI Gateway</span>
+                </button>
+                @if (isSuperAdmin) {
+                  <button mat-button [color]="t.isActive ? 'warn' : 'accent'" (click)="toggleStatus(t)">
+                    <mat-icon>{{ t.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
+                    <span>{{ t.isActive ? 'Deactivate' : 'Activate' }}</span>
+                  </button>
+                }
+              </div>
+            </mat-card>
+          }
+          @if (filteredTenants.length === 0 && !loading) {
+            <div class="empty-state">
+              <mat-icon class="empty-icon">domain_disabled</mat-icon>
+              <h3>No Coaching Institutes Found</h3>
+              <p>No institutes match your search or no tenants have been provisioned yet.</p>
+              @if (isSuperAdmin) {
+                <button mat-raised-button color="primary" (click)="openCreateModal()">Provision First Institute</button>
+              }
             </div>
-
-            <!-- Initial Administrator Provisioning (Only on Create) -->
-            <div *ngIf="!isEditing" class="admin-setup-block">
-              <h4 class="block-title">
-                <mat-icon>admin_panel_settings</mat-icon>
-                <span>Initial Institute Director / Admin Credentials</span>
-              </h4>
-              <div class="form-grid">
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Admin Full Name</mat-label>
-                  <input matInput formControlName="adminFullName" placeholder="e.g. Dr. Rajesh Sharma">
-                  <mat-icon matSuffix>person</mat-icon>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="span-1">
-                  <mat-label>Admin Username</mat-label>
-                  <input matInput formControlName="adminUsername" placeholder="e.g. admin">
-                  <mat-icon matSuffix>badge</mat-icon>
-                  <mat-error *ngIf="tenantForm.get('adminUsername')?.hasError('required')">Username required</mat-error>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="span-2">
-                  <mat-label>Initial Admin Password</mat-label>
-                  <input matInput type="password" formControlName="adminPassword" placeholder="Minimum 6 characters">
-                  <mat-icon matSuffix>lock</mat-icon>
-                  <mat-error *ngIf="tenantForm.get('adminPassword')?.hasError('required')">Password required</mat-error>
-                </mat-form-field>
+          }
+        </div>
+      }
+    
+      <!-- Create / Edit Modal Backdrop (Clicks outside do NOT close modal to prevent accidental data loss) -->
+      @if (showModal) {
+        <div class="modal-backdrop">
+          <div class="modal-dialog" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <div class="modal-title-group">
+                <div class="header-icon-box" [style.background]="activeModalTab === 'upi' ? '#059669' : '#2563eb'">
+                  @if (!isEditing) {
+                    <mat-icon>add_business</mat-icon>
+                  }
+                  @if (isEditing && activeModalTab === 'profile') {
+                    <mat-icon>business</mat-icon>
+                  }
+                  @if (isEditing && activeModalTab === 'upi') {
+                    <mat-icon>qr_code_2</mat-icon>
+                  }
+                  @if (isEditing && activeModalTab === 'whatsapp') {
+                    <mat-icon>chat</mat-icon>
+                  }
+                  @if (isEditing && activeModalTab === 'modules') {
+                    <mat-icon>hub</mat-icon>
+                  }
+                </div>
+                <div class="modal-title-texts">
+                  @if (!isEditing) {
+                    <h3>Provision New Institute</h3>
+                  }
+                  @if (isEditing && activeModalTab === 'profile') {
+                    <h3>{{ isSuperAdmin ? 'Configure Institute' : 'Edit Institute Profile' }}</h3>
+                  }
+                  @if (isEditing && activeModalTab === 'upi') {
+                    <h3>Dynamic UPI Gateway</h3>
+                  }
+                  @if (isEditing && activeModalTab === 'whatsapp') {
+                    <h3>WhatsApp API Integration</h3>
+                  }
+                  @if (isEditing && activeModalTab === 'modules') {
+                    <h3>Modules &amp; Licensing</h3>
+                  }
+                  @if (!isEditing) {
+                    <p>Deploy a new multi-tenant instance</p>
+                  }
+                  @if (isEditing && activeModalTab === 'profile') {
+                    <p>Institute branding, contact phone &amp; campus address</p>
+                  }
+                  @if (isEditing && activeModalTab === 'upi') {
+                    <p>0% fee direct bank settlements via UPI QR</p>
+                  }
+                  @if (isEditing && activeModalTab === 'whatsapp') {
+                    <p>Automated digital fee receipts &amp; parent alerts</p>
+                  }
+                  @if (isEditing && activeModalTab === 'modules') {
+                    <p>Manage active modules &amp; student/branch limits</p>
+                  }
+                </div>
               </div>
-            </div>
-
-            <!-- Initial Branches Provisioning (Only on Create) -->
-            <div *ngIf="!isEditing" class="branches-setup-block">
-              <div class="block-title-row">
-                <h4 class="block-title">
-                  <mat-icon>store</mat-icon>
-                  <span>Institute Branches (Multi-Branch Setup)</span>
-                </h4>
-                <button type="button" mat-stroked-button color="primary" class="add-branch-btn" (click)="addBranchRow(false)">
-                  <mat-icon>add</mat-icon>
-                  <span>Add Branch</span>
+              <div class="modal-header-actions">
+                @if (isEditing && activeModalTab !== 'profile') {
+                  <button
+                    type="button"
+                    mat-stroked-button
+                    class="header-back-btn"
+                    (click)="activeModalTab = 'profile'"
+                    matTooltip="Return to Institute Profile">
+                    <mat-icon>arrow_back</mat-icon>
+                    <span class="back-text">Back</span>
+                  </button>
+                }
+                <button mat-icon-button (click)="closeModal()" class="close-btn" matTooltip="Close dialog">
+                  <mat-icon>close</mat-icon>
                 </button>
               </div>
-              <p class="block-desc">Configure the initial branches for this institute (e.g. Main Branch, Delhi, Patna). You can add more later.</p>
-
-              <div formArrayName="branches" class="branches-list">
-                <div *ngFor="let br of branchesFormArray.controls; let i = index" [formGroupName]="i" class="branch-row-card">
-                  <div class="branch-row-header">
-                    <span class="branch-row-badge" [class.main-badge]="br.get('isMainBranch')?.value">
-                      <mat-icon>{{ br.get('isMainBranch')?.value ? 'star' : 'apartment' }}</mat-icon>
-                      {{ br.get('isMainBranch')?.value ? 'Main Branch (HQ)' : 'Branch #' + (i + 1) }}
-                    </span>
-                    <button type="button" mat-icon-button color="warn" (click)="removeBranchRow(i)" *ngIf="branchesFormArray.length > 1" matTooltip="Remove branch">
-                      <mat-icon>delete_outline</mat-icon>
-                    </button>
+            </div>
+            <!-- Smart Modal Navigation Tabs (When Editing) -->
+            @if (isEditing) {
+              <div class="modal-nav-tabs">
+                <button
+                  type="button"
+                  class="modal-tab-btn"
+                  [class.active]="activeModalTab === 'profile'"
+                  (click)="activeModalTab = 'profile'">
+                  <mat-icon>business</mat-icon>
+                  <span>Profile &amp; Contact</span>
+                </button>
+                <button
+                  type="button"
+                  class="modal-tab-btn upi-tab"
+                  [class.active]="activeModalTab === 'upi'"
+                  (click)="activeModalTab = 'upi'">
+                  <mat-icon class="tab-upi-icon">qr_code_2</mat-icon>
+                  <span>Dynamic UPI Gateway</span>
+                  @if (tenantForm.get('upiId')?.value) {
+                    <span class="tab-status-dot online" matTooltip="UPI Gateway Configured &amp; Active"></span>
+                  }
+                  @if (!tenantForm.get('upiId')?.value) {
+                    <span class="tab-status-badge warn">Setup</span>
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="modal-tab-btn"
+                  [class.active]="activeModalTab === 'whatsapp'"
+                  (click)="activeModalTab = 'whatsapp'">
+                  <mat-icon>chat</mat-icon>
+                  <span>WhatsApp Alerts</span>
+                  @if (tenantForm.get('whatsAppPhoneId')?.value) {
+                    <span class="tab-status-dot online" matTooltip="WhatsApp Configured"></span>
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="modal-tab-btn"
+                  [class.active]="activeModalTab === 'modules'"
+                  (click)="activeModalTab = 'modules'">
+                  <mat-icon>hub</mat-icon>
+                  <span>Modules &amp; Licensing</span>
+                </button>
+              </div>
+            }
+            <form [formGroup]="tenantForm" (ngSubmit)="saveTenant()" class="modal-body">
+              <!-- TAB 1: Profile & Contact -->
+              @if (!isEditing || activeModalTab === 'profile') {
+                <div class="tab-pane">
+                  <!-- Branding & Official Assets Upload Deck (Logo, Official Seal & Digital Signature) -->
+                  <div class="branding-assets-deck">
+                    <!-- 1. Institute Logo / Emblem -->
+                    <div class="asset-card">
+                      <div class="asset-header">
+                        <span class="asset-title">Institute Logo</span>
+                        <span class="asset-tag">Header &amp; ID</span>
+                      </div>
+                      <div class="asset-body">
+                        <div class="asset-preview-box">
+                          @if (profilePhotoPreview) {
+                            <img [src]="getPhotoUrl(profilePhotoPreview)" alt="Logo Preview" class="asset-img logo-img">
+                          }
+                          @if (!profilePhotoPreview) {
+                            <mat-icon class="asset-placeholder-icon">school</mat-icon>
+                          }
+                        </div>
+                        <div class="asset-actions">
+                          <label class="asset-upload-btn">
+                            <mat-icon>cloud_upload</mat-icon>
+                            <span>{{ profilePhotoPreview ? 'Change' : 'Upload' }}</span>
+                            <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none;">
+                          </label>
+                          @if (profilePhotoPreview) {
+                            <button type="button" mat-button color="warn" class="remove-asset-btn" (click)="removePhoto()">
+                              <mat-icon>delete_outline</mat-icon>
+                              <span>Remove</span>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                      <span class="asset-hint">Square PNG/JPG • Header &amp; Cards</span>
+                    </div>
+                    <!-- 2. Official Seal / Rubber Stamp (मुहर) -->
+                    <div class="asset-card seal-card">
+                      <div class="asset-header">
+                        <span class="asset-title">Official Seal (मुहर / Stamp)</span>
+                        <button type="button" class="library-toggle-pill seal-pill" (click)="showSealsLibrary = !showSealsLibrary" [matTooltip]="'View & Manage all saved seals (' + savedSeals.length + ')'">
+                          <mat-icon class="pill-icon">collections_bookmark</mat-icon>
+                          <span>Vault ({{ savedSeals.length }})</span>
+                          <mat-icon class="pill-arrow">{{ showSealsLibrary ? 'expand_less' : 'expand_more' }}</mat-icon>
+                        </button>
+                      </div>
+                      <div class="asset-body">
+                        <div class="asset-preview-box seal-preview-box">
+                          @if (officialSealPreview) {
+                            <img [src]="getPhotoUrl(officialSealPreview)" alt="Official Seal" class="asset-img seal-img">
+                          }
+                          @if (!officialSealPreview) {
+                            <mat-icon class="asset-placeholder-icon seal-ph">verified</mat-icon>
+                          }
+                        </div>
+                        <div class="asset-actions">
+                          <button type="button" mat-stroked-button color="primary" class="generator-btn seal-gen-btn" (click)="openStampMaker()" matTooltip="Create circular/oval digital rubber stamp in real-time">
+                            <mat-icon>auto_awesome</mat-icon>
+                            <span>Generate (मुहर बनाएं)</span>
+                          </button>
+                          <label class="asset-upload-btn seal-btn">
+                            <mat-icon>upload_file</mat-icon>
+                            <span>Upload File</span>
+                            <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onSealSelected($event)" style="display:none;">
+                          </label>
+                          @if (officialSealPreview) {
+                            <button type="button" mat-button color="warn" class="remove-asset-btn" (click)="removeSeal()">
+                              <mat-icon>delete_outline</mat-icon>
+                              <span>Remove</span>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                      <span class="asset-hint">Transparent circular PNG • Crisp &amp; sharp on all prints</span>
+                      <!-- Multi-Seal Vault / Saved Presets Tray -->
+                      @if (showSealsLibrary) {
+                        <div class="asset-vault-tray">
+                          <div class="vault-tray-header">
+                            <span class="tray-title">Saved Seals Library (मुहरें):</span>
+                            <button type="button" mat-button class="tray-add-btn" (click)="openStampMaker()">
+                              <mat-icon>add</mat-icon> New Seal
+                            </button>
+                          </div>
+                          @if (savedSeals.length > 0) {
+                            <div class="vault-items-grid">
+                              @for (s of savedSeals; track s) {
+                                <div
+                                  class="vault-item-card"
+                                  [class.active-default]="s.isDefault || s.url === officialSealPreview"
+                                  (click)="selectDefaultSeal(s)">
+                                  <div class="vault-item-thumb">
+                                    @if (s.url) {
+                                      <img [src]="getPhotoUrl(s.url)" alt="{{ s.title }}" (error)="$any($event.target).style.display='none'" />
+                                    }
+                                    @if (!s.url) {
+                                      <mat-icon class="vault-fallback-icon">verified</mat-icon>
+                                    }
+                                  </div>
+                                  <div class="vault-item-info">
+                                    <span class="vault-item-name" [matTooltip]="s.title">{{ s.title }}</span>
+                                    <span class="vault-status-badge" [class.is-default]="s.isDefault || s.url === officialSealPreview">
+                                      {{ (s.isDefault || s.url === officialSealPreview) ? '★ Default (लागू)' : 'Click to Apply' }}
+                                    </span>
+                                  </div>
+                                  <button type="button" class="vault-del-btn" (click)="deleteSeal(s, $event)" matTooltip="Delete from library" aria-label="Delete">
+                                    <mat-icon>close</mat-icon>
+                                  </button>
+                                </div>
+                              }
+                            </div>
+                          }
+                          @if (savedSeals.length === 0) {
+                            <p class="empty-tray-msg">No additional seals saved yet. Click "+ New Seal" to generate one.</p>
+                          }
+                        </div>
+                      }
+                    </div>
+                    <!-- 3. Authority / Principal Digital Signature -->
+                    <div class="asset-card sign-card">
+                      <div class="asset-header">
+                        <span class="asset-title">Principal / Controller Sign</span>
+                        <button type="button" class="library-toggle-pill sign-pill" (click)="showSignaturesLibrary = !showSignaturesLibrary" [matTooltip]="'View & Manage all saved signatures (' + savedSignatures.length + ')'">
+                          <mat-icon class="pill-icon">collections_bookmark</mat-icon>
+                          <span>Vault ({{ savedSignatures.length }})</span>
+                          <mat-icon class="pill-arrow">{{ showSignaturesLibrary ? 'expand_less' : 'expand_more' }}</mat-icon>
+                        </button>
+                      </div>
+                      <div class="asset-body">
+                        <div class="asset-preview-box sign-preview-box">
+                          @if (digitalSignaturePreview) {
+                            <img [src]="getPhotoUrl(digitalSignaturePreview)" alt="Digital Signature" class="asset-img sign-img">
+                          }
+                          @if (!digitalSignaturePreview) {
+                            <mat-icon class="asset-placeholder-icon sign-ph">draw</mat-icon>
+                          }
+                        </div>
+                        <div class="asset-actions">
+                          <button type="button" mat-stroked-button color="primary" class="generator-btn sign-gen-btn" (click)="openSignatureStudio()" matTooltip="Draw or generate cursive digital signature in real-time">
+                            <mat-icon>draw</mat-icon>
+                            <span>Create / Draw (साइन बनाएं)</span>
+                          </button>
+                          <label class="asset-upload-btn sign-btn">
+                            <mat-icon>upload_file</mat-icon>
+                            <span>Upload File</span>
+                            <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onSignatureSelected($event)" style="display:none;">
+                          </label>
+                          @if (digitalSignaturePreview) {
+                            <button type="button" mat-button color="warn" class="remove-asset-btn" (click)="removeSignature()">
+                              <mat-icon>delete_outline</mat-icon>
+                              <span>Remove</span>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                      <span class="asset-hint">Transparent PNG sign • Marksheets, Admit Cards &amp; Certificates</span>
+                      <!-- Multi-Signature Vault / Saved Presets Tray -->
+                      @if (showSignaturesLibrary) {
+                        <div class="asset-vault-tray">
+                          <div class="vault-tray-header">
+                            <span class="tray-title">Saved Signatures Library (हस्ताक्षर):</span>
+                            <button type="button" mat-button class="tray-add-btn" (click)="openSignatureStudio()">
+                              <mat-icon>add</mat-icon> New Sign
+                            </button>
+                          </div>
+                          @if (savedSignatures.length > 0) {
+                            <div class="vault-items-grid">
+                              @for (sg of savedSignatures; track sg) {
+                                <div
+                                  class="vault-item-card"
+                                  [class.active-default]="sg.isDefault || sg.url === digitalSignaturePreview"
+                                  (click)="selectDefaultSignature(sg)">
+                                  <div class="vault-item-thumb sign-thumb">
+                                    @if (sg.url) {
+                                      <img [src]="getPhotoUrl(sg.url)" alt="{{ sg.title }}" (error)="$any($event.target).style.display='none'" />
+                                    }
+                                    @if (!sg.url) {
+                                      <mat-icon class="vault-fallback-icon">draw</mat-icon>
+                                    }
+                                  </div>
+                                  <div class="vault-item-info">
+                                    <span class="vault-item-name" [matTooltip]="sg.title">{{ sg.title }}</span>
+                                    <span class="vault-status-badge" [class.is-default]="sg.isDefault || sg.url === digitalSignaturePreview">
+                                      {{ (sg.isDefault || sg.url === digitalSignaturePreview) ? '★ Default (लागू)' : 'Click to Apply' }}
+                                    </span>
+                                  </div>
+                                  <button type="button" class="vault-del-btn" (click)="deleteSignature(sg, $event)" matTooltip="Delete from library" aria-label="Delete">
+                                    <mat-icon>close</mat-icon>
+                                  </button>
+                                </div>
+                              }
+                            </div>
+                          }
+                          @if (savedSignatures.length === 0) {
+                            <p class="empty-tray-msg">No additional signatures saved yet. Click "+ New Sign" to draw or generate one.</p>
+                          }
+                        </div>
+                      }
+                    </div>
                   </div>
                   <div class="form-grid">
-                    <mat-form-field appearance="outline" class="span-1">
-                      <mat-label>Branch Name *</mat-label>
-                      <input matInput formControlName="name" placeholder="e.g. Delhi Branch">
-                      <mat-error *ngIf="br.get('name')?.hasError('required')">Branch name required</mat-error>
+                    <!-- Code (Only for new) -->
+                    @if (!isEditing) {
+                      <mat-form-field appearance="outline" class="span-1">
+                        <mat-label>Company / Institute Code (Unique)</mat-label>
+                        <input matInput formControlName="code" placeholder="e.g. APEX, EXCEL" (input)="onCodeInput($event)">
+                        <mat-icon matSuffix>vpn_key</mat-icon>
+                        <mat-hint>Used by users to sign in</mat-hint>
+                        @if (tenantForm.get('code')?.hasError('required')) {
+                          <mat-error>Code is required</mat-error>
+                        }
+                      </mat-form-field>
+                    }
+                    <!-- Name -->
+                    <mat-form-field appearance="outline" [class.span-2]="isEditing" [class.span-1]="!isEditing">
+                      <mat-label>Institute Name *</mat-label>
+                      <input matInput formControlName="name" placeholder="e.g. Apex Coaching Academy">
+                      <mat-icon matSuffix>school</mat-icon>
+                      @if (tenantForm.get('name')?.hasError('required')) {
+                        <mat-error>Name is required</mat-error>
+                      }
                     </mat-form-field>
-
+                    <!-- Email -->
                     <mat-form-field appearance="outline" class="span-1">
-                      <mat-label>Branch Code *</mat-label>
-                      <input matInput formControlName="code" placeholder="e.g. DEL" (input)="onBranchCodeInput($event, i)">
-                      <mat-error *ngIf="br.get('code')?.hasError('required')">Code required</mat-error>
+                      <mat-label>Official Email</mat-label>
+                      <input matInput type="email" formControlName="email" placeholder="e.g. info@jnandeep.in">
+                      <mat-icon matSuffix>email</mat-icon>
+                      @if (tenantForm.get('email')?.hasError('email')) {
+                        <mat-error>Invalid email address</mat-error>
+                      }
                     </mat-form-field>
-
+                    <!-- Phone -->
                     <mat-form-field appearance="outline" class="span-1">
-                      <mat-label>Contact Phone</mat-label>
-                      <input matInput formControlName="contactPhone" placeholder="Branch phone">
+                      <mat-label>Contact Phone / Mobile</mat-label>
+                      <input matInput formControlName="contactPhone" placeholder="e.g. +91 9876543210">
+                      <mat-icon matSuffix>phone</mat-icon>
                     </mat-form-field>
-
+                    <!-- Website -->
                     <mat-form-field appearance="outline" class="span-1">
-                      <mat-label>Branch Address</mat-label>
-                      <input matInput formControlName="address" placeholder="e.g. Connaught Place, New Delhi">
+                      <mat-label>Website / Portal URL</mat-label>
+                      <input matInput formControlName="website" placeholder="e.g. https://jnandeep.in">
+                      <mat-icon matSuffix>language</mat-icon>
                     </mat-form-field>
-
+                    <!-- Affiliation / Registration No. -->
                     <mat-form-field appearance="outline" class="span-1">
-                      <mat-label>Branch City</mat-label>
-                      <input matInput formControlName="city" placeholder="e.g. New Delhi">
+                      <mat-label>Affiliation / Registration No.</mat-label>
+                      <input matInput formControlName="affiliationNumber" placeholder="e.g. CBSE/2026/0491 or Reg. No.">
+                      <mat-icon matSuffix>verified</mat-icon>
                     </mat-form-field>
-
+                    <!-- Established Year -->
                     <mat-form-field appearance="outline" class="span-1">
-                      <mat-label>PIN Code</mat-label>
-                      <input matInput formControlName="pincode" placeholder="e.g. 110001">
+                      <mat-label>Established Year</mat-label>
+                      <input matInput formControlName="establishedYear" placeholder="e.g. 2015">
+                      <mat-icon matSuffix>calendar_today</mat-icon>
+                    </mat-form-field>
+                    <!-- Address -->
+                    <mat-form-field appearance="outline" class="span-2">
+                      <mat-label>Campus Street Address</mat-label>
+                      <input matInput formControlName="address" placeholder="e.g. Main Road, Jnandeep Campus">
+                      <mat-icon matSuffix>location_on</mat-icon>
+                    </mat-form-field>
+                    <!-- City -->
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>City / District</mat-label>
+                      <input matInput formControlName="city" placeholder="e.g. Patna / Siwan">
+                      <mat-icon matSuffix>apartment</mat-icon>
+                    </mat-form-field>
+                    <!-- State -->
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>State</mat-label>
+                      <input matInput formControlName="state" placeholder="e.g. Bihar / UP">
+                      <mat-icon matSuffix>map</mat-icon>
+                    </mat-form-field>
+                    <!-- Pincode -->
+                    <mat-form-field appearance="outline" class="span-1">
+                      <mat-label>PIN Code (Pincode)</mat-label>
+                      <input matInput formControlName="pincode" placeholder="e.g. 841301" maxlength="10">
+                      <mat-icon matSuffix>pin_drop</mat-icon>
                     </mat-form-field>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div *ngIf="formError" class="modal-error">
-              <mat-icon>error</mat-icon>
-              <span>{{ formError }}</span>
-            </div>
-
-            <div class="modal-footer">
-              <button
-                type="button"
-                mat-stroked-button
-                color="primary"
-                class="back-to-profile-btn"
-                *ngIf="isEditing && activeModalTab !== 'profile'"
-                (click)="activeModalTab = 'profile'">
-                <mat-icon>arrow_back</mat-icon>
-                <span>Back to Profile</span>
-              </button>
-              <div class="footer-right-actions">
-                <button type="button" mat-button (click)="onCancel()">{{ (isEditing && activeModalTab !== 'profile') ? 'Back' : 'Cancel' }}</button>
-                <button type="submit" mat-raised-button color="primary" [disabled]="tenantForm.invalid || formSaving" (click)="saveTenant()">
-                  <mat-spinner diameter="18" *ngIf="formSaving" style="display:inline-block; margin-right:6px;"></mat-spinner>
-                  <span>{{ isEditing ? 'Save Changes' : 'Provision Institute' }}</span>
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-
-    </div>
-  `,
+              }
+              <!-- TAB 2: Dynamic UPI Payment Gateway -->
+              @if (isEditing && activeModalTab === 'upi') {
+                <div class="tab-pane">
+                  <!-- Live Status & Gateway Intro Banner -->
+                  <div class="upi-config-banner">
+                    <div class="upi-banner-icon">
+                      <mat-icon>{{ tenantForm.get('upiId')?.value ? 'verified' : 'account_balance_wallet' }}</mat-icon>
+                    </div>
+                    <div class="upi-banner-text">
+                      <div class="upi-banner-header">
+                        <strong>Zero-Cost Bharat Dynamic UPI Gateway (Direct Bank-to-Bank)</strong>
+                        <span class="upi-live-badge" [class.active]="!!tenantForm.get('upiId')?.value">
+                          <mat-icon style="font-size:12px; width:12px; height:12px; vertical-align:middle; margin-right:3px;">{{ tenantForm.get('upiId')?.value ? 'check_circle' : 'pending' }}</mat-icon><span>{{ tenantForm.get('upiId')?.value ? 'Active: ' + tenantForm.get('upiId')?.value : 'Setup Required' }}</span>
+                        </span>
+                      </div>
+                      <p>All student fee payments made via GPay, PhonePe, Paytm, or BHIM settle <strong>instantly into your institute bank account</strong> with zero middleman gateway commission.</p>
+                    </div>
+                  </div>
+                  <!-- Two-Column Layout for Spacious Wide Popup -->
+                  <div class="upi-two-col-layout">
+                    <!-- Left Column: Inputs & Controls -->
+                    <div class="upi-col-fields">
+                      <!-- Institute VPA -->
+                      <mat-form-field appearance="outline" class="w-100">
+                        <mat-label>Institute / Campus UPI ID (VPA)</mat-label>
+                        <input
+                          matInput
+                          formControlName="upiId"
+                          placeholder="e.g. jnandeep@sbi or 8088377282@ybl"
+                          autocomplete="off"
+                          />
+                          <mat-icon matPrefix class="field-icon">alternate_email</mat-icon>
+                          <mat-hint>The official UPI ID linked directly to your school/coaching bank account</mat-hint>
+                        </mat-form-field>
+                        <div class="form-grid-inner">
+                          <!-- Payee Display Name -->
+                          <mat-form-field appearance="outline">
+                            <mat-label>Payee / Merchant Business Name</mat-label>
+                            <input
+                              matInput
+                              formControlName="upiMerchantName"
+                              placeholder="e.g. Jnandeep Campus"
+                              autocomplete="off"
+                              />
+                              <mat-icon matPrefix class="field-icon">business</mat-icon>
+                              <mat-hint>Verified name on payer app</mat-hint>
+                            </mat-form-field>
+                            <!-- MCC Code (Locked to 8211) -->
+                            <mat-form-field appearance="outline">
+                              <mat-label>Merchant Category Code (MCC)</mat-label>
+                              <input
+                                matInput
+                                formControlName="upiMerchantCode"
+                                placeholder="8211"
+                                [readonly]="true"
+                                />
+                                <mat-icon matSuffix matTooltip="Locked to 8211 (Official NPCI Standard Code for Educational Services)" style="font-size:18px; color:#64748b;">lock</mat-icon>
+                                <mat-hint class="single-line-hint" matTooltip="Official NPCI Standard Code (Fixed: 8211)">Official NPCI Standard Code (Fixed: 8211)</mat-hint>
+                              </mat-form-field>
+                            </div>
+                            <!-- Company Settlement Bank Account Details (Mapped to Tenant & Branches) -->
+                            <div class="bank-account-setup-card">
+                              <div class="bank-card-header">
+                                <div class="header-left">
+                                  <mat-icon class="bank-card-icon">account_balance</mat-icon>
+                                  <div class="header-titles">
+                                    <strong class="title">Company Settlement Bank Account</strong>
+                                    <span class="sub">Official Institute Bank details for NPCI direct settlements &amp; audit records</span>
+                                  </div>
+                                </div>
+                                @if (tenantForm.get('bankAccountNumber')?.value && !tenantForm.get('bankAccountNumber')?.invalid) {
+                                  <span class="verified-pill">
+                                    <mat-icon style="font-size:13px; width:13px; height:13px; vertical-align:middle; margin-right:3px;">check_circle</mat-icon>
+                                    <span>Standard Verified</span>
+                                  </span>
+                                }
+                              </div>
+                              <div class="form-grid-inner">
+                                <!-- Bank Name with Autocomplete of Popular Indian Banks -->
+                                <mat-form-field appearance="outline">
+                                  <mat-label>Bank Name</mat-label>
+                                  <input
+                                    matInput
+                                    formControlName="bankName"
+                                    placeholder="e.g. State Bank of India"
+                                    [matAutocomplete]="autoBank"
+                                    autocomplete="off"
+                                    />
+                                    <mat-icon matPrefix class="field-icon">account_balance</mat-icon>
+                                    <mat-autocomplete #autoBank="matAutocomplete">
+                                      @for (b of filteredBanks; track b) {
+                                        <mat-option [value]="b">{{ b }}</mat-option>
+                                      }
+                                    </mat-autocomplete>
+                                    <mat-hint class="single-line-hint" matTooltip="Bank where school/coaching account is maintained">Bank where account is maintained</mat-hint>
+                                  </mat-form-field>
+                                  <!-- Account Type -->
+                                  <mat-form-field appearance="outline">
+                                    <mat-label>Account Type</mat-label>
+                                    <mat-select formControlName="bankAccountType">
+                                      <mat-option value="Current">Current Account (Institutional)</mat-option>
+                                      <mat-option value="Savings">Savings Account</mat-option>
+                                      <mat-option value="OD/CC">Cash Credit / Overdraft (CC/OD)</mat-option>
+                                    </mat-select>
+                                    <mat-icon matPrefix class="field-icon">account_box</mat-icon>
+                                    <mat-hint class="single-line-hint" matTooltip="Institutional standard is Current A/C">Institutional standard: Current A/C</mat-hint>
+                                  </mat-form-field>
+                                </div>
+                                <div class="form-grid-inner">
+                                  <!-- Bank Account Number -->
+                                  <mat-form-field appearance="outline">
+                                    <mat-label>Bank Account Number</mat-label>
+                                    <input
+                                      matInput
+                                      formControlName="bankAccountNumber"
+                                      placeholder="9 to 18 digits Account No"
+                                      (input)="onAccountNumberInput($event)"
+                                      maxlength="18"
+                                      autocomplete="off"
+                                      />
+                                      <mat-icon matPrefix class="field-icon">credit_card</mat-icon>
+                                      <mat-hint class="single-line-hint" matTooltip="9 to 18 digits numeric account number">9 to 18 numeric digits</mat-hint>
+                                      @if (tenantForm.get('bankAccountNumber')?.hasError('pattern')) {
+                                        <mat-error>
+                                          Must be 9 to 18 numeric digits
+                                        </mat-error>
+                                      }
+                                    </mat-form-field>
+                                    <!-- Confirm Account Number -->
+                                    <mat-form-field appearance="outline">
+                                      <mat-label>Confirm Account Number</mat-label>
+                                      <input
+                                        matInput
+                                        formControlName="confirmAccountNumber"
+                                        placeholder="Re-enter to verify"
+                                        (input)="onConfirmAccountNumberInput($event)"
+                                        maxlength="18"
+                                        autocomplete="off"
+                                        />
+                                        <mat-icon matPrefix class="field-icon">verified</mat-icon>
+                                        <mat-hint class="single-line-hint" matTooltip="Re-type account number to prevent typo errors">Re-type to prevent typo errors</mat-hint>
+                                        @if (tenantForm.get('confirmAccountNumber')?.hasError('mismatch')) {
+                                          <mat-error>
+                                            Account numbers do not match
+                                          </mat-error>
+                                        }
+                                      </mat-form-field>
+                                    </div>
+                                    <div class="form-grid-inner">
+                                      <!-- Bank IFSC Code -->
+                                      <mat-form-field appearance="outline">
+                                        <mat-label>Bank IFSC Code</mat-label>
+                                        <input
+                                          matInput
+                                          formControlName="bankIfscCode"
+                                          placeholder="e.g. SBIN0001234"
+                                          (input)="onIfscInput($event)"
+                                          maxlength="11"
+                                          style="text-transform: uppercase; font-family: monospace; font-weight: 600;"
+                                          autocomplete="off"
+                                          />
+                                          <mat-icon matPrefix class="field-icon">pin</mat-icon>
+                                          <mat-hint class="single-line-hint" matTooltip="11-character RBI standard code (e.g. SBIN0001234)">11-character RBI standard code</mat-hint>
+                                          @if (tenantForm.get('bankIfscCode')?.hasError('pattern')) {
+                                            <mat-error>
+                                              Invalid IFSC (e.g. SBIN0001234)
+                                            </mat-error>
+                                          }
+                                        </mat-form-field>
+                                        <!-- Bank Branch Location -->
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Bank Branch / City</mat-label>
+                                          <input
+                                            matInput
+                                            formControlName="bankBranch"
+                                            placeholder="e.g. Main Branch, Patna"
+                                            autocomplete="off"
+                                            />
+                                            <mat-icon matPrefix class="field-icon">location_city</mat-icon>
+                                            <mat-hint class="single-line-hint" matTooltip="Bank branch location or city">Branch location or city</mat-hint>
+                                          </mat-form-field>
+                                        </div>
+                                        <!-- Account Holder Legal Beneficiary Name -->
+                                        <mat-form-field appearance="outline" class="w-100">
+                                          <mat-label>Account Holder / Beneficiary Name</mat-label>
+                                          <input
+                                            matInput
+                                            formControlName="bankAccountHolderName"
+                                            placeholder="e.g. Jnandeep Campus Educational Trust"
+                                            autocomplete="off"
+                                            />
+                                            <mat-icon matPrefix class="field-icon">badge</mat-icon>
+                                            <mat-hint class="single-line-hint" matTooltip="Official beneficiary legal title registered with bank">Official beneficiary title registered with bank</mat-hint>
+                                          </mat-form-field>
+                                        </div>
+                                        <!-- Toggles Card -->
+                                        <div class="toggles-card">
+                                          <div class="toggle-item">
+                                            <div class="toggle-text">
+                                              <strong class="toggle-title">Enable Dynamic UPI QR on Invoices &amp; Receipts</strong>
+                                              <p class="toggle-sub">Shows instant scan &amp; pay QR codes on student portals, fee counters, and public receipt links.</p>
+                                            </div>
+                                            <mat-slide-toggle formControlName="upiQrEnabled" color="primary"></mat-slide-toggle>
+                                          </div>
+                                          <div class="toggle-item">
+                                            <div class="toggle-text">
+                                              <strong class="toggle-title">Automated UTR Verification &amp; Instant Settlement</strong>
+                                              <p class="toggle-sub">When parents submit a valid 12-digit UTR, automatically clear invoice dues, settle in Day Book, and generate receipt.</p>
+                                            </div>
+                                            <mat-slide-toggle formControlName="upiAutoVerify" color="primary"></mat-slide-toggle>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <!-- Right Column: Interactive Live Preview Card -->
+                                      <div class="upi-col-preview">
+                                        <div class="upi-preview-card">
+                                          <div class="preview-header">
+                                            <span class="preview-title">
+                                              <mat-icon>smartphone</mat-icon>
+                                              <span>Payer Screen Live Preview</span>
+                                            </span>
+                                            <span class="commission-pill">0% Fee (NPCI)</span>
+                                          </div>
+                                          <div class="preview-body">
+                                            <div class="preview-details">
+                                              <div class="preview-row">
+                                                <span class="lbl">Payee:</span>
+                                                <strong class="val">{{ tenantForm.get('upiMerchantName')?.value || tenantForm.get('name')?.value || 'Your Institute Name' }}</strong>
+                                              </div>
+                                              <div class="preview-row">
+                                                <span class="lbl">UPI VPA:</span>
+                                                <span class="vpa-tag">{{ tenantForm.get('upiId')?.value || 'upi-id@bank (enter on left)' }}</span>
+                                              </div>
+                                              <div class="preview-row">
+                                                <span class="lbl">Category:</span>
+                                                <span class="val">8211 (Educational Services)</span>
+                                              </div>
+                                              <div class="preview-row">
+                                                <span class="lbl">Direct Bank:</span>
+                                                <span class="val" style="color:#16a34a; font-weight:700;">Instant Direct Credit</span>
+                                              </div>
+                                              @if (tenantForm.get('bankName')?.value) {
+                                                <div class="preview-row">
+                                                  <span class="lbl">Settlement Bank:</span>
+                                                  <span class="val" style="font-weight:600; color:#0f172a;">{{ tenantForm.get('bankName')?.value }} ({{ getMaskedAccount() }})</span>
+                                                </div>
+                                              }
+                                              @if (tenantForm.get('bankIfscCode')?.value) {
+                                                <div class="preview-row">
+                                                  <span class="lbl">Bank IFSC:</span>
+                                                  <span class="val" style="font-family:monospace; font-weight:700; color:#1e40af;">{{ tenantForm.get('bankIfscCode')?.value }}</span>
+                                                </div>
+                                              }
+                                              @if (tenantForm.get('bankAccountHolderName')?.value) {
+                                                <div class="preview-row">
+                                                  <span class="lbl">Beneficiary:</span>
+                                                  <span class="val" style="font-weight:600;">{{ tenantForm.get('bankAccountHolderName')?.value }}</span>
+                                                </div>
+                                              }
+                                            </div>
+                                            <div class="supported-apps">
+                                              <span class="apps-label">Supported Apps:</span>
+                                              <div class="apps-badges">
+                                                <span class="app-chip gpay">Google Pay</span>
+                                                <span class="app-chip phonepe">PhonePe</span>
+                                                <span class="app-chip paytm">Paytm</span>
+                                                <span class="app-chip bhim">BHIM UPI</span>
+                                                <span class="app-chip cred">CRED</span>
+                                                <span class="app-chip any">Any UPI App</span>
+                                              </div>
+                                            </div>
+                                            @if (tenantForm.get('bankAccountNumber')?.value) {
+                                              <div class="settlement-verified-badge">
+                                                <mat-icon>verified_user</mat-icon>
+                                                <span>Direct NPCI Settlement Bank Mapped</span>
+                                              </div>
+                                            }
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                }
+                                <!-- TAB 3: WhatsApp Cloud API -->
+                                @if (isEditing && activeModalTab === 'whatsapp') {
+                                  <div class="tab-pane">
+                                    <div class="wa-config-banner">
+                                      <div class="wa-banner-icon">
+                                        <mat-icon>chat</mat-icon>
+                                      </div>
+                                      <div class="wa-banner-text">
+                                        <strong>Meta Cloud WhatsApp API Integration</strong>
+                                        <p>Send automated digital fee receipts, balance due notices, homework alerts, and exam report cards directly to parents' WhatsApp.</p>
+                                      </div>
+                                    </div>
+                                    <div class="form-grid">
+                                      <!-- WhatsApp Phone ID -->
+                                      <mat-form-field appearance="outline" class="span-2">
+                                        <mat-label>WhatsApp Phone Number ID</mat-label>
+                                        <input matInput formControlName="whatsAppPhoneId" placeholder="e.g. 104829103982">
+                                        <mat-icon matPrefix>chat</mat-icon>
+                                        <mat-hint>Meta Cloud API Phone Number ID</mat-hint>
+                                      </mat-form-field>
+                                      <!-- WhatsApp Access Token -->
+                                      <mat-form-field appearance="outline" class="span-2">
+                                        <mat-label>WhatsApp Permanent Access Token</mat-label>
+                                        <input matInput formControlName="whatsAppAccessToken" placeholder="Meta Graph API System User Token">
+                                        <mat-icon matPrefix>security</mat-icon>
+                                        <mat-hint>System User Permanent Token from Meta Business Suite</mat-hint>
+                                      </mat-form-field>
+                                    </div>
+                                  </div>
+                                }
+                                <!-- TAB 4: Modules & Licensing -->
+                                @if (!isEditing || activeModalTab === 'modules') {
+                                  <div class="tab-pane">
+                                    <!-- ERP Module Packaging / Subscription Selection -->
+                                    <div class="modules-setup-block" style="margin: 0 0 16px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                                        <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0; font-size:14px; font-weight:700; color:#1e3a8a;">
+                                          <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">hub</mat-icon>
+                                          <span>Subscribed Modules &amp; Licensing</span>
+                                        </h4>
+                                        @if (!isSuperAdmin) {
+                                          <span style="font-size:11px; font-weight:700; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:2px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;">
+                                            <mat-icon style="font-size:13px; width:13px; height:13px;">lock</mat-icon> Managed by Super Admin
+                                          </span>
+                                        }
+                                      </div>
+                                      <p style="margin:0 0 12px; font-size:12px; color:#64748b;">
+                                        {{ isSuperAdmin ? 'Configure which modules are licensed for this institute. Unchecked modules will be completely hidden from their sidebar and student forms.' : 'The functional modules enabled for your institute. Contact SaaS support to subscribe to additional modules.' }}
+                                      </p>
+                                      <div class="modules-checkbox-grid">
+                                        <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <input type="checkbox" formControlName="hasSchoolModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <mat-icon class="mod-check-icon school">school</mat-icon>
+                                          <span class="mod-check-label">School Module</span>
+                                        </label>
+                                        <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <input type="checkbox" formControlName="hasCoachingModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <mat-icon class="mod-check-icon coaching">menu_book</mat-icon>
+                                          <span class="mod-check-label">Coaching Module</span>
+                                        </label>
+                                        <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <input type="checkbox" formControlName="hasHostelModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <mat-icon class="mod-check-icon hostel">hotel</mat-icon>
+                                          <span class="mod-check-label">Hostel &amp; Residential</span>
+                                        </label>
+                                        <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <input type="checkbox" formControlName="hasLibraryModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <mat-icon class="mod-check-icon library">local_library</mat-icon>
+                                          <span class="mod-check-label">Library Management</span>
+                                        </label>
+                                        <label class="module-check-card" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <input type="checkbox" formControlName="hasTransportModule" [style.cursor]="isSuperAdmin ? 'pointer' : 'not-allowed'">
+                                          <mat-icon class="mod-check-icon transport">directions_bus</mat-icon>
+                                          <span class="mod-check-label">Transport &amp; Fleet</span>
+                                        </label>
+                                      </div>
+                                    </div>
+                                    <!-- Subscription Plan & Quota Tier -->
+                                    <div class="subscription-setup-block" style="margin: 0 0 16px; padding: 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                                      <h4 class="block-title" style="display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:14px; font-weight:700; color:#1e3a8a;">
+                                        <mat-icon style="color:#2563eb; font-size:20px; width:20px; height:20px;">workspace_premium</mat-icon>
+                                        <span>Subscription Plan &amp; Quotas</span>
+                                      </h4>
+                                      @if (!isSuperAdmin) {
+                                        <p style="margin:0 0 10px; font-size:12px; color:#1e40af;">
+                                          Subscription tier and limits are controlled by your SaaS administrator.
+                                        </p>
+                                      }
+                                      @if (isSuperAdmin) {
+                                        <div class="form-grid">
+                                          <mat-form-field appearance="outline" class="span-1">
+                                            <mat-label>Subscription Plan</mat-label>
+                                            <input matInput formControlName="subscriptionPlan" placeholder="FreeTrial, Starter, Growth, Enterprise">
+                                            <mat-icon matSuffix>card_membership</mat-icon>
+                                          </mat-form-field>
+                                          <mat-form-field appearance="outline" class="span-1">
+                                            <mat-label>Subscription Status</mat-label>
+                                            <input matInput formControlName="subscriptionStatus" placeholder="TrialActive, Active, Expired">
+                                            <mat-icon matSuffix>verified</mat-icon>
+                                          </mat-form-field>
+                                          <mat-form-field appearance="outline" class="span-1">
+                                            <mat-label>Max Students Quota</mat-label>
+                                            <input matInput type="number" formControlName="maxStudentsLimit" placeholder="e.g. 50">
+                                            <mat-icon matSuffix>school</mat-icon>
+                                          </mat-form-field>
+                                          <mat-form-field appearance="outline" class="span-1">
+                                            <mat-label>Max Branches Limit</mat-label>
+                                            <input matInput type="number" formControlName="maxBranchesLimit" placeholder="e.g. 2">
+                                            <mat-icon matSuffix>apartment</mat-icon>
+                                          </mat-form-field>
+                                        </div>
+                                      }
+                                      @if (!isSuperAdmin) {
+                                        <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#1e3a8a; background:#ffffff; padding:10px 14px; border-radius:6px; border:1px solid #dbeafe;">
+                                          <div>Plan: <strong>{{ tenantForm.get('subscriptionPlan')?.value || 'FreeTrial' }}</strong></div>
+                                          <div>Status: <strong>{{ tenantForm.get('subscriptionStatus')?.value || 'TrialActive' }}</strong></div>
+                                          <div>Max Students: <strong>{{ tenantForm.get('maxStudentsLimit')?.value || 50 }}</strong></div>
+                                          <div>Max Branches: <strong>{{ tenantForm.get('maxBranchesLimit')?.value || 2 }}</strong></div>
+                                        </div>
+                                      }
+                                    </div>
+                                  </div>
+                                }
+                                <!-- Initial Administrator Provisioning (Only on Create) -->
+                                @if (!isEditing) {
+                                  <div class="admin-setup-block">
+                                    <h4 class="block-title">
+                                      <mat-icon>admin_panel_settings</mat-icon>
+                                      <span>Initial Institute Director / Admin Credentials</span>
+                                    </h4>
+                                    <div class="form-grid">
+                                      <mat-form-field appearance="outline" class="span-1">
+                                        <mat-label>Admin Full Name</mat-label>
+                                        <input matInput formControlName="adminFullName" placeholder="e.g. Dr. Rajesh Sharma">
+                                        <mat-icon matSuffix>person</mat-icon>
+                                      </mat-form-field>
+                                      <mat-form-field appearance="outline" class="span-1">
+                                        <mat-label>Admin Username</mat-label>
+                                        <input matInput formControlName="adminUsername" placeholder="e.g. admin">
+                                        <mat-icon matSuffix>badge</mat-icon>
+                                        @if (tenantForm.get('adminUsername')?.hasError('required')) {
+                                          <mat-error>Username required</mat-error>
+                                        }
+                                      </mat-form-field>
+                                      <mat-form-field appearance="outline" class="span-2">
+                                        <mat-label>Initial Admin Password</mat-label>
+                                        <input matInput type="password" formControlName="adminPassword" placeholder="Minimum 6 characters">
+                                        <mat-icon matSuffix>lock</mat-icon>
+                                        @if (tenantForm.get('adminPassword')?.hasError('required')) {
+                                          <mat-error>Password required</mat-error>
+                                        }
+                                      </mat-form-field>
+                                    </div>
+                                  </div>
+                                }
+                                <!-- Initial Branches Provisioning (Only on Create) -->
+                                @if (!isEditing) {
+                                  <div class="branches-setup-block">
+                                    <div class="block-title-row">
+                                      <h4 class="block-title">
+                                        <mat-icon>store</mat-icon>
+                                        <span>Institute Branches (Multi-Branch Setup)</span>
+                                      </h4>
+                                      <button type="button" mat-stroked-button color="primary" class="add-branch-btn" (click)="addBranchRow(false)">
+                                        <mat-icon>add</mat-icon>
+                                        <span>Add Branch</span>
+                                      </button>
+                                    </div>
+                                    <p class="block-desc">Configure the initial branches for this institute (e.g. Main Branch, Delhi, Patna). You can add more later.</p>
+                                    <div formArrayName="branches" class="branches-list">
+                                      @for (br of branchesFormArray.controls; track br; let i = $index) {
+                                        <div [formGroupName]="i" class="branch-row-card">
+                                          <div class="branch-row-header">
+                                            <span class="branch-row-badge" [class.main-badge]="br.get('isMainBranch')?.value">
+                                              <mat-icon>{{ br.get('isMainBranch')?.value ? 'star' : 'apartment' }}</mat-icon>
+                                              {{ br.get('isMainBranch')?.value ? 'Main Branch (HQ)' : 'Branch #' + (i + 1) }}
+                                            </span>
+                                            @if (branchesFormArray.length > 1) {
+                                              <button type="button" mat-icon-button color="warn" (click)="removeBranchRow(i)" matTooltip="Remove branch">
+                                                <mat-icon>delete_outline</mat-icon>
+                                              </button>
+                                            }
+                                          </div>
+                                          <div class="form-grid">
+                                            <mat-form-field appearance="outline" class="span-1">
+                                              <mat-label>Branch Name *</mat-label>
+                                              <input matInput formControlName="name" placeholder="e.g. Delhi Branch">
+                                              @if (br.get('name')?.hasError('required')) {
+                                                <mat-error>Branch name required</mat-error>
+                                              }
+                                            </mat-form-field>
+                                            <mat-form-field appearance="outline" class="span-1">
+                                              <mat-label>Branch Code *</mat-label>
+                                              <input matInput formControlName="code" placeholder="e.g. DEL" (input)="onBranchCodeInput($event, i)">
+                                              @if (br.get('code')?.hasError('required')) {
+                                                <mat-error>Code required</mat-error>
+                                              }
+                                            </mat-form-field>
+                                            <mat-form-field appearance="outline" class="span-1">
+                                              <mat-label>Contact Phone</mat-label>
+                                              <input matInput formControlName="contactPhone" placeholder="Branch phone">
+                                            </mat-form-field>
+                                            <mat-form-field appearance="outline" class="span-1">
+                                              <mat-label>Branch Address</mat-label>
+                                              <input matInput formControlName="address" placeholder="e.g. Connaught Place, New Delhi">
+                                            </mat-form-field>
+                                            <mat-form-field appearance="outline" class="span-1">
+                                              <mat-label>Branch City</mat-label>
+                                              <input matInput formControlName="city" placeholder="e.g. New Delhi">
+                                            </mat-form-field>
+                                            <mat-form-field appearance="outline" class="span-1">
+                                              <mat-label>PIN Code</mat-label>
+                                              <input matInput formControlName="pincode" placeholder="e.g. 110001">
+                                            </mat-form-field>
+                                          </div>
+                                        </div>
+                                      }
+                                    </div>
+                                  </div>
+                                }
+                                @if (formError) {
+                                  <div class="modal-error">
+                                    <mat-icon>error</mat-icon>
+                                    <span>{{ formError }}</span>
+                                  </div>
+                                }
+                                <div class="modal-footer">
+                                  @if (isEditing && activeModalTab !== 'profile') {
+                                    <button
+                                      type="button"
+                                      mat-stroked-button
+                                      color="primary"
+                                      class="back-to-profile-btn"
+                                      (click)="activeModalTab = 'profile'">
+                                      <mat-icon>arrow_back</mat-icon>
+                                      <span>Back to Profile</span>
+                                    </button>
+                                  }
+                                  <div class="footer-right-actions">
+                                    <button type="button" mat-button (click)="onCancel()">{{ (isEditing && activeModalTab !== 'profile') ? 'Back' : 'Cancel' }}</button>
+                                    <button type="submit" mat-raised-button color="primary" [disabled]="tenantForm.invalid || formSaving" (click)="saveTenant()">
+                                      @if (formSaving) {
+                                        <mat-spinner diameter="18" style="display:inline-block; margin-right:6px;"></mat-spinner>
+                                      }
+                                      <span>{{ isEditing ? 'Save Changes' : 'Provision Institute' }}</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        }
+    
+                      </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .tenants-wrapper {
       padding: 0 0 40px;

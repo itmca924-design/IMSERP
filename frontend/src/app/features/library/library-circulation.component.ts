@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -58,7 +58,7 @@ import { environment } from '../../../environments/environment';
           </a>
         </div>
       </div>
-
+    
       <!-- Quick Desk Tabs: Issue / Return / Ledger -->
       <div class="desk-tabs">
         <button type="button" class="desk-tab" [class.active]="activeDeskTab === 'issue'" (click)="activeDeskTab = 'issue'">
@@ -72,433 +72,491 @@ import { environment } from '../../../environments/environment';
         <button type="button" class="desk-tab" [class.active]="activeDeskTab === 'ledger'" (click)="activeDeskTab = 'ledger'">
           <mat-icon>format_list_bulleted</mat-icon>
           <span>Issued Ledger &amp; Overdue</span>
-          <span class="badge-count" *ngIf="overdueCount > 0">{{ overdueCount }} Overdue</span>
+          @if (overdueCount > 0) {
+            <span class="badge-count">{{ overdueCount }} Overdue</span>
+          }
         </button>
       </div>
-
+    
       <!-- 1. Quick Issue Desk -->
-      <mat-card *ngIf="activeDeskTab === 'issue'" class="desk-card mat-elevation-z2">
-        <div class="desk-card-header">
-          <div class="dch-title">
-            <mat-icon color="primary">add_shopping_cart</mat-icon>
-            <div>
-              <h3>Fast Book Issue Counter</h3>
-              <p>Scan or enter Book Accession barcode and select student / faculty member.</p>
+      @if (activeDeskTab === 'issue') {
+        <mat-card class="desk-card mat-elevation-z2">
+          <div class="desk-card-header">
+            <div class="dch-title">
+              <mat-icon color="primary">add_shopping_cart</mat-icon>
+              <div>
+                <h3>Fast Book Issue Counter</h3>
+                <p>Scan or enter Book Accession barcode and select student / faculty member.</p>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="desk-grid">
-          <!-- Left: Book Barcode Lookup -->
-          <div class="desk-section">
-            <span class="ds-title">Step 1: Pick Available Book or Scan Barcode</span>
-
-            <!-- Available Books Shelf Dropdown Filter -->
-            <mat-form-field appearance="outline" class="full-width" style="margin-bottom: 8px;">
-              <mat-label>📚 Select Available Book from Shelf</mat-label>
-              <mat-select [(ngModel)]="selectedAvailableAccession" (selectionChange)="onAvailableBookSelected($event.value)" placeholder="Browse books currently on shelf..." panelClass="batch-filter-panel">
-                <mat-option *ngFor="let copy of availableCopies" [value]="copy.accessionNumber">
-                  📖 <strong>{{ copy.bookTitle }}</strong> &bull; Accession: <code>{{ copy.accessionNumber }}</code> ({{ copy.author }})
-                </mat-option>
-              </mat-select>
-              <mat-hint>Choose from {{ availableCopies.length }} books currently available on shelf, or scan barcode below</mat-hint>
-            </mat-form-field>
-
-            <div class="lookup-row" style="margin-top: 6px;">
-              <mat-form-field appearance="outline" class="flex-grow">
-                <mat-label>Accession Number / Barcode</mat-label>
-                <input matInput [(ngModel)]="issueAccession" (keyup.enter)="lookupBookForIssue()" placeholder="e.g. ACC-00001" />
-                <mat-icon matSuffix>qr_code_scanner</mat-icon>
-              </mat-form-field>
-              <button mat-raised-button color="primary" class="btn-lookup" (click)="lookupBookForIssue()" [disabled]="!issueAccession">
-                Scan / Check
-              </button>
-            </div>
-
-            <!-- Book Verified Card -->
-            <div class="verified-card" *ngIf="verifiedBook">
-              <div class="vc-top">
-                <span class="vc-badge">{{ verifiedBook.status }}</span>
-                <span class="vc-rack"><mat-icon>shelves</mat-icon> {{ verifiedBook.rackLocation || 'Shelf General' }}</span>
-              </div>
-              <h4 class="vc-title">{{ verifiedBook.bookTitle }}</h4>
-              <p class="vc-author">By {{ verifiedBook.author }} &bull; Accession: <strong>{{ verifiedBook.accessionNumber }}</strong></p>
-            </div>
-          </div>
-
-          <!-- Right: Member Selection & Issue Details -->
-          <div class="desk-section">
-            <span class="ds-title">Step 2: Borrower &amp; Loan Duration</span>
-
-            <!-- Member Type Switcher (Angular Material Segmented Toggle) -->
-            <div class="member-toggle-wrapper">
-              <mat-button-toggle-group
-                [value]="issueMemberType"
-                (change)="setIssueMemberType($event.value)"
-                aria-label="Borrower Category"
-                class="compact-mat-toggle"
-                hideSingleSelectionIndicator="true">
-                <mat-button-toggle value="Student">
-                  <mat-icon>school</mat-icon>
-                  <span>Student Borrower</span>
-                </mat-button-toggle>
-                <mat-button-toggle value="Teacher">
-                  <mat-icon>co_present</mat-icon>
-                  <span>Faculty / Teacher</span>
-                </mat-button-toggle>
-              </mat-button-toggle-group>
-            </div>
-
-            <!-- Student Picker -->
-            <div *ngIf="issueMemberType === 'Student'">
-              <!-- Borrower Stream Selector -->
-              <div class="borrower-stream-pills">
-                <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'All'" (click)="setBorrowerStream('All')">
-                  <mat-icon>people</mat-icon>
-                  <span>All Students</span>
-                </button>
-                <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'School'" (click)="setBorrowerStream('School')">
-                  <mat-icon>school</mat-icon>
-                  <span>School Class &amp; Sec</span>
-                </button>
-                <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'Coaching'" (click)="setBorrowerStream('Coaching')">
-                  <mat-icon>groups</mat-icon>
-                  <span>Coaching Batch</span>
-                </button>
-              </div>
-
-              <!-- If School Stream -->
-              <div class="cascade-row" *ngIf="borrowerStream === 'School'">
-                <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
-                  <mat-label>School Class (कक्षा)</mat-label>
-                  <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
-                    <mat-option value="">-- All School Classes --</mat-option>
-                    <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
-                  </mat-select>
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic" *ngIf="availableSections.length > 0">
-                  <mat-label>Section (सेक्शन)</mat-label>
-                  <mat-select [(ngModel)]="selectedSectionId">
-                    <mat-option value="">-- All Sections --</mat-option>
-                    <mat-option *ngFor="let sec of availableSections" [value]="sec.id">Sec {{ sec.name }}</mat-option>
-                  </mat-select>
-                </mat-form-field>
-              </div>
-
-              <!-- If Coaching Stream: Academic Class ➔ Coaching Batch Cascade -->
-              <div class="cascade-row" *ngIf="borrowerStream === 'Coaching'">
-                <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
-                  <mat-label>Academic Class (कक्षा)</mat-label>
-                  <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassChange()">
-                    <mat-option value="">-- All Classes (सभी कक्षाएं) --</mat-option>
-                    <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
-                  </mat-select>
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
-                  <mat-label>Coaching Batch (बैच)</mat-label>
-                  <mat-select [(ngModel)]="selectedBatchId">
-                    <mat-option value="">-- All Batches (सभी बैच) --</mat-option>
-                    <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
-                      {{ b.name }} {{ b.subject ? '(' + b.subject + ')' : '' }}
+          <div class="desk-grid">
+            <!-- Left: Book Barcode Lookup -->
+            <div class="desk-section">
+              <span class="ds-title">Step 1: Pick Available Book or Scan Barcode</span>
+              <!-- Available Books Shelf Dropdown Filter -->
+              <mat-form-field appearance="outline" class="full-width" style="margin-bottom: 8px;">
+                <mat-label>📚 Select Available Book from Shelf</mat-label>
+                <mat-select [(ngModel)]="selectedAvailableAccession" (selectionChange)="onAvailableBookSelected($event.value)" placeholder="Browse books currently on shelf..." panelClass="batch-filter-panel">
+                  @for (copy of availableCopies; track copy) {
+                    <mat-option [value]="copy.accessionNumber">
+                      📖 <strong>{{ copy.bookTitle }}</strong> &bull; Accession: <code>{{ copy.accessionNumber }}</code> ({{ copy.author }})
                     </mat-option>
-                  </mat-select>
-                </mat-form-field>
-              </div>
-
-              <!-- Quick Student Search Input -->
-              <div class="student-search-bar" *ngIf="borrowerStream === 'All'">
-                <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-                  <mat-label>🔍 Quick Filter (Name / Roll No / Barcode)</mat-label>
-                  <input matInput [(ngModel)]="studentSearchTerm" placeholder="Type to instantly filter..." />
-                  <button mat-icon-button matSuffix *ngIf="studentSearchTerm" (click)="studentSearchTerm = ''" type="button">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </mat-form-field>
-              </div>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Select Enrolled Student ({{ displayedStudents.length }} Available)</mat-label>
-                <mat-select [(ngModel)]="issueStudentId" panelClass="batch-filter-panel">
-                  <mat-option *ngFor="let s of displayedStudents" [value]="s.id">
-                    <div class="borrower-opt">
-                      <span class="borrower-opt-name">{{ s.studentName }}</span>
-                      <span class="borrower-opt-id">({{ s.coachingRollNumber || s.rollNumber }}{{ s.admissionNumber ? ' • Adm: ' + s.admissionNumber : '' }})</span>
-                      <span class="borrower-opt-batch" *ngIf="s.batchName || s.className">
-                        • {{ s.batchName ? s.batchName : s.className }}
-                      </span>
-                      <span *ngIf="s.isLibraryMember" class="b-pill-member">📚 Member (Limit: {{ s.maxLibraryBooks || 2 }})</span>
-                      <span *ngIf="!s.isLibraryMember" class="b-pill-non">Non-Member</span>
-                    </div>
-                  </mat-option>
+                  }
                 </mat-select>
-                <mat-hint *ngIf="displayedStudents.length === 0">No students match current filter criteria.</mat-hint>
+                <mat-hint>Choose from {{ availableCopies.length }} books currently available on shelf, or scan barcode below</mat-hint>
               </mat-form-field>
-
-              <!-- Borrower Library Membership Summary Card -->
-              <div class="borrower-summary-card" *ngIf="selectedStudentForIssue">
-                <div class="bsc-badge-row">
-                  <span class="bsc-status-pill" [class.is-member]="selectedStudentForIssue.isLibraryMember" [class.is-non-member]="!selectedStudentForIssue.isLibraryMember">
-                    <mat-icon>{{ selectedStudentForIssue.isLibraryMember ? 'verified' : 'block' }}</mat-icon>
-                    {{ selectedStudentForIssue.isLibraryMember ? 'Active Library Member' : 'Non-Member (Membership Required)' }}
-                  </span>
-                  <span class="bsc-limit-pill" *ngIf="selectedStudentForIssue.isLibraryMember">
-                    Borrow Limit: <strong>{{ selectedStudentForIssue.maxLibraryBooks || 2 }} Books</strong>
-                  </span>
-                </div>
-                <div class="bsc-details-grid" *ngIf="selectedStudentForIssue.isLibraryMember">
-                  <div class="bsc-item">
-                    <span class="bsc-lbl">Library Card / Barcode:</span>
-                    <strong class="bsc-val">{{ selectedStudentForIssue.libraryCardNumber || 'Card Not Assigned' }}</strong>
-                  </div>
-                  <div class="bsc-item">
-                    <span class="bsc-lbl">Shift / Facility:</span>
-                    <strong class="bsc-val">{{ selectedStudentForIssue.libraryMembershipType || 'Standard Book Lending' }}</strong>
-                  </div>
-                  <div class="bsc-item" *ngIf="selectedStudentForIssue.monthlyLibraryFee > 0">
-                    <span class="bsc-lbl">Monthly Reading Fee:</span>
-                    <strong class="bsc-val">₹{{ selectedStudentForIssue.monthlyLibraryFee | number }}/mo</strong>
-                  </div>
-                </div>
-                <div class="bsc-non-member-box" *ngIf="!selectedStudentForIssue.isLibraryMember">
-                  <div class="bsc-non-content">
-                    <mat-icon class="bsc-warn-ico">warning_amber</mat-icon>
-                    <div class="bsc-warn-texts">
-                      <span class="bsc-warn-heading">Membership Required to Borrow</span>
-                      <p class="bsc-warn-desc">Student has not enrolled in a Library Membership Plan. Book circulation is restricted to registered members only.</p>
-                    </div>
-                  </div>
-                  <button mat-stroked-button color="primary" class="btn-assign-mem" type="button" (click)="openAssignMembershipModal()">
-                    <mat-icon>card_membership</mat-icon>
-                    <span>Assign Membership</span>
-                  </button>
-                </div>
+              <div class="lookup-row" style="margin-top: 6px;">
+                <mat-form-field appearance="outline" class="flex-grow">
+                  <mat-label>Accession Number / Barcode</mat-label>
+                  <input matInput [(ngModel)]="issueAccession" (keyup.enter)="lookupBookForIssue()" placeholder="e.g. ACC-00001" />
+                  <mat-icon matSuffix>qr_code_scanner</mat-icon>
+                </mat-form-field>
+                <button mat-raised-button color="primary" class="btn-lookup" (click)="lookupBookForIssue()" [disabled]="!issueAccession">
+                  Scan / Check
+                </button>
               </div>
-            </div>
-
-            <!-- Teacher Picker -->
-            <div *ngIf="issueMemberType === 'Teacher'">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Select Faculty Member</mat-label>
-                <mat-select [(ngModel)]="issueTeacherId" panelClass="batch-filter-panel">
-                  <mat-option *ngFor="let t of teachers" [value]="t.id">
-                    <div class="borrower-opt">
-                      <span class="borrower-opt-name">{{ t.fullName }}</span>
-                      <span class="borrower-opt-id">({{ t.employeeCode }} &bull; {{ t.specialization || 'Faculty' }})</span>
-                      <span class="b-pill-member">👨‍🏫 Faculty Privileges</span>
-                    </div>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <div class="borrower-summary-card" *ngIf="selectedTeacherForIssue">
-                <div class="bsc-badge-row">
-                  <span class="bsc-status-pill is-member">
-                    <mat-icon>verified</mat-icon> Verified Faculty Member
-                  </span>
-                  <span class="bsc-limit-pill">
-                    Faculty Loan: <strong>{{ settings?.maxBooksPerTeacher || 5 }} Books Max</strong>
-                  </span>
+              <!-- Book Verified Card -->
+              @if (verifiedBook) {
+                <div class="verified-card">
+                  <div class="vc-top">
+                    <span class="vc-badge">{{ verifiedBook.status }}</span>
+                    <span class="vc-rack"><mat-icon>shelves</mat-icon> {{ verifiedBook.rackLocation || 'Shelf General' }}</span>
+                  </div>
+                  <h4 class="vc-title">{{ verifiedBook.bookTitle }}</h4>
+                  <p class="vc-author">By {{ verifiedBook.author }} &bull; Accession: <strong>{{ verifiedBook.accessionNumber }}</strong></p>
                 </div>
-                <div class="bsc-details-grid">
-                  <div class="bsc-item">
-                    <span class="bsc-lbl">Employee Code:</span>
-                    <strong class="bsc-val">{{ selectedTeacherForIssue.employeeCode }}</strong>
-                  </div>
-                  <div class="bsc-item">
-                    <span class="bsc-lbl">Specialization:</span>
-                    <strong class="bsc-val">{{ selectedTeacherForIssue.specialization || 'General' }}</strong>
-                  </div>
-                  <div class="bsc-item">
-                    <span class="bsc-lbl">Phone Number:</span>
-                    <strong class="bsc-val">{{ selectedTeacherForIssue.phoneNumber }}</strong>
-                  </div>
-                </div>
+              }
+            </div>
+            <!-- Right: Member Selection & Issue Details -->
+            <div class="desk-section">
+              <span class="ds-title">Step 2: Borrower &amp; Loan Duration</span>
+              <!-- Member Type Switcher (Angular Material Segmented Toggle) -->
+              <div class="member-toggle-wrapper">
+                <mat-button-toggle-group
+                  [value]="issueMemberType"
+                  (change)="setIssueMemberType($event.value)"
+                  aria-label="Borrower Category"
+                  class="compact-mat-toggle"
+                  hideSingleSelectionIndicator="true">
+                  <mat-button-toggle value="Student">
+                    <mat-icon>school</mat-icon>
+                    <span>Student Borrower</span>
+                  </mat-button-toggle>
+                  <mat-button-toggle value="Teacher">
+                    <mat-icon>co_present</mat-icon>
+                    <span>Faculty / Teacher</span>
+                  </mat-button-toggle>
+                </mat-button-toggle-group>
               </div>
-            </div>
-
-            <div class="duration-row">
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Loan Duration (Days)</mat-label>
-                <input matInput type="number" [(ngModel)]="issueDays" min="1" max="90" />
-                <mat-hint>{{ issueMemberType === 'Teacher' ? 'Faculty Policy: ' + (settings?.teacherIssueDays || 30) : 'Student Policy: ' + (settings?.studentIssueDays || 14) }} days</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="flex-2">
-                <mat-label>Remarks / Issue Notes</mat-label>
-                <input matInput [(ngModel)]="issueRemarks" placeholder="Optional notes" />
-              </mat-form-field>
-            </div>
-
-            <div class="issue-action-bar">
-              <button mat-raised-button color="primary" class="btn-confirm-issue" (click)="confirmIssue()" [disabled]="!verifiedBook || verifiedBook.status !== 'Available' || (issueMemberType === 'Student' && (!issueStudentId || !selectedStudentForIssue?.isLibraryMember)) || (issueMemberType === 'Teacher' && !issueTeacherId) || issueSubmitting">
-                <mat-icon>{{ (issueMemberType === 'Student' && selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember) ? 'lock' : 'check_circle' }}</mat-icon>
-                <span>{{ (issueMemberType === 'Student' && selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember) ? 'Membership Required to Issue' : 'Confirm & Issue Book' }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </mat-card>
-
-      <!-- 2. Quick Return Desk -->
-      <mat-card *ngIf="activeDeskTab === 'return'" class="desk-card mat-elevation-z2">
-        <div class="desk-card-header">
-          <div class="dch-title">
-            <mat-icon color="primary">assignment_returned</mat-icon>
-            <div>
-              <h3>Fast Book Return &amp; Fine Settlement</h3>
-              <p>Scan returned book barcode to auto-calculate overdue days and collect late fines.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="return-flow-box">
-          <div class="lookup-row return-search-row">
-            <mat-form-field appearance="outline" class="search-input">
-              <mat-label>Scan Book Accession Barcode to Return</mat-label>
-              <input matInput [(ngModel)]="returnAccession" (keyup.enter)="lookupForReturn()" placeholder="e.g. ACC-00101" />
-              <mat-icon matSuffix>qr_code_scanner</mat-icon>
-            </mat-form-field>
-            <button mat-raised-button color="primary" class="btn-lookup" (click)="lookupForReturn()" [disabled]="!returnAccession">
-              Fetch Issue Record
-            </button>
-          </div>
-
-          <!-- Return Details Card -->
-          <div class="return-record-card" *ngIf="returnCirculation">
-            <div class="rrc-grid">
-              <div class="rrc-col">
-                <div class="col-lbl">Book Details</div>
-                <div class="col-val-title">{{ returnCirculation.bookTitle }}</div>
-                <div class="col-sub">Acc No: <strong>{{ returnCirculation.accessionNumber }}</strong> &bull; Rack: {{ returnCirculation.rackLocation }}</div>
-              </div>
-
-              <div class="rrc-col">
-                <div class="col-lbl">Borrower</div>
-                <div class="col-val">{{ returnCirculation.studentName || returnCirculation.teacherName }}</div>
-                <div class="col-sub">{{ returnCirculation.studentClassName ? 'Class: ' + returnCirculation.studentClassName : '' }} {{ returnCirculation.studentBatchName ? '• Batch: ' + returnCirculation.studentBatchName : '' }}</div>
-              </div>
-
-              <div class="rrc-col">
-                <div class="col-lbl">Due Date &amp; Overdue</div>
-                <div class="col-val">{{ returnCirculation.dueDate | date:'dd MMM yyyy' }}</div>
-                <div class="overdue-tag" [class.is-late]="returnCirculation.overdueDays > 0">
-                  {{ returnCirculation.overdueDays > 0 ? (returnCirculation.overdueDays + ' Days Overdue!') : 'On-Time Return ✓' }}
-                </div>
-              </div>
-
-              <div class="rrc-col fine-col">
-                <div class="col-lbl">Late Fine / Penalty (₹)</div>
-                <div class="fine-edit-row">
-                  <input type="number" [(ngModel)]="customFineAmount" class="fine-input" min="0" placeholder="0" (ngModelChange)="onFineAmountChange($event)" />
-                  <mat-select [(ngModel)]="finePaymentStatus" class="fine-select">
-                    <mat-option value="None">None (₹0)</mat-option>
-                    <mat-option value="Pending">Pending (Add to Fee Dues)</mat-option>
-                    <mat-option value="Paid">Paid at Counter (Cash)</mat-option>
-                    <mat-option value="Waived">Waived / Excused</mat-option>
-                  </mat-select>
-                </div>
-              </div>
-            </div>
-
-            <div class="return-btn-bar">
-              <button mat-raised-button color="primary" class="btn-confirm-return" (click)="confirmReturn()" [disabled]="returnSubmitting">
-                <mat-icon>done_all</mat-icon>
-                <span>Confirm Return &amp; Restock to Shelf</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </mat-card>
-
-      <!-- 3. Issued Ledger & Overdue List -->
-      <mat-card *ngIf="activeDeskTab === 'ledger'" class="desk-card mat-elevation-z2">
-        <div class="ledger-toolbar">
-          <div class="ledger-pill-group">
-            <button type="button" class="lp-pill" [class.active]="!ledgerOverdueOnly" (click)="setOverdueFilter(false)">
-              All Active Issues ({{ circulations.length }})
-            </button>
-            <button type="button" class="lp-pill overdue-pill" [class.active]="ledgerOverdueOnly" (click)="setOverdueFilter(true)">
-              <mat-icon>warning</mat-icon>
-              Overdue Only ({{ overdueCount }})
-            </button>
-          </div>
-
-          <mat-form-field appearance="outline" class="search-field">
-            <mat-label>Search Book, Student, Roll No...</mat-label>
-            <input matInput [(ngModel)]="ledgerSearchTerm" (keyup.enter)="loadCirculations()" placeholder="Search..." />
-            <button mat-icon-button matSuffix (click)="loadCirculations()"><mat-icon>search</mat-icon></button>
-          </mat-form-field>
-        </div>
-
-        <div class="ledger-table-wrap">
-          <table class="ledger-table">
-            <thead>
-              <tr>
-                <th>Accession / Book Title</th>
-                <th>Borrower (Student / Faculty)</th>
-                <th>Issue Date</th>
-                <th>Due Date</th>
-                <th>Status / Overdue</th>
-                <th>Late Fine</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let c of circulations">
-                <td>
-                  <div class="bk-title">{{ c.bookTitle }}</div>
-                  <div class="bk-acc">Acc: <strong>{{ c.accessionNumber }}</strong> &bull; {{ c.rackLocation }}<ng-container *ngIf="c.bookPrice > 0"> &bull; <span class="bk-price">₹{{ c.bookPrice }}</span></ng-container></div>
-                </td>
-                <td>
-                  <div class="borrower-name">
-                    {{ c.studentName || c.teacherName }}
-                    <span *ngIf="c.memberType === 'Teacher'" style="background: #faf5ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 6px;">Faculty</span>
-                  </div>
-                  <div class="borrower-meta">
-                    <span *ngIf="c.studentRollNumber">Roll: {{ c.studentRollNumber }}</span>
-                    <span *ngIf="c.studentClassName">&bull; {{ c.studentClassName }}</span>
-                    <span *ngIf="c.studentBatchName">&bull; {{ c.studentBatchName }}</span>
-                    <span *ngIf="c.teacherEmployeeCode">Emp Code: {{ c.teacherEmployeeCode }}</span>
-                  </div>
-                </td>
-                <td>{{ c.issueDate | date:'dd MMM yyyy' }}</td>
-                <td><strong>{{ c.dueDate | date:'dd MMM yyyy' }}</strong></td>
-                <td>
-                  <span class="circ-status-pill" [class.overdue]="c.status === 'Overdue' || c.overdueDays > 0">
-                    {{ c.overdueDays > 0 ? (c.overdueDays + ' Days Overdue') : 'Active Loan' }}
-                  </span>
-                </td>
-                <td>
-                  <span *ngIf="c.fineAmount > 0" class="fine-badge">₹{{ c.fineAmount }}</span>
-                  <span *ngIf="c.fineAmount === 0" class="text-muted">₹0</span>
-                </td>
-                <td>
-                  <div class="action-btn-row">
-                    <!-- WhatsApp Reminder for Overdue -->
-                    <a *ngIf="c.parentWhatsAppPhone && c.overdueDays > 0"
-                       mat-icon-button
-                       class="btn-wa"
-                       [href]="getWhatsAppUrl(c)"
-                       target="_blank"
-                       matTooltip="Send Overdue WhatsApp Reminder to Parent">
-                      <mat-icon>chat</mat-icon>
-                    </a>
-                    <button mat-stroked-button color="primary" class="btn-quick-return" (click)="quickReturnFromRow(c)" matTooltip="Return this book">
-                      <mat-icon>arrow_downward</mat-icon> Return
+              <!-- Student Picker -->
+              @if (issueMemberType === 'Student') {
+                <div>
+                  <!-- Borrower Stream Selector -->
+                  <div class="borrower-stream-pills">
+                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'All'" (click)="setBorrowerStream('All')">
+                      <mat-icon>people</mat-icon>
+                      <span>All Students</span>
+                    </button>
+                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'School'" (click)="setBorrowerStream('School')">
+                      <mat-icon>school</mat-icon>
+                      <span>School Class &amp; Sec</span>
+                    </button>
+                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'Coaching'" (click)="setBorrowerStream('Coaching')">
+                      <mat-icon>groups</mat-icon>
+                      <span>Coaching Batch</span>
                     </button>
                   </div>
-                </td>
-              </tr>
-              <tr *ngIf="!loadingCircs && circulations.length === 0">
-                <td colspan="7" class="no-records">No active issued records found.</td>
-              </tr>
+                  <!-- If School Stream -->
+                  @if (borrowerStream === 'School') {
+                    <div class="cascade-row">
+                      <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
+                        <mat-label>School Class (कक्षा)</mat-label>
+                        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
+                          <mat-option value="">-- All School Classes --</mat-option>
+                          @for (c of schoolClasses; track c) {
+                            <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      @if (availableSections.length > 0) {
+                        <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
+                          <mat-label>Section (सेक्शन)</mat-label>
+                          <mat-select [(ngModel)]="selectedSectionId">
+                            <mat-option value="">-- All Sections --</mat-option>
+                            @for (sec of availableSections; track sec) {
+                              <mat-option [value]="sec.id">Sec {{ sec.name }}</mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                      }
+                    </div>
+                  }
+                  <!-- If Coaching Stream: Academic Class ➔ Coaching Batch Cascade -->
+                  @if (borrowerStream === 'Coaching') {
+                    <div class="cascade-row">
+                      <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
+                        <mat-label>Academic Class (कक्षा)</mat-label>
+                        <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassChange()">
+                          <mat-option value="">-- All Classes (सभी कक्षाएं) --</mat-option>
+                          @for (c of schoolClasses; track c) {
+                            <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="cascade-field" subscriptSizing="dynamic">
+                        <mat-label>Coaching Batch (बैच)</mat-label>
+                        <mat-select [(ngModel)]="selectedBatchId">
+                          <mat-option value="">-- All Batches (सभी बैच) --</mat-option>
+                          @for (b of filteredBatches; track b) {
+                            <mat-option [value]="b.id">
+                              {{ b.name }} {{ b.subject ? '(' + b.subject + ')' : '' }}
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                  }
+                  <!-- Quick Student Search Input -->
+                  @if (borrowerStream === 'All') {
+                    <div class="student-search-bar">
+                      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+                        <mat-label>🔍 Quick Filter (Name / Roll No / Barcode)</mat-label>
+                        <input matInput [(ngModel)]="studentSearchTerm" placeholder="Type to instantly filter..." />
+                        @if (studentSearchTerm) {
+                          <button mat-icon-button matSuffix (click)="studentSearchTerm = ''" type="button">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                      </mat-form-field>
+                    </div>
+                  }
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Select Enrolled Student ({{ displayedStudents.length }} Available)</mat-label>
+                    <mat-select [(ngModel)]="issueStudentId" panelClass="batch-filter-panel">
+                      @for (s of displayedStudents; track s) {
+                        <mat-option [value]="s.id">
+                          <div class="borrower-opt">
+                            <span class="borrower-opt-name">{{ s.studentName }}</span>
+                            <span class="borrower-opt-id">({{ s.coachingRollNumber || s.rollNumber }}{{ s.admissionNumber ? ' • Adm: ' + s.admissionNumber : '' }})</span>
+                            @if (s.batchName || s.className) {
+                              <span class="borrower-opt-batch">
+                                • {{ s.batchName ? s.batchName : s.className }}
+                              </span>
+                            }
+                            @if (s.isLibraryMember) {
+                              <span class="b-pill-member">📚 Member (Limit: {{ s.maxLibraryBooks || 2 }})</span>
+                            }
+                            @if (!s.isLibraryMember) {
+                              <span class="b-pill-non">Non-Member</span>
+                            }
+                          </div>
+                        </mat-option>
+                      }
+                    </mat-select>
+                    @if (displayedStudents.length === 0) {
+                      <mat-hint>No students match current filter criteria.</mat-hint>
+                    }
+                  </mat-form-field>
+                  <!-- Borrower Library Membership Summary Card -->
+                  @if (selectedStudentForIssue) {
+                    <div class="borrower-summary-card">
+                      <div class="bsc-badge-row">
+                        <span class="bsc-status-pill" [class.is-member]="selectedStudentForIssue.isLibraryMember" [class.is-non-member]="!selectedStudentForIssue.isLibraryMember">
+                          <mat-icon>{{ selectedStudentForIssue.isLibraryMember ? 'verified' : 'block' }}</mat-icon>
+                          {{ selectedStudentForIssue.isLibraryMember ? 'Active Library Member' : 'Non-Member (Membership Required)' }}
+                        </span>
+                        @if (selectedStudentForIssue.isLibraryMember) {
+                          <span class="bsc-limit-pill">
+                            Borrow Limit: <strong>{{ selectedStudentForIssue.maxLibraryBooks || 2 }} Books</strong>
+                          </span>
+                        }
+                      </div>
+                      @if (selectedStudentForIssue.isLibraryMember) {
+                        <div class="bsc-details-grid">
+                          <div class="bsc-item">
+                            <span class="bsc-lbl">Library Card / Barcode:</span>
+                            <strong class="bsc-val">{{ selectedStudentForIssue.libraryCardNumber || 'Card Not Assigned' }}</strong>
+                          </div>
+                          <div class="bsc-item">
+                            <span class="bsc-lbl">Shift / Facility:</span>
+                            <strong class="bsc-val">{{ selectedStudentForIssue.libraryMembershipType || 'Standard Book Lending' }}</strong>
+                          </div>
+                          @if (selectedStudentForIssue.monthlyLibraryFee > 0) {
+                            <div class="bsc-item">
+                              <span class="bsc-lbl">Monthly Reading Fee:</span>
+                              <strong class="bsc-val">₹{{ selectedStudentForIssue.monthlyLibraryFee | number }}/mo</strong>
+                            </div>
+                          }
+                        </div>
+                      }
+                      @if (!selectedStudentForIssue.isLibraryMember) {
+                        <div class="bsc-non-member-box">
+                          <div class="bsc-non-content">
+                            <mat-icon class="bsc-warn-ico">warning_amber</mat-icon>
+                            <div class="bsc-warn-texts">
+                              <span class="bsc-warn-heading">Membership Required to Borrow</span>
+                              <p class="bsc-warn-desc">Student has not enrolled in a Library Membership Plan. Book circulation is restricted to registered members only.</p>
+                            </div>
+                          </div>
+                          <button mat-stroked-button color="primary" class="btn-assign-mem" type="button" (click)="openAssignMembershipModal()">
+                            <mat-icon>card_membership</mat-icon>
+                            <span>Assign Membership</span>
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+              <!-- Teacher Picker -->
+              @if (issueMemberType === 'Teacher') {
+                <div>
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Select Faculty Member</mat-label>
+                    <mat-select [(ngModel)]="issueTeacherId" panelClass="batch-filter-panel">
+                      @for (t of teachers; track t) {
+                        <mat-option [value]="t.id">
+                          <div class="borrower-opt">
+                            <span class="borrower-opt-name">{{ t.fullName }}</span>
+                            <span class="borrower-opt-id">({{ t.employeeCode }} &bull; {{ t.specialization || 'Faculty' }})</span>
+                            <span class="b-pill-member">👨‍🏫 Faculty Privileges</span>
+                          </div>
+                        </mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  @if (selectedTeacherForIssue) {
+                    <div class="borrower-summary-card">
+                      <div class="bsc-badge-row">
+                        <span class="bsc-status-pill is-member">
+                          <mat-icon>verified</mat-icon> Verified Faculty Member
+                        </span>
+                        <span class="bsc-limit-pill">
+                          Faculty Loan: <strong>{{ settings?.maxBooksPerTeacher || 5 }} Books Max</strong>
+                        </span>
+                      </div>
+                      <div class="bsc-details-grid">
+                        <div class="bsc-item">
+                          <span class="bsc-lbl">Employee Code:</span>
+                          <strong class="bsc-val">{{ selectedTeacherForIssue.employeeCode }}</strong>
+                        </div>
+                        <div class="bsc-item">
+                          <span class="bsc-lbl">Specialization:</span>
+                          <strong class="bsc-val">{{ selectedTeacherForIssue.specialization || 'General' }}</strong>
+                        </div>
+                        <div class="bsc-item">
+                          <span class="bsc-lbl">Phone Number:</span>
+                          <strong class="bsc-val">{{ selectedTeacherForIssue.phoneNumber }}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+              <div class="duration-row">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Loan Duration (Days)</mat-label>
+                  <input matInput type="number" [(ngModel)]="issueDays" min="1" max="90" />
+                  <mat-hint>{{ issueMemberType === 'Teacher' ? 'Faculty Policy: ' + (settings?.teacherIssueDays || 30) : 'Student Policy: ' + (settings?.studentIssueDays || 14) }} days</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-2">
+                  <mat-label>Remarks / Issue Notes</mat-label>
+                  <input matInput [(ngModel)]="issueRemarks" placeholder="Optional notes" />
+                </mat-form-field>
+              </div>
+              <div class="issue-action-bar">
+                <button mat-raised-button color="primary" class="btn-confirm-issue" (click)="confirmIssue()" [disabled]="!verifiedBook || verifiedBook.status !== 'Available' || (issueMemberType === 'Student' && (!issueStudentId || !selectedStudentForIssue?.isLibraryMember)) || (issueMemberType === 'Teacher' && !issueTeacherId) || issueSubmitting">
+                  <mat-icon>{{ (issueMemberType === 'Student' && selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember) ? 'lock' : 'check_circle' }}</mat-icon>
+                  <span>{{ (issueMemberType === 'Student' && selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember) ? 'Membership Required to Issue' : 'Confirm & Issue Book' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </mat-card>
+      }
+    
+      <!-- 2. Quick Return Desk -->
+      @if (activeDeskTab === 'return') {
+        <mat-card class="desk-card mat-elevation-z2">
+          <div class="desk-card-header">
+            <div class="dch-title">
+              <mat-icon color="primary">assignment_returned</mat-icon>
+              <div>
+                <h3>Fast Book Return &amp; Fine Settlement</h3>
+                <p>Scan returned book barcode to auto-calculate overdue days and collect late fines.</p>
+              </div>
+            </div>
+          </div>
+          <div class="return-flow-box">
+            <div class="lookup-row return-search-row">
+              <mat-form-field appearance="outline" class="search-input">
+                <mat-label>Scan Book Accession Barcode to Return</mat-label>
+                <input matInput [(ngModel)]="returnAccession" (keyup.enter)="lookupForReturn()" placeholder="e.g. ACC-00101" />
+                <mat-icon matSuffix>qr_code_scanner</mat-icon>
+              </mat-form-field>
+              <button mat-raised-button color="primary" class="btn-lookup" (click)="lookupForReturn()" [disabled]="!returnAccession">
+                Fetch Issue Record
+              </button>
+            </div>
+            <!-- Return Details Card -->
+            @if (returnCirculation) {
+              <div class="return-record-card">
+                <div class="rrc-grid">
+                  <div class="rrc-col">
+                    <div class="col-lbl">Book Details</div>
+                    <div class="col-val-title">{{ returnCirculation.bookTitle }}</div>
+                    <div class="col-sub">Acc No: <strong>{{ returnCirculation.accessionNumber }}</strong> &bull; Rack: {{ returnCirculation.rackLocation }}</div>
+                  </div>
+                  <div class="rrc-col">
+                    <div class="col-lbl">Borrower</div>
+                    <div class="col-val">{{ returnCirculation.studentName || returnCirculation.teacherName }}</div>
+                    <div class="col-sub">{{ returnCirculation.studentClassName ? 'Class: ' + returnCirculation.studentClassName : '' }} {{ returnCirculation.studentBatchName ? '• Batch: ' + returnCirculation.studentBatchName : '' }}</div>
+                  </div>
+                  <div class="rrc-col">
+                    <div class="col-lbl">Due Date &amp; Overdue</div>
+                    <div class="col-val">{{ returnCirculation.dueDate | date:'dd MMM yyyy' }}</div>
+                    <div class="overdue-tag" [class.is-late]="returnCirculation.overdueDays > 0">
+                      {{ returnCirculation.overdueDays > 0 ? (returnCirculation.overdueDays + ' Days Overdue!') : 'On-Time Return ✓' }}
+                    </div>
+                  </div>
+                  <div class="rrc-col fine-col">
+                    <div class="col-lbl">Late Fine / Penalty (₹)</div>
+                    <div class="fine-edit-row">
+                      <input type="number" [(ngModel)]="customFineAmount" class="fine-input" min="0" placeholder="0" (ngModelChange)="onFineAmountChange($event)" />
+                      <mat-select [(ngModel)]="finePaymentStatus" class="fine-select">
+                        <mat-option value="None">None (₹0)</mat-option>
+                        <mat-option value="Pending">Pending (Add to Fee Dues)</mat-option>
+                        <mat-option value="Paid">Paid at Counter (Cash)</mat-option>
+                        <mat-option value="Waived">Waived / Excused</mat-option>
+                      </mat-select>
+                    </div>
+                  </div>
+                </div>
+                <div class="return-btn-bar">
+                  <button mat-raised-button color="primary" class="btn-confirm-return" (click)="confirmReturn()" [disabled]="returnSubmitting">
+                    <mat-icon>done_all</mat-icon>
+                    <span>Confirm Return &amp; Restock to Shelf</span>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </mat-card>
+      }
+    
+      <!-- 3. Issued Ledger & Overdue List -->
+      @if (activeDeskTab === 'ledger') {
+        <mat-card class="desk-card mat-elevation-z2">
+          <div class="ledger-toolbar">
+            <div class="ledger-pill-group">
+              <button type="button" class="lp-pill" [class.active]="!ledgerOverdueOnly" (click)="setOverdueFilter(false)">
+                All Active Issues ({{ circulations.length }})
+              </button>
+              <button type="button" class="lp-pill overdue-pill" [class.active]="ledgerOverdueOnly" (click)="setOverdueFilter(true)">
+                <mat-icon>warning</mat-icon>
+                Overdue Only ({{ overdueCount }})
+              </button>
+            </div>
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-label>Search Book, Student, Roll No...</mat-label>
+              <input matInput [(ngModel)]="ledgerSearchTerm" (keyup.enter)="loadCirculations()" placeholder="Search..." />
+              <button mat-icon-button matSuffix (click)="loadCirculations()"><mat-icon>search</mat-icon></button>
+            </mat-form-field>
+          </div>
+          <div class="ledger-table-wrap">
+            <table class="ledger-table">
+              <thead>
+                <tr>
+                  <th>Accession / Book Title</th>
+                  <th>Borrower (Student / Faculty)</th>
+                  <th>Issue Date</th>
+                  <th>Due Date</th>
+                  <th>Status / Overdue</th>
+                  <th>Late Fine</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of circulations; track c) {
+                  <tr>
+                    <td>
+                      <div class="bk-title">{{ c.bookTitle }}</div>
+                      <div class="bk-acc">Acc: <strong>{{ c.accessionNumber }}</strong> &bull; {{ c.rackLocation }}@if (c.bookPrice > 0) {
+                      &bull; <span class="bk-price">₹{{ c.bookPrice }}</span>
+                    }</div>
+                  </td>
+                  <td>
+                    <div class="borrower-name">
+                      {{ c.studentName || c.teacherName }}
+                      @if (c.memberType === 'Teacher') {
+                        <span style="background: #faf5ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 6px;">Faculty</span>
+                      }
+                    </div>
+                    <div class="borrower-meta">
+                      @if (c.studentRollNumber) {
+                        <span>Roll: {{ c.studentRollNumber }}</span>
+                      }
+                      @if (c.studentClassName) {
+                        <span>&bull; {{ c.studentClassName }}</span>
+                      }
+                      @if (c.studentBatchName) {
+                        <span>&bull; {{ c.studentBatchName }}</span>
+                      }
+                      @if (c.teacherEmployeeCode) {
+                        <span>Emp Code: {{ c.teacherEmployeeCode }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td>{{ c.issueDate | date:'dd MMM yyyy' }}</td>
+                  <td><strong>{{ c.dueDate | date:'dd MMM yyyy' }}</strong></td>
+                  <td>
+                    <span class="circ-status-pill" [class.overdue]="c.status === 'Overdue' || c.overdueDays > 0">
+                      {{ c.overdueDays > 0 ? (c.overdueDays + ' Days Overdue') : 'Active Loan' }}
+                    </span>
+                  </td>
+                  <td>
+                    @if (c.fineAmount > 0) {
+                      <span class="fine-badge">₹{{ c.fineAmount }}</span>
+                    }
+                    @if (c.fineAmount === 0) {
+                      <span class="text-muted">₹0</span>
+                    }
+                  </td>
+                  <td>
+                    <div class="action-btn-row">
+                      <!-- WhatsApp Reminder for Overdue -->
+                      @if (c.parentWhatsAppPhone && c.overdueDays > 0) {
+                        <a
+                          mat-icon-button
+                          class="btn-wa"
+                          [href]="getWhatsAppUrl(c)"
+                          target="_blank"
+                          matTooltip="Send Overdue WhatsApp Reminder to Parent">
+                          <mat-icon>chat</mat-icon>
+                        </a>
+                      }
+                      <button mat-stroked-button color="primary" class="btn-quick-return" (click)="quickReturnFromRow(c)" matTooltip="Return this book">
+                        <mat-icon>arrow_downward</mat-icon> Return
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+              @if (!loadingCircs && circulations.length === 0) {
+                <tr>
+                  <td colspan="7" class="no-records">No active issued records found.</td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
       </mat-card>
-
-      <!-- Quick Assign Membership Modal Overlay (Strict Light Blue Header) -->
-      <div class="modal-backdrop" *ngIf="showAssignMembershipModal" (click)="closeAssignMembershipModal()">
+    }
+    
+    <!-- Quick Assign Membership Modal Overlay (Strict Light Blue Header) -->
+    @if (showAssignMembershipModal) {
+      <div class="modal-backdrop" (click)="closeAssignMembershipModal()">
         <div class="modal-dialog-card" (click)="$event.stopPropagation()">
           <div class="modal-header-box">
             <div class="header-left">
@@ -516,7 +574,6 @@ import { environment } from '../../../environments/environment';
               <mat-icon>close</mat-icon>
             </button>
           </div>
-
           <!-- Dialog Body Form -->
           <div class="modal-form-body">
             <!-- Student Banner -->
@@ -530,38 +587,35 @@ import { environment } from '../../../environments/environment';
                 </div>
               </div>
             </div>
-
             <div class="modal-form-grid">
               <mat-form-field appearance="outline" class="full-span">
                 <mat-label>Library Membership Plan / Shift *</mat-label>
                 <mat-select [(ngModel)]="assignPlanName" (selectionChange)="onAssignPlanChange($event.value)" panelClass="batch-filter-panel">
                   <mat-option value="Standard Book Lending">Standard Book Lending (General)</mat-option>
-                  <mat-option *ngFor="let p of libraryPlans" [value]="p.planName">
-                    {{ p.planName }} {{ p.shiftTiming ? '(' + p.shiftTiming + ')' : '' }} &bull; Max {{ p.maxBooks }} Books
-                  </mat-option>
+                  @for (p of libraryPlans; track p) {
+                    <mat-option [value]="p.planName">
+                      {{ p.planName }} {{ p.shiftTiming ? '(' + p.shiftTiming + ')' : '' }} &bull; Max {{ p.maxBooks }} Books
+                    </mat-option>
+                  }
                 </mat-select>
                 <mat-hint>Select circulation tier or shift</mat-hint>
               </mat-form-field>
-
               <mat-form-field appearance="outline">
                 <mat-label>Library Card Number</mat-label>
                 <input matInput [(ngModel)]="assignCardNumber" placeholder="e.g. LIB-0012" />
                 <mat-hint>Card barcode / ID #</mat-hint>
               </mat-form-field>
-
               <mat-form-field appearance="outline">
                 <mat-label>Max Books Allowed *</mat-label>
                 <input matInput type="number" [(ngModel)]="assignMaxBooks" min="1" max="20" />
                 <mat-hint>Simultaneous books quota</mat-hint>
               </mat-form-field>
-
               <mat-form-field appearance="outline" class="full-span">
                 <mat-label>Monthly Library Fee (₹)</mat-label>
                 <input matInput type="number" [(ngModel)]="assignMonthlyFee" min="0" />
                 <mat-hint>Keep ₹0 for free borrowing or tuition inclusion</mat-hint>
               </mat-form-field>
             </div>
-
             <div class="modal-footer-actions">
               <button mat-stroked-button type="button" (click)="closeAssignMembershipModal()">
                 Cancel
@@ -574,8 +628,10 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
       </div>
+    }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .circ-container { display: flex; flex-direction: column; gap: 16px; }
     .page-header {

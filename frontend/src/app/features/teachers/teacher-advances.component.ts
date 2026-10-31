@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -33,177 +33,209 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
   <app-teacher-selector [preSelectId]="preSelectId" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
-  <div *ngIf="!selectedTeacher" class="no-selection">
-    <mat-icon>person_search</mat-icon>
-    <p>Please select a faculty member above to view advance requests.</p>
-  </div>
-
-  <div *ngIf="selectedTeacher">
-    <div class="section-header">
-      <h3>{{selectedTeacher.fullName}} — Salary Advance Ledger</h3>
-      <button mat-raised-button color="primary" (click)="showForm = !showForm" [disabled]="loading">
-        <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
-        {{showForm ? 'Cancel' : 'Request Salary Advance'}}
-      </button>
+  @if (!selectedTeacher) {
+    <div class="no-selection">
+      <mat-icon>person_search</mat-icon>
+      <p>Please select a faculty member above to view advance requests.</p>
     </div>
+  }
 
-    <!-- Advance Request Form -->
-    <mat-card class="form-card mat-elevation-z1" *ngIf="showForm">
-      <div class="form-title">
-        <mat-icon>send_money</mat-icon>
-        <strong>New Advance Request</strong>
-      </div>
-      <div class="form-row">
-        <mat-form-field appearance="outline">
-          <mat-label>Amount ₹ *</mat-label>
-          <input matInput type="number" [(ngModel)]="newAdvance.amount" min="1" placeholder="5000">
-          <mat-hint>Minimum ₹1</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" style="flex:3">
-          <mat-label>Reason *</mat-label>
-          <input matInput [(ngModel)]="newAdvance.reason" placeholder="Medical emergency, personal, etc." maxlength="200">
-          <mat-hint align="end">{{(newAdvance.reason || '').length}}/200</mat-hint>
-        </mat-form-field>
-      </div>
-
-      <!-- Pending advance warning -->
-      <div class="pending-warn" *ngIf="hasPendingOrApproved">
-        <mat-icon>warning_amber</mat-icon>
-        <span>
-          Faculty member has <strong>{{pendingCount}} pending</strong> and <strong>{{approvedCount}} approved</strong> advance(s)
-          (Total: <strong>₹{{totalApprovedAmt | number}}</strong> approved).
-          Please review existing advances before submitting a new request.
-        </span>
-      </div>
-
-      <div class="form-actions">
-        <button mat-button (click)="showForm = false; resetForm()">Cancel</button>
-        <button mat-raised-button color="primary" (click)="requestAdvance()"
-          [disabled]="!newAdvance.amount || newAdvance.amount <= 0 || !(newAdvance.reason || '').trim() || submitting">
-          <mat-icon>{{submitting ? 'hourglass_empty' : 'send'}}</mat-icon>
-          {{submitting ? 'Submitting...' : 'Submit Advance Request'}}
+  @if (selectedTeacher) {
+    <div>
+      <div class="section-header">
+        <h3>{{selectedTeacher.fullName}} — Salary Advance Ledger</h3>
+        <button mat-raised-button color="primary" (click)="showForm = !showForm" [disabled]="loading">
+          <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
+          {{showForm ? 'Cancel' : 'Request Salary Advance'}}
         </button>
       </div>
-    </mat-card>
-
-    <!-- Stats Row -->
-    <div class="stats-row" *ngIf="advances.length > 0 || totalApprovedAmt > 0">
-      <div class="stat-chip pending">
-        <span>{{pendingCount}}</span><small>Pending</small>
-      </div>
-      <div class="stat-chip approved">
-        <span>{{approvedCount}}</span><small>Approved</small>
-      </div>
-      <div class="stat-chip adjusted">
-        <span>{{adjustedCount}}</span><small>Adjusted</small>
-      </div>
-      <div class="stat-chip rejected" *ngIf="rejectedCount > 0">
-        <span>{{rejectedCount}}</span><small>Rejected</small>
-      </div>
-      <div class="stat-chip total-amt">
-        <span>₹{{totalApprovedAmt | number}}</span><small>Total Approved (Pending Adjust)</small>
-      </div>
-      <div class="stat-chip recovered" *ngIf="totalAdjustedAmt > 0">
-        <span>₹{{totalAdjustedAmt | number}}</span><small>Total Recovered</small>
-      </div>
+      <!-- Advance Request Form -->
+      @if (showForm) {
+        <mat-card class="form-card mat-elevation-z1">
+          <div class="form-title">
+            <mat-icon>send_money</mat-icon>
+            <strong>New Advance Request</strong>
+          </div>
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Amount ₹ *</mat-label>
+              <input matInput type="number" [(ngModel)]="newAdvance.amount" min="1" placeholder="5000">
+              <mat-hint>Minimum ₹1</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline" style="flex:3">
+              <mat-label>Reason *</mat-label>
+              <input matInput [(ngModel)]="newAdvance.reason" placeholder="Medical emergency, personal, etc." maxlength="200">
+              <mat-hint align="end">{{(newAdvance.reason || '').length}}/200</mat-hint>
+            </mat-form-field>
+          </div>
+          <!-- Pending advance warning -->
+          @if (hasPendingOrApproved) {
+            <div class="pending-warn">
+              <mat-icon>warning_amber</mat-icon>
+              <span>
+                Faculty member has <strong>{{pendingCount}} pending</strong> and <strong>{{approvedCount}} approved</strong> advance(s)
+                (Total: <strong>₹{{totalApprovedAmt | number}}</strong> approved).
+                Please review existing advances before submitting a new request.
+              </span>
+            </div>
+          }
+          <div class="form-actions">
+            <button mat-button (click)="showForm = false; resetForm()">Cancel</button>
+            <button mat-raised-button color="primary" (click)="requestAdvance()"
+              [disabled]="!newAdvance.amount || newAdvance.amount <= 0 || !(newAdvance.reason || '').trim() || submitting">
+              <mat-icon>{{submitting ? 'hourglass_empty' : 'send'}}</mat-icon>
+              {{submitting ? 'Submitting...' : 'Submit Advance Request'}}
+            </button>
+          </div>
+        </mat-card>
+      }
+      <!-- Stats Row -->
+      @if (advances.length > 0 || totalApprovedAmt > 0) {
+        <div class="stats-row">
+          <div class="stat-chip pending">
+            <span>{{pendingCount}}</span><small>Pending</small>
+          </div>
+          <div class="stat-chip approved">
+            <span>{{approvedCount}}</span><small>Approved</small>
+          </div>
+          <div class="stat-chip adjusted">
+            <span>{{adjustedCount}}</span><small>Adjusted</small>
+          </div>
+          @if (rejectedCount > 0) {
+            <div class="stat-chip rejected">
+              <span>{{rejectedCount}}</span><small>Rejected</small>
+            </div>
+          }
+          <div class="stat-chip total-amt">
+            <span>₹{{totalApprovedAmt | number}}</span><small>Total Approved (Pending Adjust)</small>
+          </div>
+          @if (totalAdjustedAmt > 0) {
+            <div class="stat-chip recovered">
+              <span>₹{{totalAdjustedAmt | number}}</span><small>Total Recovered</small>
+            </div>
+          }
+        </div>
+      }
+      <!-- Advances Ledger Table -->
+      @if (advances.length > 0) {
+        <mat-card class="table-card mat-elevation-z1">
+          <div class="table-header-strip">
+            <span><mat-icon class="strip-icon">list_alt</mat-icon> Advance Ledger History</span>
+            <span class="table-count">{{advances.length}} record(s)</span>
+          </div>
+          <table class="adv-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Request Date</th>
+                <th>Amount</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Approved Date</th>
+                <th>Adjusted In</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (a of advances; track a; let i = $index) {
+                <tr [class.adjusted-row]="a.status === 'Adjusted'" [class.pending-row]="a.status === 'Pending'">
+                  <td class="row-num">{{i + 1}}</td>
+                  <td>{{a.requestDate | date:'dd MMM yyyy'}}</td>
+                  <td><strong class="amount-cell">₹{{a.amount | number}}</strong></td>
+                  <td class="reason-cell">{{a.reason || '—'}}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="a.status.toLowerCase()">
+                      <mat-icon class="badge-icon">
+                        {{a.status === 'Approved' ? 'check_circle' :
+                        a.status === 'Pending'  ? 'schedule' :
+                        a.status === 'Adjusted' ? 'account_balance_wallet' : 'cancel'}}
+                      </mat-icon>
+                      {{a.status}}
+                    </span>
+                  </td>
+                  <td>{{a.approvedDate ? (a.approvedDate | date:'dd MMM yyyy') : '—'}}</td>
+                  <td>
+                    <!-- Adjusted In Month/Year — This is the Ledger column -->
+                    @if (a.status === 'Adjusted' && a.adjustedInMonth && a.adjustedInYear) {
+                      <span class="adjusted-in-chip">
+                        <mat-icon class="inline-icon">payments</mat-icon>
+                        {{getMonthName(a.adjustedInMonth!)}} {{a.adjustedInYear}}
+                      </span>
+                    }
+                    @if (a.status === 'Approved') {
+                      <span class="pending-adjust-chip">
+                        <mat-icon class="inline-icon">pending_actions</mat-icon>
+                        In upcoming salary
+                      </span>
+                    }
+                    @if (a.status !== 'Adjusted' && a.status !== 'Approved') {
+                      <span style="color:#94a3b8;font-size:.8rem;">—</span>
+                    }
+                  </td>
+                  <td class="text-center">
+                    <div class="action-btns">
+                      @if (a.status === 'Pending') {
+                        <button mat-icon-button color="primary"
+                          (click)="approve(a.id, true)" matTooltip="Approve request">
+                          <mat-icon>check_circle</mat-icon>
+                        </button>
+                      }
+                      @if (a.status === 'Pending') {
+                        <button mat-icon-button color="warn"
+                          (click)="approve(a.id, false)" matTooltip="Reject request">
+                          <mat-icon>cancel</mat-icon>
+                        </button>
+                      }
+                      @if (a.status === 'Adjusted') {
+                        <span class="done-label">
+                          <mat-icon style="font-size:15px;width:15px;height:15px;color:#2e7d32">check</mat-icon> Recovered
+                        </span>
+                      }
+                      @if (a.status === 'Rejected') {
+                        <span style="color:#94a3b8;font-size:.78rem;">Rejected</span>
+                      }
+                      @if (a.status === 'Approved') {
+                        <span style="color:#1565c0;font-size:.78rem;">Awaiting salary</span>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <!-- Ledger Summary Footer -->
+          <div class="ledger-footer">
+            <div class="ledger-item">
+              <span class="lk">Total Advances Requested:</span>
+              <span class="lv">₹{{totalRequestedAmt | number}}</span>
+            </div>
+            <div class="ledger-item">
+              <span class="lk">Total Approved (Outstanding):</span>
+              <span class="lv outstanding">₹{{totalApprovedAmt | number}}</span>
+            </div>
+            <div class="ledger-item">
+              <span class="lk">Total Recovered via Salary:</span>
+              <span class="lv recovered">₹{{totalAdjustedAmt | number}}</span>
+            </div>
+          </div>
+        </mat-card>
+      }
+      @if (advances.length === 0 && !loading && !showForm) {
+        <div class="empty-state">
+          <mat-icon>account_balance_wallet</mat-icon>
+          <p>No advance requests recorded yet for this faculty member.</p>
+          <small>Click "Request Salary Advance" above to submit a new request.</small>
+        </div>
+      }
     </div>
-
-    <!-- Advances Ledger Table -->
-    <mat-card class="table-card mat-elevation-z1" *ngIf="advances.length > 0">
-      <div class="table-header-strip">
-        <span><mat-icon class="strip-icon">list_alt</mat-icon> Advance Ledger History</span>
-        <span class="table-count">{{advances.length}} record(s)</span>
-      </div>
-      <table class="adv-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Request Date</th>
-            <th>Amount</th>
-            <th>Reason</th>
-            <th>Status</th>
-            <th>Approved Date</th>
-            <th>Adjusted In</th>
-            <th class="text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let a of advances; let i = index" [class.adjusted-row]="a.status === 'Adjusted'" [class.pending-row]="a.status === 'Pending'">
-            <td class="row-num">{{i + 1}}</td>
-            <td>{{a.requestDate | date:'dd MMM yyyy'}}</td>
-            <td><strong class="amount-cell">₹{{a.amount | number}}</strong></td>
-            <td class="reason-cell">{{a.reason || '—'}}</td>
-            <td>
-              <span class="status-badge" [ngClass]="a.status.toLowerCase()">
-                <mat-icon class="badge-icon">
-                  {{a.status === 'Approved' ? 'check_circle' :
-                    a.status === 'Pending'  ? 'schedule' :
-                    a.status === 'Adjusted' ? 'account_balance_wallet' : 'cancel'}}
-                </mat-icon>
-                {{a.status}}
-              </span>
-            </td>
-            <td>{{a.approvedDate ? (a.approvedDate | date:'dd MMM yyyy') : '—'}}</td>
-            <td>
-              <!-- Adjusted In Month/Year — This is the Ledger column -->
-              <span class="adjusted-in-chip" *ngIf="a.status === 'Adjusted' && a.adjustedInMonth && a.adjustedInYear">
-                <mat-icon class="inline-icon">payments</mat-icon>
-                {{getMonthName(a.adjustedInMonth!)}} {{a.adjustedInYear}}
-              </span>
-              <span *ngIf="a.status === 'Approved'" class="pending-adjust-chip">
-                <mat-icon class="inline-icon">pending_actions</mat-icon>
-                In upcoming salary
-              </span>
-              <span *ngIf="a.status !== 'Adjusted' && a.status !== 'Approved'" style="color:#94a3b8;font-size:.8rem;">—</span>
-            </td>
-            <td class="text-center">
-              <div class="action-btns">
-                <button mat-icon-button color="primary" *ngIf="a.status === 'Pending'"
-                  (click)="approve(a.id, true)" matTooltip="Approve request">
-                  <mat-icon>check_circle</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" *ngIf="a.status === 'Pending'"
-                  (click)="approve(a.id, false)" matTooltip="Reject request">
-                  <mat-icon>cancel</mat-icon>
-                </button>
-                <span *ngIf="a.status === 'Adjusted'" class="done-label">
-                  <mat-icon style="font-size:15px;width:15px;height:15px;color:#2e7d32">check</mat-icon> Recovered
-                </span>
-                <span *ngIf="a.status === 'Rejected'" style="color:#94a3b8;font-size:.78rem;">Rejected</span>
-                <span *ngIf="a.status === 'Approved'" style="color:#1565c0;font-size:.78rem;">Awaiting salary</span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Ledger Summary Footer -->
-      <div class="ledger-footer">
-        <div class="ledger-item">
-          <span class="lk">Total Advances Requested:</span>
-          <span class="lv">₹{{totalRequestedAmt | number}}</span>
-        </div>
-        <div class="ledger-item">
-          <span class="lk">Total Approved (Outstanding):</span>
-          <span class="lv outstanding">₹{{totalApprovedAmt | number}}</span>
-        </div>
-        <div class="ledger-item">
-          <span class="lk">Total Recovered via Salary:</span>
-          <span class="lv recovered">₹{{totalAdjustedAmt | number}}</span>
-        </div>
-      </div>
-    </mat-card>
-
-    <div class="empty-state" *ngIf="advances.length === 0 && !loading && !showForm">
-      <mat-icon>account_balance_wallet</mat-icon>
-      <p>No advance requests recorded yet for this faculty member.</p>
-      <small>Click "Request Salary Advance" above to submit a new request.</small>
-    </div>
-  </div>
+  }
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display:flex; flex-direction:column; gap:20px; }
     .page-header { display:flex; justify-content:space-between; align-items:center; }

@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
@@ -20,7 +20,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   selector: 'app-attendance-settings',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatCardModule,
     MatButtonModule,
@@ -33,7 +32,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatProgressBarModule,
     MatTooltipModule,
     MatSlideToggleModule
-  ],
+],
   template: `
     <div class="page-container">
       <div class="page-header">
@@ -42,417 +41,394 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <p class="page-subtitle">Configure school & faculty shift timings, late arrival grace cutoff, half-day thresholds, and attendance modes.</p>
         </div>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
-      <mat-card class="settings-card mat-elevation-z1" *ngIf="!loading">
-        <mat-tab-group animationDuration="200ms" class="custom-tab-group">
-
-          <!-- ================= TAB 1: FACULTY / TEACHER SETTINGS ================= -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">school</mat-icon>
-              <span>Faculty / Teacher Shift Rules</span>
-            </ng-template>
-
-            <div class="tab-panel-body">
-              <div class="preview-banner teacher-banner">
-                <div class="banner-pill">
-                  <mat-icon>info</mat-icon>
-                  <strong>Live Faculty Policy Summary:</strong>
+    
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
+      @if (!loading) {
+        <mat-card class="settings-card mat-elevation-z1">
+          <mat-tab-group animationDuration="200ms" class="custom-tab-group">
+            <!-- ================= TAB 1: FACULTY / TEACHER SETTINGS ================= -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">school</mat-icon>
+                <span>Faculty / Teacher Shift Rules</span>
+              </ng-template>
+              <div class="tab-panel-body">
+                <div class="preview-banner teacher-banner">
+                  <div class="banner-pill">
+                    <mat-icon>info</mat-icon>
+                    <strong>Live Faculty Policy Summary:</strong>
+                  </div>
+                  <div class="banner-text">
+                    {{ getTeacherSummaryText() }}
+                  </div>
                 </div>
-                <div class="banner-text">
-                  {{ getTeacherSummaryText() }}
+                <!-- Quick Presets -->
+                <div class="preset-strip">
+                  <span class="preset-label">Quick Timings Presets:</span>
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('08:00', '17:00')">
+                    08:00 AM – 05:00 PM (9 hrs)
+                  </button>
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('09:00', '17:00')">
+                    09:00 AM – 05:00 PM (8 hrs)
+                  </button>
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('10:00', '17:00')">
+                    10:00 AM – 05:00 PM (7 hrs)
+                  </button>
                 </div>
-              </div>
-
-              <!-- Quick Presets -->
-              <div class="preset-strip">
-                <span class="preset-label">Quick Timings Presets:</span>
-                <button type="button" class="preset-chip" (click)="applyTeacherPreset('08:00', '17:00')">
-                  08:00 AM – 05:00 PM (9 hrs)
-                </button>
-                <button type="button" class="preset-chip" (click)="applyTeacherPreset('09:00', '17:00')">
-                  09:00 AM – 05:00 PM (8 hrs)
-                </button>
-                <button type="button" class="preset-chip" (click)="applyTeacherPreset('10:00', '17:00')">
-                  10:00 AM – 05:00 PM (7 hrs)
-                </button>
-              </div>
-
-              <div class="form-grid">
-                <!-- Teacher Mode -->
-                <mat-form-field appearance="outline" class="col-full">
-                  <mat-label>Teacher Attendance Mode</mat-label>
-                  <mat-select [(ngModel)]="settings.teacherMode">
-                    <mat-option value="Both">Manual Roster + Biometric Device</mat-option>
-                    <mat-option value="Manual">Manual Register Only</mat-option>
-                    <mat-option value="Biometric">Biometric Device Only</mat-option>
-                  </mat-select>
-                  <mat-hint>Choose whether faculty attendance is captured manually, via biometric device, or both.</mat-hint>
-                </mat-form-field>
-
-                <!-- Shift Start Time -->
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Shift Start Time</mat-label>
-                  <input matInput type="time" [(ngModel)]="settings.teacherShiftStartTime" required>
-                  <mat-icon matPrefix>login</mat-icon>
-                  <mat-hint>e.g. 08:00 or 09:00 AM</mat-hint>
-                </mat-form-field>
-
-                <!-- Shift End Time -->
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Shift End Time</mat-label>
-                  <input matInput type="time" [(ngModel)]="settings.teacherShiftEndTime" required>
-                  <mat-icon matPrefix>logout</mat-icon>
-                  <mat-hint>e.g. 17:00 (05:00 PM)</mat-hint>
-                </mat-form-field>
-
-                <!-- Grace Period -->
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Late Arrival Grace Period (Minutes)</mat-label>
-                  <input matInput type="number" min="0" max="120" [(ngModel)]="settings.teacherGracePeriodMinutes" required>
-                  <mat-icon matPrefix>timer</mat-icon>
-                  <mat-hint>Punches past {{ getTeacherLateCutoffFormatted() }} count as Late</mat-hint>
-                </mat-form-field>
-
-                <!-- Half Day Min Work Duration -->
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Half-Day Min Work Duration (Minutes)</mat-label>
-                  <input matInput type="number" min="60" max="600" step="30" [(ngModel)]="settings.teacherHalfDayThresholdMinutes" required>
-                  <mat-icon matPrefix>hourglass_bottom</mat-icon>
-                  <mat-hint>{{ getHoursFromMinutes(settings.teacherHalfDayThresholdMinutes) }} hrs minimum (Work below this = Half Day)</mat-hint>
-                </mat-form-field>
-
-                <!-- Allowed Free Late Days -->
-                <mat-form-field appearance="outline" class="col-full">
-                  <mat-label>Free Grace Late Marks Per Month</mat-label>
-                  <input matInput type="number" min="0" max="31" [(ngModel)]="settings.teacherAllowedLateDaysPerMonth" required>
-                  <mat-icon matPrefix>event_busy</mat-icon>
-                  <mat-hint>Number of late arrivals per calendar month before salary deduction begins.</mat-hint>
-                </mat-form-field>
-              </div>
-            </div>
-          </mat-tab>
-
-          <!-- ================= TAB 2: STUDENT SETTINGS ================= -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">school</mat-icon>
-              <span>School Student Shift Rules</span>
-            </ng-template>
-
-            <div class="tab-panel-body">
-              <div class="preview-banner student-banner">
-                <div class="banner-pill">
-                  <mat-icon>info</mat-icon>
-                  <strong>Live Student Policy Summary:</strong>
-                </div>
-                <div class="banner-text">
-                  {{ getStudentSummaryText() }}
+                <div class="form-grid">
+                  <!-- Teacher Mode -->
+                  <mat-form-field appearance="outline" class="col-full">
+                    <mat-label>Teacher Attendance Mode</mat-label>
+                    <mat-select [(ngModel)]="settings.teacherMode">
+                      <mat-option value="Both">Manual Roster + Biometric Device</mat-option>
+                      <mat-option value="Manual">Manual Register Only</mat-option>
+                      <mat-option value="Biometric">Biometric Device Only</mat-option>
+                    </mat-select>
+                    <mat-hint>Choose whether faculty attendance is captured manually, via biometric device, or both.</mat-hint>
+                  </mat-form-field>
+                  <!-- Shift Start Time -->
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Shift Start Time</mat-label>
+                    <input matInput type="time" [(ngModel)]="settings.teacherShiftStartTime" required>
+                    <mat-icon matPrefix>login</mat-icon>
+                    <mat-hint>e.g. 08:00 or 09:00 AM</mat-hint>
+                  </mat-form-field>
+                  <!-- Shift End Time -->
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Shift End Time</mat-label>
+                    <input matInput type="time" [(ngModel)]="settings.teacherShiftEndTime" required>
+                    <mat-icon matPrefix>logout</mat-icon>
+                    <mat-hint>e.g. 17:00 (05:00 PM)</mat-hint>
+                  </mat-form-field>
+                  <!-- Grace Period -->
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Late Arrival Grace Period (Minutes)</mat-label>
+                    <input matInput type="number" min="0" max="120" [(ngModel)]="settings.teacherGracePeriodMinutes" required>
+                    <mat-icon matPrefix>timer</mat-icon>
+                    <mat-hint>Punches past {{ getTeacherLateCutoffFormatted() }} count as Late</mat-hint>
+                  </mat-form-field>
+                  <!-- Half Day Min Work Duration -->
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Half-Day Min Work Duration (Minutes)</mat-label>
+                    <input matInput type="number" min="60" max="600" step="30" [(ngModel)]="settings.teacherHalfDayThresholdMinutes" required>
+                    <mat-icon matPrefix>hourglass_bottom</mat-icon>
+                    <mat-hint>{{ getHoursFromMinutes(settings.teacherHalfDayThresholdMinutes) }} hrs minimum (Work below this = Half Day)</mat-hint>
+                  </mat-form-field>
+                  <!-- Allowed Free Late Days -->
+                  <mat-form-field appearance="outline" class="col-full">
+                    <mat-label>Free Grace Late Marks Per Month</mat-label>
+                    <input matInput type="number" min="0" max="31" [(ngModel)]="settings.teacherAllowedLateDaysPerMonth" required>
+                    <mat-icon matPrefix>event_busy</mat-icon>
+                    <mat-hint>Number of late arrivals per calendar month before salary deduction begins.</mat-hint>
+                  </mat-form-field>
                 </div>
               </div>
-
-              <!-- Quick Student Presets -->
-              <div class="preset-strip">
-                <span class="preset-label">Quick Class Presets:</span>
-                <button type="button" class="preset-chip" (click)="applyStudentPreset('08:00', '14:00')">
-                  08:00 AM – 02:00 PM (6 hrs)
-                </button>
-                <button type="button" class="preset-chip" (click)="applyStudentPreset('08:30', '14:30')">
-                  08:30 AM – 02:30 PM (6 hrs)
-                </button>
-                <button type="button" class="preset-chip" (click)="applyStudentPreset('09:00', '15:00')">
-                  09:00 AM – 03:00 PM (6 hrs)
-                </button>
-              </div>
-
-              <div class="form-grid">
-                <!-- Student Mode -->
-                <mat-form-field appearance="outline" class="col-full">
-                  <mat-label>Student Attendance Mode</mat-label>
-                  <mat-select [(ngModel)]="settings.studentMode">
-                    <mat-option value="Both">Manual Roll Call + Turnstile/Biometric</mat-option>
-                    <mat-option value="Manual">Manual Roll Call Only</mat-option>
-                    <mat-option value="Biometric">Biometric Turnstile Only</mat-option>
-                  </mat-select>
-                  <mat-hint>Choose whether student roll call is manual, biometric turnstile, or hybrid.</mat-hint>
-                </mat-form-field>
-
-                <!-- Shift Start Time -->
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Class / Assembly Start Time</mat-label>
-                  <input matInput type="time" [(ngModel)]="settings.studentShiftStartTime" required>
-                  <mat-icon matPrefix>school</mat-icon>
-                  <mat-hint>e.g. 08:00 or 08:30 AM</mat-hint>
-                </mat-form-field>
-
-                <!-- Shift End Time -->
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Class / Dispersal End Time</mat-label>
-                  <input matInput type="time" [(ngModel)]="settings.studentShiftEndTime" required>
-                  <mat-icon matPrefix>meeting_room</mat-icon>
-                  <mat-hint>e.g. 14:00 (02:00 PM)</mat-hint>
-                </mat-form-field>
-
-                <!-- Grace Period -->
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Late Arrival Grace Period (Minutes)</mat-label>
-                  <input matInput type="number" min="0" max="120" [(ngModel)]="settings.studentGracePeriodMinutes" required>
-                  <mat-icon matPrefix>timer</mat-icon>
-                  <mat-hint>Arrival past {{ getStudentLateCutoffFormatted() }} counts as Late</mat-hint>
-                </mat-form-field>
-
-                <!-- Half Day Min Duration -->
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Half-Day Min Attendance (Minutes)</mat-label>
-                  <input matInput type="number" min="60" max="600" step="30" [(ngModel)]="settings.studentHalfDayThresholdMinutes" required>
-                  <mat-icon matPrefix>hourglass_bottom</mat-icon>
-                  <mat-hint>{{ getHoursFromMinutes(settings.studentHalfDayThresholdMinutes) }} hrs minimum required for full attendance</mat-hint>
-                </mat-form-field>
-
-                <!-- Allowed Late Marks -->
-                <mat-form-field appearance="outline" class="col-full">
-                  <mat-label>Allowed Late Marks Per Month</mat-label>
-                  <input matInput type="number" min="0" max="31" [(ngModel)]="settings.studentAllowedLateDaysPerMonth" required>
-                  <mat-icon matPrefix>warning_amber</mat-icon>
-                  <mat-hint>Late occurrences allowed per month before triggering parent alerts or disciplinary note.</mat-hint>
-                </mat-form-field>
-
-                <!-- Monthly Student Absence Fine Policy (UI Configurable: Flat vs PerBlock) -->
-                <div class="col-full fine-policy-card" [class.active-fine]="settings.enableStudentAbsenceFine">
-                  <div class="fine-card-header">
-                    <div class="fine-header-left">
-                      <div class="fine-icon-badge">
-                        <mat-icon>gavel</mat-icon>
-                      </div>
-                      <div>
-                        <h4 class="fine-title">Monthly Student Absence Fine Policy</h4>
-                        <p class="fine-subtitle">Auto-calculate &amp; bill absence penalty in Monthly Fee Invoices &amp; Receipts.</p>
-                        <div class="applicable-tags">
-                          <span class="app-tag school"><mat-icon>school</mat-icon> School Classes</span>
-                          <span class="app-tag coaching"><mat-icon>menu_book</mat-icon> Coaching Batches</span>
-                          <span class="app-tag hybrid"><mat-icon>auto_awesome</mat-icon> Hybrid Students</span>
+            </mat-tab>
+            <!-- ================= TAB 2: STUDENT SETTINGS ================= -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">school</mat-icon>
+                <span>School Student Shift Rules</span>
+              </ng-template>
+              <div class="tab-panel-body">
+                <div class="preview-banner student-banner">
+                  <div class="banner-pill">
+                    <mat-icon>info</mat-icon>
+                    <strong>Live Student Policy Summary:</strong>
+                  </div>
+                  <div class="banner-text">
+                    {{ getStudentSummaryText() }}
+                  </div>
+                </div>
+                <!-- Quick Student Presets -->
+                <div class="preset-strip">
+                  <span class="preset-label">Quick Class Presets:</span>
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:00', '14:00')">
+                    08:00 AM – 02:00 PM (6 hrs)
+                  </button>
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:30', '14:30')">
+                    08:30 AM – 02:30 PM (6 hrs)
+                  </button>
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('09:00', '15:00')">
+                    09:00 AM – 03:00 PM (6 hrs)
+                  </button>
+                </div>
+                <div class="form-grid">
+                  <!-- Student Mode -->
+                  <mat-form-field appearance="outline" class="col-full">
+                    <mat-label>Student Attendance Mode</mat-label>
+                    <mat-select [(ngModel)]="settings.studentMode">
+                      <mat-option value="Both">Manual Roll Call + Turnstile/Biometric</mat-option>
+                      <mat-option value="Manual">Manual Roll Call Only</mat-option>
+                      <mat-option value="Biometric">Biometric Turnstile Only</mat-option>
+                    </mat-select>
+                    <mat-hint>Choose whether student roll call is manual, biometric turnstile, or hybrid.</mat-hint>
+                  </mat-form-field>
+                  <!-- Shift Start Time -->
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Class / Assembly Start Time</mat-label>
+                    <input matInput type="time" [(ngModel)]="settings.studentShiftStartTime" required>
+                    <mat-icon matPrefix>school</mat-icon>
+                    <mat-hint>e.g. 08:00 or 08:30 AM</mat-hint>
+                  </mat-form-field>
+                  <!-- Shift End Time -->
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Class / Dispersal End Time</mat-label>
+                    <input matInput type="time" [(ngModel)]="settings.studentShiftEndTime" required>
+                    <mat-icon matPrefix>meeting_room</mat-icon>
+                    <mat-hint>e.g. 14:00 (02:00 PM)</mat-hint>
+                  </mat-form-field>
+                  <!-- Grace Period -->
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Late Arrival Grace Period (Minutes)</mat-label>
+                    <input matInput type="number" min="0" max="120" [(ngModel)]="settings.studentGracePeriodMinutes" required>
+                    <mat-icon matPrefix>timer</mat-icon>
+                    <mat-hint>Arrival past {{ getStudentLateCutoffFormatted() }} counts as Late</mat-hint>
+                  </mat-form-field>
+                  <!-- Half Day Min Duration -->
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Half-Day Min Attendance (Minutes)</mat-label>
+                    <input matInput type="number" min="60" max="600" step="30" [(ngModel)]="settings.studentHalfDayThresholdMinutes" required>
+                    <mat-icon matPrefix>hourglass_bottom</mat-icon>
+                    <mat-hint>{{ getHoursFromMinutes(settings.studentHalfDayThresholdMinutes) }} hrs minimum required for full attendance</mat-hint>
+                  </mat-form-field>
+                  <!-- Allowed Late Marks -->
+                  <mat-form-field appearance="outline" class="col-full">
+                    <mat-label>Allowed Late Marks Per Month</mat-label>
+                    <input matInput type="number" min="0" max="31" [(ngModel)]="settings.studentAllowedLateDaysPerMonth" required>
+                    <mat-icon matPrefix>warning_amber</mat-icon>
+                    <mat-hint>Late occurrences allowed per month before triggering parent alerts or disciplinary note.</mat-hint>
+                  </mat-form-field>
+                  <!-- Monthly Student Absence Fine Policy (UI Configurable: Flat vs PerBlock) -->
+                  <div class="col-full fine-policy-card" [class.active-fine]="settings.enableStudentAbsenceFine">
+                    <div class="fine-card-header">
+                      <div class="fine-header-left">
+                        <div class="fine-icon-badge">
+                          <mat-icon>gavel</mat-icon>
+                        </div>
+                        <div>
+                          <h4 class="fine-title">Monthly Student Absence Fine Policy</h4>
+                          <p class="fine-subtitle">Auto-calculate &amp; bill absence penalty in Monthly Fee Invoices &amp; Receipts.</p>
+                          <div class="applicable-tags">
+                            <span class="app-tag school"><mat-icon>school</mat-icon> School Classes</span>
+                            <span class="app-tag coaching"><mat-icon>menu_book</mat-icon> Coaching Batches</span>
+                            <span class="app-tag hybrid"><mat-icon>auto_awesome</mat-icon> Hybrid Students</span>
+                          </div>
                         </div>
                       </div>
+                      <mat-slide-toggle [(ngModel)]="settings.enableStudentAbsenceFine" color="primary">
+                        <span class="toggle-label font-semibold">{{ settings.enableStudentAbsenceFine ? 'Fine Active' : 'Fine Disabled' }}</span>
+                      </mat-slide-toggle>
                     </div>
-                    <mat-slide-toggle [(ngModel)]="settings.enableStudentAbsenceFine" color="primary">
-                      <span class="toggle-label font-semibold">{{ settings.enableStudentAbsenceFine ? 'Fine Active' : 'Fine Disabled' }}</span>
-                    </mat-slide-toggle>
-                  </div>
-
-                  <div *ngIf="settings.enableStudentAbsenceFine" class="fine-card-body">
-                    <div class="form-grid">
-                      <!-- Mode Selector: PerBlock vs Flat -->
-                      <mat-form-field appearance="outline" class="col-full">
-                        <mat-label>Absence Fine Calculation Mode</mat-label>
-                        <mat-select [(ngModel)]="settings.absenceFineMode">
-                          <mat-option value="PerBlock">
-                            <strong>Dynamic Slab:</strong> Har {{ settings.absenceFineDaysThreshold || 3 }} din par ₹{{ settings.absenceFineAmount || 10 }} multiply hoga (e.g. 3d = ₹10, 6d = ₹20, 9d = ₹30)
-                          </mat-option>
-                          <mat-option value="Flat">
-                            <strong>Flat Fine:</strong> Flat ₹{{ settings.absenceFineAmount || 10 }} fine once {{ settings.absenceFineDaysThreshold || 3 }}+ din absent ho
-                          </mat-option>
-                        </mat-select>
-                        <mat-icon matPrefix>calculate</mat-icon>
-                        <mat-hint>Choose whether fine multiplies with every block of missed days or remains flat.</mat-hint>
-                      </mat-form-field>
-
-                      <!-- Absence Trigger Block Days -->
-                      <mat-form-field appearance="outline" class="col-half">
-                        <mat-label>Absent Days Trigger Block</mat-label>
-                        <input matInput type="number" min="1" max="31" [(ngModel)]="settings.absenceFineDaysThreshold" required>
-                        <mat-icon matPrefix>event_busy</mat-icon>
-                        <mat-hint>Threshold days (e.g. 3 days absent)</mat-hint>
-                      </mat-form-field>
-
-                      <!-- Fine Amount (₹) -->
-                      <mat-form-field appearance="outline" class="col-half">
-                        <mat-label>Fine Amount (₹)</mat-label>
-                        <input matInput type="number" min="1" max="5000" [(ngModel)]="settings.absenceFineAmount" required>
-                        <mat-icon matPrefix>currency_rupee</mat-icon>
-                        <mat-hint>Penalty amount in Rupees (e.g. ₹10)</mat-hint>
-                      </mat-form-field>
-
-                      <!-- Live Rule Summary Box -->
-                      <div class="col-full fine-live-preview">
-                        <mat-icon class="preview-icon">verified</mat-icon>
-                        <div class="preview-content">
-                          <strong style="color: #1e3a8a;">Live Rule Preview (School, Coaching &amp; Hybrid): </strong>
-                          <span *ngIf="settings.absenceFineMode === 'PerBlock'">
-                            Agar student (Class, Coaching ya Hybrid) month me <strong>{{ settings.absenceFineDaysThreshold || 3 }} din</strong> absent hoga toh <strong>₹{{ (settings.absenceFineAmount || 10) }}</strong>, agar <strong>{{ (settings.absenceFineDaysThreshold || 3) * 2 }} din</strong> absent hoga toh <strong>₹{{ (settings.absenceFineAmount || 10) * 2 }}</strong>, aur <strong>{{ (settings.absenceFineDaysThreshold || 3) * 3 }} din</strong> par <strong>₹{{ (settings.absenceFineAmount || 10) * 3 }}</strong> fine monthly fee receipt me auto-add hoga.
-                          </span>
-                          <span *ngIf="settings.absenceFineMode === 'Flat'">
-                            Agar student (Class, Coaching ya Hybrid) month me <strong>{{ settings.absenceFineDaysThreshold || 3 }}+ din</strong> absent hoga, toh uske monthly bill me flat <strong>₹{{ settings.absenceFineAmount || 10 }}</strong> attendance fine auto-add hoga.
-                          </span>
+                    @if (settings.enableStudentAbsenceFine) {
+                      <div class="fine-card-body">
+                        <div class="form-grid">
+                          <!-- Mode Selector: PerBlock vs Flat -->
+                          <mat-form-field appearance="outline" class="col-full">
+                            <mat-label>Absence Fine Calculation Mode</mat-label>
+                            <mat-select [(ngModel)]="settings.absenceFineMode">
+                              <mat-option value="PerBlock">
+                                <strong>Dynamic Slab:</strong> Har {{ settings.absenceFineDaysThreshold || 3 }} din par ₹{{ settings.absenceFineAmount || 10 }} multiply hoga (e.g. 3d = ₹10, 6d = ₹20, 9d = ₹30)
+                              </mat-option>
+                              <mat-option value="Flat">
+                                <strong>Flat Fine:</strong> Flat ₹{{ settings.absenceFineAmount || 10 }} fine once {{ settings.absenceFineDaysThreshold || 3 }}+ din absent ho
+                              </mat-option>
+                            </mat-select>
+                            <mat-icon matPrefix>calculate</mat-icon>
+                            <mat-hint>Choose whether fine multiplies with every block of missed days or remains flat.</mat-hint>
+                          </mat-form-field>
+                          <!-- Absence Trigger Block Days -->
+                          <mat-form-field appearance="outline" class="col-half">
+                            <mat-label>Absent Days Trigger Block</mat-label>
+                            <input matInput type="number" min="1" max="31" [(ngModel)]="settings.absenceFineDaysThreshold" required>
+                            <mat-icon matPrefix>event_busy</mat-icon>
+                            <mat-hint>Threshold days (e.g. 3 days absent)</mat-hint>
+                          </mat-form-field>
+                          <!-- Fine Amount (₹) -->
+                          <mat-form-field appearance="outline" class="col-half">
+                            <mat-label>Fine Amount (₹)</mat-label>
+                            <input matInput type="number" min="1" max="5000" [(ngModel)]="settings.absenceFineAmount" required>
+                            <mat-icon matPrefix>currency_rupee</mat-icon>
+                            <mat-hint>Penalty amount in Rupees (e.g. ₹10)</mat-hint>
+                          </mat-form-field>
+                          <!-- Live Rule Summary Box -->
+                          <div class="col-full fine-live-preview">
+                            <mat-icon class="preview-icon">verified</mat-icon>
+                            <div class="preview-content">
+                              <strong style="color: #1e3a8a;">Live Rule Preview (School, Coaching &amp; Hybrid): </strong>
+                              @if (settings.absenceFineMode === 'PerBlock') {
+                                <span>
+                                  Agar student (Class, Coaching ya Hybrid) month me <strong>{{ settings.absenceFineDaysThreshold || 3 }} din</strong> absent hoga toh <strong>₹{{ (settings.absenceFineAmount || 10) }}</strong>, agar <strong>{{ (settings.absenceFineDaysThreshold || 3) * 2 }} din</strong> absent hoga toh <strong>₹{{ (settings.absenceFineAmount || 10) * 2 }}</strong>, aur <strong>{{ (settings.absenceFineDaysThreshold || 3) * 3 }} din</strong> par <strong>₹{{ (settings.absenceFineAmount || 10) * 3 }}</strong> fine monthly fee receipt me auto-add hoga.
+                                </span>
+                              }
+                              @if (settings.absenceFineMode === 'Flat') {
+                                <span>
+                                  Agar student (Class, Coaching ya Hybrid) month me <strong>{{ settings.absenceFineDaysThreshold || 3 }}+ din</strong> absent hoga, toh uske monthly bill me flat <strong>₹{{ settings.absenceFineAmount || 10 }}</strong> attendance fine auto-add hoga.
+                                </span>
+                              }
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </mat-tab>
+            <!-- ================= TAB 3: COACHING BATCHES SHIFT ================= -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="tab-icon">menu_book</mat-icon>
+                <span>Coaching Batches Shift Rules</span>
+              </ng-template>
+              <div class="tab-panel-body">
+                <!-- Summary Banner Preview -->
+                <div class="preview-banner coaching-banner">
+                  <div class="banner-pill">
+                    <mat-icon>info</mat-icon>
+                    <strong>Live Coaching Shifts Summary:</strong>
+                  </div>
+                  <div class="banner-text">
+                    {{ getCoachingSummaryText() }}
+                  </div>
+                </div>
+                <!-- General Coaching Mode & Off Pattern -->
+                <div class="form-grid">
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Coaching Attendance Mode</mat-label>
+                    <mat-select [(ngModel)]="settings.coachingMode">
+                      <mat-option value="Both">Manual Roll Call + Turnstile/Biometric</mat-option>
+                      <mat-option value="Manual">Manual Roll Call Only</mat-option>
+                      <mat-option value="Biometric">Biometric Turnstile Only</mat-option>
+                    </mat-select>
+                    <mat-hint>Choose attendance capture method for coaching batches.</mat-hint>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-half">
+                    <mat-label>Coaching Weekly Off Pattern</mat-label>
+                    <mat-select [(ngModel)]="settings.coachingWeeklyOffPattern">
+                      <mat-option value="SundayOnly">6-Day Week: Sunday Only Off (Mon – Sat Batches)</mat-option>
+                      <mat-option value="SaturdaySunday">5-Day Week: Saturday & Sunday Off (Mon – Fri Batches)</mat-option>
+                      <mat-option value="SecondFourthSaturday">CBSE/ICSE: 2nd & 4th Saturday + All Sundays Off</mat-option>
+                    </mat-select>
+                    <mat-icon matPrefix>event_available</mat-icon>
+                    <mat-hint>Configures active batch days vs weekly off days.</mat-hint>
+                  </mat-form-field>
+                </div>
+                <!-- DUAL SHIFT CARDS -->
+                <div class="shifts-split-grid">
+                  <!-- MORNING SHIFT CARD -->
+                  <div class="shift-card morning-shift-card">
+                    <div class="shift-card-header">
+                      <div class="shift-icon-wrap morning">
+                        <mat-icon>wb_sunny</mat-icon>
+                      </div>
+                      <div class="shift-title-group">
+                        <h4>🌅 Morning Shift Timings</h4>
+                        <p>Early batch classes & morning doubt sessions</p>
+                      </div>
+                    </div>
+                    <!-- Quick Presets -->
+                    <div class="preset-strip">
+                      <span class="preset-label">Presets:</span>
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('06:30', '09:30')">
+                        06:30 – 09:30 AM
+                      </button>
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('07:00', '10:00')">
+                        07:00 – 10:00 AM
+                      </button>
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('08:00', '11:00')">
+                        08:00 – 11:00 AM
+                      </button>
+                    </div>
+                    <div class="shift-inputs-grid">
+                      <mat-form-field appearance="outline">
+                        <mat-label>Morning Start Time</mat-label>
+                        <input matInput type="time" [(ngModel)]="settings.coachingMorningStartTime" required>
+                        <mat-icon matPrefix>login</mat-icon>
+                        <mat-hint>e.g. 07:00 AM</mat-hint>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline">
+                        <mat-label>Morning End Time</mat-label>
+                        <input matInput type="time" [(ngModel)]="settings.coachingMorningEndTime" required>
+                        <mat-icon matPrefix>logout</mat-icon>
+                        <mat-hint>e.g. 10:00 AM</mat-hint>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="col-span-2">
+                        <mat-label>Morning Late Grace Cutoff (Minutes)</mat-label>
+                        <input matInput type="number" min="0" max="60" [(ngModel)]="settings.coachingMorningGraceMinutes" required>
+                        <mat-icon matPrefix>timer</mat-icon>
+                        <mat-hint>Arrival after {{ getCoachingMorningLateCutoffFormatted() }} counts as Late</mat-hint>
+                      </mat-form-field>
+                    </div>
+                  </div>
+                  <!-- EVENING SHIFT CARD -->
+                  <div class="shift-card evening-shift-card">
+                    <div class="shift-card-header">
+                      <div class="shift-icon-wrap evening">
+                        <mat-icon>nights_stay</mat-icon>
+                      </div>
+                      <div class="shift-title-group">
+                        <h4>🌆 Evening Shift Timings</h4>
+                        <p>Post-school batches & regular evening lectures</p>
+                      </div>
+                    </div>
+                    <!-- Quick Presets -->
+                    <div class="preset-strip">
+                      <span class="preset-label">Presets:</span>
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('15:30', '18:30')">
+                        03:30 – 06:30 PM
+                      </button>
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('16:00', '19:00')">
+                        04:00 – 07:00 PM
+                      </button>
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('17:00', '20:00')">
+                        05:00 – 08:00 PM
+                      </button>
+                    </div>
+                    <div class="shift-inputs-grid">
+                      <mat-form-field appearance="outline">
+                        <mat-label>Evening Start Time</mat-label>
+                        <input matInput type="time" [(ngModel)]="settings.coachingEveningStartTime" required>
+                        <mat-icon matPrefix>login</mat-icon>
+                        <mat-hint>e.g. 16:00 (04:00 PM)</mat-hint>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline">
+                        <mat-label>Evening End Time</mat-label>
+                        <input matInput type="time" [(ngModel)]="settings.coachingEveningEndTime" required>
+                        <mat-icon matPrefix>logout</mat-icon>
+                        <mat-hint>e.g. 19:00 (07:00 PM)</mat-hint>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="col-span-2">
+                        <mat-label>Evening Late Grace Cutoff (Minutes)</mat-label>
+                        <input matInput type="number" min="0" max="60" [(ngModel)]="settings.coachingEveningGraceMinutes" required>
+                        <mat-icon matPrefix>timer</mat-icon>
+                        <mat-hint>Arrival after {{ getCoachingEveningLateCutoffFormatted() }} counts as Late</mat-hint>
+                      </mat-form-field>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </mat-tab>
-
-          <!-- ================= TAB 3: COACHING BATCHES SHIFT ================= -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">menu_book</mat-icon>
-              <span>Coaching Batches Shift Rules</span>
-            </ng-template>
-
-            <div class="tab-panel-body">
-              <!-- Summary Banner Preview -->
-              <div class="preview-banner coaching-banner">
-                <div class="banner-pill">
-                  <mat-icon>info</mat-icon>
-                  <strong>Live Coaching Shifts Summary:</strong>
-                </div>
-                <div class="banner-text">
-                  {{ getCoachingSummaryText() }}
-                </div>
-              </div>
-
-              <!-- General Coaching Mode & Off Pattern -->
-              <div class="form-grid">
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Coaching Attendance Mode</mat-label>
-                  <mat-select [(ngModel)]="settings.coachingMode">
-                    <mat-option value="Both">Manual Roll Call + Turnstile/Biometric</mat-option>
-                    <mat-option value="Manual">Manual Roll Call Only</mat-option>
-                    <mat-option value="Biometric">Biometric Turnstile Only</mat-option>
-                  </mat-select>
-                  <mat-hint>Choose attendance capture method for coaching batches.</mat-hint>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-half">
-                  <mat-label>Coaching Weekly Off Pattern</mat-label>
-                  <mat-select [(ngModel)]="settings.coachingWeeklyOffPattern">
-                    <mat-option value="SundayOnly">6-Day Week: Sunday Only Off (Mon – Sat Batches)</mat-option>
-                    <mat-option value="SaturdaySunday">5-Day Week: Saturday & Sunday Off (Mon – Fri Batches)</mat-option>
-                    <mat-option value="SecondFourthSaturday">CBSE/ICSE: 2nd & 4th Saturday + All Sundays Off</mat-option>
-                  </mat-select>
-                  <mat-icon matPrefix>event_available</mat-icon>
-                  <mat-hint>Configures active batch days vs weekly off days.</mat-hint>
-                </mat-form-field>
-              </div>
-
-              <!-- DUAL SHIFT CARDS -->
-              <div class="shifts-split-grid">
-                <!-- MORNING SHIFT CARD -->
-                <div class="shift-card morning-shift-card">
-                  <div class="shift-card-header">
-                    <div class="shift-icon-wrap morning">
-                      <mat-icon>wb_sunny</mat-icon>
-                    </div>
-                    <div class="shift-title-group">
-                      <h4>🌅 Morning Shift Timings</h4>
-                      <p>Early batch classes & morning doubt sessions</p>
-                    </div>
-                  </div>
-
-                  <!-- Quick Presets -->
-                  <div class="preset-strip">
-                    <span class="preset-label">Presets:</span>
-                    <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('06:30', '09:30')">
-                      06:30 – 09:30 AM
-                    </button>
-                    <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('07:00', '10:00')">
-                      07:00 – 10:00 AM
-                    </button>
-                    <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('08:00', '11:00')">
-                      08:00 – 11:00 AM
-                    </button>
-                  </div>
-
-                  <div class="shift-inputs-grid">
-                    <mat-form-field appearance="outline">
-                      <mat-label>Morning Start Time</mat-label>
-                      <input matInput type="time" [(ngModel)]="settings.coachingMorningStartTime" required>
-                      <mat-icon matPrefix>login</mat-icon>
-                      <mat-hint>e.g. 07:00 AM</mat-hint>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline">
-                      <mat-label>Morning End Time</mat-label>
-                      <input matInput type="time" [(ngModel)]="settings.coachingMorningEndTime" required>
-                      <mat-icon matPrefix>logout</mat-icon>
-                      <mat-hint>e.g. 10:00 AM</mat-hint>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="col-span-2">
-                      <mat-label>Morning Late Grace Cutoff (Minutes)</mat-label>
-                      <input matInput type="number" min="0" max="60" [(ngModel)]="settings.coachingMorningGraceMinutes" required>
-                      <mat-icon matPrefix>timer</mat-icon>
-                      <mat-hint>Arrival after {{ getCoachingMorningLateCutoffFormatted() }} counts as Late</mat-hint>
-                    </mat-form-field>
-                  </div>
-                </div>
-
-                <!-- EVENING SHIFT CARD -->
-                <div class="shift-card evening-shift-card">
-                  <div class="shift-card-header">
-                    <div class="shift-icon-wrap evening">
-                      <mat-icon>nights_stay</mat-icon>
-                    </div>
-                    <div class="shift-title-group">
-                      <h4>🌆 Evening Shift Timings</h4>
-                      <p>Post-school batches & regular evening lectures</p>
-                    </div>
-                  </div>
-
-                  <!-- Quick Presets -->
-                  <div class="preset-strip">
-                    <span class="preset-label">Presets:</span>
-                    <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('15:30', '18:30')">
-                      03:30 – 06:30 PM
-                    </button>
-                    <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('16:00', '19:00')">
-                      04:00 – 07:00 PM
-                    </button>
-                    <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('17:00', '20:00')">
-                      05:00 – 08:00 PM
-                    </button>
-                  </div>
-
-                  <div class="shift-inputs-grid">
-                    <mat-form-field appearance="outline">
-                      <mat-label>Evening Start Time</mat-label>
-                      <input matInput type="time" [(ngModel)]="settings.coachingEveningStartTime" required>
-                      <mat-icon matPrefix>login</mat-icon>
-                      <mat-hint>e.g. 16:00 (04:00 PM)</mat-hint>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline">
-                      <mat-label>Evening End Time</mat-label>
-                      <input matInput type="time" [(ngModel)]="settings.coachingEveningEndTime" required>
-                      <mat-icon matPrefix>logout</mat-icon>
-                      <mat-hint>e.g. 19:00 (07:00 PM)</mat-hint>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="col-span-2">
-                      <mat-label>Evening Late Grace Cutoff (Minutes)</mat-label>
-                      <input matInput type="number" min="0" max="60" [(ngModel)]="settings.coachingEveningGraceMinutes" required>
-                      <mat-icon matPrefix>timer</mat-icon>
-                      <mat-hint>Arrival after {{ getCoachingEveningLateCutoffFormatted() }} counts as Late</mat-hint>
-                    </mat-form-field>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </mat-tab>
-        </mat-tab-group>
-
-        <div class="card-footer-actions">
-          <button mat-raised-button color="primary" class="save-btn" (click)="saveSettings()" [disabled]="saving">
-            <mat-spinner diameter="18" *ngIf="saving"></mat-spinner>
-            <mat-icon *ngIf="!saving">save</mat-icon>
-            <span>{{ saving ? 'Saving Changes...' : 'Save All Settings' }}</span>
-          </button>
-        </div>
-      </mat-card>
+            </mat-tab>
+          </mat-tab-group>
+          <div class="card-footer-actions">
+            <button mat-raised-button color="primary" class="save-btn" (click)="saveSettings()" [disabled]="saving">
+              @if (saving) {
+                <mat-spinner diameter="18"></mat-spinner>
+              }
+              @if (!saving) {
+                <mat-icon>save</mat-icon>
+              }
+              <span>{{ saving ? 'Saving Changes...' : 'Save All Settings' }}</span>
+            </button>
+          </div>
+        </mat-card>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

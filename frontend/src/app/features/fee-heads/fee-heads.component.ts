@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, OnInit, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -69,7 +69,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
           </button>
         </div>
       </div>
-
+    
       <!-- KPI Stat Cards -->
       <div class="stats-grid">
         <div class="stat-card total">
@@ -79,7 +79,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
             <span class="stat-lbl">Total Fee Heads</span>
           </div>
         </div>
-
+    
         <div class="stat-card active">
           <div class="stat-icon"><mat-icon>check_circle</mat-icon></div>
           <div class="stat-info">
@@ -87,7 +87,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
             <span class="stat-lbl">Active Heads</span>
           </div>
         </div>
-
+    
         <div class="stat-card monthly">
           <div class="stat-icon"><mat-icon>event_repeat</mat-icon></div>
           <div class="stat-info">
@@ -95,7 +95,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
             <span class="stat-lbl">Monthly Recurring</span>
           </div>
         </div>
-
+    
         <div class="stat-card categories">
           <div class="stat-icon"><mat-icon>category</mat-icon></div>
           <div class="stat-info">
@@ -104,272 +104,276 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
           </div>
         </div>
       </div>
-
+    
       <!-- Add / Edit Fee Head Drawer Panel -->
-      <mat-card *ngIf="showDrawer" class="form-drawer mat-elevation-z3">
-        <div class="drawer-header">
-          <div class="drawer-title">
-            <mat-icon color="primary">{{ isEditMode ? 'edit' : 'add_circle' }}</mat-icon>
-            <div>
-              <strong>{{ isEditMode ? 'Edit Fee Head' : 'Create New Fee Head' }}</strong>
-              <small>{{ isEditMode ? 'Update properties for ' + editingHead?.name : 'Add a new billing head with short code, category & frequency' }}</small>
+      @if (showDrawer) {
+        <mat-card class="form-drawer mat-elevation-z3">
+          <div class="drawer-header">
+            <div class="drawer-title">
+              <mat-icon color="primary">{{ isEditMode ? 'edit' : 'add_circle' }}</mat-icon>
+              <div>
+                <strong>{{ isEditMode ? 'Edit Fee Head' : 'Create New Fee Head' }}</strong>
+                <small>{{ isEditMode ? 'Update properties for ' + editingHead?.name : 'Add a new billing head with short code, category & frequency' }}</small>
+              </div>
+            </div>
+            <button mat-icon-button (click)="closeDrawer()"><mat-icon>close</mat-icon></button>
+          </div>
+          <form [formGroup]="headForm" (ngSubmit)="onSubmitHead()" class="drawer-form">
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="f-flex-2">
+                <mat-label>Fee Head Name *</mat-label>
+                <input matInput formControlName="name" placeholder="e.g. Tuition Fee, Exam Fee, Hostel Fee" />
+                @if (headForm.get('name')?.hasError('required')) {
+                  <mat-error>Name is required</mat-error>
+                }
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>Short Code (Unique) *</mat-label>
+                <input matInput formControlName="code" placeholder="e.g. TUI, COACH, EXAM" style="text-transform: uppercase;" />
+                @if (headForm.get('code')?.hasError('required')) {
+                  <mat-error>Code is required</mat-error>
+                }
+              </mat-form-field>
+            </div>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>Category *</mat-label>
+                <mat-select formControlName="category">
+                  <mat-option value="Academic">Academic (Tuition & Coaching)</mat-option>
+                  <mat-option value="Infrastructure">Infrastructure (Labs & Smart Class)</mat-option>
+                  <mat-option value="Activities">Activities (Sports & Cultural)</mat-option>
+                  <mat-option value="Supplies">Supplies (Kit, Modules & Books)</mat-option>
+                  @if (hasHostelModule) {
+                    <mat-option value="Residential">Residential (Hostel & Mess)</mat-option>
+                  }
+                  @if (hasTransportModule) {
+                    <mat-option value="Transport">Transport (Bus & Van Transit)</mat-option>
+                  }
+                  <mat-option value="Other">Other / Fines / Miscellaneous</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>Applicable To *</mat-label>
+                <mat-select formControlName="applicableTo">
+                  @if (hasSchoolModule && hasCoachingModule) {
+                    <mat-option value="Both">🔄 Both (School & Coaching)</mat-option>
+                  }
+                  @if (hasSchoolModule) {
+                    <mat-option value="School">🏫 School Only</mat-option>
+                  }
+                  @if (hasCoachingModule) {
+                    <mat-option value="Coaching">🎯 Coaching Only</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>Billing Frequency *</mat-label>
+                <mat-select formControlName="frequency">
+                  <mat-option value="Monthly">Monthly (Recurring 12x/yr)</mat-option>
+                  <mat-option value="Quarterly">Quarterly (Every 3 Months)</mat-option>
+                  <mat-option value="TermWise">Term-Wise (Exams / Semesters)</mat-option>
+                  <mat-option value="Annual">Annual (Once a Year - Session Start)</mat-option>
+                  <mat-option value="OneTime">One-Time (At Admission / Joining)</mat-option>
+                  <mat-option value="AdHoc">Ad-Hoc (On-Demand / As Needed)</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>Sort Order</mat-label>
+                <input matInput type="number" formControlName="sortOrder" min="0" placeholder="10, 20, 30..." />
+              </mat-form-field>
+            </div>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Description / Billing Note</mat-label>
+                <textarea matInput formControlName="description" rows="2" placeholder="Describe when this fee is applied or specific inclusions..."></textarea>
+              </mat-form-field>
+            </div>
+            @if (isEditMode) {
+              <div class="drawer-toggles">
+                <mat-slide-toggle formControlName="isActive" color="primary">
+                  Fee Head Active &amp; Selectable in Matrices
+                </mat-slide-toggle>
+              </div>
+            }
+            <div class="drawer-footer">
+              <button mat-button type="button" (click)="closeDrawer()" [disabled]="saving">Cancel</button>
+              <button mat-raised-button color="primary" type="submit" [disabled]="headForm.invalid || saving">
+                <mat-icon>{{ isEditMode ? 'check' : 'save' }}</mat-icon>
+                <span>{{ isEditMode ? 'Update Fee Head' : 'Save Fee Head' }}</span>
+              </button>
+            </div>
+          </form>
+        </mat-card>
+      }
+    
+      <!-- Search, Filters & Server-side Data Grid -->
+      @if (!showDrawer) {
+        <mat-card class="table-card mat-elevation-z2">
+          <!-- Filter Toolbar -->
+          <div class="filter-toolbar">
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-label>Search Fee Head, Code or Description...</mat-label>
+              <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Type and hit Enter..." />
+              <button mat-icon-button matSuffix (click)="onSearch()"><mat-icon>search</mat-icon></button>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>Category</mat-label>
+              <mat-select [(ngModel)]="selectedCategory" (selectionChange)="onFilterChange()">
+                <mat-option value="All">All Categories</mat-option>
+                <mat-option value="Academic">Academic</mat-option>
+                <mat-option value="Infrastructure">Infrastructure</mat-option>
+                <mat-option value="Activities">Activities</mat-option>
+                <mat-option value="Supplies">Supplies</mat-option>
+                @if (hasHostelModule) {
+                  <mat-option value="Residential">Residential</mat-option>
+                }
+                @if (hasTransportModule) {
+                  <mat-option value="Transport">Transport</mat-option>
+                }
+                <mat-option value="Other">Other</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>Frequency</mat-label>
+              <mat-select [(ngModel)]="selectedFrequency" (selectionChange)="onFilterChange()">
+                <mat-option value="All">All Frequencies</mat-option>
+                <mat-option value="Monthly">Monthly</mat-option>
+                <mat-option value="Quarterly">Quarterly</mat-option>
+                <mat-option value="TermWise">Term-Wise</mat-option>
+                <mat-option value="Annual">Annual</mat-option>
+                <mat-option value="OneTime">One-Time</mat-option>
+                <mat-option value="AdHoc">Ad-Hoc</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>Status</mat-label>
+              <mat-select [(ngModel)]="selectedStatus" (selectionChange)="onFilterChange()">
+                <mat-option [value]="null">All Status</mat-option>
+                <mat-option [value]="true">Active Only</mat-option>
+                <mat-option [value]="false">Inactive Only</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <div class="toolbar-actions">
+              <button mat-stroked-button (click)="resetFilters()" matTooltip="Reset search & filters">
+                <mat-icon>refresh</mat-icon>
+                <span>Reset</span>
+              </button>
             </div>
           </div>
-          <button mat-icon-button (click)="closeDrawer()"><mat-icon>close</mat-icon></button>
-        </div>
-
-        <form [formGroup]="headForm" (ngSubmit)="onSubmitHead()" class="drawer-form">
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="f-flex-2">
-              <mat-label>Fee Head Name *</mat-label>
-              <input matInput formControlName="name" placeholder="e.g. Tuition Fee, Exam Fee, Hostel Fee" />
-              <mat-error *ngIf="headForm.get('name')?.hasError('required')">Name is required</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Short Code (Unique) *</mat-label>
-              <input matInput formControlName="code" placeholder="e.g. TUI, COACH, EXAM" style="text-transform: uppercase;" />
-              <mat-error *ngIf="headForm.get('code')?.hasError('required')">Code is required</mat-error>
-            </mat-form-field>
+          <!-- Responsive Grid Table -->
+          <div class="mobile-table-hint">
+            <mat-icon>swipe</mat-icon>
+            <span>Swipe sideways to view all columns &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
           </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Category *</mat-label>
-              <mat-select formControlName="category">
-                <mat-option value="Academic">Academic (Tuition & Coaching)</mat-option>
-                <mat-option value="Infrastructure">Infrastructure (Labs & Smart Class)</mat-option>
-                <mat-option value="Activities">Activities (Sports & Cultural)</mat-option>
-                <mat-option value="Supplies">Supplies (Kit, Modules & Books)</mat-option>
-                <mat-option value="Residential" *ngIf="hasHostelModule">Residential (Hostel & Mess)</mat-option>
-                <mat-option value="Transport" *ngIf="hasTransportModule">Transport (Bus & Van Transit)</mat-option>
-                <mat-option value="Other">Other / Fines / Miscellaneous</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Applicable To *</mat-label>
-              <mat-select formControlName="applicableTo">
-                <mat-option *ngIf="hasSchoolModule && hasCoachingModule" value="Both">🔄 Both (School & Coaching)</mat-option>
-                <mat-option *ngIf="hasSchoolModule" value="School">🏫 School Only</mat-option>
-                <mat-option *ngIf="hasCoachingModule" value="Coaching">🎯 Coaching Only</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Billing Frequency *</mat-label>
-              <mat-select formControlName="frequency">
-                <mat-option value="Monthly">Monthly (Recurring 12x/yr)</mat-option>
-                <mat-option value="Quarterly">Quarterly (Every 3 Months)</mat-option>
-                <mat-option value="TermWise">Term-Wise (Exams / Semesters)</mat-option>
-                <mat-option value="Annual">Annual (Once a Year - Session Start)</mat-option>
-                <mat-option value="OneTime">One-Time (At Admission / Joining)</mat-option>
-                <mat-option value="AdHoc">Ad-Hoc (On-Demand / As Needed)</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Sort Order</mat-label>
-              <input matInput type="number" formControlName="sortOrder" min="0" placeholder="10, 20, 30..." />
-            </mat-form-field>
+          <div class="table-container">
+            <table mat-table [dataSource]="feeHeads" matSort (matSortChange)="onSortChange($event)" class="fee-heads-table">
+              <!-- Code Column -->
+              <ng-container matColumnDef="code">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Code </th>
+                <td mat-cell *matCellDef="let head">
+                  <span class="code-pill">{{ head.code }}</span>
+                </td>
+              </ng-container>
+              <!-- Name Column -->
+              <ng-container matColumnDef="name">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Fee Head Name </th>
+                <td mat-cell *matCellDef="let head">
+                  <div class="name-cell">
+                    <strong>{{ head.name }}</strong>
+                    @if (head.isDefault) {
+                      <span class="default-badge">Preset</span>
+                    }
+                  </div>
+                </td>
+              </ng-container>
+              <!-- Category Column -->
+              <ng-container matColumnDef="category">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Category </th>
+                <td mat-cell *matCellDef="let head">
+                  <span class="category-pill" [ngClass]="'cat-' + head.category.toLowerCase()">
+                    {{ head.category }}
+                  </span>
+                </td>
+              </ng-container>
+              <!-- Frequency Column -->
+              <ng-container matColumnDef="frequency">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Frequency </th>
+                <td mat-cell *matCellDef="let head">
+                  <span class="freq-pill" [ngClass]="'freq-' + head.frequency.toLowerCase()">
+                    {{ head.frequency }}
+                  </span>
+                </td>
+              </ng-container>
+              <!-- Description Column -->
+              <ng-container matColumnDef="description">
+                <th mat-header-cell *matHeaderCellDef> Description </th>
+                <td mat-cell *matCellDef="let head" class="desc-cell">
+                  <span class="desc-text" [matTooltip]="head.description || ''">{{ head.description || '—' }}</span>
+                </td>
+              </ng-container>
+              <!-- Sort Order Column -->
+              <ng-container matColumnDef="sortOrder">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header class="text-center"> Order </th>
+                <td mat-cell *matCellDef="let head" class="text-center">
+                  <span class="order-badge">{{ head.sortOrder }}</span>
+                </td>
+              </ng-container>
+              <!-- Status Column -->
+              <ng-container matColumnDef="isActive">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header class="text-center"> Status </th>
+                <td mat-cell *matCellDef="let head" class="text-center">
+                  <span class="status-chip" [class.active]="head.isActive" [class.inactive]="!head.isActive" (click)="onToggleStatus(head)">
+                    <mat-icon class="status-icon">{{ head.isActive ? 'check_circle' : 'cancel' }}</mat-icon>
+                    {{ head.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+              </ng-container>
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef class="text-center actions-header"> Actions </th>
+                <td mat-cell *matCellDef="let head" class="text-center action-buttons">
+                  <button mat-icon-button color="primary" (click)="openEditHeadDrawer(head)" matTooltip="Edit Fee Head">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button [color]="head.isActive ? 'warn' : 'accent'" (click)="onToggleStatus(head)" [matTooltip]="head.isActive ? 'Deactivate' : 'Activate'">
+                    <mat-icon>{{ head.isActive ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
+                  </button>
+                  @if (!head.isDefault) {
+                    <button mat-icon-button color="warn" (click)="onDeleteHead(head)" matTooltip="Delete Fee Head">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  }
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
+              <!-- Empty State Row -->
+              <tr class="mat-row" *matNoDataRow>
+                <td class="mat-cell empty-table-cell" [attr.colspan]="displayedColumns.length">
+                  <div class="empty-placeholder">
+                    <mat-icon>account_tree</mat-icon>
+                    <h4>No fee heads found</h4>
+                    <p>Try clearing filters or click <strong>Create Fee Head</strong> above.</p>
+                  </div>
+                </td>
+              </tr>
+            </table>
           </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Description / Billing Note</mat-label>
-              <textarea matInput formControlName="description" rows="2" placeholder="Describe when this fee is applied or specific inclusions..."></textarea>
-            </mat-form-field>
-          </div>
-
-          <div class="drawer-toggles" *ngIf="isEditMode">
-            <mat-slide-toggle formControlName="isActive" color="primary">
-              Fee Head Active &amp; Selectable in Matrices
-            </mat-slide-toggle>
-          </div>
-
-          <div class="drawer-footer">
-            <button mat-button type="button" (click)="closeDrawer()" [disabled]="saving">Cancel</button>
-            <button mat-raised-button color="primary" type="submit" [disabled]="headForm.invalid || saving">
-              <mat-icon>{{ isEditMode ? 'check' : 'save' }}</mat-icon>
-              <span>{{ isEditMode ? 'Update Fee Head' : 'Save Fee Head' }}</span>
-            </button>
-          </div>
-        </form>
-      </mat-card>
-
-      <!-- Search, Filters & Server-side Data Grid -->
-      <mat-card class="table-card mat-elevation-z2" *ngIf="!showDrawer">
-        <!-- Filter Toolbar -->
-        <div class="filter-toolbar">
-          <mat-form-field appearance="outline" class="search-field">
-            <mat-label>Search Fee Head, Code or Description...</mat-label>
-            <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Type and hit Enter..." />
-            <button mat-icon-button matSuffix (click)="onSearch()"><mat-icon>search</mat-icon></button>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-select">
-            <mat-label>Category</mat-label>
-            <mat-select [(ngModel)]="selectedCategory" (selectionChange)="onFilterChange()">
-              <mat-option value="All">All Categories</mat-option>
-              <mat-option value="Academic">Academic</mat-option>
-              <mat-option value="Infrastructure">Infrastructure</mat-option>
-              <mat-option value="Activities">Activities</mat-option>
-              <mat-option value="Supplies">Supplies</mat-option>
-              <mat-option value="Residential" *ngIf="hasHostelModule">Residential</mat-option>
-              <mat-option value="Transport" *ngIf="hasTransportModule">Transport</mat-option>
-              <mat-option value="Other">Other</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-select">
-            <mat-label>Frequency</mat-label>
-            <mat-select [(ngModel)]="selectedFrequency" (selectionChange)="onFilterChange()">
-              <mat-option value="All">All Frequencies</mat-option>
-              <mat-option value="Monthly">Monthly</mat-option>
-              <mat-option value="Quarterly">Quarterly</mat-option>
-              <mat-option value="TermWise">Term-Wise</mat-option>
-              <mat-option value="Annual">Annual</mat-option>
-              <mat-option value="OneTime">One-Time</mat-option>
-              <mat-option value="AdHoc">Ad-Hoc</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-select">
-            <mat-label>Status</mat-label>
-            <mat-select [(ngModel)]="selectedStatus" (selectionChange)="onFilterChange()">
-              <mat-option [value]="null">All Status</mat-option>
-              <mat-option [value]="true">Active Only</mat-option>
-              <mat-option [value]="false">Inactive Only</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <div class="toolbar-actions">
-            <button mat-stroked-button (click)="resetFilters()" matTooltip="Reset search & filters">
-              <mat-icon>refresh</mat-icon>
-              <span>Reset</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Responsive Grid Table -->
-        <div class="mobile-table-hint">
-          <mat-icon>swipe</mat-icon>
-          <span>Swipe sideways to view all columns &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
-        </div>
-        <div class="table-container">
-          <table mat-table [dataSource]="feeHeads" matSort (matSortChange)="onSortChange($event)" class="fee-heads-table">
-            
-            <!-- Code Column -->
-            <ng-container matColumnDef="code">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header> Code </th>
-              <td mat-cell *matCellDef="let head">
-                <span class="code-pill">{{ head.code }}</span>
-              </td>
-            </ng-container>
-
-            <!-- Name Column -->
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header> Fee Head Name </th>
-              <td mat-cell *matCellDef="let head">
-                <div class="name-cell">
-                  <strong>{{ head.name }}</strong>
-                  <span class="default-badge" *ngIf="head.isDefault">Preset</span>
-                </div>
-              </td>
-            </ng-container>
-
-            <!-- Category Column -->
-            <ng-container matColumnDef="category">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header> Category </th>
-              <td mat-cell *matCellDef="let head">
-                <span class="category-pill" [ngClass]="'cat-' + head.category.toLowerCase()">
-                  {{ head.category }}
-                </span>
-              </td>
-            </ng-container>
-
-            <!-- Frequency Column -->
-            <ng-container matColumnDef="frequency">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header> Frequency </th>
-              <td mat-cell *matCellDef="let head">
-                <span class="freq-pill" [ngClass]="'freq-' + head.frequency.toLowerCase()">
-                  {{ head.frequency }}
-                </span>
-              </td>
-            </ng-container>
-
-            <!-- Description Column -->
-            <ng-container matColumnDef="description">
-              <th mat-header-cell *matHeaderCellDef> Description </th>
-              <td mat-cell *matCellDef="let head" class="desc-cell">
-                <span class="desc-text" [matTooltip]="head.description || ''">{{ head.description || '—' }}</span>
-              </td>
-            </ng-container>
-
-            <!-- Sort Order Column -->
-            <ng-container matColumnDef="sortOrder">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header class="text-center"> Order </th>
-              <td mat-cell *matCellDef="let head" class="text-center">
-                <span class="order-badge">{{ head.sortOrder }}</span>
-              </td>
-            </ng-container>
-
-            <!-- Status Column -->
-            <ng-container matColumnDef="isActive">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header class="text-center"> Status </th>
-              <td mat-cell *matCellDef="let head" class="text-center">
-                <span class="status-chip" [class.active]="head.isActive" [class.inactive]="!head.isActive" (click)="onToggleStatus(head)">
-                  <mat-icon class="status-icon">{{ head.isActive ? 'check_circle' : 'cancel' }}</mat-icon>
-                  {{ head.isActive ? 'Active' : 'Inactive' }}
-                </span>
-              </td>
-            </ng-container>
-
-            <!-- Actions Column -->
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-center actions-header"> Actions </th>
-              <td mat-cell *matCellDef="let head" class="text-center action-buttons">
-                <button mat-icon-button color="primary" (click)="openEditHeadDrawer(head)" matTooltip="Edit Fee Head">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button [color]="head.isActive ? 'warn' : 'accent'" (click)="onToggleStatus(head)" [matTooltip]="head.isActive ? 'Deactivate' : 'Activate'">
-                  <mat-icon>{{ head.isActive ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" (click)="onDeleteHead(head)" matTooltip="Delete Fee Head" *ngIf="!head.isDefault">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
-
-            <!-- Empty State Row -->
-            <tr class="mat-row" *matNoDataRow>
-              <td class="mat-cell empty-table-cell" [attr.colspan]="displayedColumns.length">
-                <div class="empty-placeholder">
-                  <mat-icon>account_tree</mat-icon>
-                  <h4>No fee heads found</h4>
-                  <p>Try clearing filters or click <strong>Create Fee Head</strong> above.</p>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- Server-side Material Paginator -->
-        <mat-paginator
-          [length]="totalCount"
-          [pageSize]="pageSize"
-          [pageSizeOptions]="[5, 10, 20, 50]"
-          [pageIndex]="pageNumber - 1"
-          (page)="onPageChange($event)"
-          showFirstLastButtons
-          aria-label="Select page of fee heads">
-        </mat-paginator>
-      </mat-card>
+          <!-- Server-side Material Paginator -->
+          <mat-paginator
+            [length]="totalCount"
+            [pageSize]="pageSize"
+            [pageSizeOptions]="[5, 10, 20, 50]"
+            [pageIndex]="pageNumber - 1"
+            (page)="onPageChange($event)"
+            showFirstLastButtons
+            aria-label="Select page of fee heads">
+          </mat-paginator>
+        </mat-card>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

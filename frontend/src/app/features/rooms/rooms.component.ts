@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,7 +21,6 @@ import { RoomDialogComponent } from './room-dialog.component';
   selector: 'app-rooms',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatCardModule,
     MatButtonModule,
@@ -33,7 +32,7 @@ import { RoomDialogComponent } from './room-dialog.component';
     MatChipsModule,
     MatTooltipModule,
     MatProgressBarModule
-  ],
+],
   template: `
     <div class="rooms-container">
       <!-- Standard Page Header -->
@@ -47,7 +46,7 @@ import { RoomDialogComponent } from './room-dialog.component';
           <span>Add New Classroom</span>
         </button>
       </div>
-
+    
       <!-- KPI Stats -->
       <div class="stats-row">
         <mat-card class="stat-card">
@@ -59,7 +58,7 @@ import { RoomDialogComponent } from './room-dialog.component';
             <span class="stat-value">{{ rooms.length }}</span>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card">
           <div class="stat-icon-wrapper bg-green">
             <mat-icon>chair</mat-icon>
@@ -69,7 +68,7 @@ import { RoomDialogComponent } from './room-dialog.component';
             <span class="stat-value">{{ totalCapacity }} seats</span>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card">
           <div class="stat-icon-wrapper bg-purple">
             <mat-icon>class</mat-icon>
@@ -79,7 +78,7 @@ import { RoomDialogComponent } from './room-dialog.component';
             <span class="stat-value">{{ totalBatchesHosted }}</span>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card">
           <div class="stat-icon-wrapper bg-amber">
             <mat-icon>apartment</mat-icon>
@@ -90,7 +89,7 @@ import { RoomDialogComponent } from './room-dialog.component';
           </div>
         </mat-card>
       </div>
-
+    
       <!-- Filter Toolbar -->
       <mat-card class="filter-card">
         <div class="filter-row">
@@ -101,106 +100,115 @@ import { RoomDialogComponent } from './room-dialog.component';
               [(ngModel)]="searchQuery"
               placeholder="Search room number, floor, or branch..."
               class="search-input"
-            />
-            <button *ngIf="searchQuery" mat-icon-button class="clear-btn" (click)="searchQuery = ''">
-              <mat-icon>close</mat-icon>
-            </button>
+              />
+            @if (searchQuery) {
+              <button mat-icon-button class="clear-btn" (click)="searchQuery = ''">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </div>
-
+    
           <div class="filter-actions">
             <mat-form-field appearance="outline" class="branch-select-field">
               <mat-label>Filter by Branch</mat-label>
               <mat-select [(ngModel)]="selectedBranchFilter" (selectionChange)="loadRooms()">
                 <mat-option value="">All Branches</mat-option>
-                <mat-option *ngFor="let b of branches" [value]="b.id">
-                  {{ b.name }} {{ b.isMainBranch ? '(Main)' : '' }}
-                </mat-option>
+                @for (b of branches; track b) {
+                  <mat-option [value]="b.id">
+                    {{ b.name }} {{ b.isMainBranch ? '(Main)' : '' }}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <button mat-stroked-button class="refresh-btn" (click)="loadData()">
               <mat-icon>refresh</mat-icon>
               <span>Refresh</span>
             </button>
           </div>
         </div>
-        <mat-progress-bar *ngIf="loading" mode="indeterminate" class="loading-bar"></mat-progress-bar>
+        @if (loading) {
+          <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
+        }
       </mat-card>
-
+    
       <!-- Rooms Grid -->
-      <div class="rooms-grid" *ngIf="!loading && filteredRooms.length > 0">
-        <mat-card *ngFor="let r of filteredRooms" class="room-card" [class.inactive-room]="!r.isActive">
-          <div class="room-card-header">
-            <div class="room-title-box">
-              <span class="room-num">{{ r.roomNumber }}</span>
-              <span class="branch-pill">
-                <mat-icon class="tiny-icon">apartment</mat-icon>
-                {{ r.branchName || 'Main Campus' }}
-              </span>
-            </div>
-            <span class="status-pill" [class.active]="r.isActive" [class.inactive]="!r.isActive">
-              {{ r.isActive ? 'Active' : 'Inactive' }}
-            </span>
-          </div>
-
-          <div class="room-card-body">
-            <div class="info-row">
-              <div class="meta-item">
-                <mat-icon class="meta-icon">chair</mat-icon>
-                <span><strong>{{ r.capacity }}</strong> Max Seats</span>
+      @if (!loading && filteredRooms.length > 0) {
+        <div class="rooms-grid">
+          @for (r of filteredRooms; track r) {
+            <mat-card class="room-card" [class.inactive-room]="!r.isActive">
+              <div class="room-card-header">
+                <div class="room-title-box">
+                  <span class="room-num">{{ r.roomNumber }}</span>
+                  <span class="branch-pill">
+                    <mat-icon class="tiny-icon">apartment</mat-icon>
+                    {{ r.branchName || 'Main Campus' }}
+                  </span>
+                </div>
+                <span class="status-pill" [class.active]="r.isActive" [class.inactive]="!r.isActive">
+                  {{ r.isActive ? 'Active' : 'Inactive' }}
+                </span>
               </div>
-              <div class="meta-item">
-                <mat-icon class="meta-icon">stairs</mat-icon>
-                <span>{{ r.floor || 'Ground Floor' }}</span>
+              <div class="room-card-body">
+                <div class="info-row">
+                  <div class="meta-item">
+                    <mat-icon class="meta-icon">chair</mat-icon>
+                    <span><strong>{{ r.capacity }}</strong> Max Seats</span>
+                  </div>
+                  <div class="meta-item">
+                    <mat-icon class="meta-icon">stairs</mat-icon>
+                    <span>{{ r.floor || 'Ground Floor' }}</span>
+                  </div>
+                </div>
+                <div class="batch-badge">
+                  <mat-icon class="batch-icon">groups</mat-icon>
+                  <span>{{ r.activeBatchCount }} Active Batch{{ r.activeBatchCount === 1 ? '' : 'es' }} Assigned</span>
+                </div>
               </div>
-            </div>
-
-            <div class="batch-badge">
-              <mat-icon class="batch-icon">groups</mat-icon>
-              <span>{{ r.activeBatchCount }} Active Batch{{ r.activeBatchCount === 1 ? '' : 'es' }} Assigned</span>
-            </div>
-          </div>
-
-          <div class="room-card-footer">
-            <button mat-button class="btn-edit" (click)="openEditRoomModal(r)">
-              <mat-icon>edit</mat-icon>
-              <span>Edit</span>
-            </button>
-
-            <button
-              mat-button
-              [color]="r.isActive ? 'warn' : 'primary'"
-              (click)="toggleStatus(r)"
-            >
-              <mat-icon>{{ r.isActive ? 'block' : 'check_circle' }}</mat-icon>
-              <span>{{ r.isActive ? 'Deactivate' : 'Activate' }}</span>
-            </button>
-
-            <button
-              *ngIf="r.activeBatchCount === 0"
-              mat-icon-button
-              color="warn"
-              matTooltip="Delete Classroom"
-              (click)="deleteRoom(r)"
-            >
-              <mat-icon>delete_outline</mat-icon>
-            </button>
-          </div>
-        </mat-card>
-      </div>
-
+              <div class="room-card-footer">
+                <button mat-button class="btn-edit" (click)="openEditRoomModal(r)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit</span>
+                </button>
+                <button
+                  mat-button
+                  [color]="r.isActive ? 'warn' : 'primary'"
+                  (click)="toggleStatus(r)"
+                  >
+                  <mat-icon>{{ r.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                  <span>{{ r.isActive ? 'Deactivate' : 'Activate' }}</span>
+                </button>
+                @if (r.activeBatchCount === 0) {
+                  <button
+                    mat-icon-button
+                    color="warn"
+                    matTooltip="Delete Classroom"
+                    (click)="deleteRoom(r)"
+                    >
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                }
+              </div>
+            </mat-card>
+          }
+        </div>
+      }
+    
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && filteredRooms.length === 0">
-        <mat-icon class="empty-icon">meeting_room</mat-icon>
-        <h3>No Classrooms Found</h3>
-        <p>There are no rooms matching your search or branch criteria.</p>
-        <button mat-flat-button class="action-btn-primary" (click)="openAddRoomModal()">
-          <mat-icon>add</mat-icon>
-          <span>Add Classroom</span>
-        </button>
-      </div>
+      @if (!loading && filteredRooms.length === 0) {
+        <div class="empty-state">
+          <mat-icon class="empty-icon">meeting_room</mat-icon>
+          <h3>No Classrooms Found</h3>
+          <p>There are no rooms matching your search or branch criteria.</p>
+          <button mat-flat-button class="action-btn-primary" (click)="openAddRoomModal()">
+            <mat-icon>add</mat-icon>
+            <span>Add Classroom</span>
+          </button>
+        </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .rooms-container {
       padding: 0 0 40px;

@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,14 +12,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   selector: 'app-developer-team',
   standalone: true,
   imports: [
-    CommonModule,
     RouterModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
     MatChipsModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="page-container">
       <!-- Top Banner Header (Page Matching White Card Theme) -->
@@ -271,6 +270,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

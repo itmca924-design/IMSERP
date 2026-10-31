@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -62,7 +62,7 @@ import {
             </div>
           </div>
         </div>
-
+    
         <div class="action-btn-group">
           <button
             mat-flat-button
@@ -77,7 +77,7 @@ import {
           </button>
         </div>
       </div>
-
+    
       <!-- Module Sub-Nav Bar -->
       <div class="module-nav-bar">
         <a mat-button [routerLink]="['/inventory']" class="nav-tab">
@@ -93,10 +93,12 @@ import {
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
         </a>
       </div>
-
+    
       <!-- Single Prominent Loader Rule -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="global-loader"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="global-loader"></mat-progress-bar>
+      }
+    
       <!-- 2. KPI Metrics Deck -->
       <div class="kpi-grid">
         <mat-card class="kpi-card mat-elevation-z1">
@@ -111,7 +113,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -124,7 +126,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -137,7 +139,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -151,41 +153,45 @@ import {
           </div>
         </mat-card>
       </div>
-
+    
       <!-- 3. Embedded Return Creation Form (No Popup Dialog!) -->
-      <mat-card *ngIf="showCreateForm" class="create-form-card mat-elevation-z2">
-        <div class="form-header">
-          <div class="f-title-row">
-            <mat-icon class="f-icon">assignment_return</mat-icon>
-            <div>
-              <h2 class="f-title">Issue Purchase Return &amp; Generate Debit Note</h2>
-              <p class="f-sub">Select vendor and items to return. Stock will be deducted and vendor ledger credited immediately.</p>
+      @if (showCreateForm) {
+        <mat-card class="create-form-card mat-elevation-z2">
+          <div class="form-header">
+            <div class="f-title-row">
+              <mat-icon class="f-icon">assignment_return</mat-icon>
+              <div>
+                <h2 class="f-title">Issue Purchase Return &amp; Generate Debit Note</h2>
+                <p class="f-sub">Select vendor and items to return. Stock will be deducted and vendor ledger credited immediately.</p>
+              </div>
             </div>
+            <button mat-icon-button (click)="toggleCreateForm()" class="f-close-btn" matTooltip="Cancel & Close">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
-          <button mat-icon-button (click)="toggleCreateForm()" class="f-close-btn" matTooltip="Cancel & Close">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <form [formGroup]="form" (ngSubmit)="onSubmitReturn()" class="return-form">
-          <div class="form-top-row">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Select Vendor (Supplier)*</mat-label>
-              <mat-select formControlName="vendorId" placeholder="Choose vendor">
-                <mat-option *ngFor="let v of vendors" [value]="v.id">
-                  <strong>{{ v.vendorName }}</strong> <span *ngIf="v.phone">({{ v.phone }})</span>
-                </mat-option>
+          <form [formGroup]="form" (ngSubmit)="onSubmitReturn()" class="return-form">
+            <div class="form-top-row">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Select Vendor (Supplier)*</mat-label>
+                <mat-select formControlName="vendorId" placeholder="Choose vendor">
+                  @for (v of vendors; track v) {
+                    <mat-option [value]="v.id">
+                      <strong>{{ v.vendorName }}</strong> @if (v.phone) {
+                      <span>({{ v.phone }})</span>
+                    }
+                  </mat-option>
+                }
               </mat-select>
               <mat-icon matPrefix class="prefix-icon">storefront</mat-icon>
-              <mat-error *ngIf="form.get('vendorId')?.hasError('required')">Vendor is required</mat-error>
+              @if (form.get('vendorId')?.hasError('required')) {
+                <mat-error>Vendor is required</mat-error>
+              }
             </mat-form-field>
-
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Return Date (Debit Note Date)*</mat-label>
               <input matInput type="date" formControlName="returnDate" />
               <mat-icon matPrefix class="prefix-icon">calendar_today</mat-icon>
             </mat-form-field>
-
             <div class="add-row-action">
               <button mat-stroked-button color="primary" type="button" (click)="addItemRow()" class="erp-btn">
                 <mat-icon>add</mat-icon>
@@ -193,85 +199,83 @@ import {
               </button>
             </div>
           </div>
-
           <!-- Dynamic Item Lines -->
           <div formArrayName="items" class="items-form-array">
-            <div
-              *ngFor="let row of itemRows.controls; let i = index"
-              [formGroupName]="i"
-              class="item-line-box">
-
-              <!-- 1. Form Controls: All in ONE horizontal line -->
-              <div class="line-controls-row">
-                <span class="line-index">#{{ i + 1 }}</span>
-
-                <div class="item-select-wrap">
-                  <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                    <mat-label>Item to Return*</mat-label>
-                    <mat-select formControlName="itemId" (selectionChange)="onItemChange(i, $event.value)">
-                      <mat-option *ngFor="let item of items" [value]="item.id">
-                        {{ item.itemName }} ({{ item.itemCode }}) — Available: {{ item.currentStock }} {{ item.unitOfMeasurement }}
-                      </mat-option>
-                    </mat-select>
+            @for (row of itemRows.controls; track row; let i = $index) {
+              <div
+                [formGroupName]="i"
+                class="item-line-box">
+                <!-- 1. Form Controls: All in ONE horizontal line -->
+                <div class="line-controls-row">
+                  <span class="line-index">#{{ i + 1 }}</span>
+                  <div class="item-select-wrap">
+                    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                      <mat-label>Item to Return*</mat-label>
+                      <mat-select formControlName="itemId" (selectionChange)="onItemChange(i, $event.value)">
+                        @for (item of items; track item) {
+                          <mat-option [value]="item.id">
+                            {{ item.itemName }} ({{ item.itemCode }}) — Available: {{ item.currentStock }} {{ item.unitOfMeasurement }}
+                          </mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                  <mat-form-field appearance="outline" class="qty-field" subscriptSizing="dynamic">
+                    <mat-label>Return Qty*</mat-label>
+                    <input matInput type="number" min="1" formControlName="quantity" (input)="onQuantityChange(i)" />
+                    @if (row.get('quantity')?.hasError('exceedsStock')) {
+                      <mat-error>
+                        Max: {{ getSelectedItem(i)?.currentStock }}
+                      </mat-error>
+                    }
                   </mat-form-field>
+                  <mat-form-field appearance="outline" class="rate-field" subscriptSizing="dynamic">
+                    <mat-label>Rate (₹)*</mat-label>
+                    <input matInput type="number" min="0" formControlName="unitPrice" (input)="computeFormTotals()" />
+                  </mat-form-field>
+                  <div class="line-total-wrap">
+                    <span class="lbl">TOTAL</span>
+                    <span class="val">₹{{ ((row.get('quantity')?.value || 0) * (row.get('unitPrice')?.value || 0)) | number:'1.2-2' }}</span>
+                  </div>
+                  <mat-form-field appearance="outline" class="reason-field" subscriptSizing="dynamic">
+                    <mat-label>Defect / Return Reason</mat-label>
+                    <input matInput formControlName="reason" placeholder="e.g. Torn cover, Misprint, Wrong supply" />
+                  </mat-form-field>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    (click)="removeItemRow(i)"
+                    [disabled]="itemRows.length === 1"
+                    color="warn"
+                    matTooltip="Remove line"
+                    class="del-btn">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
                 </div>
-
-                <mat-form-field appearance="outline" class="qty-field" subscriptSizing="dynamic">
-                  <mat-label>Return Qty*</mat-label>
-                  <input matInput type="number" min="1" formControlName="quantity" (input)="onQuantityChange(i)" />
-                  <mat-error *ngIf="row.get('quantity')?.hasError('exceedsStock')">
-                    Max: {{ getSelectedItem(i)?.currentStock }}
-                  </mat-error>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="rate-field" subscriptSizing="dynamic">
-                  <mat-label>Rate (₹)*</mat-label>
-                  <input matInput type="number" min="0" formControlName="unitPrice" (input)="computeFormTotals()" />
-                </mat-form-field>
-
-                <div class="line-total-wrap">
-                  <span class="lbl">TOTAL</span>
-                  <span class="val">₹{{ ((row.get('quantity')?.value || 0) * (row.get('unitPrice')?.value || 0)) | number:'1.2-2' }}</span>
-                </div>
-
-                <mat-form-field appearance="outline" class="reason-field" subscriptSizing="dynamic">
-                  <mat-label>Defect / Return Reason</mat-label>
-                  <input matInput formControlName="reason" placeholder="e.g. Torn cover, Misprint, Wrong supply" />
-                </mat-form-field>
-
-                <button
-                  mat-icon-button
-                  type="button"
-                  (click)="removeItemRow(i)"
-                  [disabled]="itemRows.length === 1"
-                  color="warn"
-                  matTooltip="Remove line"
-                  class="del-btn">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
+                <!-- 2. Stock Hint Meta Strip (Appears below without affecting controls row alignment!) -->
+                @if (getSelectedItem(i)) {
+                  <div class="line-meta-strip">
+                    <span class="meta-pill-stock">
+                      <mat-icon class="pill-icon">inventory_2</mat-icon>
+                      Available in store: <strong>{{ getSelectedItem(i)?.currentStock }} {{ getSelectedItem(i)?.unitOfMeasurement }}</strong>
+                    </span>
+                    @if (getSelectedItem(i)?.rackOrLocation) {
+                      <span class="meta-pill-rack">
+                        <mat-icon class="pill-icon">shelves</mat-icon>
+                        Rack: <strong>{{ getSelectedItem(i)?.rackOrLocation }}</strong>
+                      </span>
+                    }
+                  </div>
+                }
               </div>
-
-              <!-- 2. Stock Hint Meta Strip (Appears below without affecting controls row alignment!) -->
-              <div class="line-meta-strip" *ngIf="getSelectedItem(i)">
-                <span class="meta-pill-stock">
-                  <mat-icon class="pill-icon">inventory_2</mat-icon>
-                  Available in store: <strong>{{ getSelectedItem(i)?.currentStock }} {{ getSelectedItem(i)?.unitOfMeasurement }}</strong>
-                </span>
-                <span class="meta-pill-rack" *ngIf="getSelectedItem(i)?.rackOrLocation">
-                  <mat-icon class="pill-icon">shelves</mat-icon>
-                  Rack: <strong>{{ getSelectedItem(i)?.rackOrLocation }}</strong>
-                </span>
-              </div>
-            </div>
+            }
           </div>
-
           <!-- Bottom Summary & Action -->
           <div class="form-bottom-row">
             <mat-form-field appearance="outline" class="remarks-field" subscriptSizing="dynamic">
               <mat-label>Remarks / Notes</mat-label>
               <textarea matInput formControlName="remarks" rows="2" placeholder="Enter any notes or reference..."></textarea>
             </mat-form-field>
-
             <div class="summary-box">
               <div class="sum-row">
                 <span>Total Items:</span>
@@ -281,7 +285,6 @@ import {
                 <span>Total Debit Note Amount:</span>
                 <strong class="text-danger">₹{{ formGrandTotal | number:'1.2-2' }}</strong>
               </div>
-
               <div class="btn-group">
                 <button mat-button type="button" (click)="toggleCreateForm()" [disabled]="submitting">
                   Cancel
@@ -300,63 +303,68 @@ import {
           </div>
         </form>
       </mat-card>
-
-      <!-- 4. Filter & Search Controls Deck -->
-      <mat-card class="filter-card mat-elevation-z1">
-        <div class="filter-deck">
-          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-input">
-            <mat-label>Search Debit Note / Vendor / Items</mat-label>
-            <input
-              matInput
-              [formControl]="filterSearchCtrl"
-              placeholder="Search by DN number, vendor name, or remarks..." />
-            <mat-icon matPrefix class="prefix-icon">search</mat-icon>
+    }
+    
+    <!-- 4. Filter & Search Controls Deck -->
+    <mat-card class="filter-card mat-elevation-z1">
+      <div class="filter-deck">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-input">
+          <mat-label>Search Debit Note / Vendor / Items</mat-label>
+          <input
+            matInput
+            [formControl]="filterSearchCtrl"
+            placeholder="Search by DN number, vendor name, or remarks..." />
+          <mat-icon matPrefix class="prefix-icon">search</mat-icon>
+          @if (filterSearchCtrl.value) {
             <button
               mat-icon-button
               matSuffix
-              *ngIf="filterSearchCtrl.value"
               (click)="filterSearchCtrl.setValue('')"
               matTooltip="Clear">
               <mat-icon>close</mat-icon>
             </button>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="vendor-select">
-            <mat-label>Filter by Vendor</mat-label>
-            <mat-select [formControl]="filterVendorCtrl">
-              <mat-option [value]="null">All Vendors</mat-option>
-              <mat-option *ngFor="let v of vendors" [value]="v.id">{{ v.vendorName }}</mat-option>
-            </mat-select>
-            <mat-icon matPrefix class="prefix-icon">storefront</mat-icon>
-          </mat-form-field>
-
-          <div class="chip-total">
-            <mat-chip-set>
-              <mat-chip highlighted color="warn">
-                {{ totalCount }} Debit Note(s)
-              </mat-chip>
-            </mat-chip-set>
-          </div>
+          }
+        </mat-form-field>
+    
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="vendor-select">
+          <mat-label>Filter by Vendor</mat-label>
+          <mat-select [formControl]="filterVendorCtrl">
+            <mat-option [value]="null">All Vendors</mat-option>
+            @for (v of vendors; track v) {
+              <mat-option [value]="v.id">{{ v.vendorName }}</mat-option>
+            }
+          </mat-select>
+          <mat-icon matPrefix class="prefix-icon">storefront</mat-icon>
+        </mat-form-field>
+    
+        <div class="chip-total">
+          <mat-chip-set>
+            <mat-chip highlighted color="warn">
+              {{ totalCount }} Debit Note(s)
+            </mat-chip>
+          </mat-chip-set>
         </div>
-      </mat-card>
-
-      <!-- 5. Purchase Returns List Table -->
-      <mat-card class="table-card mat-elevation-z1">
-        <div class="table-responsive">
-          <table class="erp-table" matSort (matSortChange)="onSortChange($event)">
-            <thead>
-              <tr>
-                <th mat-sort-header="returndate" style="min-width: 140px;">DATE &amp; TIME (IST)</th>
-                <th mat-sort-header="debitnote" style="min-width: 130px;">DEBIT NOTE #</th>
-                <th mat-sort-header="vendor" style="min-width: 160px;">VENDOR / SUPPLIER</th>
-                <th style="min-width: 220px;">ITEMS RETURNED</th>
-                <th mat-sort-header="amount" style="min-width: 110px;" class="text-right">TOTAL AMOUNT</th>
-                <th mat-sort-header="status" style="min-width: 130px;">STATUS</th>
-                <th style="min-width: 140px;">REMARKS</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let ret of returnsList" class="data-row">
+      </div>
+    </mat-card>
+    
+    <!-- 5. Purchase Returns List Table -->
+    <mat-card class="table-card mat-elevation-z1">
+      <div class="table-responsive">
+        <table class="erp-table" matSort (matSortChange)="onSortChange($event)">
+          <thead>
+            <tr>
+              <th mat-sort-header="returndate" style="min-width: 140px;">DATE &amp; TIME (IST)</th>
+              <th mat-sort-header="debitnote" style="min-width: 130px;">DEBIT NOTE #</th>
+              <th mat-sort-header="vendor" style="min-width: 160px;">VENDOR / SUPPLIER</th>
+              <th style="min-width: 220px;">ITEMS RETURNED</th>
+              <th mat-sort-header="amount" style="min-width: 110px;" class="text-right">TOTAL AMOUNT</th>
+              <th mat-sort-header="status" style="min-width: 130px;">STATUS</th>
+              <th style="min-width: 140px;">REMARKS</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ret of returnsList; track ret) {
+              <tr class="data-row">
                 <td class="cell-date">
                   <span [appIstDatetime]="ret.returnDate"></span>
                 </td>
@@ -368,10 +376,14 @@ import {
                 </td>
                 <td class="cell-items">
                   <div class="item-tag-list">
-                    <span *ngFor="let it of ret.items" class="item-pill">
-                      {{ it.itemName }} ({{ it.itemCode }}) × <strong>{{ it.quantity }}</strong>
-                      <span *ngIf="it.reason" class="reason-tag">({{ it.reason }})</span>
-                    </span>
+                    @for (it of ret.items; track it) {
+                      <span class="item-pill">
+                        {{ it.itemName }} ({{ it.itemCode }}) × <strong>{{ it.quantity }}</strong>
+                        @if (it.reason) {
+                          <span class="reason-tag">({{ it.reason }})</span>
+                        }
+                      </span>
+                    }
                   </div>
                 </td>
                 <td class="cell-amount text-right">
@@ -384,30 +396,34 @@ import {
                   <span class="remarks-text" [matTooltip]="ret.remarks || ''">{{ ret.remarks || '-' }}</span>
                 </td>
               </tr>
-
-              <tr *ngIf="returnsList.length === 0 && !loading">
+            }
+    
+            @if (returnsList.length === 0 && !loading) {
+              <tr>
                 <td colspan="7" class="empty-state">
                   <mat-icon class="empty-icon">assignment_return</mat-icon>
                   <p class="empty-title">No Purchase Returns Recorded</p>
                   <p class="empty-sub">Click 'New Purchase Return (PR)' above to record a return to vendor with debit note generation.</p>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <mat-paginator
-          [length]="totalCount"
-          [pageSize]="pageSize"
-          [pageIndex]="pageIndex"
-          [pageSizeOptions]="[10, 25, 50, 100]"
-          (page)="onPageChange($event)"
-          showFirstLastButtons
-          class="erp-paginator">
-        </mat-paginator>
-      </mat-card>
+            }
+          </tbody>
+        </table>
+      </div>
+    
+      <mat-paginator
+        [length]="totalCount"
+        [pageSize]="pageSize"
+        [pageIndex]="pageIndex"
+        [pageSizeOptions]="[10, 25, 50, 100]"
+        (page)="onPageChange($event)"
+        showFirstLastButtons
+        class="erp-paginator">
+      </mat-paginator>
+    </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

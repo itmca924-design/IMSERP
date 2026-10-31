@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -90,7 +90,7 @@ export interface StudentLeaveStatsDto {
             </p>
           </div>
         </div>
-
+    
         <div class="header-actions">
           <a mat-stroked-button class="refresh-btn" routerLink="/students/gate-pass" style="color:#2563eb; border-color:#bfdbfe;">
             <mat-icon>badge</mat-icon>
@@ -106,17 +106,21 @@ export interface StudentLeaveStatsDto {
           </button>
         </div>
       </div>
-
+    
       <!-- Role Scope Banner -->
-      <div class="role-scope-notice teacher" *ngIf="isTeacher">
-        <mat-icon>school</mat-icon>
-        <span><strong>Class Teacher Scope Active:</strong> Showing leave applications for students belonging to your assigned Class & Section. You can review and approve them directly.</span>
-      </div>
-      <div class="role-scope-notice student" *ngIf="isStudentOrParent">
-        <mat-icon>account_circle</mat-icon>
-        <span><strong>{{currentRoleLabel}} Portal View:</strong> Displaying leave applications for your ward. Once submitted, your Class Teacher or School Admin will review and sanction attendance.</span>
-      </div>
-
+      @if (isTeacher) {
+        <div class="role-scope-notice teacher">
+          <mat-icon>school</mat-icon>
+          <span><strong>Class Teacher Scope Active:</strong> Showing leave applications for students belonging to your assigned Class & Section. You can review and approve them directly.</span>
+        </div>
+      }
+      @if (isStudentOrParent) {
+        <div class="role-scope-notice student">
+          <mat-icon>account_circle</mat-icon>
+          <span><strong>{{currentRoleLabel}} Portal View:</strong> Displaying leave applications for your ward. Once submitted, your Class Teacher or School Admin will review and sanction attendance.</span>
+        </div>
+      }
+    
       <!-- Stats Bar -->
       <div class="stats-grid">
         <div class="stat-card stat-total">
@@ -126,16 +130,18 @@ export interface StudentLeaveStatsDto {
             <span class="stat-lbl">Total Applications</span>
           </div>
         </div>
-
+    
         <div class="stat-card stat-pending">
           <div class="stat-icon-wrap"><mat-icon>pending_actions</mat-icon></div>
           <div class="stat-info">
             <span class="stat-val">{{stats.pendingLeaves}}</span>
             <span class="stat-lbl">Pending Review</span>
           </div>
-          <div class="pulse-badge" *ngIf="stats.pendingLeaves > 0">Action Required</div>
+          @if (stats.pendingLeaves > 0) {
+            <div class="pulse-badge">Action Required</div>
+          }
         </div>
-
+    
         <div class="stat-card stat-approved">
           <div class="stat-icon-wrap"><mat-icon>check_circle</mat-icon></div>
           <div class="stat-info">
@@ -143,16 +149,18 @@ export interface StudentLeaveStatsDto {
             <span class="stat-lbl">Approved Leaves</span>
           </div>
         </div>
-
-        <div class="stat-card stat-cancel-pending" *ngIf="stats.cancellationPendingLeaves && stats.cancellationPendingLeaves > 0">
-          <div class="stat-icon-wrap"><mat-icon>event_busy</mat-icon></div>
-          <div class="stat-info">
-            <span class="stat-val">{{stats.cancellationPendingLeaves}}</span>
-            <span class="stat-lbl">Cancellation Pending</span>
+    
+        @if (stats.cancellationPendingLeaves && stats.cancellationPendingLeaves > 0) {
+          <div class="stat-card stat-cancel-pending">
+            <div class="stat-icon-wrap"><mat-icon>event_busy</mat-icon></div>
+            <div class="stat-info">
+              <span class="stat-val">{{stats.cancellationPendingLeaves}}</span>
+              <span class="stat-lbl">Cancellation Pending</span>
+            </div>
+            <div class="pulse-badge" style="background:#ea580c;">Review Needed</div>
           </div>
-          <div class="pulse-badge" style="background:#ea580c;">Review Needed</div>
-        </div>
-
+        }
+    
         <div class="stat-card stat-today">
           <div class="stat-icon-wrap"><mat-icon>person_off</mat-icon></div>
           <div class="stat-info">
@@ -161,7 +169,7 @@ export interface StudentLeaveStatsDto {
           </div>
         </div>
       </div>
-
+    
       <!-- Controls & Filter Strip (Pure Reactive Forms) -->
       <div class="controls-card">
         <form [formGroup]="filterForm" class="filter-form">
@@ -179,7 +187,7 @@ export interface StudentLeaveStatsDto {
               </button>
             </div>
           </div>
-
+    
           <div class="filter-row">
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Status</mat-label>
@@ -193,7 +201,7 @@ export interface StudentLeaveStatsDto {
                 <mat-option value="Rejected">❌ Rejected</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Leave Category</mat-label>
               <mat-select formControlName="category" (selectionChange)="loadLeaves()">
@@ -205,25 +213,31 @@ export interface StudentLeaveStatsDto {
                 <mat-option value="Other">📝 Other Reasons</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <!-- Academic Class Filter (when Scope is All, School, or Coaching) -->
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>{{ filterForm.get('academicScope')?.value === 'Coaching' ? 'Academic Class (कक्षा)' : 'School Class' }}</mat-label>
               <mat-select formControlName="classId" (selectionChange)="onClassFilterChanged()">
                 <mat-option value="">All Classes</mat-option>
-                <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{c.name}}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <!-- Coaching Batch Filter (when Scope is All or Coaching) -->
-            <mat-form-field appearance="outline" class="filter-field" *ngIf="filterForm.get('academicScope')?.value !== 'School'">
-              <mat-label>Coaching Batch</mat-label>
-              <mat-select formControlName="batchId" (selectionChange)="loadLeaves()">
-                <mat-option value="">All Batches</mat-option>
-                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{b.name}} ({{b.subject}}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-
+            @if (filterForm.get('academicScope')?.value !== 'School') {
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Coaching Batch</mat-label>
+                <mat-select formControlName="batchId" (selectionChange)="loadLeaves()">
+                  <mat-option value="">All Batches</mat-option>
+                  @for (b of filteredBatches; track b) {
+                    <mat-option [value]="b.id">{{b.name}} ({{b.subject}}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+    
             <mat-form-field appearance="outline" class="filter-field search-field">
               <mat-label>Search Student, Roll #, Batch, Reason</mat-label>
               <input matInput formControlName="searchTerm" placeholder="Search..." (keyup.enter)="loadLeaves()">
@@ -231,11 +245,11 @@ export interface StudentLeaveStatsDto {
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
-
+    
             <button mat-stroked-button type="button" class="reset-btn" (click)="resetFilters()">
               <mat-icon>refresh</mat-icon> Reset
             </button>
-
+    
             <!-- Sharp SVG View Toggle -->
             <div class="view-toggle">
               <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Card Grid View">
@@ -260,217 +274,259 @@ export interface StudentLeaveStatsDto {
           </div>
         </form>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
+    
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && filteredLeaves.length === 0">
-        <div class="empty-icon-wrap"><mat-icon>event_available</mat-icon></div>
-        <h3>No Student Leave Requests Found</h3>
-        <p>No leave records match the current filter selection. Click "Apply Student Leave" to submit a new application.</p>
-        <button mat-raised-button class="create-btn" (click)="openApplyDialog()">
-          <mat-icon>add_circle</mat-icon> Apply First Leave
-        </button>
-      </div>
-
-      <!-- GRID VIEW -->
-      <div class="leaves-grid" *ngIf="!loading && viewMode==='grid' && filteredLeaves.length > 0">
-        <div class="leave-card" *ngFor="let item of filteredLeaves" [ngClass]="item.status.toLowerCase()">
-          <!-- Card Header Strip -->
-          <div class="card-head">
-            <div class="student-avatar-box">
-              <mat-icon>person</mat-icon>
-            </div>
-            <div class="student-head-info">
-              <h3 class="student-name" (click)="viewLeaveDetails(item)">{{item.studentName}}</h3>
-              <div class="student-sub">
-                <span>Roll: <strong>{{item.rollNumber}}</strong></span>
-                <span *ngIf="item.coachingRollNumber">&bull; C-Roll: <strong>{{item.coachingRollNumber}}</strong></span>
-                <span *ngIf="item.className">&bull; Class: <strong>{{item.className}}</strong></span>
-                <span *ngIf="item.batchName" class="badge-batch">&bull; <mat-icon>groups</mat-icon> <strong>{{item.batchName}}</strong></span>
-              </div>
-            </div>
-            <span class="status-pill" [ngClass]="item.status.toLowerCase()">
-              {{item.status === 'CancellationRequested' ? '⏳ Cancel Requested' : (item.status === 'PartiallyCancelled' ? '⚡ Partially Cancelled' : item.status)}}
-            </span>
-          </div>
-
-          <!-- Category & Days Info -->
-          <div class="category-strip">
-            <span class="cat-chip" [ngClass]="getCategoryClass(item.leaveCategory)">
-              <mat-icon class="cat-ic">{{getCategoryIcon(item.leaveCategory)}}</mat-icon>
-              <span>{{item.leaveCategory}}</span>
-            </span>
-            <span class="duration-badge">
-              <strong>{{item.totalDays}} {{item.totalDays > 1 ? 'Days' : 'Day'}}</strong>
-            </span>
-          </div>
-
-          <!-- Date Range Box -->
-          <div class="dates-box">
-            <div class="date-col">
-              <span class="dt-lbl">FROM</span>
-              <span class="dt-val">{{formatToISTDate(item.fromDate)}}</span>
-            </div>
-            <mat-icon class="dt-arrow">arrow_forward</mat-icon>
-            <div class="date-col">
-              <span class="dt-lbl">TO</span>
-              <span class="dt-val">{{formatToISTDate(item.toDate)}}</span>
-            </div>
-          </div>
-
-          <!-- Reason -->
-          <p class="leave-reason" title="{{item.reason}}">{{item.reason}}</p>
-
-          <!-- Attendance Linkage Status -->
-          <div class="linkage-status-box" [class.linked]="item.attendanceMarked" [class.unlinked]="!item.attendanceMarked">
-            <mat-icon class="link-ic">{{item.attendanceMarked ? 'check_circle' : (item.status === 'Pending' ? 'schedule' : 'cancel')}}</mat-icon>
-            <div class="link-text">
-              <strong *ngIf="item.attendanceMarked">Attendance Linked ('L' Marked in Register)</strong>
-              <strong *ngIf="!item.attendanceMarked && item.status === 'Pending'">Attendance Pending Approval</strong>
-              <strong *ngIf="!item.attendanceMarked && item.status === 'Rejected'">Leave Rejected (Not Linked)</strong>
-              <span>{{item.appliedBy ? 'Applied by ' + item.appliedBy : 'Parent Application'}}</span>
-            </div>
-          </div>
-
-          <!-- Attachment tag if any -->
-          <div class="att-row" *ngIf="item.attachmentUrl">
-            <mat-icon>attachment</mat-icon>
-            <a [href]="item.attachmentUrl" target="_blank">View Medical Slip / Attachment</a>
-          </div>
-
-          <!-- Reviewer Tag if reviewed -->
-          <div class="reviewer-tag" *ngIf="item.reviewedBy">
-            <mat-icon>verified</mat-icon>
-            <span>Reviewed by: <strong>{{item.reviewedBy}}</strong></span>
-          </div>
-
-          <!-- Card Action Footer -->
-          <div class="card-footer">
-            <button mat-stroked-button class="view-btn" (click)="viewLeaveDetails(item)">
-              <mat-icon>visibility</mat-icon> View
-            </button>
-
-            <!-- Cancellation Actions -->
-            <button mat-stroked-button class="cancel-leave-btn"
-                    *ngIf="(item.status === 'Approved' || item.status === 'PartiallyCancelled') && !item.isCancellationRequested"
-                    (click)="openRequestCancellationDialog(item)"
-                    matTooltip="Request full or partial cancellation with interactive calendar">
-              <mat-icon>event_busy</mat-icon> Cancel Leave
-            </button>
-
-            <button mat-flat-button class="review-cancel-btn"
-                    *ngIf="(item.status === 'CancellationRequested' || item.isCancellationRequested) && !isStudentOrParent"
-                    (click)="openReviewCancellationDialog(item)"
-                    matTooltip="Review requested leave cancellation">
-              <mat-icon>rule</mat-icon> Review Cancellation
-            </button>
-
-            <span class="pending-cancel-badge" *ngIf="(item.status === 'CancellationRequested' || item.isCancellationRequested) && isStudentOrParent">
-              <mat-icon>hourglass_top</mat-icon> Cancellation Under Review
-            </span>
-
-            <div class="action-buttons">
-              <!-- Approve button if pending (Only for Teachers / Admins) -->
-              <button mat-flat-button class="approve-btn" *ngIf="!isStudentOrParent && item.status === 'Pending'" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link Attendance">
-                <mat-icon>check</mat-icon> Approve
-              </button>
-
-              <!-- Reject button if pending (Only for Teachers / Admins) -->
-              <button mat-stroked-button class="reject-btn" *ngIf="!isStudentOrParent && item.status === 'Pending'" (click)="quickReview(item, 'Rejected')" matTooltip="Reject Application">
-                <mat-icon>close</mat-icon> Reject
-              </button>
-
-              <!-- Delete (Admins/Teachers or pending applications) -->
-              <button mat-icon-button class="del-btn" *ngIf="!isStudentOrParent || item.status === 'Pending'" (click)="deleteLeave(item)" matTooltip="Delete Application">
-                <mat-icon>delete_outline</mat-icon>
-              </button>
-            </div>
-          </div>
+      @if (!loading && filteredLeaves.length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon-wrap"><mat-icon>event_available</mat-icon></div>
+          <h3>No Student Leave Requests Found</h3>
+          <p>No leave records match the current filter selection. Click "Apply Student Leave" to submit a new application.</p>
+          <button mat-raised-button class="create-btn" (click)="openApplyDialog()">
+            <mat-icon>add_circle</mat-icon> Apply First Leave
+          </button>
         </div>
-      </div>
-
-      <!-- TABLE VIEW -->
-      <div class="table-card-wrap" *ngIf="!loading && viewMode==='table' && filteredLeaves.length > 0">
-        <table class="leaves-table">
-          <thead>
-            <tr>
-              <th>Student Details</th>
-              <th>Category</th>
-              <th>From Date</th>
-              <th>To Date</th>
-              <th>Days</th>
-              <th>Reason</th>
-              <th>Status</th>
-              <th>Attendance Register Link</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of filteredLeaves" [ngClass]="item.status.toLowerCase() + '-tr'">
-              <td>
-                <div class="tbl-student-name" (click)="viewLeaveDetails(item)">{{item.studentName}}</div>
-                <div class="tbl-student-sub">
-                  <span>Roll: {{item.rollNumber}}</span>
-                  <span *ngIf="item.coachingRollNumber"> &bull; C-Roll: {{item.coachingRollNumber}}</span>
-                  <span *ngIf="item.className"> &bull; {{item.className}}</span>
-                  <span *ngIf="item.batchName" class="tbl-batch-badge"> &bull; <mat-icon>groups</mat-icon> {{item.batchName}}</span>
+      }
+    
+      <!-- GRID VIEW -->
+      @if (!loading && viewMode==='grid' && filteredLeaves.length > 0) {
+        <div class="leaves-grid">
+          @for (item of filteredLeaves; track item) {
+            <div class="leave-card" [ngClass]="item.status.toLowerCase()">
+              <!-- Card Header Strip -->
+              <div class="card-head">
+                <div class="student-avatar-box">
+                  <mat-icon>person</mat-icon>
                 </div>
-              </td>
-              <td>
-                <span class="cat-chip" [ngClass]="getCategoryClass(item.leaveCategory)">
-                  {{item.leaveCategory}}
-                </span>
-              </td>
-              <td><strong>{{formatToISTDate(item.fromDate)}}</strong></td>
-              <td><strong>{{formatToISTDate(item.toDate)}}</strong></td>
-              <td><span class="days-pill">{{item.totalDays}} d</span></td>
-              <td>
-                <div class="tbl-reason" title="{{item.reason}}">{{item.reason | slice:0:55}}...</div>
-              </td>
-              <td>
+                <div class="student-head-info">
+                  <h3 class="student-name" (click)="viewLeaveDetails(item)">{{item.studentName}}</h3>
+                  <div class="student-sub">
+                    <span>Roll: <strong>{{item.rollNumber}}</strong></span>
+                    @if (item.coachingRollNumber) {
+                      <span>&bull; C-Roll: <strong>{{item.coachingRollNumber}}</strong></span>
+                    }
+                    @if (item.className) {
+                      <span>&bull; Class: <strong>{{item.className}}</strong></span>
+                    }
+                    @if (item.batchName) {
+                      <span class="badge-batch">&bull; <mat-icon>groups</mat-icon> <strong>{{item.batchName}}</strong></span>
+                    }
+                  </div>
+                </div>
                 <span class="status-pill" [ngClass]="item.status.toLowerCase()">
                   {{item.status === 'CancellationRequested' ? '⏳ Cancel Requested' : (item.status === 'PartiallyCancelled' ? '⚡ Partially Cancelled' : item.status)}}
                 </span>
-              </td>
-              <td>
-                <div class="link-tag" [class.linked]="item.attendanceMarked">
-                  <mat-icon class="lt-ic">{{item.attendanceMarked ? 'check_circle' : 'schedule'}}</mat-icon>
-                  <span>{{item.attendanceMarked ? 'Synced (Leave Mark)' : 'Pending / Not Synced'}}</span>
+              </div>
+              <!-- Category & Days Info -->
+              <div class="category-strip">
+                <span class="cat-chip" [ngClass]="getCategoryClass(item.leaveCategory)">
+                  <mat-icon class="cat-ic">{{getCategoryIcon(item.leaveCategory)}}</mat-icon>
+                  <span>{{item.leaveCategory}}</span>
+                </span>
+                <span class="duration-badge">
+                  <strong>{{item.totalDays}} {{item.totalDays > 1 ? 'Days' : 'Day'}}</strong>
+                </span>
+              </div>
+              <!-- Date Range Box -->
+              <div class="dates-box">
+                <div class="date-col">
+                  <span class="dt-lbl">FROM</span>
+                  <span class="dt-val">{{formatToISTDate(item.fromDate)}}</span>
                 </div>
-              </td>
-              <td>
-                <div class="tbl-actions">
-                  <button mat-icon-button (click)="viewLeaveDetails(item)" matTooltip="View Slip">
-                    <mat-icon style="color:#2563eb;">visibility</mat-icon>
+                <mat-icon class="dt-arrow">arrow_forward</mat-icon>
+                <div class="date-col">
+                  <span class="dt-lbl">TO</span>
+                  <span class="dt-val">{{formatToISTDate(item.toDate)}}</span>
+                </div>
+              </div>
+              <!-- Reason -->
+              <p class="leave-reason" title="{{item.reason}}">{{item.reason}}</p>
+              <!-- Attendance Linkage Status -->
+              <div class="linkage-status-box" [class.linked]="item.attendanceMarked" [class.unlinked]="!item.attendanceMarked">
+                <mat-icon class="link-ic">{{item.attendanceMarked ? 'check_circle' : (item.status === 'Pending' ? 'schedule' : 'cancel')}}</mat-icon>
+                <div class="link-text">
+                  @if (item.attendanceMarked) {
+                    <strong>Attendance Linked ('L' Marked in Register)</strong>
+                  }
+                  @if (!item.attendanceMarked && item.status === 'Pending') {
+                    <strong>Attendance Pending Approval</strong>
+                  }
+                  @if (!item.attendanceMarked && item.status === 'Rejected') {
+                    <strong>Leave Rejected (Not Linked)</strong>
+                  }
+                  <span>{{item.appliedBy ? 'Applied by ' + item.appliedBy : 'Parent Application'}}</span>
+                </div>
+              </div>
+              <!-- Attachment tag if any -->
+              @if (item.attachmentUrl) {
+                <div class="att-row">
+                  <mat-icon>attachment</mat-icon>
+                  <a [href]="item.attachmentUrl" target="_blank">View Medical Slip / Attachment</a>
+                </div>
+              }
+              <!-- Reviewer Tag if reviewed -->
+              @if (item.reviewedBy) {
+                <div class="reviewer-tag">
+                  <mat-icon>verified</mat-icon>
+                  <span>Reviewed by: <strong>{{item.reviewedBy}}</strong></span>
+                </div>
+              }
+              <!-- Card Action Footer -->
+              <div class="card-footer">
+                <button mat-stroked-button class="view-btn" (click)="viewLeaveDetails(item)">
+                  <mat-icon>visibility</mat-icon> View
+                </button>
+                <!-- Cancellation Actions -->
+                @if ((item.status === 'Approved' || item.status === 'PartiallyCancelled') && !item.isCancellationRequested) {
+                  <button mat-stroked-button class="cancel-leave-btn"
+                    (click)="openRequestCancellationDialog(item)"
+                    matTooltip="Request full or partial cancellation with interactive calendar">
+                    <mat-icon>event_busy</mat-icon> Cancel Leave
                   </button>
-                  <!-- Cancel Leave Button on Approved / PartiallyCancelled -->
-                  <button mat-icon-button *ngIf="(item.status === 'Approved' || item.status === 'PartiallyCancelled') && !item.isCancellationRequested"
+                }
+                @if ((item.status === 'CancellationRequested' || item.isCancellationRequested) && !isStudentOrParent) {
+                  <button mat-flat-button class="review-cancel-btn"
+                    (click)="openReviewCancellationDialog(item)"
+                    matTooltip="Review requested leave cancellation">
+                    <mat-icon>rule</mat-icon> Review Cancellation
+                  </button>
+                }
+                @if ((item.status === 'CancellationRequested' || item.isCancellationRequested) && isStudentOrParent) {
+                  <span class="pending-cancel-badge">
+                    <mat-icon>hourglass_top</mat-icon> Cancellation Under Review
+                  </span>
+                }
+                <div class="action-buttons">
+                  <!-- Approve button if pending (Only for Teachers / Admins) -->
+                  @if (!isStudentOrParent && item.status === 'Pending') {
+                    <button mat-flat-button class="approve-btn" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link Attendance">
+                      <mat-icon>check</mat-icon> Approve
+                    </button>
+                  }
+                  <!-- Reject button if pending (Only for Teachers / Admins) -->
+                  @if (!isStudentOrParent && item.status === 'Pending') {
+                    <button mat-stroked-button class="reject-btn" (click)="quickReview(item, 'Rejected')" matTooltip="Reject Application">
+                      <mat-icon>close</mat-icon> Reject
+                    </button>
+                  }
+                  <!-- Delete (Admins/Teachers or pending applications) -->
+                  @if (!isStudentOrParent || item.status === 'Pending') {
+                    <button mat-icon-button class="del-btn" (click)="deleteLeave(item)" matTooltip="Delete Application">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    
+      <!-- TABLE VIEW -->
+      @if (!loading && viewMode==='table' && filteredLeaves.length > 0) {
+        <div class="table-card-wrap">
+          <table class="leaves-table">
+            <thead>
+              <tr>
+                <th>Student Details</th>
+                <th>Category</th>
+                <th>From Date</th>
+                <th>To Date</th>
+                <th>Days</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Attendance Register Link</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of filteredLeaves; track item) {
+                <tr [ngClass]="item.status.toLowerCase() + '-tr'">
+                  <td>
+                    <div class="tbl-student-name" (click)="viewLeaveDetails(item)">{{item.studentName}}</div>
+                    <div class="tbl-student-sub">
+                      <span>Roll: {{item.rollNumber}}</span>
+                      @if (item.coachingRollNumber) {
+                        <span> &bull; C-Roll: {{item.coachingRollNumber}}</span>
+                      }
+                      @if (item.className) {
+                        <span> &bull; {{item.className}}</span>
+                      }
+                      @if (item.batchName) {
+                        <span class="tbl-batch-badge"> &bull; <mat-icon>groups</mat-icon> {{item.batchName}}</span>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <span class="cat-chip" [ngClass]="getCategoryClass(item.leaveCategory)">
+                      {{item.leaveCategory}}
+                    </span>
+                  </td>
+                  <td><strong>{{formatToISTDate(item.fromDate)}}</strong></td>
+                  <td><strong>{{formatToISTDate(item.toDate)}}</strong></td>
+                  <td><span class="days-pill">{{item.totalDays}} d</span></td>
+                  <td>
+                    <div class="tbl-reason" title="{{item.reason}}">{{item.reason | slice:0:55}}...</div>
+                  </td>
+                  <td>
+                    <span class="status-pill" [ngClass]="item.status.toLowerCase()">
+                      {{item.status === 'CancellationRequested' ? '⏳ Cancel Requested' : (item.status === 'PartiallyCancelled' ? '⚡ Partially Cancelled' : item.status)}}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="link-tag" [class.linked]="item.attendanceMarked">
+                      <mat-icon class="lt-ic">{{item.attendanceMarked ? 'check_circle' : 'schedule'}}</mat-icon>
+                      <span>{{item.attendanceMarked ? 'Synced (Leave Mark)' : 'Pending / Not Synced'}}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="tbl-actions">
+                      <button mat-icon-button (click)="viewLeaveDetails(item)" matTooltip="View Slip">
+                        <mat-icon style="color:#2563eb;">visibility</mat-icon>
+                      </button>
+                      <!-- Cancel Leave Button on Approved / PartiallyCancelled -->
+                      @if ((item.status === 'Approved' || item.status === 'PartiallyCancelled') && !item.isCancellationRequested) {
+                        <button mat-icon-button
                           (click)="openRequestCancellationDialog(item)" matTooltip="Cancel Leave / Partial Dates">
-                    <mat-icon style="color:#dc2626;">event_busy</mat-icon>
-                  </button>
-                  <!-- Review Cancellation Button on CancellationRequested for Teacher/Admin -->
-                  <button mat-icon-button *ngIf="(item.status === 'CancellationRequested' || item.isCancellationRequested) && !isStudentOrParent"
+                          <mat-icon style="color:#dc2626;">event_busy</mat-icon>
+                        </button>
+                      }
+                      <!-- Review Cancellation Button on CancellationRequested for Teacher/Admin -->
+                      @if ((item.status === 'CancellationRequested' || item.isCancellationRequested) && !isStudentOrParent) {
+                        <button mat-icon-button
                           (click)="openReviewCancellationDialog(item)" matTooltip="Review Leave Cancellation">
-                    <mat-icon style="color:#ea580c;">rule</mat-icon>
-                  </button>
-                  <button mat-icon-button *ngIf="!isStudentOrParent && item.status === 'Pending'" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link">
-                    <mat-icon style="color:#16a34a;">check_circle</mat-icon>
-                  </button>
-                  <button mat-icon-button *ngIf="!isStudentOrParent && item.status === 'Pending'" (click)="quickReview(item, 'Rejected')" matTooltip="Reject">
-                    <mat-icon style="color:#dc2626;">cancel</mat-icon>
-                  </button>
-                  <button mat-icon-button *ngIf="!isStudentOrParent || item.status === 'Pending'" (click)="deleteLeave(item)" matTooltip="Delete">
-                    <mat-icon style="color:#64748b;">delete</mat-icon>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                          <mat-icon style="color:#ea580c;">rule</mat-icon>
+                        </button>
+                      }
+                      @if (!isStudentOrParent && item.status === 'Pending') {
+                        <button mat-icon-button (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link">
+                          <mat-icon style="color:#16a34a;">check_circle</mat-icon>
+                        </button>
+                      }
+                      @if (!isStudentOrParent && item.status === 'Pending') {
+                        <button mat-icon-button (click)="quickReview(item, 'Rejected')" matTooltip="Reject">
+                          <mat-icon style="color:#dc2626;">cancel</mat-icon>
+                        </button>
+                      }
+                      @if (!isStudentOrParent || item.status === 'Pending') {
+                        <button mat-icon-button (click)="deleteLeave(item)" matTooltip="Delete">
+                          <mat-icon style="color:#64748b;">delete</mat-icon>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .leaves-page-container { padding: 0 0 40px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; width: 100%; }
     .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: #fff; padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -1055,7 +1111,7 @@ export class StudentLeavesComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Form Body -->
       <div class="modal-body">
         <!-- Stream Scope Switcher -->
@@ -1066,36 +1122,43 @@ export class StudentLeavesComponent implements OnInit {
             <button type="button" class="d-pill" [class.active]="dialogScope === 'Coaching'" (click)="setDialogScope('Coaching')">Coaching Batches</button>
           </div>
         </div>
-
+    
         <!-- Coaching Filter: Academic Class & Coaching Batch -->
-        <div class="form-row" *ngIf="dialogScope === 'Coaching'" style="display: flex; gap: 12px; margin-bottom: 12px;">
-          <mat-form-field appearance="outline" style="flex: 1;">
-            <mat-label>Academic Class (कक्षा)</mat-label>
-            <mat-select [(ngModel)]="dialogCoachingClassId" (selectionChange)="onDialogCoachingClassChange()">
-              <mat-option value="">All Academic Classes</mat-option>
-              <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" style="flex: 1;">
-            <mat-label>Coaching Batch</mat-label>
-            <mat-select [(ngModel)]="dialogBatchId" (selectionChange)="onDialogBatchChange()">
-              <mat-option value="">All Batches</mat-option>
-              <mat-option *ngFor="let b of dialogFilteredBatches" [value]="b.id">{{b.name}} ({{b.subject}}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
+        @if (dialogScope === 'Coaching') {
+          <div class="form-row" style="display: flex; gap: 12px; margin-bottom: 12px;">
+            <mat-form-field appearance="outline" style="flex: 1;">
+              <mat-label>Academic Class (कक्षा)</mat-label>
+              <mat-select [(ngModel)]="dialogCoachingClassId" (selectionChange)="onDialogCoachingClassChange()">
+                <mat-option value="">All Academic Classes</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{c.name}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" style="flex: 1;">
+              <mat-label>Coaching Batch</mat-label>
+              <mat-select [(ngModel)]="dialogBatchId" (selectionChange)="onDialogBatchChange()">
+                <mat-option value="">All Batches</mat-option>
+                @for (b of dialogFilteredBatches; track b) {
+                  <mat-option [value]="b.id">{{b.name}} ({{b.subject}}){{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+        }
+    
         <!-- Student Selection -->
         <mat-form-field appearance="outline" class="full-field">
           <mat-label>Select Student (विद्यार्थी चयन करें) *</mat-label>
           <mat-select [(ngModel)]="model.studentId" required (selectionChange)="onStudentSelect()">
-            <mat-option *ngFor="let s of filteredStudents" [value]="s.id">
-              {{s.studentName}} (Roll: {{s.coachingRollNumber || s.rollNumber || '—'}}) &bull; {{s.batchName ? ('Batch: ' + s.batchName) : (s.className || 'General')}}
-            </mat-option>
+            @for (s of filteredStudents; track s) {
+              <mat-option [value]="s.id">
+                {{s.studentName}} (Roll: {{s.coachingRollNumber || s.rollNumber || '—'}}) &bull; {{s.batchName ? ('Batch: ' + s.batchName) : (s.className || 'General')}}
+              </mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
+    
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Leave Category *</mat-label>
@@ -1107,7 +1170,7 @@ export class StudentLeavesComponent implements OnInit {
               <mat-option value="Other">📝 Other Specific Reason</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Applied By</mat-label>
             <mat-select [(ngModel)]="model.appliedBy">
@@ -1118,50 +1181,54 @@ export class StudentLeavesComponent implements OnInit {
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <!-- Date Range with Strict Greater Than / Less Than Validation -->
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>From Date (आरंभ तिथि) *</mat-label>
             <input matInput type="date" [(ngModel)]="fromDateStr" (change)="validateDates()" required />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>To Date (समाप्ति तिथि) *</mat-label>
             <input matInput type="date" [(ngModel)]="toDateStr" [min]="fromDateStr" (change)="validateDates()" required />
           </mat-form-field>
         </div>
-
+    
         <!-- Date Error Banner -->
-        <div class="date-error-banner" *ngIf="dateError">
-          <mat-icon>error</mat-icon>
-          <span>{{ dateError }}</span>
-        </div>
-
+        @if (dateError) {
+          <div class="date-error-banner">
+            <mat-icon>error</mat-icon>
+            <span>{{ dateError }}</span>
+          </div>
+        }
+    
         <!-- Duration Summary -->
-        <div class="duration-summary" *ngIf="!dateError && calculatedDays > 0">
-          <mat-icon>schedule</mat-icon>
-          <span>Total Sanction Period: <strong>{{calculatedDays}} {{calculatedDays > 1 ? 'Days' : 'Day'}}</strong> (Both dates inclusive)</span>
-        </div>
-
+        @if (!dateError && calculatedDays > 0) {
+          <div class="duration-summary">
+            <mat-icon>schedule</mat-icon>
+            <span>Total Sanction Period: <strong>{{calculatedDays}} {{calculatedDays > 1 ? 'Days' : 'Day'}}</strong> (Both dates inclusive)</span>
+          </div>
+        }
+    
         <mat-form-field appearance="outline" class="full-field">
           <mat-label>Reason for Leave (छुट्टी का कारण) *</mat-label>
           <textarea matInput [(ngModel)]="model.reason" rows="3" placeholder="Explain health condition, doctor advice, family travel details..." required></textarea>
         </mat-form-field>
-
+    
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Parent / Guardian Phone</mat-label>
             <input matInput [(ngModel)]="model.parentContactNumber" placeholder="+91 9876543210" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Attachment / Medical Slip Link</mat-label>
             <input matInput [(ngModel)]="model.attachmentUrl" placeholder="https://... (Optional doc/prescription)" />
           </mat-form-field>
         </div>
       </div>
-
+    
       <!-- Footer -->
       <div class="modal-footer">
         <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
@@ -1171,7 +1238,8 @@ export class StudentLeavesComponent implements OnInit {
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .apply-dialog-wrap { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; }
     .modal-header { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-bottom: 1px solid #bfdbfe; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -1413,7 +1481,7 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
           </button>
         </div>
       </div>
-
+    
       <!-- Printable Slip Content -->
       <div class="slip-paper" id="printable-leave-slip">
         <!-- Institution Header -->
@@ -1424,9 +1492,9 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
             LEAVE STATUS: {{data.leave.status.toUpperCase()}}
           </div>
         </div>
-
+    
         <div class="divider-line"></div>
-
+    
         <!-- Student Meta Table -->
         <div class="meta-grid">
           <div class="meta-item">
@@ -1437,18 +1505,24 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
             <span class="m-lbl">ROLL NUMBER</span>
             <span class="m-val">{{data.leave.rollNumber || '—'}}</span>
           </div>
-          <div class="meta-item" *ngIf="data.leave.coachingRollNumber">
-            <span class="m-lbl">COACHING ROLL #</span>
-            <span class="m-val">{{data.leave.coachingRollNumber}}</span>
-          </div>
-          <div class="meta-item" *ngIf="data.leave.className">
-            <span class="m-lbl">CLASS / SECTION</span>
-            <span class="m-val">{{data.leave.className}}{{data.leave.sectionName ? ' - ' + data.leave.sectionName : ''}}</span>
-          </div>
-          <div class="meta-item" *ngIf="data.leave.batchName">
-            <span class="m-lbl">COACHING BATCH</span>
-            <span class="m-val highlight">{{data.leave.batchName}}</span>
-          </div>
+          @if (data.leave.coachingRollNumber) {
+            <div class="meta-item">
+              <span class="m-lbl">COACHING ROLL #</span>
+              <span class="m-val">{{data.leave.coachingRollNumber}}</span>
+            </div>
+          }
+          @if (data.leave.className) {
+            <div class="meta-item">
+              <span class="m-lbl">CLASS / SECTION</span>
+              <span class="m-val">{{data.leave.className}}{{data.leave.sectionName ? ' - ' + data.leave.sectionName : ''}}</span>
+            </div>
+          }
+          @if (data.leave.batchName) {
+            <div class="meta-item">
+              <span class="m-lbl">COACHING BATCH</span>
+              <span class="m-val highlight">{{data.leave.batchName}}</span>
+            </div>
+          }
           <div class="meta-item">
             <span class="m-lbl">LEAVE CATEGORY</span>
             <span class="m-val">{{data.leave.leaveCategory}}</span>
@@ -1470,66 +1544,88 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
             <span class="m-val">{{data.leave.parentContactNumber || '—'}}</span>
           </div>
         </div>
-
+    
         <!-- Attendance Linkage Note -->
         <div class="link-banner" [class.linked]="data.leave.attendanceMarked">
           <mat-icon>{{data.leave.attendanceMarked ? 'verified' : 'info'}}</mat-icon>
           <div>
             <strong>{{data.leave.attendanceMarked ? 'Attendance Linked (Sanctioned Leave)' : 'Attendance Not Linked'}}</strong>
-            <p *ngIf="data.leave.attendanceMarked">
-              This student's attendance register for the sanctioned date range is marked 'L' (Sanctioned Leave). Percentage will not be penalized as uninformed absence.
-            </p>
-            <p *ngIf="!data.leave.attendanceMarked">
-              Application is either pending approval or rejected.
-            </p>
+            @if (data.leave.attendanceMarked) {
+              <p>
+                This student's attendance register for the sanctioned date range is marked 'L' (Sanctioned Leave). Percentage will not be penalized as uninformed absence.
+              </p>
+            }
+            @if (!data.leave.attendanceMarked) {
+              <p>
+                Application is either pending approval or rejected.
+              </p>
+            }
           </div>
         </div>
-
+    
         <!-- Reason -->
         <div class="section-box">
           <span class="box-title">STATEMENT / REASON OF ABSENCE:</span>
           <p class="box-content">{{data.leave.reason}}</p>
         </div>
-
+    
         <!-- Cancellation Details Audit Block if requested or processed -->
-        <div class="section-box cancellation-audit-box" *ngIf="data.leave.isCancellationRequested || data.leave.status === 'CancellationRequested' || data.leave.status === 'PartiallyCancelled' || data.leave.status === 'Cancelled'">
-          <span class="box-title" style="color:#c2410c;">CANCELLATION &amp; ATTENDANCE AUDIT:</span>
-          <div class="cancel-audit-details">
-            <div class="audit-item">
-              <strong>Status:</strong>
-              <span class="status-pill" [ngClass]="data.leave.status.toLowerCase()">
-                {{data.leave.status === 'CancellationRequested' ? '⏳ Cancel Requested' : (data.leave.status === 'PartiallyCancelled' ? '⚡ Partially Cancelled' : data.leave.status)}}
-              </span>
-            </div>
-            <div class="audit-item" *ngIf="data.leave.cancellationFromDate && data.leave.cancellationToDate">
-              <strong>Cancelled Period:</strong> {{formatDate(data.leave.cancellationFromDate)}} to {{formatDate(data.leave.cancellationToDate)}}
-              <span *ngIf="data.leave.isPartialCancellation" class="badge-partial">(Partial Cancellation)</span>
-            </div>
-            <div class="audit-item" *ngIf="data.leave.cancellationReason">
-              <strong>Parent/Student Reason:</strong> <em>"{{data.leave.cancellationReason}}"</em>
-            </div>
-            <div class="audit-item" *ngIf="data.leave.cancellationReviewedBy">
-              <strong>Reviewed By:</strong> {{data.leave.cancellationReviewedBy}}
-              <span *ngIf="data.leave.cancellationReviewedAt"> on {{data.leave.cancellationReviewedAt | date:'dd-MMM-yyyy, hh:mm a'}}</span>
-            </div>
-            <div class="audit-item" *ngIf="data.leave.cancellationReviewRemarks">
-              <strong>Reviewer Remarks:</strong> {{data.leave.cancellationReviewRemarks}}
+        @if (data.leave.isCancellationRequested || data.leave.status === 'CancellationRequested' || data.leave.status === 'PartiallyCancelled' || data.leave.status === 'Cancelled') {
+          <div class="section-box cancellation-audit-box">
+            <span class="box-title" style="color:#c2410c;">CANCELLATION &amp; ATTENDANCE AUDIT:</span>
+            <div class="cancel-audit-details">
+              <div class="audit-item">
+                <strong>Status:</strong>
+                <span class="status-pill" [ngClass]="data.leave.status.toLowerCase()">
+                  {{data.leave.status === 'CancellationRequested' ? '⏳ Cancel Requested' : (data.leave.status === 'PartiallyCancelled' ? '⚡ Partially Cancelled' : data.leave.status)}}
+                </span>
+              </div>
+              @if (data.leave.cancellationFromDate && data.leave.cancellationToDate) {
+                <div class="audit-item">
+                  <strong>Cancelled Period:</strong> {{formatDate(data.leave.cancellationFromDate)}} to {{formatDate(data.leave.cancellationToDate)}}
+                  @if (data.leave.isPartialCancellation) {
+                    <span class="badge-partial">(Partial Cancellation)</span>
+                  }
+                </div>
+              }
+              @if (data.leave.cancellationReason) {
+                <div class="audit-item">
+                  <strong>Parent/Student Reason:</strong> <em>"{{data.leave.cancellationReason}}"</em>
+                </div>
+              }
+              @if (data.leave.cancellationReviewedBy) {
+                <div class="audit-item">
+                  <strong>Reviewed By:</strong> {{data.leave.cancellationReviewedBy}}
+                  @if (data.leave.cancellationReviewedAt) {
+                    <span> on {{data.leave.cancellationReviewedAt | date:'dd-MMM-yyyy, hh:mm a'}}</span>
+                  }
+                </div>
+              }
+              @if (data.leave.cancellationReviewRemarks) {
+                <div class="audit-item">
+                  <strong>Reviewer Remarks:</strong> {{data.leave.cancellationReviewRemarks}}
+                </div>
+              }
             </div>
           </div>
-        </div>
-
+        }
+    
         <!-- Remarks if any -->
-        <div class="section-box" *ngIf="data.leave.reviewRemarks">
-          <span class="box-title">REVIEW REMARKS / INSTRUCTIONS:</span>
-          <p class="box-content">{{data.leave.reviewRemarks}}</p>
-        </div>
-
+        @if (data.leave.reviewRemarks) {
+          <div class="section-box">
+            <span class="box-title">REVIEW REMARKS / INSTRUCTIONS:</span>
+            <p class="box-content">{{data.leave.reviewRemarks}}</p>
+          </div>
+        }
+    
         <!-- Attachment -->
-        <div class="att-box" *ngIf="data.leave.attachmentUrl">
-          <mat-icon>attach_file</mat-icon>
-          <span>Supporting Document: <a [href]="data.leave.attachmentUrl" target="_blank">{{data.leave.attachmentUrl}}</a></span>
-        </div>
-
+        @if (data.leave.attachmentUrl) {
+          <div class="att-box">
+            <mat-icon>attach_file</mat-icon>
+            <span>Supporting Document: <a [href]="data.leave.attachmentUrl" target="_blank">{{data.leave.attachmentUrl}}</a></span>
+          </div>
+        }
+    
         <!-- Signature Block -->
         <div class="sign-grid">
           <div class="sign-cell">
@@ -1547,7 +1643,8 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .view-dialog-wrap { display: flex; flex-direction: column; background: #f1f5f9; border-radius: 12px; overflow: hidden; max-height: 90vh; }
     .modal-header { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-bottom: 1px solid #bfdbfe; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }

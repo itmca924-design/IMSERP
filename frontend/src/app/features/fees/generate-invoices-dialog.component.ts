@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -72,450 +72,551 @@ interface BillingCycleOption {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
-
+    
           <!-- Target Student Card (if opened for a specific student) -->
-          <div *ngIf="data.targetStudentName" class="target-student-card">
-            <div class="card-icon-pill">
-              <mat-icon>person</mat-icon>
-            </div>
-            <div class="card-content">
-              <div class="st-main">
-                <span class="st-role-badge">NEW ADMISSION</span>
-                <strong class="st-name">{{ data.targetStudentName }}</strong>
-                <span class="st-roll">({{ data.targetRollNumber }})</span>
+          @if (data.targetStudentName) {
+            <div class="target-student-card">
+              <div class="card-icon-pill">
+                <mat-icon>person</mat-icon>
               </div>
-              <div class="st-sub-details">
-                <span *ngIf="getSelectedTargetClassName()" class="sub-pill school">
-                  🏫 {{ getSelectedTargetClassName() }}
-                </span>
-                <span *ngIf="getSelectedTargetBatchName()" class="sub-pill batch">
-                  🎯 {{ getSelectedTargetBatchName() }}
-                </span>
-                <span *ngIf="data.targetJoiningDate" class="sub-pill doj">
-                  📅 Admission: {{ data.targetJoiningDate | date:'dd MMM yyyy' }}
-                </span>
+              <div class="card-content">
+                <div class="st-main">
+                  <span class="st-role-badge">NEW ADMISSION</span>
+                  <strong class="st-name">{{ data.targetStudentName }}</strong>
+                  <span class="st-roll">({{ data.targetRollNumber }})</span>
+                </div>
+                <div class="st-sub-details">
+                  @if (getSelectedTargetClassName()) {
+                    <span class="sub-pill school">
+                      🏫 {{ getSelectedTargetClassName() }}
+                    </span>
+                  }
+                  @if (getSelectedTargetBatchName()) {
+                    <span class="sub-pill batch">
+                      🎯 {{ getSelectedTargetBatchName() }}
+                    </span>
+                  }
+                  @if (data.targetJoiningDate) {
+                    <span class="sub-pill doj">
+                      📅 Admission: {{ data.targetJoiningDate | date:'dd MMM yyyy' }}
+                    </span>
+                  }
+                </div>
+                <div class="st-hint">
+                  <mat-icon class="hint-icon">auto_awesome</mat-icon>
+                  @if (isCutoffRolledOver()) {
+                    <span>
+                      Admitted on <strong>{{ data.targetJoiningDate | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} Cutoff). First billing begins in <strong>{{ getNextRolledOverMonthName() }}</strong>.
+                      <br>
+                        <small style="color: #1e40af; font-weight: 600;">(एडमिशन {{ cutoffDay }} तारीख कट-ऑफ के बाद हुआ, इसलिए पहली बिलिंग {{ getNextRolledOverMonthName() }} से शुरू होगी।)</small>
+                      </span>
+                    }
+                    @if (!isCutoffRolledOver()) {
+                      <span>
+                        Starting month auto-filled to <strong>{{ getMonthName($safeNavigationMigration(form.get('month')?.value)) }} {{ form.get('year')?.value }}</strong> from admission date. Select your billing cycle (Monthly, Quarterly, etc.).
+                      </span>
+                    }
+                  </div>
+                </div>
               </div>
-              <div class="st-hint">
-                <mat-icon class="hint-icon">auto_awesome</mat-icon>
-                <span *ngIf="isCutoffRolledOver()">
-                  Admitted on <strong>{{ data.targetJoiningDate | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} Cutoff). First billing begins in <strong>{{ getNextRolledOverMonthName() }}</strong>.
-                  <br>
-                  <small style="color: #1e40af; font-weight: 600;">(एडमिशन {{ cutoffDay }} तारीख कट-ऑफ के बाद हुआ, इसलिए पहली बिलिंग {{ getNextRolledOverMonthName() }} से शुरू होगी।)</small>
-                </span>
-                <span *ngIf="!isCutoffRolledOver()">
-                  Starting month auto-filled to <strong>{{ getMonthName(form.get('month')?.value) }} {{ form.get('year')?.value }}</strong> from admission date. Select your billing cycle (Monthly, Quarterly, etc.).
-                </span>
+            }
+    
+            <!-- Recommended Workflow Callout -->
+            <div class="workflow-guide-callout">
+              <div class="guide-icon-pill">
+                <mat-icon>lightbulb</mat-icon>
               </div>
-            </div>
-          </div>
-
-          <!-- Recommended Workflow Callout -->
-          <div class="workflow-guide-callout">
-            <div class="guide-icon-pill">
-              <mat-icon>lightbulb</mat-icon>
-            </div>
-            <div class="guide-body">
-              <div class="guide-header">
-                <strong>Recommended Billing Sequence</strong>
-                <span class="guide-pro-badge">PRO TIP</span>
-              </div>
-              <p class="guide-text">
-                If student(s) require <strong>Transport (Bus Pass)</strong>, <strong>Hostel</strong>, or <strong>Library</strong> facilities, please assign them first in their respective modules. The system will automatically bundle those monthly charges with the <strong>Tuition Fee</strong> into a single combined invoice.
-              </p>
-              <div class="guide-foot">
-                <span>Note: If no extra facilities are needed, you may safely proceed with generating tuition invoices below.</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Auto-Pilot Mode Guidance Callout -->
-          <div class="autopilot-banner-callout" *ngIf="settingsService.autoPilotInvoicing() && !data.targetStudentName">
-            <div class="autopilot-icon-pill">
-              <mat-icon>smart_toy</mat-icon>
-            </div>
-            <div class="autopilot-body">
-              <div class="autopilot-header">
-                <strong>Auto-Pilot Active (Scheduled for 25th of month)</strong>
-                <span class="autopilot-badge">🤖 AUTO-PILOT ON</span>
-              </div>
-              <p class="autopilot-desc">
-                Regular monthly batch billing will automatically execute on the <strong>25th of the month</strong>.
-                You can safely use this manual dialog anytime for <strong>New Admissions</strong>, late joiners, or custom billing cycles.
-              </p>
-              <div class="autopilot-foot">
-                <mat-icon class="shield-icon">verified_user</mat-icon>
-                <span><strong>Zero-Duplicate Shield:</strong> Students who already have an invoice for this period are automatically skipped.</span>
+              <div class="guide-body">
+                <div class="guide-header">
+                  <strong>Recommended Billing Sequence</strong>
+                  <span class="guide-pro-badge">PRO TIP</span>
+                </div>
+                <p class="guide-text">
+                  If student(s) require <strong>Transport (Bus Pass)</strong>, <strong>Hostel</strong>, or <strong>Library</strong> facilities, please assign them first in their respective modules. The system will automatically bundle those monthly charges with the <strong>Tuition Fee</strong> into a single combined invoice.
+                </p>
+                <div class="guide-foot">
+                  <span>Note: If no extra facilities are needed, you may safely proceed with generating tuition invoices below.</span>
+                </div>
               </div>
             </div>
-          </div>
-
-          <!-- Info Callout -->
-          <div class="info-callout" *ngIf="!data.targetStudentName && !settingsService.autoPilotInvoicing()">
-            <mat-icon class="info-icon">auto_awesome</mat-icon>
-            <div class="info-text">
-              <strong>Smart Auto-Billing Engine:</strong> Invoices use each student's batch fee rate multiplied by the selected cycle. Students who already have an invoice for the selected period are <strong>automatically skipped</strong>.
+    
+            <!-- Auto-Pilot Mode Guidance Callout -->
+            @if (settingsService.autoPilotInvoicing() && !data.targetStudentName) {
+              <div class="autopilot-banner-callout">
+                <div class="autopilot-icon-pill">
+                  <mat-icon>smart_toy</mat-icon>
+                </div>
+                <div class="autopilot-body">
+                  <div class="autopilot-header">
+                    <strong>Auto-Pilot Active (Scheduled for 25th of month)</strong>
+                    <span class="autopilot-badge">🤖 AUTO-PILOT ON</span>
+                  </div>
+                  <p class="autopilot-desc">
+                    Regular monthly batch billing will automatically execute on the <strong>25th of the month</strong>.
+                    You can safely use this manual dialog anytime for <strong>New Admissions</strong>, late joiners, or custom billing cycles.
+                  </p>
+                  <div class="autopilot-foot">
+                    <mat-icon class="shield-icon">verified_user</mat-icon>
+                    <span><strong>Zero-Duplicate Shield:</strong> Students who already have an invoice for this period are automatically skipped.</span>
+                  </div>
+                </div>
+              </div>
+            }
+    
+            <!-- Info Callout -->
+            @if (!data.targetStudentName && !settingsService.autoPilotInvoicing()) {
+              <div class="info-callout">
+                <mat-icon class="info-icon">auto_awesome</mat-icon>
+                <div class="info-text">
+                  <strong>Smart Auto-Billing Engine:</strong> Invoices use each student's batch fee rate multiplied by the selected cycle. Students who already have an invoice for the selected period are <strong>automatically skipped</strong>.
+                </div>
+              </div>
+            }
+    
+            <!-- Billing Cycle Selector -->
+            <div class="section-label">
+              <mat-icon class="section-icon">autorenew</mat-icon>
+              <span>Billing Cycle</span>
             </div>
-          </div>
-
-          <!-- Billing Cycle Selector -->
-          <div class="section-label">
-            <mat-icon class="section-icon">autorenew</mat-icon>
-            <span>Billing Cycle</span>
-          </div>
-          <div class="cycle-grid">
-            <button
-              *ngFor="let c of billingCycles"
-              type="button"
-              class="cycle-tile"
-              [class.selected]="selectedCycle === c.value"
-              [style.--cycle-color]="c.color"
-              [style.--cycle-bg]="c.bgColor"
-              [style.--cycle-border]="c.borderColor"
-              (click)="selectCycle(c.value)"
-            >
-              <mat-icon class="cycle-icon">{{ c.icon }}</mat-icon>
-              <span class="cycle-label">{{ c.label }}</span>
-              <span class="cycle-desc">{{ c.description }}</span>
+            <div class="cycle-grid">
+              @for (c of billingCycles; track c) {
+                <button
+                  type="button"
+                  class="cycle-tile"
+                  [class.selected]="selectedCycle === c.value"
+                  [style.--cycle-color]="c.color"
+                  [style.--cycle-bg]="c.bgColor"
+                  [style.--cycle-border]="c.borderColor"
+                  (click)="selectCycle(c.value)"
+                  >
+                  <mat-icon class="cycle-icon">{{ c.icon }}</mat-icon>
+                  <span class="cycle-label">{{ c.label }}</span>
+                  <span class="cycle-desc">{{ c.description }}</span>
+                </button>
+              }
+            </div>
+    
+            <!-- Period & Batch -->
+            <div class="section-label">
+              <mat-icon class="section-icon">calendar_month</mat-icon>
+              <span>Period &amp; Scope</span>
+            </div>
+            <div class="form-grid">
+              <mat-form-field appearance="outline" class="field-month">
+                <mat-label>Starting Month *</mat-label>
+                <mat-select formControlName="month" (selectionChange)="onMonthYearChange()">
+                  @for (m of months; track m) {
+                    <mat-option [value]="m.value">{{ m.name }}</mat-option>
+                  }
+                </mat-select>
+                <mat-icon matSuffix color="primary">calendar_month</mat-icon>
+                @if (isPreAdmissionMonthSelected()) {
+                  <mat-hint style="color: #dc2626; font-weight: 600;">
+                    ⚠️ Prior to admission (DOJ: {{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }})
+                  </mat-hint>
+                }
+                @if (!isPreAdmissionMonthSelected() && isTargetStudent) {
+                  <mat-hint style="font-weight: 500;">
+                    @if (isJoiningMonthAfterCutoffSelected()) {
+                      <span style="color: #d97706;">
+                        ⚠️ Joined after Day {{ cutoffDay }} ({{ getSelectedStudentJoiningDate() | date:'dd MMM' }}). Policy: will generate for {{ getNextRolledOverMonthName() }}.
+                      </span>
+                    }
+                    @if (isRolledOverMonthSelected()) {
+                      <span style="color: #2563eb;">
+                        ✨ Billing begins from {{ getMonthName($safeNavigationMigration(form.get('month')?.value)) }} (DOJ: {{ getSelectedStudentJoiningDate() | date:'dd MMM' }}, after Day {{ cutoffDay }} cutoff)
+                      </span>
+                    }
+                    @if (!isJoiningMonthAfterCutoffSelected() && !isRolledOverMonthSelected()) {
+                      <span style="color: #2563eb;">
+                        👤 Target student admission date: {{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}
+                      </span>
+                    }
+                  </mat-hint>
+                }
+                @if (form.get('month')?.hasError('required')) {
+                  <mat-error>Month is required</mat-error>
+                }
+              </mat-form-field>
+    
+              <mat-form-field appearance="outline" class="field-year">
+                <mat-label>Year *</mat-label>
+                <mat-select formControlName="year" (selectionChange)="onMonthYearChange()">
+                  @for (y of years; track y) {
+                    <mat-option [value]="y">{{ y }}</mat-option>
+                  }
+                </mat-select>
+                <mat-icon matSuffix color="primary">calendar_today</mat-icon>
+                @if (form.get('year')?.hasError('required')) {
+                  <mat-error>Year is required</mat-error>
+                }
+              </mat-form-field>
+    
+              <!-- Target Scope Mode Selector (Universal vs By School Class vs By Coaching Batch) -->
+              @if (!data.targetStudentName && (hasSchoolModule || hasCoachingModule)) {
+                <div class="scope-mode-box full-width">
+                  <div class="scope-mode-label">Target Audience Scope</div>
+                  <div class="scope-pills-row">
+                    <button
+                      type="button"
+                      class="scope-pill-btn"
+                      [class.active]="scopeMode === 'all'"
+                      (click)="setScopeMode('all')">
+                      <mat-icon class="pill-ic">public</mat-icon>
+                      <span>All Students (Universal)</span>
+                    </button>
+                    @if (hasSchoolModule) {
+                      <button
+                        type="button"
+                        class="scope-pill-btn"
+                        [class.active]="scopeMode === 'school'"
+                        (click)="setScopeMode('school')">
+                        <mat-icon class="pill-ic">school</mat-icon>
+                        <span>By School Class</span>
+                      </button>
+                    }
+                    @if (hasCoachingModule) {
+                      <button
+                        type="button"
+                        class="scope-pill-btn"
+                        [class.active]="scopeMode === 'coaching'"
+                        (click)="setScopeMode('coaching')">
+                        <mat-icon class="pill-ic">groups</mat-icon>
+                        <span>By Coaching Batch</span>
+                      </button>
+                    }
+                  </div>
+                  <!-- Universal Bulk Mode Informational Callout -->
+                  @if (scopeMode === 'all') {
+                    <div class="universal-scope-callout">
+                      <mat-icon class="uni-ic">auto_awesome</mat-icon>
+                      <span><strong>Universal Bulk Billing Active:</strong> Invoices will be generated across all active school classes and coaching batches. Zero manual filtering needed.</span>
+                    </div>
+                  }
+                </div>
+              }
+    
+              <!-- Target School Class (Shown ONLY if 'By School Class' is active) -->
+              @if (!data.targetStudentName && scopeMode === 'school' && hasSchoolModule) {
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Target School Class</mat-label>
+                  <mat-select formControlName="classId" panelClass="smart-batch-panel" (selectionChange)="onClassSelectionChange($event.value)">
+                    <mat-option value="">✨ All School Classes</mat-option>
+                    @for (c of data.classes; track c) {
+                      <mat-option [value]="c.id">
+                        🏫 {{ c.name }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matSuffix color="primary">school</mat-icon>
+                </mat-form-field>
+              }
+    
+              @if (scopeMode === 'school' && selectedClassWarning) {
+                <div class="class-structure-warning-pill full-width">
+                  <mat-icon class="warn-icon">warning</mat-icon>
+                  <span>{{ selectedClassWarning }}</span>
+                </div>
+              }
+              @if (scopeMode === 'school' && selectedClassFeeInfo !== null) {
+                <div class="class-structure-success-pill full-width">
+                  <mat-icon class="ok-icon">check_circle</mat-icon>
+                  <span>Configured Matrix Fee: <strong>₹{{ selectedClassFeeInfo | number:'1.2-2' }}/mo</strong></span>
+                </div>
+              }
+    
+              <!-- Target Student for School Class (Optional - Defaults to All) -->
+              @if (!data.targetStudentName && scopeMode === 'school' && form.get('classId')?.value && classStudents.length > 0) {
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Target Student (Optional - Defaults to All)</mat-label>
+                  <mat-select formControlName="studentId" panelClass="smart-batch-panel" (closed)="studentSearchQuery = ''">
+                    <!-- Sticky Search Box inside dropdown -->
+                    <mat-option disabled class="dropdown-search-option">
+                      <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                        <mat-icon class="search-box-icon">search</mat-icon>
+                        <input
+                          type="text"
+                          class="search-inner-input"
+                          placeholder="Search student in class..."
+                          [(ngModel)]="studentSearchQuery"
+                          [ngModelOptions]="{standalone: true}"
+                          (click)="$event.stopPropagation()"
+                          (mousedown)="$event.stopPropagation()"
+                          (keydown)="$event.stopPropagation()"
+                          />
+                        @if (studentSearchQuery) {
+                          <button
+                            type="button"
+                            class="clear-mini-btn"
+                            (click)="studentSearchQuery = ''; $event.stopPropagation()"
+                            (mousedown)="$event.stopPropagation()"
+                            >
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </mat-option>
+                    <mat-option value="">✨ All Students in Class ({{ classStudents.length }} {{ classStudents.length === 1 ? 'Student' : 'Students' }})</mat-option>
+                    @for (s of filteredClassStudents; track s) {
+                      <mat-option [value]="s.id">
+                        👤 {{ s.studentName }} {{ (s.schoolRollNumber || s.rollNumber) ? ' • Roll: ' + (s.schoolRollNumber || s.rollNumber) : '' }}
+                      </mat-option>
+                    }
+                    @if (filteredClassStudents.length === 0 && studentSearchQuery) {
+                      <mat-option disabled class="no-results-option">
+                        No students match "{{ studentSearchQuery }}"
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matSuffix color="primary">person</mat-icon>
+                  @if (!form.get('studentId')?.value) {
+                    <mat-hint>Will generate invoice for all {{ classStudents.length }} students</mat-hint>
+                  }
+                  @if (form.get('studentId')?.value) {
+                    <mat-hint>Generating invoice for single selected student only</mat-hint>
+                  }
+                </mat-form-field>
+              }
+    
+              <!-- Target Academic Class Filter (When 'By Coaching Batch' is active) -->
+              @if (!data.targetStudentName && scopeMode === 'coaching' && hasSchoolModule) {
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Filter by Academic Class (Optional)</mat-label>
+                  <mat-select [value]="coachingClassFilter" (selectionChange)="onCoachingClassFilterChange($event.value)" panelClass="smart-batch-panel">
+                    <mat-option value="">✨ All Academic Classes</mat-option>
+                    @for (c of data.classes; track c) {
+                      <mat-option [value]="c.id">
+                        🏫 {{ c.name }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matSuffix color="primary">school</mat-icon>
+                </mat-form-field>
+              }
+    
+              <!-- Target Coaching Batch (Shown ONLY if 'By Coaching Batch' is active) -->
+              @if (!data.targetStudentName && scopeMode === 'coaching' && hasCoachingModule) {
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Target Coaching Batch</mat-label>
+                  <mat-select formControlName="batchId" panelClass="smart-batch-panel" (selectionChange)="onBatchSelectionChange($event.value)">
+                    <mat-option value="">✨ All Coaching Batches {{ coachingClassFilter ? '(for selected class)' : '' }}</mat-option>
+                    @for (b of filteredCoachingBatches; track b) {
+                      <mat-option [value]="b.id">
+                        🎯 {{ b.name }} (₹{{ b.standardMonthlyFee | number:'1.0-0' }}/mo){{ b.className ? ' [' + b.className + ']' : '' }} • {{ b.studentCount || 0 }} {{ (b.studentCount === 1) ? 'student' : 'students' }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matSuffix color="primary">groups</mat-icon>
+                </mat-form-field>
+              }
+    
+              @if (scopeMode === 'coaching' && selectedBatchFeeInfo !== null) {
+                <div class="class-structure-success-pill full-width">
+                  <mat-icon class="ok-icon">check_circle</mat-icon>
+                  <span>Configured Matrix Fee: <strong>₹{{ selectedBatchFeeInfo | number:'1.2-2' }}/mo</strong></span>
+                </div>
+              }
+              @if (scopeMode === 'coaching' && selectedBatchFeeInfo === null && selectedBatchStandardFee !== null) {
+                <div class="class-structure-success-pill full-width">
+                  <mat-icon class="ok-icon">check_circle</mat-icon>
+                  <span>Standard Batch Fee: <strong>₹{{ selectedBatchStandardFee | number:'1.2-2' }}/mo</strong></span>
+                </div>
+              }
+              @if (scopeMode === 'coaching' && selectedBatchWarning) {
+                <div class="class-structure-warning-pill full-width">
+                  <mat-icon class="warn-icon">warning</mat-icon>
+                  <span>{{ selectedBatchWarning }}</span>
+                </div>
+              }
+    
+              <!-- Target Student for Coaching Batch (Optional - Defaults to All) -->
+              @if (!data.targetStudentName && scopeMode === 'coaching' && form.get('batchId')?.value && batchStudents.length > 0) {
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Target Student (Optional - Defaults to All)</mat-label>
+                  <mat-select formControlName="studentId" panelClass="smart-batch-panel" (closed)="studentSearchQuery = ''">
+                    <!-- Sticky Search Box inside dropdown -->
+                    <mat-option disabled class="dropdown-search-option">
+                      <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                        <mat-icon class="search-box-icon">search</mat-icon>
+                        <input
+                          type="text"
+                          class="search-inner-input"
+                          placeholder="Search student in batch..."
+                          [(ngModel)]="studentSearchQuery"
+                          [ngModelOptions]="{standalone: true}"
+                          (click)="$event.stopPropagation()"
+                          (mousedown)="$event.stopPropagation()"
+                          (keydown)="$event.stopPropagation()"
+                          />
+                        @if (studentSearchQuery) {
+                          <button
+                            type="button"
+                            class="clear-mini-btn"
+                            (click)="studentSearchQuery = ''; $event.stopPropagation()"
+                            (mousedown)="$event.stopPropagation()"
+                            >
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </mat-option>
+                    <mat-option value="">✨ All Students in Batch ({{ batchStudents.length }} {{ batchStudents.length === 1 ? 'Student' : 'Students' }})</mat-option>
+                    @for (s of filteredBatchStudents; track s) {
+                      <mat-option [value]="s.id">
+                        👤 {{ s.studentName }} {{ (s.coachingRollNumber || s.rollNumber) ? ' • Roll: ' + (s.coachingRollNumber || s.rollNumber) : '' }}
+                      </mat-option>
+                    }
+                    @if (filteredBatchStudents.length === 0 && studentSearchQuery) {
+                      <mat-option disabled class="no-results-option">
+                        No students match "{{ studentSearchQuery }}"
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matSuffix color="primary">person</mat-icon>
+                  @if (!form.get('studentId')?.value) {
+                    <mat-hint>Will generate invoice for all {{ batchStudents.length }} students in this batch</mat-hint>
+                  }
+                  @if (form.get('studentId')?.value) {
+                    <mat-hint>Generating invoice for single selected student only</mat-hint>
+                  }
+                </mat-form-field>
+              }
+    
+              @if (!data.targetStudentName && scopeMode === 'coaching' && form.get('batchId')?.value && !loadingBatchStudents && batchStudents.length === 0) {
+                <div class="class-structure-warning-pill full-width">
+                  <mat-icon class="warn-icon">info</mat-icon>
+                  <span>No active students currently enrolled in this batch.</span>
+                </div>
+              }
+    
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Payment Due Date *</mat-label>
+                <input matInput type="date" formControlName="dueDate" />
+                <mat-icon matSuffix color="primary">event</mat-icon>
+                <mat-hint>Parents will see this date on invoices and WhatsApp notifications</mat-hint>
+                @if (form.get('dueDate')?.hasError('required')) {
+                  <mat-error>Due Date is required</mat-error>
+                }
+              </mat-form-field>
+            </div>
+    
+            <!-- Pre-Admission Warning Callout (Single student selected & pre-admission month chosen) -->
+            @if (isPreAdmissionMonthSelected()) {
+              <div class="pre-admission-warning-callout">
+                <div class="warn-icon-wrap">
+                  <mat-icon>gpp_maybe</mat-icon>
+                </div>
+                <div class="warn-body">
+                  <div class="warn-header">
+                    <strong>Pre-Admission Shield Active</strong>
+                    <span class="warn-badge">BLOCKED</span>
+                  </div>
+                  <p class="warn-desc">
+                    <strong>{{ getSelectedStudentName() }}</strong> was admitted on
+                    <strong>{{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}</strong>.
+                    Invoices cannot be generated for <strong>{{ getPeriodLabel() }}</strong> because this period falls before their date of admission.
+                  </p>
+                  <div class="warn-hint">
+                    💡 <strong>Suggested Action:</strong> Choose <strong>{{ getSelectedStudentJoiningDate() | date:'MMMM yyyy' }}</strong> or a subsequent billing cycle.
+                  </div>
+                </div>
+              </div>
+            }
+    
+            <!-- Cutoff Admission Policy Callout (Single student selected & joining month chosen when DOJ > cutoffDay) -->
+            @if (isJoiningMonthAfterCutoffSelected()) {
+              <div class="cutoff-policy-callout">
+                <div class="policy-icon-wrap">
+                  <mat-icon>verified</mat-icon>
+                </div>
+                <div class="policy-body">
+                  <div class="policy-header">
+                    <strong>{{ getInstitutePolicyName() }} Admission Policy</strong>
+                    <span class="policy-badge">ORIENTATION GRACE PERIOD</span>
+                  </div>
+                  <p class="policy-desc">
+                    <strong>{{ getSelectedStudentName() }}</strong> was admitted on
+                    <strong>{{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} cutoff).
+                    As per institute policy, <strong>{{ getSelectedStudentJoiningDate() | date:'MMMM yyyy' }}</strong> tuition fee is waived as an orientation period.
+                    The generated invoice will automatically start from <strong>{{ getNextRolledOverMonthName() }}</strong>.
+                  </p>
+                </div>
+              </div>
+            }
+    
+            <!-- Live Preview -->
+            <div class="preview-box">
+              <div class="preview-header">
+                <mat-icon class="preview-header-icon">receipt_long</mat-icon>
+                <span>Invoice Preview</span>
+              </div>
+              <div class="preview-body">
+                <div class="preview-item">
+                  <span class="preview-label">Billing Cycle:</span>
+                  <span
+                    class="cycle-badge"
+                    [style.background]="getSelectedCycleOption()?.bgColor"
+                    [style.color]="getSelectedCycleOption()?.color"
+                    [style.border-color]="getSelectedCycleOption()?.borderColor"
+                  >{{ getSelectedCycleOption()?.label }}</span>
+                </div>
+                <div class="preview-item">
+                  <span class="preview-label">Period Covered:</span>
+                  <strong class="preview-val">{{ getEffectivePeriodLabel() }}</strong>
+                </div>
+                <div class="preview-item">
+                  <span class="preview-label">Target Audience:</span>
+                  <span class="preview-val highlight">{{ getSelectedScopeLabel() }}</span>
+                </div>
+                @if (getSelectedBatch()) {
+                  <div class="preview-item">
+                    <span class="preview-label">Amount / Student:</span>
+                    <strong class="preview-val amount">₹{{ getInvoiceAmount() | number:'1.0-0' }}</strong>
+                  </div>
+                }
+                <div class="preview-item">
+                  <span class="preview-label">Initial Status:</span>
+                  @if (!isPreAdmissionMonthSelected()) {
+                    <span class="status-pill pending">Pending (FIFO Payable)</span>
+                  }
+                  @if (isPreAdmissionMonthSelected()) {
+                    <span class="status-pill preadmission">🚫 Blocked (Pre-Admission)</span>
+                  }
+                </div>
+              </div>
+            </div>
+    
+          </mat-dialog-content>
+    
+          <mat-dialog-actions align="end" class="dialog-actions">
+            <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
+            <button mat-raised-button color="primary" type="submit"
+              [disabled]="form.invalid || saving || isPreAdmissionMonthSelected()"
+              [class.btn-blocked]="isPreAdmissionMonthSelected()"
+              class="submit-btn">
+              @if (saving) {
+                <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+              }
+              @if (!saving && !isPreAdmissionMonthSelected()) {
+                <mat-icon>rocket_launch</mat-icon>
+              }
+              @if (!saving && isPreAdmissionMonthSelected()) {
+                <mat-icon>block</mat-icon>
+              }
+              <span>
+                {{ saving ? 'Generating...' :
+                (isPreAdmissionMonthSelected() ? 'Cannot Bill Pre-Admission Period' :
+                (data.targetStudentName ? 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoice for ' + data.targetStudentName : 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoices')) }}
+              </span>
             </button>
-          </div>
-
-          <!-- Period & Batch -->
-          <div class="section-label">
-            <mat-icon class="section-icon">calendar_month</mat-icon>
-            <span>Period &amp; Scope</span>
-          </div>
-          <div class="form-grid">
-            <mat-form-field appearance="outline" class="field-month">
-              <mat-label>Starting Month *</mat-label>
-              <mat-select formControlName="month" (selectionChange)="onMonthYearChange()">
-                <mat-option *ngFor="let m of months" [value]="m.value">{{ m.name }}</mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">calendar_month</mat-icon>
-              <mat-hint *ngIf="isPreAdmissionMonthSelected()" style="color: #dc2626; font-weight: 600;">
-                ⚠️ Prior to admission (DOJ: {{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }})
-              </mat-hint>
-              <mat-hint *ngIf="!isPreAdmissionMonthSelected() && isTargetStudent" style="font-weight: 500;">
-                <span *ngIf="isJoiningMonthAfterCutoffSelected()" style="color: #d97706;">
-                  ⚠️ Joined after Day {{ cutoffDay }} ({{ getSelectedStudentJoiningDate() | date:'dd MMM' }}). Policy: will generate for {{ getNextRolledOverMonthName() }}.
-                </span>
-                <span *ngIf="isRolledOverMonthSelected()" style="color: #2563eb;">
-                  ✨ Billing begins from {{ getMonthName(form.get('month')?.value) }} (DOJ: {{ getSelectedStudentJoiningDate() | date:'dd MMM' }}, after Day {{ cutoffDay }} cutoff)
-                </span>
-                <span *ngIf="!isJoiningMonthAfterCutoffSelected() && !isRolledOverMonthSelected()" style="color: #2563eb;">
-                  👤 Target student admission date: {{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}
-                </span>
-              </mat-hint>
-              <mat-error *ngIf="form.get('month')?.hasError('required')">Month is required</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="field-year">
-              <mat-label>Year *</mat-label>
-              <mat-select formControlName="year" (selectionChange)="onMonthYearChange()">
-                <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">calendar_today</mat-icon>
-              <mat-error *ngIf="form.get('year')?.hasError('required')">Year is required</mat-error>
-            </mat-form-field>
-
-            <!-- Target Scope Mode Selector (Universal vs By School Class vs By Coaching Batch) -->
-            <div class="scope-mode-box full-width" *ngIf="!data.targetStudentName && (hasSchoolModule || hasCoachingModule)">
-              <div class="scope-mode-label">Target Audience Scope</div>
-              <div class="scope-pills-row">
-                <button
-                  type="button"
-                  class="scope-pill-btn"
-                  [class.active]="scopeMode === 'all'"
-                  (click)="setScopeMode('all')">
-                  <mat-icon class="pill-ic">public</mat-icon>
-                  <span>All Students (Universal)</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="scope-pill-btn"
-                  *ngIf="hasSchoolModule"
-                  [class.active]="scopeMode === 'school'"
-                  (click)="setScopeMode('school')">
-                  <mat-icon class="pill-ic">school</mat-icon>
-                  <span>By School Class</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="scope-pill-btn"
-                  *ngIf="hasCoachingModule"
-                  [class.active]="scopeMode === 'coaching'"
-                  (click)="setScopeMode('coaching')">
-                  <mat-icon class="pill-ic">groups</mat-icon>
-                  <span>By Coaching Batch</span>
-                </button>
-              </div>
-
-              <!-- Universal Bulk Mode Informational Callout -->
-              <div class="universal-scope-callout" *ngIf="scopeMode === 'all'">
-                <mat-icon class="uni-ic">auto_awesome</mat-icon>
-                <span><strong>Universal Bulk Billing Active:</strong> Invoices will be generated across all active school classes and coaching batches. Zero manual filtering needed.</span>
-              </div>
-            </div>
-
-            <!-- Target School Class (Shown ONLY if 'By School Class' is active) -->
-            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'school' && hasSchoolModule">
-              <mat-label>Target School Class</mat-label>
-              <mat-select formControlName="classId" panelClass="smart-batch-panel" (selectionChange)="onClassSelectionChange($event.value)">
-                <mat-option value="">✨ All School Classes</mat-option>
-                <mat-option *ngFor="let c of data.classes" [value]="c.id">
-                  🏫 {{ c.name }}
-                </mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">school</mat-icon>
-            </mat-form-field>
-
-            <div *ngIf="scopeMode === 'school' && selectedClassWarning" class="class-structure-warning-pill full-width">
-              <mat-icon class="warn-icon">warning</mat-icon>
-              <span>{{ selectedClassWarning }}</span>
-            </div>
-            <div *ngIf="scopeMode === 'school' && selectedClassFeeInfo !== null" class="class-structure-success-pill full-width">
-              <mat-icon class="ok-icon">check_circle</mat-icon>
-              <span>Configured Matrix Fee: <strong>₹{{ selectedClassFeeInfo | number:'1.2-2' }}/mo</strong></span>
-            </div>
-
-            <!-- Target Student for School Class (Optional - Defaults to All) -->
-            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'school' && form.get('classId')?.value && classStudents.length > 0">
-              <mat-label>Target Student (Optional - Defaults to All)</mat-label>
-              <mat-select formControlName="studentId" panelClass="smart-batch-panel" (closed)="studentSearchQuery = ''">
-                <!-- Sticky Search Box inside dropdown -->
-                <mat-option disabled class="dropdown-search-option">
-                  <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                    <mat-icon class="search-box-icon">search</mat-icon>
-                    <input
-                      type="text"
-                      class="search-inner-input"
-                      placeholder="Search student in class..."
-                      [(ngModel)]="studentSearchQuery"
-                      [ngModelOptions]="{standalone: true}"
-                      (click)="$event.stopPropagation()"
-                      (mousedown)="$event.stopPropagation()"
-                      (keydown)="$event.stopPropagation()"
-                    />
-                    <button
-                      type="button"
-                      class="clear-mini-btn"
-                      *ngIf="studentSearchQuery"
-                      (click)="studentSearchQuery = ''; $event.stopPropagation()"
-                      (mousedown)="$event.stopPropagation()"
-                    >
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </div>
-                </mat-option>
-
-                <mat-option value="">✨ All Students in Class ({{ classStudents.length }} {{ classStudents.length === 1 ? 'Student' : 'Students' }})</mat-option>
-                <mat-option *ngFor="let s of filteredClassStudents" [value]="s.id">
-                  👤 {{ s.studentName }} {{ (s.schoolRollNumber || s.rollNumber) ? ' • Roll: ' + (s.schoolRollNumber || s.rollNumber) : '' }}
-                </mat-option>
-                <mat-option disabled *ngIf="filteredClassStudents.length === 0 && studentSearchQuery" class="no-results-option">
-                  No students match "{{ studentSearchQuery }}"
-                </mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">person</mat-icon>
-              <mat-hint *ngIf="!form.get('studentId')?.value">Will generate invoice for all {{ classStudents.length }} students</mat-hint>
-              <mat-hint *ngIf="form.get('studentId')?.value">Generating invoice for single selected student only</mat-hint>
-            </mat-form-field>
-
-            <!-- Target Academic Class Filter (When 'By Coaching Batch' is active) -->
-            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'coaching' && hasSchoolModule">
-              <mat-label>Filter by Academic Class (Optional)</mat-label>
-              <mat-select [value]="coachingClassFilter" (selectionChange)="onCoachingClassFilterChange($event.value)" panelClass="smart-batch-panel">
-                <mat-option value="">✨ All Academic Classes</mat-option>
-                <mat-option *ngFor="let c of data.classes" [value]="c.id">
-                  🏫 {{ c.name }}
-                </mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">school</mat-icon>
-            </mat-form-field>
-
-            <!-- Target Coaching Batch (Shown ONLY if 'By Coaching Batch' is active) -->
-            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'coaching' && hasCoachingModule">
-              <mat-label>Target Coaching Batch</mat-label>
-              <mat-select formControlName="batchId" panelClass="smart-batch-panel" (selectionChange)="onBatchSelectionChange($event.value)">
-                <mat-option value="">✨ All Coaching Batches {{ coachingClassFilter ? '(for selected class)' : '' }}</mat-option>
-                <mat-option *ngFor="let b of filteredCoachingBatches" [value]="b.id">
-                  🎯 {{ b.name }} (₹{{ b.standardMonthlyFee | number:'1.0-0' }}/mo){{ b.className ? ' [' + b.className + ']' : '' }} • {{ b.studentCount || 0 }} {{ (b.studentCount === 1) ? 'student' : 'students' }}
-                </mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">groups</mat-icon>
-            </mat-form-field>
-
-            <div *ngIf="scopeMode === 'coaching' && selectedBatchFeeInfo !== null" class="class-structure-success-pill full-width">
-              <mat-icon class="ok-icon">check_circle</mat-icon>
-              <span>Configured Matrix Fee: <strong>₹{{ selectedBatchFeeInfo | number:'1.2-2' }}/mo</strong></span>
-            </div>
-            <div *ngIf="scopeMode === 'coaching' && selectedBatchFeeInfo === null && selectedBatchStandardFee !== null" class="class-structure-success-pill full-width">
-              <mat-icon class="ok-icon">check_circle</mat-icon>
-              <span>Standard Batch Fee: <strong>₹{{ selectedBatchStandardFee | number:'1.2-2' }}/mo</strong></span>
-            </div>
-            <div *ngIf="scopeMode === 'coaching' && selectedBatchWarning" class="class-structure-warning-pill full-width">
-              <mat-icon class="warn-icon">warning</mat-icon>
-              <span>{{ selectedBatchWarning }}</span>
-            </div>
-
-            <!-- Target Student for Coaching Batch (Optional - Defaults to All) -->
-            <mat-form-field appearance="outline" class="full-width" *ngIf="!data.targetStudentName && scopeMode === 'coaching' && form.get('batchId')?.value && batchStudents.length > 0">
-              <mat-label>Target Student (Optional - Defaults to All)</mat-label>
-              <mat-select formControlName="studentId" panelClass="smart-batch-panel" (closed)="studentSearchQuery = ''">
-                <!-- Sticky Search Box inside dropdown -->
-                <mat-option disabled class="dropdown-search-option">
-                  <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                    <mat-icon class="search-box-icon">search</mat-icon>
-                    <input
-                      type="text"
-                      class="search-inner-input"
-                      placeholder="Search student in batch..."
-                      [(ngModel)]="studentSearchQuery"
-                      [ngModelOptions]="{standalone: true}"
-                      (click)="$event.stopPropagation()"
-                      (mousedown)="$event.stopPropagation()"
-                      (keydown)="$event.stopPropagation()"
-                    />
-                    <button
-                      type="button"
-                      class="clear-mini-btn"
-                      *ngIf="studentSearchQuery"
-                      (click)="studentSearchQuery = ''; $event.stopPropagation()"
-                      (mousedown)="$event.stopPropagation()"
-                    >
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </div>
-                </mat-option>
-
-                <mat-option value="">✨ All Students in Batch ({{ batchStudents.length }} {{ batchStudents.length === 1 ? 'Student' : 'Students' }})</mat-option>
-                <mat-option *ngFor="let s of filteredBatchStudents" [value]="s.id">
-                  👤 {{ s.studentName }} {{ (s.coachingRollNumber || s.rollNumber) ? ' • Roll: ' + (s.coachingRollNumber || s.rollNumber) : '' }}
-                </mat-option>
-                <mat-option disabled *ngIf="filteredBatchStudents.length === 0 && studentSearchQuery" class="no-results-option">
-                  No students match "{{ studentSearchQuery }}"
-                </mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">person</mat-icon>
-              <mat-hint *ngIf="!form.get('studentId')?.value">Will generate invoice for all {{ batchStudents.length }} students in this batch</mat-hint>
-              <mat-hint *ngIf="form.get('studentId')?.value">Generating invoice for single selected student only</mat-hint>
-            </mat-form-field>
-
-            <div *ngIf="!data.targetStudentName && scopeMode === 'coaching' && form.get('batchId')?.value && !loadingBatchStudents && batchStudents.length === 0" class="class-structure-warning-pill full-width">
-              <mat-icon class="warn-icon">info</mat-icon>
-              <span>No active students currently enrolled in this batch.</span>
-            </div>
-
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Payment Due Date *</mat-label>
-              <input matInput type="date" formControlName="dueDate" />
-              <mat-icon matSuffix color="primary">event</mat-icon>
-              <mat-hint>Parents will see this date on invoices and WhatsApp notifications</mat-hint>
-              <mat-error *ngIf="form.get('dueDate')?.hasError('required')">Due Date is required</mat-error>
-            </mat-form-field>
-          </div>
-
-          <!-- Pre-Admission Warning Callout (Single student selected & pre-admission month chosen) -->
-          <div class="pre-admission-warning-callout" *ngIf="isPreAdmissionMonthSelected()">
-            <div class="warn-icon-wrap">
-              <mat-icon>gpp_maybe</mat-icon>
-            </div>
-            <div class="warn-body">
-              <div class="warn-header">
-                <strong>Pre-Admission Shield Active</strong>
-                <span class="warn-badge">BLOCKED</span>
-              </div>
-              <p class="warn-desc">
-                <strong>{{ getSelectedStudentName() }}</strong> was admitted on 
-                <strong>{{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}</strong>. 
-                Invoices cannot be generated for <strong>{{ getPeriodLabel() }}</strong> because this period falls before their date of admission.
-              </p>
-              <div class="warn-hint">
-                💡 <strong>Suggested Action:</strong> Choose <strong>{{ getSelectedStudentJoiningDate() | date:'MMMM yyyy' }}</strong> or a subsequent billing cycle.
-              </div>
-            </div>
-          </div>
-
-          <!-- Cutoff Admission Policy Callout (Single student selected & joining month chosen when DOJ > cutoffDay) -->
-          <div class="cutoff-policy-callout" *ngIf="isJoiningMonthAfterCutoffSelected()">
-            <div class="policy-icon-wrap">
-              <mat-icon>verified</mat-icon>
-            </div>
-            <div class="policy-body">
-              <div class="policy-header">
-                <strong>{{ getInstitutePolicyName() }} Admission Policy</strong>
-                <span class="policy-badge">ORIENTATION GRACE PERIOD</span>
-              </div>
-              <p class="policy-desc">
-                <strong>{{ getSelectedStudentName() }}</strong> was admitted on 
-                <strong>{{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} cutoff). 
-                As per institute policy, <strong>{{ getSelectedStudentJoiningDate() | date:'MMMM yyyy' }}</strong> tuition fee is waived as an orientation period.
-                The generated invoice will automatically start from <strong>{{ getNextRolledOverMonthName() }}</strong>.
-              </p>
-            </div>
-          </div>
-
-          <!-- Live Preview -->
-          <div class="preview-box">
-            <div class="preview-header">
-              <mat-icon class="preview-header-icon">receipt_long</mat-icon>
-              <span>Invoice Preview</span>
-            </div>
-            <div class="preview-body">
-              <div class="preview-item">
-                <span class="preview-label">Billing Cycle:</span>
-                <span
-                  class="cycle-badge"
-                  [style.background]="getSelectedCycleOption()?.bgColor"
-                  [style.color]="getSelectedCycleOption()?.color"
-                  [style.border-color]="getSelectedCycleOption()?.borderColor"
-                >{{ getSelectedCycleOption()?.label }}</span>
-              </div>
-              <div class="preview-item">
-                <span class="preview-label">Period Covered:</span>
-                <strong class="preview-val">{{ getEffectivePeriodLabel() }}</strong>
-              </div>
-              <div class="preview-item">
-                <span class="preview-label">Target Audience:</span>
-                <span class="preview-val highlight">{{ getSelectedScopeLabel() }}</span>
-              </div>
-              <div class="preview-item" *ngIf="getSelectedBatch()">
-                <span class="preview-label">Amount / Student:</span>
-                <strong class="preview-val amount">₹{{ getInvoiceAmount() | number:'1.0-0' }}</strong>
-              </div>
-              <div class="preview-item">
-                <span class="preview-label">Initial Status:</span>
-                <span *ngIf="!isPreAdmissionMonthSelected()" class="status-pill pending">Pending (FIFO Payable)</span>
-                <span *ngIf="isPreAdmissionMonthSelected()" class="status-pill preadmission">🚫 Blocked (Pre-Admission)</span>
-              </div>
-            </div>
-          </div>
-
-        </mat-dialog-content>
-
-        <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" 
-            [disabled]="form.invalid || saving || isPreAdmissionMonthSelected()" 
-            [class.btn-blocked]="isPreAdmissionMonthSelected()"
-            class="submit-btn">
-            <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
-            <mat-icon *ngIf="!saving && !isPreAdmissionMonthSelected()">rocket_launch</mat-icon>
-            <mat-icon *ngIf="!saving && isPreAdmissionMonthSelected()">block</mat-icon>
-            <span>
-              {{ saving ? 'Generating...' : 
-                 (isPreAdmissionMonthSelected() ? 'Cannot Bill Pre-Admission Period' : 
-                 (data.targetStudentName ? 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoice for ' + data.targetStudentName : 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoices')) }}
-            </span>
-          </button>
-        </mat-dialog-actions>
-      </form>
-    </div>
-  `,
+          </mat-dialog-actions>
+        </form>
+      </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       padding: 0;

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
@@ -59,7 +59,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </button>
         </div>
       </div>
-
+    
       <!-- Live KPI Cards -->
       <div class="stats-grid">
         <div class="stat-card titles">
@@ -91,286 +91,295 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
         </div>
       </div>
-
+    
       <!-- Add / Edit Book Drawer -->
-      <mat-card *ngIf="showBookDrawer" class="form-drawer mat-elevation-z3">
-        <div class="drawer-header">
-          <div class="drawer-title">
-            <mat-icon color="primary">{{ isEditMode ? 'edit' : 'library_add' }}</mat-icon>
-            <div>
-              <strong>{{ isEditMode ? 'Edit Book Details' : 'Catalog New Book Title' }}</strong>
-              <small>{{ isEditMode ? 'Update metadata for ' + selectedBook?.title : 'Add title with initial physical copies' }}</small>
+      @if (showBookDrawer) {
+        <mat-card class="form-drawer mat-elevation-z3">
+          <div class="drawer-header">
+            <div class="drawer-title">
+              <mat-icon color="primary">{{ isEditMode ? 'edit' : 'library_add' }}</mat-icon>
+              <div>
+                <strong>{{ isEditMode ? 'Edit Book Details' : 'Catalog New Book Title' }}</strong>
+                <small>{{ isEditMode ? 'Update metadata for ' + selectedBook?.title : 'Add title with initial physical copies' }}</small>
+              </div>
             </div>
+            <button mat-icon-button (click)="closeBookDrawer()"><mat-icon>close</mat-icon></button>
           </div>
-          <button mat-icon-button (click)="closeBookDrawer()"><mat-icon>close</mat-icon></button>
-        </div>
-
-        <form [formGroup]="bookForm" (ngSubmit)="onSubmitBook()" class="drawer-form">
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="f-flex-2">
-              <mat-label>Book Title</mat-label>
-              <input matInput formControlName="title" placeholder="e.g. Concepts of Physics - Vol 1" />
-              <mat-error *ngIf="bookForm.get('title')?.hasError('required')">Title is required</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Author / Writer</mat-label>
-              <input matInput formControlName="author" placeholder="e.g. H.C. Verma" />
-              <mat-error *ngIf="bookForm.get('author')?.hasError('required')">Author is required</mat-error>
-            </mat-form-field>
-          </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Category / Genre</mat-label>
-              <mat-select formControlName="category">
-                <mat-option value="NCERT">NCERT Textbook</mat-option>
-                <mat-option value="JEE Advanced">JEE (Main &amp; Advanced)</mat-option>
-                <mat-option value="NEET">NEET Medical</mat-option>
-                <mat-option value="Foundation">Foundation (9th-10th)</mat-option>
-                <mat-option value="Reference">Reference Book</mat-option>
-                <mat-option value="Sample Papers">Sample Papers / PYQ</mat-option>
-                <mat-option value="General">General / Literature</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Subject</mat-label>
-              <input matInput formControlName="subject" placeholder="e.g. Physics, Chemistry, Math" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Target School Class (Optional)</mat-label>
-              <mat-select formControlName="classId">
-                <mat-option [value]="null">All Classes / General</mat-option>
-                <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Publisher</mat-label>
-              <input matInput formControlName="publisher" placeholder="e.g. Bharati Bhawan, Arihant" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>Edition</mat-label>
-              <input matInput formControlName="edition" placeholder="e.g. 2026 Edition" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="f-flex-1">
-              <mat-label>ISBN (Optional)</mat-label>
-              <input matInput formControlName="isbn" placeholder="e.g. 978-8177091878" />
-            </mat-form-field>
-          </div>
-
-          <!-- Initial Copies Setup (Only when Creating) -->
-          <div class="copies-setup-box" *ngIf="!isEditMode">
-            <div class="csb-title">
-              <mat-icon color="primary">add_to_photos</mat-icon>
-              <span>Initial Physical Inventory (Accession Numbers)</span>
+          <form [formGroup]="bookForm" (ngSubmit)="onSubmitBook()" class="drawer-form">
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="f-flex-2">
+                <mat-label>Book Title</mat-label>
+                <input matInput formControlName="title" placeholder="e.g. Concepts of Physics - Vol 1" />
+                @if (bookForm.get('title')?.hasError('required')) {
+                  <mat-error>Title is required</mat-error>
+                }
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>Author / Writer</mat-label>
+                <input matInput formControlName="author" placeholder="e.g. H.C. Verma" />
+                @if (bookForm.get('author')?.hasError('required')) {
+                  <mat-error>Author is required</mat-error>
+                }
+              </mat-form-field>
             </div>
             <div class="form-row">
               <mat-form-field appearance="outline" class="f-flex-1">
-                <mat-label>Number of Physical Copies</mat-label>
-                <input matInput type="number" formControlName="initialCopiesCount" min="1" max="100" />
-                <mat-hint>Automatically creates sequential accession numbers</mat-hint>
+                <mat-label>Category / Genre</mat-label>
+                <mat-select formControlName="category">
+                  <mat-option value="NCERT">NCERT Textbook</mat-option>
+                  <mat-option value="JEE Advanced">JEE (Main &amp; Advanced)</mat-option>
+                  <mat-option value="NEET">NEET Medical</mat-option>
+                  <mat-option value="Foundation">Foundation (9th-10th)</mat-option>
+                  <mat-option value="Reference">Reference Book</mat-option>
+                  <mat-option value="Sample Papers">Sample Papers / PYQ</mat-option>
+                  <mat-option value="General">General / Literature</mat-option>
+                </mat-select>
               </mat-form-field>
-
               <mat-form-field appearance="outline" class="f-flex-1">
-                <mat-label>Rack / Shelf Location</mat-label>
-                <input matInput formControlName="initialRackLocation" placeholder="e.g. Almirah B - Shelf 2" />
+                <mat-label>Subject</mat-label>
+                <input matInput formControlName="subject" placeholder="e.g. Physics, Chemistry, Math" />
               </mat-form-field>
-
               <mat-form-field appearance="outline" class="f-flex-1">
-                <mat-label>Purchase Price (₹/copy)</mat-label>
-                <input matInput type="number" formControlName="initialPrice" placeholder="e.g. 450" />
+                <mat-label>Target School Class (Optional)</mat-label>
+                <mat-select formControlName="classId">
+                  <mat-option [value]="null">All Classes / General</mat-option>
+                  @for (c of schoolClasses; track c) {
+                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                  }
+                </mat-select>
               </mat-form-field>
             </div>
-          </div>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Description / Notes</mat-label>
-            <textarea matInput formControlName="description" rows="2" placeholder="Syllabus coverage, volume details, etc."></textarea>
-          </mat-form-field>
-
-          <div class="drawer-footer">
-            <button mat-button type="button" (click)="closeBookDrawer()" [disabled]="saving">Cancel</button>
-            <button mat-raised-button color="primary" type="submit" [disabled]="bookForm.invalid || saving">
-              <span>{{ isEditMode ? 'Update Book Title' : 'Save &amp; Generate Copies' }}</span>
-            </button>
-          </div>
-        </form>
-      </mat-card>
-
-      <!-- Manage Physical Copies Drawer -->
-      <mat-card *ngIf="showCopiesDrawer" class="form-drawer mat-elevation-z3">
-        <div class="drawer-header">
-          <div class="drawer-title">
-            <mat-icon color="primary">inventory_2</mat-icon>
-            <div>
-              <strong>Physical Inventory &amp; Accession Copies</strong>
-              <small>{{ selectedBookForCopies?.title }} &bull; {{ selectedBookForCopies?.copies?.length || 0 }} Copies</small>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>Publisher</mat-label>
+                <input matInput formControlName="publisher" placeholder="e.g. Bharati Bhawan, Arihant" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>Edition</mat-label>
+                <input matInput formControlName="edition" placeholder="e.g. 2026 Edition" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="f-flex-1">
+                <mat-label>ISBN (Optional)</mat-label>
+                <input matInput formControlName="isbn" placeholder="e.g. 978-8177091878" />
+              </mat-form-field>
             </div>
-          </div>
-          <button mat-icon-button (click)="closeCopiesDrawer()"><mat-icon>close</mat-icon></button>
-        </div>
-
-        <!-- Add Copy Inline Form -->
-        <div class="add-copy-panel">
-          <div class="acp-title">Add Physical Copy to this Title:</div>
-          <div class="acp-row">
-            <mat-form-field appearance="outline" class="copy-input">
-              <mat-label>Accession Number</mat-label>
-              <input matInput [(ngModel)]="newCopyAccession" placeholder="e.g. ACC-00420" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="copy-input">
-              <mat-label>Rack / Shelf Location</mat-label>
-              <input matInput [(ngModel)]="newCopyRack" placeholder="e.g. Rack C - Shelf 1" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="copy-input">
-              <mat-label>Price (₹)</mat-label>
-              <input matInput type="number" [(ngModel)]="newCopyPrice" placeholder="350" />
-            </mat-form-field>
-
-            <button mat-raised-button color="primary" class="btn-add-copy" (click)="onAddSingleCopy()" [disabled]="!newCopyAccession || copySaving">
-              <mat-icon>add</mat-icon>
-              <span>Add Copy</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Copies Table -->
-        <div class="copies-table-wrap">
-          <table class="copies-table">
-            <thead>
-              <tr>
-                <th>Accession No</th>
-                <th>Barcode</th>
-                <th>Rack Location</th>
-                <th>Price</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let c of selectedBookForCopies?.copies">
-                <td><strong>{{ c.accessionNumber }}</strong></td>
-                <td><span class="barcode-tag">{{ c.barcode || c.accessionNumber }}</span></td>
-                <td>{{ c.rackLocation || 'Shelf General' }}</td>
-                <td>₹{{ c.price }}</td>
-                <td>
-                  <span class="status-pill" [ngClass]="c.status.toLowerCase()">
-                    {{ c.status }}
-                  </span>
-                </td>
-                <td>
-                  <button mat-icon-button color="warn" (click)="deleteCopy(c)" [disabled]="c.status === 'Issued'" matTooltip="Delete Copy">
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="!selectedBookForCopies?.copies?.length">
-                <td colspan="6" class="no-copies">No physical copies added yet.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </mat-card>
-
-      <!-- Filter Toolbar & Books List -->
-      <mat-card class="table-card mat-elevation-z2" *ngIf="!showBookDrawer && !showCopiesDrawer">
-        <div class="filter-toolbar">
-          <mat-form-field appearance="outline" class="search-field">
-            <mat-label>Search Title, Author, ISBN, Accession...</mat-label>
-            <input matInput [(ngModel)]="searchTerm" (keyup.enter)="loadBooks()" placeholder="Search..." />
-            <button mat-icon-button matSuffix (click)="loadBooks()"><mat-icon>search</mat-icon></button>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-select">
-            <mat-label>Category / Stream</mat-label>
-            <mat-select [(ngModel)]="selectedCategory" (selectionChange)="loadBooks()">
-              <mat-option value="All">All Categories</mat-option>
-              <mat-option value="NCERT">NCERT Textbook</mat-option>
-              <mat-option value="JEE Advanced">JEE Advanced</mat-option>
-              <mat-option value="NEET">NEET Medical</mat-option>
-              <mat-option value="Foundation">Foundation</mat-option>
-              <mat-option value="Reference">Reference Book</mat-option>
-              <mat-option value="Sample Papers">Sample Papers</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-select">
-            <mat-label>Target Class</mat-label>
-            <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadBooks()">
-              <mat-option [value]="null">All Classes</mat-option>
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="books-grid" *ngIf="!loading && books.length > 0">
-          <div class="book-card" *ngFor="let b of books">
-            <div class="book-card-top">
-              <span class="category-badge" [ngClass]="getCategoryClass(b.category)">{{ b.category }}</span>
-              <span class="class-tag" *ngIf="b.className">🏫 {{ b.className }}</span>
-            </div>
-
-            <h3 class="book-title" [matTooltip]="b.title">{{ b.title }}</h3>
-            <p class="book-author">By <strong>{{ b.author }}</strong></p>
-
-            <div class="book-meta-row">
-              <span class="meta-item" *ngIf="b.subject">
-                <mat-icon>subject</mat-icon> {{ b.subject }}
-              </span>
-              <span class="meta-item" *ngIf="b.publisher">
-                <mat-icon>business</mat-icon> {{ b.publisher }}
-              </span>
-            </div>
-
-            <div class="stock-pill-bar">
-              <div class="stock-pill" [class.out-of-stock]="b.availableCopies === 0">
-                <mat-icon>{{ b.availableCopies > 0 ? 'check_circle' : 'error_outline' }}</mat-icon>
-                <span><strong>{{ b.availableCopies }}</strong> / {{ b.totalCopies }} Available</span>
+            <!-- Initial Copies Setup (Only when Creating) -->
+            @if (!isEditMode) {
+              <div class="copies-setup-box">
+                <div class="csb-title">
+                  <mat-icon color="primary">add_to_photos</mat-icon>
+                  <span>Initial Physical Inventory (Accession Numbers)</span>
+                </div>
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="f-flex-1">
+                    <mat-label>Number of Physical Copies</mat-label>
+                    <input matInput type="number" formControlName="initialCopiesCount" min="1" max="100" />
+                    <mat-hint>Automatically creates sequential accession numbers</mat-hint>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="f-flex-1">
+                    <mat-label>Rack / Shelf Location</mat-label>
+                    <input matInput formControlName="initialRackLocation" placeholder="e.g. Almirah B - Shelf 2" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="f-flex-1">
+                    <mat-label>Purchase Price (₹/copy)</mat-label>
+                    <input matInput type="number" formControlName="initialPrice" placeholder="e.g. 450" />
+                  </mat-form-field>
+                </div>
               </div>
-              <span class="issued-tag" *ngIf="b.issuedCopies > 0">
-                {{ b.issuedCopies }} Issued
-              </span>
-            </div>
-
-            <div class="book-card-actions">
-              <button mat-stroked-button color="primary" class="copies-btn" (click)="openCopiesDrawer(b)">
-                <mat-icon>inventory_2</mat-icon>
-                <span>Manage Copies ({{ b.totalCopies }})</span>
+            }
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Description / Notes</mat-label>
+              <textarea matInput formControlName="description" rows="2" placeholder="Syllabus coverage, volume details, etc."></textarea>
+            </mat-form-field>
+            <div class="drawer-footer">
+              <button mat-button type="button" (click)="closeBookDrawer()" [disabled]="saving">Cancel</button>
+              <button mat-raised-button color="primary" type="submit" [disabled]="bookForm.invalid || saving">
+                <span>{{ isEditMode ? 'Update Book Title' : 'Save &amp; Generate Copies' }}</span>
               </button>
-              <div class="btn-group">
-                <button mat-icon-button (click)="editBook(b)" matTooltip="Edit Book Details">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" (click)="deleteBook(b)" matTooltip="Delete Title">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
+            </div>
+          </form>
+        </mat-card>
+      }
+    
+      <!-- Manage Physical Copies Drawer -->
+      @if (showCopiesDrawer) {
+        <mat-card class="form-drawer mat-elevation-z3">
+          <div class="drawer-header">
+            <div class="drawer-title">
+              <mat-icon color="primary">inventory_2</mat-icon>
+              <div>
+                <strong>Physical Inventory &amp; Accession Copies</strong>
+                <small>{{ selectedBookForCopies?.title }} &bull; {{ selectedBookForCopies?.copies?.length || 0 }} Copies</small>
               </div>
             </div>
+            <button mat-icon-button (click)="closeCopiesDrawer()"><mat-icon>close</mat-icon></button>
           </div>
-        </div>
-
-        <!-- Empty State -->
-        <div class="empty-state" *ngIf="!loading && books.length === 0">
-          <mat-icon>local_library</mat-icon>
-          <h3>No Books Found in Catalog</h3>
-          <p>Start building your institute's library catalog by adding your first textbook or coaching study material.</p>
-          <button mat-raised-button color="primary" (click)="openAddBookDrawer()">
-            <mat-icon>add</mat-icon>
-            <span>Add Book Title</span>
-          </button>
-        </div>
-      </mat-card>
+          <!-- Add Copy Inline Form -->
+          <div class="add-copy-panel">
+            <div class="acp-title">Add Physical Copy to this Title:</div>
+            <div class="acp-row">
+              <mat-form-field appearance="outline" class="copy-input">
+                <mat-label>Accession Number</mat-label>
+                <input matInput [(ngModel)]="newCopyAccession" placeholder="e.g. ACC-00420" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="copy-input">
+                <mat-label>Rack / Shelf Location</mat-label>
+                <input matInput [(ngModel)]="newCopyRack" placeholder="e.g. Rack C - Shelf 1" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="copy-input">
+                <mat-label>Price (₹)</mat-label>
+                <input matInput type="number" [(ngModel)]="newCopyPrice" placeholder="350" />
+              </mat-form-field>
+              <button mat-raised-button color="primary" class="btn-add-copy" (click)="onAddSingleCopy()" [disabled]="!newCopyAccession || copySaving">
+                <mat-icon>add</mat-icon>
+                <span>Add Copy</span>
+              </button>
+            </div>
+          </div>
+          <!-- Copies Table -->
+          <div class="copies-table-wrap">
+            <table class="copies-table">
+              <thead>
+                <tr>
+                  <th>Accession No</th>
+                  <th>Barcode</th>
+                  <th>Rack Location</th>
+                  <th>Price</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of selectedBookForCopies?.copies; track c) {
+                  <tr>
+                    <td><strong>{{ c.accessionNumber }}</strong></td>
+                    <td><span class="barcode-tag">{{ c.barcode || c.accessionNumber }}</span></td>
+                    <td>{{ c.rackLocation || 'Shelf General' }}</td>
+                    <td>₹{{ c.price }}</td>
+                    <td>
+                      <span class="status-pill" [ngClass]="c.status.toLowerCase()">
+                        {{ c.status }}
+                      </span>
+                    </td>
+                    <td>
+                      <button mat-icon-button color="warn" (click)="deleteCopy(c)" [disabled]="c.status === 'Issued'" matTooltip="Delete Copy">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    </td>
+                  </tr>
+                }
+                @if (!selectedBookForCopies?.copies?.length) {
+                  <tr>
+                    <td colspan="6" class="no-copies">No physical copies added yet.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </mat-card>
+      }
+    
+      <!-- Filter Toolbar & Books List -->
+      @if (!showBookDrawer && !showCopiesDrawer) {
+        <mat-card class="table-card mat-elevation-z2">
+          <div class="filter-toolbar">
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-label>Search Title, Author, ISBN, Accession...</mat-label>
+              <input matInput [(ngModel)]="searchTerm" (keyup.enter)="loadBooks()" placeholder="Search..." />
+              <button mat-icon-button matSuffix (click)="loadBooks()"><mat-icon>search</mat-icon></button>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>Category / Stream</mat-label>
+              <mat-select [(ngModel)]="selectedCategory" (selectionChange)="loadBooks()">
+                <mat-option value="All">All Categories</mat-option>
+                <mat-option value="NCERT">NCERT Textbook</mat-option>
+                <mat-option value="JEE Advanced">JEE Advanced</mat-option>
+                <mat-option value="NEET">NEET Medical</mat-option>
+                <mat-option value="Foundation">Foundation</mat-option>
+                <mat-option value="Reference">Reference Book</mat-option>
+                <mat-option value="Sample Papers">Sample Papers</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>Target Class</mat-label>
+              <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadBooks()">
+                <mat-option [value]="null">All Classes</mat-option>
+                @for (c of schoolClasses; track c) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          @if (!loading && books.length > 0) {
+            <div class="books-grid">
+              @for (b of books; track b) {
+                <div class="book-card">
+                  <div class="book-card-top">
+                    <span class="category-badge" [ngClass]="getCategoryClass(b.category)">{{ b.category }}</span>
+                    @if (b.className) {
+                      <span class="class-tag">🏫 {{ b.className }}</span>
+                    }
+                  </div>
+                  <h3 class="book-title" [matTooltip]="b.title">{{ b.title }}</h3>
+                  <p class="book-author">By <strong>{{ b.author }}</strong></p>
+                  <div class="book-meta-row">
+                    @if (b.subject) {
+                      <span class="meta-item">
+                        <mat-icon>subject</mat-icon> {{ b.subject }}
+                      </span>
+                    }
+                    @if (b.publisher) {
+                      <span class="meta-item">
+                        <mat-icon>business</mat-icon> {{ b.publisher }}
+                      </span>
+                    }
+                  </div>
+                  <div class="stock-pill-bar">
+                    <div class="stock-pill" [class.out-of-stock]="b.availableCopies === 0">
+                      <mat-icon>{{ b.availableCopies > 0 ? 'check_circle' : 'error_outline' }}</mat-icon>
+                      <span><strong>{{ b.availableCopies }}</strong> / {{ b.totalCopies }} Available</span>
+                    </div>
+                    @if (b.issuedCopies > 0) {
+                      <span class="issued-tag">
+                        {{ b.issuedCopies }} Issued
+                      </span>
+                    }
+                  </div>
+                  <div class="book-card-actions">
+                    <button mat-stroked-button color="primary" class="copies-btn" (click)="openCopiesDrawer(b)">
+                      <mat-icon>inventory_2</mat-icon>
+                      <span>Manage Copies ({{ b.totalCopies }})</span>
+                    </button>
+                    <div class="btn-group">
+                      <button mat-icon-button (click)="editBook(b)" matTooltip="Edit Book Details">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button color="warn" (click)="deleteBook(b)" matTooltip="Delete Title">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+          <!-- Empty State -->
+          @if (!loading && books.length === 0) {
+            <div class="empty-state">
+              <mat-icon>local_library</mat-icon>
+              <h3>No Books Found in Catalog</h3>
+              <p>Start building your institute's library catalog by adding your first textbook or coaching study material.</p>
+              <button mat-raised-button color="primary" (click)="openAddBookDrawer()">
+                <mat-icon>add</mat-icon>
+                <span>Add Book Title</span>
+              </button>
+            </div>
+          }
+        </mat-card>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .library-container { display: flex; flex-direction: column; gap: 16px; }
     .page-header {

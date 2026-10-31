@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, Inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, Inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -18,7 +18,6 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
-import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiUrl;
@@ -79,8 +78,7 @@ export interface DailyBehaviourReportHeader {
     MatDialogModule,
     MatTooltipModule,
     MatMenuModule,
-    MatProgressBarModule,
-    IstDatetimeDirective
+    MatProgressBarModule
   ],
   template: `
     <div class="page-container">
@@ -97,7 +95,7 @@ export interface DailyBehaviourReportHeader {
             </p>
           </div>
         </div>
-
+    
         <div class="header-actions">
           <!-- 3-Way Feature Navigation Switcher -->
           <div class="module-nav-pills notranslate" translate="no">
@@ -114,14 +112,14 @@ export interface DailyBehaviourReportHeader {
               <span>3. Monthly Performance</span>
             </a>
           </div>
-
+    
           <button mat-stroked-button class="refresh-btn" (click)="loadBehaviourList()" [disabled]="loading">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
         </div>
       </div>
-
+    
       <!-- Scope Switcher Pill Tabs -->
       <div class="scope-nav-container">
         <div class="scope-pills">
@@ -133,7 +131,7 @@ export interface DailyBehaviourReportHeader {
             <mat-icon>school</mat-icon>
             <span>School Classes (स्कूल कक्षाएं)</span>
           </button>
-
+    
           <button
             type="button"
             class="scope-pill-btn"
@@ -143,14 +141,18 @@ export interface DailyBehaviourReportHeader {
             <span>Coaching Batches (कोचिंग बैचेस)</span>
           </button>
         </div>
-
+    
         <div class="scope-meta-badge">
           <mat-icon>verified</mat-icon>
-          <span *ngIf="targetScope === 'school'">Scope: <strong>School Class Good Manners Diary</strong></span>
-          <span *ngIf="targetScope === 'coaching'">Scope: <strong>Coaching Batch Conduct &amp; Ethics</strong></span>
+          @if (targetScope === 'school') {
+            <span>Scope: <strong>School Class Good Manners Diary</strong></span>
+          }
+          @if (targetScope === 'coaching') {
+            <span>Scope: <strong>Coaching Batch Conduct &amp; Ethics</strong></span>
+          }
         </div>
       </div>
-
+    
       <!-- Reactive Filter & Actions Deck -->
       <mat-card class="filter-card">
         <form [formGroup]="filterForm" class="filter-form-row">
@@ -158,72 +160,89 @@ export interface DailyBehaviourReportHeader {
             <mat-label>Record Date (तारीख)</mat-label>
             <input matInput type="date" formControlName="date" (change)="loadBehaviourList()">
           </mat-form-field>
-
+    
           <!-- School Scope Dropdowns -->
-          <ng-container *ngIf="targetScope === 'school'">
+          @if (targetScope === 'school') {
             <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
               <mat-label>Select Class (कक्षा) *</mat-label>
               <mat-select formControlName="classId" (selectionChange)="onClassChange()">
-                <mat-option *ngFor="let c of classes" [value]="c.id">
-                  {{c.name}}
-                </mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">
+                    {{c.name}}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
-            <mat-form-field appearance="outline" class="filter-control section-control" *ngIf="sections.length > 0" subscriptSizing="dynamic">
-              <mat-label>Section (वर्ग)</mat-label>
-              <mat-select formControlName="sectionId" (selectionChange)="loadBehaviourList()">
-                <mat-option value="">All Sections</mat-option>
-                <mat-option *ngFor="let s of sections" [value]="s.id">{{s.name}}</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </ng-container>
-
+            @if (sections.length > 0) {
+              <mat-form-field appearance="outline" class="filter-control section-control" subscriptSizing="dynamic">
+                <mat-label>Section (वर्ग)</mat-label>
+                <mat-select formControlName="sectionId" (selectionChange)="loadBehaviourList()">
+                  <mat-option value="">All Sections</mat-option>
+                  @for (s of sections; track s) {
+                    <mat-option [value]="s.id">{{s.name}}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+          }
+    
           <!-- Coaching Scope Dropdowns -->
-          <ng-container *ngIf="targetScope === 'coaching'">
+          @if (targetScope === 'coaching') {
             <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
               <mat-label>Academic Class Filter</mat-label>
               <mat-select formControlName="coachingClassId" (selectionChange)="onCoachingClassChange()">
                 <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-                <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{c.name}}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="filter-control batch-control" subscriptSizing="dynamic">
               <mat-label>Select Coaching Batch *</mat-label>
               <mat-select formControlName="batchId" (selectionChange)="onBatchChange()">
-                <mat-option *ngIf="filteredBatches.length === 0" disabled value="">
-                  No Batches Found
+                @if (filteredBatches.length === 0) {
+                  <mat-option disabled value="">
+                    No Batches Found
+                  </mat-option>
+                }
+                @for (b of filteredBatches; track b) {
+                  <mat-option [value]="b.id">
+                    {{b.name}} @if (b.subject || b.courseName) {
+                    <span>({{b.subject || b.courseName}})</span>
+                  }
                 </mat-option>
-                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
-                  {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </ng-container>
-
-          <div class="deck-actions-group">
-            <button mat-stroked-button class="quick-all-good-btn" type="button" (click)="setAllGoodManners()" [disabled]="students.length === 0">
-              <mat-icon>done_all</mat-icon>
-              <span>1-Click All 5-Star ⭐</span>
-            </button>
-
-            <button mat-stroked-button class="print-report-btn" type="button" (click)="openReportDialog()" [disabled]="students.length === 0">
-              <mat-icon>print</mat-icon>
-              <span>Print / WhatsApp Report</span>
-            </button>
-
-            <button mat-raised-button class="save-btn" type="button" (click)="saveDailyBehaviour()" [disabled]="saving || students.length === 0">
-              <mat-icon *ngIf="!saving">save</mat-icon>
-              <mat-icon *ngIf="saving" class="spin">sync</mat-icon>
-              <span>{{ saving ? 'Saving...' : 'Save Manners Sheet' }}</span>
-            </button>
-          </div>
-        </form>
-      </mat-card>
-
-      <!-- Summary KPI Bar -->
-      <div class="summary-kpis" *ngIf="students.length > 0">
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+    
+        <div class="deck-actions-group">
+          <button mat-stroked-button class="quick-all-good-btn" type="button" (click)="setAllGoodManners()" [disabled]="students.length === 0">
+            <mat-icon>done_all</mat-icon>
+            <span>1-Click All 5-Star ⭐</span>
+          </button>
+    
+          <button mat-stroked-button class="print-report-btn" type="button" (click)="openReportDialog()" [disabled]="students.length === 0">
+            <mat-icon>print</mat-icon>
+            <span>Print / WhatsApp Report</span>
+          </button>
+    
+          <button mat-raised-button class="save-btn" type="button" (click)="saveDailyBehaviour()" [disabled]="saving || students.length === 0">
+            @if (!saving) {
+              <mat-icon>save</mat-icon>
+            }
+            @if (saving) {
+              <mat-icon class="spin">sync</mat-icon>
+            }
+            <span>{{ saving ? 'Saving...' : 'Save Manners Sheet' }}</span>
+          </button>
+        </div>
+      </form>
+    </mat-card>
+    
+    <!-- Summary KPI Bar -->
+    @if (students.length > 0) {
+      <div class="summary-kpis">
         <div class="kpi-pill kpi-total">
           <mat-icon>groups</mat-icon>
           <span>Total: <strong>{{ students.length }}</strong></span>
@@ -236,21 +255,27 @@ export interface DailyBehaviourReportHeader {
           <mat-icon>star</mat-icon>
           <span>5-Star Students: <strong>{{ fiveStarCount }}</strong></span>
         </div>
-        <div class="kpi-pill kpi-attention" *ngIf="attentionCount > 0">
-          <mat-icon>warning</mat-icon>
-          <span>Needs Attention: <strong>{{ attentionCount }}</strong></span>
-        </div>
+        @if (attentionCount > 0) {
+          <div class="kpi-pill kpi-attention">
+            <mat-icon>warning</mat-icon>
+            <span>Needs Attention: <strong>{{ attentionCount }}</strong></span>
+          </div>
+        }
       </div>
-
-      <!-- Empty State -->
-      <div class="empty-state-card" *ngIf="!loading && students.length === 0 && filterForm.get('classId')?.value">
+    }
+    
+    <!-- Empty State -->
+    @if (!loading && students.length === 0 && filterForm.get('classId')?.value) {
+      <div class="empty-state-card">
         <mat-icon class="empty-icon">person_search</mat-icon>
         <h3>No Students Found</h3>
         <p>No active students enrolled in the selected class and section.</p>
       </div>
-
-      <!-- Main Student Manners Entry Table / Card Grid -->
-      <div class="table-container" *ngIf="students.length > 0">
+    }
+    
+    <!-- Main Student Manners Entry Table / Card Grid -->
+    @if (students.length > 0) {
+      <div class="table-container">
         <table class="manners-table">
           <thead>
             <tr>
@@ -266,123 +291,124 @@ export interface DailyBehaviourReportHeader {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let s of students; let i = index" [class.absent-row]="s.isAbsent">
-              <td class="col-sno">{{ i + 1 }}</td>
-
-              <!-- Student Profile Column -->
-              <td class="col-student">
-                <div class="student-name-box">
-                  <span class="st-name">{{ s.studentName }}</span>
-                  <span class="st-roll" *ngIf="s.rollNumber">Roll: {{ s.rollNumber }}</span>
-                </div>
-                <div class="st-meta-row">
-                  <span class="att-badge" [ngClass]="'att-' + s.attendanceStatus.toLowerCase()">
-                    {{ s.attendanceStatus }}
-                  </span>
-                  <span class="phone-tag" *ngIf="s.parentWhatsAppPhone">
-                    📱 {{ s.parentWhatsAppPhone }}
-                  </span>
-                </div>
-              </td>
-
-              <!-- Absent student row spanned -->
-              <ng-container *ngIf="s.isAbsent">
-                <td colspan="7" class="col-absent-notice">
-                  <div class="absent-alert-box">
-                    <mat-icon>event_busy</mat-icon>
-                    <span>Student marked <strong>Absent / On Leave</strong> today in daily attendance. Good manners evaluation skipped.</span>
+            @for (s of students; track s; let i = $index) {
+              <tr [class.absent-row]="s.isAbsent">
+                <td class="col-sno">{{ i + 1 }}</td>
+                <!-- Student Profile Column -->
+                <td class="col-student">
+                  <div class="student-name-box">
+                    <span class="st-name">{{ s.studentName }}</span>
+                    @if (s.rollNumber) {
+                      <span class="st-roll">Roll: {{ s.rollNumber }}</span>
+                    }
                   </div>
-                </td>
-              </ng-container>
-
-              <!-- Present Student Interactive Form Cells -->
-              <ng-container *ngIf="!s.isAbsent">
-                <!-- Uniform & Cleanliness -->
-                <td class="col-select">
-                  <select class="custom-status-select" [(ngModel)]="s.uniformCleanliness" [ngClass]="getUniformClass(s.uniformCleanliness)">
-                    <option value="NeatAndClean">🧼 Neat &amp; Clean</option>
-                    <option value="IncompleteUniform">👔 Incomplete Uniform</option>
-                    <option value="NailsHaircutIssue">✂️ Nails / Haircut</option>
-                    <option value="ShoesUnpolished">👞 Shoes Unpolished</option>
-                    <option value="DirtyClothes">⚠️ Untidy Dress</option>
-                  </select>
-                </td>
-
-                <!-- Discipline & Conduct -->
-                <td class="col-select">
-                  <select class="custom-status-select" [(ngModel)]="s.disciplineConduct" [ngClass]="getDisciplineClass(s.disciplineConduct)">
-                    <option value="Disciplined">🧘 Well Behaved</option>
-                    <option value="AttentiveActive">🌟 Attentive &amp; Active</option>
-                    <option value="Talkative">💬 Talkative in Class</option>
-                    <option value="Restless">🏃 Restless / Fidgety</option>
-                    <option value="Aggressive">⚠️ Disruptive / Quarrel</option>
-                  </select>
-                </td>
-
-                <!-- Politeness & Respect -->
-                <td class="col-select">
-                  <select class="custom-status-select" [(ngModel)]="s.politenessRespect" [ngClass]="getPolitenessClass(s.politenessRespect)">
-                    <option value="PoliteAndRespectful">🙏 Polite &amp; Respectful</option>
-                    <option value="FriendlyHelpful">🤝 Helping Others</option>
-                    <option value="UsesRudeWords">⚠️ Rude / Harsh Words</option>
-                    <option value="Disobedient">⚠️ Disobedient</option>
-                  </select>
-                </td>
-
-                <!-- Diary & Books -->
-                <td class="col-select">
-                  <select class="custom-status-select" [(ngModel)]="s.booksAndDiary" [ngClass]="getBooksClass(s.booksAndDiary)">
-                    <option value="BroughtAll">🎒 Brought All Books</option>
-                    <option value="ForgotDiary">📖 Forgot Diary</option>
-                    <option value="ForgotBooks">📚 Missing Books</option>
-                    <option value="IncompleteKit">✏️ Missing Stationery</option>
-                  </select>
-                </td>
-
-                <!-- Star Rating -->
-                <td class="col-stars">
-                  <div class="stars-picker" [matTooltip]="'Click to change rating: ' + s.starRating + ' Stars'">
-                    <span *ngFor="let star of [1,2,3,4,5]" 
-                          class="star-icon" 
-                          [class.filled]="star <= s.starRating" 
-                          (click)="s.starRating = star">
-                      ★
+                  <div class="st-meta-row">
+                    <span class="att-badge" [ngClass]="'att-' + s.attendanceStatus.toLowerCase()">
+                      {{ s.attendanceStatus }}
                     </span>
+                    @if (s.parentWhatsAppPhone) {
+                      <span class="phone-tag">
+                        📱 {{ s.parentWhatsAppPhone }}
+                      </span>
+                    }
                   </div>
                 </td>
-
-                <!-- Remarks -->
-                <td class="col-remarks">
-                  <input type="text" class="remark-input" [(ngModel)]="s.remarks" placeholder="Optional teacher note...">
-                </td>
-
-                <!-- Actions 3-dots -->
-                <td class="col-action text-center">
-                  <button mat-icon-button [matMenuTriggerFor]="mannersRowMenu" class="row-3dots-btn" matTooltip="More Actions">
-                    <mat-icon>more_vert</mat-icon>
-                  </button>
-                  <mat-menu #mannersRowMenu="matMenu" class="smart-action-menu">
-                    <button mat-menu-item (click)="sendIndividualStudentWhatsApp(s)">
-                      <mat-icon class="menu-icon-green">chat</mat-icon>
-                      <span>Send WhatsApp to Parent</span>
+                <!-- Absent student row spanned -->
+                @if (s.isAbsent) {
+                  <td colspan="7" class="col-absent-notice">
+                    <div class="absent-alert-box">
+                      <mat-icon>event_busy</mat-icon>
+                      <span>Student marked <strong>Absent / On Leave</strong> today in daily attendance. Good manners evaluation skipped.</span>
+                    </div>
+                  </td>
+                }
+                <!-- Present Student Interactive Form Cells -->
+                @if (!s.isAbsent) {
+                  <!-- Uniform & Cleanliness -->
+                  <td class="col-select">
+                    <select class="custom-status-select" [(ngModel)]="s.uniformCleanliness" [ngClass]="getUniformClass(s.uniformCleanliness)">
+                      <option value="NeatAndClean">🧼 Neat &amp; Clean</option>
+                      <option value="IncompleteUniform">👔 Incomplete Uniform</option>
+                      <option value="NailsHaircutIssue">✂️ Nails / Haircut</option>
+                      <option value="ShoesUnpolished">👞 Shoes Unpolished</option>
+                      <option value="DirtyClothes">⚠️ Untidy Dress</option>
+                    </select>
+                  </td>
+                  <!-- Discipline & Conduct -->
+                  <td class="col-select">
+                    <select class="custom-status-select" [(ngModel)]="s.disciplineConduct" [ngClass]="getDisciplineClass(s.disciplineConduct)">
+                      <option value="Disciplined">🧘 Well Behaved</option>
+                      <option value="AttentiveActive">🌟 Attentive &amp; Active</option>
+                      <option value="Talkative">💬 Talkative in Class</option>
+                      <option value="Restless">🏃 Restless / Fidgety</option>
+                      <option value="Aggressive">⚠️ Disruptive / Quarrel</option>
+                    </select>
+                  </td>
+                  <!-- Politeness & Respect -->
+                  <td class="col-select">
+                    <select class="custom-status-select" [(ngModel)]="s.politenessRespect" [ngClass]="getPolitenessClass(s.politenessRespect)">
+                      <option value="PoliteAndRespectful">🙏 Polite &amp; Respectful</option>
+                      <option value="FriendlyHelpful">🤝 Helping Others</option>
+                      <option value="UsesRudeWords">⚠️ Rude / Harsh Words</option>
+                      <option value="Disobedient">⚠️ Disobedient</option>
+                    </select>
+                  </td>
+                  <!-- Diary & Books -->
+                  <td class="col-select">
+                    <select class="custom-status-select" [(ngModel)]="s.booksAndDiary" [ngClass]="getBooksClass(s.booksAndDiary)">
+                      <option value="BroughtAll">🎒 Brought All Books</option>
+                      <option value="ForgotDiary">📖 Forgot Diary</option>
+                      <option value="ForgotBooks">📚 Missing Books</option>
+                      <option value="IncompleteKit">✏️ Missing Stationery</option>
+                    </select>
+                  </td>
+                  <!-- Star Rating -->
+                  <td class="col-stars">
+                    <div class="stars-picker" [matTooltip]="'Click to change rating: ' + s.starRating + ' Stars'">
+                      @for (star of [1,2,3,4,5]; track star) {
+                        <span
+                          class="star-icon"
+                          [class.filled]="star <= s.starRating"
+                          (click)="s.starRating = star">
+                          ★
+                        </span>
+                      }
+                    </div>
+                  </td>
+                  <!-- Remarks -->
+                  <td class="col-remarks">
+                    <input type="text" class="remark-input" [(ngModel)]="s.remarks" placeholder="Optional teacher note...">
+                  </td>
+                  <!-- Actions 3-dots -->
+                  <td class="col-action text-center">
+                    <button mat-icon-button [matMenuTriggerFor]="mannersRowMenu" class="row-3dots-btn" matTooltip="More Actions">
+                      <mat-icon>more_vert</mat-icon>
                     </button>
-                    <button mat-menu-item (click)="quickSetFiveStar(s)">
-                      <mat-icon class="menu-icon-gold">star</mat-icon>
-                      <span>Set 5-Star &amp; Well Behaved</span>
-                    </button>
-                    <button mat-menu-item (click)="quickSetNeedsAttention(s)">
-                      <mat-icon class="menu-icon-red">warning</mat-icon>
-                      <span>Mark Needs Attention</span>
-                    </button>
-                  </mat-menu>
-                </td>
-              </ng-container>
-            </tr>
+                    <mat-menu #mannersRowMenu="matMenu" class="smart-action-menu">
+                      <button mat-menu-item (click)="sendIndividualStudentWhatsApp(s)">
+                        <mat-icon class="menu-icon-green">chat</mat-icon>
+                        <span>Send WhatsApp to Parent</span>
+                      </button>
+                      <button mat-menu-item (click)="quickSetFiveStar(s)">
+                        <mat-icon class="menu-icon-gold">star</mat-icon>
+                        <span>Set 5-Star &amp; Well Behaved</span>
+                      </button>
+                      <button mat-menu-item (click)="quickSetNeedsAttention(s)">
+                        <mat-icon class="menu-icon-red">warning</mat-icon>
+                        <span>Mark Needs Attention</span>
+                      </button>
+                    </mat-menu>
+                  </td>
+                }
+              </tr>
+            }
           </tbody>
         </table>
       </div>
+    }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;
@@ -1398,68 +1424,80 @@ export class GoodMannersComponent implements OnInit {
               <div class="dialog-quick-meta">
                 <span class="meta-pill"><mat-icon>event</mat-icon> Date: <strong>{{ data.date }}</strong></span>
                 <span class="meta-pill"><mat-icon>domain</mat-icon> Class: <strong>{{ reportHeader?.className || data.className }}</strong></span>
-                <span *ngIf="reportHeader?.sectionName || data.sectionName" class="meta-pill">Sec <strong>{{ reportHeader?.sectionName || data.sectionName }}</strong></span>
+                @if (reportHeader?.sectionName || data.sectionName) {
+                  <span class="meta-pill">Sec <strong>{{ reportHeader?.sectionName || data.sectionName }}</strong></span>
+                }
                 <span class="meta-pill count-pill"><mat-icon>groups</mat-icon> <strong>{{ rows.length }} Students</strong></span>
               </div>
             </div>
           </div>
-
+    
           <div class="header-actions">
             <button mat-flat-button class="auto-wa-btn" (click)="sendWhatsAppAll()" [disabled]="sendingWhatsApp || rows.length === 0">
-              <mat-icon *ngIf="!sendingWhatsApp">bolt</mat-icon>
-              <mat-icon *ngIf="sendingWhatsApp" class="spin">sync</mat-icon>
+              @if (!sendingWhatsApp) {
+                <mat-icon>bolt</mat-icon>
+              }
+              @if (sendingWhatsApp) {
+                <mat-icon class="spin">sync</mat-icon>
+              }
               <span>{{ sendingWhatsApp ? 'Sending...' : '⚡ Auto Send Parents' }}</span>
             </button>
-
+    
             <button mat-flat-button class="group-wa-btn" (click)="shareClassGroupWhatsApp()">
               <mat-icon>send</mat-icon>
               <span>📲 Send Group</span>
             </button>
-
+    
             <button mat-flat-button class="print-btn" (click)="printReport()">
               <mat-icon>print</mat-icon>
               <span>Print (A4)</span>
             </button>
-
+    
             <button mat-icon-button class="close-btn" (click)="dialogRef.close()">
               <mat-icon>close</mat-icon>
             </button>
           </div>
         </div>
       </div>
-
+    
       <!-- Printable Report Paper Sheet -->
       <div class="modal-body-scroll">
         <div class="print-paper-sheet" id="printableMannersReport">
           <!-- Institute Header -->
           <div class="report-top-header">
             <h1 class="school-title">{{ reportHeader?.institutionName || authService.getInstituteName() || 'School Manners Report' }}</h1>
-            <div class="school-address-text" *ngIf="reportHeader?.subtitleOrAddress">{{ reportHeader?.subtitleOrAddress }}</div>
+            @if (reportHeader?.subtitleOrAddress) {
+              <div class="school-address-text">{{ reportHeader?.subtitleOrAddress }}</div>
+            }
           </div>
-
+    
           <!-- Main Navy Banner -->
           <div class="navy-title-banner">
             <span>STUDENT DAILY GOOD MANNERS &amp; BEHAVIOUR REPORT</span>
           </div>
-
+    
           <!-- Meta Bar -->
           <div class="report-meta-bar">
             <div class="meta-class">
               <span class="lbl">{{ (reportHeader?.batchName || data.batchName) ? 'Batch:' : 'Class:' }}</span>
               <span class="val">{{ reportHeader?.batchName || data.batchName || reportHeader?.className || data.className }}</span>
-              <span class="sec-val" *ngIf="!(reportHeader?.batchName || data.batchName) && (reportHeader?.sectionName || data.sectionName)">({{ reportHeader?.sectionName || data.sectionName }})</span>
+              @if (!(reportHeader?.batchName || data.batchName) && (reportHeader?.sectionName || data.sectionName)) {
+                <span class="sec-val">({{ reportHeader?.sectionName || data.sectionName }})</span>
+              }
             </div>
             <div class="meta-summary-pills">
               <span class="sm-pill">Present: <strong>{{ reportHeader?.presentStudents || rows.length }}</strong></span>
               <span class="sm-pill gold">5-Star ⭐: <strong>{{ reportHeader?.fiveStarStudents || 0 }}</strong></span>
-              <span class="sm-pill red" *ngIf="(reportHeader?.attentionNeededCount || 0) > 0">Needs Attention: <strong>{{ reportHeader?.attentionNeededCount }}</strong></span>
+              @if ((reportHeader?.attentionNeededCount || 0) > 0) {
+                <span class="sm-pill red">Needs Attention: <strong>{{ reportHeader?.attentionNeededCount }}</strong></span>
+              }
             </div>
             <div class="meta-date-pill">
               <span class="date-lbl">Date :</span>
               <span class="date-val">{{ data.date }}</span>
             </div>
           </div>
-
+    
           <!-- Report Data Table -->
           <table class="report-data-table">
             <thead>
@@ -1475,61 +1513,65 @@ export class GoodMannersComponent implements OnInit {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of rows; let i = index" [class.absent-row]="row.isAbsent">
-                <td class="text-center">{{ i + 1 }}</td>
-                <td>
-                  <div class="name-box">
-                    <span class="name-bold">{{ row.studentName }}</span>
-                    <button type="button" class="row-wa-btn hide-on-print" (click)="sendSingleWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName">
-                      <mat-icon>chat</mat-icon>
-                      <span>WhatsApp</span>
-                    </button>
-                  </div>
-                  <div class="sub-roll" *ngIf="row.rollNumber">Roll: {{ row.rollNumber }}</div>
-                </td>
-
-                <!-- Absent Student row -->
-                <ng-container *ngIf="row.isAbsent">
-                  <td colspan="6" class="absent-bracket-cell text-center">
-                    <span class="absent-text-red">Absent / Leave</span>
-                  </td>
-                </ng-container>
-
-                <!-- Present Student Row -->
-                <ng-container *ngIf="!row.isAbsent">
+              @for (row of rows; track row; let i = $index) {
+                <tr [class.absent-row]="row.isAbsent">
+                  <td class="text-center">{{ i + 1 }}</td>
                   <td>
-                    <span class="status-chip" [ngClass]="getChipClass(row.uniformCleanliness)">
-                      {{ formatStatus(row.uniformCleanliness) }}
-                    </span>
-                  </td>
-                  <td>
-                    <span class="status-chip" [ngClass]="getChipClass(row.disciplineConduct)">
-                      {{ formatStatus(row.disciplineConduct) }}
-                    </span>
-                  </td>
-                  <td>
-                    <span class="status-chip" [ngClass]="getChipClass(row.politenessRespect)">
-                      {{ formatStatus(row.politenessRespect) }}
-                    </span>
-                  </td>
-                  <td>
-                    <span class="status-chip" [ngClass]="getChipClass(row.booksAndDiary)">
-                      {{ formatStatus(row.booksAndDiary) }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <div class="stars-view">
-                      <span class="star-gold" *ngFor="let s of [1,2,3,4,5].slice(0, row.starRating)">★</span>
+                    <div class="name-box">
+                      <span class="name-bold">{{ row.studentName }}</span>
+                      <button type="button" class="row-wa-btn hide-on-print" (click)="sendSingleWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName">
+                        <mat-icon>chat</mat-icon>
+                        <span>WhatsApp</span>
+                      </button>
                     </div>
+                    @if (row.rollNumber) {
+                      <div class="sub-roll">Roll: {{ row.rollNumber }}</div>
+                    }
                   </td>
-                  <td>
-                    <span class="remark-text">{{ row.remarks || '—' }}</span>
-                  </td>
-                </ng-container>
-              </tr>
+                  <!-- Absent Student row -->
+                  @if (row.isAbsent) {
+                    <td colspan="6" class="absent-bracket-cell text-center">
+                      <span class="absent-text-red">Absent / Leave</span>
+                    </td>
+                  }
+                  <!-- Present Student Row -->
+                  @if (!row.isAbsent) {
+                    <td>
+                      <span class="status-chip" [ngClass]="getChipClass(row.uniformCleanliness)">
+                        {{ formatStatus(row.uniformCleanliness) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="status-chip" [ngClass]="getChipClass(row.disciplineConduct)">
+                        {{ formatStatus(row.disciplineConduct) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="status-chip" [ngClass]="getChipClass(row.politenessRespect)">
+                        {{ formatStatus(row.politenessRespect) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="status-chip" [ngClass]="getChipClass(row.booksAndDiary)">
+                        {{ formatStatus(row.booksAndDiary) }}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <div class="stars-view">
+                        @for (s of [1,2,3,4,5].slice(0, row.starRating); track s) {
+                          <span class="star-gold">★</span>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <span class="remark-text">{{ row.remarks || '—' }}</span>
+                    </td>
+                  }
+                </tr>
+              }
             </tbody>
           </table>
-
+    
           <!-- Footer Signature Area -->
           <div class="report-footer-signatures">
             <div class="sig-box">
@@ -1544,7 +1586,8 @@ export class GoodMannersComponent implements OnInit {
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .report-dialog-container {
       display: flex;
@@ -1662,8 +1705,8 @@ export class GoodMannersComponent implements OnInit {
       cursor: pointer !important;
       line-height: 1 !important;
       transition: all 0.15s ease !important;
-      --mdc-icon-button-state-layer-size: 32px !important;
-      --mdc-icon-button-icon-size: 20px !important;
+      --mat-icon-button-state-layer-size: 32px !important;
+      --mat-icon-button-icon-size: 20px !important;
 
       mat-icon {
         font-size: 20px !important;

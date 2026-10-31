@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -42,7 +42,6 @@ interface ModuleHeaderState {
   selector: 'app-roles',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatCardModule,
     MatTableModule,
@@ -57,7 +56,7 @@ interface ModuleHeaderState {
     MatTooltipModule,
     MatSelectModule,
     MatDialogModule
-  ],
+],
   template: `
     <div class="page-container">
       <div class="page-header">
@@ -66,9 +65,11 @@ interface ModuleHeaderState {
           <p class="page-subtitle">Configure user roles and granular hierarchical access rights per module and page.</p>
         </div>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
+    
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
       <div class="roles-layout">
         <!-- Roles List Sidebar Card -->
         <mat-card class="roles-sidebar-card mat-elevation-z2">
@@ -78,203 +79,219 @@ interface ModuleHeaderState {
               <mat-icon>add</mat-icon>
             </button>
           </div>
-
+    
           <!-- SuperAdmin Tenant Scope Selector -->
-          <div *ngIf="isSuperAdmin && tenants.length > 0" class="tenant-scope-wrapper">
-            <mat-form-field appearance="outline" class="tenant-scope-field" subscriptSizing="dynamic">
-              <mat-label>Institute Scope</mat-label>
-              <mat-select [value]="selectedTenantId" (selectionChange)="onTenantFilterChange($event.value)">
-                <mat-option [value]="null">🏢 All / Platform Console Template</mat-option>
-                <mat-option *ngFor="let t of tenants" [value]="t.id">
-                  🏫 {{ t.name }} ({{ t.code }})
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
-          <div class="role-list">
-            <div
-              *ngFor="let role of roles"
-              class="role-item"
-              [class.active]="selectedRole?.id === role.id && !isNewRole"
-              (click)="selectRole(role)"
-            >
-              <div class="role-info">
-                <span class="role-name">{{ role.name }}</span>
-                <span class="role-users">{{ role.userCount }} Assigned Users</span>
-              </div>
-              <div class="role-item-actions" (click)="$event.stopPropagation()">
-                <button mat-icon-button (click)="openEditRoleDialog(role)" title="Edit Role Details" class="role-action-btn edit-act">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" (click)="deleteRole(role)" title="Delete Role" class="role-action-btn del-act"
-                  [disabled]="role.userCount > 0 || isSystemRole(role)">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </div>
+          @if (isSuperAdmin && tenants.length > 0) {
+            <div class="tenant-scope-wrapper">
+              <mat-form-field appearance="outline" class="tenant-scope-field" subscriptSizing="dynamic">
+                <mat-label>Institute Scope</mat-label>
+                <mat-select [value]="selectedTenantId" (selectionChange)="onTenantFilterChange($event.value)">
+                  <mat-option [value]="null">🏢 All / Platform Console Template</mat-option>
+                  @for (t of tenants; track t) {
+                    <mat-option [value]="t.id">
+                      🏫 {{ t.name }} ({{ t.code }})
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
             </div>
+          }
+    
+          <div class="role-list">
+            @for (role of roles; track role) {
+              <div
+                class="role-item"
+                [class.active]="selectedRole?.id === role.id && !isNewRole"
+                (click)="selectRole(role)"
+                >
+                <div class="role-info">
+                  <span class="role-name">{{ role.name }}</span>
+                  <span class="role-users">{{ role.userCount }} Assigned Users</span>
+                </div>
+                <div class="role-item-actions" (click)="$event.stopPropagation()">
+                  <button mat-icon-button (click)="openEditRoleDialog(role)" title="Edit Role Details" class="role-action-btn edit-act">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" (click)="deleteRole(role)" title="Delete Role" class="role-action-btn del-act"
+                    [disabled]="role.userCount > 0 || isSystemRole(role)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
           </div>
         </mat-card>
-
+    
         <!-- Role Configuration & Hierarchical Rights Matrix Card -->
-        <mat-card class="matrix-card mat-elevation-z2" *ngIf="roleForm">
-          <form [formGroup]="roleForm" (ngSubmit)="saveRole()">
-            <div class="matrix-header">
-              <div>
-                <h2>{{ isNewRole ? 'Create New Role' : 'Hierarchical Permissions Matrix: ' + selectedRole?.name }}</h2>
-                <p class="muted-text">Toggle permissions by module or individually for granular page actions.</p>
-              </div>
-              <div class="matrix-actions-group">
-                <button mat-stroked-button type="button" (click)="openEditRoleDialog(selectedRole)" *ngIf="!isNewRole && selectedRole" class="hdr-btn">
-                  <mat-icon>edit</mat-icon> <span>Edit Role</span>
-                </button>
-                <button mat-stroked-button color="warn" type="button" (click)="deleteRole(selectedRole)" *ngIf="!isNewRole && selectedRole"
-                  [disabled]="(selectedRole.userCount || 0) > 0 || isSystemRole(selectedRole)" class="hdr-btn"
-                  [title]="isSystemRole(selectedRole) ? 'System role cannot be deleted' : ((selectedRole.userCount || 0) > 0 ? 'Cannot delete role with assigned users' : 'Delete this role')">
-                  <mat-icon>delete</mat-icon> <span>Delete Role</span>
-                </button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="roleForm.invalid || saving">
-                  <mat-spinner diameter="20" *ngIf="saving" class="btn-spinner"></mat-spinner>
-                  <mat-icon *ngIf="!saving">save</mat-icon>
-                  <span>Save Permissions</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <mat-form-field appearance="outline" class="half-width">
-                <mat-label>Role Name</mat-label>
-                <input matInput formControlName="name" placeholder="e.g. Accountant / Faculty" />
-                <mat-error *ngIf="roleForm.get('name')?.hasError('required')">Role name is required</mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="half-width">
-                <mat-label>Role Description</mat-label>
-                <input matInput formControlName="description" placeholder="Short summary of responsibilities" />
-              </mat-form-field>
-            </div>
-
-            <!-- Smart Preset Quick Action Toolbar -->
-            <div class="preset-toolbar">
-              <span class="preset-label">Smart Access Presets:</span>
-              <button mat-stroked-button color="primary" type="button" (click)="grantAll()">
-                <mat-icon>bolt</mat-icon> Grant Full Access
-              </button>
-              <button mat-stroked-button type="button" (click)="grantReadOnly()">
-                <mat-icon>visibility</mat-icon> Read-Only Access
-              </button>
-              <button mat-stroked-button color="warn" type="button" (click)="revokeAll()">
-                <mat-icon>block</mat-icon> Revoke All
-              </button>
-              <span class="toolbar-spacer"></span>
-              <button mat-stroked-button type="button" class="collapse-all-btn" (click)="toggleAllModules()"
-                [title]="areAllModulesCollapsed ? 'Expand All Modules' : 'Collapse All Modules'">
-                <mat-icon>{{ areAllModulesCollapsed ? 'unfold_more' : 'unfold_less' }}</mat-icon>
-                <span>{{ areAllModulesCollapsed ? 'Expand All' : 'Collapse All' }}</span>
-              </button>
-            </div>
-
-            <!-- Hierarchical Module & Page Matrix -->
-            <div class="hierarchical-matrix-container">
-              <div *ngFor="let mod of moduleGroups" class="module-block" [class.is-collapsed]="isModuleCollapsed(mod.moduleName)">
-                <!-- Module Header Bar -->
-                <div class="module-header" (click)="toggleModuleCollapse(mod.moduleName)">
-                  <div class="module-title-box">
-                    <mat-icon class="collapse-toggle-icon" [class.rotated]="!isModuleCollapsed(mod.moduleName)">
-                      chevron_right
-                    </mat-icon>
-                    <mat-icon color="primary" class="mod-icon">category</mat-icon>
-                    <span class="mod-title-text">{{ mod.moduleName }} Module</span>
-                    <span class="module-items-badge">{{ mod.items.length }} {{ mod.items.length === 1 ? 'Page' : 'Pages' }}</span>
-                  </div>
-
-                  <div class="module-master-toggles" (click)="$event.stopPropagation()">
-                    <span class="mod-toggle-label">Module Toggles:</span>
-                    <mat-checkbox
-                      color="primary"
-                      [checked]="getHeaderState(mod.moduleName, 'canView')"
-                      [indeterminate]="getHeaderIndeterminate(mod.moduleName, 'canView')"
-                      (change)="toggleModuleAction(mod, 'canView', $event.checked)"
-                      matTooltip="Toggle View for all pages in {{ mod.moduleName }}">
-                      View All
-                    </mat-checkbox>
-                    <mat-checkbox
-                      color="primary"
-                      [checked]="getHeaderState(mod.moduleName, 'canCreate')"
-                      [indeterminate]="getHeaderIndeterminate(mod.moduleName, 'canCreate')"
-                      (change)="toggleModuleAction(mod, 'canCreate', $event.checked)"
-                      matTooltip="Toggle Create for all pages in {{ mod.moduleName }}">
-                      Create All
-                    </mat-checkbox>
-                    <mat-checkbox
-                      color="primary"
-                      [checked]="getHeaderState(mod.moduleName, 'canEdit')"
-                      [indeterminate]="getHeaderIndeterminate(mod.moduleName, 'canEdit')"
-                      (change)="toggleModuleAction(mod, 'canEdit', $event.checked)"
-                      matTooltip="Toggle Edit for all pages in {{ mod.moduleName }}">
-                      Edit All
-                    </mat-checkbox>
-                    <mat-checkbox
-                      color="warn"
-                      [checked]="getHeaderState(mod.moduleName, 'canDelete')"
-                      [indeterminate]="getHeaderIndeterminate(mod.moduleName, 'canDelete')"
-                      (change)="toggleModuleAction(mod, 'canDelete', $event.checked)"
-                      matTooltip="Toggle Delete for all pages in {{ mod.moduleName }}">
-                      Delete All
-                    </mat-checkbox>
-                  </div>
+        @if (roleForm) {
+          <mat-card class="matrix-card mat-elevation-z2">
+            <form [formGroup]="roleForm" (ngSubmit)="saveRole()">
+              <div class="matrix-header">
+                <div>
+                  <h2>{{ isNewRole ? 'Create New Role' : 'Hierarchical Permissions Matrix: ' + selectedRole?.name }}</h2>
+                  <p class="muted-text">Toggle permissions by module or individually for granular page actions.</p>
                 </div>
-
-                <!-- Child Pages Table in Animated Collapsible Wrapper -->
-                <div class="module-collapse-wrapper" [class.is-expanded]="!isModuleCollapsed(mod.moduleName)">
-                  <div class="module-collapse-inner">
-                    <div class="table-responsive-wrapper">
-                      <table class="rights-table">
-                        <thead>
-                          <tr>
-                            <th class="page-col">Page Title / Navigation Route</th>
-                            <th class="text-center action-col">View / Access Page</th>
-                            <th class="text-center action-col">Create Right</th>
-                            <th class="text-center action-col">Edit Right</th>
-                            <th class="text-center action-col">Delete Right</th>
-                          </tr>
-                        </thead>
-                        <tbody formArrayName="permissions">
-                          <tr *ngFor="let item of mod.items" [formGroupName]="item.index">
-                            <td class="menu-title-cell" style="vertical-align: middle !important;">
-                              <div class="menu-title-wrap" style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 12px !important;">
-                                <mat-icon color="primary" class="menu-icon" style="font-size: 22px !important; width: 22px !important; height: 22px !important; line-height: 22px !important; margin: 0 !important; padding: 0 !important; flex-shrink: 0 !important; align-self: center !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; vertical-align: middle !important;">{{ item.group.get('icon')?.value || 'web' }}</mat-icon>
-                                <div class="menu-titles" style="display: flex !important; flex-direction: column !important; justify-content: center !important; align-self: center !important;">
-                                  <span class="item-title" style="font-size: 0.9rem !important; font-weight: 600 !important; color: #1e293b !important; line-height: 1.25 !important; margin: 0 !important; padding: 0 !important;">{{ item.group.get('menuTitle')?.value }}</span>
-                                  <span class="route-subtitle" style="font-size: 0.75rem !important; color: #94a3b8 !important; line-height: 1.2 !important; margin: 0 !important; margin-top: 2px !important; padding: 0 !important;">{{ item.group.get('routeUrl')?.value || 'Folder' }}</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td class="text-center action-col">
-                              <mat-checkbox formControlName="canView" color="primary"></mat-checkbox>
-                            </td>
-                            <td class="text-center action-col">
-                              <mat-checkbox formControlName="canCreate" color="primary"></mat-checkbox>
-                            </td>
-                            <td class="text-center action-col">
-                              <mat-checkbox formControlName="canEdit" color="primary"></mat-checkbox>
-                            </td>
-                            <td class="text-center action-col">
-                              <mat-checkbox formControlName="canDelete" color="warn"></mat-checkbox>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                <div class="matrix-actions-group">
+                  @if (!isNewRole && selectedRole) {
+                    <button mat-stroked-button type="button" (click)="openEditRoleDialog(selectedRole)" class="hdr-btn">
+                      <mat-icon>edit</mat-icon> <span>Edit Role</span>
+                    </button>
+                  }
+                  @if (!isNewRole && selectedRole) {
+                    <button mat-stroked-button color="warn" type="button" (click)="deleteRole(selectedRole)"
+                      [disabled]="(selectedRole.userCount || 0) > 0 || isSystemRole(selectedRole)" class="hdr-btn"
+                      [title]="isSystemRole(selectedRole) ? 'System role cannot be deleted' : ((selectedRole.userCount || 0) > 0 ? 'Cannot delete role with assigned users' : 'Delete this role')">
+                      <mat-icon>delete</mat-icon> <span>Delete Role</span>
+                    </button>
+                  }
+                  <button mat-raised-button color="primary" type="submit" [disabled]="roleForm.invalid || saving">
+                    @if (saving) {
+                      <mat-spinner diameter="20" class="btn-spinner"></mat-spinner>
+                    }
+                    @if (!saving) {
+                      <mat-icon>save</mat-icon>
+                    }
+                    <span>Save Permissions</span>
+                  </button>
+                </div>
+              </div>
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Role Name</mat-label>
+                  <input matInput formControlName="name" placeholder="e.g. Accountant / Faculty" />
+                  @if (roleForm.get('name')?.hasError('required')) {
+                    <mat-error>Role name is required</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Role Description</mat-label>
+                  <input matInput formControlName="description" placeholder="Short summary of responsibilities" />
+                </mat-form-field>
+              </div>
+              <!-- Smart Preset Quick Action Toolbar -->
+              <div class="preset-toolbar">
+                <span class="preset-label">Smart Access Presets:</span>
+                <button mat-stroked-button color="primary" type="button" (click)="grantAll()">
+                  <mat-icon>bolt</mat-icon> Grant Full Access
+                </button>
+                <button mat-stroked-button type="button" (click)="grantReadOnly()">
+                  <mat-icon>visibility</mat-icon> Read-Only Access
+                </button>
+                <button mat-stroked-button color="warn" type="button" (click)="revokeAll()">
+                  <mat-icon>block</mat-icon> Revoke All
+                </button>
+                <span class="toolbar-spacer"></span>
+                <button mat-stroked-button type="button" class="collapse-all-btn" (click)="toggleAllModules()"
+                  [title]="areAllModulesCollapsed ? 'Expand All Modules' : 'Collapse All Modules'">
+                  <mat-icon>{{ areAllModulesCollapsed ? 'unfold_more' : 'unfold_less' }}</mat-icon>
+                  <span>{{ areAllModulesCollapsed ? 'Expand All' : 'Collapse All' }}</span>
+                </button>
+              </div>
+              <!-- Hierarchical Module & Page Matrix -->
+              <div class="hierarchical-matrix-container">
+                @for (mod of moduleGroups; track mod) {
+                  <div class="module-block" [class.is-collapsed]="isModuleCollapsed(mod.moduleName)">
+                    <!-- Module Header Bar -->
+                    <div class="module-header" (click)="toggleModuleCollapse(mod.moduleName)">
+                      <div class="module-title-box">
+                        <mat-icon class="collapse-toggle-icon" [class.rotated]="!isModuleCollapsed(mod.moduleName)">
+                          chevron_right
+                        </mat-icon>
+                        <mat-icon color="primary" class="mod-icon">category</mat-icon>
+                        <span class="mod-title-text">{{ mod.moduleName }} Module</span>
+                        <span class="module-items-badge">{{ mod.items.length }} {{ mod.items.length === 1 ? 'Page' : 'Pages' }}</span>
+                      </div>
+                      <div class="module-master-toggles" (click)="$event.stopPropagation()">
+                        <span class="mod-toggle-label">Module Toggles:</span>
+                        <mat-checkbox
+                          color="primary"
+                          [checked]="getHeaderState(mod.moduleName, 'canView')"
+                          [indeterminate]="getHeaderIndeterminate(mod.moduleName, 'canView')"
+                          (change)="toggleModuleAction(mod, 'canView', $event.checked)"
+                          matTooltip="Toggle View for all pages in {{ mod.moduleName }}">
+                          View All
+                        </mat-checkbox>
+                        <mat-checkbox
+                          color="primary"
+                          [checked]="getHeaderState(mod.moduleName, 'canCreate')"
+                          [indeterminate]="getHeaderIndeterminate(mod.moduleName, 'canCreate')"
+                          (change)="toggleModuleAction(mod, 'canCreate', $event.checked)"
+                          matTooltip="Toggle Create for all pages in {{ mod.moduleName }}">
+                          Create All
+                        </mat-checkbox>
+                        <mat-checkbox
+                          color="primary"
+                          [checked]="getHeaderState(mod.moduleName, 'canEdit')"
+                          [indeterminate]="getHeaderIndeterminate(mod.moduleName, 'canEdit')"
+                          (change)="toggleModuleAction(mod, 'canEdit', $event.checked)"
+                          matTooltip="Toggle Edit for all pages in {{ mod.moduleName }}">
+                          Edit All
+                        </mat-checkbox>
+                        <mat-checkbox
+                          color="warn"
+                          [checked]="getHeaderState(mod.moduleName, 'canDelete')"
+                          [indeterminate]="getHeaderIndeterminate(mod.moduleName, 'canDelete')"
+                          (change)="toggleModuleAction(mod, 'canDelete', $event.checked)"
+                          matTooltip="Toggle Delete for all pages in {{ mod.moduleName }}">
+                          Delete All
+                        </mat-checkbox>
+                      </div>
+                    </div>
+                    <!-- Child Pages Table in Animated Collapsible Wrapper -->
+                    <div class="module-collapse-wrapper" [class.is-expanded]="!isModuleCollapsed(mod.moduleName)">
+                      <div class="module-collapse-inner">
+                        <div class="table-responsive-wrapper">
+                          <table class="rights-table">
+                            <thead>
+                              <tr>
+                                <th class="page-col">Page Title / Navigation Route</th>
+                                <th class="text-center action-col">View / Access Page</th>
+                                <th class="text-center action-col">Create Right</th>
+                                <th class="text-center action-col">Edit Right</th>
+                                <th class="text-center action-col">Delete Right</th>
+                              </tr>
+                            </thead>
+                            <tbody formArrayName="permissions">
+                              @for (item of mod.items; track item) {
+                                <tr [formGroupName]="item.index">
+                                  <td class="menu-title-cell" style="vertical-align: middle !important;">
+                                    <div class="menu-title-wrap" style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 12px !important;">
+                                      <mat-icon color="primary" class="menu-icon" style="font-size: 22px !important; width: 22px !important; height: 22px !important; line-height: 22px !important; margin: 0 !important; padding: 0 !important; flex-shrink: 0 !important; align-self: center !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; vertical-align: middle !important;">{{ item.group.get('icon')?.value || 'web' }}</mat-icon>
+                                      <div class="menu-titles" style="display: flex !important; flex-direction: column !important; justify-content: center !important; align-self: center !important;">
+                                        <span class="item-title" style="font-size: 0.9rem !important; font-weight: 600 !important; color: #1e293b !important; line-height: 1.25 !important; margin: 0 !important; padding: 0 !important;">{{ item.group.get('menuTitle')?.value }}</span>
+                                        <span class="route-subtitle" style="font-size: 0.75rem !important; color: #94a3b8 !important; line-height: 1.2 !important; margin: 0 !important; margin-top: 2px !important; padding: 0 !important;">{{ item.group.get('routeUrl')?.value || 'Folder' }}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td class="text-center action-col">
+                                    <mat-checkbox formControlName="canView" color="primary"></mat-checkbox>
+                                  </td>
+                                  <td class="text-center action-col">
+                                    <mat-checkbox formControlName="canCreate" color="primary"></mat-checkbox>
+                                  </td>
+                                  <td class="text-center action-col">
+                                    <mat-checkbox formControlName="canEdit" color="primary"></mat-checkbox>
+                                  </td>
+                                  <td class="text-center action-col">
+                                    <mat-checkbox formControlName="canDelete" color="warn"></mat-checkbox>
+                                  </td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                }
               </div>
-            </div>
-          </form>
-        </mat-card>
+            </form>
+          </mat-card>
+        }
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

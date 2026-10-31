@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ViewChild, ElementRef, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -32,7 +32,6 @@ interface Stroke {
   selector: 'app-signature-studio-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -44,7 +43,7 @@ interface Stroke {
     MatSelectModule,
     MatCheckboxModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="sig-studio-container">
       <!-- Standard Light Blue Header -->
@@ -60,7 +59,7 @@ interface Stroke {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="sig-studio-body">
         <mat-tab-group class="sig-tabs" (selectedIndexChange)="onTabChange($event)">
           <!-- TAB 1: Draw Signature on Canvas -->
@@ -69,25 +68,26 @@ interface Stroke {
               <mat-icon class="tab-icon">gesture</mat-icon>
               <span>Draw Live Sign (हाथ से साइन करें)</span>
             </ng-template>
-
+    
             <div class="tab-pad-layout">
               <!-- Toolbar -->
               <div class="pad-toolbar">
                 <div class="toolbar-group">
                   <span class="tool-label">Pen Ink:</span>
                   <div class="color-dots">
-                    <button
-                      type="button"
-                      *ngFor="let c of drawColors"
-                      class="color-dot"
-                      [style.background]="c.hex"
-                      [class.active]="currentDrawColor === c.hex"
-                      (click)="setDrawColor(c.hex)"
-                      [matTooltip]="c.name">
-                    </button>
+                    @for (c of drawColors; track c) {
+                      <button
+                        type="button"
+                        class="color-dot"
+                        [style.background]="c.hex"
+                        [class.active]="currentDrawColor === c.hex"
+                        (click)="setDrawColor(c.hex)"
+                        [matTooltip]="c.name">
+                      </button>
+                    }
                   </div>
                 </div>
-
+    
                 <div class="toolbar-group">
                   <span class="tool-label">Stroke:</span>
                   <div class="size-buttons">
@@ -96,7 +96,7 @@ interface Stroke {
                     <button type="button" class="size-btn" [class.active]="currentStrokeWidth === 4.0" (click)="currentStrokeWidth = 4.0">Bold</button>
                   </div>
                 </div>
-
+    
                 <div class="toolbar-actions">
                   <button mat-stroked-button (click)="undoStroke()" [disabled]="strokes.length === 0" class="btn-tool">
                     <mat-icon>undo</mat-icon>
@@ -108,7 +108,7 @@ interface Stroke {
                   </button>
                 </div>
               </div>
-
+    
               <!-- Drawing Canvas with Checkerboard Background -->
               <div class="canvas-wrapper">
                 <canvas
@@ -125,33 +125,35 @@ interface Stroke {
                   (touchend)="stopDrawing()">
                 </canvas>
                 <div class="sign-baseline-guide"></div>
-                <div class="sign-watermark-hint" *ngIf="strokes.length === 0">
-                  <mat-icon>touch_app</mat-icon>
-                  <span>Sign here using Mouse, Touch, or Stylus Pen (यहाँ साइन करें)</span>
-                </div>
+                @if (strokes.length === 0) {
+                  <div class="sign-watermark-hint">
+                    <mat-icon>touch_app</mat-icon>
+                    <span>Sign here using Mouse, Touch, or Stylus Pen (यहाँ साइन करें)</span>
+                  </div>
+                }
               </div>
             </div>
           </mat-tab>
-
+    
           <!-- TAB 2: Cursive Calligraphy Generator -->
           <mat-tab>
             <ng-template mat-tab-label>
               <mat-icon class="tab-icon">text_fields</mat-icon>
               <span>Type &amp; Generate (नाम से साइन बनाएं)</span>
             </ng-template>
-
+    
             <div class="tab-type-layout">
               <div class="type-controls-row">
                 <mat-form-field appearance="outline" class="density-compact flex-1">
                   <mat-label>Signatory Name (हस्ताक्षरकर्ता का नाम)</mat-label>
                   <input matInput [(ngModel)]="typeSignName" (input)="renderTypeSignature()" placeholder="e.g. Pawan Singh" />
                 </mat-form-field>
-
+    
                 <mat-form-field appearance="outline" class="density-compact flex-1">
                   <mat-label>Designation (पद / उपाधि)</mat-label>
                   <input matInput [(ngModel)]="typeDesignation" (input)="renderTypeSignature()" placeholder="e.g. Principal / Director" />
                 </mat-form-field>
-
+    
                 <mat-form-field appearance="outline" class="density-compact font-select">
                   <mat-label>Calligraphy Font</mat-label>
                   <mat-select [(value)]="selectedFont" (selectionChange)="renderTypeSignature()">
@@ -162,27 +164,28 @@ interface Stroke {
                     <mat-option value="Sacramento">Sacramento (Formal Script)</mat-option>
                   </mat-select>
                 </mat-form-field>
-
+    
                 <div class="color-dots type-color-box">
-                  <button
-                    type="button"
-                    *ngFor="let c of drawColors"
-                    class="color-dot"
-                    [style.background]="c.hex"
-                    [class.active]="typeColor === c.hex"
-                    (click)="typeColor = c.hex; renderTypeSignature()"
-                    [matTooltip]="c.name">
-                  </button>
+                  @for (c of drawColors; track c) {
+                    <button
+                      type="button"
+                      class="color-dot"
+                      [style.background]="c.hex"
+                      [class.active]="typeColor === c.hex"
+                      (click)="typeColor = c.hex; renderTypeSignature()"
+                      [matTooltip]="c.name">
+                    </button>
+                  }
                 </div>
               </div>
-
+    
               <div class="canvas-wrapper">
                 <canvas #typeCanvas width="640" height="260" class="sign-canvas"></canvas>
               </div>
             </div>
           </mat-tab>
         </mat-tab-group>
-
+    
         <!-- Common Metadata Options -->
         <div class="meta-options-bar">
           <mat-form-field appearance="outline" class="density-compact title-input">
@@ -190,26 +193,31 @@ interface Stroke {
             <input matInput [(ngModel)]="signatureTitle" placeholder="e.g. Principal / Controller Sign" />
             <mat-icon matSuffix>badge</mat-icon>
           </mat-form-field>
-
+    
           <mat-checkbox [(ngModel)]="setAsDefault" color="primary">
             <strong>Set as Default Signature (मुख्य हस्ताक्षर बनाएं)</strong>
           </mat-checkbox>
         </div>
       </div>
-
+    
       <!-- Footer Actions -->
       <div class="dialog-actions">
         <button mat-stroked-button (click)="onClose()" [disabled]="uploading">
           Cancel
         </button>
         <button mat-raised-button color="primary" class="apply-btn" (click)="applyAndUpload()" [disabled]="uploading">
-          <mat-icon *ngIf="!uploading">verified</mat-icon>
-          <mat-icon class="spin" *ngIf="uploading">sync</mat-icon>
+          @if (!uploading) {
+            <mat-icon>verified</mat-icon>
+          }
+          @if (uploading) {
+            <mat-icon class="spin">sync</mat-icon>
+          }
           <span>{{ uploading ? 'Uploading & Applying...' : 'Apply & Save Signature (हस्ताक्षर लागू करें)' }}</span>
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .sig-studio-container {
       display: flex;

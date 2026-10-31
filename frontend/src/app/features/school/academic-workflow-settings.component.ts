@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,7 +18,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   selector: 'app-academic-workflow-settings',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatCardModule,
     MatButtonModule,
@@ -30,7 +29,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatChipsModule
-  ],
+],
   template: `
     <div class="academic-workflow-container">
       <!-- Page Header with Standard Project Light Blue Styling -->
@@ -46,402 +45,395 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
         <div class="header-actions">
           <button mat-flat-button color="primary" class="save-master-btn" (click)="saveSettings()" [disabled]="saving || loading">
-            <mat-spinner diameter="18" *ngIf="saving"></mat-spinner>
-            <mat-icon *ngIf="!saving" class="btn-icon">save</mat-icon>
+            @if (saving) {
+              <mat-spinner diameter="18"></mat-spinner>
+            }
+            @if (!saving) {
+              <mat-icon class="btn-icon">save</mat-icon>
+            }
             <span>Save Configurations</span>
           </button>
         </div>
       </div>
-
-
-      <div class="content-body" *ngIf="!loading">
-        <!-- Live Status Bar -->
-        <div class="live-status-bar">
-          <div class="status-item active-session-item">
-            <div class="status-label">ACTIVE ACADEMIC SESSION</div>
-            <div class="status-value">
-              <span class="active-pulse-dot"></span>
-              <strong>{{ activeAcademicYear }}</strong>
-            </div>
-          </div>
-          <div class="status-item">
-            <div class="status-label">NEXT PROMOTION TARGET</div>
-            <div class="status-value text-secondary">
-              <mat-icon>trending_up</mat-icon> {{ nextAcademicYear }}
-            </div>
-          </div>
-          <div class="status-item">
-            <div class="status-label">CONFIGURED SESSIONS</div>
-            <div class="status-value text-secondary">
-              <mat-icon>calendar_month</mat-icon> {{ sessionsList.length }} Years
-            </div>
-          </div>
-          <div class="status-item">
-            <div class="status-label">EXAM TYPES & TERMS</div>
-            <div class="status-value text-secondary">
-              <mat-icon>assignment</mat-icon> {{ examTypesList.length }} Workflows
-            </div>
-          </div>
-          <div class="status-item">
-            <div class="status-label">EVALUATION SLA</div>
-            <div class="status-value text-secondary">
-              <mat-icon>timelapse</mat-icon> {{ evaluationDueDays }} Days Due
-            </div>
-          </div>
-        </div>
-
-        <!-- Scope Switcher: School vs Coaching Workflows -->
-        <div class="scope-nav-container">
-          <div class="scope-pills">
-            <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'school'" (click)="setWorkflowScope('school')">
-              <mat-icon>school</mat-icon>
-              <span>School Examination Workflows (CBSE / State Board)</span>
-            </button>
-            <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'coaching'" (click)="setWorkflowScope('coaching')">
-              <mat-icon>groups</mat-icon>
-              <span>Coaching Test Workflows (JEE / NEET / Foundation)</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="settings-grid">
-          <!-- CARD 1: Academic Sessions Master -->
-          <mat-card class="setting-card">
-            <div class="card-header-strip">
-              <div class="card-title-group">
-                <mat-icon class="card-icon session-icon">event_repeat</mat-icon>
-                <div>
-                  <h3 class="card-title">Academic Sessions Master (सत्र प्रबंधन)</h3>
-                  <p class="card-desc">Control active year across ERP. When new year starts, switch active session here in one click without modifying any code.</p>
-                </div>
+    
+    
+      @if (!loading) {
+        <div class="content-body">
+          <!-- Live Status Bar -->
+          <div class="live-status-bar">
+            <div class="status-item active-session-item">
+              <div class="status-label">ACTIVE ACADEMIC SESSION</div>
+              <div class="status-value">
+                <span class="active-pulse-dot"></span>
+                <strong>{{ activeAcademicYear }}</strong>
               </div>
             </div>
-
-            <div class="card-content">
-              <div class="form-row-two">
-                <mat-form-field appearance="outline">
-                  <mat-label>Current Active Session (सभी मॉड्यूल्स में एक्टिव)</mat-label>
-                  <mat-select [(ngModel)]="activeAcademicYear">
-                    <mat-option *ngFor="let s of sessionsList" [value]="s">
-                      ⭐ {{ s }} (Active)
-                    </mat-option>
-                  </mat-select>
-                  <mat-hint>Used as default session in examinations, attendance & marks</mat-hint>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Next / Promotion Target Session</mat-label>
-                  <mat-select [(ngModel)]="nextAcademicYear">
-                    <mat-option *ngFor="let s of sessionsList" [value]="s">
-                      🚀 {{ s }}
-                    </mat-option>
-                  </mat-select>
-                  <mat-hint>Target session for student upgrades and class promotion</mat-hint>
-                </mat-form-field>
-              </div>
-
-              <!-- Catalog of Configured Sessions -->
-              <div class="catalog-section">
-                <div class="catalog-title">Available Sessions Catalog</div>
-                <div class="chips-container">
-                  <div class="session-chip" *ngFor="let s of sessionsList" [class.is-active]="s === activeAcademicYear">
-                    <span class="chip-text">{{ s }}</span>
-                    <span class="active-badge" *ngIf="s === activeAcademicYear">ACTIVE</span>
-                    <button type="button" class="chip-del-btn" *ngIf="s !== activeAcademicYear" (click)="removeSession(s)" matTooltip="Remove Session">
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="add-inline-row">
-                  <mat-form-field appearance="outline" class="inline-input-field" subscriptSizing="dynamic">
-                    <mat-label>Add New Session (e.g. 2026-2027, 2027-2028)</mat-label>
-                    <input matInput [(ngModel)]="newSessionInput" placeholder="YYYY-YYYY" (keyup.enter)="addSession()">
-                  </mat-form-field>
-                  <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addSession()" [disabled]="!newSessionInput">
-                    <mat-icon>add</mat-icon> Add Session
-                  </button>
-                </div>
+            <div class="status-item">
+              <div class="status-label">NEXT PROMOTION TARGET</div>
+              <div class="status-value text-secondary">
+                <mat-icon>trending_up</mat-icon> {{ nextAcademicYear }}
               </div>
             </div>
-          </mat-card>
-
-          <!-- SCHOOL SPECIFIC WORKFLOWS -->
-          <ng-container *ngIf="activeWorkflowScope === 'school'">
-            <!-- CARD 2: School Exam Types & Terms Master -->
+            <div class="status-item">
+              <div class="status-label">CONFIGURED SESSIONS</div>
+              <div class="status-value text-secondary">
+                <mat-icon>calendar_month</mat-icon> {{ sessionsList.length }} Years
+              </div>
+            </div>
+            <div class="status-item">
+              <div class="status-label">EXAM TYPES & TERMS</div>
+              <div class="status-value text-secondary">
+                <mat-icon>assignment</mat-icon> {{ examTypesList.length }} Workflows
+              </div>
+            </div>
+            <div class="status-item">
+              <div class="status-label">EVALUATION SLA</div>
+              <div class="status-value text-secondary">
+                <mat-icon>timelapse</mat-icon> {{ evaluationDueDays }} Days Due
+              </div>
+            </div>
+          </div>
+          <!-- Scope Switcher: School vs Coaching Workflows -->
+          <div class="scope-nav-container">
+            <div class="scope-pills">
+              <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'school'" (click)="setWorkflowScope('school')">
+                <mat-icon>school</mat-icon>
+                <span>School Examination Workflows (CBSE / State Board)</span>
+              </button>
+              <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'coaching'" (click)="setWorkflowScope('coaching')">
+                <mat-icon>groups</mat-icon>
+                <span>Coaching Test Workflows (JEE / NEET / Foundation)</span>
+              </button>
+            </div>
+          </div>
+          <div class="settings-grid">
+            <!-- CARD 1: Academic Sessions Master -->
             <mat-card class="setting-card">
               <div class="card-header-strip">
                 <div class="card-title-group">
-                  <mat-icon class="card-icon exam-icon">assignment</mat-icon>
+                  <mat-icon class="card-icon session-icon">event_repeat</mat-icon>
                   <div>
-                    <h3 class="card-title">School Exam Types & Term Master (परीक्षा प्रकार)</h3>
-                    <p class="card-desc">Define standard examination workflows available across bulk schedulers, admit cards, and evaluation matrices.</p>
+                    <h3 class="card-title">Academic Sessions Master (सत्र प्रबंधन)</h3>
+                    <p class="card-desc">Control active year across ERP. When new year starts, switch active session here in one click without modifying any code.</p>
                   </div>
                 </div>
               </div>
-
-            <div class="card-content">
-              <div class="catalog-section">
-                <div class="catalog-title">Active Exam Types Catalog</div>
-                <div class="chips-container">
-                  <div class="type-chip" *ngFor="let t of examTypesList">
-                    <mat-icon class="type-icon">task_alt</mat-icon>
-                    <span class="chip-text">{{ t }}</span>
-                    <button type="button" class="chip-del-btn" (click)="removeExamType(t)" matTooltip="Remove Exam Type" *ngIf="examTypesList.length > 1">
-                      <mat-icon>close</mat-icon>
+              <div class="card-content">
+                <div class="form-row-two">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Current Active Session (सभी मॉड्यूल्स में एक्टिव)</mat-label>
+                    <mat-select [(ngModel)]="activeAcademicYear">
+                      @for (s of sessionsList; track s) {
+                        <mat-option [value]="s">
+                          ⭐ {{ s }} (Active)
+                        </mat-option>
+                      }
+                    </mat-select>
+                    <mat-hint>Used as default session in examinations, attendance & marks</mat-hint>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Next / Promotion Target Session</mat-label>
+                    <mat-select [(ngModel)]="nextAcademicYear">
+                      @for (s of sessionsList; track s) {
+                        <mat-option [value]="s">
+                          🚀 {{ s }}
+                        </mat-option>
+                      }
+                    </mat-select>
+                    <mat-hint>Target session for student upgrades and class promotion</mat-hint>
+                  </mat-form-field>
+                </div>
+                <!-- Catalog of Configured Sessions -->
+                <div class="catalog-section">
+                  <div class="catalog-title">Available Sessions Catalog</div>
+                  <div class="chips-container">
+                    @for (s of sessionsList; track s) {
+                      <div class="session-chip" [class.is-active]="s === activeAcademicYear">
+                        <span class="chip-text">{{ s }}</span>
+                        @if (s === activeAcademicYear) {
+                          <span class="active-badge">ACTIVE</span>
+                        }
+                        @if (s !== activeAcademicYear) {
+                          <button type="button" class="chip-del-btn" (click)="removeSession(s)" matTooltip="Remove Session">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                  <div class="add-inline-row">
+                    <mat-form-field appearance="outline" class="inline-input-field" subscriptSizing="dynamic">
+                      <mat-label>Add New Session (e.g. 2026-2027, 2027-2028)</mat-label>
+                      <input matInput [(ngModel)]="newSessionInput" placeholder="YYYY-YYYY" (keyup.enter)="addSession()">
+                    </mat-form-field>
+                    <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addSession()" [disabled]="!newSessionInput">
+                      <mat-icon>add</mat-icon> Add Session
                     </button>
                   </div>
                 </div>
-
-                <div class="add-inline-row">
-                  <mat-form-field appearance="outline" class="inline-input-field" subscriptSizing="dynamic">
-                    <mat-label>Add Custom Exam Type (e.g. Pre-Board 2, Periodic Test 3)</mat-label>
-                    <input matInput [(ngModel)]="newExamTypeInput" placeholder="Exam Type Name" (keyup.enter)="addExamType()">
-                  </mat-form-field>
-                  <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addExamType()" [disabled]="!newExamTypeInput">
-                    <mat-icon>add</mat-icon> Add Exam Type
-                  </button>
-                </div>
-              </div>
-            </div>
-          </mat-card>
-
-          <!-- CARD 3: Evaluation SLA & Benchmark Rules -->
-          <mat-card class="setting-card">
-            <div class="card-header-strip">
-              <div class="card-title-group">
-                <mat-icon class="card-icon rules-icon">speed</mat-icon>
-                <div>
-                  <h3 class="card-title">Evaluation Turnaround & Pass Benchmarks</h3>
-                  <p class="card-desc">Automate answer sheet evaluation due dates, passing criteria, and promotion eligibility formulas.</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="card-content">
-              <div class="form-row-three">
-                <mat-form-field appearance="outline">
-                  <mat-label>Evaluation Due Turnaround (Days)</mat-label>
-                  <input matInput type="number" [(ngModel)]="evaluationDueDays" min="1" max="60">
-                  <mat-hint>Auto sets teacher checking deadline: Exam Date + N days</mat-hint>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Passing Benchmark (%)</mat-label>
-                  <input matInput type="number" [(ngModel)]="passingPercentage" min="1" max="100">
-                  <mat-hint>Default passing percentage (Standard: 33%)</mat-hint>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Max Compartment Subjects</mat-label>
-                  <input matInput type="number" [(ngModel)]="maxCompartmentSubjects" min="0" max="6">
-                  <mat-hint>Subjects allowed before student is detained</mat-hint>
-                </mat-form-field>
-              </div>
-
-              <div class="grace-marks-box">
-                <div class="grace-left">
-                  <mat-slide-toggle color="primary" [(ngModel)]="allowGraceMarks">
-                    <strong>Allow Grace Marks for Borderline Promotion</strong>
-                  </mat-slide-toggle>
-                  <p class="grace-desc">When enabled, students failing by small margin can receive up to max grace marks to achieve passing criteria.</p>
-                </div>
-                <div class="grace-right" *ngIf="allowGraceMarks">
-                  <mat-form-field appearance="outline" class="grace-input" subscriptSizing="dynamic">
-                    <mat-label>Max Grace Marks</mat-label>
-                    <input matInput type="number" [(ngModel)]="maxGraceMarks" min="1" max="15">
-                  </mat-form-field>
-                </div>
-              </div>
-            </div>
-          </mat-card>
-
-          <!-- CARD 4: Board Affiliation & Official Signatures -->
-          <mat-card class="setting-card">
-            <div class="card-header-strip">
-              <div class="card-title-group">
-                <mat-icon class="card-icon cert-icon">verified</mat-icon>
-                <div>
-                  <h3 class="card-title">Board Affiliation & Official Verification</h3>
-                  <p class="card-desc">Header credentials and signatory titles printed on Blank Award Sheets, Board Pattern Marksheets, and Report Cards.</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="card-content">
-              <div class="form-row-three">
-                <mat-form-field appearance="outline">
-                  <mat-label>School Affiliation / Roll Code</mat-label>
-                  <input matInput [(ngModel)]="schoolAffiliationNumber" placeholder="e.g. CBSE/AFF-11025">
-                  <mat-hint>Printed in header of marksheets</mat-hint>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Principal Signature Title</mat-label>
-                  <input matInput [(ngModel)]="principalSignTitle" placeholder="Principal / Headmaster">
-                  <mat-hint>Authority signature designation</mat-hint>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Class Teacher Signature Title</mat-label>
-                  <input matInput [(ngModel)]="classTeacherSignTitle" placeholder="Class Teacher">
-                  <mat-hint>Scrutinizer / Teacher designation</mat-hint>
-                </mat-form-field>
-              </div>
-
-                <mat-form-field appearance="outline" class="form-full">
-                  <mat-label>Result Declaration Statement / Continuous Policy Note</mat-label>
-                  <textarea matInput [(ngModel)]="resultDeclarationNote" rows="2" placeholder="Official statement printed at bottom of result cards..."></textarea>
-                  <mat-hint>Legal disclaimer and examination certification declaration</mat-hint>
-                </mat-form-field>
               </div>
             </mat-card>
-          </ng-container>
-
-          <!-- COACHING SPECIFIC WORKFLOWS -->
-          <ng-container *ngIf="activeWorkflowScope === 'coaching'">
-            <!-- CARD 2 (COACHING): Coaching Test Types & Assessment Catalog -->
-            <mat-card class="setting-card">
-              <div class="card-header-strip">
-                <div class="card-title-group">
-                  <mat-icon class="card-icon exam-icon">quiz</mat-icon>
-                  <div>
-                    <h3 class="card-title">Coaching Test Types & Assessment Catalog (कोचिंग टेस्ट प्रकार)</h3>
-                    <p class="card-desc">Standard competitive exam workflows (DPP, Unit Test, Cumulative, All-India Mock Test) for batches.</p>
+            <!-- SCHOOL SPECIFIC WORKFLOWS -->
+            @if (activeWorkflowScope === 'school') {
+              <!-- CARD 2: School Exam Types & Terms Master -->
+              <mat-card class="setting-card">
+                <div class="card-header-strip">
+                  <div class="card-title-group">
+                    <mat-icon class="card-icon exam-icon">assignment</mat-icon>
+                    <div>
+                      <h3 class="card-title">School Exam Types & Term Master (परीक्षा प्रकार)</h3>
+                      <p class="card-desc">Define standard examination workflows available across bulk schedulers, admit cards, and evaluation matrices.</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <div class="card-content">
-                <div class="catalog-section">
-                  <div class="catalog-title">Active Coaching Test Types Catalog</div>
-                  <div class="chips-container">
-                    <div class="type-chip" *ngFor="let t of coachingExamTypesList">
-                      <mat-icon class="type-icon">task_alt</mat-icon>
-                      <span class="chip-text">{{ t }}</span>
-                      <button type="button" class="chip-del-btn" (click)="removeCoachingExamType(t)" matTooltip="Remove Test Type" *ngIf="coachingExamTypesList.length > 1">
-                        <mat-icon>close</mat-icon>
+                <div class="card-content">
+                  <div class="catalog-section">
+                    <div class="catalog-title">Active Exam Types Catalog</div>
+                    <div class="chips-container">
+                      @for (t of examTypesList; track t) {
+                        <div class="type-chip">
+                          <mat-icon class="type-icon">task_alt</mat-icon>
+                          <span class="chip-text">{{ t }}</span>
+                          @if (examTypesList.length > 1) {
+                            <button type="button" class="chip-del-btn" (click)="removeExamType(t)" matTooltip="Remove Exam Type">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          }
+                        </div>
+                      }
+                    </div>
+                    <div class="add-inline-row">
+                      <mat-form-field appearance="outline" class="inline-input-field" subscriptSizing="dynamic">
+                        <mat-label>Add Custom Exam Type (e.g. Pre-Board 2, Periodic Test 3)</mat-label>
+                        <input matInput [(ngModel)]="newExamTypeInput" placeholder="Exam Type Name" (keyup.enter)="addExamType()">
+                      </mat-form-field>
+                      <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addExamType()" [disabled]="!newExamTypeInput">
+                        <mat-icon>add</mat-icon> Add Exam Type
                       </button>
                     </div>
                   </div>
-
-                  <div class="add-inline-row">
-                    <mat-form-field appearance="outline" class="inline-input-field" subscriptSizing="dynamic">
-                      <mat-label>Add Custom Coaching Test Type (e.g. JEE Advanced Full Mock, NEET Booster)</mat-label>
-                      <input matInput [(ngModel)]="newCoachingExamTypeInput" placeholder="Test Type Name" (keyup.enter)="addCoachingExamType()">
+                </div>
+              </mat-card>
+              <!-- CARD 3: Evaluation SLA & Benchmark Rules -->
+              <mat-card class="setting-card">
+                <div class="card-header-strip">
+                  <div class="card-title-group">
+                    <mat-icon class="card-icon rules-icon">speed</mat-icon>
+                    <div>
+                      <h3 class="card-title">Evaluation Turnaround & Pass Benchmarks</h3>
+                      <p class="card-desc">Automate answer sheet evaluation due dates, passing criteria, and promotion eligibility formulas.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-content">
+                  <div class="form-row-three">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Evaluation Due Turnaround (Days)</mat-label>
+                      <input matInput type="number" [(ngModel)]="evaluationDueDays" min="1" max="60">
+                      <mat-hint>Auto sets teacher checking deadline: Exam Date + N days</mat-hint>
                     </mat-form-field>
-                    <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addCoachingExamType()" [disabled]="!newCoachingExamTypeInput">
-                      <mat-icon>add</mat-icon> Add Test Type
-                    </button>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Passing Benchmark (%)</mat-label>
+                      <input matInput type="number" [(ngModel)]="passingPercentage" min="1" max="100">
+                      <mat-hint>Default passing percentage (Standard: 33%)</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Max Compartment Subjects</mat-label>
+                      <input matInput type="number" [(ngModel)]="maxCompartmentSubjects" min="0" max="6">
+                      <mat-hint>Subjects allowed before student is detained</mat-hint>
+                    </mat-form-field>
+                  </div>
+                  <div class="grace-marks-box">
+                    <div class="grace-left">
+                      <mat-slide-toggle color="primary" [(ngModel)]="allowGraceMarks">
+                        <strong>Allow Grace Marks for Borderline Promotion</strong>
+                      </mat-slide-toggle>
+                      <p class="grace-desc">When enabled, students failing by small margin can receive up to max grace marks to achieve passing criteria.</p>
+                    </div>
+                    @if (allowGraceMarks) {
+                      <div class="grace-right">
+                        <mat-form-field appearance="outline" class="grace-input" subscriptSizing="dynamic">
+                          <mat-label>Max Grace Marks</mat-label>
+                          <input matInput type="number" [(ngModel)]="maxGraceMarks" min="1" max="15">
+                        </mat-form-field>
+                      </div>
+                    }
                   </div>
                 </div>
-              </div>
-            </mat-card>
-
-            <!-- CARD 3 (COACHING): Negative Marking Scheme & Evaluation SLA -->
-            <mat-card class="setting-card">
-              <div class="card-header-strip">
-                <div class="card-title-group">
-                  <mat-icon class="card-icon rules-icon">calculate</mat-icon>
-                  <div>
-                    <h3 class="card-title">Negative Marking Scheme & OMR SLA (नेगेटिव मार्किंग व नियम)</h3>
-                    <p class="card-desc">Configure competitive exam deduction formulas, OMR checking turnaround, and percentile ranking.</p>
+              </mat-card>
+              <!-- CARD 4: Board Affiliation & Official Signatures -->
+              <mat-card class="setting-card">
+                <div class="card-header-strip">
+                  <div class="card-title-group">
+                    <mat-icon class="card-icon cert-icon">verified</mat-icon>
+                    <div>
+                      <h3 class="card-title">Board Affiliation & Official Verification</h3>
+                      <p class="card-desc">Header credentials and signatory titles printed on Blank Award Sheets, Board Pattern Marksheets, and Report Cards.</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <div class="card-content">
-                <div class="form-row-three">
-                  <mat-form-field appearance="outline">
-                    <mat-label>OMR Evaluation Turnaround (Days)</mat-label>
-                    <input matInput type="number" [(ngModel)]="coachingEvaluationDueDays" min="1" max="15">
-                    <mat-hint>Deadline for uploading test marks / OMR scores</mat-hint>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Negative Mark Deduction Penalty</mat-label>
-                    <input matInput type="number" step="0.25" [(ngModel)]="negativeMarkPenalty" min="0" max="5">
-                    <mat-hint>Marks deducted per wrong answer (Default: -1.0 or -0.25)</mat-hint>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Passing Benchmark (%)</mat-label>
-                    <input matInput type="number" [(ngModel)]="passingPercentage" min="1" max="100">
-                    <mat-hint>Qualifying cut-off benchmark for batches</mat-hint>
+                <div class="card-content">
+                  <div class="form-row-three">
+                    <mat-form-field appearance="outline">
+                      <mat-label>School Affiliation / Roll Code</mat-label>
+                      <input matInput [(ngModel)]="schoolAffiliationNumber" placeholder="e.g. CBSE/AFF-11025">
+                      <mat-hint>Printed in header of marksheets</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Principal Signature Title</mat-label>
+                      <input matInput [(ngModel)]="principalSignTitle" placeholder="Principal / Headmaster">
+                      <mat-hint>Authority signature designation</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Class Teacher Signature Title</mat-label>
+                      <input matInput [(ngModel)]="classTeacherSignTitle" placeholder="Class Teacher">
+                      <mat-hint>Scrutinizer / Teacher designation</mat-hint>
+                    </mat-form-field>
+                  </div>
+                  <mat-form-field appearance="outline" class="form-full">
+                    <mat-label>Result Declaration Statement / Continuous Policy Note</mat-label>
+                    <textarea matInput [(ngModel)]="resultDeclarationNote" rows="2" placeholder="Official statement printed at bottom of result cards..."></textarea>
+                    <mat-hint>Legal disclaimer and examination certification declaration</mat-hint>
                   </mat-form-field>
                 </div>
-
-                <div class="grace-marks-box">
-                  <div class="grace-left">
-                    <mat-slide-toggle color="primary" [(ngModel)]="enableNegativeMarking">
-                      <strong>Enable Negative Marking Scheme by Default</strong>
-                    </mat-slide-toggle>
-                    <p class="grace-desc">When enabled, coaching tests will apply negative penalty on wrong responses automatically in scorecards.</p>
+              </mat-card>
+            }
+            <!-- COACHING SPECIFIC WORKFLOWS -->
+            @if (activeWorkflowScope === 'coaching') {
+              <!-- CARD 2 (COACHING): Coaching Test Types & Assessment Catalog -->
+              <mat-card class="setting-card">
+                <div class="card-header-strip">
+                  <div class="card-title-group">
+                    <mat-icon class="card-icon exam-icon">quiz</mat-icon>
+                    <div>
+                      <h3 class="card-title">Coaching Test Types & Assessment Catalog (कोचिंग टेस्ट प्रकार)</h3>
+                      <p class="card-desc">Standard competitive exam workflows (DPP, Unit Test, Cumulative, All-India Mock Test) for batches.</p>
+                    </div>
                   </div>
                 </div>
-
-                <div class="grace-marks-box" style="margin-top: 12px;">
-                  <div class="grace-left">
-                    <mat-slide-toggle color="primary" [(ngModel)]="enablePercentileRanking">
-                      <strong>Auto-Calculate Batch Rank &amp; Percentile Matrix</strong>
-                    </mat-slide-toggle>
-                    <p class="grace-desc">Computes batch topper percentile and student standing against peer competitors on result sheets.</p>
+                <div class="card-content">
+                  <div class="catalog-section">
+                    <div class="catalog-title">Active Coaching Test Types Catalog</div>
+                    <div class="chips-container">
+                      @for (t of coachingExamTypesList; track t) {
+                        <div class="type-chip">
+                          <mat-icon class="type-icon">task_alt</mat-icon>
+                          <span class="chip-text">{{ t }}</span>
+                          @if (coachingExamTypesList.length > 1) {
+                            <button type="button" class="chip-del-btn" (click)="removeCoachingExamType(t)" matTooltip="Remove Test Type">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          }
+                        </div>
+                      }
+                    </div>
+                    <div class="add-inline-row">
+                      <mat-form-field appearance="outline" class="inline-input-field" subscriptSizing="dynamic">
+                        <mat-label>Add Custom Coaching Test Type (e.g. JEE Advanced Full Mock, NEET Booster)</mat-label>
+                        <input matInput [(ngModel)]="newCoachingExamTypeInput" placeholder="Test Type Name" (keyup.enter)="addCoachingExamType()">
+                      </mat-form-field>
+                      <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addCoachingExamType()" [disabled]="!newCoachingExamTypeInput">
+                        <mat-icon>add</mat-icon> Add Test Type
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </mat-card>
-
-            <!-- CARD 4 (COACHING): Coaching Center Signatures & Test Notes -->
-            <mat-card class="setting-card">
-              <div class="card-header-strip">
-                <div class="card-title-group">
-                  <mat-icon class="card-icon cert-icon">badge</mat-icon>
-                  <div>
-                    <h3 class="card-title">Coaching Center Credentials & Mentor Verification</h3>
-                    <p class="card-desc">Center registration, mentor designations, and test declaration notes on coaching rank cards.</p>
+              </mat-card>
+              <!-- CARD 3 (COACHING): Negative Marking Scheme & Evaluation SLA -->
+              <mat-card class="setting-card">
+                <div class="card-header-strip">
+                  <div class="card-title-group">
+                    <mat-icon class="card-icon rules-icon">calculate</mat-icon>
+                    <div>
+                      <h3 class="card-title">Negative Marking Scheme & OMR SLA (नेगेटिव मार्किंग व नियम)</h3>
+                      <p class="card-desc">Configure competitive exam deduction formulas, OMR checking turnaround, and percentile ranking.</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <div class="card-content">
-                <div class="form-row-three">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Center Registration Code</mat-label>
-                    <input matInput [(ngModel)]="coachingRegistrationCode" placeholder="e.g. COACH-PAT-2026">
-                    <mat-hint>Institute coaching division code</mat-hint>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Center Director Signature Title</mat-label>
-                    <input matInput [(ngModel)]="centerHeadSignTitle" placeholder="Center Director / Academic Head">
-                    <mat-hint>Authority signature title</mat-hint>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Batch Mentor Signature Title</mat-label>
-                    <input matInput [(ngModel)]="batchMentorSignTitle" placeholder="Batch Mentor / Faculty">
-                    <mat-hint>Faculty evaluator designation</mat-hint>
+                <div class="card-content">
+                  <div class="form-row-three">
+                    <mat-form-field appearance="outline">
+                      <mat-label>OMR Evaluation Turnaround (Days)</mat-label>
+                      <input matInput type="number" [(ngModel)]="coachingEvaluationDueDays" min="1" max="15">
+                      <mat-hint>Deadline for uploading test marks / OMR scores</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Negative Mark Deduction Penalty</mat-label>
+                      <input matInput type="number" step="0.25" [(ngModel)]="negativeMarkPenalty" min="0" max="5">
+                      <mat-hint>Marks deducted per wrong answer (Default: -1.0 or -0.25)</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Passing Benchmark (%)</mat-label>
+                      <input matInput type="number" [(ngModel)]="passingPercentage" min="1" max="100">
+                      <mat-hint>Qualifying cut-off benchmark for batches</mat-hint>
+                    </mat-form-field>
+                  </div>
+                  <div class="grace-marks-box">
+                    <div class="grace-left">
+                      <mat-slide-toggle color="primary" [(ngModel)]="enableNegativeMarking">
+                        <strong>Enable Negative Marking Scheme by Default</strong>
+                      </mat-slide-toggle>
+                      <p class="grace-desc">When enabled, coaching tests will apply negative penalty on wrong responses automatically in scorecards.</p>
+                    </div>
+                  </div>
+                  <div class="grace-marks-box" style="margin-top: 12px;">
+                    <div class="grace-left">
+                      <mat-slide-toggle color="primary" [(ngModel)]="enablePercentileRanking">
+                        <strong>Auto-Calculate Batch Rank &amp; Percentile Matrix</strong>
+                      </mat-slide-toggle>
+                      <p class="grace-desc">Computes batch topper percentile and student standing against peer competitors on result sheets.</p>
+                    </div>
+                  </div>
+                </div>
+              </mat-card>
+              <!-- CARD 4 (COACHING): Coaching Center Signatures & Test Notes -->
+              <mat-card class="setting-card">
+                <div class="card-header-strip">
+                  <div class="card-title-group">
+                    <mat-icon class="card-icon cert-icon">badge</mat-icon>
+                    <div>
+                      <h3 class="card-title">Coaching Center Credentials & Mentor Verification</h3>
+                      <p class="card-desc">Center registration, mentor designations, and test declaration notes on coaching rank cards.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-content">
+                  <div class="form-row-three">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Center Registration Code</mat-label>
+                      <input matInput [(ngModel)]="coachingRegistrationCode" placeholder="e.g. COACH-PAT-2026">
+                      <mat-hint>Institute coaching division code</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Center Director Signature Title</mat-label>
+                      <input matInput [(ngModel)]="centerHeadSignTitle" placeholder="Center Director / Academic Head">
+                      <mat-hint>Authority signature title</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Batch Mentor Signature Title</mat-label>
+                      <input matInput [(ngModel)]="batchMentorSignTitle" placeholder="Batch Mentor / Faculty">
+                      <mat-hint>Faculty evaluator designation</mat-hint>
+                    </mat-form-field>
+                  </div>
+                  <mat-form-field appearance="outline" class="form-full">
+                    <mat-label>Coaching Test Declaration & Evaluation Policy Note</mat-label>
+                    <textarea matInput [(ngModel)]="coachingResultNote" rows="2" placeholder="Policy note printed at bottom of test scorecards..."></textarea>
+                    <mat-hint>Competitive evaluation guideline statement</mat-hint>
                   </mat-form-field>
                 </div>
-
-                <mat-form-field appearance="outline" class="form-full">
-                  <mat-label>Coaching Test Declaration & Evaluation Policy Note</mat-label>
-                  <textarea matInput [(ngModel)]="coachingResultNote" rows="2" placeholder="Policy note printed at bottom of test scorecards..."></textarea>
-                  <mat-hint>Competitive evaluation guideline statement</mat-hint>
-                </mat-form-field>
-              </div>
-            </mat-card>
-          </ng-container>
+              </mat-card>
+            }
+          </div>
+          <!-- Bottom Advisory Note -->
+          <div class="bottom-advisory-bar">
+            <mat-icon class="advisory-icon">info</mat-icon>
+            <span>Changes made here take immediate effect across all Examination, Promotion, and Result modules without requiring server restarts or code changes.</span>
+          </div>
         </div>
-
-        <!-- Bottom Advisory Note -->
-        <div class="bottom-advisory-bar">
-          <mat-icon class="advisory-icon">info</mat-icon>
-          <span>Changes made here take immediate effect across all Examination, Promotion, and Result modules without requiring server restarts or code changes.</span>
-        </div>
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, Inject, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -55,6 +55,7 @@ export interface ExamRoutineItem {
     MatProgressBarModule
   ],
   templateUrl: './school-report-card-dialog.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./school-report-card-dialog.component.scss']
 })
 export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {

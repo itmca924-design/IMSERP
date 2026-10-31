@@ -1,5 +1,5 @@
-import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -8,7 +8,7 @@ import { AuthService } from '../../core/services/auth.service';
 @Component({
   selector: 'app-footer',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatIconModule, MatTooltipModule],
+  imports: [RouterModule, MatIconModule, MatTooltipModule],
   template: `
     <footer class="app-footer">
       <div class="footer-container">
@@ -47,6 +47,7 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
     </footer>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

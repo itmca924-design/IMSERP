@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -81,7 +81,7 @@ interface ConsolidatedMatrixRow {
             <mat-icon>close</mat-icon>
           </button>
         </div>
-
+    
         <div class="top-actions">
           <button mat-flat-button color="primary" class="action-btn print-btn" (click)="printReport()">
             <mat-icon>print</mat-icon>
@@ -97,99 +97,123 @@ interface ConsolidatedMatrixRow {
           </button>
         </div>
       </div>
-
+    
       <!-- ─── Filter & View Switcher Strip (Screen Only) ───────────────────── -->
       <div class="control-strip no-print">
         <div class="control-row-left">
           <!-- Scope Switcher: School vs Coaching -->
-          <div class="pill-group scope-pills" *ngIf="hasSchoolModule && hasCoachingModule">
-            <button type="button" 
-                    class="scope-pill" 
-                    [class.active]="targetType === 'class'"
-                    (click)="setTargetType('class')">
-              <mat-icon>school</mat-icon>
-              <span>School Classes</span>
-              <span class="badge">{{ schoolClasses.length }}</span>
-            </button>
-            <button type="button" 
-                    class="scope-pill" 
-                    [class.active]="targetType === 'batch'"
-                    (click)="setTargetType('batch')">
-              <mat-icon>groups</mat-icon>
-              <span>Coaching Batches</span>
-              <span class="badge">{{ coachingBatches.length }}</span>
-            </button>
-          </div>
-
+          @if (hasSchoolModule && hasCoachingModule) {
+            <div class="pill-group scope-pills">
+              <button type="button"
+                class="scope-pill"
+                [class.active]="targetType === 'class'"
+                (click)="setTargetType('class')">
+                <mat-icon>school</mat-icon>
+                <span>School Classes</span>
+                <span class="badge">{{ schoolClasses.length }}</span>
+              </button>
+              <button type="button"
+                class="scope-pill"
+                [class.active]="targetType === 'batch'"
+                (click)="setTargetType('batch')">
+                <mat-icon>groups</mat-icon>
+                <span>Coaching Batches</span>
+                <span class="badge">{{ coachingBatches.length }}</span>
+              </button>
+            </div>
+          }
+    
           <!-- View Mode: Consolidated Matrix vs Single Class Notice -->
           <div class="pill-group view-pills">
-            <button type="button" 
-                    class="view-pill" 
-                    [class.active]="viewMode === 'consolidated'"
-                    (click)="viewMode = 'consolidated'">
+            <button type="button"
+              class="view-pill"
+              [class.active]="viewMode === 'consolidated'"
+              (click)="viewMode = 'consolidated'">
               <mat-icon>table_chart</mat-icon>
               <span class="desktop-text">Consolidated Matrix (पूरा स्कूल तालिका)</span>
               <span class="mobile-text">Matrix Grid (तालिका)</span>
             </button>
-            <button type="button" 
-                    class="view-pill" 
-                    [class.active]="viewMode === 'single'"
-                    (click)="viewMode = 'single'">
+            <button type="button"
+              class="view-pill"
+              [class.active]="viewMode === 'single'"
+              (click)="viewMode = 'single'">
               <mat-icon>receipt_long</mat-icon>
               <span class="desktop-text">Class Fee Notice (कक्षा फ़ीस नोटिस)</span>
               <span class="mobile-text">Class Notice (नोटिस)</span>
             </button>
           </div>
-
+    
           <!-- Class Dropdown (for Single Class Notice, or optional filter for Consolidated) -->
-          <mat-form-field appearance="outline" class="select-field" *ngIf="viewMode === 'single' || targets.length > 0">
-            <mat-label>{{ targetType === 'class' ? 'Select Class' : 'Select Batch' }}</mat-label>
-            <mat-select [(ngModel)]="selectedTargetId" (selectionChange)="onTargetChange()">
-              <mat-option *ngIf="viewMode === 'consolidated'" value="ALL">All {{ targetType === 'class' ? 'Classes' : 'Batches' }} (Consolidated)</mat-option>
-              <mat-option *ngFor="let t of targets" [value]="t.id">{{ t.name }} {{ t.code ? '(' + t.code + ')' : '' }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+          @if (viewMode === 'single' || targets.length > 0) {
+            <mat-form-field appearance="outline" class="select-field">
+              <mat-label>{{ targetType === 'class' ? 'Select Class' : 'Select Batch' }}</mat-label>
+              <mat-select [(ngModel)]="selectedTargetId" (selectionChange)="onTargetChange()">
+                @if (viewMode === 'consolidated') {
+                  <mat-option value="ALL">All {{ targetType === 'class' ? 'Classes' : 'Batches' }} (Consolidated)</mat-option>
+                }
+                @for (t of targets; track t) {
+                  <mat-option [value]="t.id">{{ t.name }} {{ t.code ? '(' + t.code + ')' : '' }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
         </div>
-
-        <div class="status-summary" *ngIf="viewMode === 'consolidated'">
-          Active Classes: <strong>{{ matrixRows.length }}</strong> &bull; Columns: <strong>{{ matrixColumns.length }} Fee Heads</strong>
-        </div>
+    
+        @if (viewMode === 'consolidated') {
+          <div class="status-summary">
+            Active Classes: <strong>{{ matrixRows.length }}</strong> &bull; Columns: <strong>{{ matrixColumns.length }} Fee Heads</strong>
+          </div>
+        }
       </div>
-
+    
       <!-- Single Progress Bar -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="loading-bar"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
+      }
+    
       <!-- ─── Printable Document ───────────────────────────────────────────── -->
       <div class="printable-document" [class.landscape-doc]="viewMode === 'consolidated'">
-        
+    
         <!-- Official Institute Letterhead -->
         <div class="doc-header">
-          <div class="inst-logo-wrap" *ngIf="instituteLogo">
-            <img [src]="instituteLogo" alt="Logo" class="inst-logo" />
-          </div>
+          @if (instituteLogo) {
+            <div class="inst-logo-wrap">
+              <img [src]="instituteLogo" alt="Logo" class="inst-logo" />
+            </div>
+          }
           <div class="inst-text-wrap">
             <h1 class="inst-name">{{ instituteName }}</h1>
-            <p class="inst-sub" *ngIf="affiliationNumber">
-              Affiliation / Reg. No.: <strong>{{ affiliationNumber }}</strong>
-            </p>
-            <p class="inst-address" *ngIf="campusAddress">{{ campusAddress }}</p>
-            <p class="inst-contact" *ngIf="contactInfo">{{ contactInfo }}</p>
+            @if (affiliationNumber) {
+              <p class="inst-sub">
+                Affiliation / Reg. No.: <strong>{{ affiliationNumber }}</strong>
+              </p>
+            }
+            @if (campusAddress) {
+              <p class="inst-address">{{ campusAddress }}</p>
+            }
+            @if (contactInfo) {
+              <p class="inst-contact">{{ contactInfo }}</p>
+            }
           </div>
         </div>
-
+    
         <!-- Document Title Banner -->
         <div class="doc-title-banner">
-          <div class="doc-title-text" *ngIf="viewMode === 'consolidated'">
-            CONSOLIDATED {{ targetType === 'class' ? 'SCHOOL CLASSES' : 'COACHING BATCHES' }} FEE STRUCTURE MATRIX
-          </div>
-          <div class="doc-title-text" *ngIf="viewMode === 'single'">
-            OFFICIAL FEE SCHEDULE NOTICE &bull; {{ currentTargetName }}
-          </div>
+          @if (viewMode === 'consolidated') {
+            <div class="doc-title-text">
+              CONSOLIDATED {{ targetType === 'class' ? 'SCHOOL CLASSES' : 'COACHING BATCHES' }} FEE STRUCTURE MATRIX
+            </div>
+          }
+          @if (viewMode === 'single') {
+            <div class="doc-title-text">
+              OFFICIAL FEE SCHEDULE NOTICE &bull; {{ currentTargetName }}
+            </div>
+          }
           <div class="doc-title-hi">
             {{ viewMode === 'consolidated' ? 'कक्षा-वार समेकित शुल्क संरचना तालिका' : 'कक्षावार अधिकृत शुल्क विवरण एवं नियम' }}
           </div>
         </div>
-
+    
         <!-- Meta Summary Strip -->
         <div class="doc-meta-strip">
           <div class="meta-item">
@@ -200,162 +224,194 @@ interface ConsolidatedMatrixRow {
             <span class="lbl">Campus / Branch:</span>
             <span class="val">{{ branchName }}</span>
           </div>
-          <div class="meta-item" *ngIf="viewMode === 'single'">
-            <span class="lbl">{{ targetType === 'class' ? 'Class' : 'Batch' }}:</span>
-            <span class="val highlighted"><strong>{{ currentTargetName }}</strong></span>
-          </div>
+          @if (viewMode === 'single') {
+            <div class="meta-item">
+              <span class="lbl">{{ targetType === 'class' ? 'Class' : 'Batch' }}:</span>
+              <span class="val highlighted"><strong>{{ currentTargetName }}</strong></span>
+            </div>
+          }
           <div class="meta-item">
             <span class="lbl">Effective Date:</span>
             <span class="val" [appIstDatetime]="nowDate" [format]="'date'"></span>
           </div>
         </div>
-
+    
         <!-- ══════════ VIEW 1: CONSOLIDATED MATRIX TABLE (A4 Landscape) ══════════ -->
-        <div *ngIf="viewMode === 'consolidated'" class="consolidated-table-wrap">
-          <div class="mobile-scroll-hint no-print">
-            <mat-icon>swipe</mat-icon>
-            <span>Swipe sideways to view all columns &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
-          </div>
-          <table class="matrix-table">
-            <thead>
-              <tr>
-                <th class="th-sno">#</th>
-                <th class="th-target">{{ targetType === 'class' ? 'Class Name' : 'Batch Name' }}</th>
-                <th *ngFor="let col of matrixColumns" class="th-head-col">
-                  <div class="head-col-title" [matTooltip]="col.name">{{ col.name }}</div>
-                  <div class="head-col-meta">({{ col.code }} &bull; {{ col.frequency }})</div>
-                </th>
-                <th class="th-monthly-tot">Total Monthly (₹)</th>
-                <th class="th-annual-extras">Annual Extras (₹)</th>
-                <th class="th-grand-tot">Grand Annual Est. (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let r of matrixRows; let idx = index">
-                <td class="td-sno">{{ idx + 1 }}</td>
-                <td class="td-target">
-                  <strong>{{ r.targetName }}</strong>
-                </td>
-                <td *ngFor="let col of matrixColumns" class="td-amt">
-                  <span *ngIf="r.amounts[col.id] > 0">₹{{ r.amounts[col.id] | number:'1.2-2' }}</span>
-                  <span *ngIf="!r.amounts[col.id] || r.amounts[col.id] === 0" class="nil-dash">—</span>
-                </td>
-                <td class="td-monthly-tot">
-                  <strong>₹{{ r.totalMonthly | number:'1.2-2' }}</strong>
-                </td>
-                <td class="td-annual-extras">
-                  <span>₹{{ r.totalAnnualExtras | number:'1.2-2' }}</span>
-                </td>
-                <td class="td-grand-tot">
-                  <strong class="grand-num">₹{{ r.grandAnnualEstimate | number:'1.2-2' }}</strong>
-                </td>
-              </tr>
-              <tr *ngIf="matrixRows.length === 0">
-                <td [attr.colspan]="matrixColumns.length + 5" class="empty-cell">
-                  No fee structure configured for the selected classes.
-                </td>
-              </tr>
-            </tbody>
-            <!-- Footer Row for Column Sums -->
-            <tfoot *ngIf="matrixRows.length > 0">
-              <tr class="tfoot-row">
-                <td colspan="2" class="td-tot-label">Consolidated Total / Average:</td>
-                <td *ngFor="let col of matrixColumns" class="td-tot-amt">
-                  ₹{{ getColumnTotal(col.id) | number:'1.2-2' }}
-                </td>
-                <td class="td-monthly-tot">
-                  ₹{{ getMonthlySumTotal() | number:'1.2-2' }}
-                </td>
-                <td class="td-annual-extras">
-                  ₹{{ getAnnualExtrasSumTotal() | number:'1.2-2' }}
-                </td>
-                <td class="td-grand-tot">
-                  <strong>₹{{ getGrandAnnualSumTotal() | number:'1.2-2' }}</strong>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <!-- ══════════ VIEW 2: SINGLE CLASS NOTICE / BREAKDOWN (A4 Portrait) ══════════ -->
-        <div *ngIf="viewMode === 'single'" class="single-class-notice-wrap">
-          <div class="single-target-banner">
-            <span class="target-badge">{{ targetType === 'class' ? 'Class' : 'Batch' }}: <strong>{{ currentTargetName }}</strong></span>
-            <span class="target-desc">Approved Fee Schedule for Academic Year {{ academicSession }}</span>
-          </div>
-
-          <div class="single-table-wrap">
+        @if (viewMode === 'consolidated') {
+          <div class="consolidated-table-wrap">
             <div class="mobile-scroll-hint no-print">
               <mat-icon>swipe</mat-icon>
-              <span>Swipe sideways if columns overflow &bull; विवरण दाएं-बाएं स्क्रॉल करें</span>
+              <span>Swipe sideways to view all columns &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
             </div>
-            <table class="single-breakdown-table">
+            <table class="matrix-table">
               <thead>
                 <tr>
                   <th class="th-sno">#</th>
-                  <th class="th-code">Code</th>
-                  <th class="th-pname">Fee Head Particulars</th>
-                  <th class="th-pcat">Category</th>
-                  <th class="th-pfreq">Frequency</th>
-                  <th class="th-pmonth">Due / Applicable Month</th>
-                  <th class="th-pamt">Amount (₹)</th>
+                  <th class="th-target">{{ targetType === 'class' ? 'Class Name' : 'Batch Name' }}</th>
+                  @for (col of matrixColumns; track col) {
+                    <th class="th-head-col">
+                      <div class="head-col-title" [matTooltip]="col.name">{{ col.name }}</div>
+                      <div class="head-col-meta">({{ col.code }} &bull; {{ col.frequency }})</div>
+                    </th>
+                  }
+                  <th class="th-monthly-tot">Total Monthly (₹)</th>
+                  <th class="th-annual-extras">Annual Extras (₹)</th>
+                  <th class="th-grand-tot">Grand Annual Est. (₹)</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of singleClassItems; let idx = index">
-                  <td class="td-sno">{{ idx + 1 }}</td>
-                  <td class="td-code"><span class="code-badge">{{ item.feeHeadCode }}</span></td>
-                  <td class="td-pname"><strong>{{ item.feeHeadName }}</strong></td>
-                  <td class="td-pcat"><span class="cat-tag">{{ item.category }}</span></td>
-                  <td class="td-pfreq"><span class="freq-tag">{{ item.frequency }}</span></td>
-                  <td class="td-pmonth">{{ getMonthName(item.applicableMonth) }}</td>
-                  <td class="td-pamt"><strong>₹{{ item.amount | number:'1.2-2' }}</strong></td>
-                </tr>
-                <tr *ngIf="singleClassItems.length === 0">
-                  <td colspan="7" class="empty-cell">No fee heads mapped to this class yet.</td>
-                </tr>
+                @for (r of matrixRows; track r; let idx = $index) {
+                  <tr>
+                    <td class="td-sno">{{ idx + 1 }}</td>
+                    <td class="td-target">
+                      <strong>{{ r.targetName }}</strong>
+                    </td>
+                    @for (col of matrixColumns; track col) {
+                      <td class="td-amt">
+                        @if (r.amounts[col.id] > 0) {
+                          <span>₹{{ r.amounts[col.id] | number:'1.2-2' }}</span>
+                        }
+                        @if (!r.amounts[col.id] || r.amounts[col.id] === 0) {
+                          <span class="nil-dash">—</span>
+                        }
+                      </td>
+                    }
+                    <td class="td-monthly-tot">
+                      <strong>₹{{ r.totalMonthly | number:'1.2-2' }}</strong>
+                    </td>
+                    <td class="td-annual-extras">
+                      <span>₹{{ r.totalAnnualExtras | number:'1.2-2' }}</span>
+                    </td>
+                    <td class="td-grand-tot">
+                      <strong class="grand-num">₹{{ r.grandAnnualEstimate | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                }
+                @if (matrixRows.length === 0) {
+                  <tr>
+                    <td [attr.colspan]="matrixColumns.length + 5" class="empty-cell">
+                      No fee structure configured for the selected classes.
+                    </td>
+                  </tr>
+                }
               </tbody>
-              <tfoot *ngIf="singleClassItems.length > 0">
-                <tr class="single-sum-row">
-                  <td colspan="6" class="sum-lbl">Total Recurring Monthly Billing (मासिक शुल्क):</td>
-                  <td class="sum-amt">₹{{ singleMonthlyTotal | number:'1.2-2' }} / month</td>
-                </tr>
-                <tr class="single-sum-row extras-row">
-                  <td colspan="6" class="sum-lbl">Annual / One-Time / Term Extras (वार्षिक अन्य शुल्क):</td>
-                  <td class="sum-amt">₹{{ singleAnnualExtras | number:'1.2-2' }}</td>
-                </tr>
-                <tr class="single-sum-row grand-row">
-                  <td colspan="6" class="sum-lbl">Estimated Annual Investment (कुल वार्षिक अनुमानित):</td>
-                  <td class="sum-amt grand-val">₹{{ (singleMonthlyTotal * 12 + singleAnnualExtras) | number:'1.2-2' }}</td>
-                </tr>
-              </tfoot>
+              <!-- Footer Row for Column Sums -->
+              @if (matrixRows.length > 0) {
+                <tfoot>
+                  <tr class="tfoot-row">
+                    <td colspan="2" class="td-tot-label">Consolidated Total / Average:</td>
+                    @for (col of matrixColumns; track col) {
+                      <td class="td-tot-amt">
+                        ₹{{ getColumnTotal(col.id) | number:'1.2-2' }}
+                      </td>
+                    }
+                    <td class="td-monthly-tot">
+                      ₹{{ getMonthlySumTotal() | number:'1.2-2' }}
+                    </td>
+                    <td class="td-annual-extras">
+                      ₹{{ getAnnualExtrasSumTotal() | number:'1.2-2' }}
+                    </td>
+                    <td class="td-grand-tot">
+                      <strong>₹{{ getGrandAnnualSumTotal() | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                </tfoot>
+              }
             </table>
           </div>
-
-          <!-- Payment Rules & Settlement Details -->
-          <div class="billing-rules-box" *ngIf="bankAccountInfo || upiInfo">
-            <h4 class="rules-title"><mat-icon>payment</mat-icon> Authorized Mode of Payment:</h4>
-            <div class="payment-credentials-row">
-              <div class="cred-cell" *ngIf="bankAccountInfo">
-                <span class="cred-lbl">Bank Settlement Account:</span>
-                <span class="cred-val">{{ bankAccountInfo }}</span>
-              </div>
-              <div class="cred-cell" *ngIf="upiInfo">
-                <span class="cred-lbl">Official UPI ID:</span>
-                <span class="cred-val">{{ upiInfo }}</span>
-              </div>
+        }
+    
+        <!-- ══════════ VIEW 2: SINGLE CLASS NOTICE / BREAKDOWN (A4 Portrait) ══════════ -->
+        @if (viewMode === 'single') {
+          <div class="single-class-notice-wrap">
+            <div class="single-target-banner">
+              <span class="target-badge">{{ targetType === 'class' ? 'Class' : 'Batch' }}: <strong>{{ currentTargetName }}</strong></span>
+              <span class="target-desc">Approved Fee Schedule for Academic Year {{ academicSession }}</span>
             </div>
-            <p class="rules-note">&bull; Fees must be deposited on or before the due date specified on the monthly invoice. Late fee fine is applicable thereafter as per institute policy.</p>
+            <div class="single-table-wrap">
+              <div class="mobile-scroll-hint no-print">
+                <mat-icon>swipe</mat-icon>
+                <span>Swipe sideways if columns overflow &bull; विवरण दाएं-बाएं स्क्रॉल करें</span>
+              </div>
+              <table class="single-breakdown-table">
+                <thead>
+                  <tr>
+                    <th class="th-sno">#</th>
+                    <th class="th-code">Code</th>
+                    <th class="th-pname">Fee Head Particulars</th>
+                    <th class="th-pcat">Category</th>
+                    <th class="th-pfreq">Frequency</th>
+                    <th class="th-pmonth">Due / Applicable Month</th>
+                    <th class="th-pamt">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of singleClassItems; track item; let idx = $index) {
+                    <tr>
+                      <td class="td-sno">{{ idx + 1 }}</td>
+                      <td class="td-code"><span class="code-badge">{{ item.feeHeadCode }}</span></td>
+                      <td class="td-pname"><strong>{{ item.feeHeadName }}</strong></td>
+                      <td class="td-pcat"><span class="cat-tag">{{ item.category }}</span></td>
+                      <td class="td-pfreq"><span class="freq-tag">{{ item.frequency }}</span></td>
+                      <td class="td-pmonth">{{ getMonthName(item.applicableMonth) }}</td>
+                      <td class="td-pamt"><strong>₹{{ item.amount | number:'1.2-2' }}</strong></td>
+                    </tr>
+                  }
+                  @if (singleClassItems.length === 0) {
+                    <tr>
+                      <td colspan="7" class="empty-cell">No fee heads mapped to this class yet.</td>
+                    </tr>
+                  }
+                </tbody>
+                @if (singleClassItems.length > 0) {
+                  <tfoot>
+                    <tr class="single-sum-row">
+                      <td colspan="6" class="sum-lbl">Total Recurring Monthly Billing (मासिक शुल्क):</td>
+                      <td class="sum-amt">₹{{ singleMonthlyTotal | number:'1.2-2' }} / month</td>
+                    </tr>
+                    <tr class="single-sum-row extras-row">
+                      <td colspan="6" class="sum-lbl">Annual / One-Time / Term Extras (वार्षिक अन्य शुल्क):</td>
+                      <td class="sum-amt">₹{{ singleAnnualExtras | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr class="single-sum-row grand-row">
+                      <td colspan="6" class="sum-lbl">Estimated Annual Investment (कुल वार्षिक अनुमानित):</td>
+                      <td class="sum-amt grand-val">₹{{ (singleMonthlyTotal * 12 + singleAnnualExtras) | number:'1.2-2' }}</td>
+                    </tr>
+                  </tfoot>
+                }
+              </table>
+            </div>
+            <!-- Payment Rules & Settlement Details -->
+            @if (bankAccountInfo || upiInfo) {
+              <div class="billing-rules-box">
+                <h4 class="rules-title"><mat-icon>payment</mat-icon> Authorized Mode of Payment:</h4>
+                <div class="payment-credentials-row">
+                  @if (bankAccountInfo) {
+                    <div class="cred-cell">
+                      <span class="cred-lbl">Bank Settlement Account:</span>
+                      <span class="cred-val">{{ bankAccountInfo }}</span>
+                    </div>
+                  }
+                  @if (upiInfo) {
+                    <div class="cred-cell">
+                      <span class="cred-lbl">Official UPI ID:</span>
+                      <span class="cred-val">{{ upiInfo }}</span>
+                    </div>
+                  }
+                </div>
+                <p class="rules-note">&bull; Fees must be deposited on or before the due date specified on the monthly invoice. Late fee fine is applicable thereafter as per institute policy.</p>
+              </div>
+            }
           </div>
-        </div>
-
+        }
+    
         <!-- ─── Signatures & Verification Stamp Block ───────────────────────── -->
         <div class="doc-footer-block">
           <div class="footer-note">
             <p><strong>Verification Statement:</strong> The above fee structure has been reviewed and ratified by the Management and Finance Committee. Any unauthorized alteration renders this schedule void.</p>
             <p class="gen-time">Generated on: <span [appIstDatetime]="nowDate" [format]="'datetime'"></span> (IST Asia/Kolkata)</p>
           </div>
-
+    
           <div class="auth-signatures-group">
             <!-- Prepared By -->
             <div class="sig-card">
@@ -364,17 +420,21 @@ interface ConsolidatedMatrixRow {
               <span class="sig-title">Accounts / Billing Officer</span>
               <span class="sig-subtitle">Prepared &amp; Verified</span>
             </div>
-
+    
             <!-- Official Seal (Stamp) -->
-            <div class="seal-card" *ngIf="officialSealUrl">
-              <img [src]="officialSealUrl" alt="Official Seal" class="seal-image" />
-              <span class="seal-label">Official Seal</span>
-            </div>
-
+            @if (officialSealUrl) {
+              <div class="seal-card">
+                <img [src]="officialSealUrl" alt="Official Seal" class="seal-image" />
+                <span class="seal-label">Official Seal</span>
+              </div>
+            }
+    
             <!-- Controller / Principal Sign -->
             <div class="sig-card controller-card">
               <div class="sig-space">
-                <img *ngIf="digitalSignatureUrl" [src]="digitalSignatureUrl" alt="Signature" class="sig-image" />
+                @if (digitalSignatureUrl) {
+                  <img [src]="digitalSignatureUrl" alt="Signature" class="sig-image" />
+                }
               </div>
               <div class="sig-line"></div>
               <span class="sig-title">Principal / Director</span>
@@ -382,10 +442,11 @@ interface ConsolidatedMatrixRow {
             </div>
           </div>
         </div>
-
+    
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

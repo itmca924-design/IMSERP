@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -50,24 +50,30 @@ export interface InventoryOutwardReceiptDialogData {
           </button>
         </div>
       </div>
-
+    
       <!-- Printable Document Container -->
       <div class="receipt-paper" id="store-issue-paper">
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
             <div class="logo-mark transparent-logo-mark" [class.has-img]="logoUrl && !logoFailed">
-              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-              <mat-icon *ngIf="!logoUrl || logoFailed" class="fallback-inst-icon">store</mat-icon>
+              @if (logoUrl && !logoFailed) {
+                <img [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+              }
+              @if (!logoUrl || logoFailed) {
+                <mat-icon class="fallback-inst-icon">store</mat-icon>
+              }
             </div>
             <div>
               <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Official Store Issue' }}</h2>
               <p class="inst-subtitle">Uniforms, Books & Academic Materials Distribution Store</p>
-              <p class="inst-branch" *ngIf="effectiveBranchName">
-                <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
-                <span class="branch-dept-sep">|</span>
-                <span class="branch-dept">Inventory & Logistics Dept.</span>
-              </p>
+              @if (effectiveBranchName) {
+                <p class="inst-branch">
+                  <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
+                  <span class="branch-dept-sep">|</span>
+                  <span class="branch-dept">Inventory & Logistics Dept.</span>
+                </p>
+              }
             </div>
           </div>
           <div class="receipt-badge">
@@ -76,7 +82,7 @@ export interface InventoryOutwardReceiptDialogData {
             <span class="copy-tag">STORE / STUDENT COPY</span>
           </div>
         </div>
-
+    
         <!-- Meta Strip -->
         <div class="meta-strip">
           <div class="meta-item">
@@ -98,7 +104,7 @@ export interface InventoryOutwardReceiptDialogData {
             </span>
           </div>
         </div>
-
+    
         <!-- Recipient Info Card -->
         <div class="recipient-profile-card">
           <div class="prof-col">
@@ -106,27 +112,33 @@ export interface InventoryOutwardReceiptDialogData {
               <span class="p-lbl">Issued To:</span>
               <span class="p-val bold-text">{{ data.outward.issuedToName }}</span>
             </div>
-            <div class="prof-row" *ngIf="data.outward.studentRollNo">
-              <span class="p-lbl">Roll Number:</span>
-              <span class="p-val">{{ data.outward.studentRollNo }}</span>
-            </div>
+            @if (data.outward.studentRollNo) {
+              <div class="prof-row">
+                <span class="p-lbl">Roll Number:</span>
+                <span class="p-val">{{ data.outward.studentRollNo }}</span>
+              </div>
+            }
           </div>
           <div class="prof-col">
-            <div class="prof-row" *ngIf="data.outward.departmentOrClass">
-              <span class="p-lbl">Class / Department:</span>
-              <span class="p-val">{{ data.outward.departmentOrClass }}</span>
-            </div>
+            @if (data.outward.departmentOrClass) {
+              <div class="prof-row">
+                <span class="p-lbl">Class / Department:</span>
+                <span class="p-val">{{ data.outward.departmentOrClass }}</span>
+              </div>
+            }
             <div class="prof-row">
               <span class="p-lbl">Remarks:</span>
               <span class="p-val">{{ data.outward.remarks || 'Standard stock issue' }}</span>
             </div>
           </div>
-          <div class="prof-col qr-col" *ngIf="qrCodeDataUrl">
-            <img [src]="qrCodeDataUrl" alt="Verification QR" class="receipt-qr-img" />
-            <span class="qr-caption">Scan to Verify</span>
-          </div>
+          @if (qrCodeDataUrl) {
+            <div class="prof-col qr-col">
+              <img [src]="qrCodeDataUrl" alt="Verification QR" class="receipt-qr-img" />
+              <span class="qr-caption">Scan to Verify</span>
+            </div>
+          }
         </div>
-
+    
         <!-- Items Table -->
         <table class="receipt-items-table">
           <thead>
@@ -139,19 +151,25 @@ export interface InventoryOutwardReceiptDialogData {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let item of data.outward.items; let i = index">
-              <td style="text-align: center;">{{ i + 1 }}</td>
-              <td>
-                <div class="item-name-cell">
-                  <span class="primary-item-name">{{ item.itemName }}</span>
-                  <span class="item-code-tag" *ngIf="item.itemCode">Code: {{ item.itemCode }}</span>
-                  <span class="item-sub-desc" *ngIf="item.remarks">{{ item.remarks }}</span>
-                </div>
-              </td>
-              <td style="text-align: center; font-weight: 600;">{{ item.quantity }}</td>
-              <td style="text-align: right;">₹{{ item.unitPrice | number:'1.2-2' }}</td>
-              <td style="text-align: right; font-weight: 700;">₹{{ item.totalAmount | number:'1.2-2' }}</td>
-            </tr>
+            @for (item of data.outward.items; track item; let i = $index) {
+              <tr>
+                <td style="text-align: center;">{{ i + 1 }}</td>
+                <td>
+                  <div class="item-name-cell">
+                    <span class="primary-item-name">{{ item.itemName }}</span>
+                    @if (item.itemCode) {
+                      <span class="item-code-tag">Code: {{ item.itemCode }}</span>
+                    }
+                    @if (item.remarks) {
+                      <span class="item-sub-desc">{{ item.remarks }}</span>
+                    }
+                  </div>
+                </td>
+                <td style="text-align: center; font-weight: 600;">{{ item.quantity }}</td>
+                <td style="text-align: right;">₹{{ item.unitPrice | number:'1.2-2' }}</td>
+                <td style="text-align: right; font-weight: 700;">₹{{ item.totalAmount | number:'1.2-2' }}</td>
+              </tr>
+            }
           </tbody>
           <tfoot>
             <tr class="total-row">
@@ -163,15 +181,17 @@ export interface InventoryOutwardReceiptDialogData {
             </tr>
           </tfoot>
         </table>
-
+    
         <!-- Amount In Words -->
-        <div class="words-strip" *ngIf="data.outward.totalAmount > 0">
-          <div class="words-content">
-            <span class="w-lbl">Amount in Words:</span>
-            <span class="w-text">{{ getAmountInWords(data.outward.totalAmount) }}</span>
+        @if (data.outward.totalAmount > 0) {
+          <div class="words-strip">
+            <div class="words-content">
+              <span class="w-lbl">Amount in Words:</span>
+              <span class="w-text">{{ getAmountInWords(data.outward.totalAmount) }}</span>
+            </div>
           </div>
-        </div>
-
+        }
+    
         <!-- Payment Treatment Alert Notice -->
         <div class="notice-box" [ngClass]="getNoticeClass()">
           <mat-icon class="notice-icon">{{ getNoticeIcon() }}</mat-icon>
@@ -180,7 +200,7 @@ export interface InventoryOutwardReceiptDialogData {
             <span>{{ getNoticeDescription() }}</span>
           </div>
         </div>
-
+    
         <!-- Signatures & Authorization -->
         <div class="signatures-strip">
           <div class="sig-box">
@@ -199,14 +219,15 @@ export interface InventoryOutwardReceiptDialogData {
             <span class="sig-sub">Authorized Signatory</span>
           </div>
         </div>
-
+    
         <!-- Footer Terms -->
         <div class="footer-terms">
           <p>This is a computer-generated store issue slip issued under institutional inventory management. Goods once distributed may be exchanged within 3 days in unused original condition with this slip.</p>
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .receipt-modal-container {
       width: 100%;

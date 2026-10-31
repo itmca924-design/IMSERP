@@ -1,5 +1,6 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -26,7 +27,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   selector: 'app-log-grievance-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -36,7 +36,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatSelectModule,
     MatAutocompleteModule,
     MatSlideToggleModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <div class="dialog-header">
@@ -53,7 +53,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="dialog-body">
         <!-- Student Link Toggle -->
         <div class="student-toggle-bar">
@@ -61,34 +61,40 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             Relates to an Enrolled Student?
           </mat-slide-toggle>
         </div>
-
-        <div *ngIf="isStudentLinked" class="form-row full-width">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>Search Student (Name or Roll #)</mat-label>
-            <input matInput [matAutocomplete]="autoStudent" [formControl]="studentSearchControl" placeholder="Type name or roll number..." />
-            <mat-autocomplete #autoStudent="matAutocomplete" (optionSelected)="onStudentSelected($event.option.value)">
-              <mat-option *ngFor="let s of studentResults" [value]="s">
-                {{ s.studentName }} &bull; Roll: {{ s.admissionNumber || s.rollNumber }} ({{ s.gradeClass || 'Class' }})
-              </mat-option>
-            </mat-autocomplete>
-          </mat-form-field>
-        </div>
-
-        <div *ngIf="selectedStudent && isStudentLinked" class="selected-student-box">
-          <div class="student-name">{{ selectedStudent.studentName }}</div>
-          <div class="student-details">
-            Class: {{ selectedStudent.gradeClass || 'N/A' }} &bull;
-            Parent: {{ selectedStudent.parentName || 'Parent' }} &bull;
-            Phone: {{ selectedStudent.parentWhatsAppPhone || 'N/A' }}
+    
+        @if (isStudentLinked) {
+          <div class="form-row full-width">
+            <mat-form-field appearance="outline" class="w-100">
+              <mat-label>Search Student (Name or Roll #)</mat-label>
+              <input matInput [matAutocomplete]="autoStudent" [formControl]="studentSearchControl" placeholder="Type name or roll number..." />
+              <mat-autocomplete #autoStudent="matAutocomplete" (optionSelected)="onStudentSelected($event.option.value)">
+                @for (s of studentResults; track s) {
+                  <mat-option [value]="s">
+                    {{ s.studentName }} &bull; Roll: {{ s.admissionNumber || s.rollNumber }} ({{ s.gradeClass || 'Class' }})
+                  </mat-option>
+                }
+              </mat-autocomplete>
+            </mat-form-field>
           </div>
-        </div>
-
+        }
+    
+        @if (selectedStudent && isStudentLinked) {
+          <div class="selected-student-box">
+            <div class="student-name">{{ selectedStudent.studentName }}</div>
+            <div class="student-details">
+              Class: {{ selectedStudent.gradeClass || 'N/A' }} &bull;
+              Parent: {{ selectedStudent.parentName || 'Parent' }} &bull;
+              Phone: {{ selectedStudent.parentWhatsAppPhone || 'N/A' }}
+            </div>
+          </div>
+        }
+    
         <div class="form-row three-col">
           <mat-form-field appearance="outline">
             <mat-label>Raised By Name *</mat-label>
             <input matInput formControlName="raisedByName" placeholder="Parent or Staff Name" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>Raised By Role *</mat-label>
             <mat-select formControlName="raisedByRole">
@@ -98,13 +104,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-option value="Visitor">Visitor / Public</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>Contact Phone *</mat-label>
             <input matInput formControlName="contactPhone" placeholder="Mobile number" />
           </mat-form-field>
         </div>
-
+    
         <div class="form-row two-col">
           <mat-form-field appearance="outline">
             <mat-label>Category *</mat-label>
@@ -119,7 +125,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-option value="Other">Other / General Issue</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>Priority Level *</mat-label>
             <mat-select formControlName="priority">
@@ -130,33 +136,33 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <div class="form-row full-width">
           <mat-form-field appearance="outline" class="w-100">
             <mat-label>Grievance Subject / Title *</mat-label>
             <input matInput formControlName="subject" placeholder="Brief subject of the complaint..." />
           </mat-form-field>
         </div>
-
+    
         <div class="form-row full-width">
           <mat-form-field appearance="outline" class="w-100">
             <mat-label>Detailed Description of Issue *</mat-label>
             <textarea matInput rows="3" formControlName="description" placeholder="Describe the grievance in detail with dates, places, persons involved..."></textarea>
           </mat-form-field>
         </div>
-
+    
         <div class="form-row two-col">
           <mat-form-field appearance="outline">
             <mat-label>Assignee / Department Officer</mat-label>
             <input matInput formControlName="assignedToName" placeholder="e.g. Transport Manager / Principal Office" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline">
             <mat-label>Contact Email (Optional)</mat-label>
             <input matInput formControlName="contactEmail" placeholder="parent@gmail.com" />
           </mat-form-field>
         </div>
-
+    
         <div class="dialog-actions">
           <button mat-button type="button" (click)="dialogRef.close()">Cancel</button>
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isSaving">
@@ -166,7 +172,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; width: 640px; max-width: 95vw; }
     .dialog-header {
@@ -328,7 +335,7 @@ export class LogGrievanceDialogComponent implements OnInit {
     MatInputModule,
     MatSelectModule,
     MatChipsModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <div class="dialog-header">
@@ -345,7 +352,7 @@ export class LogGrievanceDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="dialog-body">
         <!-- Overview Banner -->
         <div class="ticket-overview-card">
@@ -362,18 +369,20 @@ export class LogGrievanceDialogComponent implements OnInit {
               <span class="overview-lbl">Phone:</span>
               <strong>{{ ticket.contactPhone }}</strong>
             </div>
-            <div class="overview-item" *ngIf="ticket.studentName">
-              <span class="overview-lbl">Student:</span>
-              <strong>{{ ticket.studentName }} ({{ ticket.className || 'Class' }})</strong>
-            </div>
+            @if (ticket.studentName) {
+              <div class="overview-item">
+                <span class="overview-lbl">Student:</span>
+                <strong>{{ ticket.studentName }} ({{ ticket.className || 'Class' }})</strong>
+              </div>
+            }
           </div>
-
+    
           <div class="subject-box">
             <span class="subject-title">{{ ticket.subject }}</span>
             <p class="desc-text">{{ ticket.description }}</p>
           </div>
         </div>
-
+    
         <!-- Resolution Status Action Form -->
         <form [formGroup]="statusForm" (ngSubmit)="onUpdateStatus()" class="status-update-card">
           <h4 class="card-heading">
@@ -391,25 +400,25 @@ export class LogGrievanceDialogComponent implements OnInit {
                 <mat-option value="Rejected">Rejected</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Assigned Officer</mat-label>
               <input matInput formControlName="assignedToName" placeholder="Staff Name" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Resolved By Name</mat-label>
               <input matInput formControlName="resolvedByName" placeholder="Officer Name" />
             </mat-form-field>
           </div>
-
+    
           <div class="form-row full-width">
             <mat-form-field appearance="outline" class="w-100">
               <mat-label>Resolution Notes / Redressal Summary</mat-label>
               <textarea matInput rows="2" formControlName="resolutionSummary" placeholder="Steps taken to resolve this grievance, outcome, and parent communication..."></textarea>
             </mat-form-field>
           </div>
-
+    
           <div class="status-btn-row">
             <button mat-flat-button color="primary" type="submit" [disabled]="statusForm.invalid || isUpdatingStatus">
               <mat-icon>{{ isUpdatingStatus ? 'hourglass_top' : 'check_circle' }}</mat-icon>
@@ -417,26 +426,28 @@ export class LogGrievanceDialogComponent implements OnInit {
             </button>
           </div>
         </form>
-
+    
         <!-- Discussion & Timeline Activity Log -->
         <div class="timeline-section">
           <h4 class="card-heading">
             <mat-icon>forum</mat-icon> Activity Log & Notes ({{ comments.length }})
           </h4>
-
+    
           <div class="timeline-list">
-            <div *ngFor="let c of comments" class="timeline-item" [ngClass]="{ 'internal-note': c.isInternal }">
-              <div class="timeline-header">
-                <span class="author-tag">
-                  <strong>{{ c.authorName }}</strong>
-                  <small class="role-badge">({{ c.authorRole }})</small>
-                </span>
-                <span class="timeline-date">{{ c.createdAt | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}</span>
+            @for (c of comments; track c) {
+              <div class="timeline-item" [ngClass]="{ 'internal-note': c.isInternal }">
+                <div class="timeline-header">
+                  <span class="author-tag">
+                    <strong>{{ c.authorName }}</strong>
+                    <small class="role-badge">({{ c.authorRole }})</small>
+                  </span>
+                  <span class="timeline-date">{{ c.createdAt | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}</span>
+                </div>
+                <div class="timeline-body">{{ c.comment }}</div>
               </div>
-              <div class="timeline-body">{{ c.comment }}</div>
-            </div>
+            }
           </div>
-
+    
           <!-- Add Note Form -->
           <form [formGroup]="commentForm" (ngSubmit)="onAddComment()" class="add-note-form">
             <mat-form-field appearance="outline" class="w-100">
@@ -450,7 +461,8 @@ export class LogGrievanceDialogComponent implements OnInit {
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; width: 680px; max-width: 95vw; }
     .dialog-header {
@@ -668,7 +680,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
     MatDialogModule,
     MatProgressSpinnerModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="page-container">
       <!-- Top Title & Action Header -->
@@ -691,7 +703,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
           </button>
         </div>
       </div>
-
+    
       <!-- KPI Stats Ribbon -->
       <div class="kpi-grid">
         <mat-card class="kpi-card card-blue">
@@ -706,7 +718,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-amber">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -719,7 +731,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-indigo">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -732,7 +744,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-emerald">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -746,7 +758,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
           </div>
         </mat-card>
       </div>
-
+    
       <!-- Reactive Filter Deck -->
       <mat-card class="filter-card">
         <form [formGroup]="filterForm" class="filter-form">
@@ -755,10 +767,12 @@ export class GrievanceDetailsDialogComponent implements OnInit {
               <mat-label>Campus Branch</mat-label>
               <mat-select formControlName="branchId" (selectionChange)="onFilterChanged()">
                 <mat-option value="ALL">All Campuses Consolidated</mat-option>
-                <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
+                @for (b of branches; track b) {
+                  <mat-option [value]="b.id">{{ b.name }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Status</mat-label>
               <mat-select formControlName="status" (selectionChange)="onFilterChanged()">
@@ -771,7 +785,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
                 <mat-option value="Rejected">Rejected</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Category</mat-label>
               <mat-select formControlName="category" (selectionChange)="onFilterChanged()">
@@ -786,7 +800,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
                 <mat-option value="Other">Other</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Priority</mat-label>
               <mat-select formControlName="priority" (selectionChange)="onFilterChanged()">
@@ -797,7 +811,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
                 <mat-option value="Low">Low</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Division / Stream</mat-label>
               <mat-select formControlName="divisionScope" (selectionChange)="onFilterChanged()">
@@ -807,7 +821,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
                 <mat-option value="Dual">Dual Enrolled</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-field search-field">
               <mat-label>Search Tickets</mat-label>
               <input matInput formControlName="searchTerm" placeholder="Search ticket #, subject, student, phone..." (keyup.enter)="onFilterChanged()" />
@@ -815,7 +829,7 @@ export class GrievanceDetailsDialogComponent implements OnInit {
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
-
+    
             <div class="filter-actions">
               <button mat-stroked-button type="button" (click)="resetFilters()">
                 <mat-icon>refresh</mat-icon> Reset
@@ -824,124 +838,132 @@ export class GrievanceDetailsDialogComponent implements OnInit {
           </div>
         </form>
       </mat-card>
-
+    
       <!-- Single Prominent Loader -->
-      <div *ngIf="isLoading" class="loader-container">
-        <mat-spinner diameter="44"></mat-spinner>
-        <span>Loading grievance tickets...</span>
-      </div>
-
+      @if (isLoading) {
+        <div class="loader-container">
+          <mat-spinner diameter="44"></mat-spinner>
+          <span>Loading grievance tickets...</span>
+        </div>
+      }
+    
       <!-- Main Tickets Table -->
-      <div *ngIf="!isLoading">
-        <div *ngIf="tickets.length === 0" class="empty-state">
-          <mat-icon class="empty-icon">inbox</mat-icon>
-          <h3>No grievances found</h3>
-          <p>No complaints or grievance tickets match the current filters. Click "Log New Grievance" to create one.</p>
-        </div>
-
-        <div *ngIf="tickets.length > 0" class="table-responsive">
-          <table mat-table [dataSource]="tickets" class="tickets-table">
-            <ng-container matColumnDef="ticketNumber">
-              <th mat-header-cell *matHeaderCellDef>Ticket #</th>
-              <td mat-cell *matCellDef="let t">
-                <span class="ticket-chip" (click)="openTicketDetails(t)" matTooltip="Click to View & Resolve">
-                  {{ t.ticketNumber }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="subject">
-              <th mat-header-cell *matHeaderCellDef>Subject & Category</th>
-              <td mat-cell *matCellDef="let t">
-                <div class="subject-cell">
-                  <span class="subj-text">{{ t.subject }}</span>
-                  <div class="meta-row">
-                    <span class="category-pill">{{ t.category }}</span>
-                    <span class="comments-count" *ngIf="t.commentsCount > 0">
-                      <mat-icon>forum</mat-icon> {{ t.commentsCount }}
+      @if (!isLoading) {
+        <div>
+          @if (tickets.length === 0) {
+            <div class="empty-state">
+              <mat-icon class="empty-icon">inbox</mat-icon>
+              <h3>No grievances found</h3>
+              <p>No complaints or grievance tickets match the current filters. Click "Log New Grievance" to create one.</p>
+            </div>
+          }
+          @if (tickets.length > 0) {
+            <div class="table-responsive">
+              <table mat-table [dataSource]="tickets" class="tickets-table">
+                <ng-container matColumnDef="ticketNumber">
+                  <th mat-header-cell *matHeaderCellDef>Ticket #</th>
+                  <td mat-cell *matCellDef="let t">
+                    <span class="ticket-chip" (click)="openTicketDetails(t)" matTooltip="Click to View & Resolve">
+                      {{ t.ticketNumber }}
                     </span>
-                  </div>
-                </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="raisedBy">
-              <th mat-header-cell *matHeaderCellDef>Raised By</th>
-              <td mat-cell *matCellDef="let t">
-                <div class="raised-cell">
-                  <strong>{{ t.raisedByName }}</strong>
-                  <span class="role-pill">{{ t.raisedByRole }} &bull; {{ t.contactPhone }}</span>
-                </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="student">
-              <th mat-header-cell *matHeaderCellDef>Related Student & Stream</th>
-              <td mat-cell *matCellDef="let t">
-                <div class="student-cell" *ngIf="t.studentName">
-                  <div class="st-stream-row">
-                    <strong>{{ t.studentName }}</strong>
-                    <span class="stream-pill" [class.coaching]="t.divisionScope === 'Coaching'" [class.school]="t.divisionScope === 'School'" [class.dual]="t.divisionScope === 'Dual'">
-                      {{ t.divisionScope || 'Student' }}
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="subject">
+                  <th mat-header-cell *matHeaderCellDef>Subject & Category</th>
+                  <td mat-cell *matCellDef="let t">
+                    <div class="subject-cell">
+                      <span class="subj-text">{{ t.subject }}</span>
+                      <div class="meta-row">
+                        <span class="category-pill">{{ t.category }}</span>
+                        @if (t.commentsCount > 0) {
+                          <span class="comments-count">
+                            <mat-icon>forum</mat-icon> {{ t.commentsCount }}
+                          </span>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="raisedBy">
+                  <th mat-header-cell *matHeaderCellDef>Raised By</th>
+                  <td mat-cell *matCellDef="let t">
+                    <div class="raised-cell">
+                      <strong>{{ t.raisedByName }}</strong>
+                      <span class="role-pill">{{ t.raisedByRole }} &bull; {{ t.contactPhone }}</span>
+                    </div>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="student">
+                  <th mat-header-cell *matHeaderCellDef>Related Student & Stream</th>
+                  <td mat-cell *matCellDef="let t">
+                    @if (t.studentName) {
+                      <div class="student-cell">
+                        <div class="st-stream-row">
+                          <strong>{{ t.studentName }}</strong>
+                          <span class="stream-pill" [class.coaching]="t.divisionScope === 'Coaching'" [class.school]="t.divisionScope === 'School'" [class.dual]="t.divisionScope === 'Dual'">
+                            {{ t.divisionScope || 'Student' }}
+                          </span>
+                        </div>
+                        <small>{{ t.className || 'Class' }} &bull; {{ t.admissionNumber || 'N/A' }}</small>
+                      </div>
+                    }
+                    @if (!t.studentName) {
+                      <div class="general-cell">
+                        <span class="text-muted">General Campus</span>
+                        @if (t.divisionScope && t.divisionScope !== 'All') {
+                          <span class="stream-pill" [class.coaching]="t.divisionScope === 'Coaching'" [class.school]="t.divisionScope === 'School'">
+                            {{ t.divisionScope }}
+                          </span>
+                        }
+                      </div>
+                    }
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="priority">
+                  <th mat-header-cell *matHeaderCellDef>Priority</th>
+                  <td mat-cell *matCellDef="let t">
+                    <span class="priority-pill" [ngClass]="t.priority.toLowerCase()">
+                      {{ t.priority }}
                     </span>
-                  </div>
-                  <small>{{ t.className || 'Class' }} &bull; {{ t.admissionNumber || 'N/A' }}</small>
-                </div>
-                <div *ngIf="!t.studentName" class="general-cell">
-                  <span class="text-muted">General Campus</span>
-                  <span class="stream-pill" *ngIf="t.divisionScope && t.divisionScope !== 'All'" [class.coaching]="t.divisionScope === 'Coaching'" [class.school]="t.divisionScope === 'School'">
-                    {{ t.divisionScope }}
-                  </span>
-                </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="priority">
-              <th mat-header-cell *matHeaderCellDef>Priority</th>
-              <td mat-cell *matCellDef="let t">
-                <span class="priority-pill" [ngClass]="t.priority.toLowerCase()">
-                  {{ t.priority }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let t">
-                <span class="status-badge" [ngClass]="t.status.toLowerCase().replace(' ', '-')">
-                  {{ t.status }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="created">
-              <th mat-header-cell *matHeaderCellDef>Logged At</th>
-              <td mat-cell *matCellDef="let t">
-                <span class="date-text">{{ t.createdAt | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
-              <td mat-cell *matCellDef="let t" class="text-right">
-                <div class="action-buttons">
-                  <button mat-stroked-button color="primary" class="btn-compact" (click)="openTicketDetails(t)">
-                    <mat-icon>visibility</mat-icon> View & Resolve
-                  </button>
-                  <button mat-icon-button color="warn" (click)="deleteTicket(t)" matTooltip="Delete Ticket">
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </div>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="interactive-row"></tr>
-          </table>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="status">
+                  <th mat-header-cell *matHeaderCellDef>Status</th>
+                  <td mat-cell *matCellDef="let t">
+                    <span class="status-badge" [ngClass]="t.status.toLowerCase().replace(' ', '-')">
+                      {{ t.status }}
+                    </span>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="created">
+                  <th mat-header-cell *matHeaderCellDef>Logged At</th>
+                  <td mat-cell *matCellDef="let t">
+                    <span class="date-text">{{ t.createdAt | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+                  <td mat-cell *matCellDef="let t" class="text-right">
+                    <div class="action-buttons">
+                      <button mat-stroked-button color="primary" class="btn-compact" (click)="openTicketDetails(t)">
+                        <mat-icon>visibility</mat-icon> View & Resolve
+                      </button>
+                      <button mat-icon-button color="warn" (click)="deleteTicket(t)" matTooltip="Delete Ticket">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                  </td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="interactive-row"></tr>
+              </table>
+            </div>
+          }
         </div>
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

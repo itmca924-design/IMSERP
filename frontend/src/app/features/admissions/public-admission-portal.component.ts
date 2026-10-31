@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -48,24 +48,31 @@ import {
       <header class="portal-header">
         <div class="header-container">
           <div class="brand-left">
-            <div class="brand-logo-wrap" *ngIf="institute?.profilePhoto; else defaultLogo">
-              <img [src]="institute?.profilePhoto" [alt]="institute?.tenantName" class="brand-img" />
-            </div>
-            <ng-template #defaultLogo>
+            @if (institute?.profilePhoto) {
+              <div class="brand-logo-wrap">
+                <img [src]="$safeNavigationMigration(institute?.profilePhoto)" [alt]="$safeNavigationMigration(institute?.tenantName)" class="brand-img" />
+              </div>
+            } @else {
               <div class="brand-icon-box">
                 <mat-icon>school</mat-icon>
               </div>
-            </ng-template>
+            }
             <div class="brand-text">
               <h1 class="institute-name">{{ institute?.tenantName || 'Online Admission Portal' }}</h1>
-              <p class="institute-meta" *ngIf="institute?.address">
-                <mat-icon class="meta-icon">location_on</mat-icon> {{ institute?.address }}
-                <span class="sep" *ngIf="institute?.contactPhone">•</span>
-                <span *ngIf="institute?.contactPhone"><mat-icon class="meta-icon">call</mat-icon> {{ institute?.contactPhone }}</span>
-              </p>
+              @if (institute?.address) {
+                <p class="institute-meta">
+                  <mat-icon class="meta-icon">location_on</mat-icon> {{ institute?.address }}
+                  @if (institute?.contactPhone) {
+                    <span class="sep">•</span>
+                  }
+                  @if (institute?.contactPhone) {
+                    <span><mat-icon class="meta-icon">call</mat-icon> {{ institute?.contactPhone }}</span>
+                  }
+                </p>
+              }
             </div>
           </div>
-
+    
           <div class="nav-actions">
             <button mat-stroked-button [class.btn-active]="activeTab === 'apply'" (click)="activeTab = 'apply'">
               <mat-icon>edit_note</mat-icon> Apply Online
@@ -79,416 +86,420 @@ import {
           </div>
         </div>
       </header>
-
+    
       <!-- Single Global Loader -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="portal-progress"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="portal-progress"></mat-progress-bar>
+      }
+    
       <main class="portal-main">
         <!-- Error Banner -->
-        <div class="alert-box alert-danger" *ngIf="errorMessage">
-          <mat-icon>error_outline</mat-icon>
-          <span>{{ errorMessage }}</span>
-        </div>
-
+        @if (errorMessage) {
+          <div class="alert-box alert-danger">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ errorMessage }}</span>
+          </div>
+        }
+    
         <!-- ============================================================== -->
         <!-- VIEW 1: APPLICATION SUBMISSION SUCCESS SLIP                   -->
         <!-- ============================================================== -->
-        <section class="success-section" *ngIf="submittedResult && activeTab === 'apply'">
-          <mat-card class="success-card print-slip">
-            <div class="success-header">
-              <div class="check-icon-circle">
-                <mat-icon>check_circle</mat-icon>
+        @if (submittedResult && activeTab === 'apply') {
+          <section class="success-section">
+            <mat-card class="success-card print-slip">
+              <div class="success-header">
+                <div class="check-icon-circle">
+                  <mat-icon>check_circle</mat-icon>
+                </div>
+                <h2 class="success-title">Application Submitted Successfully!</h2>
+                <p class="success-subtitle">
+                  Thank you, <strong>{{ submittedResult.studentName }}</strong>. Your admission application has been registered with <strong>{{ submittedResult.instituteName }}</strong>.
+                </p>
               </div>
-              <h2 class="success-title">Application Submitted Successfully!</h2>
-              <p class="success-subtitle">
-                Thank you, <strong>{{ submittedResult.studentName }}</strong>. Your admission application has been registered with <strong>{{ submittedResult.instituteName }}</strong>.
-              </p>
-            </div>
-
-            <mat-divider></mat-divider>
-
-            <div class="slip-details">
-              <div class="ref-badge-deck">
-                <div class="ref-item">
-                  <span class="ref-label">Application Reference No.</span>
-                  <div class="ref-val-wrap">
-                    <span class="ref-val">{{ submittedResult.applicationNumber }}</span>
-                    <button mat-icon-button (click)="copyAppNumber(submittedResult.applicationNumber)" matTooltip="Copy Application Number">
-                      <mat-icon>content_copy</mat-icon>
-                    </button>
+              <mat-divider></mat-divider>
+              <div class="slip-details">
+                <div class="ref-badge-deck">
+                  <div class="ref-item">
+                    <span class="ref-label">Application Reference No.</span>
+                    <div class="ref-val-wrap">
+                      <span class="ref-val">{{ submittedResult.applicationNumber }}</span>
+                      <button mat-icon-button (click)="copyAppNumber(submittedResult.applicationNumber)" matTooltip="Copy Application Number">
+                        <mat-icon>content_copy</mat-icon>
+                      </button>
+                    </div>
                   </div>
+                  <div class="ref-item">
+                    <span class="ref-label">Submission Date & Time (IST)</span>
+                    <span class="ref-meta">{{ submittedResult.submissionDate }}</span>
+                  </div>
+                  @if (submittedResult.branchName) {
+                    <div class="ref-item">
+                      <span class="ref-label">Assigned Campus / Branch</span>
+                      <span class="ref-meta">{{ submittedResult.branchName }}</span>
+                    </div>
+                  }
                 </div>
-                <div class="ref-item">
-                  <span class="ref-label">Submission Date & Time (IST)</span>
-                  <span class="ref-meta">{{ submittedResult.submissionDate }}</span>
-                </div>
-                <div class="ref-item" *ngIf="submittedResult.branchName">
-                  <span class="ref-label">Assigned Campus / Branch</span>
-                  <span class="ref-meta">{{ submittedResult.branchName }}</span>
+                <div class="next-steps-panel">
+                  <h4 class="steps-title"><mat-icon>info</mat-icon> Next Steps for Admission:</h4>
+                  <ol class="steps-list">
+                    <li>Keep this <strong>Application Number</strong> saved for all counseling, entrance tests, and fee payment queries.</li>
+                    <li>Our admissions desk will verify your details and contact you via call or WhatsApp on the registered number.</li>
+                    <li>You can track the status of your application anytime using the <strong>Track Application</strong> tab above.</li>
+                  </ol>
                 </div>
               </div>
-
-              <div class="next-steps-panel">
-                <h4 class="steps-title"><mat-icon>info</mat-icon> Next Steps for Admission:</h4>
-                <ol class="steps-list">
-                  <li>Keep this <strong>Application Number</strong> saved for all counseling, entrance tests, and fee payment queries.</li>
-                  <li>Our admissions desk will verify your details and contact you via call or WhatsApp on the registered number.</li>
-                  <li>You can track the status of your application anytime using the <strong>Track Application</strong> tab above.</li>
-                </ol>
+              <div class="success-actions no-print">
+                <button mat-raised-button color="primary" class="action-btn" (click)="printSlip()">
+                  <mat-icon>print</mat-icon> Print Application Slip
+                </button>
+                <button mat-stroked-button class="action-btn" (click)="resetForm()">
+                  <mat-icon>add_circle_outline</mat-icon> Submit Another Application
+                </button>
               </div>
-            </div>
-
-            <div class="success-actions no-print">
-              <button mat-raised-button color="primary" class="action-btn" (click)="printSlip()">
-                <mat-icon>print</mat-icon> Print Application Slip
-              </button>
-              <button mat-stroked-button class="action-btn" (click)="resetForm()">
-                <mat-icon>add_circle_outline</mat-icon> Submit Another Application
-              </button>
-            </div>
-          </mat-card>
-        </section>
-
+            </mat-card>
+          </section>
+        }
+    
         <!-- ============================================================== -->
         <!-- VIEW 2: ONLINE ADMISSION APPLICATION FORM                      -->
         <!-- ============================================================== -->
-        <section class="form-section" *ngIf="!submittedResult && activeTab === 'apply'">
-          <div class="form-hero">
-            <span class="hero-chip">Academic Session Admissions Open</span>
-            <h2 class="hero-title">Online Student Admission Application</h2>
-            <p class="hero-desc">
-              Fill in the application details carefully. Required fields are marked with an asterisk (<span class="req">*</span>).
-            </p>
-          </div>
-
-          <form [formGroup]="admissionForm" (ngSubmit)="onSubmitApplication()" class="admission-form">
-            
-            <!-- SECTION 1: ADMISSION PREFERENCES -->
-            <mat-card class="form-card">
-              <div class="section-title-wrap">
-                <div class="section-badge">1</div>
-                <div>
-                  <h3 class="section-title">Admission Stream & Campus Preferences</h3>
-                  <p class="section-sub">Choose your admission stream (School Academic vs Coaching Batch) and select campus.</p>
-                </div>
-              </div>
-
-              <!-- Stream Selection Deck -->
-              <div class="stream-selector-wrap">
-                <label class="stream-label">Select Admission Stream / Type <span class="req">*</span></label>
-                <div class="stream-btn-deck">
-                  <button type="button" 
-                          class="stream-type-btn" 
-                          [class.active]="admissionForm.get('admissionStream')?.value === 'School'"
-                          (click)="setStream('School')">
-                    <div class="stream-icon-box school-box">
-                      <mat-icon>school</mat-icon>
-                    </div>
-                    <div class="stream-info">
-                      <span class="stream-name">School Academic Admission</span>
-                      <span class="stream-desc">Nursery to Class 12 Regular CBSE / State Board</span>
-                    </div>
-                    <mat-icon class="check-indicator" *ngIf="admissionForm.get('admissionStream')?.value === 'School'">check_circle</mat-icon>
-                  </button>
-
-                  <button type="button" 
-                          class="stream-type-btn" 
-                          [class.active]="admissionForm.get('admissionStream')?.value === 'Coaching'"
-                          (click)="setStream('Coaching')">
-                    <div class="stream-icon-box coaching-box">
-                      <mat-icon>menu_book</mat-icon>
-                    </div>
-                    <div class="stream-info">
-                      <span class="stream-name">Coaching / Competitive Batch</span>
-                      <span class="stream-desc">IIT-JEE, NEET, Foundation, Target & Test Series</span>
-                    </div>
-                    <mat-icon class="check-indicator" *ngIf="admissionForm.get('admissionStream')?.value === 'Coaching'">check_circle</mat-icon>
-                  </button>
-                </div>
-              </div>
-
-              <div class="form-grid">
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Campus / Branch <span class="req">*</span></mat-label>
-                  <mat-select formControlName="branchId" (selectionChange)="onBranchChanged()">
-                    <mat-option *ngFor="let b of institute?.branches" [value]="b.id">
-                      {{ b.name }}
-                    </mat-option>
-                  </mat-select>
-                  <mat-error *ngIf="admissionForm.get('branchId')?.hasError('required')">Branch is required</mat-error>
-                </mat-form-field>
-
-                <!-- Class selector for School -->
-                <mat-form-field appearance="outline" class="col-span-1" *ngIf="admissionForm.get('admissionStream')?.value === 'School'">
-                  <mat-label>Class / Standard Applying For <span class="req">*</span></mat-label>
-                  <mat-select formControlName="interestedClassId" (selectionChange)="onClassChanged()">
-                    <mat-option *ngFor="let c of filteredClasses" [value]="c.id">
-                      {{ c.name }}
-                    </mat-option>
-                  </mat-select>
-                  <mat-error *ngIf="admissionForm.get('interestedClassId')?.hasError('required')">Class is required</mat-error>
-                </mat-form-field>
-
-                <!-- Batch selector for Coaching -->
-                <mat-form-field appearance="outline" class="col-span-1" *ngIf="admissionForm.get('admissionStream')?.value === 'Coaching'">
-                  <mat-label>Coaching Course / Batch Applying For <span class="req">*</span></mat-label>
-                  <mat-select formControlName="interestedBatchId">
-                    <mat-option *ngFor="let bt of filteredBatches" [value]="bt.id">
-                      {{ bt.name }} ({{ bt.subject }}) &bull; ₹{{ bt.standardMonthlyFee }}/mo
-                    </mat-option>
-                  </mat-select>
-                  <mat-error *ngIf="admissionForm.get('interestedBatchId')?.hasError('required')">Coaching batch is required</mat-error>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Target Academic Year</mat-label>
-                  <mat-select formControlName="academicYear">
-                    <mat-option *ngFor="let yr of institute?.academicYears" [value]="yr">
-                      {{ yr }}
-                    </mat-option>
-                  </mat-select>
-                </mat-form-field>
-              </div>
-            </mat-card>
-
-            <!-- SECTION 2: APPLICANT (STUDENT) DETAILS -->
-            <mat-card class="form-card">
-              <div class="section-title-wrap">
-                <div class="section-badge">2</div>
-                <div>
-                  <h3 class="section-title">Applicant (Student) Particulars</h3>
-                  <p class="section-sub">Personal information of the student as recorded in official documents.</p>
-                </div>
-              </div>
-
-              <div class="form-grid">
-                <mat-form-field appearance="outline" class="col-span-2">
-                  <mat-label>Student Full Name <span class="req">*</span></mat-label>
-                  <input matInput formControlName="studentName" placeholder="e.g. Aarav Sharma" />
-                  <mat-icon matSuffix>person</mat-icon>
-                  <mat-error *ngIf="admissionForm.get('studentName')?.hasError('required')">Student name is required</mat-error>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Date of Birth</mat-label>
-                  <input matInput [matDatepicker]="dobPicker" formControlName="dateOfBirth" placeholder="DD/MM/YYYY" />
-                  <mat-datepicker-toggle matSuffix [for]="dobPicker"></mat-datepicker-toggle>
-                  <mat-datepicker #dobPicker></mat-datepicker>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Gender <span class="req">*</span></mat-label>
-                  <mat-select formControlName="gender">
-                    <mat-option value="Male">Male</mat-option>
-                    <mat-option value="Female">Female</mat-option>
-                    <mat-option value="Other">Other</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Category (Quota)</mat-label>
-                  <mat-select formControlName="category">
-                    <mat-option value="General">General</mat-option>
-                    <mat-option value="OBC">OBC</mat-option>
-                    <mat-option value="SC">SC</mat-option>
-                    <mat-option value="ST">ST</mat-option>
-                    <mat-option value="EWS">EWS</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Blood Group</mat-label>
-                  <mat-select formControlName="bloodGroup">
-                    <mat-option value="A+">A+</mat-option>
-                    <mat-option value="A-">A-</mat-option>
-                    <mat-option value="B+">B+</mat-option>
-                    <mat-option value="B-">B-</mat-option>
-                    <mat-option value="O+">O+</mat-option>
-                    <mat-option value="O-">O-</mat-option>
-                    <mat-option value="AB+">AB+</mat-option>
-                    <mat-option value="AB-">AB-</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Student Aadhaar Number</mat-label>
-                  <input matInput formControlName="aadhaarNumber" placeholder="12-digit UID" maxlength="12" />
-                  <mat-icon matSuffix>badge</mat-icon>
-                </mat-form-field>
-              </div>
-            </mat-card>
-
-            <!-- SECTION 3: PARENTS & CONTACT DETAILS -->
-            <mat-card class="form-card">
-              <div class="section-title-wrap">
-                <div class="section-badge">3</div>
-                <div>
-                  <h3 class="section-title">Parents / Guardian & Contact Information</h3>
-                  <p class="section-sub">Primary contact numbers for admission updates, interview schedule & SMS/WhatsApp alerts.</p>
-                </div>
-              </div>
-
-              <div class="form-grid">
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Father's / Guardian's Name <span class="req">*</span></mat-label>
-                  <input matInput formControlName="parentName" placeholder="Full name of Father / Guardian" />
-                  <mat-icon matSuffix>supervisor_account</mat-icon>
-                  <mat-error *ngIf="admissionForm.get('parentName')?.hasError('required')">Parent name is required</mat-error>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Mother's Name</mat-label>
-                  <input matInput formControlName="motherName" placeholder="Full name of Mother" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Father's / Guardian's Occupation</mat-label>
-                  <input matInput formControlName="fatherOccupation" placeholder="e.g. Business, Govt Service, Engineer" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Primary WhatsApp / Mobile <span class="req">*</span></mat-label>
-                  <input matInput formControlName="phone" placeholder="10-digit Mobile Number" maxlength="10" />
-                  <mat-icon matSuffix>chat</mat-icon>
-                  <mat-error *ngIf="admissionForm.get('phone')?.hasError('required')">Phone number is required</mat-error>
-                  <mat-error *ngIf="admissionForm.get('phone')?.hasError('pattern')">Enter valid 10-digit number</mat-error>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Alternate Phone Number</mat-label>
-                  <input matInput formControlName="alternatePhone" placeholder="Emergency contact phone" maxlength="12" />
-                  <mat-icon matSuffix>phone</mat-icon>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Email Address</mat-label>
-                  <input matInput formControlName="email" type="email" placeholder="parent@example.com" />
-                  <mat-icon matSuffix>email</mat-icon>
-                  <mat-error *ngIf="admissionForm.get('email')?.hasError('email')">Invalid email address</mat-error>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-3">
-                  <mat-label>Full Residential Address</mat-label>
-                  <input matInput formControlName="address" placeholder="House/Flat No., Street, Landmark, Area" />
-                  <mat-icon matSuffix>home</mat-icon>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>City / Town</mat-label>
-                  <input matInput formControlName="city" placeholder="e.g. Delhi, Patna, Lucknow" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>State</mat-label>
-                  <input matInput formControlName="state" placeholder="e.g. Uttar Pradesh, Delhi" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>PIN Code</mat-label>
-                  <input matInput formControlName="pincode" placeholder="6-digit PIN" maxlength="6" />
-                </mat-form-field>
-              </div>
-            </mat-card>
-
-            <!-- SECTION 4: PREVIOUS ACADEMIC DETAILS & FACILITIES -->
-            <mat-card class="form-card">
-              <div class="section-title-wrap">
-                <div class="section-badge">4</div>
-                <div>
-                  <h3 class="section-title">Previous Academic Records & Facilities</h3>
-                  <p class="section-sub">Schooling history and requested transport or hostel boarding facilities.</p>
-                </div>
-              </div>
-
-              <div class="form-grid">
-                <mat-form-field appearance="outline" class="col-span-2">
-                  <mat-label>Previous School / Institute Attended</mat-label>
-                  <input matInput formControlName="previousSchoolName" placeholder="Name of last attended school" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="col-span-1">
-                  <mat-label>Last Exam Marks / Percentage</mat-label>
-                  <input matInput formControlName="previousMarks" placeholder="e.g. 88.5% or Grade A" />
-                </mat-form-field>
-
-                <div class="col-span-3 facility-checkboxes">
-                  <mat-checkbox formControlName="requiresTransport" color="primary" class="facility-check">
-                    <div class="check-label">
-                      <strong>🚌 School Bus / Van Transport Required</strong>
-                      <span class="check-sub">Request pick-and-drop route allocation from nearest bus stop</span>
-                    </div>
-                  </mat-checkbox>
-
-                  <mat-checkbox formControlName="requiresHostel" color="primary" class="facility-check">
-                    <div class="check-label">
-                      <strong>🏢 Hostel / Boarding Facility Required</strong>
-                      <span class="check-sub">Request student hostel bed, meals and residential supervision</span>
-                    </div>
-                  </mat-checkbox>
-                </div>
-
-                <mat-form-field appearance="outline" class="col-span-3">
-                  <mat-label>Special Remarks / Queries / Concession Request</mat-label>
-                  <textarea matInput formControlName="remarks" rows="2" placeholder="Any sibling currently enrolled, medical conditions, or specific questions for the admission desk..."></textarea>
-                </mat-form-field>
-              </div>
-            </mat-card>
-
-            <!-- SUBMISSION BUTTON -->
-            <div class="form-submit-panel">
-              <button mat-raised-button color="primary" type="submit" class="submit-btn" [disabled]="submitting || admissionForm.invalid">
-                <mat-icon *ngIf="!submitting">send</mat-icon>
-                <span>{{ submitting ? 'Submitting Application...' : 'Submit Admission Application' }}</span>
-              </button>
-              <p class="submit-notice">
-                By submitting this form, you certify that the provided information is accurate and agree to follow school admission norms.
+        @if (!submittedResult && activeTab === 'apply') {
+          <section class="form-section">
+            <div class="form-hero">
+              <span class="hero-chip">Academic Session Admissions Open</span>
+              <h2 class="hero-title">Online Student Admission Application</h2>
+              <p class="hero-desc">
+                Fill in the application details carefully. Required fields are marked with an asterisk (<span class="req">*</span>).
               </p>
             </div>
-
-          </form>
-        </section>
-
+            <form [formGroup]="admissionForm" (ngSubmit)="onSubmitApplication()" class="admission-form">
+              <!-- SECTION 1: ADMISSION PREFERENCES -->
+              <mat-card class="form-card">
+                <div class="section-title-wrap">
+                  <div class="section-badge">1</div>
+                  <div>
+                    <h3 class="section-title">Admission Stream & Campus Preferences</h3>
+                    <p class="section-sub">Choose your admission stream (School Academic vs Coaching Batch) and select campus.</p>
+                  </div>
+                </div>
+                <!-- Stream Selection Deck -->
+                <div class="stream-selector-wrap">
+                  <label class="stream-label">Select Admission Stream / Type <span class="req">*</span></label>
+                  <div class="stream-btn-deck">
+                    <button type="button"
+                      class="stream-type-btn"
+                      [class.active]="admissionForm.get('admissionStream')?.value === 'School'"
+                      (click)="setStream('School')">
+                      <div class="stream-icon-box school-box">
+                        <mat-icon>school</mat-icon>
+                      </div>
+                      <div class="stream-info">
+                        <span class="stream-name">School Academic Admission</span>
+                        <span class="stream-desc">Nursery to Class 12 Regular CBSE / State Board</span>
+                      </div>
+                      @if (admissionForm.get('admissionStream')?.value === 'School') {
+                        <mat-icon class="check-indicator">check_circle</mat-icon>
+                      }
+                    </button>
+                    <button type="button"
+                      class="stream-type-btn"
+                      [class.active]="admissionForm.get('admissionStream')?.value === 'Coaching'"
+                      (click)="setStream('Coaching')">
+                      <div class="stream-icon-box coaching-box">
+                        <mat-icon>menu_book</mat-icon>
+                      </div>
+                      <div class="stream-info">
+                        <span class="stream-name">Coaching / Competitive Batch</span>
+                        <span class="stream-desc">IIT-JEE, NEET, Foundation, Target & Test Series</span>
+                      </div>
+                      @if (admissionForm.get('admissionStream')?.value === 'Coaching') {
+                        <mat-icon class="check-indicator">check_circle</mat-icon>
+                      }
+                    </button>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Campus / Branch <span class="req">*</span></mat-label>
+                    <mat-select formControlName="branchId" (selectionChange)="onBranchChanged()">
+                      @for (b of institute?.branches; track b) {
+                        <mat-option [value]="b.id">
+                          {{ b.name }}
+                        </mat-option>
+                      }
+                    </mat-select>
+                    @if (admissionForm.get('branchId')?.hasError('required')) {
+                      <mat-error>Branch is required</mat-error>
+                    }
+                  </mat-form-field>
+                  <!-- Class selector for School -->
+                  @if (admissionForm.get('admissionStream')?.value === 'School') {
+                    <mat-form-field appearance="outline" class="col-span-1">
+                      <mat-label>Class / Standard Applying For <span class="req">*</span></mat-label>
+                      <mat-select formControlName="interestedClassId" (selectionChange)="onClassChanged()">
+                        @for (c of filteredClasses; track c) {
+                          <mat-option [value]="c.id">
+                            {{ c.name }}
+                          </mat-option>
+                        }
+                      </mat-select>
+                      @if (admissionForm.get('interestedClassId')?.hasError('required')) {
+                        <mat-error>Class is required</mat-error>
+                      }
+                    </mat-form-field>
+                  }
+                  <!-- Batch selector for Coaching -->
+                  @if (admissionForm.get('admissionStream')?.value === 'Coaching') {
+                    <mat-form-field appearance="outline" class="col-span-1">
+                      <mat-label>Coaching Course / Batch Applying For <span class="req">*</span></mat-label>
+                      <mat-select formControlName="interestedBatchId">
+                        @for (bt of filteredBatches; track bt) {
+                          <mat-option [value]="bt.id">
+                            {{ bt.name }} ({{ bt.subject }}) &bull; ₹{{ bt.standardMonthlyFee }}/mo
+                          </mat-option>
+                        }
+                      </mat-select>
+                      @if (admissionForm.get('interestedBatchId')?.hasError('required')) {
+                        <mat-error>Coaching batch is required</mat-error>
+                      }
+                    </mat-form-field>
+                  }
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Target Academic Year</mat-label>
+                    <mat-select formControlName="academicYear">
+                      @for (yr of institute?.academicYears; track yr) {
+                        <mat-option [value]="yr">
+                          {{ yr }}
+                        </mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </mat-card>
+              <!-- SECTION 2: APPLICANT (STUDENT) DETAILS -->
+              <mat-card class="form-card">
+                <div class="section-title-wrap">
+                  <div class="section-badge">2</div>
+                  <div>
+                    <h3 class="section-title">Applicant (Student) Particulars</h3>
+                    <p class="section-sub">Personal information of the student as recorded in official documents.</p>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <mat-form-field appearance="outline" class="col-span-2">
+                    <mat-label>Student Full Name <span class="req">*</span></mat-label>
+                    <input matInput formControlName="studentName" placeholder="e.g. Aarav Sharma" />
+                    <mat-icon matSuffix>person</mat-icon>
+                    @if (admissionForm.get('studentName')?.hasError('required')) {
+                      <mat-error>Student name is required</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Date of Birth</mat-label>
+                    <input matInput [matDatepicker]="dobPicker" formControlName="dateOfBirth" placeholder="DD/MM/YYYY" />
+                    <mat-datepicker-toggle matSuffix [for]="dobPicker"></mat-datepicker-toggle>
+                    <mat-datepicker #dobPicker></mat-datepicker>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Gender <span class="req">*</span></mat-label>
+                    <mat-select formControlName="gender">
+                      <mat-option value="Male">Male</mat-option>
+                      <mat-option value="Female">Female</mat-option>
+                      <mat-option value="Other">Other</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Category (Quota)</mat-label>
+                    <mat-select formControlName="category">
+                      <mat-option value="General">General</mat-option>
+                      <mat-option value="OBC">OBC</mat-option>
+                      <mat-option value="SC">SC</mat-option>
+                      <mat-option value="ST">ST</mat-option>
+                      <mat-option value="EWS">EWS</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Blood Group</mat-label>
+                    <mat-select formControlName="bloodGroup">
+                      <mat-option value="A+">A+</mat-option>
+                      <mat-option value="A-">A-</mat-option>
+                      <mat-option value="B+">B+</mat-option>
+                      <mat-option value="B-">B-</mat-option>
+                      <mat-option value="O+">O+</mat-option>
+                      <mat-option value="O-">O-</mat-option>
+                      <mat-option value="AB+">AB+</mat-option>
+                      <mat-option value="AB-">AB-</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Student Aadhaar Number</mat-label>
+                    <input matInput formControlName="aadhaarNumber" placeholder="12-digit UID" maxlength="12" />
+                    <mat-icon matSuffix>badge</mat-icon>
+                  </mat-form-field>
+                </div>
+              </mat-card>
+              <!-- SECTION 3: PARENTS & CONTACT DETAILS -->
+              <mat-card class="form-card">
+                <div class="section-title-wrap">
+                  <div class="section-badge">3</div>
+                  <div>
+                    <h3 class="section-title">Parents / Guardian & Contact Information</h3>
+                    <p class="section-sub">Primary contact numbers for admission updates, interview schedule & SMS/WhatsApp alerts.</p>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Father's / Guardian's Name <span class="req">*</span></mat-label>
+                    <input matInput formControlName="parentName" placeholder="Full name of Father / Guardian" />
+                    <mat-icon matSuffix>supervisor_account</mat-icon>
+                    @if (admissionForm.get('parentName')?.hasError('required')) {
+                      <mat-error>Parent name is required</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Mother's Name</mat-label>
+                    <input matInput formControlName="motherName" placeholder="Full name of Mother" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Father's / Guardian's Occupation</mat-label>
+                    <input matInput formControlName="fatherOccupation" placeholder="e.g. Business, Govt Service, Engineer" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Primary WhatsApp / Mobile <span class="req">*</span></mat-label>
+                    <input matInput formControlName="phone" placeholder="10-digit Mobile Number" maxlength="10" />
+                    <mat-icon matSuffix>chat</mat-icon>
+                    @if (admissionForm.get('phone')?.hasError('required')) {
+                      <mat-error>Phone number is required</mat-error>
+                    }
+                    @if (admissionForm.get('phone')?.hasError('pattern')) {
+                      <mat-error>Enter valid 10-digit number</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Alternate Phone Number</mat-label>
+                    <input matInput formControlName="alternatePhone" placeholder="Emergency contact phone" maxlength="12" />
+                    <mat-icon matSuffix>phone</mat-icon>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Email Address</mat-label>
+                    <input matInput formControlName="email" type="email" placeholder="parent@example.com" />
+                    <mat-icon matSuffix>email</mat-icon>
+                    @if (admissionForm.get('email')?.hasError('email')) {
+                      <mat-error>Invalid email address</mat-error>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-3">
+                    <mat-label>Full Residential Address</mat-label>
+                    <input matInput formControlName="address" placeholder="House/Flat No., Street, Landmark, Area" />
+                    <mat-icon matSuffix>home</mat-icon>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>City / Town</mat-label>
+                    <input matInput formControlName="city" placeholder="e.g. Delhi, Patna, Lucknow" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>State</mat-label>
+                    <input matInput formControlName="state" placeholder="e.g. Uttar Pradesh, Delhi" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>PIN Code</mat-label>
+                    <input matInput formControlName="pincode" placeholder="6-digit PIN" maxlength="6" />
+                  </mat-form-field>
+                </div>
+              </mat-card>
+              <!-- SECTION 4: PREVIOUS ACADEMIC DETAILS & FACILITIES -->
+              <mat-card class="form-card">
+                <div class="section-title-wrap">
+                  <div class="section-badge">4</div>
+                  <div>
+                    <h3 class="section-title">Previous Academic Records & Facilities</h3>
+                    <p class="section-sub">Schooling history and requested transport or hostel boarding facilities.</p>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <mat-form-field appearance="outline" class="col-span-2">
+                    <mat-label>Previous School / Institute Attended</mat-label>
+                    <input matInput formControlName="previousSchoolName" placeholder="Name of last attended school" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="col-span-1">
+                    <mat-label>Last Exam Marks / Percentage</mat-label>
+                    <input matInput formControlName="previousMarks" placeholder="e.g. 88.5% or Grade A" />
+                  </mat-form-field>
+                  <div class="col-span-3 facility-checkboxes">
+                    <mat-checkbox formControlName="requiresTransport" color="primary" class="facility-check">
+                      <div class="check-label">
+                        <strong>🚌 School Bus / Van Transport Required</strong>
+                        <span class="check-sub">Request pick-and-drop route allocation from nearest bus stop</span>
+                      </div>
+                    </mat-checkbox>
+                    <mat-checkbox formControlName="requiresHostel" color="primary" class="facility-check">
+                      <div class="check-label">
+                        <strong>🏢 Hostel / Boarding Facility Required</strong>
+                        <span class="check-sub">Request student hostel bed, meals and residential supervision</span>
+                      </div>
+                    </mat-checkbox>
+                  </div>
+                  <mat-form-field appearance="outline" class="col-span-3">
+                    <mat-label>Special Remarks / Queries / Concession Request</mat-label>
+                    <textarea matInput formControlName="remarks" rows="2" placeholder="Any sibling currently enrolled, medical conditions, or specific questions for the admission desk..."></textarea>
+                  </mat-form-field>
+                </div>
+              </mat-card>
+              <!-- SUBMISSION BUTTON -->
+              <div class="form-submit-panel">
+                <button mat-raised-button color="primary" type="submit" class="submit-btn" [disabled]="submitting || admissionForm.invalid">
+                  @if (!submitting) {
+                    <mat-icon>send</mat-icon>
+                  }
+                  <span>{{ submitting ? 'Submitting Application...' : 'Submit Admission Application' }}</span>
+                </button>
+                <p class="submit-notice">
+                  By submitting this form, you certify that the provided information is accurate and agree to follow school admission norms.
+                </p>
+              </div>
+            </form>
+          </section>
+        }
+    
         <!-- ============================================================== -->
         <!-- VIEW 3: TRACK APPLICATION STATUS                               -->
         <!-- ============================================================== -->
-        <section class="track-section" *ngIf="activeTab === 'track'">
-          <mat-card class="track-search-card">
-            <div class="track-header">
-              <div class="track-icon-box">
-                <mat-icon>travel_explore</mat-icon>
+        @if (activeTab === 'track') {
+          <section class="track-section">
+            <mat-card class="track-search-card">
+              <div class="track-header">
+                <div class="track-icon-box">
+                  <mat-icon>travel_explore</mat-icon>
+                </div>
+                <h2 class="track-title">Track Your Admission Application</h2>
+                <p class="track-sub">Enter your Application Reference Number and registered mobile number to view live status.</p>
               </div>
-              <h2 class="track-title">Track Your Admission Application</h2>
-              <p class="track-sub">Enter your Application Reference Number and registered mobile number to view live status.</p>
-            </div>
-
-            <form [formGroup]="trackForm" (ngSubmit)="onTrackApplication()" class="track-form">
-              <div class="track-inputs">
-                <mat-form-field appearance="outline" class="track-field">
-                  <mat-label>Application Reference Number <span class="req">*</span></mat-label>
-                  <input matInput formControlName="applicationNumber" placeholder="e.g. APP-2026-0001" />
-                  <mat-icon matSuffix>tag</mat-icon>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="track-field">
-                  <mat-label>Registered Mobile Number <span class="req">*</span></mat-label>
-                  <input matInput formControlName="phone" placeholder="10-digit Mobile" maxlength="10" />
-                  <mat-icon matSuffix>phone</mat-icon>
-                </mat-form-field>
-
-                <button mat-raised-button color="primary" type="submit" class="track-submit-btn" [disabled]="tracking || trackForm.invalid">
-                  <mat-icon>search</mat-icon> {{ tracking ? 'Searching...' : 'Check Status' }}
-                </button>
-              </div>
-            </form>
-          </mat-card>
-
-          <!-- Tracking Result Card -->
-          <mat-card class="track-result-card" *ngIf="trackingResult">
-            <div class="result-header">
-              <div>
-                <span class="result-sub">Application Status for Ref: <strong>{{ trackingResult.applicationNumber }}</strong></span>
-                <h3 class="result-name">{{ trackingResult.studentName }}</h3>
-              </div>
+              <form [formGroup]="trackForm" (ngSubmit)="onTrackApplication()" class="track-form">
+                <div class="track-inputs">
+                  <mat-form-field appearance="outline" class="track-field">
+                    <mat-label>Application Reference Number <span class="req">*</span></mat-label>
+                    <input matInput formControlName="applicationNumber" placeholder="e.g. APP-2026-0001" />
+                    <mat-icon matSuffix>tag</mat-icon>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="track-field">
+                    <mat-label>Registered Mobile Number <span class="req">*</span></mat-label>
+                    <input matInput formControlName="phone" placeholder="10-digit Mobile" maxlength="10" />
+                    <mat-icon matSuffix>phone</mat-icon>
+                  </mat-form-field>
+                  <button mat-raised-button color="primary" type="submit" class="track-submit-btn" [disabled]="tracking || trackForm.invalid">
+                    <mat-icon>search</mat-icon> {{ tracking ? 'Searching...' : 'Check Status' }}
+                  </button>
+                </div>
+              </form>
+            </mat-card>
+            <!-- Tracking Result Card -->
+            @if (trackingResult) {
+              <mat-card class="track-result-card">
+                <div class="result-header">
+                  <div>
+                    <span class="result-sub">Application Status for Ref: <strong>{{ trackingResult.applicationNumber }}</strong></span>
+                    <h3 class="result-name">{{ trackingResult.studentName }}</h3>
+                  </div>
               <span class="status-chip" [ngClass]="{
                 'status-new': trackingResult.status === 'New',
                 'status-contacted': trackingResult.status === 'Contacted',
@@ -496,54 +507,63 @@ import {
                 'status-admitted': trackingResult.status === 'Admitted',
                 'status-lost': trackingResult.status === 'Lost'
               }">
-                {{ trackingResult.status }}
-              </span>
-            </div>
-
-            <mat-divider></mat-divider>
-
-            <div class="result-grid">
-              <div class="result-item">
-                <span class="label">Parent / Guardian:</span>
-                <span class="val">{{ trackingResult.parentName }}</span>
-              </div>
-              <div class="result-item">
-                <span class="label">Applied Class:</span>
-                <span class="val">{{ trackingResult.className || 'General' }}</span>
-              </div>
-              <div class="result-item">
-                <span class="label">Campus:</span>
-                <span class="val">{{ trackingResult.branchName || 'Main Campus' }}</span>
-              </div>
-              <div class="result-item">
-                <span class="label">Application Date:</span>
-                <span class="val">{{ trackingResult.applicationDate | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}</span>
-              </div>
-            </div>
-
-            <div class="status-explanation">
-              <h4 class="exp-title"><mat-icon>lightbulb</mat-icon> Current Process Stage:</h4>
-              <p class="exp-text" *ngIf="trackingResult.status === 'New'">
-                Your application has been received and is queued for verification by the admissions team. You will receive an SMS / WhatsApp update shortly.
-              </p>
-              <p class="exp-text" *ngIf="trackingResult.status === 'Contacted'">
-                Our admissions coordinator has reviewed your profile. An interview or counseling session is being organized.
-              </p>
-              <p class="exp-text" *ngIf="trackingResult.status === 'Demo' || trackingResult.status === 'Demo / Visit'">
-                Entrance assessment / campus interaction is scheduled. Please visit the campus with original student documents.
-              </p>
-              <p class="exp-text" *ngIf="trackingResult.status === 'Admitted'">
-                🎉 <strong>Congratulations!</strong> Your admission has been approved and confirmed. Please contact the accounts office to collect your admission kit and fee receipt.
-              </p>
-              <p class="exp-text" *ngIf="trackingResult.status === 'Lost'">
-                This application has been closed or marked inactive. Please contact the admissions helpdesk for further details.
-              </p>
-            </div>
-          </mat-card>
-        </section>
-
+                    {{ trackingResult.status }}
+                  </span>
+                </div>
+                <mat-divider></mat-divider>
+                <div class="result-grid">
+                  <div class="result-item">
+                    <span class="label">Parent / Guardian:</span>
+                    <span class="val">{{ trackingResult.parentName }}</span>
+                  </div>
+                  <div class="result-item">
+                    <span class="label">Applied Class:</span>
+                    <span class="val">{{ trackingResult.className || 'General' }}</span>
+                  </div>
+                  <div class="result-item">
+                    <span class="label">Campus:</span>
+                    <span class="val">{{ trackingResult.branchName || 'Main Campus' }}</span>
+                  </div>
+                  <div class="result-item">
+                    <span class="label">Application Date:</span>
+                    <span class="val">{{ trackingResult.applicationDate | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}</span>
+                  </div>
+                </div>
+                <div class="status-explanation">
+                  <h4 class="exp-title"><mat-icon>lightbulb</mat-icon> Current Process Stage:</h4>
+                  @if (trackingResult.status === 'New') {
+                    <p class="exp-text">
+                      Your application has been received and is queued for verification by the admissions team. You will receive an SMS / WhatsApp update shortly.
+                    </p>
+                  }
+                  @if (trackingResult.status === 'Contacted') {
+                    <p class="exp-text">
+                      Our admissions coordinator has reviewed your profile. An interview or counseling session is being organized.
+                    </p>
+                  }
+                  @if (trackingResult.status === 'Demo' || trackingResult.status === 'Demo / Visit') {
+                    <p class="exp-text">
+                      Entrance assessment / campus interaction is scheduled. Please visit the campus with original student documents.
+                    </p>
+                  }
+                  @if (trackingResult.status === 'Admitted') {
+                    <p class="exp-text">
+                      🎉 <strong>Congratulations!</strong> Your admission has been approved and confirmed. Please contact the accounts office to collect your admission kit and fee receipt.
+                    </p>
+                  }
+                  @if (trackingResult.status === 'Lost') {
+                    <p class="exp-text">
+                      This application has been closed or marked inactive. Please contact the admissions helpdesk for further details.
+                    </p>
+                  }
+                </div>
+              </mat-card>
+            }
+          </section>
+        }
+    
       </main>
-
+    
       <!-- Footer -->
       <footer class="portal-footer no-print">
         <p class="footer-text">
@@ -551,7 +571,8 @@ import {
         </p>
       </footer>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

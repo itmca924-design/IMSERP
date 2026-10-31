@@ -143,19 +143,40 @@ using (var scope = app.Services.CreateScope())
             context.Database.ExecuteSqlRaw(@"
                 IF OBJECT_ID('Batches') IS NOT NULL
                 BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'Shift') ALTER TABLE Batches ADD Shift NVARCHAR(30) NULL;
-                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'StartTime') ALTER TABLE Batches ADD StartTime NVARCHAR(10) NULL;
-                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'EndTime') ALTER TABLE Batches ADD EndTime NVARCHAR(10) NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'Shift')
+                        ALTER TABLE Batches ADD Shift NVARCHAR(30) NULL;
 
-                    -- Backfill sensible defaults for existing batches without timings
-                    UPDATE Batches SET Shift = 'Morning', StartTime = '05:00', EndTime = '07:30' 
-                    WHERE (StartTime IS NULL OR StartTime = '') AND (Name LIKE '%Morning%' OR Name LIKE '%6th To 10th%');
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'StartTime')
+                        ALTER TABLE Batches ADD StartTime NVARCHAR(10) NULL;
 
-                    UPDATE Batches SET Shift = 'Evening', StartTime = '16:00', EndTime = '19:00' 
-                    WHERE (StartTime IS NULL OR StartTime = '') AND Name LIKE '%Evening%';
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Batches') AND name = 'EndTime')
+                        ALTER TABLE Batches ADD EndTime NVARCHAR(10) NULL;
 
-                    UPDATE Batches SET Shift = 'Morning', StartTime = '07:00', EndTime = '10:00' 
-                    WHERE (StartTime IS NULL OR StartTime = '');
+                    EXEC sp_executesql N'
+                        UPDATE Batches
+                        SET
+                            Shift = CASE
+                                WHEN Shift IS NULL AND (Name LIKE N''%Morning%'' OR Name LIKE N''%6th To 10th%'') THEN N''Morning''
+                                WHEN Shift IS NULL AND Name LIKE N''%Evening%'' THEN N''Evening''
+                                ELSE Shift
+                            END,
+                            StartTime = CASE
+                                WHEN (StartTime IS NULL OR StartTime = '''') AND (Name LIKE N''%Morning%'' OR Name LIKE N''%6th To 10th%'') THEN N''05:00''
+                                WHEN (StartTime IS NULL OR StartTime = '''') AND Name LIKE N''%Evening%'' THEN N''16:00''
+                                WHEN (StartTime IS NULL OR StartTime = '''') THEN N''07:00''
+                                ELSE StartTime
+                            END,
+                            EndTime = CASE
+                                WHEN (EndTime IS NULL OR EndTime = '''') AND (Name LIKE N''%Morning%'' OR Name LIKE N''%6th To 10th%'') THEN N''07:30''
+                                WHEN (EndTime IS NULL OR EndTime = '''') AND Name LIKE N''%Evening%'' THEN N''19:00''
+                                WHEN (EndTime IS NULL OR EndTime = '''') THEN N''10:00''
+                                ELSE EndTime
+                            END
+                        WHERE Shift IS NULL
+                           OR StartTime IS NULL
+                           OR StartTime = ''''
+                           OR EndTime IS NULL
+                           OR EndTime = '''';';
                 END");
         }
         catch (Exception ex)

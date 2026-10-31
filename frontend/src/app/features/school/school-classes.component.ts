@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -27,7 +27,6 @@ import { environment } from '../../../environments/environment';
   selector: 'app-school-classes',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatCardModule,
     MatButtonModule,
@@ -40,9 +39,8 @@ import { environment } from '../../../environments/environment';
     MatTooltipModule,
     MatSlideToggleModule,
     MatDialogModule,
-    RouterModule,
-    SectionRoutineDialogComponent
-  ],
+    RouterModule
+],
   template: `
     <div class="page-container">
       <!-- Header -->
@@ -67,7 +65,7 @@ import { environment } from '../../../environments/environment';
           </button>
         </div>
       </div>
-
+    
       <!-- Unified Stats Cards -->
       <div class="stats-grid">
         <mat-card class="stat-card classes mat-elevation-z1">
@@ -77,7 +75,7 @@ import { environment } from '../../../environments/environment';
             <span class="stat-lbl">Active Classes</span>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card sections mat-elevation-z1">
           <div class="stat-icon"><mat-icon>meeting_room</mat-icon></div>
           <div class="stat-info">
@@ -85,7 +83,7 @@ import { environment } from '../../../environments/environment';
             <span class="stat-lbl">Total Sections</span>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card school-students mat-elevation-z1">
           <div class="stat-icon"><mat-icon>badge</mat-icon></div>
           <div class="stat-info">
@@ -93,7 +91,7 @@ import { environment } from '../../../environments/environment';
             <span class="stat-lbl">School Students</span>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card dual-students mat-elevation-z1">
           <div class="stat-icon"><mat-icon>auto_awesome</mat-icon></div>
           <div class="stat-info">
@@ -102,295 +100,324 @@ import { environment } from '../../../environments/environment';
           </div>
         </mat-card>
       </div>
-
+    
       <!-- Class Drawer Modal -->
-      <mat-card class="form-drawer mat-elevation-z3" [class.edit-mode-active]="isEditingClass" id="class-form-drawer" *ngIf="showClassDrawer">
-        <div class="drawer-header">
-          <div class="drawer-title">
-            <div class="drawer-icon-wrap" [class.is-edit]="isEditingClass">
-              <mat-icon>{{ isEditingClass ? 'edit_note' : 'add_circle' }}</mat-icon>
-            </div>
-            <div>
-              <div class="drawer-headline">
-                <strong>{{ isEditingClass ? 'Edit School Class' : 'Create New School Class' }}</strong>
-                <span class="editing-chip" *ngIf="isEditingClass">
-                  <span class="pulse-dot"></span>
-                  Editing: {{ classFormData.name }}
-                </span>
+      @if (showClassDrawer) {
+        <mat-card class="form-drawer mat-elevation-z3" [class.edit-mode-active]="isEditingClass" id="class-form-drawer">
+          <div class="drawer-header">
+            <div class="drawer-title">
+              <div class="drawer-icon-wrap" [class.is-edit]="isEditingClass">
+                <mat-icon>{{ isEditingClass ? 'edit_note' : 'add_circle' }}</mat-icon>
               </div>
-              <small>{{ isEditingClass ? 'Update class title, code, and display order' : 'e.g. Nursery, UKG, Class 1st, Class 8th, Class 10th' }}</small>
-            </div>
-          </div>
-          <button mat-icon-button (click)="closeClassDrawer()" matTooltip="Close Edit Form">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="f-flex-2">
-            <mat-label>Class Name *</mat-label>
-            <input matInput [(ngModel)]="classFormData.name" placeholder="e.g. Class 8th, Class 10th" required />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="f-flex-1">
-            <mat-label>Class Code (Optional)</mat-label>
-            <input matInput [(ngModel)]="classFormData.code" placeholder="e.g. C08, C10" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="f-flex-1">
-            <mat-label>Display Order</mat-label>
-            <input matInput type="number" [(ngModel)]="classFormData.displayOrder" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="f-flex-2">
-            <mat-label>Academic Scope (उपयोग का दायरा) *</mat-label>
-            <mat-select [(ngModel)]="classFormData.academicScope" required>
-              <mat-option value="Both">🌟 School + Coaching (दोनों के लिए)</mat-option>
-              <mat-option value="Coaching">🎓 Coaching Only (केवल कोचिंग - 6th to 12th)</mat-option>
-              <mat-option value="School">🏫 School Only (केवल स्कूल कक्षा)</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="drawer-footer">
-          <mat-slide-toggle [(ngModel)]="classFormData.isActive" color="primary" *ngIf="isEditingClass">
-            Active Status
-          </mat-slide-toggle>
-          <div class="btn-group">
-            <button mat-button (click)="closeClassDrawer()">Cancel</button>
-            <button mat-raised-button color="primary" (click)="saveClass()" [disabled]="!classFormData.name || saving">
-              <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
-              {{ isEditingClass ? 'Update Class' : 'Save Class' }}
-            </button>
-          </div>
-        </div>
-      </mat-card>
-
-      <!-- Section Drawer Modal -->
-      <mat-card class="form-drawer mat-elevation-z3" [class.edit-mode-active]="isEditingSection" id="section-form-drawer" *ngIf="showSectionDrawer">
-        <div class="drawer-header">
-          <div class="drawer-title">
-            <div class="drawer-icon-wrap" [class.is-edit]="isEditingSection">
-              <mat-icon>{{ isEditingSection ? 'edit_note' : 'view_stream' }}</mat-icon>
-            </div>
-            <div>
-              <div class="drawer-headline">
-                <strong>{{ isEditingSection ? 'Edit Section Details' : 'Add Section to Class' }}</strong>
-                <span class="editing-chip" *ngIf="isEditingSection">
-                  <span class="pulse-dot"></span>
-                  Editing: {{ sectionFormData.name }} {{ editingParentClassName ? '(' + editingParentClassName + ')' : '' }}
-                </span>
-              </div>
-              <small>{{ isEditingSection ? 'Update section name, capacity, classroom allocation, or class teacher' : 'e.g. Section A, Section B, Commerce, Science' }}</small>
-            </div>
-          </div>
-          <button mat-icon-button (click)="closeSectionDrawer()" matTooltip="Close Edit Form">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="f-flex-2" *ngIf="!isEditingSection">
-            <mat-label>Assign to Class *</mat-label>
-            <mat-select [(ngModel)]="sectionFormData.classId" required>
-              <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="f-flex-1">
-            <mat-label>Section Name *</mat-label>
-            <input matInput [(ngModel)]="sectionFormData.name" placeholder="e.g. A, B, C, Rose" required />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="f-flex-1">
-            <mat-label>Max Capacity</mat-label>
-            <input matInput type="number" [(ngModel)]="sectionFormData.maxCapacity" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="f-flex-2">
-            <mat-label>Allocated Classroom</mat-label>
-            <mat-select [(ngModel)]="sectionFormData.roomId">
-              <mat-option [value]="null">-- None / General --</mat-option>
-              <mat-option *ngFor="let r of rooms" [value]="r.id">
-                {{ r.roomNumber }} (Cap: {{ r.capacity }})
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="f-flex-2">
-            <mat-label>Class Teacher (कक्षा अध्यापक)</mat-label>
-            <mat-select [(ngModel)]="sectionFormData.classTeacherId">
-              <mat-option [value]="null">-- None / Unassigned --</mat-option>
-              <mat-option *ngFor="let t of teachers" [value]="t.id">
-                👨‍🏫 {{ t.fullName }} ({{ t.employeeCode }})
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="drawer-footer">
-          <mat-slide-toggle [(ngModel)]="sectionFormData.isActive" color="primary" *ngIf="isEditingSection">
-            Active Status
-          </mat-slide-toggle>
-          <div class="btn-group">
-            <button mat-button (click)="closeSectionDrawer()">Cancel</button>
-            <button mat-raised-button color="primary" (click)="saveSection()" [disabled]="!sectionFormData.name || saving">
-              <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
-              {{ isEditingSection ? 'Update Section' : 'Save Section' }}
-            </button>
-          </div>
-        </div>
-      </mat-card>
-
-      <!-- Scope Filter Toolbar -->
-      <div class="scope-filter-toolbar" *ngIf="!loading && classes.length > 0">
-        <div class="scope-filter-toggle">
-          <button type="button" class="s-toggle-btn"
-                  [class.active]="selectedScopeFilter === 'All'"
-                  (click)="setScopeFilter('All')">
-            <span>✨ All Classes</span>
-            <span class="count-pill">{{ classes.length }}</span>
-          </button>
-          <button type="button" class="s-toggle-btn"
-                  [class.active]="selectedScopeFilter === 'School'"
-                  (click)="setScopeFilter('School')">
-            <mat-icon>school</mat-icon>
-            <span>School Classes</span>
-            <span class="count-pill">{{ getSchoolClassesCount() }}</span>
-          </button>
-          <button type="button" class="s-toggle-btn"
-                  [class.active]="selectedScopeFilter === 'Coaching'"
-                  (click)="setScopeFilter('Coaching')">
-            <mat-icon>groups</mat-icon>
-            <span>Coaching Classes</span>
-            <span class="count-pill">{{ getCoachingClassesCount() }}</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="classes-container" *ngIf="!loading && filteredClasses.length > 0">
-        <mat-card class="class-card mat-elevation-z1" *ngFor="let c of filteredClasses">
-          <div class="class-card-header">
-            <div class="class-title-wrap">
-              <div class="class-badge" [class.coaching-badge]="c.academicScope === 'Coaching'">
-                <mat-icon>{{ c.academicScope === 'Coaching' ? 'groups' : 'school' }}</mat-icon>
-              </div>
-              <div class="class-title-info">
-                <div class="class-title-row">
-                  <h3 class="class-name">{{ c.name }}</h3>
-                  <span class="scope-tag both" *ngIf="c.academicScope === 'Both' || !c.academicScope">🌟 School + Coaching</span>
-                  <span class="scope-tag coaching" *ngIf="c.academicScope === 'Coaching'">🎓 Coaching Only</span>
-                  <span class="scope-tag school" *ngIf="c.academicScope === 'School'">🏫 School Only</span>
-                </div>
-                <span class="class-code" *ngIf="c.code">Code: {{ c.code }}</span>
-              </div>
-            </div>
-
-            <div class="class-actions">
-              <a mat-icon-button class="action-btn-circle subjects-btn" matTooltip="Manage Class Curriculum & Subjects" [routerLink]="['/subjects']" [queryParams]="{classId: c.id, tab: 1}">
-                <mat-icon>menu_book</mat-icon>
-              </a>
-              <button mat-icon-button class="action-btn-circle add-btn" matTooltip="Add Section to this Class" (click)="quickAddSection(c)">
-                <mat-icon>add</mat-icon>
-              </button>
-              <button mat-icon-button class="action-btn-circle edit-btn" matTooltip="Edit Class" (click)="editClass(c)">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button mat-icon-button class="action-btn-circle delete-btn" matTooltip="Delete Class" (click)="deleteClass(c)">
-                <mat-icon>delete_outline</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <div class="class-meta-bar">
-            <span class="meta-tag students-tag">
-              <mat-icon>groups</mat-icon>
-              <span>{{ c.studentCount }} Student{{ c.studentCount === 1 ? '' : 's' }}</span>
-            </span>
-            <span class="meta-tag sections-tag">
-              <mat-icon>layers</mat-icon>
-              <span>{{ c.sections?.length || 0 }} Section{{ (c.sections?.length || 0) === 1 ? '' : 's' }}</span>
-            </span>
-            <a class="meta-tag subjects-tag" [routerLink]="['/subjects']" [queryParams]="{classId: c.id, tab: 1}" matTooltip="Manage Class Curriculum & Subjects">
-              <mat-icon>menu_book</mat-icon>
-              <span>{{ classSubjectCounts[c.id] !== undefined ? classSubjectCounts[c.id] + ' Subjects' : 'Subjects' }}</span>
-            </a>
-          </div>
-
-          <!-- Sections List in Class -->
-          <div class="sections-list">
-            <div class="section-card" *ngFor="let s of c.sections">
-              <!-- Header Row: Section Badge + Name + Seats + Action Buttons -->
-              <div class="sec-header-row">
-                <div class="sec-identity">
-                  <div class="sec-badge">{{ getSectionBadge(s.name) }}</div>
-                  <div class="sec-identity-text">
-                    <span class="sec-name">{{ formatSectionName(s.name) }}</span>
-                    <span class="sec-capacity-chip" [class.is-full]="s.studentCount >= s.maxCapacity && s.maxCapacity > 0">
-                      <mat-icon class="capacity-icon">groups</mat-icon>
-                      <span>{{ s.studentCount }} / {{ s.maxCapacity }} Seats</span>
+              <div>
+                <div class="drawer-headline">
+                  <strong>{{ isEditingClass ? 'Edit School Class' : 'Create New School Class' }}</strong>
+                  @if (isEditingClass) {
+                    <span class="editing-chip">
+                      <span class="pulse-dot"></span>
+                      Editing: {{ classFormData.name }}
                     </span>
+                  }
+                </div>
+                <small>{{ isEditingClass ? 'Update class title, code, and display order' : 'e.g. Nursery, UKG, Class 1st, Class 8th, Class 10th' }}</small>
+              </div>
+            </div>
+            <button mat-icon-button (click)="closeClassDrawer()" matTooltip="Close Edit Form">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="f-flex-2">
+              <mat-label>Class Name *</mat-label>
+              <input matInput [(ngModel)]="classFormData.name" placeholder="e.g. Class 8th, Class 10th" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="f-flex-1">
+              <mat-label>Class Code (Optional)</mat-label>
+              <input matInput [(ngModel)]="classFormData.code" placeholder="e.g. C08, C10" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="f-flex-1">
+              <mat-label>Display Order</mat-label>
+              <input matInput type="number" [(ngModel)]="classFormData.displayOrder" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="f-flex-2">
+              <mat-label>Academic Scope (उपयोग का दायरा) *</mat-label>
+              <mat-select [(ngModel)]="classFormData.academicScope" required>
+                <mat-option value="Both">🌟 School + Coaching (दोनों के लिए)</mat-option>
+                <mat-option value="Coaching">🎓 Coaching Only (केवल कोचिंग - 6th to 12th)</mat-option>
+                <mat-option value="School">🏫 School Only (केवल स्कूल कक्षा)</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="drawer-footer">
+            @if (isEditingClass) {
+              <mat-slide-toggle [(ngModel)]="classFormData.isActive" color="primary">
+                Active Status
+              </mat-slide-toggle>
+            }
+            <div class="btn-group">
+              <button mat-button (click)="closeClassDrawer()">Cancel</button>
+              <button mat-raised-button color="primary" (click)="saveClass()" [disabled]="!classFormData.name || saving">
+                <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
+                {{ isEditingClass ? 'Update Class' : 'Save Class' }}
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      }
+    
+      <!-- Section Drawer Modal -->
+      @if (showSectionDrawer) {
+        <mat-card class="form-drawer mat-elevation-z3" [class.edit-mode-active]="isEditingSection" id="section-form-drawer">
+          <div class="drawer-header">
+            <div class="drawer-title">
+              <div class="drawer-icon-wrap" [class.is-edit]="isEditingSection">
+                <mat-icon>{{ isEditingSection ? 'edit_note' : 'view_stream' }}</mat-icon>
+              </div>
+              <div>
+                <div class="drawer-headline">
+                  <strong>{{ isEditingSection ? 'Edit Section Details' : 'Add Section to Class' }}</strong>
+                  @if (isEditingSection) {
+                    <span class="editing-chip">
+                      <span class="pulse-dot"></span>
+                      Editing: {{ sectionFormData.name }} {{ editingParentClassName ? '(' + editingParentClassName + ')' : '' }}
+                    </span>
+                  }
+                </div>
+                <small>{{ isEditingSection ? 'Update section name, capacity, classroom allocation, or class teacher' : 'e.g. Section A, Section B, Commerce, Science' }}</small>
+              </div>
+            </div>
+            <button mat-icon-button (click)="closeSectionDrawer()" matTooltip="Close Edit Form">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <div class="form-row">
+            @if (!isEditingSection) {
+              <mat-form-field appearance="outline" class="f-flex-2">
+                <mat-label>Assign to Class *</mat-label>
+                <mat-select [(ngModel)]="sectionFormData.classId" required>
+                  @for (c of classes; track c) {
+                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+            <mat-form-field appearance="outline" class="f-flex-1">
+              <mat-label>Section Name *</mat-label>
+              <input matInput [(ngModel)]="sectionFormData.name" placeholder="e.g. A, B, C, Rose" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="f-flex-1">
+              <mat-label>Max Capacity</mat-label>
+              <input matInput type="number" [(ngModel)]="sectionFormData.maxCapacity" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="f-flex-2">
+              <mat-label>Allocated Classroom</mat-label>
+              <mat-select [(ngModel)]="sectionFormData.roomId">
+                <mat-option [value]="null">-- None / General --</mat-option>
+                @for (r of rooms; track r) {
+                  <mat-option [value]="r.id">
+                    {{ r.roomNumber }} (Cap: {{ r.capacity }})
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="f-flex-2">
+              <mat-label>Class Teacher (कक्षा अध्यापक)</mat-label>
+              <mat-select [(ngModel)]="sectionFormData.classTeacherId">
+                <mat-option [value]="null">-- None / Unassigned --</mat-option>
+                @for (t of teachers; track t) {
+                  <mat-option [value]="t.id">
+                    👨‍🏫 {{ t.fullName }} ({{ t.employeeCode }})
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="drawer-footer">
+            @if (isEditingSection) {
+              <mat-slide-toggle [(ngModel)]="sectionFormData.isActive" color="primary">
+                Active Status
+              </mat-slide-toggle>
+            }
+            <div class="btn-group">
+              <button mat-button (click)="closeSectionDrawer()">Cancel</button>
+              <button mat-raised-button color="primary" (click)="saveSection()" [disabled]="!sectionFormData.name || saving">
+                <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
+                {{ isEditingSection ? 'Update Section' : 'Save Section' }}
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      }
+    
+      <!-- Scope Filter Toolbar -->
+      @if (!loading && classes.length > 0) {
+        <div class="scope-filter-toolbar">
+          <div class="scope-filter-toggle">
+            <button type="button" class="s-toggle-btn"
+              [class.active]="selectedScopeFilter === 'All'"
+              (click)="setScopeFilter('All')">
+              <span>✨ All Classes</span>
+              <span class="count-pill">{{ classes.length }}</span>
+            </button>
+            <button type="button" class="s-toggle-btn"
+              [class.active]="selectedScopeFilter === 'School'"
+              (click)="setScopeFilter('School')">
+              <mat-icon>school</mat-icon>
+              <span>School Classes</span>
+              <span class="count-pill">{{ getSchoolClassesCount() }}</span>
+            </button>
+            <button type="button" class="s-toggle-btn"
+              [class.active]="selectedScopeFilter === 'Coaching'"
+              (click)="setScopeFilter('Coaching')">
+              <mat-icon>groups</mat-icon>
+              <span>Coaching Classes</span>
+              <span class="count-pill">{{ getCoachingClassesCount() }}</span>
+            </button>
+          </div>
+        </div>
+      }
+    
+      @if (!loading && filteredClasses.length > 0) {
+        <div class="classes-container">
+          @for (c of filteredClasses; track c) {
+            <mat-card class="class-card mat-elevation-z1">
+              <div class="class-card-header">
+                <div class="class-title-wrap">
+                  <div class="class-badge" [class.coaching-badge]="c.academicScope === 'Coaching'">
+                    <mat-icon>{{ c.academicScope === 'Coaching' ? 'groups' : 'school' }}</mat-icon>
+                  </div>
+                  <div class="class-title-info">
+                    <div class="class-title-row">
+                      <h3 class="class-name">{{ c.name }}</h3>
+                      @if (c.academicScope === 'Both' || !c.academicScope) {
+                        <span class="scope-tag both">🌟 School + Coaching</span>
+                      }
+                      @if (c.academicScope === 'Coaching') {
+                        <span class="scope-tag coaching">🎓 Coaching Only</span>
+                      }
+                      @if (c.academicScope === 'School') {
+                        <span class="scope-tag school">🏫 School Only</span>
+                      }
+                    </div>
+                    @if (c.code) {
+                      <span class="class-code">Code: {{ c.code }}</span>
+                    }
                   </div>
                 </div>
-
-                <div class="sec-actions">
-                  <button mat-icon-button class="mini-action-btn routine-sec" (click)="openSectionRoutine(s, c)" matTooltip="Class Timetable / Period Routine (समय सारणी)">
-                    <mat-icon>schedule</mat-icon>
+                <div class="class-actions">
+                  <a mat-icon-button class="action-btn-circle subjects-btn" matTooltip="Manage Class Curriculum & Subjects" [routerLink]="['/subjects']" [queryParams]="{classId: c.id, tab: 1}">
+                    <mat-icon>menu_book</mat-icon>
+                  </a>
+                  <button mat-icon-button class="action-btn-circle add-btn" matTooltip="Add Section to this Class" (click)="quickAddSection(c)">
+                    <mat-icon>add</mat-icon>
                   </button>
-                  <button mat-icon-button class="mini-action-btn edit-sec" (click)="editSection(s)" matTooltip="Edit Section">
+                  <button mat-icon-button class="action-btn-circle edit-btn" matTooltip="Edit Class" (click)="editClass(c)">
                     <mat-icon>edit</mat-icon>
                   </button>
-                  <button mat-icon-button class="mini-action-btn delete-sec" (click)="deleteSection(s)" matTooltip="Delete Section">
+                  <button mat-icon-button class="action-btn-circle delete-btn" matTooltip="Delete Class" (click)="deleteClass(c)">
                     <mat-icon>delete_outline</mat-icon>
                   </button>
                 </div>
               </div>
-
-              <!-- Meta Row: Room & Class Teacher -->
-              <div class="sec-meta-row">
-                <span class="sec-room-tag" *ngIf="s.roomNumber">
-                  <mat-icon>meeting_room</mat-icon>
-                  <span>{{ formatRoomName(s.roomNumber) }}</span>
+              <div class="class-meta-bar">
+                <span class="meta-tag students-tag">
+                  <mat-icon>groups</mat-icon>
+                  <span>{{ c.studentCount }} Student{{ c.studentCount === 1 ? '' : 's' }}</span>
                 </span>
-                <div class="sec-teacher-tag clickable-tag" 
-                     (click)="openQuickAssignTeacher(s, c)" 
-                     [class.unassigned]="!s.classTeacherName" 
-                     [matTooltip]="s.classTeacherName ? 'Class Teacher: ' + s.classTeacherName + ' (Click to change)' : 'Click to Assign Class Teacher'">
-                  <mat-icon class="teacher-icon">{{ s.classTeacherName ? 'school' : 'person_add' }}</mat-icon>
-                  <span class="teacher-name-label">{{ s.classTeacherName || 'Assign Class Teacher' }}</span>
-                  <mat-icon class="quick-caret">arrow_drop_down</mat-icon>
-                  <button *ngIf="s.classTeacherName" type="button" class="remove-teacher-chip-btn" (click)="$event.stopPropagation(); removeClassTeacher(s, c)" matTooltip="Remove Class Teacher">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </div>
+                <span class="meta-tag sections-tag">
+                  <mat-icon>layers</mat-icon>
+                  <span>{{ c.sections?.length || 0 }} Section{{ (c.sections?.length || 0) === 1 ? '' : 's' }}</span>
+                </span>
+                <a class="meta-tag subjects-tag" [routerLink]="['/subjects']" [queryParams]="{classId: c.id, tab: 1}" matTooltip="Manage Class Curriculum & Subjects">
+                  <mat-icon>menu_book</mat-icon>
+                  <span>{{ classSubjectCounts[c.id] !== undefined ? classSubjectCounts[c.id] + ' Subjects' : 'Subjects' }}</span>
+                </a>
               </div>
-
-              <!-- Mini Capacity / Occupancy Bar -->
-              <div class="sec-occupancy-track" *ngIf="s.maxCapacity && s.maxCapacity > 0">
-                <div class="sec-occupancy-fill" [style.width.%]="getOccupancyPercent(s)" [class.is-full]="s.studentCount >= s.maxCapacity"></div>
+              <!-- Sections List in Class -->
+              <div class="sections-list">
+                @for (s of c.sections; track s) {
+                  <div class="section-card">
+                    <!-- Header Row: Section Badge + Name + Seats + Action Buttons -->
+                    <div class="sec-header-row">
+                      <div class="sec-identity">
+                        <div class="sec-badge">{{ getSectionBadge(s.name) }}</div>
+                        <div class="sec-identity-text">
+                          <span class="sec-name">{{ formatSectionName(s.name) }}</span>
+                          <span class="sec-capacity-chip" [class.is-full]="s.studentCount >= s.maxCapacity && s.maxCapacity > 0">
+                            <mat-icon class="capacity-icon">groups</mat-icon>
+                            <span>{{ s.studentCount }} / {{ s.maxCapacity }} Seats</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div class="sec-actions">
+                        <button mat-icon-button class="mini-action-btn routine-sec" (click)="openSectionRoutine(s, c)" matTooltip="Class Timetable / Period Routine (समय सारणी)">
+                          <mat-icon>schedule</mat-icon>
+                        </button>
+                        <button mat-icon-button class="mini-action-btn edit-sec" (click)="editSection(s)" matTooltip="Edit Section">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button mat-icon-button class="mini-action-btn delete-sec" (click)="deleteSection(s)" matTooltip="Delete Section">
+                          <mat-icon>delete_outline</mat-icon>
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Meta Row: Room & Class Teacher -->
+                    <div class="sec-meta-row">
+                      @if (s.roomNumber) {
+                        <span class="sec-room-tag">
+                          <mat-icon>meeting_room</mat-icon>
+                          <span>{{ formatRoomName(s.roomNumber) }}</span>
+                        </span>
+                      }
+                      <div class="sec-teacher-tag clickable-tag"
+                        (click)="openQuickAssignTeacher(s, c)"
+                        [class.unassigned]="!s.classTeacherName"
+                        [matTooltip]="s.classTeacherName ? 'Class Teacher: ' + s.classTeacherName + ' (Click to change)' : 'Click to Assign Class Teacher'">
+                        <mat-icon class="teacher-icon">{{ s.classTeacherName ? 'school' : 'person_add' }}</mat-icon>
+                        <span class="teacher-name-label">{{ s.classTeacherName || 'Assign Class Teacher' }}</span>
+                        <mat-icon class="quick-caret">arrow_drop_down</mat-icon>
+                        @if (s.classTeacherName) {
+                          <button type="button" class="remove-teacher-chip-btn" (click)="$event.stopPropagation(); removeClassTeacher(s, c)" matTooltip="Remove Class Teacher">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                    <!-- Mini Capacity / Occupancy Bar -->
+                    @if (s.maxCapacity && s.maxCapacity > 0) {
+                      <div class="sec-occupancy-track">
+                        <div class="sec-occupancy-fill" [style.width.%]="getOccupancyPercent(s)" [class.is-full]="s.studentCount >= s.maxCapacity"></div>
+                      </div>
+                    }
+                  </div>
+                }
+                @if (!c.sections || c.sections.length === 0) {
+                  <div class="no-sections">
+                    <mat-icon class="empty-icon">add_circle_outline</mat-icon>
+                    <span>No sections yet. Click '+' to add Section A.</span>
+                  </div>
+                }
               </div>
-            </div>
-
-            <div class="no-sections" *ngIf="!c.sections || c.sections.length === 0">
-              <mat-icon class="empty-icon">add_circle_outline</mat-icon>
-              <span>No sections yet. Click '+' to add Section A.</span>
-            </div>
-          </div>
-        </mat-card>
-      </div>
-
+            </mat-card>
+          }
+        </div>
+      }
+    
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && classes.length === 0">
-        <mat-icon class="empty-state-icon">school</mat-icon>
-        <h3>No School Classes Declared</h3>
-        <p>Set up your institution's school classes (e.g. Class 1st to 12th) to begin enrolling school students and linking them with coaching batches.</p>
-        <button mat-raised-button color="primary" class="declare-btn" (click)="openAddClassDrawer()">
-          <mat-icon class="btn-icon">add</mat-icon>
-          <span>Declare First Class</span>
-        </button>
-      </div>
+      @if (!loading && classes.length === 0) {
+        <div class="empty-state">
+          <mat-icon class="empty-state-icon">school</mat-icon>
+          <h3>No School Classes Declared</h3>
+          <p>Set up your institution's school classes (e.g. Class 1st to 12th) to begin enrolling school students and linking them with coaching batches.</p>
+          <button mat-raised-button color="primary" class="declare-btn" (click)="openAddClassDrawer()">
+            <mat-icon class="btn-icon">add</mat-icon>
+            <span>Declare First Class</span>
+          </button>
+        </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display: flex; flex-direction: column; gap: 20px; }
     .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }

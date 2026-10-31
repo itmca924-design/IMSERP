@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -48,17 +48,27 @@ import { environment } from '../../../environments/environment';
         <span class="active-scope-badge" [ngClass]="currentScope.toLowerCase()">
           {{ currentScope === 'School' ? '🏫 School Classes' : currentScope === 'Coaching' ? '🎯 Coaching Batches' : '🌐 School + Coaching Repository' }}
         </span>
-        <span class="student-profile-badge" *ngIf="isStudent() && loggedInStudent">
-          <mat-icon>verified_user</mat-icon>
-          <span>Enrolled: <strong>{{ loggedInStudent.className || 'Class 3rd' }}</strong></span>
-          <span *ngIf="loggedInStudent.batchName">&nbsp;• <strong>{{ loggedInStudent.batchName }}</strong></span>
-        </span>
-        <span class="student-profile-badge" style="background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe;" *ngIf="isTeacher()">
-          <mat-icon style="color:#7c3aed;">assignment_ind</mat-icon>
-          <span>Faculty: <strong>{{ currentUser()?.fullName || currentUser()?.username }}</strong></span>
-          <span *ngIf="classes.length > 0">&nbsp;• <strong>{{ classes.length }} Assigned {{ classes.length === 1 ? 'Class' : 'Classes' }}</strong></span>
-          <span *ngIf="batches.length > 0">&nbsp;• <strong>{{ batches.length }} Assigned {{ batches.length === 1 ? 'Batch' : 'Batches' }}</strong></span>
-        </span>
+        @if (isStudent() && loggedInStudent) {
+          <span class="student-profile-badge">
+            <mat-icon>verified_user</mat-icon>
+            <span>Enrolled: <strong>{{ loggedInStudent.className || 'Class 3rd' }}</strong></span>
+            @if (loggedInStudent.batchName) {
+              <span>&nbsp;• <strong>{{ loggedInStudent.batchName }}</strong></span>
+            }
+          </span>
+        }
+        @if (isTeacher()) {
+          <span class="student-profile-badge" style="background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe;">
+            <mat-icon style="color:#7c3aed;">assignment_ind</mat-icon>
+            <span>Faculty: <strong>{{ currentUser()?.fullName || currentUser()?.username }}</strong></span>
+            @if (classes.length > 0) {
+              <span>&nbsp;• <strong>{{ classes.length }} Assigned {{ classes.length === 1 ? 'Class' : 'Classes' }}</strong></span>
+            }
+            @if (batches.length > 0) {
+              <span>&nbsp;• <strong>{{ batches.length }} Assigned {{ batches.length === 1 ? 'Batch' : 'Batches' }}</strong></span>
+            }
+          </span>
+        }
       </div>
       <h1 class="page-title">Study Material &amp; Question Bank Repository</h1>
       <p class="page-subtitle">
@@ -68,139 +78,149 @@ import { environment } from '../../../environments/environment';
 
     <div class="header-actions">
       <!-- 1-Click Upload Button (for Staff/Teachers/Admin) -->
-      <button mat-flat-button color="primary" class="upload-btn" (click)="openUploadDialog()" *ngIf="canUpload()">
-        <mat-icon>cloud_upload</mat-icon> Upload Study Material / PYQ
-      </button>
+      @if (canUpload()) {
+        <button mat-flat-button color="primary" class="upload-btn" (click)="openUploadDialog()">
+          <mat-icon>cloud_upload</mat-icon> Upload Study Material / PYQ
+        </button>
+      }
     </div>
   </div>
 
   <!-- Top Metrics Bar -->
-  <div class="stats-grid" *ngIf="stats">
-    <div class="stat-card">
-      <div class="stat-icon-wrap total"><mat-icon>library_books</mat-icon></div>
-      <div class="stat-info">
-        <span class="stat-val">{{ stats.totalItems }}</span>
-        <span class="stat-label">Total Documents</span>
+  @if (stats) {
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon-wrap total"><mat-icon>library_books</mat-icon></div>
+        <div class="stat-info">
+          <span class="stat-val">{{ stats.totalItems }}</span>
+          <span class="stat-label">Total Documents</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrap notes"><mat-icon>menu_book</mat-icon></div>
+        <div class="stat-info">
+          <span class="stat-val">{{ stats.notesCount }}</span>
+          <span class="stat-label">Digital Notes</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrap pyq"><mat-icon>history_edu</mat-icon></div>
+        <div class="stat-info">
+          <span class="stat-val">{{ stats.pyqCount }}</span>
+          <span class="stat-label">PYQ Papers</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrap qb"><mat-icon>quiz</mat-icon></div>
+        <div class="stat-info">
+          <span class="stat-val">{{ stats.questionBankCount + stats.formulaSheetCount }}</span>
+          <span class="stat-label">Question Bank &amp; Formulas</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon-wrap dl"><mat-icon>download</mat-icon></div>
+        <div class="stat-info">
+          <span class="stat-val">{{ stats.totalDownloads }}</span>
+          <span class="stat-label">Student Downloads</span>
+        </div>
       </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-icon-wrap notes"><mat-icon>menu_book</mat-icon></div>
-      <div class="stat-info">
-        <span class="stat-val">{{ stats.notesCount }}</span>
-        <span class="stat-label">Digital Notes</span>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon-wrap pyq"><mat-icon>history_edu</mat-icon></div>
-      <div class="stat-info">
-        <span class="stat-val">{{ stats.pyqCount }}</span>
-        <span class="stat-label">PYQ Papers</span>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon-wrap qb"><mat-icon>quiz</mat-icon></div>
-      <div class="stat-info">
-        <span class="stat-val">{{ stats.questionBankCount + stats.formulaSheetCount }}</span>
-        <span class="stat-label">Question Bank &amp; Formulas</span>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon-wrap dl"><mat-icon>download</mat-icon></div>
-      <div class="stat-info">
-        <span class="stat-val">{{ stats.totalDownloads }}</span>
-        <span class="stat-label">Student Downloads</span>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- Main Filter & Control Center -->
   <mat-card class="filter-card">
     <!-- Row 1: Scope Switcher (All Optional & Responsive) -->
     <div class="scope-bar">
       <div class="scope-pills">
-        <button 
-          type="button" 
-          class="scope-pill" 
+        <button
+          type="button"
+          class="scope-pill"
           [class.active]="currentScope === 'All'"
           (click)="setScope('All')">
           <mat-icon>public</mat-icon>
           <span>All Materials</span>
         </button>
-        <button 
-          type="button" 
-          class="scope-pill" 
-          [class.active]="currentScope === 'School'"
-          (click)="setScope('School')"
-          *ngIf="hasSchoolAccess() && (!isStudent() || loggedInStudent?.isSchoolStudent) && (!isTeacher() || classes.length > 0)">
-          <mat-icon>school</mat-icon>
-          <span>🏫 School Classes</span>
-        </button>
-        <button 
-          type="button" 
-          class="scope-pill" 
-          [class.active]="currentScope === 'Coaching'"
-          (click)="setScope('Coaching')"
-          *ngIf="hasCoachingAccess() && (!isStudent() || loggedInStudent?.isCoachingStudent) && (!isTeacher() || batches.length > 0)">
-          <mat-icon>psychology</mat-icon>
-          <span>🎯 Coaching Batches</span>
-        </button>
+        @if (hasSchoolAccess() && (!isStudent() || loggedInStudent?.isSchoolStudent) && (!isTeacher() || classes.length > 0)) {
+          <button
+            type="button"
+            class="scope-pill"
+            [class.active]="currentScope === 'School'"
+            (click)="setScope('School')"
+            >
+            <mat-icon>school</mat-icon>
+            <span>🏫 School Classes</span>
+          </button>
+        }
+        @if (hasCoachingAccess() && (!isStudent() || loggedInStudent?.isCoachingStudent) && (!isTeacher() || batches.length > 0)) {
+          <button
+            type="button"
+            class="scope-pill"
+            [class.active]="currentScope === 'Coaching'"
+            (click)="setScope('Coaching')"
+            >
+            <mat-icon>psychology</mat-icon>
+            <span>🎯 Coaching Batches</span>
+          </button>
+        }
       </div>
 
       <!-- Quick Search Input -->
       <div class="search-box">
         <mat-icon>search</mat-icon>
-        <input 
-          type="text" 
-          [(ngModel)]="searchKeyword" 
-          (ngModelChange)="onSearchChanged()" 
+        <input
+          type="text"
+          [(ngModel)]="searchKeyword"
+          (ngModelChange)="onSearchChanged()"
           placeholder="Search by title, chapter, topic, or exam (e.g. Physics, Light, JEE 2024)..." />
-        <button *ngIf="searchKeyword" mat-icon-button (click)="searchKeyword = ''; onSearchChanged()" class="clear-btn">
-          <mat-icon>close</mat-icon>
-        </button>
+        @if (searchKeyword) {
+          <button mat-icon-button (click)="searchKeyword = ''; onSearchChanged()" class="clear-btn">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
       </div>
     </div>
 
     <!-- Row 2: Material Type Tabs -->
     <div class="type-tabs-row">
-      <button 
-        type="button" 
-        class="type-tab" 
-        [class.active]="activeType === 'All'" 
+      <button
+        type="button"
+        class="type-tab"
+        [class.active]="activeType === 'All'"
         (click)="setType('All')">
         All Types
       </button>
-      <button 
-        type="button" 
-        class="type-tab" 
-        [class.active]="activeType === 'Notes'" 
+      <button
+        type="button"
+        class="type-tab"
+        [class.active]="activeType === 'Notes'"
         (click)="setType('Notes')">
         📝 Concept Notes
       </button>
-      <button 
-        type="button" 
-        class="type-tab" 
-        [class.active]="activeType === 'PYQ'" 
+      <button
+        type="button"
+        class="type-tab"
+        [class.active]="activeType === 'PYQ'"
         (click)="setType('PYQ')">
         🎯 PYQs
       </button>
-      <button 
-        type="button" 
-        class="type-tab" 
-        [class.active]="activeType === 'QuestionBank'" 
+      <button
+        type="button"
+        class="type-tab"
+        [class.active]="activeType === 'QuestionBank'"
         (click)="setType('QuestionBank')">
         📚 Question Bank &amp; DPP
       </button>
-      <button 
-        type="button" 
-        class="type-tab" 
-        [class.active]="activeType === 'FormulaSheet'" 
+      <button
+        type="button"
+        class="type-tab"
+        [class.active]="activeType === 'FormulaSheet'"
         (click)="setType('FormulaSheet')">
         ⚡ Formula Sheets &amp; Mindmaps
       </button>
-      <button 
-        type="button" 
-        class="type-tab" 
-        [class.active]="activeType === 'SamplePaper'" 
+      <button
+        type="button"
+        class="type-tab"
+        [class.active]="activeType === 'SamplePaper'"
         (click)="setType('SamplePaper')">
         📄 Sample &amp; Model Papers
       </button>
@@ -209,173 +229,205 @@ import { environment } from '../../../environments/environment';
     <!-- Row 3: Optional Granular Filters (Class / Batch / Subject / Exam) -->
     <div class="dropdowns-row">
       <!-- School / Academic Class filter -->
-      <mat-form-field appearance="outline" class="filter-field" *ngIf="shouldShowClassFilter()">
-        <mat-label>{{ isTeacher() ? 'Assigned Class' : isStudent() ? 'Enrolled Class' : (currentScope === 'Coaching' ? 'Academic Class' : 'School Class') }}</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassFilterChanged()">
-          <mat-option [value]="null" *ngIf="isAdmin() || (isTeacher() && classes.length > 1)">
-            {{ isTeacher() ? 'All My Classes (' + classes.length + ')' : 'All Classes' }}
-          </mat-option>
-          <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-        </mat-select>
-      </mat-form-field>
+      @if (shouldShowClassFilter()) {
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>{{ isTeacher() ? 'Assigned Class' : isStudent() ? 'Enrolled Class' : (currentScope === 'Coaching' ? 'Academic Class' : 'School Class') }}</mat-label>
+          <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassFilterChanged()">
+            @if (isAdmin() || (isTeacher() && classes.length > 1)) {
+              <mat-option [value]="null">
+                {{ isTeacher() ? 'All My Classes (' + classes.length + ')' : 'All Classes' }}
+              </mat-option>
+            }
+            @for (c of classes; track c) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
 
       <!-- Coaching Batch filter -->
-      <mat-form-field appearance="outline" class="filter-field" *ngIf="shouldShowBatchFilter()">
-        <mat-label>{{ isTeacher() ? 'Assigned Batch' : isStudent() ? 'Enrolled Batch' : 'Coaching Batch' }}</mat-label>
-        <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="onBatchFilterChanged()">
-          <mat-option [value]="null" *ngIf="isAdmin() || (isTeacher() && filteredBatches.length > 1)">
-            {{ isTeacher() ? 'All My Batches (' + filteredBatches.length + ')' : 'All Batches' }}
-          </mat-option>
-          <mat-option *ngFor="let b of filteredBatches" [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
-        </mat-select>
-      </mat-form-field>
+      @if (shouldShowBatchFilter()) {
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>{{ isTeacher() ? 'Assigned Batch' : isStudent() ? 'Enrolled Batch' : 'Coaching Batch' }}</mat-label>
+          <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="onBatchFilterChanged()">
+            @if (isAdmin() || (isTeacher() && filteredBatches.length > 1)) {
+              <mat-option [value]="null">
+                {{ isTeacher() ? 'All My Batches (' + filteredBatches.length + ')' : 'All Batches' }}
+              </mat-option>
+            }
+            @for (b of filteredBatches; track b) {
+              <mat-option [value]="b.id">{{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
 
       <!-- Subject filter -->
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Subject</mat-label>
         <mat-select [(ngModel)]="selectedSubject" (selectionChange)="loadMaterials()">
           <mat-option value="All">All Subjects</mat-option>
-          <mat-option *ngFor="let s of subjects" [value]="s.name">
-            {{ s.name }} <span *ngIf="s.isAssignedToMe" style="color: #2563eb; font-weight: 700; font-size: 0.76rem; margin-left: 4px;">(Assigned)</span>
+          @for (s of subjects; track s) {
+            <mat-option [value]="s.name">
+              {{ s.name }} @if (s.isAssignedToMe) {
+              <span style="color: #2563eb; font-weight: 700; font-size: 0.76rem; margin-left: 4px;">(Assigned)</span>
+            }
           </mat-option>
-        </mat-select>
-      </mat-form-field>
+        }
+      </mat-select>
+    </mat-form-field>
 
-      <!-- Target Exam filter -->
-      <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Target Exam</mat-label>
-        <mat-select [(ngModel)]="selectedTargetExam" (selectionChange)="loadMaterials()">
-          <mat-option value="All">All Exams</mat-option>
-          <mat-option value="CBSE Board">CBSE Board</mat-option>
-          <mat-option value="ICSE Board">ICSE Board</mat-option>
-          <mat-option value="State Board">State Board</mat-option>
-          <mat-option value="JEE Main">JEE Main</mat-option>
-          <mat-option value="JEE Advanced">JEE Advanced</mat-option>
-          <mat-option value="NEET UG">NEET UG</mat-option>
-          <mat-option value="Foundation">Foundation</mat-option>
-        </mat-select>
-      </mat-form-field>
+    <!-- Target Exam filter -->
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Target Exam</mat-label>
+      <mat-select [(ngModel)]="selectedTargetExam" (selectionChange)="loadMaterials()">
+        <mat-option value="All">All Exams</mat-option>
+        <mat-option value="CBSE Board">CBSE Board</mat-option>
+        <mat-option value="ICSE Board">ICSE Board</mat-option>
+        <mat-option value="State Board">State Board</mat-option>
+        <mat-option value="JEE Main">JEE Main</mat-option>
+        <mat-option value="JEE Advanced">JEE Advanced</mat-option>
+        <mat-option value="NEET UG">NEET UG</mat-option>
+        <mat-option value="Foundation">Foundation</mat-option>
+      </mat-select>
+    </mat-form-field>
 
-      <!-- Solutions filter toggle -->
-      <button 
-        type="button" 
-        class="filter-toggle-btn" 
-        [class.active]="filterWithSolutions" 
-        (click)="toggleSolutionsFilter()">
-        <mat-icon>{{ filterWithSolutions ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-        <span>With Solutions</span>
-      </button>
+    <!-- Solutions filter toggle -->
+    <button
+      type="button"
+      class="filter-toggle-btn"
+      [class.active]="filterWithSolutions"
+      (click)="toggleSolutionsFilter()">
+      <mat-icon>{{ filterWithSolutions ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+      <span>With Solutions</span>
+    </button>
 
-      <!-- Reset Filter Button -->
-      <button 
-        mat-button 
-        type="button" 
-        class="reset-btn" 
-        *ngIf="isFilterActive" 
+    <!-- Reset Filter Button -->
+    @if (isFilterActive) {
+      <button
+        mat-button
+        type="button"
+        class="reset-btn"
         (click)="resetFilters()">
         <mat-icon>filter_alt_off</mat-icon> Clear Filters
       </button>
-    </div>
-  </mat-card>
+    }
+  </div>
+</mat-card>
 
-  <!-- Empty State -->
-  <div class="empty-state" *ngIf="!loading && materials.length === 0">
+<!-- Empty State -->
+@if (!loading && materials.length === 0) {
+  <div class="empty-state">
     <div class="empty-icon-wrap">
       <mat-icon>auto_stories</mat-icon>
     </div>
     <h3>No Study Material Found</h3>
     <p>There are no notes, PYQs or question banks matching your selected criteria.</p>
-    <button mat-stroked-button color="primary" (click)="resetFilters()" *ngIf="isFilterActive">
-      Reset All Filters
-    </button>
+    @if (isFilterActive) {
+      <button mat-stroked-button color="primary" (click)="resetFilters()">
+        Reset All Filters
+      </button>
+    }
   </div>
+}
 
-  <!-- Cards Grid Layout -->
-  <div class="materials-grid" *ngIf="!loading && materials.length > 0">
-    <mat-card class="material-card" *ngFor="let item of materials" [class.featured]="item.isFeatured">
-      <!-- Card Header Strip -->
-      <div class="card-top-strip">
-        <div class="type-pill" [ngClass]="item.materialType.toLowerCase()">
-          {{ getTypeLabel(item.materialType) }}
+<!-- Cards Grid Layout -->
+@if (!loading && materials.length > 0) {
+  <div class="materials-grid">
+    @for (item of materials; track item) {
+      <mat-card class="material-card" [class.featured]="item.isFeatured">
+        <!-- Card Header Strip -->
+        <div class="card-top-strip">
+          <div class="type-pill" [ngClass]="item.materialType.toLowerCase()">
+            {{ getTypeLabel(item.materialType) }}
+          </div>
+          <div class="format-pill" [ngClass]="item.fileFormat">
+            {{ item.fileFormat | uppercase }}
+          </div>
         </div>
-        <div class="format-pill" [ngClass]="item.fileFormat">
-          {{ item.fileFormat | uppercase }}
+        <!-- Card Main Content -->
+        <div class="card-body">
+          <div class="subject-line">
+            <span class="subject-tag">{{ item.subject }}</span>
+            <span class="scope-tag" [ngClass]="item.targetScope.toLowerCase()">
+              {{ item.targetScope === 'School' ? '🏫 School' : item.targetScope === 'Coaching' ? '🎯 Coaching' : '🌐 Open' }}
+            </span>
+            @if (item.isFeatured) {
+              <span class="featured-star" matTooltip="Featured Material">⭐</span>
+            }
+          </div>
+          <h3 class="material-title" [title]="item.title" (click)="previewMaterial(item)">
+            {{ item.title }}
+          </h3>
+          @if (item.chapterName || item.topic) {
+            <div class="chapter-line">
+              <mat-icon>bookmark_border</mat-icon>
+              <span>{{ item.chapterName || item.topic }}</span>
+            </div>
+          }
+          @if (item.description) {
+            <p class="material-desc">
+              {{ item.description }}
+            </p>
+          }
+          <!-- Exam & Target Info Chips -->
+          <div class="meta-chips-wrap">
+            @if (item.targetExam) {
+              <span class="meta-chip exam-chip">
+                <mat-icon>school</mat-icon> {{ item.targetExam }}
+              </span>
+            }
+            @if (item.examYear) {
+              <span class="meta-chip year-chip">
+                <mat-icon>event</mat-icon> {{ item.examYear }}
+              </span>
+            }
+            @if (item.hasSolutions) {
+              <span class="meta-chip sol-chip">
+                <mat-icon>check_circle</mat-icon> Solved
+              </span>
+            }
+            @if (item.fileSizeBytes > 0) {
+              <span class="meta-chip size-chip">
+                <mat-icon>storage</mat-icon> {{ formatBytes(item.fileSizeBytes) }}
+              </span>
+            }
+          </div>
         </div>
-      </div>
-
-      <!-- Card Main Content -->
-      <div class="card-body">
-        <div class="subject-line">
-          <span class="subject-tag">{{ item.subject }}</span>
-          <span class="scope-tag" [ngClass]="item.targetScope.toLowerCase()">
-            {{ item.targetScope === 'School' ? '🏫 School' : item.targetScope === 'Coaching' ? '🎯 Coaching' : '🌐 Open' }}
-          </span>
-          <span class="featured-star" *ngIf="item.isFeatured" matTooltip="Featured Material">⭐</span>
+        <!-- Card Footer with Stats & Actions -->
+        <div class="card-footer">
+          <div class="stats-counters">
+            <span matTooltip="Downloads count"><mat-icon>download</mat-icon> {{ item.downloadCount }}</span>
+            <span matTooltip="Views count"><mat-icon>visibility</mat-icon> {{ item.viewCount }}</span>
+          </div>
+          <div class="action-buttons">
+            <!-- Preview in App -->
+            <button mat-stroked-button color="primary" class="preview-btn" (click)="previewMaterial(item)">
+              <mat-icon>visibility</mat-icon> Preview
+            </button>
+            <!-- Direct Download -->
+            <button type="button" class="dl-btn" (click)="downloadMaterial(item)" matTooltip="Download file">
+              <mat-icon>download</mat-icon>
+            </button>
+            <!-- WhatsApp Share -->
+            <button mat-icon-button class="wa-btn" (click)="shareViaWhatsApp(item)" matTooltip="Share via WhatsApp">
+              <mat-icon>share</mat-icon>
+            </button>
+            <!-- Delete / Edit for faculty -->
+            @if (canUpload()) {
+              <button mat-icon-button class="del-btn" (click)="deleteMaterial(item)" matTooltip="Delete material">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            }
+          </div>
         </div>
-
-        <h3 class="material-title" [title]="item.title" (click)="previewMaterial(item)">
-          {{ item.title }}
-        </h3>
-
-        <div class="chapter-line" *ngIf="item.chapterName || item.topic">
-          <mat-icon>bookmark_border</mat-icon>
-          <span>{{ item.chapterName || item.topic }}</span>
-        </div>
-
-        <p class="material-desc" *ngIf="item.description">
-          {{ item.description }}
-        </p>
-
-        <!-- Exam & Target Info Chips -->
-        <div class="meta-chips-wrap">
-          <span class="meta-chip exam-chip" *ngIf="item.targetExam">
-            <mat-icon>school</mat-icon> {{ item.targetExam }}
-          </span>
-          <span class="meta-chip year-chip" *ngIf="item.examYear">
-            <mat-icon>event</mat-icon> {{ item.examYear }}
-          </span>
-          <span class="meta-chip sol-chip" *ngIf="item.hasSolutions">
-            <mat-icon>check_circle</mat-icon> Solved
-          </span>
-          <span class="meta-chip size-chip" *ngIf="item.fileSizeBytes > 0">
-            <mat-icon>storage</mat-icon> {{ formatBytes(item.fileSizeBytes) }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Card Footer with Stats & Actions -->
-      <div class="card-footer">
-        <div class="stats-counters">
-          <span matTooltip="Downloads count"><mat-icon>download</mat-icon> {{ item.downloadCount }}</span>
-          <span matTooltip="Views count"><mat-icon>visibility</mat-icon> {{ item.viewCount }}</span>
-        </div>
-
-        <div class="action-buttons">
-          <!-- Preview in App -->
-          <button mat-stroked-button color="primary" class="preview-btn" (click)="previewMaterial(item)">
-            <mat-icon>visibility</mat-icon> Preview
-          </button>
-
-          <!-- Direct Download -->
-          <button type="button" class="dl-btn" (click)="downloadMaterial(item)" matTooltip="Download file">
-            <mat-icon>download</mat-icon>
-          </button>
-
-          <!-- WhatsApp Share -->
-          <button mat-icon-button class="wa-btn" (click)="shareViaWhatsApp(item)" matTooltip="Share via WhatsApp">
-            <mat-icon>share</mat-icon>
-          </button>
-
-          <!-- Delete / Edit for faculty -->
-          <button mat-icon-button class="del-btn" *ngIf="canUpload()" (click)="deleteMaterial(item)" matTooltip="Delete material">
-            <mat-icon>delete_outline</mat-icon>
-          </button>
-        </div>
-      </div>
-    </mat-card>
+      </mat-card>
+    }
   </div>
+}
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

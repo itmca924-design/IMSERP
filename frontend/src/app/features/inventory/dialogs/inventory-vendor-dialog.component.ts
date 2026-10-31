@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,7 +19,6 @@ export interface InventoryVendorDialogData {
   selector: 'app-inventory-vendor-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -27,7 +26,7 @@ export interface InventoryVendorDialogData {
     MatInputModule,
     MatIconModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <!-- Strict ERP Light-Blue Gradient Header -->
@@ -45,72 +44,77 @@ export interface InventoryVendorDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-body">
           <div class="form-grid">
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Vendor / Business Name</mat-label>
               <input matInput formControlName="vendorName" placeholder="e.g. Apex Stationers & Uniform Suppliers" />
-              <mat-error *ngIf="form.get('vendorName')?.hasError('required')">
-                Vendor name is required
-              </mat-error>
+              @if (form.get('vendorName')?.hasError('required')) {
+                <mat-error>
+                  Vendor name is required
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Contact Person</mat-label>
               <input matInput formControlName="contactPerson" placeholder="e.g. Rakesh Agarwal" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Phone / Mobile</mat-label>
               <input matInput formControlName="phone" placeholder="e.g. 9876543210" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Email Address</mat-label>
               <input matInput type="email" formControlName="email" placeholder="e.g. vendor@gmail.com" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>GSTIN Number</mat-label>
               <input matInput formControlName="gstin" placeholder="15-digit GSTIN" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>PAN Card Number</mat-label>
               <input matInput formControlName="pan" placeholder="10-digit PAN" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Payment Terms</mat-label>
               <input matInput formControlName="paymentTerms" placeholder="e.g. Net 15 Days, Immediate Cash, 50% Advance" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Shop / Office Address</mat-label>
               <input matInput formControlName="address" placeholder="Commercial Complex, Road, City" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Bank Details / UPI ID</mat-label>
               <input matInput formControlName="bankDetails" placeholder="Bank Name, A/C No, IFSC, UPI VPA" />
             </mat-form-field>
           </div>
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
             Cancel
           </button>
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner-btn"></mat-spinner>
+            @if (submitting) {
+              <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
+            }
             <span>{{ data.isEdit ? 'Update Vendor' : 'Save Vendor' }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

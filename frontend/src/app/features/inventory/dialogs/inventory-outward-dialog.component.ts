@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -59,7 +59,7 @@ export interface InventoryOutwardDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-body">
           <!-- Issue Mode Selector -->
@@ -74,50 +74,59 @@ export interface InventoryOutwardDialogData {
               </mat-radio-button>
             </mat-radio-group>
           </div>
-
+    
           <!-- Recipient Section -->
           <div class="section-title">
             <mat-icon>person</mat-icon>
             <span>Recipient Details</span>
           </div>
-
+    
           <!-- If Student Kit Sale: 50% Class-wise Dropdowns + 50% Quick Search Box -->
-          <div *ngIf="isStudentMode()" class="student-picker-container">
-            <div class="student-picker-grid">
-              <!-- 50%: Class-wise Student Dropdowns (Class + Student) -->
-              <div class="class-student-pair">
-                <mat-form-field appearance="outline" class="class-field" subscriptSizing="dynamic">
-                  <mat-label>Select Class</mat-label>
-                  <mat-select [formControl]="selectedClassCtrl" (selectionChange)="onClassChange($event.value)" placeholder="Choose Class">
-                    <mat-option [value]="null">-- Select Class --</mat-option>
-                    <mat-option *ngFor="let c of classesList" [value]="c.id">
-                      {{ c.name }}
-                    </mat-option>
-                  </mat-select>
-                  <mat-icon matPrefix class="picker-prefix-icon">school</mat-icon>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="student-select-field" subscriptSizing="dynamic">
-                  <mat-label>Select Student</mat-label>
-                  <mat-select
-                    [formControl]="selectedClassStudentCtrl"
-                    (selectionChange)="onClassStudentChange($event.value)"
-                    [disabled]="!selectedClassCtrl.value || loadingClassStudents"
-                    placeholder="Choose Student">
-                    <mat-option *ngIf="loadingClassStudents" disabled>
-                      Loading students...
-                    </mat-option>
-                    <mat-option *ngIf="!loadingClassStudents && selectedClassCtrl.value && classStudents.length === 0" disabled>
-                      No students found
-                    </mat-option>
-                    <mat-option *ngFor="let s of classStudents" [value]="s">
-                      Roll {{ s.rollNumber || '-' }} — {{ s.fullName }} <span *ngIf="s.sectionName" class="sec-text">({{ s.sectionName }})</span>
-                    </mat-option>
+          @if (isStudentMode()) {
+            <div class="student-picker-container">
+              <div class="student-picker-grid">
+                <!-- 50%: Class-wise Student Dropdowns (Class + Student) -->
+                <div class="class-student-pair">
+                  <mat-form-field appearance="outline" class="class-field" subscriptSizing="dynamic">
+                    <mat-label>Select Class</mat-label>
+                    <mat-select [formControl]="selectedClassCtrl" (selectionChange)="onClassChange($event.value)" placeholder="Choose Class">
+                      <mat-option [value]="null">-- Select Class --</mat-option>
+                      @for (c of classesList; track c) {
+                        <mat-option [value]="c.id">
+                          {{ c.name }}
+                        </mat-option>
+                      }
+                    </mat-select>
+                    <mat-icon matPrefix class="picker-prefix-icon">school</mat-icon>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="student-select-field" subscriptSizing="dynamic">
+                    <mat-label>Select Student</mat-label>
+                    <mat-select
+                      [formControl]="selectedClassStudentCtrl"
+                      (selectionChange)="onClassStudentChange($event.value)"
+                      [disabled]="!selectedClassCtrl.value || loadingClassStudents"
+                      placeholder="Choose Student">
+                      @if (loadingClassStudents) {
+                        <mat-option disabled>
+                          Loading students...
+                        </mat-option>
+                      }
+                      @if (!loadingClassStudents && selectedClassCtrl.value && classStudents.length === 0) {
+                        <mat-option disabled>
+                          No students found
+                        </mat-option>
+                      }
+                      @for (s of classStudents; track s) {
+                        <mat-option [value]="s">
+                          Roll {{ s.rollNumber || '-' }} — {{ s.fullName }} @if (s.sectionName) {
+                          <span class="sec-text">({{ s.sectionName }})</span>
+                        }
+                      </mat-option>
+                    }
                   </mat-select>
                   <mat-icon matPrefix class="picker-prefix-icon">person</mat-icon>
                 </mat-form-field>
               </div>
-
               <!-- 50%: Quick Search Student (Name or Roll No) -->
               <div class="search-box-field-wrap">
                 <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
@@ -128,34 +137,43 @@ export interface InventoryOutwardDialogData {
                     [formControl]="studentSearchCtrl"
                     [matAutocomplete]="studentAuto" />
                   <mat-icon matPrefix class="picker-prefix-icon">search</mat-icon>
-                  <mat-spinner matSuffix *ngIf="searchingStudents" diameter="18"></mat-spinner>
-                  <button type="button" matSuffix *ngIf="studentSearchCtrl.value && !searchingStudents" (click)="clearStudentSearchInput($event)" class="clear-search-btn" matTooltip="Clear search">
-                    <mat-icon>close</mat-icon>
-                  </button>
+                  @if (searchingStudents) {
+                    <mat-spinner matSuffix diameter="18"></mat-spinner>
+                  }
+                  @if (studentSearchCtrl.value && !searchingStudents) {
+                    <button type="button" matSuffix (click)="clearStudentSearchInput($event)" class="clear-search-btn" matTooltip="Clear search">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
                   <mat-autocomplete #studentAuto="matAutocomplete" (optionSelected)="onStudentSelectedFromSearch($event.option.value)">
-                    <mat-option *ngFor="let s of studentSearchResults" [value]="s">
-                      <strong>{{ s.fullName }}</strong> | Roll: {{ s.rollNumber }} | Class: {{ s.className || 'N/A' }} {{ s.sectionName || '' }}
-                    </mat-option>
+                    @for (s of studentSearchResults; track s) {
+                      <mat-option [value]="s">
+                        <strong>{{ s.fullName }}</strong> | Roll: {{ s.rollNumber }} | Class: {{ s.className || 'N/A' }} {{ s.sectionName || '' }}
+                      </mat-option>
+                    }
                   </mat-autocomplete>
                 </mat-form-field>
               </div>
             </div>
-
             <!-- Selected Student Pill -->
-            <div *ngIf="selectedStudent" class="selected-student-pill">
-              <mat-icon class="check-icon">check_circle</mat-icon>
-              <div class="pill-info">
-                <span class="st-name">{{ selectedStudent.fullName }}</span>
-                <span class="st-meta">Roll No: <strong>{{ selectedStudent.rollNumber }}</strong> | Class: <strong>{{ selectedStudent.className || 'N/A' }} {{ selectedStudent.sectionName || '' }}</strong></span>
+            @if (selectedStudent) {
+              <div class="selected-student-pill">
+                <mat-icon class="check-icon">check_circle</mat-icon>
+                <div class="pill-info">
+                  <span class="st-name">{{ selectedStudent.fullName }}</span>
+                  <span class="st-meta">Roll No: <strong>{{ selectedStudent.rollNumber }}</strong> | Class: <strong>{{ selectedStudent.className || 'N/A' }} {{ selectedStudent.sectionName || '' }}</strong></span>
+                </div>
+                <button mat-icon-button type="button" (click)="clearSelectedStudent()" class="clear-st-btn" matTooltip="Deselect Student">
+                  <mat-icon>close</mat-icon>
+                </button>
               </div>
-              <button mat-icon-button type="button" (click)="clearSelectedStudent()" class="clear-st-btn" matTooltip="Deselect Student">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
+            }
           </div>
-
-          <!-- If Staff/Dept Issue -->
-          <div *ngIf="!isStudentMode()" class="staff-issue-block">
+        }
+    
+        <!-- If Staff/Dept Issue -->
+        @if (!isStudentMode()) {
+          <div class="staff-issue-block">
             <div class="form-grid top-grid">
               <!-- Dropdown for Teacher / Staff / HR -->
               <mat-form-field appearance="outline" class="staff-select-field">
@@ -164,14 +182,14 @@ export interface InventoryOutwardDialogData {
                   [formControl]="selectedStaffCtrl"
                   (selectionChange)="onStaffSelected($event.value)"
                   placeholder="Select Staff, Teacher, or HR">
-                  
-                  <mat-select-trigger *ngIf="selectedStaff && !isManualStaffMode">
-                    <div class="select-trigger-val">
-                      <span class="trigger-name"><strong>{{ selectedStaff.fullName }}</strong> ({{ selectedStaff.employeeCode }})</span>
-                      <span class="staff-role-badge" [ngClass]="getStaffBadgeClass(selectedStaff)">{{ getStaffRoleLabel(selectedStaff) }}</span>
-                    </div>
-                  </mat-select-trigger>
-
+                  @if (selectedStaff && !isManualStaffMode) {
+                    <mat-select-trigger>
+                      <div class="select-trigger-val">
+                        <span class="trigger-name"><strong>{{ selectedStaff.fullName }}</strong> ({{ selectedStaff.employeeCode }})</span>
+                        <span class="staff-role-badge" [ngClass]="getStaffBadgeClass(selectedStaff)">{{ getStaffRoleLabel(selectedStaff) }}</span>
+                      </div>
+                    </mat-select-trigger>
+                  }
                   <mat-option [value]="'__MANUAL__'">
                     <div class="staff-option-row manual-opt">
                       <mat-icon class="opt-prefix-icon">person_add</mat-icon>
@@ -179,203 +197,237 @@ export interface InventoryOutwardDialogData {
                     </div>
                   </mat-option>
                   <mat-divider></mat-divider>
-
                   <!-- Teaching Staff (Teachers / Faculty) -->
-                  <mat-optgroup label="Teaching Faculty (Teachers)" *ngIf="teachingStaff.length > 0">
-                    <mat-option *ngFor="let s of teachingStaff" [value]="s">
-                      <div class="staff-option-row">
-                        <div class="staff-info-col">
-                          <span class="st-fullname"><strong>{{ s.fullName }}</strong> ({{ s.employeeCode }})</span>
-                          <span class="st-sub" *ngIf="s.designation || s.department">
-                            {{ s.designation || 'Teacher' }} <span *ngIf="s.department">• {{ s.department }}</span>
-                          </span>
+                  @if (teachingStaff.length > 0) {
+                    <mat-optgroup label="Teaching Faculty (Teachers)">
+                      @for (s of teachingStaff; track s) {
+                        <mat-option [value]="s">
+                          <div class="staff-option-row">
+                            <div class="staff-info-col">
+                              <span class="st-fullname"><strong>{{ s.fullName }}</strong> ({{ s.employeeCode }})</span>
+                              @if (s.designation || s.department) {
+                                <span class="st-sub">
+                                  {{ s.designation || 'Teacher' }} @if (s.department) {
+                                  <span>• {{ s.department }}</span>
+                                }
+                              </span>
+                            }
+                          </div>
+                          <span class="staff-role-badge badge-teacher">Teacher</span>
                         </div>
-                        <span class="staff-role-badge badge-teacher">Teacher</span>
-                      </div>
-                    </mat-option>
+                      </mat-option>
+                    }
                   </mat-optgroup>
-
-                  <!-- Non-Teaching Staff (HR, Admin, Accounts, Lab, Support) -->
-                  <mat-optgroup label="Non-Teaching & Management (HR, Admin, Accounts, Staff)" *ngIf="nonTeachingStaff.length > 0">
-                    <mat-option *ngFor="let s of nonTeachingStaff" [value]="s">
-                      <div class="staff-option-row">
-                        <div class="staff-info-col">
-                          <span class="st-fullname"><strong>{{ s.fullName }}</strong> ({{ s.employeeCode }})</span>
-                          <span class="st-sub" *ngIf="s.designation || s.department">
-                            {{ s.designation || 'Staff' }} <span *ngIf="s.department">• {{ s.department }}</span>
-                          </span>
+                }
+                <!-- Non-Teaching Staff (HR, Admin, Accounts, Lab, Support) -->
+                @if (nonTeachingStaff.length > 0) {
+                  <mat-optgroup label="Non-Teaching & Management (HR, Admin, Accounts, Staff)">
+                    @for (s of nonTeachingStaff; track s) {
+                      <mat-option [value]="s">
+                        <div class="staff-option-row">
+                          <div class="staff-info-col">
+                            <span class="st-fullname"><strong>{{ s.fullName }}</strong> ({{ s.employeeCode }})</span>
+                            @if (s.designation || s.department) {
+                              <span class="st-sub">
+                                {{ s.designation || 'Staff' }} @if (s.department) {
+                                <span>• {{ s.department }}</span>
+                              }
+                            </span>
+                          }
                         </div>
                         <span class="staff-role-badge" [ngClass]="getStaffBadgeClass(s)">{{ getStaffRoleLabel(s) }}</span>
                       </div>
                     </mat-option>
-                  </mat-optgroup>
-                </mat-select>
-                <mat-icon matPrefix class="picker-prefix-icon">badge</mat-icon>
-                <mat-error *ngIf="form.get('issuedToName')?.hasError('required')">
-                  Recipient is required
-                </mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Department / Classroom / Lab</mat-label>
-                <input matInput formControlName="departmentOrClass" placeholder="e.g. Physics Lab, Staff Room, Class 10-A" />
-                <mat-icon matPrefix class="picker-prefix-icon">meeting_room</mat-icon>
-              </mat-form-field>
-            </div>
-
-            <!-- Manual Name Input if '__MANUAL__' selected -->
-            <div *ngIf="isManualStaffMode" class="manual-name-row">
-              <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Recipient Name (Staff / Person)*</mat-label>
-                <input matInput formControlName="issuedToName" placeholder="Enter recipient person's name..." />
-                <mat-icon matPrefix class="picker-prefix-icon">person</mat-icon>
-                <mat-error *ngIf="form.get('issuedToName')?.hasError('required')">
+                  }
+                </mat-optgroup>
+              }
+            </mat-select>
+            <mat-icon matPrefix class="picker-prefix-icon">badge</mat-icon>
+            @if (form.get('issuedToName')?.hasError('required')) {
+              <mat-error>
+                Recipient is required
+              </mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Department / Classroom / Lab</mat-label>
+            <input matInput formControlName="departmentOrClass" placeholder="e.g. Physics Lab, Staff Room, Class 10-A" />
+            <mat-icon matPrefix class="picker-prefix-icon">meeting_room</mat-icon>
+          </mat-form-field>
+        </div>
+        <!-- Manual Name Input if '__MANUAL__' selected -->
+        @if (isManualStaffMode) {
+          <div class="manual-name-row">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Recipient Name (Staff / Person)*</mat-label>
+              <input matInput formControlName="issuedToName" placeholder="Enter recipient person's name..." />
+              <mat-icon matPrefix class="picker-prefix-icon">person</mat-icon>
+              @if (form.get('issuedToName')?.hasError('required')) {
+                <mat-error>
                   Recipient name is required
                 </mat-error>
-              </mat-form-field>
-            </div>
-
-            <!-- Selected Staff Pill -->
-            <div *ngIf="selectedStaff && !isManualStaffMode" class="selected-staff-pill">
-              <mat-icon class="badge-icon">badge</mat-icon>
-              <div class="pill-info">
-                <div class="pill-top">
-                  <span class="st-name">{{ selectedStaff.fullName }}</span>
-                  <span class="st-code">({{ selectedStaff.employeeCode }})</span>
-                  <span class="staff-role-badge" [ngClass]="getStaffBadgeClass(selectedStaff)">{{ getStaffRoleLabel(selectedStaff) }}</span>
-                </div>
-                <span class="st-meta" *ngIf="selectedStaff.department || selectedStaff.designation">
-                  {{ selectedStaff.designation || 'Staff' }} <span *ngIf="selectedStaff.department">• {{ selectedStaff.department }}</span>
-                </span>
-              </div>
-              <button mat-icon-button type="button" (click)="clearSelectedStaff()" class="clear-st-btn" matTooltip="Clear Selection">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <!-- Date & Payment Row -->
-          <div class="form-grid meta-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Issue Date</mat-label>
-              <input matInput type="date" formControlName="issueDate" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Payment / Cost Treatment</mat-label>
-              <mat-select formControlName="paymentStatus">
-                <mat-option value="Free/Complimentary">Free / Institute Internal Issue</mat-option>
-                <mat-option value="Paid">Paid by Student (Cash / UPI)</mat-option>
-                <mat-option value="AddedToFeeBill">Charge to Student Fee Card</mat-option>
-                <mat-option value="Unpaid">Unpaid / Due</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" *ngIf="form.get('paymentStatus')?.value === 'Paid'">
-              <mat-label>Payment Mode</mat-label>
-              <mat-select formControlName="paymentMode">
-                <mat-option value="Cash">Cash</mat-option>
-                <mat-option value="UPI">UPI / Dynamic QR</mat-option>
-                <mat-option value="Bank">Bank Transfer</mat-option>
-              </mat-select>
+              }
             </mat-form-field>
           </div>
-
-          <!-- Dynamic Item Rows Section -->
-          <div class="items-header-row">
-            <div class="section-title">
-              <mat-icon>inventory_2</mat-icon>
-              <span>Items to Issue</span>
-            </div>
-            <button mat-stroked-button color="primary" type="button" (click)="addItemRow()" class="add-row-btn">
-              <mat-icon>add</mat-icon>
-              <span>Add Item</span>
-            </button>
+        }
+        <!-- Selected Staff Pill -->
+        @if (selectedStaff && !isManualStaffMode) {
+          <div class="selected-staff-pill">
+            <mat-icon class="badge-icon">badge</mat-icon>
+            <div class="pill-info">
+              <div class="pill-top">
+                <span class="st-name">{{ selectedStaff.fullName }}</span>
+                <span class="st-code">({{ selectedStaff.employeeCode }})</span>
+                <span class="staff-role-badge" [ngClass]="getStaffBadgeClass(selectedStaff)">{{ getStaffRoleLabel(selectedStaff) }}</span>
+              </div>
+              @if (selectedStaff.department || selectedStaff.designation) {
+                <span class="st-meta">
+                  {{ selectedStaff.designation || 'Staff' }} @if (selectedStaff.department) {
+                  <span>• {{ selectedStaff.department }}</span>
+                }
+              </span>
+            }
           </div>
-
-          <div formArrayName="items" class="items-table-wrapper">
-            <div class="item-line-card" *ngFor="let line of itemRows.controls; let i = index" [formGroupName]="i">
-              <div class="line-index-badge">#{{ i + 1 }}</div>
-
-              <!-- Item selection -->
-              <div class="item-select-wrap">
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>Select Item</mat-label>
-                  <mat-select formControlName="itemId" (selectionChange)="onItemSelect(i, $event.value)">
-                    <mat-option *ngFor="let itm of data.items" [value]="itm.id" [disabled]="itm.currentStock <= 0">
-                      <strong>{{ itm.itemName }}</strong> ({{ itm.itemCode }})
-                      <span [ngClass]="getStockBadgeClass(itm.currentStock, itm.minStockAlertLevel)">
-                        — Stock: {{ itm.currentStock }} {{ itm.unitOfMeasurement }}
-                      </span>
-                    </mat-option>
-                  </mat-select>
-                  <mat-hint *ngIf="getSelectedLineItem(i) as selItm" class="stock-avail-hint">
-                    Available in store: <strong>{{ selItm.currentStock }} {{ selItm.unitOfMeasurement }}</strong>
-                    <span *ngIf="selItm.rackOrLocation" class="rack-hint">Rack: {{ selItm.rackOrLocation }}</span>
-                  </mat-hint>
-                </mat-form-field>
-              </div>
-
-              <!-- Quantity -->
-              <mat-form-field appearance="outline" class="qty-field">
-                <mat-label>Qty</mat-label>
-                <input matInput type="number" formControlName="quantity" min="1" (input)="computeTotals()" />
-                <mat-error *ngIf="line.get('quantity')?.hasError('exceedsStock')">
-                  Exceeds stock!
-                </mat-error>
-              </mat-form-field>
-
-              <!-- Unit Selling/Issue Price -->
-              <mat-form-field appearance="outline" class="rate-field">
-                <mat-label>Rate (₹)</mat-label>
-                <input matInput type="number" formControlName="unitPrice" min="0" step="0.5" (input)="computeTotals()" />
-              </mat-form-field>
-
-              <!-- Line Total Computed -->
-              <div class="line-total-box">
-                <span class="sub-label">Total</span>
-                <span class="val">₹{{ getLineTotal(i) | number:'1.2-2' }}</span>
-              </div>
-
-              <!-- Remove button -->
-              <button mat-icon-button color="warn" type="button" (click)="removeItemRow(i)" [disabled]="itemRows.length === 1" matTooltip="Remove Line">
-                <mat-icon>delete_outline</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <!-- Bottom Remarks & Grand Total -->
-          <div class="summary-section">
-            <mat-form-field appearance="outline" class="remarks-field">
-              <mat-label>Remarks / Purpose of Issue</mat-label>
-              <textarea matInput formControlName="remarks" rows="2" [placeholder]="remarksPlaceholder"></textarea>
-            </mat-form-field>
-
-            <div class="totals-card">
-              <div class="total-row">
-                <span>Total Items:</span>
-                <strong>{{ itemRows.length }} Line(s)</strong>
-              </div>
-              <div class="total-row net-row">
-                <span>Total Issue Value:</span>
-                <strong class="net-val">₹{{ grandTotal | number:'1.2-2' }}</strong>
-              </div>
-            </div>
-          </div>
-        </mat-dialog-content>
-
-        <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
-            Cancel
+          <button mat-icon-button type="button" (click)="clearSelectedStaff()" class="clear-st-btn" matTooltip="Clear Selection">
+            <mat-icon>close</mat-icon>
           </button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting || hasStockErrors() || itemRows.length === 0">
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner-btn"></mat-spinner>
-            <span>Confirm & Issue Items</span>
-          </button>
-        </mat-dialog-actions>
-      </form>
+        </div>
+      }
     </div>
-  `,
+    }
+    
+    <!-- Date & Payment Row -->
+    <div class="form-grid meta-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Issue Date</mat-label>
+        <input matInput type="date" formControlName="issueDate" />
+      </mat-form-field>
+    
+      <mat-form-field appearance="outline">
+        <mat-label>Payment / Cost Treatment</mat-label>
+        <mat-select formControlName="paymentStatus">
+          <mat-option value="Free/Complimentary">Free / Institute Internal Issue</mat-option>
+          <mat-option value="Paid">Paid by Student (Cash / UPI)</mat-option>
+          <mat-option value="AddedToFeeBill">Charge to Student Fee Card</mat-option>
+          <mat-option value="Unpaid">Unpaid / Due</mat-option>
+        </mat-select>
+      </mat-form-field>
+    
+      @if (form.get('paymentStatus')?.value === 'Paid') {
+        <mat-form-field appearance="outline">
+          <mat-label>Payment Mode</mat-label>
+          <mat-select formControlName="paymentMode">
+            <mat-option value="Cash">Cash</mat-option>
+            <mat-option value="UPI">UPI / Dynamic QR</mat-option>
+            <mat-option value="Bank">Bank Transfer</mat-option>
+          </mat-select>
+        </mat-form-field>
+      }
+    </div>
+    
+    <!-- Dynamic Item Rows Section -->
+    <div class="items-header-row">
+      <div class="section-title">
+        <mat-icon>inventory_2</mat-icon>
+        <span>Items to Issue</span>
+      </div>
+      <button mat-stroked-button color="primary" type="button" (click)="addItemRow()" class="add-row-btn">
+        <mat-icon>add</mat-icon>
+        <span>Add Item</span>
+      </button>
+    </div>
+    
+    <div formArrayName="items" class="items-table-wrapper">
+      @for (line of itemRows.controls; track line; let i = $index) {
+        <div class="item-line-card" [formGroupName]="i">
+          <div class="line-index-badge">#{{ i + 1 }}</div>
+          <!-- Item selection -->
+          <div class="item-select-wrap">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Select Item</mat-label>
+              <mat-select formControlName="itemId" (selectionChange)="onItemSelect(i, $event.value)">
+                @for (itm of data.items; track itm) {
+                  <mat-option [value]="itm.id" [disabled]="itm.currentStock <= 0">
+                    <strong>{{ itm.itemName }}</strong> ({{ itm.itemCode }})
+                    <span [ngClass]="getStockBadgeClass(itm.currentStock, itm.minStockAlertLevel)">
+                      — Stock: {{ itm.currentStock }} {{ itm.unitOfMeasurement }}
+                    </span>
+                  </mat-option>
+                }
+              </mat-select>
+              @if (getSelectedLineItem(i); as selItm) {
+                <mat-hint class="stock-avail-hint">
+                  Available in store: <strong>{{ selItm.currentStock }} {{ selItm.unitOfMeasurement }}</strong>
+                  @if (selItm.rackOrLocation) {
+                    <span class="rack-hint">Rack: {{ selItm.rackOrLocation }}</span>
+                  }
+                </mat-hint>
+              }
+            </mat-form-field>
+          </div>
+          <!-- Quantity -->
+          <mat-form-field appearance="outline" class="qty-field">
+            <mat-label>Qty</mat-label>
+            <input matInput type="number" formControlName="quantity" min="1" (input)="computeTotals()" />
+            @if (line.get('quantity')?.hasError('exceedsStock')) {
+              <mat-error>
+                Exceeds stock!
+              </mat-error>
+            }
+          </mat-form-field>
+          <!-- Unit Selling/Issue Price -->
+          <mat-form-field appearance="outline" class="rate-field">
+            <mat-label>Rate (₹)</mat-label>
+            <input matInput type="number" formControlName="unitPrice" min="0" step="0.5" (input)="computeTotals()" />
+          </mat-form-field>
+          <!-- Line Total Computed -->
+          <div class="line-total-box">
+            <span class="sub-label">Total</span>
+            <span class="val">₹{{ getLineTotal(i) | number:'1.2-2' }}</span>
+          </div>
+          <!-- Remove button -->
+          <button mat-icon-button color="warn" type="button" (click)="removeItemRow(i)" [disabled]="itemRows.length === 1" matTooltip="Remove Line">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </div>
+      }
+    </div>
+    
+    <!-- Bottom Remarks & Grand Total -->
+    <div class="summary-section">
+      <mat-form-field appearance="outline" class="remarks-field">
+        <mat-label>Remarks / Purpose of Issue</mat-label>
+        <textarea matInput formControlName="remarks" rows="2" [placeholder]="remarksPlaceholder"></textarea>
+      </mat-form-field>
+    
+      <div class="totals-card">
+        <div class="total-row">
+          <span>Total Items:</span>
+          <strong>{{ itemRows.length }} Line(s)</strong>
+        </div>
+        <div class="total-row net-row">
+          <span>Total Issue Value:</span>
+          <strong class="net-val">₹{{ grandTotal | number:'1.2-2' }}</strong>
+        </div>
+      </div>
+    </div>
+    </mat-dialog-content>
+    
+    <mat-dialog-actions align="end" class="dialog-actions">
+      <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
+        Cancel
+      </button>
+      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting || hasStockErrors() || itemRows.length === 0">
+        @if (submitting) {
+          <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
+        }
+        <span>Confirm & Issue Items</span>
+      </button>
+    </mat-dialog-actions>
+    </form>
+    </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

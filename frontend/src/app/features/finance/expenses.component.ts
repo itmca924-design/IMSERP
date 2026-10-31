@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -119,9 +119,11 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
         <mat-label>Search Title, Voucher #, Payee, Ref</mat-label>
         <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearchInput($event)" (keyup.enter)="applyFilters()" placeholder="e.g. Electricity, Fuel, EXP-2026...">
         <mat-icon matPrefix>search</mat-icon>
-        <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="clearSearch()">
-          <mat-icon>clear</mat-icon>
-        </button>
+        @if (searchTerm) {
+          <button mat-icon-button matSuffix (click)="clearSearch()">
+            <mat-icon>clear</mat-icon>
+          </button>
+        }
       </mat-form-field>
 
       <!-- Category Filter -->
@@ -129,9 +131,11 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
         <mat-label>Category (व्यय श्रेणी)</mat-label>
         <mat-select [(ngModel)]="selectedCategoryId" (selectionChange)="applyFilters()">
           <mat-option [value]="null">All Categories (सारे खर्च)</mat-option>
-          <mat-option *ngFor="let cat of categories" [value]="cat.id">
-            {{ cat.name }} ({{ cat.code }})
-          </mat-option>
+          @for (cat of categories; track cat) {
+            <mat-option [value]="cat.id">
+              {{ cat.name }} ({{ cat.code }})
+            </mat-option>
+          }
         </mat-select>
         <mat-icon matPrefix>category</mat-icon>
       </mat-form-field>
@@ -165,49 +169,61 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
       </mat-form-field>
 
       <!-- Branch Filter -->
-      <mat-form-field appearance="outline" class="filter-item" *ngIf="branches.length > 0">
-        <mat-label>Campus / Branch</mat-label>
-        <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="applyFilters()">
-          <mat-option [value]="null">All Branches</mat-option>
-          <mat-option *ngFor="let b of branches" [value]="b.id">
-            {{ b.name }}
-          </mat-option>
-        </mat-select>
-        <mat-icon matPrefix>apartment</mat-icon>
-      </mat-form-field>
+      @if (branches.length > 0) {
+        <mat-form-field appearance="outline" class="filter-item">
+          <mat-label>Campus / Branch</mat-label>
+          <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="applyFilters()">
+            <mat-option [value]="null">All Branches</mat-option>
+            @for (b of branches; track b) {
+              <mat-option [value]="b.id">
+                {{ b.name }}
+              </mat-option>
+            }
+          </mat-select>
+          <mat-icon matPrefix>apartment</mat-icon>
+        </mat-form-field>
+      }
 
       <!-- Custom Date Pickers (if custom) -->
-      <mat-form-field appearance="outline" class="filter-item" *ngIf="datePreset === 'custom'">
-        <mat-label>From Date</mat-label>
-        <input matInput [matDatepicker]="fromPicker" [(ngModel)]="customFromDate" (dateChange)="applyFilters()">
-        <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
-        <mat-datepicker #fromPicker></mat-datepicker>
-      </mat-form-field>
+      @if (datePreset === 'custom') {
+        <mat-form-field appearance="outline" class="filter-item">
+          <mat-label>From Date</mat-label>
+          <input matInput [matDatepicker]="fromPicker" [(ngModel)]="customFromDate" (dateChange)="applyFilters()">
+          <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+          <mat-datepicker #fromPicker></mat-datepicker>
+        </mat-form-field>
+      }
 
-      <mat-form-field appearance="outline" class="filter-item" *ngIf="datePreset === 'custom'">
-        <mat-label>To Date</mat-label>
-        <input matInput [matDatepicker]="toPicker" [(ngModel)]="customToDate" (dateChange)="applyFilters()">
-        <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
-        <mat-datepicker #toPicker></mat-datepicker>
-      </mat-form-field>
+      @if (datePreset === 'custom') {
+        <mat-form-field appearance="outline" class="filter-item">
+          <mat-label>To Date</mat-label>
+          <input matInput [matDatepicker]="toPicker" [(ngModel)]="customToDate" (dateChange)="applyFilters()">
+          <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+          <mat-datepicker #toPicker></mat-datepicker>
+        </mat-form-field>
+      }
     </div>
   </div>
 
   <!-- Vouchers Table Card with Sticky Header & Proper Overlay Loader -->
   <div class="table-card">
     <!-- Top Progress Bar during Loading -->
-    <mat-progress-bar mode="indeterminate" *ngIf="loading" class="top-progress-bar"></mat-progress-bar>
+    @if (loading) {
+      <mat-progress-bar mode="indeterminate" class="top-progress-bar"></mat-progress-bar>
+    }
 
     <!-- Transparent Overlay with Spinner & Label -->
-    <div class="table-loading-overlay" *ngIf="loading">
-      <div class="loader-content">
-        <mat-spinner diameter="44" strokeWidth="4"></mat-spinner>
-        <div class="loader-text-group">
-          <span class="loading-title">Loading Expense Vouchers</span>
-          <span class="loading-sub">Fetching records &amp; calculating totals...</span>
+    @if (loading) {
+      <div class="table-loading-overlay">
+        <div class="loader-content">
+          <mat-spinner diameter="44" strokeWidth="4"></mat-spinner>
+          <div class="loader-text-group">
+            <span class="loading-title">Loading Expense Vouchers</span>
+            <span class="loading-sub">Fetching records &amp; calculating totals...</span>
+          </div>
         </div>
       </div>
-    </div>
+    }
 
     <!-- Responsive Table Container -->
     <div class="table-responsive">
@@ -220,7 +236,9 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
               <mat-icon>tag</mat-icon>
               <span>{{ v.voucherNo }}</span>
             </div>
-            <div class="text-xs text-muted" *ngIf="v.billInvoiceNo">Ref: {{ v.billInvoiceNo }}</div>
+            @if (v.billInvoiceNo) {
+              <div class="text-xs text-muted">Ref: {{ v.billInvoiceNo }}</div>
+            }
           </td>
         </ng-container>
 
@@ -240,10 +258,16 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
             <div class="title-text">{{ v.title }}</div>
             <div class="meta-row">
               <span class="badge cat-badge">{{ v.categoryName }}</span>
-              <span class="text-xs text-muted" *ngIf="v.vendorName">&bull; Payee: <strong>{{ v.vendorName }}</strong></span>
-              <span class="text-xs text-muted" *ngIf="v.branchName">&bull; {{ v.branchName }}</span>
+              @if (v.vendorName) {
+                <span class="text-xs text-muted">&bull; Payee: <strong>{{ v.vendorName }}</strong></span>
+              }
+              @if (v.branchName) {
+                <span class="text-xs text-muted">&bull; {{ v.branchName }}</span>
+              }
             </div>
-            <div class="text-xs text-muted note-text" *ngIf="v.description">{{ v.description }}</div>
+            @if (v.description) {
+              <div class="text-xs text-muted note-text">{{ v.description }}</div>
+            }
           </td>
         </ng-container>
 
@@ -288,20 +312,22 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
     </div>
 
     <!-- Empty State -->
-    <div class="empty-state" *ngIf="!loading && vouchers.length === 0">
-      <div class="empty-icon-circle">
-        <mat-icon>receipt_long</mat-icon>
+    @if (!loading && vouchers.length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-circle">
+          <mat-icon>receipt_long</mat-icon>
+        </div>
+        <h3>No Expense Vouchers Found</h3>
+        <p>No expense vouchers match your active filters and search query.</p>
+        <div class="empty-actions">
+          <button mat-stroked-button (click)="resetFilters()">Clear Filters</button>
+          <button mat-raised-button color="primary" (click)="openCreateDialog()">
+            <mat-icon>add_circle</mat-icon>
+            <span>Record New Expense</span>
+          </button>
+        </div>
       </div>
-      <h3>No Expense Vouchers Found</h3>
-      <p>No expense vouchers match your active filters and search query.</p>
-      <div class="empty-actions">
-        <button mat-stroked-button (click)="resetFilters()">Clear Filters</button>
-        <button mat-raised-button color="primary" (click)="openCreateDialog()">
-          <mat-icon>add_circle</mat-icon>
-          <span>Record New Expense</span>
-        </button>
-      </div>
-    </div>
+    }
 
     <!-- Paginator -->
     <div class="paginator-wrapper">
@@ -316,7 +342,8 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
     </div>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       padding: 0 0 40px;

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
@@ -40,7 +40,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { AuthService } from '../../core/services/auth.service';
 import { SchoolReportCardDialogComponent } from './school-report-card-dialog.component';
 import { SchoolClassMarksMatrixDialogComponent, SchoolClassMarksMatrixDialogData } from './school-class-marks-matrix-dialog.component';
-import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 @Component({
   selector: 'app-school-exams',
@@ -65,10 +64,10 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
     MatMenuModule,
     MatChipsModule,
     MatDividerModule,
-    MatDialogModule,
-    IstDatetimeDirective
+    MatDialogModule
   ],
   templateUrl: './school-exams.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./school-exams.component.scss']
 })
 export class SchoolExamsComponent implements OnInit {

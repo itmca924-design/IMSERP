@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -48,337 +48,341 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             Institute tier details, active module entitlements, student capacity quota, and trial duration.
           </p>
         </div>
-
-        <div class="header-actions" *ngIf="isSuperAdmin">
-          <button mat-raised-button color="primary" class="superadmin-manage-btn" (click)="openSuperAdminManageDialog()">
-            <mat-icon>verified</mat-icon>
-            <span>Manage &amp; Extend Plan</span>
-          </button>
-          <a mat-stroked-button color="primary" routerLink="/admin/tenants" class="manage-tenants-btn">
-            <mat-icon>corporate_fare</mat-icon>
-            <span>Tenants Grid</span>
-          </a>
-        </div>
+    
+        @if (isSuperAdmin) {
+          <div class="header-actions">
+            <button mat-raised-button color="primary" class="superadmin-manage-btn" (click)="openSuperAdminManageDialog()">
+              <mat-icon>verified</mat-icon>
+              <span>Manage &amp; Extend Plan</span>
+            </button>
+            <a mat-stroked-button color="primary" routerLink="/admin/tenants" class="manage-tenants-btn">
+              <mat-icon>corporate_fare</mat-icon>
+              <span>Tenants Grid</span>
+            </a>
+          </div>
+        }
       </div>
-
+    
       <!-- SuperAdmin Scope Selector (View & Manage Any Institute) -->
-      <div *ngIf="isSuperAdmin && tenants.length > 0" class="scope-selector-card mat-elevation-z1">
-        <div class="scope-label-side">
-          <mat-icon class="scope-icon">swap_horizontal_circle</mat-icon>
-          <div>
-            <strong>SuperAdmin Scope: Inspect &amp; Extend Any Institute</strong>
-            <p>Select institute to check expiry countdown, upgrade to Premium, or add 15 days, 1 month, 2 months.</p>
+      @if (isSuperAdmin && tenants.length > 0) {
+        <div class="scope-selector-card mat-elevation-z1">
+          <div class="scope-label-side">
+            <mat-icon class="scope-icon">swap_horizontal_circle</mat-icon>
+            <div>
+              <strong>SuperAdmin Scope: Inspect &amp; Extend Any Institute</strong>
+              <p>Select institute to check expiry countdown, upgrade to Premium, or add 15 days, 1 month, 2 months.</p>
+            </div>
           </div>
+          <mat-form-field appearance="outline" class="scope-select-field" subscriptSizing="dynamic">
+            <mat-label>Select Institute to Manage</mat-label>
+            <mat-select [value]="selectedTenantId" (selectionChange)="onTenantScopeChange($event.value)">
+              <mat-option [value]="null">🏢 Current Institute / Platform Console</mat-option>
+              @for (t of tenants; track t) {
+                <mat-option [value]="t.id">
+                  🏫 {{ t.name }} ({{ t.code }})
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         </div>
-        <mat-form-field appearance="outline" class="scope-select-field" subscriptSizing="dynamic">
-          <mat-label>Select Institute to Manage</mat-label>
-          <mat-select [value]="selectedTenantId" (selectionChange)="onTenantScopeChange($event.value)">
-            <mat-option [value]="null">🏢 Current Institute / Platform Console</mat-option>
-            <mat-option *ngFor="let t of tenants" [value]="t.id">
-              🏫 {{ t.name }} ({{ t.code }})
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-      </div>
-
-      <div *ngIf="!loading && subData" class="content-body">
-
-        <!-- Subscription Expired / Locked Alert Notice -->
-        <div *ngIf="isExpired" class="expired-alert-card mat-elevation-z2">
-          <div class="alert-icon-box danger">
-            <mat-icon>lock_clock</mat-icon>
+      }
+    
+      @if (!loading && subData) {
+        <div class="content-body">
+          <!-- Subscription Expired / Locked Alert Notice -->
+          @if (isExpired) {
+            <div class="expired-alert-card mat-elevation-z2">
+              <div class="alert-icon-box danger">
+                <mat-icon>lock_clock</mat-icon>
+              </div>
+              <div class="alert-content">
+                <div class="alert-title-row">
+                  <h4>Subscription Expired / Free Trial Concluded</h4>
+                  @if (subData.trialEndDate) {
+                    <span class="expiry-date-badge danger">
+                      Concluded on {{ subData.trialEndDate | date:'mediumDate' }}
+                    </span>
+                  }
+                </div>
+                <p>
+                  Your institute's trial period or subscription has ended. Routine operations and feature access are currently locked. Renew your plan or select an upgraded edition to resume immediate access.
+                </p>
+              </div>
+              <button mat-raised-button color="warn" class="upgrade-btn danger" (click)="openRenewalDialog()">
+                <mat-icon>credit_score</mat-icon>
+                <span>Renew Plan Now</span>
+              </button>
+            </div>
+          }
+          <!-- Trial Alert Notice (if FreeTrial and active) -->
+          @if (isTrial) {
+            <div class="trial-alert-card mat-elevation-z1">
+              <div class="alert-icon-box">
+                <mat-icon>hourglass_top</mat-icon>
+              </div>
+              <div class="alert-content">
+                <div class="alert-title-row">
+                  <h4>Free Trial Active — {{ trialDaysRemaining }} Days Left</h4>
+                  @if (subData.trialEndDate) {
+                    <span class="expiry-date">Expires on {{ subData.trialEndDate | date:'mediumDate' }}</span>
+                  }
+                </div>
+                <p>
+                  Your institute is currently enjoying full access to provisioned modules under the complimentary trial period. Upgrade to a permanent tier to guarantee uninterrupted student management, fee records, and biometric integrations.
+                </p>
+              </div>
+              <button mat-raised-button color="accent" class="upgrade-btn" (click)="contactForUpgrade()">
+                <mat-icon>upgrade</mat-icon>
+                <span>Upgrade to Premium</span>
+              </button>
+            </div>
+          }
+          <!-- 4-Column Plan Overview Metrics with Expiry Countdown -->
+          <div class="metrics-grid">
+            <!-- Plan Info Card -->
+            <mat-card class="metric-card hero-gradient">
+              <div class="card-inner">
+                <div class="metric-meta">
+                  <span class="metric-title">Active Edition</span>
+                  <span class="metric-highlight">{{ subData.subscriptionPlan }}</span>
+                  <span class="metric-sub">{{ subData.subscriptionStatus }} &bull; {{ subData.instituteName }}</span>
+                </div>
+                <div class="card-icon-bubble">
+                  <mat-icon>workspace_premium</mat-icon>
+                </div>
+              </div>
+            </mat-card>
+            <!-- Subscription Validity & Expiry Countdown Card -->
+            <mat-card class="metric-card countdown-card" [class.urgent]="trialDaysRemaining <= 10 && !isExpired" [class.expired]="isExpired">
+              <div class="card-inner">
+                <div class="metric-meta">
+                  <span class="metric-title">Subscription Validity</span>
+                  @if (!isExpired) {
+                    <span class="metric-highlight">
+                      {{ trialDaysRemaining }} <small>Days Left</small>
+                    </span>
+                  }
+                  @if (isExpired) {
+                    <span class="metric-highlight danger">
+                      EXPIRED <small>(0 Days)</small>
+                    </span>
+                  }
+                  @if (subData.trialEndDate) {
+                    <span class="metric-sub">
+                      Valid until {{ subData.trialEndDate | date:'mediumDate' }}
+                    </span>
+                  }
+                  @if (!subData.trialEndDate) {
+                    <span class="metric-sub">
+                      Continuous / Permanent Plan
+                    </span>
+                  }
+                </div>
+                <div class="card-icon-bubble" [ngClass]="isExpired ? 'danger' : (trialDaysRemaining <= 10 ? 'amber' : 'emerald')">
+                  <mat-icon>{{ isExpired ? 'error' : (trialDaysRemaining <= 10 ? 'alarm' : 'schedule') }}</mat-icon>
+                </div>
+              </div>
+              @if (isSuperAdmin) {
+                <div class="countdown-footer">
+                  <button mat-button color="primary" class="quick-extend-link" (click)="openSuperAdminManageDialog()">
+                    <mat-icon>add_alarm</mat-icon>
+                    <span>Extend (+15d / +1m / +2m)</span>
+                  </button>
+                </div>
+              }
+            </mat-card>
+            <!-- Student Capacity Meter Card -->
+            <mat-card class="metric-card">
+              <div class="card-inner">
+                <div class="metric-meta">
+                  <span class="metric-title">Student Admissions Quota</span>
+                  <span class="metric-highlight">{{ subData.studentCount }} <small>/ {{ subData.maxStudentsLimit }}</small></span>
+                  <span class="metric-sub">{{ studentUsagePercent }}% capacity consumed</span>
+                </div>
+                <div class="card-icon-bubble blue">
+                  <mat-icon>school</mat-icon>
+                </div>
+              </div>
+              <mat-progress-bar mode="determinate" [value]="studentUsagePercent" class="quota-progress-bar" [color]="studentUsagePercent > 85 ? 'warn' : 'primary'"></mat-progress-bar>
+            </mat-card>
+            <!-- Branches Master Meter Card -->
+            <mat-card class="metric-card">
+              <div class="card-inner">
+                <div class="metric-meta">
+                  <span class="metric-title">Multi-Branch License</span>
+                  <span class="metric-highlight">{{ subData.branchCount }} <small>/ {{ subData.maxBranchesLimit }}</small></span>
+                  <span class="metric-sub">{{ branchUsagePercent }}% branch slots assigned</span>
+                </div>
+                <div class="card-icon-bubble emerald">
+                  <mat-icon>apartment</mat-icon>
+                </div>
+              </div>
+              <mat-progress-bar mode="determinate" [value]="branchUsagePercent" class="quota-progress-bar" color="primary"></mat-progress-bar>
+            </mat-card>
           </div>
-          <div class="alert-content">
-            <div class="alert-title-row">
-              <h4>Subscription Expired / Free Trial Concluded</h4>
-              <span class="expiry-date-badge danger" *ngIf="subData.trialEndDate">
-                Concluded on {{ subData.trialEndDate | date:'mediumDate' }}
+          <!-- 5 Core Modules Licensing Status -->
+          <mat-card class="section-card mat-elevation-z1">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <div class="section-icon-box">
+                  <mat-icon>hub</mat-icon>
+                </div>
+                <div>
+                  <h3 class="section-title">5 Core Functional Modules Entitlement</h3>
+                  <p class="section-desc">Active modules are unlocked and visible across your sidebar and workflows. Disabled modules are restricted by platform licensing.</p>
+                </div>
+              </div>
+              <span class="managed-tag">
+                <mat-icon>shield</mat-icon> Provisioned by Super Admin
               </span>
             </div>
-            <p>
-              Your institute's trial period or subscription has ended. Routine operations and feature access are currently locked. Renew your plan or select an upgraded edition to resume immediate access.
-            </p>
-          </div>
-          <button mat-raised-button color="warn" class="upgrade-btn danger" (click)="openRenewalDialog()">
-            <mat-icon>credit_score</mat-icon>
-            <span>Renew Plan Now</span>
-          </button>
-        </div>
-        
-        <!-- Trial Alert Notice (if FreeTrial and active) -->
-        <div *ngIf="isTrial" class="trial-alert-card mat-elevation-z1">
-          <div class="alert-icon-box">
-            <mat-icon>hourglass_top</mat-icon>
-          </div>
-          <div class="alert-content">
-            <div class="alert-title-row">
-              <h4>Free Trial Active — {{ trialDaysRemaining }} Days Left</h4>
-              <span class="expiry-date" *ngIf="subData.trialEndDate">Expires on {{ subData.trialEndDate | date:'mediumDate' }}</span>
-            </div>
-            <p>
-              Your institute is currently enjoying full access to provisioned modules under the complimentary trial period. Upgrade to a permanent tier to guarantee uninterrupted student management, fee records, and biometric integrations.
-            </p>
-          </div>
-          <button mat-raised-button color="accent" class="upgrade-btn" (click)="contactForUpgrade()">
-            <mat-icon>upgrade</mat-icon>
-            <span>Upgrade to Premium</span>
-          </button>
-        </div>
-
-        <!-- 4-Column Plan Overview Metrics with Expiry Countdown -->
-        <div class="metrics-grid">
-          
-          <!-- Plan Info Card -->
-          <mat-card class="metric-card hero-gradient">
-            <div class="card-inner">
-              <div class="metric-meta">
-                <span class="metric-title">Active Edition</span>
-                <span class="metric-highlight">{{ subData.subscriptionPlan }}</span>
-                <span class="metric-sub">{{ subData.subscriptionStatus }} &bull; {{ subData.instituteName }}</span>
+            <div class="modules-grid">
+              <!-- School Module -->
+              <div class="module-status-tile" [class.unlocked]="subData.hasSchoolModule">
+                <div class="tile-icon-box school">
+                  <mat-icon>domain</mat-icon>
+                </div>
+                <div class="tile-info">
+                  <div class="tile-title-row">
+                    <span class="tile-name">School Academic</span>
+                    <span class="tile-badge" [class.active]="subData.hasSchoolModule">
+                      {{ subData.hasSchoolModule ? 'Active' : 'Locked' }}
+                    </span>
+                  </div>
+                  <p class="tile-details">Classes, Sections, Student Promotion, Academic Routine &amp; School Exams.</p>
+                </div>
               </div>
-              <div class="card-icon-bubble">
-                <mat-icon>workspace_premium</mat-icon>
+              <!-- Coaching Module -->
+              <div class="module-status-tile" [class.unlocked]="subData.hasCoachingModule">
+                <div class="tile-icon-box coaching">
+                  <mat-icon>school</mat-icon>
+                </div>
+                <div class="tile-info">
+                  <div class="tile-title-row">
+                    <span class="tile-name">Coaching &amp; Tuitions</span>
+                    <span class="tile-badge" [class.active]="subData.hasCoachingModule">
+                      {{ subData.hasCoachingModule ? 'Active' : 'Locked' }}
+                    </span>
+                  </div>
+                  <p class="tile-details">Academic Batches, Classrooms, Test Series &amp; Monthly Tuition Fees.</p>
+                </div>
+              </div>
+              <!-- Hostel Module -->
+              <div class="module-status-tile" [class.unlocked]="subData.hasHostelModule">
+                <div class="tile-icon-box hostel">
+                  <mat-icon>apartment</mat-icon>
+                </div>
+                <div class="tile-info">
+                  <div class="tile-title-row">
+                    <span class="tile-name">Hostel &amp; Residential</span>
+                    <span class="tile-badge" [class.active]="subData.hasHostelModule">
+                      {{ subData.hasHostelModule ? 'Active' : 'Locked' }}
+                    </span>
+                  </div>
+                  <p class="tile-details">Hostel Buildings, Bed Allotment, Room Rent, Mess &amp; Resident Lists.</p>
+                </div>
+              </div>
+              <!-- Library Module -->
+              <div class="module-status-tile" [class.unlocked]="subData.hasLibraryModule">
+                <div class="tile-icon-box library">
+                  <mat-icon>local_library</mat-icon>
+                </div>
+                <div class="tile-info">
+                  <div class="tile-title-row">
+                    <span class="tile-name">Library Management</span>
+                    <span class="tile-badge" [class.active]="subData.hasLibraryModule">
+                      {{ subData.hasLibraryModule ? 'Active' : 'Locked' }}
+                    </span>
+                  </div>
+                  <p class="tile-details">Catalog, Circulation Issue/Return, Fines &amp; Reading Shifts.</p>
+                </div>
+              </div>
+              <!-- Transport Module -->
+              <div class="module-status-tile" [class.unlocked]="subData.hasTransportModule">
+                <div class="tile-icon-box transport">
+                  <mat-icon>directions_bus</mat-icon>
+                </div>
+                <div class="tile-info">
+                  <div class="tile-title-row">
+                    <span class="tile-name">Transport &amp; Fleet</span>
+                    <span class="tile-badge" [class.active]="subData.hasTransportModule">
+                      {{ subData.hasTransportModule ? 'Active' : 'Locked' }}
+                    </span>
+                  </div>
+                  <p class="tile-details">Vehicles Fleet, Bus Routes, Stop Allotment &amp; Transport Fees.</p>
+                </div>
               </div>
             </div>
           </mat-card>
-
-          <!-- Subscription Validity & Expiry Countdown Card -->
-          <mat-card class="metric-card countdown-card" [class.urgent]="trialDaysRemaining <= 10 && !isExpired" [class.expired]="isExpired">
-            <div class="card-inner">
-              <div class="metric-meta">
-                <span class="metric-title">Subscription Validity</span>
-                <span class="metric-highlight" *ngIf="!isExpired">
-                  {{ trialDaysRemaining }} <small>Days Left</small>
-                </span>
-                <span class="metric-highlight danger" *ngIf="isExpired">
-                  EXPIRED <small>(0 Days)</small>
-                </span>
-                <span class="metric-sub" *ngIf="subData.trialEndDate">
-                  Valid until {{ subData.trialEndDate | date:'mediumDate' }}
-                </span>
-                <span class="metric-sub" *ngIf="!subData.trialEndDate">
-                  Continuous / Permanent Plan
-                </span>
-              </div>
-              <div class="card-icon-bubble" [ngClass]="isExpired ? 'danger' : (trialDaysRemaining <= 10 ? 'amber' : 'emerald')">
-                <mat-icon>{{ isExpired ? 'error' : (trialDaysRemaining <= 10 ? 'alarm' : 'schedule') }}</mat-icon>
-              </div>
+          <!-- SaaS Tier Comparison Cards -->
+          <div class="tiers-section">
+            <div class="tiers-header">
+              <h3>Choose the Right Plan for Your Growing Institution</h3>
+              <p>Flexible enterprise subscriptions with scalable student capacities and multi-campus management.</p>
             </div>
-            <div class="countdown-footer" *ngIf="isSuperAdmin">
-              <button mat-button color="primary" class="quick-extend-link" (click)="openSuperAdminManageDialog()">
-                <mat-icon>add_alarm</mat-icon>
-                <span>Extend (+15d / +1m / +2m)</span>
-              </button>
-            </div>
-          </mat-card>
-
-          <!-- Student Capacity Meter Card -->
-          <mat-card class="metric-card">
-            <div class="card-inner">
-              <div class="metric-meta">
-                <span class="metric-title">Student Admissions Quota</span>
-                <span class="metric-highlight">{{ subData.studentCount }} <small>/ {{ subData.maxStudentsLimit }}</small></span>
-                <span class="metric-sub">{{ studentUsagePercent }}% capacity consumed</span>
-              </div>
-              <div class="card-icon-bubble blue">
-                <mat-icon>school</mat-icon>
-              </div>
-            </div>
-            <mat-progress-bar mode="determinate" [value]="studentUsagePercent" class="quota-progress-bar" [color]="studentUsagePercent > 85 ? 'warn' : 'primary'"></mat-progress-bar>
-          </mat-card>
-
-          <!-- Branches Master Meter Card -->
-          <mat-card class="metric-card">
-            <div class="card-inner">
-              <div class="metric-meta">
-                <span class="metric-title">Multi-Branch License</span>
-                <span class="metric-highlight">{{ subData.branchCount }} <small>/ {{ subData.maxBranchesLimit }}</small></span>
-                <span class="metric-sub">{{ branchUsagePercent }}% branch slots assigned</span>
-              </div>
-              <div class="card-icon-bubble emerald">
-                <mat-icon>apartment</mat-icon>
-              </div>
-            </div>
-            <mat-progress-bar mode="determinate" [value]="branchUsagePercent" class="quota-progress-bar" color="primary"></mat-progress-bar>
-          </mat-card>
-
-        </div>
-
-        <!-- 5 Core Modules Licensing Status -->
-        <mat-card class="section-card mat-elevation-z1">
-          <div class="section-header">
-            <div class="section-title-wrap">
-              <div class="section-icon-box">
-                <mat-icon>hub</mat-icon>
-              </div>
-              <div>
-                <h3 class="section-title">5 Core Functional Modules Entitlement</h3>
-                <p class="section-desc">Active modules are unlocked and visible across your sidebar and workflows. Disabled modules are restricted by platform licensing.</p>
-              </div>
-            </div>
-            <span class="managed-tag">
-              <mat-icon>shield</mat-icon> Provisioned by Super Admin
-            </span>
-          </div>
-
-          <div class="modules-grid">
-            
-            <!-- School Module -->
-            <div class="module-status-tile" [class.unlocked]="subData.hasSchoolModule">
-              <div class="tile-icon-box school">
-                <mat-icon>domain</mat-icon>
-              </div>
-              <div class="tile-info">
-                <div class="tile-title-row">
-                  <span class="tile-name">School Academic</span>
-                  <span class="tile-badge" [class.active]="subData.hasSchoolModule">
-                    {{ subData.hasSchoolModule ? 'Active' : 'Locked' }}
-                  </span>
+            <div class="tiers-grid">
+              <!-- Starter Tier -->
+              <mat-card class="tier-card">
+                <div class="tier-card-header">
+                  <span class="tier-name">Starter Edition</span>
+                  <span class="tier-tagline">Single Campus &bull; Coaching or School</span>
                 </div>
-                <p class="tile-details">Classes, Sections, Student Promotion, Academic Routine &amp; School Exams.</p>
-              </div>
-            </div>
-
-            <!-- Coaching Module -->
-            <div class="module-status-tile" [class.unlocked]="subData.hasCoachingModule">
-              <div class="tile-icon-box coaching">
-                <mat-icon>school</mat-icon>
-              </div>
-              <div class="tile-info">
-                <div class="tile-title-row">
-                  <span class="tile-name">Coaching &amp; Tuitions</span>
-                  <span class="tile-badge" [class.active]="subData.hasCoachingModule">
-                    {{ subData.hasCoachingModule ? 'Active' : 'Locked' }}
-                  </span>
+                <ul class="tier-features">
+                  <li><mat-icon>check</mat-icon> Up to 150 Students</li>
+                  <li><mat-icon>check</mat-icon> 1 Main Branch</li>
+                  <li><mat-icon>check</mat-icon> School OR Coaching Module</li>
+                  <li><mat-icon>check</mat-icon> Fee Collection &amp; Receipts</li>
+                  <li><mat-icon>check</mat-icon> Staff Attendance &amp; Payroll</li>
+                  <li class="disabled"><mat-icon>close</mat-icon> Hostel &amp; Transport</li>
+                </ul>
+                <button mat-stroked-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Starter')">
+                  Select Starter Plan
+                </button>
+              </mat-card>
+              <!-- Growth Tier -->
+              <mat-card class="tier-card popular-tier">
+                <div class="popular-ribbon">MOST POPULAR</div>
+                <div class="tier-card-header">
+                  <span class="tier-name">Growth / Pro</span>
+                  <span class="tier-tagline">Integrated School + Coaching</span>
                 </div>
-                <p class="tile-details">Academic Batches, Classrooms, Test Series &amp; Monthly Tuition Fees.</p>
-              </div>
-            </div>
-
-            <!-- Hostel Module -->
-            <div class="module-status-tile" [class.unlocked]="subData.hasHostelModule">
-              <div class="tile-icon-box hostel">
-                <mat-icon>apartment</mat-icon>
-              </div>
-              <div class="tile-info">
-                <div class="tile-title-row">
-                  <span class="tile-name">Hostel &amp; Residential</span>
-                  <span class="tile-badge" [class.active]="subData.hasHostelModule">
-                    {{ subData.hasHostelModule ? 'Active' : 'Locked' }}
-                  </span>
+                <ul class="tier-features">
+                  <li><mat-icon>check</mat-icon> Up to 500 Students</li>
+                  <li><mat-icon>check</mat-icon> Up to 3 Branches</li>
+                  <li><mat-icon>check</mat-icon> School + Coaching + Library</li>
+                  <li><mat-icon>check</mat-icon> Biometric Hardware Sync</li>
+                  <li><mat-icon>check</mat-icon> WhatsApp Cloud Messaging</li>
+                  <li><mat-icon>check</mat-icon> Full Accounting &amp; P&amp;L</li>
+                </ul>
+                <button mat-raised-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Growth')">
+                  Upgrade to Growth
+                </button>
+              </mat-card>
+              <!-- Enterprise Tier -->
+              <mat-card class="tier-card">
+                <div class="tier-card-header">
+                  <span class="tier-name">Enterprise Suite</span>
+                  <span class="tier-tagline">Complete 5-Module Powerhouse</span>
                 </div>
-                <p class="tile-details">Hostel Buildings, Bed Allotment, Room Rent, Mess &amp; Resident Lists.</p>
-              </div>
+                <ul class="tier-features">
+                  <li><mat-icon>check</mat-icon> Unlimited / 2,000+ Students</li>
+                  <li><mat-icon>check</mat-icon> Unlimited Branch Network</li>
+                  <li><mat-icon>check</mat-icon> All 5 Modules Included</li>
+                  <li><mat-icon>check</mat-icon> Hostel Mess &amp; Bed Allotment</li>
+                  <li><mat-icon>check</mat-icon> Fleet &amp; Bus Route Tracking</li>
+                  <li><mat-icon>check</mat-icon> Dedicated Support &amp; SLA</li>
+                </ul>
+                <button mat-stroked-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Enterprise')">
+                  Contact for Enterprise
+                </button>
+              </mat-card>
             </div>
-
-            <!-- Library Module -->
-            <div class="module-status-tile" [class.unlocked]="subData.hasLibraryModule">
-              <div class="tile-icon-box library">
-                <mat-icon>local_library</mat-icon>
-              </div>
-              <div class="tile-info">
-                <div class="tile-title-row">
-                  <span class="tile-name">Library Management</span>
-                  <span class="tile-badge" [class.active]="subData.hasLibraryModule">
-                    {{ subData.hasLibraryModule ? 'Active' : 'Locked' }}
-                  </span>
-                </div>
-                <p class="tile-details">Catalog, Circulation Issue/Return, Fines &amp; Reading Shifts.</p>
-              </div>
-            </div>
-
-            <!-- Transport Module -->
-            <div class="module-status-tile" [class.unlocked]="subData.hasTransportModule">
-              <div class="tile-icon-box transport">
-                <mat-icon>directions_bus</mat-icon>
-              </div>
-              <div class="tile-info">
-                <div class="tile-title-row">
-                  <span class="tile-name">Transport &amp; Fleet</span>
-                  <span class="tile-badge" [class.active]="subData.hasTransportModule">
-                    {{ subData.hasTransportModule ? 'Active' : 'Locked' }}
-                  </span>
-                </div>
-                <p class="tile-details">Vehicles Fleet, Bus Routes, Stop Allotment &amp; Transport Fees.</p>
-              </div>
-            </div>
-
-          </div>
-        </mat-card>
-
-        <!-- SaaS Tier Comparison Cards -->
-        <div class="tiers-section">
-          <div class="tiers-header">
-            <h3>Choose the Right Plan for Your Growing Institution</h3>
-            <p>Flexible enterprise subscriptions with scalable student capacities and multi-campus management.</p>
-          </div>
-
-          <div class="tiers-grid">
-            
-            <!-- Starter Tier -->
-            <mat-card class="tier-card">
-              <div class="tier-card-header">
-                <span class="tier-name">Starter Edition</span>
-                <span class="tier-tagline">Single Campus &bull; Coaching or School</span>
-              </div>
-              <ul class="tier-features">
-                <li><mat-icon>check</mat-icon> Up to 150 Students</li>
-                <li><mat-icon>check</mat-icon> 1 Main Branch</li>
-                <li><mat-icon>check</mat-icon> School OR Coaching Module</li>
-                <li><mat-icon>check</mat-icon> Fee Collection &amp; Receipts</li>
-                <li><mat-icon>check</mat-icon> Staff Attendance &amp; Payroll</li>
-                <li class="disabled"><mat-icon>close</mat-icon> Hostel &amp; Transport</li>
-              </ul>
-              <button mat-stroked-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Starter')">
-                Select Starter Plan
-              </button>
-            </mat-card>
-
-            <!-- Growth Tier -->
-            <mat-card class="tier-card popular-tier">
-              <div class="popular-ribbon">MOST POPULAR</div>
-              <div class="tier-card-header">
-                <span class="tier-name">Growth / Pro</span>
-                <span class="tier-tagline">Integrated School + Coaching</span>
-              </div>
-              <ul class="tier-features">
-                <li><mat-icon>check</mat-icon> Up to 500 Students</li>
-                <li><mat-icon>check</mat-icon> Up to 3 Branches</li>
-                <li><mat-icon>check</mat-icon> School + Coaching + Library</li>
-                <li><mat-icon>check</mat-icon> Biometric Hardware Sync</li>
-                <li><mat-icon>check</mat-icon> WhatsApp Cloud Messaging</li>
-                <li><mat-icon>check</mat-icon> Full Accounting &amp; P&amp;L</li>
-              </ul>
-              <button mat-raised-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Growth')">
-                Upgrade to Growth
-              </button>
-            </mat-card>
-
-            <!-- Enterprise Tier -->
-            <mat-card class="tier-card">
-              <div class="tier-card-header">
-                <span class="tier-name">Enterprise Suite</span>
-                <span class="tier-tagline">Complete 5-Module Powerhouse</span>
-              </div>
-              <ul class="tier-features">
-                <li><mat-icon>check</mat-icon> Unlimited / 2,000+ Students</li>
-                <li><mat-icon>check</mat-icon> Unlimited Branch Network</li>
-                <li><mat-icon>check</mat-icon> All 5 Modules Included</li>
-                <li><mat-icon>check</mat-icon> Hostel Mess &amp; Bed Allotment</li>
-                <li><mat-icon>check</mat-icon> Fleet &amp; Bus Route Tracking</li>
-                <li><mat-icon>check</mat-icon> Dedicated Support &amp; SLA</li>
-              </ul>
-              <button mat-stroked-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Enterprise')">
-                Contact for Enterprise
-              </button>
-            </mat-card>
-
           </div>
         </div>
-
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .subscription-page-container {
       padding: 0 0 40px;

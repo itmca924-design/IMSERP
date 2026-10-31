@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -41,7 +41,7 @@ const API_BASE = environment.apiBaseUrl;
   ],
   template: `
     <div class="my-profile-container">
-      
+    
       <!-- Top Breadcrumb & Portal Bar -->
       <div class="portal-header-bar">
         <div class="header-left">
@@ -53,957 +53,1092 @@ const API_BASE = environment.apiBaseUrl;
             <p class="portal-subtitle">Student Self-Service Portal &bull; Verified Academic, Health, Honors &amp; Growth Dossier</p>
           </div>
         </div>
-        <div class="header-actions" *ngIf="data360">
-          <a mat-stroked-button class="print-medical-btn" routerLink="/students/timetable" style="color: #0ea5e9; border-color: #bae6fd;">
-            <mat-icon>calendar_view_week</mat-icon> Class Timetable &amp; Routine
-          </a>
-          <button mat-stroked-button class="print-medical-btn" (click)="openRegularizationDialog()" style="color: #2563eb; border-color: #bfdbfe;">
-            <mat-icon>edit_calendar</mat-icon> Request Regularization
-          </button>
-          <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
-            <mat-icon>badge</mat-icon> Pocket Medical Card
-          </button>
-          <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="activeTabIndex = 2">
-            <mat-icon>emoji_events</mat-icon> View Wall of Fame
-          </button>
-        </div>
+        @if (data360) {
+          <div class="header-actions">
+            <a mat-stroked-button class="print-medical-btn" routerLink="/students/timetable" style="color: #0ea5e9; border-color: #bae6fd;">
+              <mat-icon>calendar_view_week</mat-icon> Class Timetable &amp; Routine
+            </a>
+            <button mat-stroked-button class="print-medical-btn" (click)="openRegularizationDialog()" style="color: #2563eb; border-color: #bfdbfe;">
+              <mat-icon>edit_calendar</mat-icon> Request Regularization
+            </button>
+            <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
+              <mat-icon>badge</mat-icon> Pocket Medical Card
+            </button>
+            <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="activeTabIndex = 2">
+              <mat-icon>emoji_events</mat-icon> View Wall of Fame
+            </button>
+          </div>
+        }
       </div>
-
+    
       <!-- Main Profile Content -->
-      <div class="profile-content-wrap" *ngIf="!loading && data360">
-        
-        <!-- Hero Identity Banner -->
-        <div class="hero-identity-card">
-          <div class="hero-identity-row">
-            <div class="avatar-wrap">
-              <img *ngIf="data360.student.profilePhoto" [src]="getPhotoUrl(data360.student.profilePhoto)" [alt]="data360.student.studentName" />
-              <div *ngIf="!data360.student.profilePhoto" class="avatar-fallback">
-                {{ getInitials(data360.student.studentName) }}
+      @if (!loading && data360) {
+        <div class="profile-content-wrap">
+          <!-- Hero Identity Banner -->
+          <div class="hero-identity-card">
+            <div class="hero-identity-row">
+              <div class="avatar-wrap">
+                @if (data360.student.profilePhoto) {
+                  <img [src]="getPhotoUrl(data360.student.profilePhoto)" [alt]="data360.student.studentName" />
+                }
+                @if (!data360.student.profilePhoto) {
+                  <div class="avatar-fallback">
+                    {{ getInitials(data360.student.studentName) }}
+                  </div>
+                }
               </div>
-            </div>
-
-            <div class="hero-details">
-              <div class="hero-name-row">
-                <h2 class="student-name">{{ data360.student.studentName }}</h2>
-                <span class="active-badge" [class.inactive]="!data360.student.isActive">
-                  {{ data360.student.isActive ? 'Active Student' : 'Inactive' }}
-                </span>
-                <span class="stream-badge school" *ngIf="data360.student.isSchoolStudent">
-                  <mat-icon>school</mat-icon> School
-                </span>
-                <span class="stream-badge coaching" *ngIf="data360.student.isCoachingStudent">
-                  <mat-icon>groups</mat-icon> Coaching
-                </span>
-                <span class="star-badge" *ngIf="data360.performanceAlert?.isStarPerformer">
-                  <mat-icon>hotel_class</mat-icon> Star Scholar
-                </span>
-              </div>
-
-              <div class="hero-meta-grid">
-                <div class="meta-pill"><mat-icon>school</mat-icon> Class: <strong>{{ data360.student.className || 'General' }}{{ data360.student.sectionName ? ' - ' + data360.student.sectionName : '' }}</strong></div>
-                <div class="meta-pill" *ngIf="data360.student.isCoachingStudent || data360.student.batchName">
-                  <mat-icon style="color: #ea580c;">groups</mat-icon> Coaching Batch: <strong>{{ data360.student.batchName || 'General' }}</strong>
+              <div class="hero-details">
+                <div class="hero-name-row">
+                  <h2 class="student-name">{{ data360.student.studentName }}</h2>
+                  <span class="active-badge" [class.inactive]="!data360.student.isActive">
+                    {{ data360.student.isActive ? 'Active Student' : 'Inactive' }}
+                  </span>
+                  @if (data360.student.isSchoolStudent) {
+                    <span class="stream-badge school">
+                      <mat-icon>school</mat-icon> School
+                    </span>
+                  }
+                  @if (data360.student.isCoachingStudent) {
+                    <span class="stream-badge coaching">
+                      <mat-icon>groups</mat-icon> Coaching
+                    </span>
+                  }
+                  @if (data360.performanceAlert?.isStarPerformer) {
+                    <span class="star-badge">
+                      <mat-icon>hotel_class</mat-icon> Star Scholar
+                    </span>
+                  }
                 </div>
-                <div class="meta-pill" *ngIf="data360.student.batchSubject">
-                  <mat-icon style="color: #2563eb;">menu_book</mat-icon> Subject: <strong>{{ data360.student.batchSubject }}</strong>
+                <div class="hero-meta-grid">
+                  <div class="meta-pill"><mat-icon>school</mat-icon> Class: <strong>{{ data360.student.className || 'General' }}{{ data360.student.sectionName ? ' - ' + data360.student.sectionName : '' }}</strong></div>
+                  @if (data360.student.isCoachingStudent || data360.student.batchName) {
+                    <div class="meta-pill">
+                      <mat-icon style="color: #ea580c;">groups</mat-icon> Coaching Batch: <strong>{{ data360.student.batchName || 'General' }}</strong>
+                    </div>
+                  }
+                  @if (data360.student.batchSubject) {
+                    <div class="meta-pill">
+                      <mat-icon style="color: #2563eb;">menu_book</mat-icon> Subject: <strong>{{ data360.student.batchSubject }}</strong>
+                    </div>
+                  }
+                  @if (data360.student.isSchoolStudent || data360.student.schoolRollNumber) {
+                    <div class="meta-pill">
+                      <mat-icon>pin</mat-icon> School Roll: <strong>{{ data360.student.schoolRollNumber || (data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</strong>
+                    </div>
+                  }
+                  @if (data360.student.isCoachingStudent || data360.student.coachingRollNumber) {
+                    <div class="meta-pill coaching-roll-pill">
+                      <mat-icon style="color: #ea580c;">pin</mat-icon> Coaching Roll: <strong style="color: #c2410c;">{{ data360.student.coachingRollNumber || (!data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</strong>
+                    </div>
+                  }
+                  @if (data360.student.admissionNumber) {
+                    <div class="meta-pill"><mat-icon>badge</mat-icon> Adm No: <strong>{{ data360.student.admissionNumber }}</strong></div>
+                  }
+                  @if (data360.student.joiningDate) {
+                    <div class="meta-pill"><mat-icon>event</mat-icon> Joining Date: <strong>{{ data360.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong></div>
+                  }
+                  @if (data360.student.branchName) {
+                    <div class="meta-pill"><mat-icon>store</mat-icon> Campus: <strong>{{ data360.student.branchName }}</strong></div>
+                  }
+                  @if (data360.student.bloodGroup) {
+                    <div class="meta-pill"><mat-icon>bloodtype</mat-icon> Blood: <strong class="blood-text">{{ data360.student.bloodGroup }}</strong></div>
+                  }
+                  @if (data360.student.parentName) {
+                    <div class="meta-pill"><mat-icon>family_restroom</mat-icon> Guardian: <strong>{{ data360.student.parentName }}</strong></div>
+                  }
                 </div>
-                <div class="meta-pill" *ngIf="data360.student.isSchoolStudent || data360.student.schoolRollNumber">
-                  <mat-icon>pin</mat-icon> School Roll: <strong>{{ data360.student.schoolRollNumber || (data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</strong>
-                </div>
-                <div class="meta-pill coaching-roll-pill" *ngIf="data360.student.isCoachingStudent || data360.student.coachingRollNumber">
-                  <mat-icon style="color: #ea580c;">pin</mat-icon> Coaching Roll: <strong style="color: #c2410c;">{{ data360.student.coachingRollNumber || (!data360.student.isSchoolStudent ? data360.student.rollNumber : 'N/A') }}</strong>
-                </div>
-                <div class="meta-pill" *ngIf="data360.student.admissionNumber"><mat-icon>badge</mat-icon> Adm No: <strong>{{ data360.student.admissionNumber }}</strong></div>
-                <div class="meta-pill" *ngIf="data360.student.joiningDate"><mat-icon>event</mat-icon> Joining Date: <strong>{{ data360.student.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong></div>
-                <div class="meta-pill" *ngIf="data360.student.branchName"><mat-icon>store</mat-icon> Campus: <strong>{{ data360.student.branchName }}</strong></div>
-                <div class="meta-pill" *ngIf="data360.student.bloodGroup"><mat-icon>bloodtype</mat-icon> Blood: <strong class="blood-text">{{ data360.student.bloodGroup }}</strong></div>
-                <div class="meta-pill" *ngIf="data360.student.parentName"><mat-icon>family_restroom</mat-icon> Guardian: <strong>{{ data360.student.parentName }}</strong></div>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- 📊 FEATURE 5: SMART PERFORMANCE RADAR & EARLY WARNING BANNER -->
-        <div class="performance-radar-banner" *ngIf="data360.performanceAlert">
-          <div class="radar-status-col">
-            <div class="badge-icon-circle" [class.star]="data360.performanceAlert.isStarPerformer" [class.warning]="data360.performanceAlert.hasAttendanceWarning || data360.performanceAlert.hasExamWarning">
-              <mat-icon>{{ data360.performanceAlert.isStarPerformer ? 'workspace_premium' : (data360.performanceAlert.hasAttendanceWarning || data360.performanceAlert.hasExamWarning ? 'priority_high' : 'verified') }}</mat-icon>
-            </div>
-            <div>
-              <div class="radar-badge-label">Academic Evaluation:</div>
-              <h4 class="radar-badge-title">{{ data360.performanceAlert.performanceBadgeText }}</h4>
-            </div>
-          </div>
-
-          <div class="radar-insights-col">
-            <div class="insight-group" *ngIf="data360.performanceAlert.strongSubjects?.length">
-              <span class="insight-label"><mat-icon>trending_up</mat-icon> Strong Aptitudes:</span>
-              <div class="tag-row">
-                <span class="subject-tag strong" *ngFor="let s of data360.performanceAlert.strongSubjects">{{ s }}</span>
-              </div>
-            </div>
-
-            <div class="insight-group" *ngIf="data360.performanceAlert.weakSubjects?.length">
-              <span class="insight-label"><mat-icon>flag</mat-icon> Focus Needed:</span>
-              <div class="tag-row">
-                <span class="subject-tag weak" *ngFor="let s of data360.performanceAlert.weakSubjects">{{ s }}</span>
-              </div>
-            </div>
-
-            <div class="alert-message-box" *ngIf="data360.performanceAlert.attendanceAlertMessage">
-              <mat-icon>warning</mat-icon>
-              <span>{{ data360.performanceAlert.attendanceAlertMessage }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tabbed Sections Navigation -->
-        <div class="tabs-wrapper">
-          <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="250ms">
-
-            <!-- TAB: 📅 CLASS TIMETABLE & ROUTINE -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">calendar_view_week</mat-icon> Timetable &amp; Routine
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="section-title-bar">
-                  <div>
-                    <h3 class="sec-title">Today's Class Schedule &amp; Routine ({{ timetableMiniData?.todayDayOfWeek || 'Today' }})</h3>
-                    <p class="sec-sub">Live periods, classroom allocation, assigned faculty and proxy notices</p>
-                  </div>
-                  <div class="sec-actions">
-                    <a mat-raised-button color="primary" class="primary-gradient-btn" routerLink="/students/timetable">
-                      <mat-icon>open_in_new</mat-icon> Full Timetable Portal
-                    </a>
-                  </div>
+          <!-- 📊 FEATURE 5: SMART PERFORMANCE RADAR & EARLY WARNING BANNER -->
+          @if (data360.performanceAlert) {
+            <div class="performance-radar-banner">
+              <div class="radar-status-col">
+                <div class="badge-icon-circle" [class.star]="data360.performanceAlert.isStarPerformer" [class.warning]="data360.performanceAlert.hasAttendanceWarning || data360.performanceAlert.hasExamWarning">
+                  <mat-icon>{{ data360.performanceAlert.isStarPerformer ? 'workspace_premium' : (data360.performanceAlert.hasAttendanceWarning || data360.performanceAlert.hasExamWarning ? 'priority_high' : 'verified') }}</mat-icon>
                 </div>
-
-                <!-- Timetable Mini Content -->
-                <div class="mini-timetable-container">
-                  <div class="mini-periods-grid" *ngIf="timetableMiniData?.todayPeriods?.length">
-                    <div 
-                      class="mini-period-card" 
-                      *ngFor="let s of timetableMiniData?.todayPeriods" 
-                      [class.live-card]="s.isLiveNow"
-                      [class.completed-card]="s.isCompleted"
-                      [class.proxy-card]="s.isSubstituted">
-                      <div class="mpc-top">
-                        <span class="mpc-pnum">P{{ s.periodNumber }}</span>
-                        <span class="mpc-time">{{ s.timeSlot }}</span>
-                        <span class="mpc-live-tag" *ngIf="s.isLiveNow">● LIVE</span>
-                        <span class="mpc-proxy-tag" *ngIf="s.isSubstituted">PROXY</span>
-                      </div>
-                      <h4 class="mpc-subject">{{ s.subject }}</h4>
-                      <div class="mpc-meta">
-                        <span class="mpc-teacher"><mat-icon>person</mat-icon> {{ s.teacherName }}</span>
-                        <span class="mpc-room"><mat-icon>meeting_room</mat-icon> Room {{ s.roomNumber }}</span>
-                      </div>
-                      <div class="mpc-sub-notice" *ngIf="s.isSubstituted">
-                        <small>Proxy: <strong>{{ s.substituteTeacherName }}</strong></small>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="empty-state-card" *ngIf="!timetableMiniData?.todayPeriods?.length">
-                    <mat-icon class="empty-icon">calendar_month</mat-icon>
-                    <h4>No Classes Scheduled Today</h4>
-                    <p>No lectures are scheduled for today. You can view the master schedule for the full week.</p>
-                    <a mat-stroked-button color="primary" routerLink="/students/timetable" style="margin-top: 10px;">
-                      <mat-icon>grid_view</mat-icon> Open Full Routine Matrix
-                    </a>
-                  </div>
+                <div>
+                  <div class="radar-badge-label">Academic Evaluation:</div>
+                  <h4 class="radar-badge-title">{{ data360.performanceAlert.performanceBadgeText }}</h4>
                 </div>
               </div>
-            </mat-tab>
-
-            <!-- TAB: 📝 TESTS & ACADEMIC PERFORMANCE -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">grade</mat-icon> Tests &amp; Exams ({{ data360.examMarks.length || 0 }})
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="section-title-bar">
-                  <div>
-                    <h3 class="sec-title">Academic Assessments, Coaching Tests &amp; Examination Results</h3>
-                    <p class="sec-sub">Continuous evaluation, test marks, score percentages and performance evaluation</p>
+              <div class="radar-insights-col">
+                @if (data360.performanceAlert.strongSubjects?.length) {
+                  <div class="insight-group">
+                    <span class="insight-label"><mat-icon>trending_up</mat-icon> Strong Aptitudes:</span>
+                    <div class="tag-row">
+                      @for (s of data360.performanceAlert.strongSubjects; track s) {
+                        <span class="subject-tag strong">{{ s }}</span>
+                      }
+                    </div>
                   </div>
-                </div>
-
-                <div class="invoice-table-wrap" *ngIf="data360.examMarks?.length">
-                  <table class="custom-table">
-                    <thead>
-                      <tr>
-                        <th>Exam / Test Title</th>
-                        <th>Subject</th>
-                        <th>Date</th>
-                        <th style="text-align: right;">Marks Scored</th>
-                        <th style="text-align: right;">Max Marks</th>
-                        <th style="text-align: right;">Percentage</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let ex of data360.examMarks">
-                        <td><strong>{{ ex.testName }}</strong></td>
-                        <td>{{ ex.subjectName }}</td>
-                        <td>{{ ex.testDate | date:'dd MMM yyyy' }}</td>
-                        <td style="text-align: right; font-weight: 600;">{{ ex.marksObtained }}</td>
-                        <td style="text-align: right;">{{ ex.maxMarks }}</td>
-                        <td style="text-align: right; font-weight: 700;" [class.text-success]="ex.percentage >= 60" [class.text-danger]="ex.percentage < 33">
-                          {{ ex.percentage }}%
-                        </td>
-                        <td>
-                          <span class="inv-status-pill" [class.paid]="ex.status === 'Passed'" [class.due]="ex.status !== 'Passed'">
-                            {{ ex.status }}
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="empty-state-card" *ngIf="!data360.examMarks?.length">
-                  <mat-icon class="empty-icon">assignment_turned_in</mat-icon>
-                  <h4>No Test Marks Recorded</h4>
-                  <p>Assessment and coaching test results will appear here once published by faculty.</p>
-                </div>
+                }
+                @if (data360.performanceAlert.weakSubjects?.length) {
+                  <div class="insight-group">
+                    <span class="insight-label"><mat-icon>flag</mat-icon> Focus Needed:</span>
+                    <div class="tag-row">
+                      @for (s of data360.performanceAlert.weakSubjects; track s) {
+                        <span class="subject-tag weak">{{ s }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (data360.performanceAlert.attendanceAlertMessage) {
+                  <div class="alert-message-box">
+                    <mat-icon>warning</mat-icon>
+                    <span>{{ data360.performanceAlert.attendanceAlertMessage }}</span>
+                  </div>
+                }
               </div>
-            </mat-tab>
-
-            <!-- TAB 1: 🏆 WALL OF FAME (Feature 1) -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">emoji_events</mat-icon> Wall of Fame ({{ data360.achievements?.length || 0 }})
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="section-title-bar">
-                  <div>
-                    <h3 class="sec-title">Honors, Medals &amp; Merit Accolades</h3>
-                    <p class="sec-sub">Official awards, Olympiad distinctions, sports recognitions and co-curricular accomplishments</p>
-                  </div>
-                </div>
-
-                <!-- Achievements Grid -->
-                <div class="achievement-grid" *ngIf="data360.achievements?.length">
-                  <div class="honor-card" *ngFor="let ach of data360.achievements" [ngClass]="(ach.category || 'other').toLowerCase()">
-                    <div class="honor-top">
-                      <div class="honor-badge-icon" [ngClass]="(ach.category || 'other').toLowerCase()">
-                        <mat-icon>{{ getAchievementIcon(ach.category) }}</mat-icon>
-                      </div>
-                      <div class="honor-titles">
-                        <div class="honor-title">{{ ach.title }}</div>
-                        <div class="honor-meta">
-                          <span class="honor-category-tag" [ngClass]="(ach.category || 'other').toLowerCase()">{{ ach.category }}</span>
-                          <span class="level-tag" *ngIf="ach.level || ach.awardLevel">{{ ach.level || ach.awardLevel }}</span>
-                          <span class="pos-tag" *ngIf="ach.position">🏆 {{ ach.position }}</span>
-                        </div>
-                      </div>
+            </div>
+          }
+          <!-- Tabbed Sections Navigation -->
+          <div class="tabs-wrapper">
+            <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="250ms">
+              <!-- TAB: 📅 CLASS TIMETABLE & ROUTINE -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">calendar_view_week</mat-icon> Timetable &amp; Routine
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="section-title-bar">
+                    <div>
+                      <h3 class="sec-title">Today's Class Schedule &amp; Routine ({{ timetableMiniData?.todayDayOfWeek || 'Today' }})</h3>
+                      <p class="sec-sub">Live periods, classroom allocation, assigned faculty and proxy notices</p>
                     </div>
-                    <div class="honor-body">
-                      <div class="honor-info-line" *ngIf="ach.issuedBy || ach.awardedBy">
-                        <span class="meta-label">Organized By:</span>
-                        <span class="meta-text">{{ ach.issuedBy || ach.awardedBy }}</span>
-                      </div>
-                      <div class="honor-info-line">
-                        <span class="meta-label">Award Date:</span>
-                        <span class="meta-text">{{ (ach.awardedDate || ach.awardDate) | date:'dd MMM yyyy' }}</span>
-                      </div>
-                      <div class="honor-info-line" *ngIf="ach.certificateNumber">
-                        <span class="meta-label">Certificate No:</span>
-                        <span class="meta-text font-mono">{{ ach.certificateNumber }}</span>
-                      </div>
-                      <p class="honor-remarks" *ngIf="ach.remarks || ach.description">{{ ach.remarks || ach.description }}</p>
-                    </div>
-                    <div class="honor-footer">
-                      <button mat-stroked-button class="print-cert-btn" (click)="printCertificate(ach)" matTooltip="Generate &amp; Print Official Certificate of Merit">
-                        <mat-icon>print</mat-icon> Print Official Certificate
-                      </button>
+                    <div class="sec-actions">
+                      <a mat-raised-button color="primary" class="primary-gradient-btn" routerLink="/students/timetable">
+                        <mat-icon>open_in_new</mat-icon> Full Timetable Portal
+                      </a>
                     </div>
                   </div>
-                </div>
-
-                <!-- Empty State -->
-                <div class="empty-state-card" *ngIf="!data360.achievements?.length">
-                  <mat-icon class="empty-icon">workspace_premium</mat-icon>
-                  <h4>No Awards Recorded Yet</h4>
-                  <p>Keep participating in school events, Olympiads and sports. All institutional honors will appear here!</p>
-                </div>
-              </div>
-            </mat-tab>
-
-            <!-- TAB 2: 🩺 HEALTH & MEDICAL PROFILE (Feature 4) -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">medical_services</mat-icon> Health &amp; Medical
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="section-title-bar">
-                  <div>
-                    <h3 class="sec-title">Student Health &amp; Emergency Medical Profile</h3>
-                    <p class="sec-sub">Growth vitals, BMI evaluation scale, clinical notes, and emergency medical contacts</p>
-                  </div>
-                  <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
-                    <mat-icon>badge</mat-icon> Print Pocket Medical Card
-                  </button>
-                </div>
-
-                <div class="health-cards-grid">
-                  <!-- Physical Growth & BMI -->
-                  <div class="health-card">
-                    <div class="card-head">
-                      <mat-icon class="head-icon">accessibility_new</mat-icon>
-                      <h4>Physical Growth &amp; BMI Tracker</h4>
-                    </div>
-                    <div class="vitals-row">
-                      <div class="vital-item">
-                        <span class="v-lbl">Height</span>
-                        <span class="v-val">{{ (data360.healthRecord?.heightCm || data360.healthProfile?.heightCm) ? ((data360.healthRecord?.heightCm || data360.healthProfile?.heightCm) + ' cm') : 'Not Recorded' }}</span>
+                  <!-- Timetable Mini Content -->
+                  <div class="mini-timetable-container">
+                    @if (timetableMiniData?.todayPeriods?.length) {
+                      <div class="mini-periods-grid">
+                        @for (s of timetableMiniData?.todayPeriods; track s) {
+                          <div
+                            class="mini-period-card"
+                            [class.live-card]="s.isLiveNow"
+                            [class.completed-card]="s.isCompleted"
+                            [class.proxy-card]="s.isSubstituted">
+                            <div class="mpc-top">
+                              <span class="mpc-pnum">P{{ s.periodNumber }}</span>
+                              <span class="mpc-time">{{ s.timeSlot }}</span>
+                              @if (s.isLiveNow) {
+                                <span class="mpc-live-tag">● LIVE</span>
+                              }
+                              @if (s.isSubstituted) {
+                                <span class="mpc-proxy-tag">PROXY</span>
+                              }
+                            </div>
+                            <h4 class="mpc-subject">{{ s.subject }}</h4>
+                            <div class="mpc-meta">
+                              <span class="mpc-teacher"><mat-icon>person</mat-icon> {{ s.teacherName }}</span>
+                              <span class="mpc-room"><mat-icon>meeting_room</mat-icon> Room {{ s.roomNumber }}</span>
+                            </div>
+                            @if (s.isSubstituted) {
+                              <div class="mpc-sub-notice">
+                                <small>Proxy: <strong>{{ s.substituteTeacherName }}</strong></small>
+                              </div>
+                            }
+                          </div>
+                        }
                       </div>
-                      <div class="vital-item">
-                        <span class="v-lbl">Weight</span>
-                        <span class="v-val">{{ (data360.healthRecord?.weightKg || data360.healthProfile?.weightKg) ? ((data360.healthRecord?.weightKg || data360.healthProfile?.weightKg) + ' kg') : 'Not Recorded' }}</span>
-                      </div>
-                      <div class="vital-item highlight">
-                        <span class="v-lbl">BMI Score</span>
-                        <span class="v-val">{{ (data360.healthRecord?.bmi || data360.healthProfile?.bmi) ? ((data360.healthRecord?.bmi || data360.healthProfile?.bmi) | number:'1.1-1') : 'N/A' }}</span>
-                      </div>
-                    </div>
-
-                    <!-- BMI Category Meter -->
-                    <div class="bmi-meter-wrap" *ngIf="data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory">
-                      <div class="meter-bar">
-                        <div class="meter-seg under" [class.current]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) === 'Underweight'">Underweight (&lt;18.5)</div>
-                        <div class="meter-seg normal" [class.current]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) === 'Normal'">Healthy (18.5 - 24.9)</div>
-                        <div class="meter-seg over" [class.current]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) === 'Overweight'">Overweight (25 - 29.9)</div>
-                        <div class="meter-seg obese" [class.current]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) === 'Obese'">Obese (&ge;30)</div>
-                      </div>
-                      <div class="bmi-result-txt">
-                        Growth Evaluation: <strong [ngClass]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory || '').toLowerCase()">{{ data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory }}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Medical Alerts & Allergies -->
-                  <div class="health-card danger-card">
-                    <div class="card-head">
-                      <mat-icon class="head-icon red">warning</mat-icon>
-                      <h4>Critical Medical Alerts &amp; Allergies</h4>
-                    </div>
-                    <div class="alerts-content">
-                      <div class="alert-box" [class.has-allergy]="data360.healthRecord?.knownAllergies || data360.healthProfile?.knownAllergies">
-                        <div class="alert-title"><mat-icon>coronavirus</mat-icon> Known Allergies</div>
-                        <p>{{ data360.healthRecord?.knownAllergies || data360.healthProfile?.knownAllergies || 'No known allergies reported.' }}</p>
-                      </div>
-                      <div class="alert-box" [class.has-condition]="data360.healthRecord?.chronicConditions || data360.healthProfile?.chronicConditions">
-                        <div class="alert-title"><mat-icon>healing</mat-icon> Chronic Medical Conditions</div>
-                        <p>{{ data360.healthRecord?.chronicConditions || data360.healthProfile?.chronicConditions || 'None reported.' }}</p>
-                      </div>
-                      <div class="alert-box" *ngIf="data360.healthRecord?.regularMedications || data360.healthProfile?.regularMedications">
-                        <div class="alert-title"><mat-icon>medication</mat-icon> Regular Medications / Inhalers</div>
-                        <p>{{ data360.healthRecord?.regularMedications || data360.healthProfile?.regularMedications }}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Clinical Details & Doctor Contact -->
-                  <div class="health-card">
-                    <div class="card-head">
-                      <mat-icon class="head-icon blue">local_hospital</mat-icon>
-                      <h4>Clinical Vitals &amp; Doctor Contacts</h4>
-                    </div>
-                    <div class="clinical-rows">
-                      <div class="c-row">
-                        <span class="c-lbl">Blood Group:</span>
-                        <strong class="c-val blood-tag">{{ data360.healthRecord?.bloodGroup || data360.healthProfile?.bloodGroup || data360.student.bloodGroup || 'Not Tested' }}</strong>
-                      </div>
-                      <div class="c-row">
-                        <span class="c-lbl">Vision Assessment:</span>
-                        <span class="c-val">Left: {{ data360.healthRecord?.visionLeft || data360.healthProfile?.visionLeft || '6/6' }} &bull; Right: {{ data360.healthRecord?.visionRight || data360.healthProfile?.visionRight || '6/6' }}</span>
-                      </div>
-                      <div class="c-row">
-                        <span class="c-lbl">Last Campus Checkup:</span>
-                        <span class="c-val">{{ (data360.healthRecord?.lastCheckupDate || data360.healthProfile?.lastCheckupDate) ? ((data360.healthRecord?.lastCheckupDate || data360.healthProfile?.lastCheckupDate) | date:'dd MMM yyyy') : 'No checkup recorded' }}</span>
-                      </div>
-                      <div class="c-row" *ngIf="data360.healthRecord?.emergencyDoctorName || data360.healthProfile?.emergencyDoctorName">
-                        <span class="c-lbl">Pediatrician / Doctor:</span>
-                        <span class="c-val">{{ data360.healthRecord?.emergencyDoctorName || data360.healthProfile?.emergencyDoctorName }}</span>
-                      </div>
-                      <div class="c-row" *ngIf="data360.healthRecord?.emergencyDoctorPhone || data360.healthProfile?.emergencyDoctorPhone">
-                        <span class="c-lbl">Emergency Doctor Phone:</span>
-                        <a [href]="'tel:' + (data360.healthRecord?.emergencyDoctorPhone || data360.healthProfile?.emergencyDoctorPhone)" class="c-val phone-link">
-                          <mat-icon>phone</mat-icon> {{ data360.healthRecord?.emergencyDoctorPhone || data360.healthProfile?.emergencyDoctorPhone }}
+                    }
+                    @if (!timetableMiniData?.todayPeriods?.length) {
+                      <div class="empty-state-card">
+                        <mat-icon class="empty-icon">calendar_month</mat-icon>
+                        <h4>No Classes Scheduled Today</h4>
+                        <p>No lectures are scheduled for today. You can view the master schedule for the full week.</p>
+                        <a mat-stroked-button color="primary" routerLink="/students/timetable" style="margin-top: 10px;">
+                          <mat-icon>grid_view</mat-icon> Open Full Routine Matrix
                         </a>
                       </div>
-                    </div>
-                    <div class="doc-notes-block" *ngIf="data360.healthRecord?.doctorNotes || data360.healthRecord?.doctorRemarks || data360.healthProfile?.doctorRemarks">
-                      <div class="notes-heading">Physician's Guidance / Dietary Notes:</div>
-                      <p>{{ data360.healthRecord?.doctorNotes || data360.healthRecord?.doctorRemarks || data360.healthProfile?.doctorRemarks }}</p>
-                    </div>
+                    }
                   </div>
                 </div>
-              </div>
-            </mat-tab>
-
-            <!-- TAB 3: ⚠️ CONDUCT & DISCIPLINE (Feature 2) -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">gavel</mat-icon> Conduct &amp; Discipline ({{ data360.disciplinaryRecords?.length || 0 }})
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="section-title-bar">
-                  <div>
-                    <h3 class="sec-title">Student Behavior &amp; Conduct Diary</h3>
-                    <p class="sec-sub">Official record of positive commendations, exemplary conduct, and advisory notices</p>
-                  </div>
-                </div>
-
-                <div class="conduct-list" *ngIf="data360.disciplinaryRecords?.length">
-                  <div class="conduct-item" *ngFor="let rec of data360.disciplinaryRecords" [ngClass]="(rec.incidentType || 'minor').toLowerCase()">
-                    <div class="type-pill-icon" [ngClass]="(rec.incidentType || 'minor').toLowerCase()">
-                      <mat-icon *ngIf="rec.incidentType === 'PositiveCommendation'">thumb_up</mat-icon>
-                      <mat-icon *ngIf="rec.incidentType !== 'PositiveCommendation'">report_problem</mat-icon>
+              </mat-tab>
+              <!-- TAB: 📝 TESTS & ACADEMIC PERFORMANCE -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">grade</mat-icon> Tests &amp; Exams ({{ data360.examMarks.length || 0 }})
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="section-title-bar">
+                    <div>
+                      <h3 class="sec-title">Academic Assessments, Coaching Tests &amp; Examination Results</h3>
+                      <p class="sec-sub">Continuous evaluation, test marks, score percentages and performance evaluation</p>
                     </div>
-                    <div class="conduct-main">
-                      <div class="conduct-top-row">
-                        <h4 class="rec-title">{{ rec.title }}</h4>
-                        <div class="rec-tags">
-                          <span class="severity-tag" [ngClass]="(rec.severity || 'low').toLowerCase()">{{ rec.severity }}</span>
-                          <span class="status-tag" [ngClass]="(rec.status || (rec.isResolved ? 'resolved' : 'open')).toLowerCase()">
-                            {{ rec.status || (rec.isResolved ? 'Resolved' : 'Open') }}
-                          </span>
+                  </div>
+                  @if (data360.examMarks?.length) {
+                    <div class="invoice-table-wrap">
+                      <table class="custom-table">
+                        <thead>
+                          <tr>
+                            <th>Exam / Test Title</th>
+                            <th>Subject</th>
+                            <th>Date</th>
+                            <th style="text-align: right;">Marks Scored</th>
+                            <th style="text-align: right;">Max Marks</th>
+                            <th style="text-align: right;">Percentage</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (ex of data360.examMarks; track ex) {
+                            <tr>
+                              <td><strong>{{ ex.testName }}</strong></td>
+                              <td>{{ ex.subjectName }}</td>
+                              <td>{{ ex.testDate | date:'dd MMM yyyy' }}</td>
+                              <td style="text-align: right; font-weight: 600;">{{ ex.marksObtained }}</td>
+                              <td style="text-align: right;">{{ ex.maxMarks }}</td>
+                              <td style="text-align: right; font-weight: 700;" [class.text-success]="ex.percentage >= 60" [class.text-danger]="ex.percentage < 33">
+                                {{ ex.percentage }}%
+                              </td>
+                              <td>
+                                <span class="inv-status-pill" [class.paid]="ex.status === 'Passed'" [class.due]="ex.status !== 'Passed'">
+                                  {{ ex.status }}
+                                </span>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                  @if (!data360.examMarks?.length) {
+                    <div class="empty-state-card">
+                      <mat-icon class="empty-icon">assignment_turned_in</mat-icon>
+                      <h4>No Test Marks Recorded</h4>
+                      <p>Assessment and coaching test results will appear here once published by faculty.</p>
+                    </div>
+                  }
+                </div>
+              </mat-tab>
+              <!-- TAB 1: 🏆 WALL OF FAME (Feature 1) -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">emoji_events</mat-icon> Wall of Fame ({{ data360.achievements?.length || 0 }})
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="section-title-bar">
+                    <div>
+                      <h3 class="sec-title">Honors, Medals &amp; Merit Accolades</h3>
+                      <p class="sec-sub">Official awards, Olympiad distinctions, sports recognitions and co-curricular accomplishments</p>
+                    </div>
+                  </div>
+                  <!-- Achievements Grid -->
+                  @if (data360.achievements?.length) {
+                    <div class="achievement-grid">
+                      @for (ach of data360.achievements; track ach) {
+                        <div class="honor-card" [ngClass]="(ach.category || 'other').toLowerCase()">
+                          <div class="honor-top">
+                            <div class="honor-badge-icon" [ngClass]="(ach.category || 'other').toLowerCase()">
+                              <mat-icon>{{ getAchievementIcon(ach.category) }}</mat-icon>
+                            </div>
+                            <div class="honor-titles">
+                              <div class="honor-title">{{ ach.title }}</div>
+                              <div class="honor-meta">
+                                <span class="honor-category-tag" [ngClass]="(ach.category || 'other').toLowerCase()">{{ ach.category }}</span>
+                                @if (ach.level || ach.awardLevel) {
+                                  <span class="level-tag">{{ ach.level || ach.awardLevel }}</span>
+                                }
+                                @if (ach.position) {
+                                  <span class="pos-tag">🏆 {{ ach.position }}</span>
+                                }
+                              </div>
+                            </div>
+                          </div>
+                          <div class="honor-body">
+                            @if (ach.issuedBy || ach.awardedBy) {
+                              <div class="honor-info-line">
+                                <span class="meta-label">Organized By:</span>
+                                <span class="meta-text">{{ ach.issuedBy || ach.awardedBy }}</span>
+                              </div>
+                            }
+                            <div class="honor-info-line">
+                              <span class="meta-label">Award Date:</span>
+                              <span class="meta-text">{{ (ach.awardedDate || ach.awardDate) | date:'dd MMM yyyy' }}</span>
+                            </div>
+                            @if (ach.certificateNumber) {
+                              <div class="honor-info-line">
+                                <span class="meta-label">Certificate No:</span>
+                                <span class="meta-text font-mono">{{ ach.certificateNumber }}</span>
+                              </div>
+                            }
+                            @if (ach.remarks || ach.description) {
+                              <p class="honor-remarks">{{ ach.remarks || ach.description }}</p>
+                            }
+                          </div>
+                          <div class="honor-footer">
+                            <button mat-stroked-button class="print-cert-btn" (click)="printCertificate(ach)" matTooltip="Generate &amp; Print Official Certificate of Merit">
+                              <mat-icon>print</mat-icon> Print Official Certificate
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <p class="rec-desc">{{ rec.description }}</p>
-                      <div class="rec-meta-row">
-                        <span class="meta-item"><mat-icon>calendar_today</mat-icon> {{ rec.incidentDate | date:'dd MMM yyyy' }}</span>
-                        <span class="meta-item" *ngIf="rec.reportedByName || rec.reportedBy"><mat-icon>person</mat-icon> Reported By: {{ rec.reportedByName || rec.reportedBy }}</span>
-                        <span class="meta-item parent-notif" [class.notified]="rec.parentNotified">
-                          <mat-icon>{{ rec.parentNotified ? 'notifications_active' : 'notifications_off' }}</mat-icon>
-                          {{ rec.parentNotified ? 'Parent Formally Notified' : 'Internal Note' }}
-                        </span>
-                      </div>
-                      <div class="outcome-box" *ngIf="rec.actionTaken">
-                        <strong>Outcome / Commendation:</strong> {{ rec.actionTaken }}
-                      </div>
+                      }
                     </div>
-                  </div>
-                </div>
-
-                <div class="empty-state-card" *ngIf="!data360.disciplinaryRecords?.length">
-                  <mat-icon class="empty-icon text-success">verified</mat-icon>
-                  <h4>Clean Conduct Sheet</h4>
-                  <p>Exemplary institutional behavior! No disciplinary infractions recorded.</p>
-                </div>
-              </div>
-            </mat-tab>
-
-            <!-- TAB 4: 👨‍👩‍👧 PTM & PARENT FEEDBACK (Feature 3) -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">record_voice_over</mat-icon> PTM Desk ({{ data360.ptmRecords?.length || 0 }})
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="section-title-bar">
-                  <div>
-                    <h3 class="sec-title">Parent-Teacher Meeting &amp; Feedback Journal</h3>
-                    <p class="sec-sub">Summary of conferences, faculty guidance, parent feedback, and agreed action plans</p>
-                  </div>
-                </div>
-
-                <div class="ptm-timeline" *ngIf="data360.ptmRecords?.length">
-                  <div class="ptm-card" *ngFor="let ptm of data360.ptmRecords">
-                    <div class="ptm-card-header">
-                      <div class="ptm-header-left">
-                        <div class="ptm-date-badge">
-                          <span class="ptm-day">{{ (ptm.meetingDate || ptm.ptmDate) | date:'dd' }}</span>
-                          <span class="ptm-mon">{{ (ptm.meetingDate || ptm.ptmDate) | date:'MMM yyyy' }}</span>
-                        </div>
-                        <div class="ptm-meta-block">
-                          <div class="ptm-attendee">Met with: <strong>{{ ptm.attendedByParentName || ptm.parentAttended }}</strong></div>
-                          <div class="ptm-teacher" *ngIf="ptm.teacherName">Conducted by: <strong>{{ ptm.teacherName }}</strong></div>
-                        </div>
-                      </div>
-                      <div class="ptm-header-right">
-                        <span class="satisfaction-badge" [ngClass]="(ptm.satisfactionRating || 'satisfied').toLowerCase()">
-                          {{ formatRating(ptm.satisfactionRating) }}
-                        </span>
-                      </div>
+                  }
+                  <!-- Empty State -->
+                  @if (!data360.achievements?.length) {
+                    <div class="empty-state-card">
+                      <mat-icon class="empty-icon">workspace_premium</mat-icon>
+                      <h4>No Awards Recorded Yet</h4>
+                      <p>Keep participating in school events, Olympiads and sports. All institutional honors will appear here!</p>
                     </div>
-                    <div class="ptm-card-body">
-                      <div class="ptm-section" *ngIf="ptm.discussionSummary || ptm.childStrengths">
-                        <div class="ptm-sec-title"><mat-icon>forum</mat-icon> Agenda &amp; Discussion Summary</div>
-                        <p class="ptm-sec-text">{{ ptm.discussionSummary || ptm.childStrengths }}</p>
-                      </div>
-                      <div class="ptm-dual-row">
-                        <div class="ptm-box teacher-box" *ngIf="ptm.teacherRemarks">
-                          <div class="box-title"><mat-icon>school</mat-icon> Teacher's Guidance &amp; Remarks</div>
-                          <p>{{ ptm.teacherRemarks }}</p>
-                        </div>
-                        <div class="ptm-box parent-box" *ngIf="ptm.parentFeedback">
-                          <div class="box-title"><mat-icon>family_restroom</mat-icon> Parent's Feedback / Concerns</div>
-                          <p>{{ ptm.parentFeedback }}</p>
-                        </div>
-                      </div>
-                      <div class="ptm-action-points" *ngIf="ptm.actionPoints || ptm.areasOfImprovement">
-                        <mat-icon>checklist</mat-icon>
-                        <div><strong>Agreed Action Commitments / Areas for Growth:</strong> {{ ptm.actionPoints || ptm.areasOfImprovement }}</div>
-                      </div>
+                  }
+                </div>
+              </mat-tab>
+              <!-- TAB 2: 🩺 HEALTH & MEDICAL PROFILE (Feature 4) -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">medical_services</mat-icon> Health &amp; Medical
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="section-title-bar">
+                    <div>
+                      <h3 class="sec-title">Student Health &amp; Emergency Medical Profile</h3>
+                      <p class="sec-sub">Growth vitals, BMI evaluation scale, clinical notes, and emergency medical contacts</p>
                     </div>
-                  </div>
-                </div>
-
-                <div class="empty-state-card" *ngIf="!data360.ptmRecords?.length">
-                  <mat-icon class="empty-icon">groups</mat-icon>
-                  <h4>No PTM Logs Recorded Yet</h4>
-                  <p>Parent-Teacher conferences will be logged here with discussion notes and guidance.</p>
-                </div>
-              </div>
-            </mat-tab>
-
-            <!-- TAB 5: 💰 FEE LEDGER & INVOICES -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">payments</mat-icon> Fee Ledger
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="section-title-bar">
-                  <div>
-                    <h3 class="sec-title">Institutional Fee Ledger &amp; Due Invoices</h3>
-                    <p class="sec-sub">Summary of invoiced fees, payment status, receipts, and balance dues</p>
-                  </div>
-                </div>
-
-                <div class="fee-metrics-row">
-                  <div class="metric-card total">
-                    <span class="m-lbl">Total Billed</span>
-                    <span class="m-val">₹{{ data360.feeSummary.totalInvoiced | number:'1.2-2' }}</span>
-                  </div>
-                  <div class="metric-card paid">
-                    <span class="m-lbl">Total Paid</span>
-                    <span class="m-val">₹{{ data360.feeSummary.totalPaid | number:'1.2-2' }}</span>
-                  </div>
-                  <div class="metric-card due" [class.has-due]="data360.feeSummary.totalPending > 0">
-                    <span class="m-lbl">Pending Dues</span>
-                    <span class="m-val">₹{{ data360.feeSummary.totalPending | number:'1.2-2' }}</span>
-                  </div>
-                </div>
-
-                <div class="invoice-table-wrap" *ngIf="data360.feeSummary.recentInvoices?.length">
-                  <table class="custom-table">
-                    <thead>
-                      <tr>
-                        <th>Invoice #</th>
-                        <th>Description</th>
-                        <th>Amount</th>
-                        <th>Paid</th>
-                        <th>Balance</th>
-                        <th>Due Date</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let inv of data360.feeSummary.recentInvoices">
-                        <td class="font-mono"><strong>{{ inv.invoiceNumber }}</strong></td>
-                        <td>{{ inv.title }}</td>
-                        <td>₹{{ inv.totalAmount | number:'1.2-2' }}</td>
-                        <td class="text-success">₹{{ inv.paidAmount | number:'1.2-2' }}</td>
-                        <td [class.text-danger]="inv.balanceAmount > 0">₹{{ inv.balanceAmount | number:'1.2-2' }}</td>
-                        <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
-                        <td>
-                          <span class="inv-status-pill" [ngClass]="inv.status.toLowerCase()">{{ inv.status }}</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </mat-tab>
-
-            <!-- TAB 6: 📅 ATTENDANCE SUMMARY -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">event_available</mat-icon> Attendance Log
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="section-title-bar">
-                  <div>
-                    <h3 class="sec-title">Student Attendance &amp; Punch Records</h3>
-                    <p class="sec-sub">Attendance compliance percentage and recent biometric/manual classroom records</p>
-                  </div>
-                </div>
-
-                <div class="att-metrics-row">
-                  <div class="att-card" [class.warning]="data360.attendanceSummary.attendancePercentage < 75">
-                    <span class="a-lbl">Cumulative Rate</span>
-                    <span class="a-val">{{ data360.attendanceSummary.attendancePercentage | number:'1.1-1' }}%</span>
-                    <span class="a-sub">{{ data360.attendanceSummary.attendancePercentage >= 75 ? 'Healthy Compliance' : 'Below 75% Threshold' }}</span>
-                  </div>
-                  <div class="att-card">
-                    <span class="a-lbl">Total Days</span>
-                    <span class="a-val">{{ data360.attendanceSummary.totalRecordedDays }}</span>
-                    <span class="a-sub">Recorded Working Days</span>
-                  </div>
-                  <div class="att-card text-success">
-                    <span class="a-lbl">Present Days</span>
-                    <span class="a-val">{{ data360.attendanceSummary.presentDays }}</span>
-                    <span class="a-sub">Full Day Present</span>
-                  </div>
-                  <div class="att-card text-danger">
-                    <span class="a-lbl">Absent Days</span>
-                    <span class="a-val">{{ data360.attendanceSummary.absentDays }}</span>
-                    <span class="a-sub">Unexcused Absences</span>
-                  </div>
-                </div>
-
-                <div class="recent-punches-wrap" *ngIf="data360.attendanceSummary.recentLogs?.length">
-                  <h4 class="sub-heading">Recent Daily Attendance Logs:</h4>
-                  <div class="punch-chips-row">
-                    <div class="punch-chip" *ngFor="let p of data360.attendanceSummary.recentLogs" [ngClass]="p.status.toLowerCase()">
-                      <span class="date">{{ p.date | date:'dd MMM' }}</span>
-                      <span class="st">{{ p.status }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Regularization Requests Section -->
-                <div class="regularization-requests-wrap">
-                  <div class="reg-section-header">
-                    <div class="reg-title-group">
-                      <mat-icon class="reg-sec-icon">rule_folder</mat-icon>
-                      <div>
-                        <h4 class="sub-heading" style="margin-bottom: 2px;">My Attendance Regularization &amp; OD Requests</h4>
-                        <p class="reg-sub-desc">Status of your submitted attendance dispute, On-Duty (OD), and medical leave regularizations</p>
-                      </div>
-                    </div>
-                    <button mat-stroked-button class="apply-reg-btn" (click)="openRegularizationDialog()">
-                      <mat-icon>add_circle</mat-icon> Request Regularization
+                    <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
+                      <mat-icon>badge</mat-icon> Print Pocket Medical Card
                     </button>
                   </div>
-
-                  <!-- Loading state -->
-                  <div class="reg-mini-loader" *ngIf="loadingRegularizations">
-                    <mat-spinner diameter="24"></mat-spinner>
-                    <span>Loading your requests...</span>
-                  </div>
-
-                  <!-- Empty state -->
-                  <div class="reg-empty-strip" *ngIf="!loadingRegularizations && myRegularizations.length === 0">
-                    <mat-icon>task_alt</mat-icon>
-                    <div>
-                      <strong>No Regularization Requests</strong>
-                      <p>You have not submitted any attendance regularization requests yet. If you were absent due to an event, sports, or illness, you can submit a request above.</p>
-                    </div>
-                  </div>
-
-                  <!-- Requests Cards / Table -->
-                  <div class="reg-cards-list" *ngIf="!loadingRegularizations && myRegularizations.length > 0">
-                    <div class="reg-item-card" *ngFor="let reg of myRegularizations" [ngClass]="reg.status.toLowerCase()">
-                      <div class="reg-card-left">
-                        <div class="reg-status-icon" [ngClass]="reg.status.toLowerCase()">
-                          <mat-icon *ngIf="reg.status === 'Pending'">hourglass_top</mat-icon>
-                          <mat-icon *ngIf="reg.status === 'Approved'">check_circle</mat-icon>
-                          <mat-icon *ngIf="reg.status === 'Rejected'">cancel</mat-icon>
+                  <div class="health-cards-grid">
+                    <!-- Physical Growth & BMI -->
+                    <div class="health-card">
+                      <div class="card-head">
+                        <mat-icon class="head-icon">accessibility_new</mat-icon>
+                        <h4>Physical Growth &amp; BMI Tracker</h4>
+                      </div>
+                      <div class="vitals-row">
+                        <div class="vital-item">
+                          <span class="v-lbl">Height</span>
+                          <span class="v-val">{{ (data360.healthRecord?.heightCm || data360.healthProfile?.heightCm) ? ((data360.healthRecord?.heightCm || data360.healthProfile?.heightCm) + ' cm') : 'Not Recorded' }}</span>
                         </div>
-                        <div class="reg-main-info">
-                          <div class="reg-date-row">
-                            <span class="reg-for-date">Attendance Date: <strong>{{ reg.attendanceDate | date:'dd MMMM yyyy (EEEE)' }}</strong></span>
-                            <span class="reg-cat-pill" [ngClass]="reg.reasonCategory.toLowerCase()">
-                              {{ getCategoryLabel(reg.reasonCategory) }}
-                            </span>
-                            <span class="reg-req-status">Requested: <strong>{{ reg.requestedStatus }}</strong></span>
+                        <div class="vital-item">
+                          <span class="v-lbl">Weight</span>
+                          <span class="v-val">{{ (data360.healthRecord?.weightKg || data360.healthProfile?.weightKg) ? ((data360.healthRecord?.weightKg || data360.healthProfile?.weightKg) + ' kg') : 'Not Recorded' }}</span>
+                        </div>
+                        <div class="vital-item highlight">
+                          <span class="v-lbl">BMI Score</span>
+                          <span class="v-val">{{ (data360.healthRecord?.bmi || data360.healthProfile?.bmi) ? ((data360.healthRecord?.bmi || data360.healthProfile?.bmi) | number:'1.1-1') : 'N/A' }}</span>
+                        </div>
+                      </div>
+                      <!-- BMI Category Meter -->
+                      @if (data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) {
+                        <div class="bmi-meter-wrap">
+                          <div class="meter-bar">
+                            <div class="meter-seg under" [class.current]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) === 'Underweight'">Underweight (&lt;18.5)</div>
+                            <div class="meter-seg normal" [class.current]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) === 'Normal'">Healthy (18.5 - 24.9)</div>
+                            <div class="meter-seg over" [class.current]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) === 'Overweight'">Overweight (25 - 29.9)</div>
+                            <div class="meter-seg obese" [class.current]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory) === 'Obese'">Obese (&ge;30)</div>
                           </div>
-                          <p class="reg-reason-text">"{{ reg.reason }}"</p>
-                          <div class="reg-proof-link" *ngIf="reg.attachmentUrl">
-                            <a [href]="reg.attachmentUrl" target="_blank">
-                              <mat-icon>attachment</mat-icon> View Attached Document / Proof
+                          <div class="bmi-result-txt">
+                            Growth Evaluation: <strong [ngClass]="(data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory || '').toLowerCase()">{{ data360.healthRecord?.bmiCategory || data360.healthProfile?.bmiCategory }}</strong>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                    <!-- Medical Alerts & Allergies -->
+                    <div class="health-card danger-card">
+                      <div class="card-head">
+                        <mat-icon class="head-icon red">warning</mat-icon>
+                        <h4>Critical Medical Alerts &amp; Allergies</h4>
+                      </div>
+                      <div class="alerts-content">
+                        <div class="alert-box" [class.has-allergy]="data360.healthRecord?.knownAllergies || data360.healthProfile?.knownAllergies">
+                          <div class="alert-title"><mat-icon>coronavirus</mat-icon> Known Allergies</div>
+                          <p>{{ data360.healthRecord?.knownAllergies || data360.healthProfile?.knownAllergies || 'No known allergies reported.' }}</p>
+                        </div>
+                        <div class="alert-box" [class.has-condition]="data360.healthRecord?.chronicConditions || data360.healthProfile?.chronicConditions">
+                          <div class="alert-title"><mat-icon>healing</mat-icon> Chronic Medical Conditions</div>
+                          <p>{{ data360.healthRecord?.chronicConditions || data360.healthProfile?.chronicConditions || 'None reported.' }}</p>
+                        </div>
+                        @if (data360.healthRecord?.regularMedications || data360.healthProfile?.regularMedications) {
+                          <div class="alert-box">
+                            <div class="alert-title"><mat-icon>medication</mat-icon> Regular Medications / Inhalers</div>
+                            <p>{{ data360.healthRecord?.regularMedications || data360.healthProfile?.regularMedications }}</p>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                    <!-- Clinical Details & Doctor Contact -->
+                    <div class="health-card">
+                      <div class="card-head">
+                        <mat-icon class="head-icon blue">local_hospital</mat-icon>
+                        <h4>Clinical Vitals &amp; Doctor Contacts</h4>
+                      </div>
+                      <div class="clinical-rows">
+                        <div class="c-row">
+                          <span class="c-lbl">Blood Group:</span>
+                          <strong class="c-val blood-tag">{{ data360.healthRecord?.bloodGroup || data360.healthProfile?.bloodGroup || data360.student.bloodGroup || 'Not Tested' }}</strong>
+                        </div>
+                        <div class="c-row">
+                          <span class="c-lbl">Vision Assessment:</span>
+                          <span class="c-val">Left: {{ data360.healthRecord?.visionLeft || data360.healthProfile?.visionLeft || '6/6' }} &bull; Right: {{ data360.healthRecord?.visionRight || data360.healthProfile?.visionRight || '6/6' }}</span>
+                        </div>
+                        <div class="c-row">
+                          <span class="c-lbl">Last Campus Checkup:</span>
+                          <span class="c-val">{{ (data360.healthRecord?.lastCheckupDate || data360.healthProfile?.lastCheckupDate) ? ((data360.healthRecord?.lastCheckupDate || data360.healthProfile?.lastCheckupDate) | date:'dd MMM yyyy') : 'No checkup recorded' }}</span>
+                        </div>
+                        @if (data360.healthRecord?.emergencyDoctorName || data360.healthProfile?.emergencyDoctorName) {
+                          <div class="c-row">
+                            <span class="c-lbl">Pediatrician / Doctor:</span>
+                            <span class="c-val">{{ data360.healthRecord?.emergencyDoctorName || data360.healthProfile?.emergencyDoctorName }}</span>
+                          </div>
+                        }
+                        @if (data360.healthRecord?.emergencyDoctorPhone || data360.healthProfile?.emergencyDoctorPhone) {
+                          <div class="c-row">
+                            <span class="c-lbl">Emergency Doctor Phone:</span>
+                            <a [href]="'tel:' + (data360.healthRecord?.emergencyDoctorPhone || data360.healthProfile?.emergencyDoctorPhone)" class="c-val phone-link">
+                              <mat-icon>phone</mat-icon> {{ data360.healthRecord?.emergencyDoctorPhone || data360.healthProfile?.emergencyDoctorPhone }}
                             </a>
                           </div>
-                          <!-- Teacher review info -->
-                          <div class="reg-review-info" *ngIf="reg.status !== 'Pending'">
-                            <span class="reviewer-txt">
-                              <strong>Reviewed by:</strong> {{ reg.reviewedBy || 'Class Teacher' }} on <span [appIstDatetime]="reg.reviewedAt" format="datetime"></span>
-                            </span>
-                            <span class="teacher-remarks" *ngIf="reg.reviewRemarks">
-                              <strong>Teacher Remarks:</strong> {{ reg.reviewRemarks }}
-                            </span>
-                          </div>
-                          <div class="reg-pending-note" *ngIf="reg.status === 'Pending'">
-                            <mat-icon>schedule</mat-icon>
-                            <span>Awaiting review and approval from your Class Teacher.</span>
-                          </div>
+                        }
+                      </div>
+                      @if (data360.healthRecord?.doctorNotes || data360.healthRecord?.doctorRemarks || data360.healthProfile?.doctorRemarks) {
+                        <div class="doc-notes-block">
+                          <div class="notes-heading">Physician's Guidance / Dietary Notes:</div>
+                          <p>{{ data360.healthRecord?.doctorNotes || data360.healthRecord?.doctorRemarks || data360.healthProfile?.doctorRemarks }}</p>
                         </div>
-                      </div>
-
-                      <div class="reg-card-right">
-                        <span class="reg-badge" [ngClass]="reg.status.toLowerCase()">
-                          {{ reg.status === 'Pending' ? 'Pending Review' : reg.status }}
-                        </span>
-                        <small class="reg-applied-time" [appIstDatetime]="reg.createdAt" prefix="Applied on "></small>
-                        <button mat-icon-button color="warn" *ngIf="reg.status === 'Pending'" (click)="cancelMyRegularization(reg)" matTooltip="Cancel this request">
-                          <mat-icon>delete_outline</mat-icon>
-                        </button>
-                      </div>
+                      }
                     </div>
                   </div>
                 </div>
-              </div>
-            </mat-tab>
-
-            <!-- TAB 7: 📚 LIBRARY & FACILITIES -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-icon">local_library</mat-icon> Library &amp; Facilities
-              </ng-template>
-              <div class="tab-body-container">
-                <div class="facility-grid">
-                  <!-- Library Card -->
-                  <div class="fac-card">
-                    <div class="fac-head">
-                      <mat-icon>book</mat-icon>
-                      <h4>Library Membership &amp; Issued Books</h4>
+              </mat-tab>
+              <!-- TAB 3: ⚠️ CONDUCT & DISCIPLINE (Feature 2) -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">gavel</mat-icon> Conduct &amp; Discipline ({{ data360.disciplinaryRecords?.length || 0 }})
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="section-title-bar">
+                    <div>
+                      <h3 class="sec-title">Student Behavior &amp; Conduct Diary</h3>
+                      <p class="sec-sub">Official record of positive commendations, exemplary conduct, and advisory notices</p>
                     </div>
-                    <div class="fac-body">
-                      <div class="fac-info">Membership: <strong>{{ data360.library.isMember ? ('Active (' + (data360.library.membershipPlan || 'Standard') + ')') : 'No Membership' }}</strong></div>
-                      <div class="fac-info" *ngIf="data360.library.libraryCardNumber">Card No: <strong>{{ data360.library.libraryCardNumber }}</strong></div>
-                      
-                      <div class="books-table-wrap" *ngIf="data360.library.issuedBooks?.length">
-                        <table class="custom-table compact">
-                          <thead>
+                  </div>
+                  @if (data360.disciplinaryRecords?.length) {
+                    <div class="conduct-list">
+                      @for (rec of data360.disciplinaryRecords; track rec) {
+                        <div class="conduct-item" [ngClass]="(rec.incidentType || 'minor').toLowerCase()">
+                          <div class="type-pill-icon" [ngClass]="(rec.incidentType || 'minor').toLowerCase()">
+                            @if (rec.incidentType === 'PositiveCommendation') {
+                              <mat-icon>thumb_up</mat-icon>
+                            }
+                            @if (rec.incidentType !== 'PositiveCommendation') {
+                              <mat-icon>report_problem</mat-icon>
+                            }
+                          </div>
+                          <div class="conduct-main">
+                            <div class="conduct-top-row">
+                              <h4 class="rec-title">{{ rec.title }}</h4>
+                              <div class="rec-tags">
+                                <span class="severity-tag" [ngClass]="(rec.severity || 'low').toLowerCase()">{{ rec.severity }}</span>
+                                <span class="status-tag" [ngClass]="(rec.status || (rec.isResolved ? 'resolved' : 'open')).toLowerCase()">
+                                  {{ rec.status || (rec.isResolved ? 'Resolved' : 'Open') }}
+                                </span>
+                              </div>
+                            </div>
+                            <p class="rec-desc">{{ rec.description }}</p>
+                            <div class="rec-meta-row">
+                              <span class="meta-item"><mat-icon>calendar_today</mat-icon> {{ rec.incidentDate | date:'dd MMM yyyy' }}</span>
+                              @if (rec.reportedByName || rec.reportedBy) {
+                                <span class="meta-item"><mat-icon>person</mat-icon> Reported By: {{ rec.reportedByName || rec.reportedBy }}</span>
+                              }
+                              <span class="meta-item parent-notif" [class.notified]="rec.parentNotified">
+                                <mat-icon>{{ rec.parentNotified ? 'notifications_active' : 'notifications_off' }}</mat-icon>
+                                {{ rec.parentNotified ? 'Parent Formally Notified' : 'Internal Note' }}
+                              </span>
+                            </div>
+                            @if (rec.actionTaken) {
+                              <div class="outcome-box">
+                                <strong>Outcome / Commendation:</strong> {{ rec.actionTaken }}
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                  @if (!data360.disciplinaryRecords?.length) {
+                    <div class="empty-state-card">
+                      <mat-icon class="empty-icon text-success">verified</mat-icon>
+                      <h4>Clean Conduct Sheet</h4>
+                      <p>Exemplary institutional behavior! No disciplinary infractions recorded.</p>
+                    </div>
+                  }
+                </div>
+              </mat-tab>
+              <!-- TAB 4: 👨‍👩‍👧 PTM & PARENT FEEDBACK (Feature 3) -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">record_voice_over</mat-icon> PTM Desk ({{ data360.ptmRecords?.length || 0 }})
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="section-title-bar">
+                    <div>
+                      <h3 class="sec-title">Parent-Teacher Meeting &amp; Feedback Journal</h3>
+                      <p class="sec-sub">Summary of conferences, faculty guidance, parent feedback, and agreed action plans</p>
+                    </div>
+                  </div>
+                  @if (data360.ptmRecords?.length) {
+                    <div class="ptm-timeline">
+                      @for (ptm of data360.ptmRecords; track ptm) {
+                        <div class="ptm-card">
+                          <div class="ptm-card-header">
+                            <div class="ptm-header-left">
+                              <div class="ptm-date-badge">
+                                <span class="ptm-day">{{ (ptm.meetingDate || ptm.ptmDate) | date:'dd' }}</span>
+                                <span class="ptm-mon">{{ (ptm.meetingDate || ptm.ptmDate) | date:'MMM yyyy' }}</span>
+                              </div>
+                              <div class="ptm-meta-block">
+                                <div class="ptm-attendee">Met with: <strong>{{ ptm.attendedByParentName || ptm.parentAttended }}</strong></div>
+                                @if (ptm.teacherName) {
+                                  <div class="ptm-teacher">Conducted by: <strong>{{ ptm.teacherName }}</strong></div>
+                                }
+                              </div>
+                            </div>
+                            <div class="ptm-header-right">
+                              <span class="satisfaction-badge" [ngClass]="(ptm.satisfactionRating || 'satisfied').toLowerCase()">
+                                {{ formatRating(ptm.satisfactionRating) }}
+                              </span>
+                            </div>
+                          </div>
+                          <div class="ptm-card-body">
+                            @if (ptm.discussionSummary || ptm.childStrengths) {
+                              <div class="ptm-section">
+                                <div class="ptm-sec-title"><mat-icon>forum</mat-icon> Agenda &amp; Discussion Summary</div>
+                                <p class="ptm-sec-text">{{ ptm.discussionSummary || ptm.childStrengths }}</p>
+                              </div>
+                            }
+                            <div class="ptm-dual-row">
+                              @if (ptm.teacherRemarks) {
+                                <div class="ptm-box teacher-box">
+                                  <div class="box-title"><mat-icon>school</mat-icon> Teacher's Guidance &amp; Remarks</div>
+                                  <p>{{ ptm.teacherRemarks }}</p>
+                                </div>
+                              }
+                              @if (ptm.parentFeedback) {
+                                <div class="ptm-box parent-box">
+                                  <div class="box-title"><mat-icon>family_restroom</mat-icon> Parent's Feedback / Concerns</div>
+                                  <p>{{ ptm.parentFeedback }}</p>
+                                </div>
+                              }
+                            </div>
+                            @if (ptm.actionPoints || ptm.areasOfImprovement) {
+                              <div class="ptm-action-points">
+                                <mat-icon>checklist</mat-icon>
+                                <div><strong>Agreed Action Commitments / Areas for Growth:</strong> {{ ptm.actionPoints || ptm.areasOfImprovement }}</div>
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                  @if (!data360.ptmRecords?.length) {
+                    <div class="empty-state-card">
+                      <mat-icon class="empty-icon">groups</mat-icon>
+                      <h4>No PTM Logs Recorded Yet</h4>
+                      <p>Parent-Teacher conferences will be logged here with discussion notes and guidance.</p>
+                    </div>
+                  }
+                </div>
+              </mat-tab>
+              <!-- TAB 5: 💰 FEE LEDGER & INVOICES -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">payments</mat-icon> Fee Ledger
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="section-title-bar">
+                    <div>
+                      <h3 class="sec-title">Institutional Fee Ledger &amp; Due Invoices</h3>
+                      <p class="sec-sub">Summary of invoiced fees, payment status, receipts, and balance dues</p>
+                    </div>
+                  </div>
+                  <div class="fee-metrics-row">
+                    <div class="metric-card total">
+                      <span class="m-lbl">Total Billed</span>
+                      <span class="m-val">₹{{ data360.feeSummary.totalInvoiced | number:'1.2-2' }}</span>
+                    </div>
+                    <div class="metric-card paid">
+                      <span class="m-lbl">Total Paid</span>
+                      <span class="m-val">₹{{ data360.feeSummary.totalPaid | number:'1.2-2' }}</span>
+                    </div>
+                    <div class="metric-card due" [class.has-due]="data360.feeSummary.totalPending > 0">
+                      <span class="m-lbl">Pending Dues</span>
+                      <span class="m-val">₹{{ data360.feeSummary.totalPending | number:'1.2-2' }}</span>
+                    </div>
+                  </div>
+                  @if (data360.feeSummary.recentInvoices?.length) {
+                    <div class="invoice-table-wrap">
+                      <table class="custom-table">
+                        <thead>
+                          <tr>
+                            <th>Invoice #</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Paid</th>
+                            <th>Balance</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (inv of data360.feeSummary.recentInvoices; track inv) {
                             <tr>
-                              <th>Book Title</th>
-                              <th>Issue Date</th>
-                              <th>Due Date</th>
-                              <th>Status</th>
+                              <td class="font-mono"><strong>{{ inv.invoiceNumber }}</strong></td>
+                              <td>{{ inv.title }}</td>
+                              <td>₹{{ inv.totalAmount | number:'1.2-2' }}</td>
+                              <td class="text-success">₹{{ inv.paidAmount | number:'1.2-2' }}</td>
+                              <td [class.text-danger]="inv.balanceAmount > 0">₹{{ inv.balanceAmount | number:'1.2-2' }}</td>
+                              <td>{{ inv.dueDate | date:'dd MMM yyyy' }}</td>
+                              <td>
+                                <span class="inv-status-pill" [ngClass]="inv.status.toLowerCase()">{{ inv.status }}</span>
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            <tr *ngFor="let b of data360.library.issuedBooks">
-                              <td>{{ b.bookTitle }}</td>
-                              <td>{{ b.issueDate | date:'dd MMM yyyy' }}</td>
-                              <td>{{ b.dueDate | date:'dd MMM yyyy' }}</td>
-                              <td><span class="badge" [class.danger]="b.isOverdue">{{ b.isOverdue ? 'Overdue' : 'Active' }}</span></td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <div class="empty-sub" *ngIf="!data360.library.issuedBooks?.length">
-                        No library books currently issued.
-                      </div>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                </div>
+              </mat-tab>
+              <!-- TAB 6: 📅 ATTENDANCE SUMMARY -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">event_available</mat-icon> Attendance Log
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="section-title-bar">
+                    <div>
+                      <h3 class="sec-title">Student Attendance &amp; Punch Records</h3>
+                      <p class="sec-sub">Attendance compliance percentage and recent biometric/manual classroom records</p>
                     </div>
                   </div>
-
-                  <!-- Campus Facilities -->
-                  <div class="fac-card">
-                    <div class="fac-head">
-                      <mat-icon>apartment</mat-icon>
-                      <h4>Hostel &amp; Transport Allotment</h4>
+                  <div class="att-metrics-row">
+                    <div class="att-card" [class.warning]="data360.attendanceSummary.attendancePercentage < 75">
+                      <span class="a-lbl">Cumulative Rate</span>
+                      <span class="a-val">{{ data360.attendanceSummary.attendancePercentage | number:'1.1-1' }}%</span>
+                      <span class="a-sub">{{ data360.attendanceSummary.attendancePercentage >= 75 ? 'Healthy Compliance' : 'Below 75% Threshold' }}</span>
                     </div>
-                    <div class="fac-body">
-                      <div class="fac-row">
-                        <span class="lbl"><mat-icon>hotel</mat-icon> Hostel:</span>
-                        <span class="val">{{ data360.facilities.hasHostel ? (data360.facilities.hostelName + ' &bull; Room ' + data360.facilities.roomNumber + ' &bull; Bed ' + data360.facilities.bedCode) : 'Day Scholar (Not Enrolled)' }}</span>
+                    <div class="att-card">
+                      <span class="a-lbl">Total Days</span>
+                      <span class="a-val">{{ data360.attendanceSummary.totalRecordedDays }}</span>
+                      <span class="a-sub">Recorded Working Days</span>
+                    </div>
+                    <div class="att-card text-success">
+                      <span class="a-lbl">Present Days</span>
+                      <span class="a-val">{{ data360.attendanceSummary.presentDays }}</span>
+                      <span class="a-sub">Full Day Present</span>
+                    </div>
+                    <div class="att-card text-danger">
+                      <span class="a-lbl">Absent Days</span>
+                      <span class="a-val">{{ data360.attendanceSummary.absentDays }}</span>
+                      <span class="a-sub">Unexcused Absences</span>
+                    </div>
+                  </div>
+                  @if (data360.attendanceSummary.recentLogs?.length) {
+                    <div class="recent-punches-wrap">
+                      <h4 class="sub-heading">Recent Daily Attendance Logs:</h4>
+                      <div class="punch-chips-row">
+                        @for (p of data360.attendanceSummary.recentLogs; track p) {
+                          <div class="punch-chip" [ngClass]="p.status.toLowerCase()">
+                            <span class="date">{{ p.date | date:'dd MMM' }}</span>
+                            <span class="st">{{ p.status }}</span>
+                          </div>
+                        }
                       </div>
-                      <div class="fac-row">
-                        <span class="lbl"><mat-icon>directions_bus</mat-icon> Transport:</span>
-                        <span class="val">{{ data360.facilities.hasTransport ? ('Enrolled for Institute Bus Transport (' + (data360.facilities.routeName || 'Active Route') + ')') : 'Self Conveyance / Pedestrian' }}</span>
+                    </div>
+                  }
+                  <!-- Regularization Requests Section -->
+                  <div class="regularization-requests-wrap">
+                    <div class="reg-section-header">
+                      <div class="reg-title-group">
+                        <mat-icon class="reg-sec-icon">rule_folder</mat-icon>
+                        <div>
+                          <h4 class="sub-heading" style="margin-bottom: 2px;">My Attendance Regularization &amp; OD Requests</h4>
+                          <p class="reg-sub-desc">Status of your submitted attendance dispute, On-Duty (OD), and medical leave regularizations</p>
+                        </div>
                       </div>
-
-                      <!-- Live Bus Transit Card for Parent/Student -->
-                      <div class="live-transit-parent-box" *ngIf="data360.facilities.hasTransport && liveTransitStatus" style="margin-top: 14px; padding: 12px; background: #f8fafc; border: 1.5px solid #bfdbfe; border-radius: 10px;">
-                        <div class="lt-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                          <div class="lt-title" style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e40af; font-size: 0.82rem;">
-                            <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #2563eb;">sensors</mat-icon>
-                            <span>Today's Live Bus Boarding &amp; Transit Status</span>
-                          </div>
-                          <button type="button" mat-stroked-button color="primary" (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" style="height: 26px; line-height: 26px; font-size: 0.72rem; padding: 0 8px;">
-                            <mat-icon style="font-size: 14px; width: 14px; height: 14px; margin-right: 2px;">refresh</mat-icon> Refresh Live
-                          </button>
+                      <button mat-stroked-button class="apply-reg-btn" (click)="openRegularizationDialog()">
+                        <mat-icon>add_circle</mat-icon> Request Regularization
+                      </button>
+                    </div>
+                    <!-- Loading state -->
+                    @if (loadingRegularizations) {
+                      <div class="reg-mini-loader">
+                        <mat-spinner diameter="24"></mat-spinner>
+                        <span>Loading your requests...</span>
+                      </div>
+                    }
+                    <!-- Empty state -->
+                    @if (!loadingRegularizations && myRegularizations.length === 0) {
+                      <div class="reg-empty-strip">
+                        <mat-icon>task_alt</mat-icon>
+                        <div>
+                          <strong>No Regularization Requests</strong>
+                          <p>You have not submitted any attendance regularization requests yet. If you were absent due to an event, sports, or illness, you can submit a request above.</p>
                         </div>
-
-                        <div class="lt-runs-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.76rem;">
-                          <div class="lt-run" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
-                            <span style="font-size: 0.7rem; color: #64748b; font-weight: 700;">🌅 Morning Pickup Run</span>
-                            <strong *ngIf="liveTransitStatus.morningStatus === 'Boarded'" style="color: #16a34a;">
-                              🟢 Boarded at {{ liveTransitStatus.morningBoardedAtFormatted || 'Morning' }}
-                            </strong>
-                            <strong *ngIf="liveTransitStatus.morningStatus === 'Absent'" style="color: #e11d48;">
-                              ❌ Marked Absent / Missed
-                            </strong>
-                            <strong *ngIf="liveTransitStatus.morningStatus !== 'Boarded' && liveTransitStatus.morningStatus !== 'Absent'" style="color: #d97706;">
-                              ⏳ Awaiting Morning Pickup
-                            </strong>
+                      </div>
+                    }
+                    <!-- Requests Cards / Table -->
+                    @if (!loadingRegularizations && myRegularizations.length > 0) {
+                      <div class="reg-cards-list">
+                        @for (reg of myRegularizations; track reg) {
+                          <div class="reg-item-card" [ngClass]="reg.status.toLowerCase()">
+                            <div class="reg-card-left">
+                              <div class="reg-status-icon" [ngClass]="reg.status.toLowerCase()">
+                                @if (reg.status === 'Pending') {
+                                  <mat-icon>hourglass_top</mat-icon>
+                                }
+                                @if (reg.status === 'Approved') {
+                                  <mat-icon>check_circle</mat-icon>
+                                }
+                                @if (reg.status === 'Rejected') {
+                                  <mat-icon>cancel</mat-icon>
+                                }
+                              </div>
+                              <div class="reg-main-info">
+                                <div class="reg-date-row">
+                                  <span class="reg-for-date">Attendance Date: <strong>{{ reg.attendanceDate | date:'dd MMMM yyyy (EEEE)' }}</strong></span>
+                                  <span class="reg-cat-pill" [ngClass]="reg.reasonCategory.toLowerCase()">
+                                    {{ getCategoryLabel(reg.reasonCategory) }}
+                                  </span>
+                                  <span class="reg-req-status">Requested: <strong>{{ reg.requestedStatus }}</strong></span>
+                                </div>
+                                <p class="reg-reason-text">"{{ reg.reason }}"</p>
+                                @if (reg.attachmentUrl) {
+                                  <div class="reg-proof-link">
+                                    <a [href]="reg.attachmentUrl" target="_blank">
+                                      <mat-icon>attachment</mat-icon> View Attached Document / Proof
+                                    </a>
+                                  </div>
+                                }
+                                <!-- Teacher review info -->
+                                @if (reg.status !== 'Pending') {
+                                  <div class="reg-review-info">
+                                    <span class="reviewer-txt">
+                                      <strong>Reviewed by:</strong> {{ reg.reviewedBy || 'Class Teacher' }} on <span [appIstDatetime]="reg.reviewedAt" format="datetime"></span>
+                                    </span>
+                                    @if (reg.reviewRemarks) {
+                                      <span class="teacher-remarks">
+                                        <strong>Teacher Remarks:</strong> {{ reg.reviewRemarks }}
+                                      </span>
+                                    }
+                                  </div>
+                                }
+                                @if (reg.status === 'Pending') {
+                                  <div class="reg-pending-note">
+                                    <mat-icon>schedule</mat-icon>
+                                    <span>Awaiting review and approval from your Class Teacher.</span>
+                                  </div>
+                                }
+                              </div>
+                            </div>
+                            <div class="reg-card-right">
+                              <span class="reg-badge" [ngClass]="reg.status.toLowerCase()">
+                                {{ reg.status === 'Pending' ? 'Pending Review' : reg.status }}
+                              </span>
+                              <small class="reg-applied-time" [appIstDatetime]="reg.createdAt" prefix="Applied on "></small>
+                              @if (reg.status === 'Pending') {
+                                <button mat-icon-button color="warn" (click)="cancelMyRegularization(reg)" matTooltip="Cancel this request">
+                                  <mat-icon>delete_outline</mat-icon>
+                                </button>
+                              }
+                            </div>
                           </div>
-
-                          <div class="lt-run" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
-                            <span style="font-size: 0.7rem; color: #64748b; font-weight: 700;">🌇 Evening Drop Run</span>
-                            <strong *ngIf="liveTransitStatus.eveningStatus === 'Dropped'" style="color: #2563eb;">
-                              🔵 Safely Dropped ({{ liveTransitStatus.eveningTimeFormatted || 'Done' }})
-                            </strong>
-                            <strong *ngIf="liveTransitStatus.eveningStatus === 'Boarded'" style="color: #16a34a;">
-                              🟡 On Board / Departing School
-                            </strong>
-                            <strong *ngIf="liveTransitStatus.eveningStatus === 'Absent'" style="color: #e11d48;">
-                              ❌ Marked Absent / Self Pickup
-                            </strong>
-                            <strong *ngIf="liveTransitStatus.eveningStatus !== 'Dropped' && liveTransitStatus.eveningStatus !== 'Boarded' && liveTransitStatus.eveningStatus !== 'Absent'" style="color: #d97706;">
-                              ⏳ Awaiting Evening Run
-                            </strong>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              </mat-tab>
+              <!-- TAB 7: 📚 LIBRARY & FACILITIES -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-icon">local_library</mat-icon> Library &amp; Facilities
+                </ng-template>
+                <div class="tab-body-container">
+                  <div class="facility-grid">
+                    <!-- Library Card -->
+                    <div class="fac-card">
+                      <div class="fac-head">
+                        <mat-icon>book</mat-icon>
+                        <h4>Library Membership &amp; Issued Books</h4>
+                      </div>
+                      <div class="fac-body">
+                        <div class="fac-info">Membership: <strong>{{ data360.library.isMember ? ('Active (' + (data360.library.membershipPlan || 'Standard') + ')') : 'No Membership' }}</strong></div>
+                        @if (data360.library.libraryCardNumber) {
+                          <div class="fac-info">Card No: <strong>{{ data360.library.libraryCardNumber }}</strong></div>
+                        }
+                        @if (data360.library.issuedBooks?.length) {
+                          <div class="books-table-wrap">
+                            <table class="custom-table compact">
+                              <thead>
+                                <tr>
+                                  <th>Book Title</th>
+                                  <th>Issue Date</th>
+                                  <th>Due Date</th>
+                                  <th>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                @for (b of data360.library.issuedBooks; track b) {
+                                  <tr>
+                                    <td>{{ b.bookTitle }}</td>
+                                    <td>{{ b.issueDate | date:'dd MMM yyyy' }}</td>
+                                    <td>{{ b.dueDate | date:'dd MMM yyyy' }}</td>
+                                    <td><span class="badge" [class.danger]="b.isOverdue">{{ b.isOverdue ? 'Overdue' : 'Active' }}</span></td>
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
                           </div>
+                        }
+                        @if (!data360.library.issuedBooks?.length) {
+                          <div class="empty-sub">
+                            No library books currently issued.
+                          </div>
+                        }
+                      </div>
+                    </div>
+                    <!-- Campus Facilities -->
+                    <div class="fac-card">
+                      <div class="fac-head">
+                        <mat-icon>apartment</mat-icon>
+                        <h4>Hostel &amp; Transport Allotment</h4>
+                      </div>
+                      <div class="fac-body">
+                        <div class="fac-row">
+                          <span class="lbl"><mat-icon>hotel</mat-icon> Hostel:</span>
+                          <span class="val">{{ data360.facilities.hasHostel ? (data360.facilities.hostelName + ' &bull; Room ' + data360.facilities.roomNumber + ' &bull; Bed ' + data360.facilities.bedCode) : 'Day Scholar (Not Enrolled)' }}</span>
                         </div>
-
-                        <div class="lt-driver-footer" *ngIf="liveTransitStatus.driverName" style="margin-top: 8px; font-size: 0.72rem; color: #475569; display: flex; justify-content: space-between; align-items: center;">
-                          <span>Bus: <strong>{{ liveTransitStatus.vehicleNumber || 'Campus Bus' }}</strong> &bull; Driver: <strong>{{ liveTransitStatus.driverName }}</strong></span>
-                          <a *ngIf="liveTransitStatus.driverPhone" [href]="'tel:' + liveTransitStatus.driverPhone" style="color: #2563eb; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 2px;">
-                            <mat-icon style="font-size: 13px; width: 13px; height: 13px;">call</mat-icon> Call Driver
-                          </a>
+                        <div class="fac-row">
+                          <span class="lbl"><mat-icon>directions_bus</mat-icon> Transport:</span>
+                          <span class="val">{{ data360.facilities.hasTransport ? ('Enrolled for Institute Bus Transport (' + (data360.facilities.routeName || 'Active Route') + ')') : 'Self Conveyance / Pedestrian' }}</span>
                         </div>
+                        <!-- Live Bus Transit Card for Parent/Student -->
+                        @if (data360.facilities.hasTransport && liveTransitStatus) {
+                          <div class="live-transit-parent-box" style="margin-top: 14px; padding: 12px; background: #f8fafc; border: 1.5px solid #bfdbfe; border-radius: 10px;">
+                            <div class="lt-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                              <div class="lt-title" style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e40af; font-size: 0.82rem;">
+                                <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #2563eb;">sensors</mat-icon>
+                                <span>Today's Live Bus Boarding &amp; Transit Status</span>
+                              </div>
+                              <button type="button" mat-stroked-button color="primary" (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" style="height: 26px; line-height: 26px; font-size: 0.72rem; padding: 0 8px;">
+                                <mat-icon style="font-size: 14px; width: 14px; height: 14px; margin-right: 2px;">refresh</mat-icon> Refresh Live
+                              </button>
+                            </div>
+                            <div class="lt-runs-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.76rem;">
+                              <div class="lt-run" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-size: 0.7rem; color: #64748b; font-weight: 700;">🌅 Morning Pickup Run</span>
+                                @if (liveTransitStatus.morningStatus === 'Boarded') {
+                                  <strong style="color: #16a34a;">
+                                    🟢 Boarded at {{ liveTransitStatus.morningBoardedAtFormatted || 'Morning' }}
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.morningStatus === 'Absent') {
+                                  <strong style="color: #e11d48;">
+                                    ❌ Marked Absent / Missed
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.morningStatus !== 'Boarded' && liveTransitStatus.morningStatus !== 'Absent') {
+                                  <strong style="color: #d97706;">
+                                    ⏳ Awaiting Morning Pickup
+                                  </strong>
+                                }
+                              </div>
+                              <div class="lt-run" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-size: 0.7rem; color: #64748b; font-weight: 700;">🌇 Evening Drop Run</span>
+                                @if (liveTransitStatus.eveningStatus === 'Dropped') {
+                                  <strong style="color: #2563eb;">
+                                    🔵 Safely Dropped ({{ liveTransitStatus.eveningTimeFormatted || 'Done' }})
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.eveningStatus === 'Boarded') {
+                                  <strong style="color: #16a34a;">
+                                    🟡 On Board / Departing School
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.eveningStatus === 'Absent') {
+                                  <strong style="color: #e11d48;">
+                                    ❌ Marked Absent / Self Pickup
+                                  </strong>
+                                }
+                                @if (liveTransitStatus.eveningStatus !== 'Dropped' && liveTransitStatus.eveningStatus !== 'Boarded' && liveTransitStatus.eveningStatus !== 'Absent') {
+                                  <strong style="color: #d97706;">
+                                    ⏳ Awaiting Evening Run
+                                  </strong>
+                                }
+                              </div>
+                            </div>
+                            @if (liveTransitStatus.driverName) {
+                              <div class="lt-driver-footer" style="margin-top: 8px; font-size: 0.72rem; color: #475569; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Bus: <strong>{{ liveTransitStatus.vehicleNumber || 'Campus Bus' }}</strong> &bull; Driver: <strong>{{ liveTransitStatus.driverName }}</strong></span>
+                                @if (liveTransitStatus.driverPhone) {
+                                  <a [href]="'tel:' + liveTransitStatus.driverPhone" style="color: #2563eb; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 2px;">
+                                    <mat-icon style="font-size: 13px; width: 13px; height: 13px;">call</mat-icon> Call Driver
+                                  </a>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </mat-tab>
-
-          </mat-tab-group>
+              </mat-tab>
+            </mat-tab-group>
+          </div>
         </div>
-
-      </div>
-
+      }
+    
       <!-- 🏆 PRINTABLE MERIT CERTIFICATE MODAL OVERLAY (Feature 1) -->
-      <div class="cert-modal-backdrop" *ngIf="activeCertificateModal" (click)="activeCertificateModal = null">
-        <div class="cert-dialog-window" (click)="$event.stopPropagation()">
-          <div class="cert-modal-top-bar no-print">
-            <span>Certificate of Merit &amp; Excellence Preview</span>
-            <div class="top-bar-actions">
-              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="printCertificateModal()">
-                <mat-icon>print</mat-icon> Print Certificate
-              </button>
-              <button mat-icon-button (click)="activeCertificateModal = null">
-                <mat-icon>close</mat-icon>
-              </button>
+      @if (activeCertificateModal) {
+        <div class="cert-modal-backdrop" (click)="activeCertificateModal = null">
+          <div class="cert-dialog-window" (click)="$event.stopPropagation()">
+            <div class="cert-modal-top-bar no-print">
+              <span>Certificate of Merit &amp; Excellence Preview</span>
+              <div class="top-bar-actions">
+                <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="printCertificateModal()">
+                  <mat-icon>print</mat-icon> Print Certificate
+                </button>
+                <button mat-icon-button (click)="activeCertificateModal = null">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div class="printable-certificate-sheet" id="printCertificateArea">
-            <div class="cert-inner-border">
-              <div class="cert-header">
-                <div class="cert-seal-icon">🏆</div>
-                <h1 class="cert-school-name">{{ data360?.student?.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE' }}</h1>
-                <h3 class="cert-heading">CERTIFICATE OF MERIT &amp; ACHIEVEMENT</h3>
-                <div class="cert-ribbon-sub">This accolade is proudly conferred upon</div>
-              </div>
-
-              <div class="cert-recipient-name">{{ data360?.student?.studentName }}</div>
-              
-              <div class="cert-recipient-meta">
-                Class: <strong>{{ data360?.student?.className }}</strong> &bull; 
-                Roll No: <strong>{{ data360?.student?.rollNumber }}</strong> &bull; 
-                Admission No: <strong>{{ data360?.student?.admissionNumber || 'N/A' }}</strong>
-              </div>
-
-              <p class="cert-citation">
-                in proud recognition of outstanding dedication, exemplary talent and securing
-                <span class="cert-pos-highlight">{{ activeCertificateModal.position || 'Merit Position' }}</span>
-                in <strong class="cert-event-title">{{ activeCertificateModal.title }}</strong> 
-                held at the <strong>{{ activeCertificateModal.level || activeCertificateModal.awardLevel || 'Institutional' }}</strong> level.
-              </p>
-
-              <div class="cert-signatures-row">
-                <div class="cert-sign-col">
-                  <div class="cert-sign-line"></div>
-                  <span class="cert-sign-role">Class Teacher / Event Incharge</span>
+            <div class="printable-certificate-sheet" id="printCertificateArea">
+              <div class="cert-inner-border">
+                <div class="cert-header">
+                  <div class="cert-seal-icon">🏆</div>
+                  <h1 class="cert-school-name">{{ data360?.student?.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE' }}</h1>
+                  <h3 class="cert-heading">CERTIFICATE OF MERIT &amp; ACHIEVEMENT</h3>
+                  <div class="cert-ribbon-sub">This accolade is proudly conferred upon</div>
                 </div>
-                <div class="cert-seal-stamp">
-                  <div class="stamp-circle">
-                    <span>INSTITUTE SEAL</span>
-                    <small>{{ (activeCertificateModal.awardedDate || activeCertificateModal.awardDate) | date:'yyyy' }}</small>
+                <div class="cert-recipient-name">{{ data360?.student?.studentName }}</div>
+                <div class="cert-recipient-meta">
+                  Class: <strong>{{ data360?.student?.className }}</strong> &bull;
+                  Roll No: <strong>{{ data360?.student?.rollNumber }}</strong> &bull;
+                  Admission No: <strong>{{ data360?.student?.admissionNumber || 'N/A' }}</strong>
+                </div>
+                <p class="cert-citation">
+                  in proud recognition of outstanding dedication, exemplary talent and securing
+                  <span class="cert-pos-highlight">{{ activeCertificateModal.position || 'Merit Position' }}</span>
+                  in <strong class="cert-event-title">{{ activeCertificateModal.title }}</strong>
+                  held at the <strong>{{ activeCertificateModal.level || activeCertificateModal.awardLevel || 'Institutional' }}</strong> level.
+                </p>
+                <div class="cert-signatures-row">
+                  <div class="cert-sign-col">
+                    <div class="cert-sign-line"></div>
+                    <span class="cert-sign-role">Class Teacher / Event Incharge</span>
                   </div>
-                  <div class="cert-date-text">Date: {{ (activeCertificateModal.awardedDate || activeCertificateModal.awardDate) | date:'dd MMM yyyy' }}</div>
+                  <div class="cert-seal-stamp">
+                    <div class="stamp-circle">
+                      <span>INSTITUTE SEAL</span>
+                      <small>{{ (activeCertificateModal.awardedDate || activeCertificateModal.awardDate) | date:'yyyy' }}</small>
+                    </div>
+                    <div class="cert-date-text">Date: {{ (activeCertificateModal.awardedDate || activeCertificateModal.awardDate) | date:'dd MMM yyyy' }}</div>
+                  </div>
+                  <div class="cert-sign-col">
+                    <div class="cert-sign-line"></div>
+                    <span class="cert-sign-role">Principal / Director</span>
+                  </div>
                 </div>
-                <div class="cert-sign-col">
-                  <div class="cert-sign-line"></div>
-                  <span class="cert-sign-role">Principal / Director</span>
-                </div>
-              </div>
-
-              <div class="cert-certno" *ngIf="activeCertificateModal.certificateNumber">
-                Cert No: {{ activeCertificateModal.certificateNumber }}
+                @if (activeCertificateModal.certificateNumber) {
+                  <div class="cert-certno">
+                    Cert No: {{ activeCertificateModal.certificateNumber }}
+                  </div>
+                }
               </div>
             </div>
           </div>
         </div>
-      </div>
-
+      }
+    
       <!-- 🩺 PRINTABLE POCKET EMERGENCY MEDICAL CARD MODAL (Feature 4) -->
-      <div class="cert-modal-backdrop" *ngIf="showPrintMedicalCard" (click)="showPrintMedicalCard = false">
-        <div class="medical-dialog-window" (click)="$event.stopPropagation()">
-          <div class="cert-modal-top-bar no-print">
-            <span>Student Emergency Medical Pocket Card Preview</span>
-            <div class="top-bar-actions">
-              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="printPocketMedicalCard()">
-                <mat-icon>print</mat-icon> Print ID Card
-              </button>
-              <button mat-icon-button (click)="showPrintMedicalCard = false">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <div class="printable-medical-card" id="printMedicalCardArea">
-            <div class="med-card-header">
-              <div class="med-cross"><mat-icon>local_hospital</mat-icon></div>
-              <div class="med-head-title">
-                <h4>EMERGENCY MEDICAL IDENTITY CARD</h4>
-                <span>{{ data360?.student?.branchName || 'School & Coaching Institution' }}</span>
+      @if (showPrintMedicalCard) {
+        <div class="cert-modal-backdrop" (click)="showPrintMedicalCard = false">
+          <div class="medical-dialog-window" (click)="$event.stopPropagation()">
+            <div class="cert-modal-top-bar no-print">
+              <span>Student Emergency Medical Pocket Card Preview</span>
+              <div class="top-bar-actions">
+                <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="printPocketMedicalCard()">
+                  <mat-icon>print</mat-icon> Print ID Card
+                </button>
+                <button mat-icon-button (click)="showPrintMedicalCard = false">
+                  <mat-icon>close</mat-icon>
+                </button>
               </div>
             </div>
-
-            <div class="med-card-body">
-              <div class="med-profile-row">
-                <div class="med-photo-box">
-                  <img *ngIf="data360?.student?.profilePhoto" [src]="getPhotoUrl(data360?.student?.profilePhoto)" />
-                  <div *ngIf="!data360?.student?.profilePhoto" class="med-photo-fallback">
-                    {{ getInitials(data360?.student?.studentName || 'S') }}
+            <div class="printable-medical-card" id="printMedicalCardArea">
+              <div class="med-card-header">
+                <div class="med-cross"><mat-icon>local_hospital</mat-icon></div>
+                <div class="med-head-title">
+                  <h4>EMERGENCY MEDICAL IDENTITY CARD</h4>
+                  <span>{{ data360?.student?.branchName || 'School & Coaching Institution' }}</span>
+                </div>
+              </div>
+              <div class="med-card-body">
+                <div class="med-profile-row">
+                  <div class="med-photo-box">
+                    @if (data360?.student?.profilePhoto) {
+                      <img [src]="getPhotoUrl($safeNavigationMigration(data360?.student?.profilePhoto))" />
+                    }
+                    @if (!data360?.student?.profilePhoto) {
+                      <div class="med-photo-fallback">
+                        {{ getInitials(data360?.student?.studentName || 'S') }}
+                      </div>
+                    }
+                  </div>
+                  <div class="med-details-box">
+                    <div class="med-name">{{ data360?.student?.studentName }}</div>
+                    <div class="med-line">Class: <strong>{{ data360?.student?.className }}{{ data360?.student?.sectionName ? ' - ' + data360?.student?.sectionName : '' }}</strong> &bull; Roll: <strong>{{ data360?.student?.rollNumber }}</strong></div>
+                    <div class="med-line">DOB: <strong>{{ data360?.student?.dateOfBirth ? (data360!.student.dateOfBirth | date:'dd-MM-yyyy') : 'N/A' }}</strong> &bull; Blood: <strong class="blood-highlight">{{ data360?.healthRecord?.bloodGroup || data360?.healthProfile?.bloodGroup || data360?.student?.bloodGroup || 'N/A' }}</strong></div>
                   </div>
                 </div>
-                <div class="med-details-box">
-                  <div class="med-name">{{ data360?.student?.studentName }}</div>
-                  <div class="med-line">Class: <strong>{{ data360?.student?.className }}{{ data360?.student?.sectionName ? ' - ' + data360?.student?.sectionName : '' }}</strong> &bull; Roll: <strong>{{ data360?.student?.rollNumber }}</strong></div>
-                  <div class="med-line">DOB: <strong>{{ data360?.student?.dateOfBirth ? (data360!.student.dateOfBirth | date:'dd-MM-yyyy') : 'N/A' }}</strong> &bull; Blood: <strong class="blood-highlight">{{ data360?.healthRecord?.bloodGroup || data360?.healthProfile?.bloodGroup || data360?.student?.bloodGroup || 'N/A' }}</strong></div>
+                @if (data360?.healthRecord?.knownAllergies || data360?.healthProfile?.knownAllergies) {
+                  <div class="med-alert-box red">
+                    <strong>CRITICAL ALLERGIES:</strong> {{ data360?.healthRecord?.knownAllergies || data360?.healthProfile?.knownAllergies }}
+                  </div>
+                }
+                @if (data360?.healthRecord?.chronicConditions || data360?.healthProfile?.chronicConditions) {
+                  <div class="med-alert-box amber">
+                    <strong>CHRONIC CONDITIONS:</strong> {{ data360?.healthRecord?.chronicConditions || data360?.healthProfile?.chronicConditions }}
+                  </div>
+                }
+                <div class="med-contacts-grid">
+                  <div class="contact-entry">
+                    <span class="label">Father / Guardian:</span>
+                    <strong>{{ data360?.student?.parentName || 'N/A' }}</strong>
+                    @if (data360?.student?.parentWhatsAppPhone) {
+                      <div class="phone">{{ data360?.student?.parentWhatsAppPhone }}</div>
+                    }
+                  </div>
+                  <div class="contact-entry">
+                    <span class="label">Pediatrician / Emergency Doc:</span>
+                    <strong>{{ data360?.healthRecord?.emergencyDoctorName || data360?.healthProfile?.emergencyDoctorName || 'School Infirmary' }}</strong>
+                    <div class="phone">{{ data360?.healthRecord?.emergencyDoctorPhone || data360?.healthProfile?.emergencyDoctorPhone || '+91 98765 43210' }}</div>
+                  </div>
                 </div>
-              </div>
-
-              <div class="med-alert-box red" *ngIf="data360?.healthRecord?.knownAllergies || data360?.healthProfile?.knownAllergies">
-                <strong>CRITICAL ALLERGIES:</strong> {{ data360?.healthRecord?.knownAllergies || data360?.healthProfile?.knownAllergies }}
-              </div>
-              <div class="med-alert-box amber" *ngIf="data360?.healthRecord?.chronicConditions || data360?.healthProfile?.chronicConditions">
-                <strong>CHRONIC CONDITIONS:</strong> {{ data360?.healthRecord?.chronicConditions || data360?.healthProfile?.chronicConditions }}
-              </div>
-
-              <div class="med-contacts-grid">
-                <div class="contact-entry">
-                  <span class="label">Father / Guardian:</span>
-                  <strong>{{ data360?.student?.parentName || 'N/A' }}</strong>
-                  <div class="phone" *ngIf="data360?.student?.parentWhatsAppPhone">{{ data360?.student?.parentWhatsAppPhone }}</div>
+                <div class="med-footer-note">
+                  <span>In case of severe allergic reaction or sudden collapse, immediately contact doctor or campus infirmary.</span>
                 </div>
-                <div class="contact-entry">
-                  <span class="label">Pediatrician / Emergency Doc:</span>
-                  <strong>{{ data360?.healthRecord?.emergencyDoctorName || data360?.healthProfile?.emergencyDoctorName || 'School Infirmary' }}</strong>
-                  <div class="phone">{{ data360?.healthRecord?.emergencyDoctorPhone || data360?.healthProfile?.emergencyDoctorPhone || '+91 98765 43210' }}</div>
-                </div>
-              </div>
-
-              <div class="med-footer-note">
-                <span>In case of severe allergic reaction or sudden collapse, immediately contact doctor or campus infirmary.</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
+      }
+    
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .my-profile-container {
       font-family: 'Inter', sans-serif;

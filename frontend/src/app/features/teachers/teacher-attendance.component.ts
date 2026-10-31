@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -55,341 +55,383 @@ export interface CalendarDayItem {
 
   <app-teacher-selector [preSelectId]="preSelectId" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
-  <div *ngIf="!selectedTeacher" class="no-selection">
-    <mat-icon>person_search</mat-icon>
-    <p>Please select a faculty member above to view attendance records or mark attendance.</p>
-  </div>
-
-  <div *ngIf="selectedTeacher" class="attendance-wrapper">
-    <!-- Sleek Horizontal Toolbar (Fixed Width Dropdowns & Non-Wrapping Bar) -->
-    <div class="attendance-toolbar mat-elevation-z1">
-      <div class="toolbar-left">
-        <div class="period-selectors">
-          <!-- Month Dropdown -->
-          <mat-form-field appearance="outline" class="month-select-field" subscriptSizing="dynamic">
-            <mat-label>Month</mat-label>
-            <mat-select [(ngModel)]="attMonth" (ngModelChange)="loadAttendance()">
-              <mat-option *ngFor="let m of months; let i = index" [value]="i+1">{{m}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <!-- Year Dropdown -->
-          <mat-form-field appearance="outline" class="year-select-field" subscriptSizing="dynamic">
-            <mat-label>Year</mat-label>
-            <mat-select [(ngModel)]="attYear" (ngModelChange)="loadAttendance()">
-              <mat-option *ngFor="let y of years" [value]="y">{{y}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-      </div>
-
-      <div class="toolbar-right">
-        <button mat-stroked-button color="primary" class="settings-toolbar-btn" *ngIf="canManageAttendance && attendancePermissions.canChangeMode" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Faculty and Students">
-          <mat-icon>settings</mat-icon> Shift &amp; Policies
-        </button>
-
-        <button mat-stroked-button class="regularize-toolbar-btn" (click)="openRegularizationDialog()" matTooltip="Request Attendance Regularization for missed punches or duty tour">
-          <mat-icon>build_circle</mat-icon> Regularize
-        </button>
-
-      </div>
+  @if (!selectedTeacher) {
+    <div class="no-selection">
+      <mat-icon>person_search</mat-icon>
+      <p>Please select a faculty member above to view attendance records or mark attendance.</p>
     </div>
+  }
 
-    <!-- Monthly Summary KPI Badges -->
-    <div class="summary-cards-grid" *ngIf="summary">
-      <div class="sum-card present">
-        <div class="card-icon"><mat-icon>check_circle</mat-icon></div>
-        <div class="card-data">
-          <span class="val">{{summary.presentDays}}</span>
-          <small>Present Days</small>
-        </div>
-      </div>
-
-      <div class="sum-card absent">
-        <div class="card-icon"><mat-icon>cancel</mat-icon></div>
-        <div class="card-data">
-          <span class="val">{{summary.absentDays}}</span>
-          <small>Absent Days</small>
-        </div>
-      </div>
-
-      <div class="sum-card late" [class.warning-excess]="summary.lateDays > (summary.allowedLateDays || 3)"
-        [matTooltip]="getLateQuotaTooltip()">
-        <div class="card-icon"><mat-icon>timelapse</mat-icon></div>
-        <div class="card-data">
-          <div class="val-wrapper">
-            <span class="val">{{summary.lateDays}}</span>
-            <span class="quota-badge" *ngIf="summary.allowedLateDays !== undefined"
-              [class.grace-ok]="summary.lateDays <= (summary.allowedLateDays || 3)"
-              [class.grace-exceeded]="summary.lateDays > (summary.allowedLateDays || 3)">
-              {{ summary.lateDays <= (summary.allowedLateDays || 3) ? (((summary.allowedLateDays || 3) - summary.lateDays) + ' left') : (summary.excessLateDays + ' excess') }}
-            </span>
-          </div>
-          <small>Late Marks (Max {{summary.allowedLateDays || 3}} Free)</small>
-        </div>
-      </div>
-
-      <div class="sum-card half">
-        <div class="card-icon"><mat-icon>hourglass_bottom</mat-icon></div>
-        <div class="card-data">
-          <span class="val">{{summary.halfDays}}</span>
-          <small>Half Days</small>
-        </div>
-      </div>
-
-      <div class="sum-card holiday">
-        <div class="card-icon"><mat-icon>beach_access</mat-icon></div>
-        <div class="card-data">
-          <span class="val">{{summary.holidayDays}}</span>
-          <small>Holidays / Off</small>
-        </div>
-      </div>
-
-      <div class="sum-card pct">
-        <div class="card-icon"><mat-icon>analytics</mat-icon></div>
-        <div class="card-data">
-          <span class="val">{{summary.attendancePercentage}}%</span>
-          <small>Compliance %</small>
-        </div>
-      </div>
-
-      <div class="sum-card total">
-        <div class="card-icon"><mat-icon>calendar_today</mat-icon></div>
-        <div class="card-data">
-          <span class="val">{{summary.totalWorkingDays}}</span>
-          <small>Working Days</small>
-        </div>
-      </div>
-    </div>
-
-    <!-- Monthly Visual Attendance Heatmap Grid (Classplus/Teachmint Standard) -->
-    <div class="calendar-card mat-elevation-z1">
-      <div class="calendar-header">
-        <div class="cal-title">
-          <mat-icon color="primary">calendar_view_month</mat-icon>
-          <strong>{{months[attMonth - 1]}} {{attYear}} Monthly Day-by-Day Roster</strong>
-        </div>
-
-        <div class="legend-chips">
-          <span class="leg present">● Present</span>
-          <span class="leg absent">● Absent</span>
-          <span class="leg late">● Late</span>
-          <span class="leg half">● Half Day</span>
-          <span class="leg leave">● Leave</span>
-          <span class="leg cancel-req">⏳ Cancel Pending</span>
-          <span class="leg pub-holiday">★ Public Holiday</span>
-          <span class="leg sunday">● Sunday Off</span>
-          <span class="leg prior-joining">◌ Prior to Joining</span>
-          <span class="leg unmarked">○ Unmarked</span>
-        </div>
-      </div>
-
-      <!-- Quick Action Selection Toolbar -->
-      <div class="multi-select-toolbar" *ngIf="canManageAttendance && attendanceMode !== 'Biometric'">
-        <div class="mst-left">
-          <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
-          <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month">
-            <mat-icon>fact_check</mat-icon> Select All Working Days
-          </button>
-          <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days">
-            <mat-icon>rule</mat-icon> Select Unmarked / Absent
-          </button>
-          <button type="button" class="mst-btn save-month" (click)="saveFacultyMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Auto-fill entire month: Checked days as Present, Unchecked working days as Absent">
-            <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save_as' }}</mat-icon>
-            <span>{{ batchSavingDates ? 'Saving...' : 'Auto-Fill Full Month Register' }}</span>
-          </button>
-          <button type="button" class="mst-btn clear" *ngIf="selectedMatrixDates.size > 0" (click)="clearDateSelection()">
-            <mat-icon>clear_all</mat-icon> Clear Selection ({{ selectedMatrixDates.size }})
-          </button>
-        </div>
-        <div class="mst-right" *ngIf="selectedMatrixDates.size > 0">
-          <span class="mst-counter-badge">{{ selectedMatrixDates.size === 1 ? '1 Day Selected' : selectedMatrixDates.size + ' Days Selected' }}</span>
-        </div>
-      </div>
-
-      <div class="days-heatmap-grid">
-        <div class="day-cell" *ngFor="let d of calendarDays"
-          [class.present]="d.status === 'Present'"
-          [class.absent]="d.status === 'Absent'"
-          [class.late]="d.status === 'Late'"
-          [class.half]="d.status === 'HalfDay'"
-          [class.leave]="d.status === 'Leave'"
-          [class.cancel-pending]="d.isCancellationPending"
-          [class.public-holiday]="d.isDeclaredHoliday && !d.record"
-          [class.sunday-off]="isWeeklyOffDay(d) && !d.record && !d.isDeclaredHoliday"
-          [class.today]="d.isToday"
-          [class.future-date]="d.dateStr > todayStr"
-          [class.prior-joining]="d.isPriorToJoining"
-          [class.selected-for-batch]="selectedMatrixDates.has(d.dateStr)"
-          (click)="onDayCellClick(d)"
-          [matTooltip]="getDayTooltip(d)">
-
-          <!-- Smart Checkbox on selectable days -->
-          <div class="cell-check-box" *ngIf="isSelectableWorkingDay(d)" (click)="$event.stopPropagation()">
-            <input type="checkbox"
-              class="day-register-checkbox"
-              [checked]="selectedMatrixDates.has(d.dateStr)"
-              (change)="toggleDateSelect(d)">
-          </div>
-
-          <span class="cell-num">{{d.dayNumber}}</span>
-          <span class="cell-sub">{{d.dayOfWeek}}</span>
-          <span class="cell-tag">{{ getCellShortTag(d) }}</span>
-        </div>
-      </div>
-
-      <!-- Floating Action Bar (Unified Single & Multi-Day) -->
-      <div class="matrix-floating-bar" *ngIf="selectedMatrixDates.size > 0">
-        <div class="mfb-left">
-          <div class="mfb-badge">{{ selectedMatrixDates.size }}</div>
-          <div class="mfb-text">
-            <strong>{{ getSelectedDateSummaryTitle() }}</strong>
-            <small>{{ selectedMatrixDates.size === 1 ? 'Choose status, timings & click Save' : 'Apply status & timings to all ' + selectedMatrixDates.size + ' selected dates' }}</small>
+  @if (selectedTeacher) {
+    <div class="attendance-wrapper">
+      <!-- Sleek Horizontal Toolbar (Fixed Width Dropdowns & Non-Wrapping Bar) -->
+      <div class="attendance-toolbar mat-elevation-z1">
+        <div class="toolbar-left">
+          <div class="period-selectors">
+            <!-- Month Dropdown -->
+            <mat-form-field appearance="outline" class="month-select-field" subscriptSizing="dynamic">
+              <mat-label>Month</mat-label>
+              <mat-select [(ngModel)]="attMonth" (ngModelChange)="loadAttendance()">
+                @for (m of months; track m; let i = $index) {
+                  <mat-option [value]="i+1">{{m}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <!-- Year Dropdown -->
+            <mat-form-field appearance="outline" class="year-select-field" subscriptSizing="dynamic">
+              <mat-label>Year</mat-label>
+              <mat-select [(ngModel)]="attYear" (ngModelChange)="loadAttendance()">
+                @for (y of years; track y) {
+                  <mat-option [value]="y">{{y}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
           </div>
         </div>
-        <div class="mfb-center">
-          <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'">
-            <mat-icon>check_circle</mat-icon> Present
-          </button>
-          <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'">
-            <mat-icon>cancel</mat-icon> Absent
-          </button>
-          <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus = 'Late'">
-            <mat-icon>schedule</mat-icon> Late
-          </button>
-          <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'">
-            <mat-icon>hourglass_bottom</mat-icon> Half Day
-          </button>
-          <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'">
-            <mat-icon>event_busy</mat-icon> Leave
-          </button>
-
-          <!-- Quick Shift Presets (School Day Shift vs Coaching Morning vs Coaching Evening) -->
-          <div class="mfb-shift-presets" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
-            <button type="button" class="mfb-shift-btn" [class.active]="activeShiftType === 'school'" (click)="setShiftType('school')" matTooltip="Standard School / Day Shift">
-              <mat-icon>school</mat-icon> Day Shift
+        <div class="toolbar-right">
+          @if (canManageAttendance && attendancePermissions.canChangeMode) {
+            <button mat-stroked-button color="primary" class="settings-toolbar-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Faculty and Students">
+              <mat-icon>settings</mat-icon> Shift &amp; Policies
             </button>
-            <button type="button" class="mfb-shift-btn morning" [class.active]="activeShiftType === 'coaching_morning'" (click)="setShiftType('coaching_morning')" matTooltip="Coaching Morning Shift">
-              <mat-icon>wb_sunny</mat-icon> Morn
-            </button>
-            <button type="button" class="mfb-shift-btn evening" [class.active]="activeShiftType === 'coaching_evening'" (click)="setShiftType('coaching_evening')" matTooltip="Coaching Evening Shift">
-              <mat-icon>nights_stay</mat-icon> Eve
-            </button>
-          </div>
-
-          <!-- Timings Inputs -->
-          <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
-            <label>In:</label>
-            <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
-          </div>
-          <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
-            <label>Out:</label>
-            <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
-          </div>
-
-          <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
-        </div>
-        <div class="mfb-right">
-          <button type="button" class="mfb-save-btn" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()">
-            <mat-icon *ngIf="!batchSavingDates">save</mat-icon>
-            <mat-icon class="spin" *ngIf="batchSavingDates">refresh</mat-icon>
-            <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
-          </button>
-          <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection">
-            <mat-icon>close</mat-icon>
+          }
+          <button mat-stroked-button class="regularize-toolbar-btn" (click)="openRegularizationDialog()" matTooltip="Request Attendance Regularization for missed punches or duty tour">
+            <mat-icon>build_circle</mat-icon> Regularize
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- Detailed Attendance Log Table -->
-    <mat-card class="table-card mat-elevation-z1" *ngIf="records.length > 0">
-      <div class="table-card-header">
-        <div class="table-title-group">
-          <strong>Detailed Attendance Register ({{records.length}} Records)</strong>
-          <span class="table-scroll-hint"><mat-icon>swap_horiz</mat-icon> Swipe to view all columns & actions</span>
+      <!-- Monthly Summary KPI Badges -->
+      @if (summary) {
+        <div class="summary-cards-grid">
+          <div class="sum-card present">
+            <div class="card-icon"><mat-icon>check_circle</mat-icon></div>
+            <div class="card-data">
+              <span class="val">{{summary.presentDays}}</span>
+              <small>Present Days</small>
+            </div>
+          </div>
+          <div class="sum-card absent">
+            <div class="card-icon"><mat-icon>cancel</mat-icon></div>
+            <div class="card-data">
+              <span class="val">{{summary.absentDays}}</span>
+              <small>Absent Days</small>
+            </div>
+          </div>
+          <div class="sum-card late" [class.warning-excess]="summary.lateDays > (summary.allowedLateDays || 3)"
+            [matTooltip]="getLateQuotaTooltip()">
+            <div class="card-icon"><mat-icon>timelapse</mat-icon></div>
+            <div class="card-data">
+              <div class="val-wrapper">
+                <span class="val">{{summary.lateDays}}</span>
+                @if (summary.allowedLateDays !== undefined) {
+                  <span class="quota-badge"
+                    [class.grace-ok]="summary.lateDays <= (summary.allowedLateDays || 3)"
+                    [class.grace-exceeded]="summary.lateDays > (summary.allowedLateDays || 3)">
+                    {{ summary.lateDays <= (summary.allowedLateDays || 3) ? (((summary.allowedLateDays || 3) - summary.lateDays) + ' left') : (summary.excessLateDays + ' excess') }}
+                  </span>
+                }
+              </div>
+              <small>Late Marks (Max {{summary.allowedLateDays || 3}} Free)</small>
+            </div>
+          </div>
+          <div class="sum-card half">
+            <div class="card-icon"><mat-icon>hourglass_bottom</mat-icon></div>
+            <div class="card-data">
+              <span class="val">{{summary.halfDays}}</span>
+              <small>Half Days</small>
+            </div>
+          </div>
+          <div class="sum-card holiday">
+            <div class="card-icon"><mat-icon>beach_access</mat-icon></div>
+            <div class="card-data">
+              <span class="val">{{summary.holidayDays}}</span>
+              <small>Holidays / Off</small>
+            </div>
+          </div>
+          <div class="sum-card pct">
+            <div class="card-icon"><mat-icon>analytics</mat-icon></div>
+            <div class="card-data">
+              <span class="val">{{summary.attendancePercentage}}%</span>
+              <small>Compliance %</small>
+            </div>
+          </div>
+          <div class="sum-card total">
+            <div class="card-icon"><mat-icon>calendar_today</mat-icon></div>
+            <div class="card-data">
+              <span class="val">{{summary.totalWorkingDays}}</span>
+              <small>Working Days</small>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="table-responsive">
-        <table class="att-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Day</th>
-              <th>Status</th>
-              <th>Source</th>
-              <th>Check-in (IST)</th>
-              <th>Check-out (IST)</th>
-              <th>Work Duration</th>
-              <th>Remarks</th>
-              <th class="actions-col">{{canManageAttendance ? 'Action' : 'Request'}}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let a of records">
-              <td><strong>{{a.attendanceDate | date:'dd MMM yyyy'}}</strong></td>
-              <td><span class="day-label">{{a.attendanceDate | date:'EEEE'}}</span></td>
-              <td><span class="status-badge" [ngClass]="getEffectiveStatus(a).toLowerCase()">{{getEffectiveStatus(a) === 'HalfDay' ? 'Half Day' : getEffectiveStatus(a)}}</span></td>
-              <td><span class="source-tag">{{ a.captureSource || 'Manual' }}</span></td>
-              <td>
-                <span class="time-main">{{ a.captureSource === 'Biometric' && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkInTime || '—') }}</span>
-                <small class="time-sub" *ngIf="a.captureSource === 'Biometric' && a.capturedAt">
-                  ({{ a.capturedAt | localDatetime:'time' }})
-                </small>
-                <small class="time-sub" *ngIf="a.captureSource !== 'Biometric' && formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime">
-                  ({{ formatDisplayTime(a.checkInTime) }})
-                </small>
-              </td>
-              <td>
-                <span class="time-main">{{ a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkOutTime || '—') }}</span>
-                <small class="time-sub" *ngIf="a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt">
-                  ({{ a.capturedAt | localDatetime:'time' }})
-                </small>
-                <small class="time-sub" *ngIf="a.captureSource !== 'Biometric' && formatDisplayTime(a.checkOutTime) && formatDisplayTime(a.checkOutTime) !== a.checkOutTime">
-                  ({{ formatDisplayTime(a.checkOutTime) }})
-                </small>
-              </td>
-              <td>
-                <span class="work-duration" *ngIf="calculateDuration(a.checkInTime, a.checkOutTime)">
-                  {{calculateDuration(a.checkInTime, a.checkOutTime)}}
-                </span>
-                <span *ngIf="!calculateDuration(a.checkInTime, a.checkOutTime)" class="no-dur">—</span>
-              </td>
-              <td class="remarks-cell">{{a.remarks || '—'}}</td>
-              <td class="actions-col" *ngIf="canManageAttendance">
-                <span class="action-btn-wrapper" [class.is-disabled]="isEditDisabled(a)" [matTooltip]="getEditTooltip(a)" (click)="isEditDisabled(a) ? editRecord(a) : null">
-                  <button mat-icon-button color="primary" (click)="editRecord(a)" [disabled]="isEditDisabled(a)">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                </span>
-                <span class="action-btn-wrapper" [class.is-disabled]="isDeleteDisabled(a)" [matTooltip]="getDeleteTooltip(a)" (click)="isDeleteDisabled(a) ? deleteRecord(a.id) : null">
-                  <button mat-icon-button color="warn" (click)="deleteRecord(a.id)" [disabled]="isDeleteDisabled(a)">
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
-                </span>
-              </td>
-              <td class="actions-col" *ngIf="!canManageAttendance">
-                <button *ngIf="canRegularizeRecord(a)" mat-stroked-button class="reg-btn-row" (click)="openRegularizationDialog(a.attendanceDate.split('T')[0])" matTooltip="Request Attendance Regularization for this date">
-                  <mat-icon style="font-size:14px;width:14px;height:14px;">build_circle</mat-icon> Regularize
+      }
+      <!-- Monthly Visual Attendance Heatmap Grid (Classplus/Teachmint Standard) -->
+      <div class="calendar-card mat-elevation-z1">
+        <div class="calendar-header">
+          <div class="cal-title">
+            <mat-icon color="primary">calendar_view_month</mat-icon>
+            <strong>{{months[attMonth - 1]}} {{attYear}} Monthly Day-by-Day Roster</strong>
+          </div>
+          <div class="legend-chips">
+            <span class="leg present">● Present</span>
+            <span class="leg absent">● Absent</span>
+            <span class="leg late">● Late</span>
+            <span class="leg half">● Half Day</span>
+            <span class="leg leave">● Leave</span>
+            <span class="leg cancel-req">⏳ Cancel Pending</span>
+            <span class="leg pub-holiday">★ Public Holiday</span>
+            <span class="leg sunday">● Sunday Off</span>
+            <span class="leg prior-joining">◌ Prior to Joining</span>
+            <span class="leg unmarked">○ Unmarked</span>
+          </div>
+        </div>
+        <!-- Quick Action Selection Toolbar -->
+        @if (canManageAttendance && attendanceMode !== 'Biometric') {
+          <div class="multi-select-toolbar">
+            <div class="mst-left">
+              <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
+              <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month">
+                <mat-icon>fact_check</mat-icon> Select All Working Days
+              </button>
+              <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days">
+                <mat-icon>rule</mat-icon> Select Unmarked / Absent
+              </button>
+              <button type="button" class="mst-btn save-month" (click)="saveFacultyMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Auto-fill entire month: Checked days as Present, Unchecked working days as Absent">
+                <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save_as' }}</mat-icon>
+                <span>{{ batchSavingDates ? 'Saving...' : 'Auto-Fill Full Month Register' }}</span>
+              </button>
+              @if (selectedMatrixDates.size > 0) {
+                <button type="button" class="mst-btn clear" (click)="clearDateSelection()">
+                  <mat-icon>clear_all</mat-icon> Clear Selection ({{ selectedMatrixDates.size }})
                 </button>
-                <span *ngIf="!canRegularizeRecord(a)" class="no-dur">—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              }
+            </div>
+            @if (selectedMatrixDates.size > 0) {
+              <div class="mst-right">
+                <span class="mst-counter-badge">{{ selectedMatrixDates.size === 1 ? '1 Day Selected' : selectedMatrixDates.size + ' Days Selected' }}</span>
+              </div>
+            }
+          </div>
+        }
+        <div class="days-heatmap-grid">
+          @for (d of calendarDays; track d) {
+            <div class="day-cell"
+              [class.present]="d.status === 'Present'"
+              [class.absent]="d.status === 'Absent'"
+              [class.late]="d.status === 'Late'"
+              [class.half]="d.status === 'HalfDay'"
+              [class.leave]="d.status === 'Leave'"
+              [class.cancel-pending]="d.isCancellationPending"
+              [class.public-holiday]="d.isDeclaredHoliday && !d.record"
+              [class.sunday-off]="isWeeklyOffDay(d) && !d.record && !d.isDeclaredHoliday"
+              [class.today]="d.isToday"
+              [class.future-date]="d.dateStr > todayStr"
+              [class.prior-joining]="d.isPriorToJoining"
+              [class.selected-for-batch]="selectedMatrixDates.has(d.dateStr)"
+              (click)="onDayCellClick(d)"
+              [matTooltip]="getDayTooltip(d)">
+              <!-- Smart Checkbox on selectable days -->
+              @if (isSelectableWorkingDay(d)) {
+                <div class="cell-check-box" (click)="$event.stopPropagation()">
+                  <input type="checkbox"
+                    class="day-register-checkbox"
+                    [checked]="selectedMatrixDates.has(d.dateStr)"
+                    (change)="toggleDateSelect(d)">
+                </div>
+              }
+              <span class="cell-num">{{d.dayNumber}}</span>
+              <span class="cell-sub">{{d.dayOfWeek}}</span>
+              <span class="cell-tag">{{ getCellShortTag(d) }}</span>
+            </div>
+          }
+        </div>
+        <!-- Floating Action Bar (Unified Single & Multi-Day) -->
+        @if (selectedMatrixDates.size > 0) {
+          <div class="matrix-floating-bar">
+            <div class="mfb-left">
+              <div class="mfb-badge">{{ selectedMatrixDates.size }}</div>
+              <div class="mfb-text">
+                <strong>{{ getSelectedDateSummaryTitle() }}</strong>
+                <small>{{ selectedMatrixDates.size === 1 ? 'Choose status, timings & click Save' : 'Apply status & timings to all ' + selectedMatrixDates.size + ' selected dates' }}</small>
+              </div>
+            </div>
+            <div class="mfb-center">
+              <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'">
+                <mat-icon>check_circle</mat-icon> Present
+              </button>
+              <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'">
+                <mat-icon>cancel</mat-icon> Absent
+              </button>
+              <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus = 'Late'">
+                <mat-icon>schedule</mat-icon> Late
+              </button>
+              <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'">
+                <mat-icon>hourglass_bottom</mat-icon> Half Day
+              </button>
+              <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'">
+                <mat-icon>event_busy</mat-icon> Leave
+              </button>
+              <!-- Quick Shift Presets (School Day Shift vs Coaching Morning vs Coaching Evening) -->
+              @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
+                <div class="mfb-shift-presets">
+                  <button type="button" class="mfb-shift-btn" [class.active]="activeShiftType === 'school'" (click)="setShiftType('school')" matTooltip="Standard School / Day Shift">
+                    <mat-icon>school</mat-icon> Day Shift
+                  </button>
+                  <button type="button" class="mfb-shift-btn morning" [class.active]="activeShiftType === 'coaching_morning'" (click)="setShiftType('coaching_morning')" matTooltip="Coaching Morning Shift">
+                    <mat-icon>wb_sunny</mat-icon> Morn
+                  </button>
+                  <button type="button" class="mfb-shift-btn evening" [class.active]="activeShiftType === 'coaching_evening'" (click)="setShiftType('coaching_evening')" matTooltip="Coaching Evening Shift">
+                    <mat-icon>nights_stay</mat-icon> Eve
+                  </button>
+                </div>
+              }
+              <!-- Timings Inputs -->
+              @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
+                <div class="mfb-time-wrap">
+                  <label>In:</label>
+                  <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
+                </div>
+              }
+              @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
+                <div class="mfb-time-wrap">
+                  <label>Out:</label>
+                  <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
+                </div>
+              }
+              <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
+            </div>
+            <div class="mfb-right">
+              <button type="button" class="mfb-save-btn" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()">
+                @if (!batchSavingDates) {
+                  <mat-icon>save</mat-icon>
+                }
+                @if (batchSavingDates) {
+                  <mat-icon class="spin">refresh</mat-icon>
+                }
+                <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
+              </button>
+              <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
       </div>
-    </mat-card>
-
-    <div class="empty-state" *ngIf="records.length === 0 && !loading">
-      <mat-icon>event_busy</mat-icon>
-      <h3>No Attendance Records Found</h3>
-      <p>No records found for {{months[attMonth - 1]}} {{attYear}}. Select dates on the calendar roster above to begin logging attendance.</p>
+      <!-- Detailed Attendance Log Table -->
+      @if (records.length > 0) {
+        <mat-card class="table-card mat-elevation-z1">
+          <div class="table-card-header">
+            <div class="table-title-group">
+              <strong>Detailed Attendance Register ({{records.length}} Records)</strong>
+              <span class="table-scroll-hint"><mat-icon>swap_horiz</mat-icon> Swipe to view all columns & actions</span>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="att-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Day</th>
+                  <th>Status</th>
+                  <th>Source</th>
+                  <th>Check-in (IST)</th>
+                  <th>Check-out (IST)</th>
+                  <th>Work Duration</th>
+                  <th>Remarks</th>
+                  <th class="actions-col">{{canManageAttendance ? 'Action' : 'Request'}}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (a of records; track a) {
+                  <tr>
+                    <td><strong>{{a.attendanceDate | date:'dd MMM yyyy'}}</strong></td>
+                    <td><span class="day-label">{{a.attendanceDate | date:'EEEE'}}</span></td>
+                    <td><span class="status-badge" [ngClass]="getEffectiveStatus(a).toLowerCase()">{{getEffectiveStatus(a) === 'HalfDay' ? 'Half Day' : getEffectiveStatus(a)}}</span></td>
+                    <td><span class="source-tag">{{ a.captureSource || 'Manual' }}</span></td>
+                    <td>
+                      <span class="time-main">{{ a.captureSource === 'Biometric' && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkInTime || '—') }}</span>
+                      @if (a.captureSource === 'Biometric' && a.capturedAt) {
+                        <small class="time-sub">
+                          ({{ a.capturedAt | localDatetime:'time' }})
+                        </small>
+                      }
+                      @if (a.captureSource !== 'Biometric' && formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime) {
+                        <small class="time-sub">
+                          ({{ formatDisplayTime(a.checkInTime) }})
+                        </small>
+                      }
+                    </td>
+                    <td>
+                      <span class="time-main">{{ a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkOutTime || '—') }}</span>
+                      @if (a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt) {
+                        <small class="time-sub">
+                          ({{ a.capturedAt | localDatetime:'time' }})
+                        </small>
+                      }
+                      @if (a.captureSource !== 'Biometric' && formatDisplayTime(a.checkOutTime) && formatDisplayTime(a.checkOutTime) !== a.checkOutTime) {
+                        <small class="time-sub">
+                          ({{ formatDisplayTime(a.checkOutTime) }})
+                        </small>
+                      }
+                    </td>
+                    <td>
+                      @if (calculateDuration(a.checkInTime, a.checkOutTime)) {
+                        <span class="work-duration">
+                          {{calculateDuration(a.checkInTime, a.checkOutTime)}}
+                        </span>
+                      }
+                      @if (!calculateDuration(a.checkInTime, a.checkOutTime)) {
+                        <span class="no-dur">—</span>
+                      }
+                    </td>
+                    <td class="remarks-cell">{{a.remarks || '—'}}</td>
+                    @if (canManageAttendance) {
+                      <td class="actions-col">
+                        <span class="action-btn-wrapper" [class.is-disabled]="isEditDisabled(a)" [matTooltip]="getEditTooltip(a)" (click)="isEditDisabled(a) ? editRecord(a) : null">
+                          <button mat-icon-button color="primary" (click)="editRecord(a)" [disabled]="isEditDisabled(a)">
+                            <mat-icon>edit</mat-icon>
+                          </button>
+                        </span>
+                        <span class="action-btn-wrapper" [class.is-disabled]="isDeleteDisabled(a)" [matTooltip]="getDeleteTooltip(a)" (click)="isDeleteDisabled(a) ? deleteRecord(a.id) : null">
+                          <button mat-icon-button color="warn" (click)="deleteRecord(a.id)" [disabled]="isDeleteDisabled(a)">
+                            <mat-icon>delete_outline</mat-icon>
+                          </button>
+                        </span>
+                      </td>
+                    }
+                    @if (!canManageAttendance) {
+                      <td class="actions-col">
+                        @if (canRegularizeRecord(a)) {
+                          <button mat-stroked-button class="reg-btn-row" (click)="openRegularizationDialog(a.attendanceDate.split('T')[0])" matTooltip="Request Attendance Regularization for this date">
+                            <mat-icon style="font-size:14px;width:14px;height:14px;">build_circle</mat-icon> Regularize
+                          </button>
+                        }
+                        @if (!canRegularizeRecord(a)) {
+                          <span class="no-dur">—</span>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </mat-card>
+      }
+      @if (records.length === 0 && !loading) {
+        <div class="empty-state">
+          <mat-icon>event_busy</mat-icon>
+          <h3>No Attendance Records Found</h3>
+          <p>No records found for {{months[attMonth - 1]}} {{attYear}}. Select dates on the calendar roster above to begin logging attendance.</p>
+        </div>
+      }
     </div>
-  </div>
+  }
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display:flex; flex-direction:column; gap:20px; }
     .page-header { display:flex; justify-content:space-between; align-items:center; }

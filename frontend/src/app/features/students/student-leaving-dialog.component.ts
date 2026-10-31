@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -52,8 +52,12 @@ export interface StudentLeavingDialogData {
               <span class="st-name">{{ student?.studentName }}</span>
               <span class="meta-dot">•</span>
               <span>Roll: <strong>{{ student?.rollNumber }}</strong></span>
-              <span class="meta-dot" *ngIf="student?.admissionNumber">•</span>
-              <span *ngIf="student?.admissionNumber">SR No: <strong>{{ student?.admissionNumber }}</strong></span>
+              @if (student?.admissionNumber) {
+                <span class="meta-dot">•</span>
+              }
+              @if (student?.admissionNumber) {
+                <span>SR No: <strong>{{ student?.admissionNumber }}</strong></span>
+              }
               <span class="meta-dot">•</span>
               <span>{{ student?.className ? student?.className + ' (' + (student?.sectionName || 'A') + ')' : student?.batchName }}</span>
               <span class="status-badge" [class.badge-active]="student?.isActive" [class.badge-left]="!student?.isActive && !isPassedOut" [class.badge-passed-out]="!student?.isActive && isPassedOut">
@@ -68,7 +72,7 @@ export interface StudentLeavingDialogData {
           </button>
         </div>
       </div>
-
+    
       <!-- Navigation Tabs -->
       <div class="tc-nav-tabs">
         <button type="button" class="tab-btn" [class.active]="activeTab === 'clearance'" (click)="activeTab = 'clearance'">
@@ -78,434 +82,453 @@ export interface StudentLeavingDialogData {
         <button type="button" class="tab-btn" [class.active]="activeTab === 'certificate'" (click)="activeTab = 'certificate'">
           <mat-icon>{{ isPassedOut ? 'workspace_premium' : 'description' }}</mat-icon>
           <span>{{ isPassedOut ? 'School Leaving Certificate (SLC)' : 'Transfer Certificate (TC)' }}</span>
-          <span class="tc-tag" *ngIf="student?.tcNumber || clearanceData?.existingTCNumber">
-            {{ student?.tcNumber || clearanceData?.existingTCNumber }}
-          </span>
+          @if (student?.tcNumber || clearanceData?.existingTCNumber) {
+            <span class="tc-tag">
+              {{ student?.tcNumber || clearanceData?.existingTCNumber }}
+            </span>
+          }
         </button>
       </div>
-
+    
       <!-- Loading State -->
-      <div class="loading-state" *ngIf="loadingClearance">
-        <mat-spinner diameter="40"></mat-spinner>
-        <p>Fetching institutional clearance records (Fees, Hostel, Library)...</p>
-      </div>
-
+      @if (loadingClearance) {
+        <div class="loading-state">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Fetching institutional clearance records (Fees, Hostel, Library)...</p>
+        </div>
+      }
+    
       <!-- Main Content Body -->
-      <div class="tc-dialog-body" *ngIf="!loadingClearance">
-        
-        <!-- ==================== TAB 1: CLEARANCE & WORKFLOW ==================== -->
-        <div *ngIf="activeTab === 'clearance'" class="tab-pane">
-          
-          <!-- Clearance Status Cards -->
-          <div class="clearance-cards-grid">
-            
-            <!-- Fee Dues Card -->
-            <div class="clearance-card" [class.card-clean]="clearanceData?.pendingFees === 0" [class.card-alert]="clearanceData?.pendingFees > 0">
-              <div class="card-icon-wrap">
-                <mat-icon>{{ clearanceData?.pendingFees === 0 ? 'check_circle' : 'payments' }}</mat-icon>
+      @if (!loadingClearance) {
+        <div class="tc-dialog-body">
+          <!-- ==================== TAB 1: CLEARANCE & WORKFLOW ==================== -->
+          @if (activeTab === 'clearance') {
+            <div class="tab-pane">
+              <!-- Clearance Status Cards -->
+              <div class="clearance-cards-grid">
+                <!-- Fee Dues Card -->
+                <div class="clearance-card" [class.card-clean]="clearanceData?.pendingFees === 0" [class.card-alert]="clearanceData?.pendingFees > 0">
+                  <div class="card-icon-wrap">
+                    <mat-icon>{{ clearanceData?.pendingFees === 0 ? 'check_circle' : 'payments' }}</mat-icon>
+                  </div>
+                  <div class="card-info">
+                    <div class="card-title">Fee Dues Status</div>
+                    @if (clearanceData?.pendingFees === 0) {
+                      <div class="card-val">
+                        <span class="clean-text">All Fees Cleared (₹0 Due)</span>
+                      </div>
+                    }
+                    @if (clearanceData?.pendingFees > 0) {
+                      <div class="card-val">
+                        <span class="alert-text">₹{{ $safeNavigationMigration(clearanceData?.pendingFees) | number:'1.2-2' }} Pending</span>
+                      </div>
+                    }
+                    <div class="card-sub">
+                      {{ clearanceData?.pendingInvoicesCount || 0 }} unpaid invoices recorded
+                    </div>
+                  </div>
+                </div>
+                <!-- Hostel Allocation Card -->
+                <div class="clearance-card" [class.card-clean]="!clearanceData?.hasHostelBed" [class.card-info-theme]="clearanceData?.hasHostelBed">
+                  <div class="card-icon-wrap">
+                    <mat-icon>{{ clearanceData?.hasHostelBed ? 'apartment' : 'night_shelter' }}</mat-icon>
+                  </div>
+                  <div class="card-info">
+                    <div class="card-title">Hostel Residency</div>
+                    @if (clearanceData?.hasHostelBed) {
+                      <div class="card-val">
+                        <span class="info-text">{{ clearanceData?.hostelName || 'Hostel' }} — Bed {{ clearanceData?.bedCode }}</span>
+                      </div>
+                    }
+                    @if (!clearanceData?.hasHostelBed) {
+                      <div class="card-val">
+                        <span class="clean-text">Day Scholar (No Bed)</span>
+                      </div>
+                    }
+                    @if (clearanceData?.hasHostelBed) {
+                      <div class="card-sub">
+                        Room: {{ clearanceData?.roomNumber || 'N/A' }}
+                      </div>
+                    }
+                    @if (!clearanceData?.hasHostelBed) {
+                      <div class="card-sub">
+                        No hostel deallocation required
+                      </div>
+                    }
+                  </div>
+                </div>
+                <!-- Library Clearance Card -->
+                <div class="clearance-card" [class.card-clean]="clearanceData?.issuedLibraryBooksCount === 0 && clearanceData?.pendingLibraryFines === 0" [class.card-alert]="clearanceData?.issuedLibraryBooksCount > 0 || clearanceData?.pendingLibraryFines > 0">
+                  <div class="card-icon-wrap">
+                    <mat-icon>{{ clearanceData?.issuedLibraryBooksCount === 0 ? 'check_circle' : 'local_library' }}</mat-icon>
+                  </div>
+                  <div class="card-info">
+                    <div class="card-title">Library Clearance</div>
+                    @if (clearanceData?.issuedLibraryBooksCount === 0 && clearanceData?.pendingLibraryFines === 0) {
+                      <div class="card-val">
+                        <span class="clean-text">All Clear (0 Books)</span>
+                      </div>
+                    }
+                    @if (clearanceData?.issuedLibraryBooksCount > 0 || clearanceData?.pendingLibraryFines > 0) {
+                      <div class="card-val">
+                        <span class="alert-text">{{ clearanceData?.issuedLibraryBooksCount }} Books Pending</span>
+                      </div>
+                    }
+                    <div class="card-sub">
+                      Fines Pending: ₹{{ clearanceData?.pendingLibraryFines || 0 }}
+                    </div>
+                  </div>
+                </div>
+                <!-- Transport Allocation Card -->
+                <div class="clearance-card" [class.card-clean]="!clearanceData?.hasTransportAllocation" [class.card-info-theme]="clearanceData?.hasTransportAllocation">
+                  <div class="card-icon-wrap">
+                    <mat-icon>{{ clearanceData?.hasTransportAllocation ? 'directions_bus' : 'directions_walk' }}</mat-icon>
+                  </div>
+                  <div class="card-info">
+                    <div class="card-title">Campus Transport</div>
+                    @if (clearanceData?.hasTransportAllocation) {
+                      <div class="card-val">
+                        <span class="info-text">{{ clearanceData?.transportRouteName }}</span>
+                      </div>
+                    }
+                    @if (!clearanceData?.hasTransportAllocation) {
+                      <div class="card-val">
+                        <span class="clean-text">Self Commuter (No Bus Pass)</span>
+                      </div>
+                    }
+                    @if (clearanceData?.hasTransportAllocation) {
+                      <div class="card-sub">
+                        Stop: {{ clearanceData?.transportStopName || 'N/A' }} (₹{{ clearanceData?.transportMonthlyFare }}/mo)
+                      </div>
+                    }
+                    @if (!clearanceData?.hasTransportAllocation) {
+                      <div class="card-sub">
+                        No transport deallocation required
+                      </div>
+                    }
+                  </div>
+                </div>
               </div>
-              <div class="card-info">
-                <div class="card-title">Fee Dues Status</div>
-                <div class="card-val" *ngIf="clearanceData?.pendingFees === 0">
-                  <span class="clean-text">All Fees Cleared (₹0 Due)</span>
+              <!-- Pending Dues Notice Alert if any -->
+              @if (clearanceData?.pendingFees > 0) {
+                <div class="dues-warning-banner">
+                  <mat-icon>warning</mat-icon>
+                  <div class="dw-text">
+                    <strong>Institutional Dues Notice:</strong> Student has outstanding fee dues of ₹{{ $safeNavigationMigration(clearanceData?.pendingFees) | number:'1.2-2' }}.
+                    In standard institutional workflow, TC can still be issued upon administrative clearance/waiver, and dues will remain recorded in financial ledger.
+                  </div>
                 </div>
-                <div class="card-val" *ngIf="clearanceData?.pendingFees > 0">
-                  <span class="alert-text">₹{{ clearanceData?.pendingFees | number:'1.2-2' }} Pending</span>
+              }
+              <!-- If student has already left -->
+              @if (!student?.isActive) {
+                <div class="student-left-banner">
+                  <div class="slb-header">
+                    <mat-icon class="slb-icon">check_circle</mat-icon>
+                    <div>
+                      <div class="slb-title">Student Has Already Left Institution</div>
+                      <div class="slb-desc">
+                        This student was marked as left on <strong>{{ $safeNavigationMigration(student?.leavingDate) | date:'dd MMM yyyy' }}</strong>.
+                        Reason: <em>{{ student?.leavingReason || 'TC Issued' }}</em>.
+                        TC Number: <strong>{{ student?.tcNumber || clearanceData?.existingTCNumber || 'Issued' }}</strong>.
+                      </div>
+                    </div>
+                  </div>
+                  <div class="slb-actions-container">
+                    <div class="slb-buttons-row">
+                      <button mat-raised-button color="primary" class="btn-slb-print" (click)="activeTab = 'certificate'">
+                        <mat-icon>print</mat-icon>
+                        <span>View &amp; Print {{ isPassedOut ? 'School Leaving Certificate (SLC)' : 'Transfer Certificate (TC)' }}</span>
+                      </button>
+                      @if (!isPassedOut) {
+                        <button mat-stroked-button color="primary" class="btn-slb-readmit" (click)="onReAdmitStudent()" [disabled]="actionLoading">
+                          <mat-icon>replay</mat-icon>
+                          <span>Re-Admit Student Workflow</span>
+                        </button>
+                      }
+                    </div>
+                    @if (isPassedOut) {
+                      <div class="passed-out-notice">
+                        <mat-icon>school</mat-icon>
+                        <span><strong>Passed-Out Alumnus:</strong> Direct re-admission to the same class is not applicable. For higher class or new stream, register as fresh admission.</span>
+                      </div>
+                    }
+                  </div>
                 </div>
-                <div class="card-sub">
-                  {{ clearanceData?.pendingInvoicesCount || 0 }} unpaid invoices recorded
-                </div>
-              </div>
+              }
+              <!-- Leaving & TC Form (for active students) -->
+              @if (student?.isActive) {
+                <form [formGroup]="leavingForm" (ngSubmit)="onConfirmLeaving()" class="leaving-form-card">
+                  <div class="form-header-line">
+                    <mat-icon color="primary">assignment</mat-icon>
+                    <span>Leaving &amp; Transfer Certificate Details</span>
+                  </div>
+                  <div class="form-grid-row">
+                    <!-- Leaving Date -->
+                    <mat-form-field appearance="outline">
+                      <mat-label>Leaving / Discharge Date</mat-label>
+                      <input matInput type="date" formControlName="leavingDate" required />
+                      @if (leavingForm.get('leavingDate')?.hasError('required')) {
+                        <mat-error>Date is required</mat-error>
+                      }
+                    </mat-form-field>
+                    <!-- Leaving Reason -->
+                    <mat-form-field appearance="outline">
+                      <mat-label>Reason for Leaving</mat-label>
+                      <mat-select formControlName="leavingReason" required panelClass="leaving-reason-select-panel">
+                        <mat-option value="TC Issued / School Leaving">Transfer Certificate (TC) Requested</mat-option>
+                        <mat-option value="Course / Class Completed (Passed Out)">Course / Class Completed (Passed Out)</mat-option>
+                        <mat-option value="School Transfer / Relocation">School Transfer / Relocation</mat-option>
+                        <mat-option value="Dropped Out / Discontinued">Dropped Out / Discontinued</mat-option>
+                        <mat-option value="Personal / Family Reasons">Personal / Family Reasons</mat-option>
+                        <mat-option value="Rusticated / Expelled">Rusticated / Expelled</mat-option>
+                        <mat-option value="Other">Other Reason</mat-option>
+                      </mat-select>
+                      @if (leavingForm.get('leavingReason')?.hasError('required')) {
+                        <mat-error>Reason is required</mat-error>
+                      }
+                    </mat-form-field>
+                    <!-- Custom / Suggested TC Number -->
+                    <mat-form-field appearance="outline">
+                      <mat-label>TC Serial Number</mat-label>
+                      <input matInput formControlName="customTCNumber" placeholder="Auto-generated if blank (e.g. TC-2026-0042)" />
+                      <mat-hint>Leave empty to auto-generate TC number</mat-hint>
+                    </mat-form-field>
+                  </div>
+                  <!-- General Conduct & Remarks Row -->
+                  <div class="form-grid-row">
+                    <mat-form-field appearance="outline">
+                      <mat-label>General Conduct &amp; Character</mat-label>
+                      <mat-select formControlName="conduct" panelClass="leaving-reason-select-panel">
+                        <mat-option value="Good">Good</mat-option>
+                        <mat-option value="Very Good">Very Good</mat-option>
+                        <mat-option value="Exemplary">Exemplary</mat-option>
+                        <mat-option value="Satisfactory">Satisfactory</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="remarks-field">
+                      <mat-label>Additional Remarks / Notes</mat-label>
+                      <input matInput formControlName="remarks" placeholder="e.g. Cleared 10th Board, moving to new city..." />
+                    </mat-form-field>
+                  </div>
+                  <!-- Hostel Bed Vacate Option (if hostel resident) -->
+                  @if (clearanceData?.hasHostelBed) {
+                    <div class="checkbox-option-box">
+                      <mat-checkbox formControlName="vacateHostelBed" color="primary">
+                        <span class="cb-label">Automatically vacate hostel bed (<strong>Bed {{ clearanceData?.bedCode }}</strong> in {{ clearanceData?.hostelName }}) and mark as Available.</span>
+                      </mat-checkbox>
+                    </div>
+                  }
+                  <!-- Transport Seat Release Option (if transport student) -->
+                  @if (clearanceData?.hasTransportAllocation) {
+                    <div class="checkbox-option-box">
+                      <mat-checkbox formControlName="releaseTransportSeat" color="primary">
+                        <span class="cb-label">Automatically discontinue transport pass on <strong>{{ clearanceData?.transportRouteName }}</strong> and release bus seat.</span>
+                      </mat-checkbox>
+                    </div>
+                  }
+                  <!-- Actions Row -->
+                  <div class="form-actions-row">
+                    <button mat-button type="button" (click)="closeDialog()" [disabled]="actionLoading">
+                      Cancel
+                    </button>
+                    <button mat-raised-button color="warn" type="submit" [disabled]="leavingForm.invalid || actionLoading" class="confirm-leave-btn">
+                      @if (actionLoading) {
+                        <mat-spinner diameter="18" style="display:inline-block; margin-right:6px;"></mat-spinner>
+                      }
+                      @if (!actionLoading) {
+                        <mat-icon>assignment_turned_in</mat-icon>
+                      }
+                      <span>Process Leaving &amp; Issue Transfer Certificate</span>
+                    </button>
+                  </div>
+                </form>
+              }
             </div>
-
-            <!-- Hostel Allocation Card -->
-            <div class="clearance-card" [class.card-clean]="!clearanceData?.hasHostelBed" [class.card-info-theme]="clearanceData?.hasHostelBed">
-              <div class="card-icon-wrap">
-                <mat-icon>{{ clearanceData?.hasHostelBed ? 'apartment' : 'night_shelter' }}</mat-icon>
-              </div>
-              <div class="card-info">
-                <div class="card-title">Hostel Residency</div>
-                <div class="card-val" *ngIf="clearanceData?.hasHostelBed">
-                  <span class="info-text">{{ clearanceData?.hostelName || 'Hostel' }} — Bed {{ clearanceData?.bedCode }}</span>
-                </div>
-                <div class="card-val" *ngIf="!clearanceData?.hasHostelBed">
-                  <span class="clean-text">Day Scholar (No Bed)</span>
-                </div>
-                <div class="card-sub" *ngIf="clearanceData?.hasHostelBed">
-                  Room: {{ clearanceData?.roomNumber || 'N/A' }}
-                </div>
-                <div class="card-sub" *ngIf="!clearanceData?.hasHostelBed">
-                  No hostel deallocation required
-                </div>
-              </div>
-            </div>
-
-            <!-- Library Clearance Card -->
-            <div class="clearance-card" [class.card-clean]="clearanceData?.issuedLibraryBooksCount === 0 && clearanceData?.pendingLibraryFines === 0" [class.card-alert]="clearanceData?.issuedLibraryBooksCount > 0 || clearanceData?.pendingLibraryFines > 0">
-              <div class="card-icon-wrap">
-                <mat-icon>{{ clearanceData?.issuedLibraryBooksCount === 0 ? 'check_circle' : 'local_library' }}</mat-icon>
-              </div>
-              <div class="card-info">
-                <div class="card-title">Library Clearance</div>
-                <div class="card-val" *ngIf="clearanceData?.issuedLibraryBooksCount === 0 && clearanceData?.pendingLibraryFines === 0">
-                  <span class="clean-text">All Clear (0 Books)</span>
-                </div>
-                <div class="card-val" *ngIf="clearanceData?.issuedLibraryBooksCount > 0 || clearanceData?.pendingLibraryFines > 0">
-                  <span class="alert-text">{{ clearanceData?.issuedLibraryBooksCount }} Books Pending</span>
-                </div>
-                <div class="card-sub">
-                  Fines Pending: ₹{{ clearanceData?.pendingLibraryFines || 0 }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Transport Allocation Card -->
-            <div class="clearance-card" [class.card-clean]="!clearanceData?.hasTransportAllocation" [class.card-info-theme]="clearanceData?.hasTransportAllocation">
-              <div class="card-icon-wrap">
-                <mat-icon>{{ clearanceData?.hasTransportAllocation ? 'directions_bus' : 'directions_walk' }}</mat-icon>
-              </div>
-              <div class="card-info">
-                <div class="card-title">Campus Transport</div>
-                <div class="card-val" *ngIf="clearanceData?.hasTransportAllocation">
-                  <span class="info-text">{{ clearanceData?.transportRouteName }}</span>
-                </div>
-                <div class="card-val" *ngIf="!clearanceData?.hasTransportAllocation">
-                  <span class="clean-text">Self Commuter (No Bus Pass)</span>
-                </div>
-                <div class="card-sub" *ngIf="clearanceData?.hasTransportAllocation">
-                  Stop: {{ clearanceData?.transportStopName || 'N/A' }} (₹{{ clearanceData?.transportMonthlyFare }}/mo)
-                </div>
-                <div class="card-sub" *ngIf="!clearanceData?.hasTransportAllocation">
-                  No transport deallocation required
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Pending Dues Notice Alert if any -->
-          <div class="dues-warning-banner" *ngIf="clearanceData?.pendingFees > 0">
-            <mat-icon>warning</mat-icon>
-            <div class="dw-text">
-              <strong>Institutional Dues Notice:</strong> Student has outstanding fee dues of ₹{{ clearanceData?.pendingFees | number:'1.2-2' }}. 
-              In standard institutional workflow, TC can still be issued upon administrative clearance/waiver, and dues will remain recorded in financial ledger.
-            </div>
-          </div>
-
-          <!-- If student has already left -->
-          <div class="student-left-banner" *ngIf="!student?.isActive">
-            <div class="slb-header">
-              <mat-icon class="slb-icon">check_circle</mat-icon>
-              <div>
-                <div class="slb-title">Student Has Already Left Institution</div>
-                <div class="slb-desc">
-                  This student was marked as left on <strong>{{ student?.leavingDate | date:'dd MMM yyyy' }}</strong>. 
-                  Reason: <em>{{ student?.leavingReason || 'TC Issued' }}</em>.
-                  TC Number: <strong>{{ student?.tcNumber || clearanceData?.existingTCNumber || 'Issued' }}</strong>.
-                </div>
-              </div>
-            </div>
-            <div class="slb-actions-container">
-              <div class="slb-buttons-row">
-                <button mat-raised-button color="primary" class="btn-slb-print" (click)="activeTab = 'certificate'">
+          }
+          <!-- ==================== TAB 2: TRANSFER CERTIFICATE DOCUMENT ==================== -->
+          @if (activeTab === 'certificate') {
+            <div class="tab-pane">
+              <!-- TC Top Action Bar -->
+              <div class="tc-doc-actions no-print">
+                <div class="tc-action-info">
                   <mat-icon>print</mat-icon>
-                  <span>View &amp; Print {{ isPassedOut ? 'School Leaving Certificate (SLC)' : 'Transfer Certificate (TC)' }}</span>
-                </button>
-                <button mat-stroked-button color="primary" class="btn-slb-readmit" (click)="onReAdmitStudent()" [disabled]="actionLoading" *ngIf="!isPassedOut">
-                  <mat-icon>replay</mat-icon>
-                  <span>Re-Admit Student Workflow</span>
-                </button>
+                  <span>Transfer Certificate ready for official printing &amp; records.</span>
+                </div>
+                <div class="tc-action-btns">
+                  <button mat-raised-button color="primary" (click)="printCertificate()">
+                    <mat-icon>print</mat-icon> Print TC Document (A4)
+                  </button>
+                </div>
               </div>
-              <div class="passed-out-notice" *ngIf="isPassedOut">
-                <mat-icon>school</mat-icon>
-                <span><strong>Passed-Out Alumnus:</strong> Direct re-admission to the same class is not applicable. For higher class or new stream, register as fresh admission.</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Leaving & TC Form (for active students) -->
-          <form [formGroup]="leavingForm" (ngSubmit)="onConfirmLeaving()" class="leaving-form-card" *ngIf="student?.isActive">
-            <div class="form-header-line">
-              <mat-icon color="primary">assignment</mat-icon>
-              <span>Leaving &amp; Transfer Certificate Details</span>
-            </div>
-
-            <div class="form-grid-row">
-              <!-- Leaving Date -->
-              <mat-form-field appearance="outline">
-                <mat-label>Leaving / Discharge Date</mat-label>
-                <input matInput type="date" formControlName="leavingDate" required />
-                <mat-error *ngIf="leavingForm.get('leavingDate')?.hasError('required')">Date is required</mat-error>
-              </mat-form-field>
-
-              <!-- Leaving Reason -->
-              <mat-form-field appearance="outline">
-                <mat-label>Reason for Leaving</mat-label>
-                <mat-select formControlName="leavingReason" required panelClass="leaving-reason-select-panel">
-                  <mat-option value="TC Issued / School Leaving">Transfer Certificate (TC) Requested</mat-option>
-                  <mat-option value="Course / Class Completed (Passed Out)">Course / Class Completed (Passed Out)</mat-option>
-                  <mat-option value="School Transfer / Relocation">School Transfer / Relocation</mat-option>
-                  <mat-option value="Dropped Out / Discontinued">Dropped Out / Discontinued</mat-option>
-                  <mat-option value="Personal / Family Reasons">Personal / Family Reasons</mat-option>
-                  <mat-option value="Rusticated / Expelled">Rusticated / Expelled</mat-option>
-                  <mat-option value="Other">Other Reason</mat-option>
-                </mat-select>
-                <mat-error *ngIf="leavingForm.get('leavingReason')?.hasError('required')">Reason is required</mat-error>
-              </mat-form-field>
-
-              <!-- Custom / Suggested TC Number -->
-              <mat-form-field appearance="outline">
-                <mat-label>TC Serial Number</mat-label>
-                <input matInput formControlName="customTCNumber" placeholder="Auto-generated if blank (e.g. TC-2026-0042)" />
-                <mat-hint>Leave empty to auto-generate TC number</mat-hint>
-              </mat-form-field>
-            </div>
-
-            <!-- General Conduct & Remarks Row -->
-            <div class="form-grid-row">
-              <mat-form-field appearance="outline">
-                <mat-label>General Conduct &amp; Character</mat-label>
-                <mat-select formControlName="conduct" panelClass="leaving-reason-select-panel">
-                  <mat-option value="Good">Good</mat-option>
-                  <mat-option value="Very Good">Very Good</mat-option>
-                  <mat-option value="Exemplary">Exemplary</mat-option>
-                  <mat-option value="Satisfactory">Satisfactory</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="remarks-field">
-                <mat-label>Additional Remarks / Notes</mat-label>
-                <input matInput formControlName="remarks" placeholder="e.g. Cleared 10th Board, moving to new city..." />
-              </mat-form-field>
-            </div>
-
-            <!-- Hostel Bed Vacate Option (if hostel resident) -->
-            <div class="checkbox-option-box" *ngIf="clearanceData?.hasHostelBed">
-              <mat-checkbox formControlName="vacateHostelBed" color="primary">
-                <span class="cb-label">Automatically vacate hostel bed (<strong>Bed {{ clearanceData?.bedCode }}</strong> in {{ clearanceData?.hostelName }}) and mark as Available.</span>
-              </mat-checkbox>
-            </div>
-
-            <!-- Transport Seat Release Option (if transport student) -->
-            <div class="checkbox-option-box" *ngIf="clearanceData?.hasTransportAllocation">
-              <mat-checkbox formControlName="releaseTransportSeat" color="primary">
-                <span class="cb-label">Automatically discontinue transport pass on <strong>{{ clearanceData?.transportRouteName }}</strong> and release bus seat.</span>
-              </mat-checkbox>
-            </div>
-
-            <!-- Actions Row -->
-            <div class="form-actions-row">
-              <button mat-button type="button" (click)="closeDialog()" [disabled]="actionLoading">
-                Cancel
-              </button>
-              <button mat-raised-button color="warn" type="submit" [disabled]="leavingForm.invalid || actionLoading" class="confirm-leave-btn">
-                <mat-spinner diameter="18" *ngIf="actionLoading" style="display:inline-block; margin-right:6px;"></mat-spinner>
-                <mat-icon *ngIf="!actionLoading">assignment_turned_in</mat-icon>
-                <span>Process Leaving &amp; Issue Transfer Certificate</span>
-              </button>
-            </div>
-          </form>
-
-        </div>
-
-        <!-- ==================== TAB 2: TRANSFER CERTIFICATE DOCUMENT ==================== -->
-        <div *ngIf="activeTab === 'certificate'" class="tab-pane">
-          
-          <!-- TC Top Action Bar -->
-          <div class="tc-doc-actions no-print">
-            <div class="tc-action-info">
-              <mat-icon>print</mat-icon>
-              <span>Transfer Certificate ready for official printing &amp; records.</span>
-            </div>
-            <div class="tc-action-btns">
-              <button mat-raised-button color="primary" (click)="printCertificate()">
-                <mat-icon>print</mat-icon> Print TC Document (A4)
-              </button>
-            </div>
-          </div>
-
-          <!-- Printable Certificate Document -->
-          <div class="tc-printable-sheet" id="printableTcDoc">
-            
-            <!-- Certificate Border Box -->
-            <div class="tc-border-outer">
-              <div class="tc-border-inner">
-                
-                <!-- School Header -->
-                <div class="tc-school-header">
-                  <div class="school-badge-logo">
-                    <mat-icon class="badge-icon">school</mat-icon>
-                  </div>
-                  <div class="school-name">{{ instituteName }}</div>
-                  <div class="school-sub">Recognised &amp; Affiliated Senior Secondary Co-Educational Institution</div>
-                  <div class="school-addr">Main Campus, Academic Zone • Official Institutional Transfer Certificate Record</div>
-                </div>
-
-                <div class="tc-doc-title-wrap">
-                  <div class="tc-doc-title">{{ isPassedOut ? 'SCHOOL LEAVING CERTIFICATE (SLC)' : 'TRANSFER CERTIFICATE (TC)' }}</div>
-                  <div class="tc-doc-subtitle">{{ isPassedOut ? 'BOARD / TERMINAL PASS-OUT & CLEARANCE RECORD' : 'SCHOOL TRANSFER & CLEARANCE CERTIFICATE' }}</div>
-                </div>
-
-                <!-- TC Numbers Row -->
-                <div class="tc-meta-row">
-                  <div><strong>{{ isPassedOut ? 'SLC Serial No:' : 'TC Serial No:' }}</strong> <span class="tc-highlight">{{ student?.tcNumber || clearanceData?.existingTCNumber || leavingForm.get('customTCNumber')?.value || (isPassedOut ? 'SLC-2026-PENDING' : 'TC-2026-PENDING') }}</span></div>
-                  <div><strong>Admission / SR No:</strong> {{ student?.admissionNumber || student?.rollNumber || 'N/A' }}</div>
-                  <div><strong>Date of Issue:</strong> {{ todayDate | date:'dd/MM/yyyy' }}</div>
-                </div>
-
-                <div class="tc-divider-line"></div>
-
-                <!-- Certificate Body Fields (Official 18-point format) -->
-                <div class="tc-field-list">
-                  <div class="tc-field-row">
-                    <span class="field-num">1.</span>
-                    <span class="field-label">Name of Pupil:</span>
-                    <span class="field-value highlight-name">{{ student?.studentName | uppercase }}</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">2.</span>
-                    <span class="field-label">Father's / Guardian's Name:</span>
-                    <span class="field-value">{{ student?.parentName }}</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">3.</span>
-                    <span class="field-label">Mother's Name:</span>
-                    <span class="field-value">{{ student?.motherName || 'Smt. ' + student?.parentName }}</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">4.</span>
-                    <span class="field-label">Nationality:</span>
-                    <span class="field-value">Indian</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">5.</span>
-                    <span class="field-label">Date of Birth (according to Admission Register):</span>
-                    <span class="field-value">
-                      {{ student?.dateOfBirth ? (student?.dateOfBirth | date:'dd/MM/yyyy') : 'As per School Records' }}
-                    </span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">6.</span>
-                    <span class="field-label">Date of First Admission to the Institution:</span>
-                    <span class="field-value">{{ student?.joiningDate | date:'dd/MM/yyyy' }}</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">7.</span>
-                    <span class="field-label">Class in which the pupil last studied:</span>
-                    <span class="field-value">{{ student?.className ? student?.className + ' - ' + (student?.sectionName || 'A') : (student?.batchName || 'General Academic') }}</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">8.</span>
-                    <span class="field-label">School / Board Annual Examination last taken:</span>
-                    <span class="field-value">Appeared &amp; Passed Annual Term</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">9.</span>
-                    <span class="field-label">Whether failed, if so once / twice in same class:</span>
-                    <span class="field-value">No</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">10.</span>
-                    <span class="field-label">Month up to which the pupil has paid school dues:</span>
-                    <span class="field-value">
-                      {{ clearanceData?.pendingFees === 0 ? 'All Institutional Dues Fully Cleared' : ('Outstanding: ₹' + (clearanceData?.pendingFees | number:'1.2-2')) }}
-                    </span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">11.</span>
-                    <span class="field-label">Any fee concession availed of (if so nature):</span>
-                    <span class="field-value">Nil</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">12.</span>
-                    <span class="field-label">Hostel Clearance Status:</span>
-                    <span class="field-value">
-                      {{ clearanceData?.hasHostelBed ? 'Hostel Bed Vacated & Keys Handed Over' : 'Day Scholar' }}
-                    </span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">13.</span>
-                    <span class="field-label">Library Clearance Status:</span>
-                    <span class="field-value">All Library Books Returned &amp; Fines Settled</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">14.</span>
-                    <span class="field-label">Date on which pupil's name was struck off:</span>
-                    <span class="field-value">{{ (student?.leavingDate || leavingForm.get('leavingDate')?.value) | date:'dd/MM/yyyy' }}</span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">15.</span>
-                    <span class="field-label">Reason for leaving the institution:</span>
-                    <span class="field-value font-semibold">
-                      {{ student?.leavingReason || leavingForm.get('leavingReason')?.value || 'Transfer Certificate Issued' }}
-                    </span>
-                  </div>
-
-                  <div class="tc-field-row">
-                    <span class="field-num">16.</span>
-                    <span class="field-label">General Conduct &amp; Character:</span>
-                    <span class="field-value">{{ leavingForm.get('conduct')?.value || 'Good' }}</span>
-                  </div>
-
-                  <div class="tc-field-row" *ngIf="leavingForm.get('remarks')?.value">
-                    <span class="field-num">17.</span>
-                    <span class="field-label">Any other remarks:</span>
-                    <span class="field-value">{{ leavingForm.get('remarks')?.value }}</span>
-                  </div>
-                </div>
-
-                <!-- Signatures Row -->
-                <div class="tc-signatures-block">
-                  <div class="sig-column">
-                    <div class="sig-line"></div>
-                    <div class="sig-title">Class Teacher</div>
-                  </div>
-                  <div class="sig-column">
-                    <div class="sig-line"></div>
-                    <div class="sig-title">Accountant / Cashier</div>
-                  </div>
-                  <div class="sig-column seal-column">
-                    <div class="sig-seal-box">
-                      <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
-                      <span *ngIf="!officialSealUrl">[ Official Seal ]</span>
+              <!-- Printable Certificate Document -->
+              <div class="tc-printable-sheet" id="printableTcDoc">
+                <!-- Certificate Border Box -->
+                <div class="tc-border-outer">
+                  <div class="tc-border-inner">
+                    <!-- School Header -->
+                    <div class="tc-school-header">
+                      <div class="school-badge-logo">
+                        <mat-icon class="badge-icon">school</mat-icon>
+                      </div>
+                      <div class="school-name">{{ instituteName }}</div>
+                      <div class="school-sub">Recognised &amp; Affiliated Senior Secondary Co-Educational Institution</div>
+                      <div class="school-addr">Main Campus, Academic Zone • Official Institutional Transfer Certificate Record</div>
                     </div>
-                    <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-                      <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+                    <div class="tc-doc-title-wrap">
+                      <div class="tc-doc-title">{{ isPassedOut ? 'SCHOOL LEAVING CERTIFICATE (SLC)' : 'TRANSFER CERTIFICATE (TC)' }}</div>
+                      <div class="tc-doc-subtitle">{{ isPassedOut ? 'BOARD / TERMINAL PASS-OUT & CLEARANCE RECORD' : 'SCHOOL TRANSFER & CLEARANCE CERTIFICATE' }}</div>
                     </div>
-                    <div class="sig-line"></div>
-                    <div class="sig-title">Principal / Headmaster</div>
+                    <!-- TC Numbers Row -->
+                    <div class="tc-meta-row">
+                      <div><strong>{{ isPassedOut ? 'SLC Serial No:' : 'TC Serial No:' }}</strong> <span class="tc-highlight">{{ student?.tcNumber || clearanceData?.existingTCNumber || leavingForm.get('customTCNumber')?.value || (isPassedOut ? 'SLC-2026-PENDING' : 'TC-2026-PENDING') }}</span></div>
+                      <div><strong>Admission / SR No:</strong> {{ student?.admissionNumber || student?.rollNumber || 'N/A' }}</div>
+                      <div><strong>Date of Issue:</strong> {{ todayDate | date:'dd/MM/yyyy' }}</div>
+                    </div>
+                    <div class="tc-divider-line"></div>
+                    <!-- Certificate Body Fields (Official 18-point format) -->
+                    <div class="tc-field-list">
+                      <div class="tc-field-row">
+                        <span class="field-num">1.</span>
+                        <span class="field-label">Name of Pupil:</span>
+                        <span class="field-value highlight-name">{{ $safeNavigationMigration(student?.studentName) | uppercase }}</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">2.</span>
+                        <span class="field-label">Father's / Guardian's Name:</span>
+                        <span class="field-value">{{ student?.parentName }}</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">3.</span>
+                        <span class="field-label">Mother's Name:</span>
+                        <span class="field-value">{{ student?.motherName || 'Smt. ' + student?.parentName }}</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">4.</span>
+                        <span class="field-label">Nationality:</span>
+                        <span class="field-value">Indian</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">5.</span>
+                        <span class="field-label">Date of Birth (according to Admission Register):</span>
+                        <span class="field-value">
+                          {{ student?.dateOfBirth ? ($safeNavigationMigration(student?.dateOfBirth) | date:'dd/MM/yyyy') : 'As per School Records' }}
+                        </span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">6.</span>
+                        <span class="field-label">Date of First Admission to the Institution:</span>
+                        <span class="field-value">{{ $safeNavigationMigration(student?.joiningDate) | date:'dd/MM/yyyy' }}</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">7.</span>
+                        <span class="field-label">Class in which the pupil last studied:</span>
+                        <span class="field-value">{{ student?.className ? student?.className + ' - ' + (student?.sectionName || 'A') : (student?.batchName || 'General Academic') }}</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">8.</span>
+                        <span class="field-label">School / Board Annual Examination last taken:</span>
+                        <span class="field-value">Appeared &amp; Passed Annual Term</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">9.</span>
+                        <span class="field-label">Whether failed, if so once / twice in same class:</span>
+                        <span class="field-value">No</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">10.</span>
+                        <span class="field-label">Month up to which the pupil has paid school dues:</span>
+                        <span class="field-value">
+                          {{ clearanceData?.pendingFees === 0 ? 'All Institutional Dues Fully Cleared' : ('Outstanding: ₹' + ($safeNavigationMigration(clearanceData?.pendingFees) | number:'1.2-2')) }}
+                        </span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">11.</span>
+                        <span class="field-label">Any fee concession availed of (if so nature):</span>
+                        <span class="field-value">Nil</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">12.</span>
+                        <span class="field-label">Hostel Clearance Status:</span>
+                        <span class="field-value">
+                          {{ clearanceData?.hasHostelBed ? 'Hostel Bed Vacated & Keys Handed Over' : 'Day Scholar' }}
+                        </span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">13.</span>
+                        <span class="field-label">Library Clearance Status:</span>
+                        <span class="field-value">All Library Books Returned &amp; Fines Settled</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">14.</span>
+                        <span class="field-label">Date on which pupil's name was struck off:</span>
+                        <span class="field-value">{{ (student?.leavingDate || leavingForm.get('leavingDate')?.value) | date:'dd/MM/yyyy' }}</span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">15.</span>
+                        <span class="field-label">Reason for leaving the institution:</span>
+                        <span class="field-value font-semibold">
+                          {{ student?.leavingReason || leavingForm.get('leavingReason')?.value || 'Transfer Certificate Issued' }}
+                        </span>
+                      </div>
+                      <div class="tc-field-row">
+                        <span class="field-num">16.</span>
+                        <span class="field-label">General Conduct &amp; Character:</span>
+                        <span class="field-value">{{ leavingForm.get('conduct')?.value || 'Good' }}</span>
+                      </div>
+                      @if (leavingForm.get('remarks')?.value) {
+                        <div class="tc-field-row">
+                          <span class="field-num">17.</span>
+                          <span class="field-label">Any other remarks:</span>
+                          <span class="field-value">{{ leavingForm.get('remarks')?.value }}</span>
+                        </div>
+                      }
+                    </div>
+                    <!-- Signatures Row -->
+                    <div class="tc-signatures-block">
+                      <div class="sig-column">
+                        <div class="sig-line"></div>
+                        <div class="sig-title">Class Teacher</div>
+                      </div>
+                      <div class="sig-column">
+                        <div class="sig-line"></div>
+                        <div class="sig-title">Accountant / Cashier</div>
+                      </div>
+                      <div class="sig-column seal-column">
+                        <div class="sig-seal-box">
+                          @if (officialSealUrl) {
+                            <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+                          }
+                          @if (!officialSealUrl) {
+                            <span>[ Official Seal ]</span>
+                          }
+                        </div>
+                        @if (digitalSignatureUrl) {
+                          <div class="digital-sign-wrapper">
+                            <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+                          </div>
+                        }
+                        <div class="sig-line"></div>
+                        <div class="sig-title">Principal / Headmaster</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
               </div>
             </div>
-          </div>
-
+          }
         </div>
-
-      </div>
-
+      }
+    
       <!-- Footer for View Mode -->
-      <div class="tc-dialog-footer" *ngIf="activeTab === 'clearance' && !student?.isActive">
-        <button mat-stroked-button (click)="closeDialog()">Close</button>
-      </div>
-
+      @if (activeTab === 'clearance' && !student?.isActive) {
+        <div class="tc-dialog-footer">
+          <button mat-stroked-button (click)="closeDialog()">Close</button>
+        </div>
+      }
+    
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .tc-dialog-wrapper {
       max-width: 820px;

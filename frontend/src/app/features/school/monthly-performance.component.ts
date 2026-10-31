@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, Inject } from '@angular/core';
+import { Component, OnInit, inject, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -17,7 +17,6 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
-import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiUrl;
@@ -108,8 +107,7 @@ export interface MonthlyPerformanceReportHeader {
     MatDialogModule,
     MatTooltipModule,
     MatMenuModule,
-    MatProgressBarModule,
-    IstDatetimeDirective
+    MatProgressBarModule
   ],
   template: `
     <div class="page-container">
@@ -126,7 +124,7 @@ export interface MonthlyPerformanceReportHeader {
             </p>
           </div>
         </div>
-
+    
         <div class="header-actions">
           <!-- 3-Way Feature Switcher -->
           <div class="module-nav-pills notranslate" translate="no">
@@ -143,14 +141,14 @@ export interface MonthlyPerformanceReportHeader {
               <span>3. Monthly Performance</span>
             </a>
           </div>
-
+    
           <button mat-stroked-button class="refresh-btn" (click)="loadPerformanceReport()" [disabled]="loading">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
         </div>
       </div>
-
+    
       <!-- Dual Scope Selector (School Classes vs Coaching Batches) -->
       <div class="scope-nav-container">
         <div class="scope-pills">
@@ -164,137 +162,159 @@ export interface MonthlyPerformanceReportHeader {
           </button>
         </div>
       </div>
-
+    
       <!-- Reactive Filters Card -->
       <mat-card class="filter-card">
         <form [formGroup]="filterForm" class="filter-form-row">
           <mat-form-field appearance="outline" class="filter-control month-control" subscriptSizing="dynamic">
             <mat-label>Month (महीना)</mat-label>
             <mat-select formControlName="month" (selectionChange)="loadPerformanceReport()">
-              <mat-option *ngFor="let m of months" [value]="m.val">{{ m.name }}</mat-option>
+              @for (m of months; track m) {
+                <mat-option [value]="m.val">{{ m.name }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-control year-control" subscriptSizing="dynamic">
             <mat-label>Year (वर्ष)</mat-label>
             <mat-select formControlName="year" (selectionChange)="loadPerformanceReport()">
-              <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
+              @for (y of years; track y) {
+                <mat-option [value]="y">{{ y }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+    
           <!-- School Scope Dropdowns -->
-          <ng-container *ngIf="targetScope === 'school'">
+          @if (targetScope === 'school') {
             <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
               <mat-label>Select Class (कक्षा) *</mat-label>
               <mat-select formControlName="classId" (selectionChange)="onClassChange()">
-                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
-            <mat-form-field appearance="outline" class="filter-control section-control" *ngIf="sections.length > 0" subscriptSizing="dynamic">
-              <mat-label>Section (वर्ग)</mat-label>
-              <mat-select formControlName="sectionId" (selectionChange)="loadPerformanceReport()">
-                <mat-option value="">All Sections</mat-option>
-                <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </ng-container>
-
+            @if (sections.length > 0) {
+              <mat-form-field appearance="outline" class="filter-control section-control" subscriptSizing="dynamic">
+                <mat-label>Section (वर्ग)</mat-label>
+                <mat-select formControlName="sectionId" (selectionChange)="loadPerformanceReport()">
+                  <mat-option value="">All Sections</mat-option>
+                  @for (s of sections; track s) {
+                    <mat-option [value]="s.id">{{ s.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+          }
+    
           <!-- Coaching Scope Dropdowns (Strict Cascade: Class ➔ Batch) -->
-          <ng-container *ngIf="targetScope === 'coaching'">
+          @if (targetScope === 'coaching') {
             <mat-form-field appearance="outline" class="filter-control class-control" subscriptSizing="dynamic">
               <mat-label>Academic Class (कक्षा)</mat-label>
               <mat-select formControlName="coachingClassId" (selectionChange)="onCoachingClassChange()">
                 <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-                <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="filter-control batch-control" subscriptSizing="dynamic">
               <mat-label>Select Batch (कोचिंग बैच) *</mat-label>
               <mat-select formControlName="batchId" (selectionChange)="onBatchChange()">
-                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
-                  {{ b.name }} ({{ b.subject || b.academicYear || 'Batch' }})
-                </mat-option>
+                @for (b of filteredBatches; track b) {
+                  <mat-option [value]="b.id">
+                    {{ b.name }} ({{ b.subject || b.academicYear || 'Batch' }})
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-          </ng-container>
-
+          }
+    
           <div class="deck-actions-group">
             <button mat-stroked-button class="print-master-btn" type="button" (click)="printMasterRegister()" [disabled]="students.length === 0">
               <mat-icon>print</mat-icon>
               <span>Print Class Master Sheet</span>
             </button>
-
+    
             <button mat-raised-button class="save-remarks-btn" type="button" (click)="saveTeacherRemarks()" [disabled]="saving || students.length === 0">
-              <mat-icon *ngIf="!saving">save</mat-icon>
-              <mat-icon *ngIf="saving" class="spin">sync</mat-icon>
+              @if (!saving) {
+                <mat-icon>save</mat-icon>
+              }
+              @if (saving) {
+                <mat-icon class="spin">sync</mat-icon>
+              }
               <span>{{ saving ? 'Saving...' : 'Save Remarks' }}</span>
             </button>
           </div>
         </form>
       </mat-card>
-
+    
       <!-- Class Performance Benchmark KPI Grid -->
-      <div class="kpi-grid" *ngIf="reportHeader && students.length > 0">
-        <div class="kpi-card kpi-blue">
-          <div class="kpi-icon-wrap"><mat-icon>groups</mat-icon></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Students Evaluated</span>
-            <span class="kpi-val">{{ reportHeader.totalStudentsEvaluated }}</span>
+      @if (reportHeader && students.length > 0) {
+        <div class="kpi-grid">
+          <div class="kpi-card kpi-blue">
+            <div class="kpi-icon-wrap"><mat-icon>groups</mat-icon></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Students Evaluated</span>
+              <span class="kpi-val">{{ reportHeader.totalStudentsEvaluated }}</span>
+            </div>
           </div>
-        </div>
-
-        <div class="kpi-card kpi-emerald">
-          <div class="kpi-icon-wrap"><mat-icon>calendar_month</mat-icon></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Class Avg. Attendance</span>
-            <span class="kpi-val">{{ reportHeader.classAverageAttendance }}%</span>
+          <div class="kpi-card kpi-emerald">
+            <div class="kpi-icon-wrap"><mat-icon>calendar_month</mat-icon></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Class Avg. Attendance</span>
+              <span class="kpi-val">{{ reportHeader.classAverageAttendance }}%</span>
+            </div>
           </div>
-        </div>
-
-        <div class="kpi-card kpi-violet">
-          <div class="kpi-icon-wrap"><mat-icon>menu_book</mat-icon></div>
-          <div class="kpi-info">
-            <span class="kpi-label">H.W. Completion Rate</span>
-            <span class="kpi-val">{{ reportHeader.classAverageHwRate }}%</span>
+          <div class="kpi-card kpi-violet">
+            <div class="kpi-icon-wrap"><mat-icon>menu_book</mat-icon></div>
+            <div class="kpi-info">
+              <span class="kpi-label">H.W. Completion Rate</span>
+              <span class="kpi-val">{{ reportHeader.classAverageHwRate }}%</span>
+            </div>
           </div>
-        </div>
-
-        <div class="kpi-card kpi-amber">
-          <div class="kpi-icon-wrap"><mat-icon>hotel_class</mat-icon></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Manners &amp; Conduct</span>
-            <span class="kpi-val">{{ reportHeader.classAverageBehaviourStars }} / 5.0 ⭐</span>
+          <div class="kpi-card kpi-amber">
+            <div class="kpi-icon-wrap"><mat-icon>hotel_class</mat-icon></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Manners &amp; Conduct</span>
+              <span class="kpi-val">{{ reportHeader.classAverageBehaviourStars }} / 5.0 ⭐</span>
+            </div>
           </div>
+          @if (topPerformer) {
+            <div class="kpi-card kpi-gold">
+              <div class="kpi-icon-wrap"><mat-icon>military_tech</mat-icon></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Rank 1 (Topper)</span>
+                <span class="kpi-val-sm">{{ topPerformer.studentName }} ({{ topPerformer.overallPerformanceScore }}%)</span>
+              </div>
+            </div>
+          }
         </div>
-
-        <div class="kpi-card kpi-gold" *ngIf="topPerformer">
-          <div class="kpi-icon-wrap"><mat-icon>military_tech</mat-icon></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Rank 1 (Topper)</span>
-            <span class="kpi-val-sm">{{ topPerformer.studentName }} ({{ topPerformer.overallPerformanceScore }}%)</span>
-          </div>
-        </div>
-      </div>
-
+      }
+    
       <!-- Main Master Performance Table -->
-      <div class="table-container" *ngIf="students.length > 0" id="monthlyMasterPrintSection">
-        <!-- Print-Only School Header for Master Sheet -->
-        <div class="print-master-header">
-          <div class="pmh-school-name">{{ authService.getInstituteName() || 'Institution' }}</div>
-          <div class="pmh-title">STUDENT MONTHLY PERFORMANCE MASTER REGISTER</div>
-          <div class="pmh-meta-row">
-            <span>Month: <strong>{{ reportHeader?.monthName }} {{ reportHeader?.year }}</strong></span>
-            <span *ngIf="targetScope === 'school'">Class: <strong>{{ reportHeader?.className }}</strong> <strong *ngIf="reportHeader?.sectionName">({{ reportHeader?.sectionName }})</strong></span>
-            <span *ngIf="targetScope === 'coaching'">Batch: <strong>{{ reportHeader?.batchName || getSelectedBatchName() }}</strong></span>
+      @if (students.length > 0) {
+        <div class="table-container" id="monthlyMasterPrintSection">
+          <!-- Print-Only School Header for Master Sheet -->
+          <div class="print-master-header">
+            <div class="pmh-school-name">{{ authService.getInstituteName() || 'Institution' }}</div>
+            <div class="pmh-title">STUDENT MONTHLY PERFORMANCE MASTER REGISTER</div>
+            <div class="pmh-meta-row">
+              <span>Month: <strong>{{ reportHeader?.monthName }} {{ reportHeader?.year }}</strong></span>
+              @if (targetScope === 'school') {
+                <span>Class: <strong>{{ reportHeader?.className }}</strong> @if (reportHeader?.sectionName) {
+                <strong>({{ reportHeader?.sectionName }})</strong>
+              }</span>
+            }
+            @if (targetScope === 'coaching') {
+              <span>Batch: <strong>{{ reportHeader?.batchName || getSelectedBatchName() }}</strong></span>
+            }
             <span>Total Evaluated: <strong>{{ reportHeader?.totalStudentsEvaluated }}</strong></span>
             <span>Avg Attendance: <strong>{{ reportHeader?.classAverageAttendance }}%</strong></span>
             <span>HW Rate: <strong>{{ reportHeader?.classAverageHwRate }}%</strong></span>
             <span>Avg Behaviour: <strong>{{ reportHeader?.classAverageBehaviourStars }}/5.0 ⭐</strong></span>
           </div>
         </div>
-
         <table class="master-table">
           <thead>
             <tr>
@@ -312,77 +332,82 @@ export interface MonthlyPerformanceReportHeader {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let s of students; let i = index">
-              <td class="col-rank text-center">
-                <span class="rank-badge" [class.rank-1]="s.classRank === 1" [class.rank-2]="s.classRank === 2" [class.rank-3]="s.classRank === 3">
-                  {{ s.classRank === 1 ? '🥇' : (s.classRank === 2 ? '🥈' : (s.classRank === 3 ? '🥉' : '#' + s.classRank)) }}
-                </span>
-              </td>
-              <td class="col-roll text-center">{{ s.rollNumber || '—' }}</td>
-              <td class="col-name">
-                <span class="st-name-txt">{{ s.studentName }}</span>
-              </td>
-              <td class="col-metric text-center">
-                <span class="pct-pill" [ngClass]="getPercentClass(s.attendancePercentage)">
-                  {{ s.attendancePercentage }}%
-                </span>
-                <span class="sub-detail">({{ s.daysPresent }} / {{ s.totalWorkingDays }} days)</span>
-              </td>
-              <td class="col-metric text-center">
-                <span class="pct-pill" [ngClass]="getPercentClass(s.hwCompletionRate)">
-                  {{ s.hwCompletionRate }}%
-                </span>
-                <span class="sub-detail">({{ s.totalHwCompleted }} / {{ s.totalHwAssigned }} HW)</span>
-              </td>
-              <td class="col-metric text-center">
-                <span class="star-badge">
-                  ★ {{ s.behaviourAvgStars }}
-                </span>
-                <span class="sub-detail">{{ s.fiveStarDays }} days 5★</span>
-              </td>
-              <td class="col-metric text-center">
-                <span class="pct-pill" [ngClass]="getPercentClass(s.testAveragePercentage)">
-                  {{ s.testAveragePercentage }}%
-                </span>
-                <span class="sub-detail" *ngIf="s.subjectTests.length > 0">{{ s.subjectTests.length }} tests</span>
-                <span class="sub-detail" *ngIf="s.subjectTests.length === 0">No tests</span>
-              </td>
-              <td class="col-score text-center">
-                <strong class="score-txt">{{ s.overallPerformanceScore }}%</strong>
-              </td>
-              <td class="col-grade text-center">
-                <span class="print-grade-text">{{ s.overallGrade }}</span>
-                <select class="grade-select hide-on-print" [(ngModel)]="s.overallGrade" [ngClass]="getGradeClass(s.overallGrade)">
-                  <option value="A+">A+ (Outstanding)</option>
-                  <option value="A">A (Excellent)</option>
-                  <option value="B+">B+ (Very Good)</option>
-                  <option value="B">B (Good)</option>
-                  <option value="C">C (Needs Improvement)</option>
-                </select>
-              </td>
-              <td class="col-remarks">
-                <span class="print-remark-text">{{ s.teacherMonthlyRemark || '—' }}</span>
-                <input type="text" class="remark-edit-input hide-on-print" [(ngModel)]="s.teacherMonthlyRemark" placeholder="Enter teacher note for scorecard...">
-              </td>
-              <td class="col-action hide-on-print text-center">
-                <button mat-icon-button [matMenuTriggerFor]="studentActionMenu" class="row-3dots-btn" matTooltip="Actions">
-                  <mat-icon>more_vert</mat-icon>
-                </button>
-                <mat-menu #studentActionMenu="matMenu" class="smart-action-menu">
-                  <button mat-menu-item (click)="openStudentScorecard(s)">
-                    <mat-icon class="menu-icon-blue">badge</mat-icon>
-                    <span>View &amp; Print Scorecard</span>
+            @for (s of students; track s; let i = $index) {
+              <tr>
+                <td class="col-rank text-center">
+                  <span class="rank-badge" [class.rank-1]="s.classRank === 1" [class.rank-2]="s.classRank === 2" [class.rank-3]="s.classRank === 3">
+                    {{ s.classRank === 1 ? '🥇' : (s.classRank === 2 ? '🥈' : (s.classRank === 3 ? '🥉' : '#' + s.classRank)) }}
+                  </span>
+                </td>
+                <td class="col-roll text-center">{{ s.rollNumber || '—' }}</td>
+                <td class="col-name">
+                  <span class="st-name-txt">{{ s.studentName }}</span>
+                </td>
+                <td class="col-metric text-center">
+                  <span class="pct-pill" [ngClass]="getPercentClass(s.attendancePercentage)">
+                    {{ s.attendancePercentage }}%
+                  </span>
+                  <span class="sub-detail">({{ s.daysPresent }} / {{ s.totalWorkingDays }} days)</span>
+                </td>
+                <td class="col-metric text-center">
+                  <span class="pct-pill" [ngClass]="getPercentClass(s.hwCompletionRate)">
+                    {{ s.hwCompletionRate }}%
+                  </span>
+                  <span class="sub-detail">({{ s.totalHwCompleted }} / {{ s.totalHwAssigned }} HW)</span>
+                </td>
+                <td class="col-metric text-center">
+                  <span class="star-badge">
+                    ★ {{ s.behaviourAvgStars }}
+                  </span>
+                  <span class="sub-detail">{{ s.fiveStarDays }} days 5★</span>
+                </td>
+                <td class="col-metric text-center">
+                  <span class="pct-pill" [ngClass]="getPercentClass(s.testAveragePercentage)">
+                    {{ s.testAveragePercentage }}%
+                  </span>
+                  @if (s.subjectTests.length > 0) {
+                    <span class="sub-detail">{{ s.subjectTests.length }} tests</span>
+                  }
+                  @if (s.subjectTests.length === 0) {
+                    <span class="sub-detail">No tests</span>
+                  }
+                </td>
+                <td class="col-score text-center">
+                  <strong class="score-txt">{{ s.overallPerformanceScore }}%</strong>
+                </td>
+                <td class="col-grade text-center">
+                  <span class="print-grade-text">{{ s.overallGrade }}</span>
+                  <select class="grade-select hide-on-print" [(ngModel)]="s.overallGrade" [ngClass]="getGradeClass(s.overallGrade)">
+                    <option value="A+">A+ (Outstanding)</option>
+                    <option value="A">A (Excellent)</option>
+                    <option value="B+">B+ (Very Good)</option>
+                    <option value="B">B (Good)</option>
+                    <option value="C">C (Needs Improvement)</option>
+                  </select>
+                </td>
+                <td class="col-remarks">
+                  <span class="print-remark-text">{{ s.teacherMonthlyRemark || '—' }}</span>
+                  <input type="text" class="remark-edit-input hide-on-print" [(ngModel)]="s.teacherMonthlyRemark" placeholder="Enter teacher note for scorecard...">
+                </td>
+                <td class="col-action hide-on-print text-center">
+                  <button mat-icon-button [matMenuTriggerFor]="studentActionMenu" class="row-3dots-btn" matTooltip="Actions">
+                    <mat-icon>more_vert</mat-icon>
                   </button>
-                  <button mat-menu-item (click)="sendStudentWhatsApp(s)">
-                    <mat-icon class="menu-icon-green">chat</mat-icon>
-                    <span>Share on WhatsApp</span>
-                  </button>
-                </mat-menu>
-              </td>
-            </tr>
+                  <mat-menu #studentActionMenu="matMenu" class="smart-action-menu">
+                    <button mat-menu-item (click)="openStudentScorecard(s)">
+                      <mat-icon class="menu-icon-blue">badge</mat-icon>
+                      <span>View &amp; Print Scorecard</span>
+                    </button>
+                    <button mat-menu-item (click)="sendStudentWhatsApp(s)">
+                      <mat-icon class="menu-icon-green">chat</mat-icon>
+                      <span>Share on WhatsApp</span>
+                    </button>
+                  </mat-menu>
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
-
         <!-- Print-Only Signatures -->
         <div class="print-master-signatures">
           <div class="sig-col"><div class="sig-line"></div><span>Class Teacher</span></div>
@@ -390,8 +415,10 @@ export interface MonthlyPerformanceReportHeader {
           <div class="sig-col"><div class="sig-line"></div><span>Principal Sign &amp; Seal</span></div>
         </div>
       </div>
+    }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;
@@ -1486,7 +1513,7 @@ export class MonthlyPerformanceComponent implements OnInit {
               <p class="dialog-sub">Comprehensive 360° Evaluation • {{ data.header?.monthName }} • {{ data.student.studentName }}</p>
             </div>
           </div>
-
+    
           <div class="header-actions">
             <button mat-flat-button class="print-action-btn" (click)="printScorecard()">
               <mat-icon>print</mat-icon>
@@ -1498,162 +1525,173 @@ export class MonthlyPerformanceComponent implements OnInit {
           </div>
         </div>
       </div>
-
+    
       <!-- Printable A4 Portrait Paper Sheet -->
       <div class="modal-body-scroll">
         <div class="print-card-sheet" id="printableStudentScorecard">
           <!-- Top Institution Header -->
           <div class="sc-header-block">
-              <div class="sc-crest-box" [class.has-img]="logoUrl && !logoFailed">
-                <img *ngIf="logoUrl && !logoFailed"
-                     [src]="logoUrl"
-                     (error)="logoFailed = true"
-                     class="sc-crest-img"
-                     alt="Company Logo" />
-                <mat-icon *ngIf="!logoUrl || logoFailed" class="sc-crest-icon">school</mat-icon>
+            <div class="sc-crest-box" [class.has-img]="logoUrl && !logoFailed">
+              @if (logoUrl && !logoFailed) {
+                <img
+                  [src]="logoUrl"
+                  (error)="logoFailed = true"
+                  class="sc-crest-img"
+                  alt="Company Logo" />
+              }
+              @if (!logoUrl || logoFailed) {
+                <mat-icon class="sc-crest-icon">school</mat-icon>
+              }
+            </div>
+            <div class="sc-header-text">
+              <h1 class="sc-inst-name">{{ getInstitutionName() }}</h1>
+              <p class="sc-inst-sub">{{ data.header?.subtitleOrAddress || 'Main Road, Jnandeep Campus' }}</p>
+              <div class="sc-session-badges">
+                <span class="sc-pill-meta">Affiliated &amp; Recognized</span>
+                <span class="sc-dot">•</span>
+                <span class="sc-pill-meta">Academic Session: {{ getAcademicSession() }}</span>
+                <span class="sc-dot">•</span>
+                <span class="sc-pill-meta">Continuous Comprehensive Evaluation (CCE)</span>
               </div>
-              <div class="sc-header-text">
-                <h1 class="sc-inst-name">{{ getInstitutionName() }}</h1>
-                <p class="sc-inst-sub">{{ data.header?.subtitleOrAddress || 'Main Road, Jnandeep Campus' }}</p>
-                <div class="sc-session-badges">
-                  <span class="sc-pill-meta">Affiliated &amp; Recognized</span>
-                  <span class="sc-dot">•</span>
-                  <span class="sc-pill-meta">Academic Session: {{ getAcademicSession() }}</span>
-                  <span class="sc-dot">•</span>
-                  <span class="sc-pill-meta">Continuous Comprehensive Evaluation (CCE)</span>
+            </div>
+            <div class="sc-crest-box-right">
+              <div class="sc-stamp-seal">
+                <span class="seal-t">ESTD</span>
+                <span class="seal-y">2018</span>
+                <span class="seal-b">VERIFIED</span>
+              </div>
+            </div>
+          </div>
+    
+          <!-- Royal Ribbon Tag -->
+          <div class="sc-ribbon-tag">
+            <div class="ribbon-text">★ 360° STUDENT MONTHLY PERFORMANCE &amp; CONDUCT SCORECARD ★</div>
+            <div class="ribbon-month">MONTH: {{ (data.header?.monthName || 'OCTOBER 2026') | uppercase }}</div>
+          </div>
+    
+          <!-- Student Profile Box & Achievement Shield -->
+          <div class="sc-profile-wrapper">
+            <div class="sc-student-details">
+              <div class="student-avatar" [class.has-photo]="studentPhotoUrl && !photoFailed">
+                @if (studentPhotoUrl && !photoFailed) {
+                  <img
+                    [src]="studentPhotoUrl"
+                    (error)="photoFailed = true"
+                    class="student-avatar-img"
+                    alt="Student Photo" />
+                }
+                @if (!studentPhotoUrl || photoFailed) {
+                  <span>{{ (data.student.studentName || 'S').charAt(0) }}</span>
+                }
+              </div>
+              <div class="student-meta-grid">
+                <div class="meta-row-name">
+                  <span class="st-fullname">{{ data.student.studentName }}</span>
+                  @if (data.student.rollNumber) {
+                    <span class="roll-pill">Roll No: <strong>#{{ data.student.rollNumber }}</strong></span>
+                  }
                 </div>
-              </div>
-              <div class="sc-crest-box-right">
-                <div class="sc-stamp-seal">
-                  <span class="seal-t">ESTD</span>
-                  <span class="seal-y">2018</span>
-                  <span class="seal-b">VERIFIED</span>
+                <div class="meta-specs-grid">
+                  <div class="spec-item">
+                    <span class="spec-label">{{ data.header?.batchName ? 'Coaching Batch' : 'Class &amp; Section' }}</span>
+                    <span class="spec-value">{{ data.header?.batchName || (data.student.className + (data.student.sectionName ? ' (' + data.student.sectionName + ')' : '')) }}</span>
+                  </div>
+                  <div class="spec-item">
+                    <span class="spec-label">Evaluation Month</span>
+                    <span class="spec-value highlight">{{ data.header?.monthName }}</span>
+                  </div>
+                  <div class="spec-item">
+                    <span class="spec-label">Class Teacher / Mentor</span>
+                    <span class="spec-value">{{ data.header?.classTeacherName || 'Class Mentor' }}</span>
+                  </div>
+                  <div class="spec-item">
+                    <span class="spec-label">Admission ID</span>
+                    <span class="spec-value code">{{ getStudentAdmNo() }}</span>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <!-- Royal Ribbon Tag -->
-            <div class="sc-ribbon-tag">
-              <div class="ribbon-text">★ 360° STUDENT MONTHLY PERFORMANCE &amp; CONDUCT SCORECARD ★</div>
-              <div class="ribbon-month">MONTH: {{ (data.header?.monthName || 'OCTOBER 2026') | uppercase }}</div>
-            </div>
-
-            <!-- Student Profile Box & Achievement Shield -->
-            <div class="sc-profile-wrapper">
-              <div class="sc-student-details">
-                <div class="student-avatar" [class.has-photo]="studentPhotoUrl && !photoFailed">
-                  <img *ngIf="studentPhotoUrl && !photoFailed"
-                       [src]="studentPhotoUrl"
-                       (error)="photoFailed = true"
-                       class="student-avatar-img"
-                       alt="Student Photo" />
-                  <span *ngIf="!studentPhotoUrl || photoFailed">{{ (data.student.studentName || 'S').charAt(0) }}</span>
+    
+            <!-- Achievement Trophy Shield -->
+            <div class="sc-achievement-shield">
+              <div class="shield-badge">
+                <span class="shield-title">OVERALL GRADE</span>
+                <span class="shield-grade">{{ data.student.overallGrade }}</span>
+                <div class="shield-rank">
+                  <mat-icon class="rank-trophy">military_tech</mat-icon>
+                  <span>Rank #{{ data.student.classRank }} {{ data.student.classRank === 1 ? '• TOPPER' : '' }}</span>
                 </div>
-                <div class="student-meta-grid">
-                  <div class="meta-row-name">
-                    <span class="st-fullname">{{ data.student.studentName }}</span>
-                    <span class="roll-pill" *ngIf="data.student.rollNumber">Roll No: <strong>#{{ data.student.rollNumber }}</strong></span>
-                  </div>
-                  <div class="meta-specs-grid">
-                    <div class="spec-item">
-                      <span class="spec-label">{{ data.header?.batchName ? 'Coaching Batch' : 'Class &amp; Section' }}</span>
-                      <span class="spec-value">{{ data.header?.batchName || (data.student.className + (data.student.sectionName ? ' (' + data.student.sectionName + ')' : '')) }}</span>
-                    </div>
-                    <div class="spec-item">
-                      <span class="spec-label">Evaluation Month</span>
-                      <span class="spec-value highlight">{{ data.header?.monthName }}</span>
-                    </div>
-                    <div class="spec-item">
-                      <span class="spec-label">Class Teacher / Mentor</span>
-                      <span class="spec-value">{{ data.header?.classTeacherName || 'Class Mentor' }}</span>
-                    </div>
-                    <div class="spec-item">
-                      <span class="spec-label">Admission ID</span>
-                      <span class="spec-value code">{{ getStudentAdmNo() }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Achievement Trophy Shield -->
-              <div class="sc-achievement-shield">
-                <div class="shield-badge">
-                  <span class="shield-title">OVERALL GRADE</span>
-                  <span class="shield-grade">{{ data.student.overallGrade }}</span>
-                  <div class="shield-rank">
-                    <mat-icon class="rank-trophy">military_tech</mat-icon>
-                    <span>Rank #{{ data.student.classRank }} {{ data.student.classRank === 1 ? '• TOPPER' : '' }}</span>
-                  </div>
-                  <div class="shield-score">{{ data.student.overallPerformanceScore }}% Composite</div>
-                </div>
+                <div class="shield-score">{{ data.student.overallPerformanceScore }}% Composite</div>
               </div>
             </div>
-
-            <!-- 4 Key Performance Pillars -->
-            <div class="sc-pillars-section">
-              <!-- Pillar 1: Attendance -->
-              <div class="sc-pillar-card p-att">
-                <div class="pillar-top">
-                  <div class="pillar-icon p-att-icon">
-                    <mat-icon>event_available</mat-icon>
-                  </div>
-                  <span class="pillar-title">Attendance (उपस्थिति)</span>
+          </div>
+    
+          <!-- 4 Key Performance Pillars -->
+          <div class="sc-pillars-section">
+            <!-- Pillar 1: Attendance -->
+            <div class="sc-pillar-card p-att">
+              <div class="pillar-top">
+                <div class="pillar-icon p-att-icon">
+                  <mat-icon>event_available</mat-icon>
                 </div>
-                <div class="pillar-score p-att-text">{{ data.student.attendancePercentage }}%</div>
-                <div class="pillar-progress-track">
-                  <div class="pillar-progress-fill p-att-fill" [style.width.%]="data.student.attendancePercentage"></div>
-                </div>
-                <div class="pillar-meta">Present: <strong>{{ data.student.daysPresent }}</strong> / {{ data.student.totalWorkingDays }} Days</div>
+                <span class="pillar-title">Attendance (उपस्थिति)</span>
               </div>
-
-              <!-- Pillar 2: H.W. Discipline -->
-              <div class="sc-pillar-card p-hw">
-                <div class="pillar-top">
-                  <div class="pillar-icon p-hw-icon">
-                    <mat-icon>menu_book</mat-icon>
-                  </div>
-                  <span class="pillar-title">H.W. Consistency</span>
-                </div>
-                <div class="pillar-score p-hw-text">{{ data.student.hwCompletionRate }}%</div>
-                <div class="pillar-progress-track">
-                  <div class="pillar-progress-fill p-hw-fill" [style.width.%]="data.student.hwCompletionRate"></div>
-                </div>
-                <div class="pillar-meta">Completed: <strong>{{ data.student.totalHwCompleted }}</strong> / {{ data.student.totalHwAssigned }} Tasks</div>
+              <div class="pillar-score p-att-text">{{ data.student.attendancePercentage }}%</div>
+              <div class="pillar-progress-track">
+                <div class="pillar-progress-fill p-att-fill" [style.width.%]="data.student.attendancePercentage"></div>
               </div>
-
-              <!-- Pillar 3: Good Manners & Conduct -->
-              <div class="sc-pillar-card p-beh">
-                <div class="pillar-top">
-                  <div class="pillar-icon p-beh-icon">
-                    <mat-icon>hotel_class</mat-icon>
-                  </div>
-                  <span class="pillar-title">Manners &amp; Conduct</span>
-                </div>
-                <div class="pillar-score p-beh-text">★ {{ data.student.behaviourAvgStars }} <span class="max-star">/ 5.0</span></div>
-                <div class="pillar-progress-track">
-                  <div class="pillar-progress-fill p-beh-fill" [style.width.%]="(data.student.behaviourAvgStars / 5) * 100"></div>
-                </div>
-                <div class="pillar-meta">Uniform: <strong>{{ data.student.dominantUniformStatus }}</strong></div>
-              </div>
-
-              <!-- Pillar 4: Academic Tests -->
-              <div class="sc-pillar-card p-acad">
-                <div class="pillar-top">
-                  <div class="pillar-icon p-acad-icon">
-                    <mat-icon>assessment</mat-icon>
-                  </div>
-                  <span class="pillar-title">Academic Score</span>
-                </div>
-                <div class="pillar-score p-acad-text">{{ data.student.testAveragePercentage }}%</div>
-                <div class="pillar-progress-track">
-                  <div class="pillar-progress-fill p-acad-fill" [style.width.%]="data.student.testAveragePercentage"></div>
-                </div>
-                <div class="pillar-meta">Obt: <strong>{{ data.student.totalTestMarksObtained }}</strong> / {{ data.student.totalTestMaxMarks }}</div>
-              </div>
+              <div class="pillar-meta">Present: <strong>{{ data.student.daysPresent }}</strong> / {{ data.student.totalWorkingDays }} Days</div>
             </div>
-
-            <!-- Academic Subject Marks Table (if present) -->
-            <div class="sc-table-section" *ngIf="data.student.subjectTests && data.student.subjectTests.length > 0">
+    
+            <!-- Pillar 2: H.W. Discipline -->
+            <div class="sc-pillar-card p-hw">
+              <div class="pillar-top">
+                <div class="pillar-icon p-hw-icon">
+                  <mat-icon>menu_book</mat-icon>
+                </div>
+                <span class="pillar-title">H.W. Consistency</span>
+              </div>
+              <div class="pillar-score p-hw-text">{{ data.student.hwCompletionRate }}%</div>
+              <div class="pillar-progress-track">
+                <div class="pillar-progress-fill p-hw-fill" [style.width.%]="data.student.hwCompletionRate"></div>
+              </div>
+              <div class="pillar-meta">Completed: <strong>{{ data.student.totalHwCompleted }}</strong> / {{ data.student.totalHwAssigned }} Tasks</div>
+            </div>
+    
+            <!-- Pillar 3: Good Manners & Conduct -->
+            <div class="sc-pillar-card p-beh">
+              <div class="pillar-top">
+                <div class="pillar-icon p-beh-icon">
+                  <mat-icon>hotel_class</mat-icon>
+                </div>
+                <span class="pillar-title">Manners &amp; Conduct</span>
+              </div>
+              <div class="pillar-score p-beh-text">★ {{ data.student.behaviourAvgStars }} <span class="max-star">/ 5.0</span></div>
+              <div class="pillar-progress-track">
+                <div class="pillar-progress-fill p-beh-fill" [style.width.%]="(data.student.behaviourAvgStars / 5) * 100"></div>
+              </div>
+              <div class="pillar-meta">Uniform: <strong>{{ data.student.dominantUniformStatus }}</strong></div>
+            </div>
+    
+            <!-- Pillar 4: Academic Tests -->
+            <div class="sc-pillar-card p-acad">
+              <div class="pillar-top">
+                <div class="pillar-icon p-acad-icon">
+                  <mat-icon>assessment</mat-icon>
+                </div>
+                <span class="pillar-title">Academic Score</span>
+              </div>
+              <div class="pillar-score p-acad-text">{{ data.student.testAveragePercentage }}%</div>
+              <div class="pillar-progress-track">
+                <div class="pillar-progress-fill p-acad-fill" [style.width.%]="data.student.testAveragePercentage"></div>
+              </div>
+              <div class="pillar-meta">Obt: <strong>{{ data.student.totalTestMarksObtained }}</strong> / {{ data.student.totalTestMaxMarks }}</div>
+            </div>
+          </div>
+    
+          <!-- Academic Subject Marks Table (if present) -->
+          @if (data.student.subjectTests && data.student.subjectTests.length > 0) {
+            <div class="sc-table-section">
               <div class="section-badge-header">
                 <mat-icon>auto_stories</mat-icon>
                 <span>Academic &amp; Monthly Unit Assessments</span>
@@ -1671,20 +1709,22 @@ export class MonthlyPerformanceComponent implements OnInit {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let st of data.student.subjectTests; let i = index">
-                      <td class="text-center num-muted">{{ i + 1 }}</td>
-                      <td><strong class="sub-name">{{ st.subjectName }}</strong></td>
-                      <td class="text-center num-col">{{ st.maxMarks }}</td>
-                      <td class="text-center num-col obt-col"><strong>{{ st.obtainedMarks }}</strong></td>
-                      <td class="text-center">
-                        <div class="table-pct-cell">
-                          <span>{{ st.percentage }}%</span>
-                        </div>
-                      </td>
-                      <td class="text-center">
-                        <span class="table-grade-badge" [ngClass]="getGradeBadgeClass(st.grade)">{{ st.grade }}</span>
-                      </td>
-                    </tr>
+                    @for (st of data.student.subjectTests; track st; let i = $index) {
+                      <tr>
+                        <td class="text-center num-muted">{{ i + 1 }}</td>
+                        <td><strong class="sub-name">{{ st.subjectName }}</strong></td>
+                        <td class="text-center num-col">{{ st.maxMarks }}</td>
+                        <td class="text-center num-col obt-col"><strong>{{ st.obtainedMarks }}</strong></td>
+                        <td class="text-center">
+                          <div class="table-pct-cell">
+                            <span>{{ st.percentage }}%</span>
+                          </div>
+                        </td>
+                        <td class="text-center">
+                          <span class="table-grade-badge" [ngClass]="getGradeBadgeClass(st.grade)">{{ st.grade }}</span>
+                        </td>
+                      </tr>
+                    }
                     <!-- Summary row -->
                     <tr class="sc-total-row">
                       <td colspan="2" class="text-right"><strong>Aggregate Assessment Total:</strong></td>
@@ -1697,31 +1737,33 @@ export class MonthlyPerformanceComponent implements OnInit {
                 </table>
               </div>
             </div>
-
-            <!-- Teacher Monthly Appraisal Remark Card -->
-            <div class="sc-teacher-card">
-              <div class="tc-header">
-                <mat-icon>rate_review</mat-icon>
-                <span>Class Teacher Monthly Appraisal &amp; Remarks</span>
-              </div>
-              <div class="tc-quote">
-                <span class="quote-symbol">“</span>
-                <p class="quote-text">{{ data.student.teacherMonthlyRemark || 'Consistent performance throughout the month. Shows polite behavior, active participation, and enthusiasm in daily classroom learning.' }}</p>
-                <span class="quote-symbol right">”</span>
-              </div>
+          }
+    
+          <!-- Teacher Monthly Appraisal Remark Card -->
+          <div class="sc-teacher-card">
+            <div class="tc-header">
+              <mat-icon>rate_review</mat-icon>
+              <span>Class Teacher Monthly Appraisal &amp; Remarks</span>
             </div>
-
-            <!-- Signatures & Official Seal Block -->
-            <div class="sc-signatures-block">
-              <div class="sig-unit">
-                <div class="sig-space"></div>
-                <div class="sig-line"></div>
-                <span class="sig-role">Class Teacher</span>
-                <span class="sig-title">Evaluator</span>
-              </div>
-
-              <div class="sig-seal-center">
-                <div class="official-seal-circle" *ngIf="!officialSealUrl">
+            <div class="tc-quote">
+              <span class="quote-symbol">“</span>
+              <p class="quote-text">{{ data.student.teacherMonthlyRemark || 'Consistent performance throughout the month. Shows polite behavior, active participation, and enthusiasm in daily classroom learning.' }}</p>
+              <span class="quote-symbol right">”</span>
+            </div>
+          </div>
+    
+          <!-- Signatures & Official Seal Block -->
+          <div class="sc-signatures-block">
+            <div class="sig-unit">
+              <div class="sig-space"></div>
+              <div class="sig-line"></div>
+              <span class="sig-role">Class Teacher</span>
+              <span class="sig-title">Evaluator</span>
+            </div>
+    
+            <div class="sig-seal-center">
+              @if (!officialSealUrl) {
+                <div class="official-seal-circle">
                   <div class="seal-inner-circle">
                     <span class="seal-star">★</span>
                     <span class="seal-campus-name">{{ getShortInstituteName() }}</span>
@@ -1729,36 +1771,42 @@ export class MonthlyPerformanceComponent implements OnInit {
                     <span class="seal-star">★</span>
                   </div>
                 </div>
-                <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
-                <span class="seal-caption">Official Stamp</span>
-              </div>
-
-              <div class="sig-unit">
-                <div class="sig-space"></div>
-                <div class="sig-line"></div>
-                <span class="sig-role">Parent / Guardian</span>
-                <span class="sig-title">Acknowledgement</span>
-              </div>
-
-              <div class="sig-unit">
-                <div class="sig-space sign-img-space">
-                  <img *ngIf="digitalSignatureUrl" [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
-                </div>
-                <div class="sig-line"></div>
-                <span class="sig-role">Principal / Head</span>
-                <span class="sig-title">Authorized Signatory</span>
-              </div>
+              }
+              @if (officialSealUrl) {
+                <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              }
+              <span class="seal-caption">Official Stamp</span>
             </div>
-
-            <!-- Security & Verification Micro Footer -->
-            <div class="sc-bottom-footer">
-              <span>This is an authentic computer-generated scorecard verified by {{ getInstitutionName() }} IMSERP Cloud.</span>
-              <span>Date: {{ todayDateIst }}</span>
+    
+            <div class="sig-unit">
+              <div class="sig-space"></div>
+              <div class="sig-line"></div>
+              <span class="sig-role">Parent / Guardian</span>
+              <span class="sig-title">Acknowledgement</span>
             </div>
+    
+            <div class="sig-unit">
+              <div class="sig-space sign-img-space">
+                @if (digitalSignatureUrl) {
+                  <img [src]="digitalSignatureUrl" alt="Principal Signature" class="digital-sign-img" />
+                }
+              </div>
+              <div class="sig-line"></div>
+              <span class="sig-role">Principal / Head</span>
+              <span class="sig-title">Authorized Signatory</span>
+            </div>
+          </div>
+    
+          <!-- Security & Verification Micro Footer -->
+          <div class="sc-bottom-footer">
+            <span>This is an authentic computer-generated scorecard verified by {{ getInstitutionName() }} IMSERP Cloud.</span>
+            <span>Date: {{ todayDateIst }}</span>
+          </div>
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: flex;
@@ -1869,8 +1917,8 @@ export class MonthlyPerformanceComponent implements OnInit {
       cursor: pointer !important;
       line-height: 1 !important;
       transition: all 0.15s ease !important;
-      --mdc-icon-button-state-layer-size: 32px !important;
-      --mdc-icon-button-icon-size: 20px !important;
+      --mat-icon-button-state-layer-size: 32px !important;
+      --mat-icon-button-icon-size: 20px !important;
 
       mat-icon {
         font-size: 20px !important;

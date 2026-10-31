@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -25,7 +25,6 @@ export interface StudentPortalLoginDialogData {
   selector: 'app-student-portal-login-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -35,7 +34,7 @@ export interface StudentPortalLoginDialogData {
     MatProgressBarModule,
     MatProgressSpinnerModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <!-- Standard Light Blue Gradient Dialog Header (IMSERP Strict UI Rule) -->
@@ -47,202 +46,228 @@ export interface StudentPortalLoginDialogData {
           <h2 class="dialog-title">Student &amp; Parent Portal Logins</h2>
           <p class="dialog-subtitle">
             <strong>{{ data.studentName }}</strong>
-            <span *ngIf="loginInfo?.classOrBatch">&nbsp;•&nbsp;{{ loginInfo?.classOrBatch }}</span>
-            <span *ngIf="loginInfo?.admissionNumber || loginInfo?.rollNumber">&nbsp;•&nbsp;Adm/Roll: <strong>{{ loginInfo?.admissionNumber || loginInfo?.rollNumber }}</strong></span>
+            @if (loginInfo?.classOrBatch) {
+              <span>&nbsp;•&nbsp;{{ loginInfo?.classOrBatch }}</span>
+            }
+            @if (loginInfo?.admissionNumber || loginInfo?.rollNumber) {
+              <span>&nbsp;•&nbsp;Adm/Roll: <strong>{{ loginInfo?.admissionNumber || loginInfo?.rollNumber }}</strong></span>
+            }
           </p>
         </div>
         <button mat-icon-button class="dialog-close-btn" (click)="closeDialog()" [disabled]="saving">
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
-
-      <div class="dialog-body" *ngIf="!loading && loginInfo">
-        <!-- Quick Action: Both Accounts 1-Click Provisioning -->
-        <div class="both-provision-banner" *ngIf="!loginInfo.hasStudentAccount && !loginInfo.hasParentAccount">
-          <div class="banner-text">
-            <mat-icon class="banner-icon">bolt</mat-icon>
-            <div>
-              <strong>Quick 1-Click Setup:</strong>
-              <p>Generate both Student and Parent portal accounts simultaneously with recommended credentials.</p>
-            </div>
-          </div>
-          <button mat-raised-button color="primary" class="btn-both-setup" (click)="createBothAccounts()" [disabled]="saving">
-            <mat-icon *ngIf="!saving">rocket_launch</mat-icon>
-            <mat-spinner diameter="18" *ngIf="saving"></mat-spinner>
-            <span>Create Both Logins Now</span>
-          </button>
-        </div>
-
-        <div class="accounts-grid">
-          <!-- 🎓 Student Portal Account Card -->
-          <div class="account-card student-card" [class.is-active]="loginInfo.hasStudentAccount">
-            <div class="card-head">
-              <div class="card-title-box">
-                <div class="card-icon student-ico" [class.has-avatar]="!!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)">
-                  <img *ngIf="studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto" [src]="getPhotoUrl(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)" [alt]="data.studentName" class="student-avatar-img" />
-                  <mat-icon *ngIf="!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)">school</mat-icon>
-                </div>
+    
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
+      @if (!loading && loginInfo) {
+        <div class="dialog-body">
+          <!-- Quick Action: Both Accounts 1-Click Provisioning -->
+          @if (!loginInfo.hasStudentAccount && !loginInfo.hasParentAccount) {
+            <div class="both-provision-banner">
+              <div class="banner-text">
+                <mat-icon class="banner-icon">bolt</mat-icon>
                 <div>
-                  <h3 class="card-title">Student Login Account</h3>
-                  <span class="card-role-desc">Role: Student Portal User</span>
+                  <strong>Quick 1-Click Setup:</strong>
+                  <p>Generate both Student and Parent portal accounts simultaneously with recommended credentials.</p>
                 </div>
               </div>
-              <span class="status-pill" [class.active]="loginInfo.hasStudentAccount">
-                <mat-icon>{{ loginInfo.hasStudentAccount ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                <span>{{ loginInfo.hasStudentAccount ? 'Active (@' + loginInfo.studentUsername + ')' : 'Not Created' }}</span>
-              </span>
-            </div>
-
-            <!-- Student Photo Upload Strip -->
-            <div class="photo-upload-strip">
-              <div class="avatar-preview-box">
-                <img *ngIf="studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto" 
-                     [src]="getPhotoUrl(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)" 
-                     class="avatar-preview-img" alt="Student Photo" />
-                <mat-icon *ngIf="!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)" class="avatar-fallback-icon">account_circle</mat-icon>
-              </div>
-              <div class="photo-meta-group">
-                <div class="photo-title">Student Profile Photo</div>
-                <div class="photo-hint">PNG, JPG or WEBP up to 2MB</div>
-                <div class="photo-buttons">
-                  <input type="file" #studentPhotoInput (change)="onStudentPhotoSelected($event)" accept="image/png,image/jpeg,image/webp" style="display: none;" />
-                  <button mat-stroked-button type="button" class="upload-btn" (click)="studentPhotoInput.click()">
-                    <mat-icon>photo_camera</mat-icon>
-                    <span>{{ (studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto) ? 'Change Photo' : 'Upload Photo' }}</span>
-                  </button>
-                  <button mat-button color="warn" type="button" class="remove-btn" *ngIf="studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto" (click)="removeStudentPhoto()">
-                    <mat-icon>delete_outline</mat-icon>
-                    <span>Remove</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="card-fields">
-              <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
-                <mat-label>Student Username</mat-label>
-                <input matInput [(ngModel)]="studentUsername" [disabled]="loginInfo.hasStudentAccount && !editingStudentUsername" placeholder="e.g. adm2026.102" />
-                <button mat-icon-button matSuffix *ngIf="loginInfo.hasStudentAccount && !editingStudentUsername" (click)="editingStudentUsername = true" matTooltip="Edit username">
-                  <mat-icon class="suffix-btn-icon">edit</mat-icon>
-                </button>
-                <button mat-icon-button matSuffix (click)="copyText(studentUsername, 'Student Username')" matTooltip="Copy username">
-                  <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
-                </button>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
-                <mat-label>{{ loginInfo.hasStudentAccount ? 'Set New Password' : 'Password' }}</mat-label>
-                <input matInput [type]="hideStudentPassword ? 'password' : 'text'" [(ngModel)]="studentPassword" placeholder="e.g. Student@2026" />
-                <button mat-icon-button matSuffix type="button" (click)="hideStudentPassword = !hideStudentPassword" matTooltip="Toggle password visibility">
-                  <mat-icon class="suffix-btn-icon">{{ hideStudentPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
-                </button>
-                <button mat-icon-button matSuffix type="button" (click)="copyText(studentPassword, 'Student Password')" matTooltip="Copy password">
-                  <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
-                </button>
-              </mat-form-field>
-            </div>
-
-            <div class="card-action-bar">
-              <span class="cred-hint" *ngIf="!loginInfo.hasStudentAccount">
-                <mat-icon class="hint-ico">info_outline</mat-icon> Default: Admission/Roll No &bull; DOB
-              </span>
-              <span class="cred-hint active" *ngIf="loginInfo.hasStudentAccount">
-                <mat-icon class="hint-ico">verified</mat-icon> Account linked &amp; ready to sign in
-              </span>
-
-              <button mat-stroked-button color="primary" class="btn-account-action" (click)="createStudentAccount()" [disabled]="saving">
-                <mat-icon>{{ loginInfo.hasStudentAccount ? 'lock_reset' : 'person_add' }}</mat-icon>
-                <span>{{ loginInfo.hasStudentAccount ? 'Reset Password' : 'Create Student Login' }}</span>
+              <button mat-raised-button color="primary" class="btn-both-setup" (click)="createBothAccounts()" [disabled]="saving">
+                @if (!saving) {
+                  <mat-icon>rocket_launch</mat-icon>
+                }
+                @if (saving) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                }
+                <span>Create Both Logins Now</span>
               </button>
             </div>
-          </div>
-
-          <!-- 👨‍👩‍👦 Parent Portal Account Card -->
-          <div class="account-card parent-card" [class.is-active]="loginInfo.hasParentAccount">
-            <div class="card-head">
-              <div class="card-title-box">
-                <div class="card-icon parent-ico"><mat-icon>family_restroom</mat-icon></div>
-                <div>
-                  <h3 class="card-title">Parent Login Account</h3>
-                  <span class="card-role-desc">Parent: <strong>{{ loginInfo.parentName || 'Guardian' }}</strong></span>
+          }
+          <div class="accounts-grid">
+            <!-- 🎓 Student Portal Account Card -->
+            <div class="account-card student-card" [class.is-active]="loginInfo.hasStudentAccount">
+              <div class="card-head">
+                <div class="card-title-box">
+                  <div class="card-icon student-ico" [class.has-avatar]="!!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)">
+                    @if (studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto) {
+                      <img [src]="getPhotoUrl(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)" [alt]="data.studentName" class="student-avatar-img" />
+                    }
+                    @if (!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)) {
+                      <mat-icon>school</mat-icon>
+                    }
+                  </div>
+                  <div>
+                    <h3 class="card-title">Student Login Account</h3>
+                    <span class="card-role-desc">Role: Student Portal User</span>
+                  </div>
+                </div>
+                <span class="status-pill" [class.active]="loginInfo.hasStudentAccount">
+                  <mat-icon>{{ loginInfo.hasStudentAccount ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  <span>{{ loginInfo.hasStudentAccount ? 'Active (@' + loginInfo.studentUsername + ')' : 'Not Created' }}</span>
+                </span>
+              </div>
+              <!-- Student Photo Upload Strip -->
+              <div class="photo-upload-strip">
+                <div class="avatar-preview-box">
+                  @if (studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto) {
+                    <img
+                      [src]="getPhotoUrl(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)"
+                      class="avatar-preview-img" alt="Student Photo" />
+                  }
+                  @if (!(studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto)) {
+                    <mat-icon class="avatar-fallback-icon">account_circle</mat-icon>
+                  }
+                </div>
+                <div class="photo-meta-group">
+                  <div class="photo-title">Student Profile Photo</div>
+                  <div class="photo-hint">PNG, JPG or WEBP up to 2MB</div>
+                  <div class="photo-buttons">
+                    <input type="file" #studentPhotoInput (change)="onStudentPhotoSelected($event)" accept="image/png,image/jpeg,image/webp" style="display: none;" />
+                    <button mat-stroked-button type="button" class="upload-btn" (click)="studentPhotoInput.click()">
+                      <mat-icon>photo_camera</mat-icon>
+                      <span>{{ (studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto) ? 'Change Photo' : 'Upload Photo' }}</span>
+                    </button>
+                    @if (studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto) {
+                      <button mat-button color="warn" type="button" class="remove-btn" (click)="removeStudentPhoto()">
+                        <mat-icon>delete_outline</mat-icon>
+                        <span>Remove</span>
+                      </button>
+                    }
+                  </div>
                 </div>
               </div>
-              <span class="status-pill" [class.active]="loginInfo.hasParentAccount">
-                <mat-icon>{{ loginInfo.hasParentAccount ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                <span>{{ loginInfo.hasParentAccount ? 'Active (@' + loginInfo.parentUsername + ')' : 'Not Created' }}</span>
-              </span>
-            </div>
-
-            <!-- Sibling Link Alert if Parent Phone matches other children -->
-            <div class="sibling-link-banner" *ngIf="loginInfo.isParentLinkedToSiblings">
-              <mat-icon>groups</mat-icon>
-              <span>Shared Parent Phone linked to sibling(s): <strong>{{ loginInfo.siblingNames.join(', ') }}</strong>. Creating/linking this login grants single-parent access for all children!</span>
-            </div>
-
-            <div class="card-fields">
-              <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
-                <mat-label>Parent Mobile / Username</mat-label>
-                <input matInput [(ngModel)]="parentUsername" [disabled]="loginInfo.hasParentAccount" placeholder="e.g. 9876543210" />
-                <button mat-icon-button matSuffix (click)="copyText(parentUsername, 'Parent Username')" matTooltip="Copy username">
-                  <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
+              <div class="card-fields">
+                <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
+                  <mat-label>Student Username</mat-label>
+                  <input matInput [(ngModel)]="studentUsername" [disabled]="loginInfo.hasStudentAccount && !editingStudentUsername" placeholder="e.g. adm2026.102" />
+                  @if (loginInfo.hasStudentAccount && !editingStudentUsername) {
+                    <button mat-icon-button matSuffix (click)="editingStudentUsername = true" matTooltip="Edit username">
+                      <mat-icon class="suffix-btn-icon">edit</mat-icon>
+                    </button>
+                  }
+                  <button mat-icon-button matSuffix (click)="copyText(studentUsername, 'Student Username')" matTooltip="Copy username">
+                    <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
+                  </button>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
+                  <mat-label>{{ loginInfo.hasStudentAccount ? 'Set New Password' : 'Password' }}</mat-label>
+                  <input matInput [type]="hideStudentPassword ? 'password' : 'text'" [(ngModel)]="studentPassword" placeholder="e.g. Student@2026" />
+                  <button mat-icon-button matSuffix type="button" (click)="hideStudentPassword = !hideStudentPassword" matTooltip="Toggle password visibility">
+                    <mat-icon class="suffix-btn-icon">{{ hideStudentPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  </button>
+                  <button mat-icon-button matSuffix type="button" (click)="copyText(studentPassword, 'Student Password')" matTooltip="Copy password">
+                    <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
+                  </button>
+                </mat-form-field>
+              </div>
+              <div class="card-action-bar">
+                @if (!loginInfo.hasStudentAccount) {
+                  <span class="cred-hint">
+                    <mat-icon class="hint-ico">info_outline</mat-icon> Default: Admission/Roll No &bull; DOB
+                  </span>
+                }
+                @if (loginInfo.hasStudentAccount) {
+                  <span class="cred-hint active">
+                    <mat-icon class="hint-ico">verified</mat-icon> Account linked &amp; ready to sign in
+                  </span>
+                }
+                <button mat-stroked-button color="primary" class="btn-account-action" (click)="createStudentAccount()" [disabled]="saving">
+                  <mat-icon>{{ loginInfo.hasStudentAccount ? 'lock_reset' : 'person_add' }}</mat-icon>
+                  <span>{{ loginInfo.hasStudentAccount ? 'Reset Password' : 'Create Student Login' }}</span>
                 </button>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
-                <mat-label>{{ loginInfo.hasParentAccount ? 'Set New Password' : 'Password' }}</mat-label>
-                <input matInput [type]="hideParentPassword ? 'password' : 'text'" [(ngModel)]="parentPassword" placeholder="e.g. Parent@2026" />
-                <button mat-icon-button matSuffix type="button" (click)="hideParentPassword = !hideParentPassword" matTooltip="Toggle password visibility">
-                  <mat-icon class="suffix-btn-icon">{{ hideParentPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
-                </button>
-                <button mat-icon-button matSuffix type="button" (click)="copyText(parentPassword, 'Parent Password')" matTooltip="Copy password">
-                  <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
-                </button>
-              </mat-form-field>
+              </div>
             </div>
-
-            <div class="card-action-bar">
-              <span class="cred-hint" *ngIf="!loginInfo.hasParentAccount">
-                <mat-icon class="hint-ico">info_outline</mat-icon> Default: WhatsApp Mobile &bull; Parent&#64;2026
-              </span>
-              <span class="cred-hint active" *ngIf="loginInfo.hasParentAccount">
-                <mat-icon class="hint-ico">verified</mat-icon> Account linked &amp; ready to sign in
-              </span>
-
-              <button mat-stroked-button color="primary" class="btn-account-action" (click)="createParentAccount()" [disabled]="saving">
-                <mat-icon>{{ loginInfo.hasParentAccount ? 'lock_reset' : 'person_add' }}</mat-icon>
-                <span>{{ loginInfo.hasParentAccount ? 'Reset Password' : 'Create Parent Login' }}</span>
-              </button>
+            <!-- 👨‍👩‍👦 Parent Portal Account Card -->
+            <div class="account-card parent-card" [class.is-active]="loginInfo.hasParentAccount">
+              <div class="card-head">
+                <div class="card-title-box">
+                  <div class="card-icon parent-ico"><mat-icon>family_restroom</mat-icon></div>
+                  <div>
+                    <h3 class="card-title">Parent Login Account</h3>
+                    <span class="card-role-desc">Parent: <strong>{{ loginInfo.parentName || 'Guardian' }}</strong></span>
+                  </div>
+                </div>
+                <span class="status-pill" [class.active]="loginInfo.hasParentAccount">
+                  <mat-icon>{{ loginInfo.hasParentAccount ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  <span>{{ loginInfo.hasParentAccount ? 'Active (@' + loginInfo.parentUsername + ')' : 'Not Created' }}</span>
+                </span>
+              </div>
+              <!-- Sibling Link Alert if Parent Phone matches other children -->
+              @if (loginInfo.isParentLinkedToSiblings) {
+                <div class="sibling-link-banner">
+                  <mat-icon>groups</mat-icon>
+                  <span>Shared Parent Phone linked to sibling(s): <strong>{{ loginInfo.siblingNames.join(', ') }}</strong>. Creating/linking this login grants single-parent access for all children!</span>
+                </div>
+              }
+              <div class="card-fields">
+                <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
+                  <mat-label>Parent Mobile / Username</mat-label>
+                  <input matInput [(ngModel)]="parentUsername" [disabled]="loginInfo.hasParentAccount" placeholder="e.g. 9876543210" />
+                  <button mat-icon-button matSuffix (click)="copyText(parentUsername, 'Parent Username')" matTooltip="Copy username">
+                    <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
+                  </button>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
+                  <mat-label>{{ loginInfo.hasParentAccount ? 'Set New Password' : 'Password' }}</mat-label>
+                  <input matInput [type]="hideParentPassword ? 'password' : 'text'" [(ngModel)]="parentPassword" placeholder="e.g. Parent@2026" />
+                  <button mat-icon-button matSuffix type="button" (click)="hideParentPassword = !hideParentPassword" matTooltip="Toggle password visibility">
+                    <mat-icon class="suffix-btn-icon">{{ hideParentPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  </button>
+                  <button mat-icon-button matSuffix type="button" (click)="copyText(parentPassword, 'Parent Password')" matTooltip="Copy password">
+                    <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
+                  </button>
+                </mat-form-field>
+              </div>
+              <div class="card-action-bar">
+                @if (!loginInfo.hasParentAccount) {
+                  <span class="cred-hint">
+                    <mat-icon class="hint-ico">info_outline</mat-icon> Default: WhatsApp Mobile &bull; Parent&#64;2026
+                  </span>
+                }
+                @if (loginInfo.hasParentAccount) {
+                  <span class="cred-hint active">
+                    <mat-icon class="hint-ico">verified</mat-icon> Account linked &amp; ready to sign in
+                  </span>
+                }
+                <button mat-stroked-button color="primary" class="btn-account-action" (click)="createParentAccount()" [disabled]="saving">
+                  <mat-icon>{{ loginInfo.hasParentAccount ? 'lock_reset' : 'person_add' }}</mat-icon>
+                  <span>{{ loginInfo.hasParentAccount ? 'Reset Password' : 'Create Parent Login' }}</span>
+                </button>
+              </div>
             </div>
           </div>
+          <!-- WhatsApp Credential Sharing Strip -->
+          @if (loginInfo.hasStudentAccount || loginInfo.hasParentAccount) {
+            <div class="whatsapp-share-strip">
+              <div class="wa-left">
+                <div class="wa-ico-box"><mat-icon>chat</mat-icon></div>
+                <div class="wa-text-box">
+                  <span class="wa-title">Send Credentials to Parent via WhatsApp</span>
+                  <span class="wa-sub">Directly forward portal link, student and parent credentials to <strong>+91 {{ loginInfo.parentPhone || 'Phone' }}</strong></span>
+                </div>
+              </div>
+              <div class="wa-actions">
+                <button mat-stroked-button class="btn-copy-wa" (click)="copyWhatsAppMessage()" matTooltip="Copy pre-formatted text">
+                  <mat-icon>content_copy</mat-icon> Copy Text
+                </button>
+                <button mat-raised-button class="btn-open-wa" (click)="openWhatsApp()" [disabled]="!loginInfo.parentPhone" matTooltip="Open WhatsApp Web / App">
+                  <mat-icon>send</mat-icon> Open WhatsApp
+                </button>
+              </div>
+            </div>
+          }
         </div>
-
-        <!-- WhatsApp Credential Sharing Strip -->
-        <div class="whatsapp-share-strip" *ngIf="loginInfo.hasStudentAccount || loginInfo.hasParentAccount">
-          <div class="wa-left">
-            <div class="wa-ico-box"><mat-icon>chat</mat-icon></div>
-            <div class="wa-text-box">
-              <span class="wa-title">Send Credentials to Parent via WhatsApp</span>
-              <span class="wa-sub">Directly forward portal link, student and parent credentials to <strong>+91 {{ loginInfo.parentPhone || 'Phone' }}</strong></span>
-            </div>
-          </div>
-          <div class="wa-actions">
-            <button mat-stroked-button class="btn-copy-wa" (click)="copyWhatsAppMessage()" matTooltip="Copy pre-formatted text">
-              <mat-icon>content_copy</mat-icon> Copy Text
-            </button>
-            <button mat-raised-button class="btn-open-wa" (click)="openWhatsApp()" [disabled]="!loginInfo.parentPhone" matTooltip="Open WhatsApp Web / App">
-              <mat-icon>send</mat-icon> Open WhatsApp
-            </button>
-          </div>
-        </div>
-      </div>
-
+      }
+    
       <div class="dialog-footer">
         <button mat-stroked-button (click)="closeDialog()">Close</button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

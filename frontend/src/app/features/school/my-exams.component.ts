@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -21,7 +21,6 @@ import {
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { SchoolReportCardDialogComponent } from './school-report-card-dialog.component';
-import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 @Component({
   selector: 'app-my-exams',
@@ -38,8 +37,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
     MatChipsModule,
     MatDialogModule,
     MatSelectModule,
-    MatFormFieldModule,
-    IstDatetimeDirective
+    MatFormFieldModule
   ],
   template: `
     <div class="my-exams-page">
@@ -59,7 +57,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             </p>
           </div>
         </div>
-
+    
         <div class="header-action-buttons">
           <button
             mat-stroked-button
@@ -69,7 +67,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             <mat-icon>print</mat-icon>
             <span>Print Datesheet</span>
           </button>
-
+    
           <button
             mat-stroked-button
             class="admit-card-btn"
@@ -78,7 +76,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             <mat-icon>badge</mat-icon>
             <span>Admit Card (प्रवेश पत्र)</span>
           </button>
-
+    
           <button
             mat-raised-button
             class="report-card-btn"
@@ -89,501 +87,569 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
           </button>
         </div>
       </div>
-
-      <div class="page-content-wrap" *ngIf="myData && !loading">
-        <!-- Student Information Card & Academic Performance Metrics Row -->
-        <mat-card class="student-kpi-card mat-elevation-z1">
-          <div class="card-inner-grid">
-            <!-- Student Meta Details -->
-            <div class="student-profile-summary">
-              <div class="student-avatar-box" [ngClass]="{'coaching-avatar': isCoachingOnly, 'dual-avatar': isDualStudent}">
-                <mat-icon>{{ isCoachingOnly ? 'groups' : 'school' }}</mat-icon>
-              </div>
-              <div class="student-details">
-                <div class="st-name-row">
-                  <h3 class="st-name">{{ myData.student.studentName }}</h3>
-                  <span class="st-status-chip">Enrolled</span>
-                  <!-- Dynamic Stream Pills -->
-                  <span class="st-stream-chip dual" *ngIf="isDualStudent">
-                    <mat-icon>verified</mat-icon> School + Coaching
-                  </span>
-                  <span class="st-stream-chip coaching" *ngIf="isCoachingOnly">
-                    <mat-icon>groups</mat-icon> Coaching Student
-                  </span>
-                  <span class="st-stream-chip school" *ngIf="isSchoolOnly">
-                    <mat-icon>domain</mat-icon> School Student
-                  </span>
+    
+      @if (myData && !loading) {
+        <div class="page-content-wrap">
+          <!-- Student Information Card & Academic Performance Metrics Row -->
+          <mat-card class="student-kpi-card mat-elevation-z1">
+            <div class="card-inner-grid">
+              <!-- Student Meta Details -->
+              <div class="student-profile-summary">
+                <div class="student-avatar-box" [ngClass]="{'coaching-avatar': isCoachingOnly, 'dual-avatar': isDualStudent}">
+                  <mat-icon>{{ isCoachingOnly ? 'groups' : 'school' }}</mat-icon>
                 </div>
-                <div class="st-tags-row">
-                  <!-- Roll numbers according to stream -->
-                  <ng-container *ngIf="isDualStudent">
-                    <span class="st-tag">School Roll: <strong>{{ myData.student.schoolRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
-                    <span class="dot">•</span>
-                    <span class="st-tag" *ngIf="myData.student.coachingRollNumber">Coaching Roll: <strong>{{ myData.student.coachingRollNumber }}</strong></span>
-                    <span class="dot" *ngIf="myData.student.coachingRollNumber">•</span>
-                  </ng-container>
-
-                  <ng-container *ngIf="isCoachingOnly">
-                    <span class="st-tag">Coaching Roll: <strong>{{ myData.student.coachingRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
-                    <span class="dot">•</span>
-                  </ng-container>
-
-                  <ng-container *ngIf="isSchoolOnly">
-                    <span class="st-tag">Roll: <strong>{{ myData.student.schoolRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
-                    <span class="dot">•</span>
-                  </ng-container>
-
-                  <!-- Class and Section -->
-                  <span class="st-tag" *ngIf="!isCoachingOnly || myData.student.className">
-                    Class: <strong>{{ myData.student.className }}</strong>
-                    <span *ngIf="myData.student.sectionName"> - {{ myData.student.sectionName }}</span>
-                  </span>
-
-                  <!-- Batch details -->
-                  <span class="dot" *ngIf="myData.student.batchName">•</span>
-                  <span class="st-tag batch-tag" *ngIf="myData.student.batchName">
-                    Batch: <strong>{{ myData.student.batchName }}</strong>
-                    <span *ngIf="myData.student.batchSubject"> ({{ myData.student.batchSubject }})</span>
-                  </span>
-
-                  <span class="dot" *ngIf="myData.student.branchName">•</span>
-                  <span class="st-tag branch" *ngIf="myData.student.branchName">🏛️ {{ myData.student.branchName }}</span>
-                </div>
-                <div class="parent-contact-row" *ngIf="myData.student.parentName || myData.student.parentWhatsAppPhone">
-                  <mat-icon class="contact-icon">family_restroom</mat-icon>
-                  <span>Parent / Guardian: <strong>{{ myData.student.parentName || 'Guardian' }}</strong></span>
-                  <span class="wa-num" *ngIf="myData.student.parentWhatsAppPhone">(WA: {{ myData.student.parentWhatsAppPhone }})</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 4 Academic Performance Metrics -->
-            <div class="financial-kpis-grid">
-              <div class="kpi-box total">
-                <span class="kpi-label">{{ isCoachingOnly ? 'Total Tests' : 'Total Exams' }}</span>
-                <strong class="kpi-value">{{ myData.summary.totalExams }}</strong>
-                <span class="kpi-sub">In selected session</span>
-              </div>
-
-              <div class="kpi-box upcoming">
-                <span class="kpi-label">Upcoming {{ isCoachingOnly ? 'Tests' : 'Exams' }}</span>
-                <strong class="kpi-value text-primary">{{ myData.summary.upcomingExams }}</strong>
-                <span class="kpi-sub text-primary">Pending to be conducted</span>
-              </div>
-
-              <div class="kpi-box evaluated">
-                <span class="kpi-label">Evaluated / Result</span>
-                <strong class="kpi-value text-info">{{ myData.summary.evaluatedExams }}</strong>
-                <span class="kpi-sub text-info">Papers marked</span>
-              </div>
-
-              <div class="kpi-box balance" [class.has-due]="myData.summary.failedExamsCount > 0">
-                <span class="kpi-label">Overall Score &amp; Grade</span>
-                <strong class="kpi-value" [class.text-danger]="myData.summary.failedExamsCount > 0" [class.text-success]="myData.summary.failedExamsCount === 0 && myData.summary.evaluatedExams > 0">
-                  {{ myData.summary.evaluatedExams > 0 ? (myData.summary.overallPercentage + '% (' + myData.summary.overallGrade + ')') : 'Awaiting Results' }}
-                </strong>
-                <span class="kpi-sub text-success" *ngIf="myData.summary.evaluatedExams > 0 && myData.summary.failedExamsCount === 0">Passed 🎉</span>
-                <span class="kpi-sub text-danger" *ngIf="myData.summary.failedExamsCount > 0">Need improvement in {{ myData.summary.failedExamsCount }} paper(s)</span>
-                <span class="kpi-sub" *ngIf="myData.summary.evaluatedExams === 0">Datesheet active</span>
-              </div>
-            </div>
-          </div>
-        </mat-card>
-
-        <!-- Filters Bar: Stream, Session & Exam Type Selection -->
-        <mat-card class="filters-card mat-elevation-z1">
-          <div class="filters-wrap">
-            <!-- Category Toggle: All, School Exams, Coaching Tests (When hybrid or mixed) -->
-            <div class="category-toggle-group" *ngIf="showCategoryFilter">
-              <button
-                type="button"
-                class="cat-pill-btn"
-                [class.active]="selectedCategory === 'all'"
-                (click)="setCategory('all')">
-                <mat-icon>dashboard</mat-icon>
-                <span>All Papers</span>
-              </button>
-              <button
-                type="button"
-                class="cat-pill-btn"
-                [class.active]="selectedCategory === 'school'"
-                (click)="setCategory('school')">
-                <mat-icon>domain</mat-icon>
-                <span>School Exams</span>
-              </button>
-              <button
-                type="button"
-                class="cat-pill-btn"
-                [class.active]="selectedCategory === 'coaching'"
-                (click)="setCategory('coaching')">
-                <mat-icon>groups</mat-icon>
-                <span>Coaching Tests</span>
-              </button>
-            </div>
-
-            <div class="filter-item">
-              <mat-form-field appearance="outline" class="dense-field">
-                <mat-label>Academic Session</mat-label>
-                <mat-select [(ngModel)]="selectedSession" (selectionChange)="onFilterChanged()">
-                  <mat-option *ngFor="let s of myData.availableSessions" [value]="s">{{ s }}</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-
-            <div class="filter-item">
-              <mat-form-field appearance="outline" class="dense-field">
-                <mat-label>Exam Type</mat-label>
-                <mat-select [(ngModel)]="selectedExamType" (selectionChange)="onFilterChanged()">
-                  <mat-option value="All">All Exam Types</mat-option>
-                  <mat-option *ngFor="let t of myData.availableExamTypes" [value]="t">{{ t }}</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-
-            <div class="filter-item search-box">
-              <span class="filter-count-chip">
-                <mat-icon>playlist_add_check</mat-icon>
-                <span>Showing {{ filteredExams.length }} of {{ myData.exams.length }} papers</span>
-              </span>
-            </div>
-          </div>
-        </mat-card>
-
-        <!-- Exam Tabs: 1. Datesheet & Timetable, 2. Results & Marksheet, 3. Admit Card Hall Ticket -->
-        <mat-card class="statement-card mat-elevation-z1">
-          <mat-tab-group class="statement-tabs" animationDuration="0ms">
-            <!-- Tab 1: Datesheet & Exam Timetable -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-label-icon">calendar_month</mat-icon>
-                <span>Exam Datesheet &amp; Schedule ({{ myData.exams.length }})</span>
-              </ng-template>
-
-              <div class="tab-body-wrap">
-                <div class="datesheet-intro-banner">
-                  <div class="banner-badge">
-                    <mat-icon>notification_important</mat-icon>
+                <div class="student-details">
+                  <div class="st-name-row">
+                    <h3 class="st-name">{{ myData.student.studentName }}</h3>
+                    <span class="st-status-chip">Enrolled</span>
+                    <!-- Dynamic Stream Pills -->
+                    @if (isDualStudent) {
+                      <span class="st-stream-chip dual">
+                        <mat-icon>verified</mat-icon> School + Coaching
+                      </span>
+                    }
+                    @if (isCoachingOnly) {
+                      <span class="st-stream-chip coaching">
+                        <mat-icon>groups</mat-icon> Coaching Student
+                      </span>
+                    }
+                    @if (isSchoolOnly) {
+                      <span class="st-stream-chip school">
+                        <mat-icon>domain</mat-icon> School Student
+                      </span>
+                    }
                   </div>
-                  <div class="banner-content">
-                    <h4>Official Examination Timetable &amp; Schedule</h4>
-                    <p>All exams are scheduled according to Indian Standard Time (IST). Please arrive at the examination hall at least 15 minutes before paper commencement with your official Admit Card.</p>
+                  <div class="st-tags-row">
+                    <!-- Roll numbers according to stream -->
+                    @if (isDualStudent) {
+                      <span class="st-tag">School Roll: <strong>{{ myData.student.schoolRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
+                      <span class="dot">•</span>
+                      @if (myData.student.coachingRollNumber) {
+                        <span class="st-tag">Coaching Roll: <strong>{{ myData.student.coachingRollNumber }}</strong></span>
+                      }
+                      @if (myData.student.coachingRollNumber) {
+                        <span class="dot">•</span>
+                      }
+                    }
+                    @if (isCoachingOnly) {
+                      <span class="st-tag">Coaching Roll: <strong>{{ myData.student.coachingRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
+                      <span class="dot">•</span>
+                    }
+                    @if (isSchoolOnly) {
+                      <span class="st-tag">Roll: <strong>{{ myData.student.schoolRollNumber || myData.student.rollNumber || 'N/A' }}</strong></span>
+                      <span class="dot">•</span>
+                    }
+                    <!-- Class and Section -->
+                    @if (!isCoachingOnly || myData.student.className) {
+                      <span class="st-tag">
+                        Class: <strong>{{ myData.student.className }}</strong>
+                        @if (myData.student.sectionName) {
+                          <span> - {{ myData.student.sectionName }}</span>
+                        }
+                      </span>
+                    }
+                    <!-- Batch details -->
+                    @if (myData.student.batchName) {
+                      <span class="dot">•</span>
+                    }
+                    @if (myData.student.batchName) {
+                      <span class="st-tag batch-tag">
+                        Batch: <strong>{{ myData.student.batchName }}</strong>
+                        @if (myData.student.batchSubject) {
+                          <span> ({{ myData.student.batchSubject }})</span>
+                        }
+                      </span>
+                    }
+                    @if (myData.student.branchName) {
+                      <span class="dot">•</span>
+                    }
+                    @if (myData.student.branchName) {
+                      <span class="st-tag branch">🏛️ {{ myData.student.branchName }}</span>
+                    }
                   </div>
-                  <button mat-raised-button color="primary" class="datesheet-action-btn" (click)="printDatesheet()">
-                    <mat-icon>print</mat-icon>
-                    <span>Print Datesheet</span>
-                  </button>
-                </div>
-
-                <div class="table-responsive" *ngIf="filteredExams.length > 0">
-                  <table class="passbook-table datesheet-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Subject</th>
-                        <th>Exam Title / Paper</th>
-                        <th>Exam Date &amp; Day (IST)</th>
-                        <th>Max Marks</th>
-                        <th>Pass Marks</th>
-                        <th>Status</th>
-                        <th>Days Status</th>
-                        <th>Invigilator / Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let ex of filteredExams; let i = index" [class.today-row]="ex.daysRemaining === 0" [class.past-row]="ex.daysRemaining < 0">
-                        <td class="bold-num">{{ i + 1 }}</td>
-                        <td>
-                          <div class="subject-box">
-                            <div class="sub-name-row">
-                              <span class="sub-name">{{ ex.subject }}</span>
-                              <span class="cat-badge-pill" [ngClass]="ex.category?.toLowerCase() === 'coaching' ? 'coaching' : 'school'">
-                                {{ ex.category === 'Coaching' ? '🎯 Coaching' : '🏛️ School' }}
-                              </span>
-                            </div>
-                            <div class="sub-meta-tags">
-                              <small class="exam-type-tag">{{ ex.examType }}</small>
-                              <small class="batch-name-tag" *ngIf="ex.batchName">• Batch: {{ ex.batchName }}</small>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div class="title-cell">
-                            <strong>{{ ex.title }}</strong>
-                          </div>
-                        </td>
-                        <td>
-                          <div class="date-cell">
-                            <span class="d-date">{{ ex.testDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-                            <small class="d-day">{{ ex.testDate | date:'EEEE':'Asia/Kolkata' }}</small>
-                          </div>
-                        </td>
-                        <td class="num-cell"><strong>{{ ex.maxMarks }}</strong></td>
-                        <td class="num-cell">{{ ex.passingMarks }}</td>
-                        <td>
-                          <span class="status-badge" [ngClass]="getExamStatusClass(ex)">
-                            {{ getExamStatusLabel(ex) }}
-                          </span>
-                        </td>
-                        <td>
-                          <span class="countdown-chip" [ngClass]="getCountdownClass(ex)">
-                            {{ getCountdownLabel(ex) }}
-                          </span>
-                        </td>
-                        <td>
-                          <span class="remarks-text">{{ ex.remarks || ex.evaluatorTeacherName || 'Standard Syllabus' }}</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="empty-state-card" *ngIf="filteredExams.length === 0">
-                  <mat-icon class="large-icon">event_busy</mat-icon>
-                  <h3>No Exams Found</h3>
-                  <p>No exams match the selected session or exam type filter.</p>
-                </div>
-              </div>
-            </mat-tab>
-
-            <!-- Tab 2: Marksheet & Results -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-label-icon">assessment</mat-icon>
-                <span>Marksheet &amp; Results</span>
-              </ng-template>
-
-              <div class="tab-body-wrap">
-                <div class="results-header-bar">
-                  <div class="res-summary-box">
-                    <span class="res-label">Overall Result Status:</span>
-                    <strong class="res-badge" [ngClass]="myData.summary.resultStatus.toLowerCase()">
-                      {{ myData.summary.resultStatus }}
-                    </strong>
-                    <span class="res-divider">•</span>
-                    <span class="res-label">Total Marks:</span>
-                    <strong class="res-val">{{ myData.summary.totalMarksObtained }} / {{ myData.summary.totalMaxMarks }}</strong>
-                    <span class="res-divider">•</span>
-                    <span class="res-label">Percentage:</span>
-                    <strong class="res-val">{{ myData.summary.overallPercentage }}%</strong>
-                    <span class="res-divider">•</span>
-                    <span class="res-label">Grade:</span>
-                    <strong class="grade-chip">{{ myData.summary.overallGrade }}</strong>
-                  </div>
-
-                  <button mat-raised-button color="primary" class="print-result-btn" (click)="openReportCardDialog()">
-                    <mat-icon>print</mat-icon>
-                    <span>Print Formal Marksheet</span>
-                  </button>
-                </div>
-
-                <div class="table-responsive" *ngIf="filteredExams.length > 0">
-                  <table class="passbook-table marks-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Subject</th>
-                        <th>Exam Type</th>
-                        <th>Date (IST)</th>
-                        <th>Max Marks</th>
-                        <th>Pass Marks</th>
-                        <th>Marks Obtained</th>
-                        <th>Percentage</th>
-                        <th>Grade</th>
-                        <th>Result</th>
-                        <th>Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let ex of filteredExams; let i = index">
-                        <td class="bold-num">{{ i + 1 }}</td>
-                        <td>
-                          <div class="sub-name-row">
-                            <strong class="sub-name">{{ ex.subject }}</strong>
-                            <span class="cat-badge-pill" [ngClass]="ex.category?.toLowerCase() === 'coaching' ? 'coaching' : 'school'">
-                              {{ ex.category === 'Coaching' ? 'Coaching' : 'School' }}
-                            </span>
-                          </div>
-                          <small class="batch-name-tag" *ngIf="ex.batchName">Batch: {{ ex.batchName }}</small>
-                        </td>
-                        <td>{{ ex.examType }}</td>
-                        <td>
-                          <span>{{ ex.testDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-                        </td>
-                        <td class="num-cell">{{ ex.maxMarks }}</td>
-                        <td class="num-cell">{{ ex.passingMarks }}</td>
-                        <td class="num-cell marks-cell">
-                          <strong *ngIf="ex.marksObtained !== null && !ex.isAbsent" [class.text-danger]="ex.isPassed === false" [class.text-success]="ex.isPassed === true">
-                            {{ ex.marksObtained }}
-                          </strong>
-                          <span *ngIf="ex.isAbsent" class="text-danger bold">ABSENT</span>
-                          <span *ngIf="ex.marksObtained === null && !ex.isAbsent" class="text-muted italic">Under Evaluation</span>
-                        </td>
-                        <td class="num-cell">
-                          <span *ngIf="ex.percentage !== null">{{ ex.percentage }}%</span>
-                          <span *ngIf="ex.percentage === null" class="text-muted">-</span>
-                        </td>
-                        <td>
-                          <span class="grade-pill" *ngIf="ex.grade"
-                            [class.grade-a-plus]="ex.grade === 'A+'"
-                            [class.grade-a]="ex.grade === 'A'"
-                            [class.grade-b-plus]="ex.grade === 'B+'"
-                            [class.grade-b]="ex.grade === 'B'"
-                            [class.grade-c]="ex.grade === 'C'"
-                            [class.grade-d]="ex.grade === 'D'"
-                            [class.grade-f]="ex.grade === 'F'"
-                            [class.grade-abs]="ex.grade === 'ABS'">
-                            {{ ex.grade }}
-                          </span>
-                          <span *ngIf="!ex.grade" class="text-muted">-</span>
-                        </td>
-                        <td>
-                          <span class="result-pill" *ngIf="ex.isPassed !== null" [ngClass]="ex.isPassed ? 'pass' : 'fail'">
-                            {{ ex.isPassed ? 'Passed' : 'Needs Re-Exam' }}
-                          </span>
-                          <span *ngIf="ex.isPassed === null" class="text-muted italic">Pending</span>
-                        </td>
-                        <td>
-                          <small class="feedback-text">{{ ex.remarks || '-' }}</small>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="empty-state-card" *ngIf="filteredExams.length === 0">
-                  <mat-icon class="large-icon">hourglass_empty</mat-icon>
-                  <h3>No Results Available</h3>
-                  <p>Examination evaluation is currently in progress or no exams were found for this criteria.</p>
-                </div>
-              </div>
-            </mat-tab>
-
-            <!-- Tab 3: Admit Card Preview & Hall Ticket -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-label-icon">badge</mat-icon>
-                <span>Admit Card &amp; Hall Ticket</span>
-              </ng-template>
-
-              <div class="tab-body-wrap">
-                <div class="admit-card-preview-shell" id="admitCardPrintSection">
-                  <div class="admit-card-paper">
-                    <!-- Institute Header -->
-                    <div class="hall-ticket-header">
-                      <div class="inst-brand">
-                        <h2>{{ myData.student.branchName || 'Jnandeep Campus' }}</h2>
-                        <p class="inst-sub">Official Examination Admit Card &amp; Hall Ticket</p>
-                        <span class="session-badge">ACADEMIC SESSION: {{ selectedSession }}</span>
-                      </div>
-                      <div class="hall-ticket-badge">
-                        <img *ngIf="instituteLogo && !logoImgFailed" [src]="instituteLogo" alt="Institute Logo" class="hall-logo-img" (error)="onLogoImgError()" />
-                        <mat-icon *ngIf="!instituteLogo || logoImgFailed">school</mat-icon>
-                      </div>
+                  @if (myData.student.parentName || myData.student.parentWhatsAppPhone) {
+                    <div class="parent-contact-row">
+                      <mat-icon class="contact-icon">family_restroom</mat-icon>
+                      <span>Parent / Guardian: <strong>{{ myData.student.parentName || 'Guardian' }}</strong></span>
+                      @if (myData.student.parentWhatsAppPhone) {
+                        <span class="wa-num">(WA: {{ myData.student.parentWhatsAppPhone }})</span>
+                      }
                     </div>
-
-                    <div class="admit-meta-grid">
-                      <div class="meta-col">
-                        <div class="meta-row"><span class="m-lbl">Candidate Name:</span> <strong class="m-val">{{ myData.student.studentName }}</strong></div>
-                        <div class="meta-row" *ngIf="!isCoachingOnly && myData.student.className"><span class="m-lbl">Class &amp; Section:</span> <strong class="m-val">{{ myData.student.className }} <span *ngIf="myData.student.sectionName">({{ myData.student.sectionName }})</span></strong></div>
-                        <div class="meta-row" *ngIf="myData.student.batchName"><span class="m-lbl">Coaching Batch:</span> <strong class="m-val">{{ myData.student.batchName }} <span *ngIf="myData.student.batchSubject">({{ myData.student.batchSubject }})</span></strong></div>
-                        <div class="meta-row" *ngIf="isCoachingOnly && myData.student.className"><span class="m-lbl">Academic Class:</span> <strong class="m-val">{{ myData.student.className }}</strong></div>
-                        <div class="meta-row"><span class="m-lbl">Roll Number:</span> <strong class="m-val">{{ (isCoachingOnly ? myData.student.coachingRollNumber : myData.student.schoolRollNumber) || myData.student.rollNumber || 'N/A' }}</strong></div>
-                        <div class="meta-row" *ngIf="myData.student.admissionNumber"><span class="m-lbl">Admission No:</span> <strong class="m-val">{{ myData.student.admissionNumber }}</strong></div>
-                      </div>
-
-                      <div class="meta-col">
-                        <div class="meta-row"><span class="m-lbl">Father's Name:</span> <strong class="m-val">{{ myData.student.fatherName || myData.student.parentName || 'N/A' }}</strong></div>
-                        <div class="meta-row"><span class="m-lbl">Examination Center:</span> <strong class="m-val">{{ myData.student.branchName || 'Main Campus Hall' }}</strong></div>
-                        <div class="meta-row"><span class="m-lbl">Contact Phone:</span> <strong class="m-val">{{ myData.student.parentWhatsAppPhone || 'N/A' }}</strong></div>
-                        <div class="meta-row"><span class="m-lbl">Gender / DOB:</span> <strong class="m-val">{{ myData.student.gender || 'N/A' }} <span *ngIf="myData.student.dateOfBirth">| {{ myData.student.dateOfBirth | date:'dd-MMM-yyyy' }}</span></strong></div>
-                      </div>
-
-                      <div class="photo-placeholder-box">
-                        <div class="photo-inner">
-                          <mat-icon>person</mat-icon>
-                          <span>Candidate Photo</span>
+                  }
+                </div>
+              </div>
+              <!-- 4 Academic Performance Metrics -->
+              <div class="financial-kpis-grid">
+                <div class="kpi-box total">
+                  <span class="kpi-label">{{ isCoachingOnly ? 'Total Tests' : 'Total Exams' }}</span>
+                  <strong class="kpi-value">{{ myData.summary.totalExams }}</strong>
+                  <span class="kpi-sub">In selected session</span>
+                </div>
+                <div class="kpi-box upcoming">
+                  <span class="kpi-label">Upcoming {{ isCoachingOnly ? 'Tests' : 'Exams' }}</span>
+                  <strong class="kpi-value text-primary">{{ myData.summary.upcomingExams }}</strong>
+                  <span class="kpi-sub text-primary">Pending to be conducted</span>
+                </div>
+                <div class="kpi-box evaluated">
+                  <span class="kpi-label">Evaluated / Result</span>
+                  <strong class="kpi-value text-info">{{ myData.summary.evaluatedExams }}</strong>
+                  <span class="kpi-sub text-info">Papers marked</span>
+                </div>
+                <div class="kpi-box balance" [class.has-due]="myData.summary.failedExamsCount > 0">
+                  <span class="kpi-label">Overall Score &amp; Grade</span>
+                  <strong class="kpi-value" [class.text-danger]="myData.summary.failedExamsCount > 0" [class.text-success]="myData.summary.failedExamsCount === 0 && myData.summary.evaluatedExams > 0">
+                    {{ myData.summary.evaluatedExams > 0 ? (myData.summary.overallPercentage + '% (' + myData.summary.overallGrade + ')') : 'Awaiting Results' }}
+                  </strong>
+                  @if (myData.summary.evaluatedExams > 0 && myData.summary.failedExamsCount === 0) {
+                    <span class="kpi-sub text-success">Passed 🎉</span>
+                  }
+                  @if (myData.summary.failedExamsCount > 0) {
+                    <span class="kpi-sub text-danger">Need improvement in {{ myData.summary.failedExamsCount }} paper(s)</span>
+                  }
+                  @if (myData.summary.evaluatedExams === 0) {
+                    <span class="kpi-sub">Datesheet active</span>
+                  }
+                </div>
+              </div>
+            </div>
+          </mat-card>
+          <!-- Filters Bar: Stream, Session & Exam Type Selection -->
+          <mat-card class="filters-card mat-elevation-z1">
+            <div class="filters-wrap">
+              <!-- Category Toggle: All, School Exams, Coaching Tests (When hybrid or mixed) -->
+              @if (showCategoryFilter) {
+                <div class="category-toggle-group">
+                  <button
+                    type="button"
+                    class="cat-pill-btn"
+                    [class.active]="selectedCategory === 'all'"
+                    (click)="setCategory('all')">
+                    <mat-icon>dashboard</mat-icon>
+                    <span>All Papers</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="cat-pill-btn"
+                    [class.active]="selectedCategory === 'school'"
+                    (click)="setCategory('school')">
+                    <mat-icon>domain</mat-icon>
+                    <span>School Exams</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="cat-pill-btn"
+                    [class.active]="selectedCategory === 'coaching'"
+                    (click)="setCategory('coaching')">
+                    <mat-icon>groups</mat-icon>
+                    <span>Coaching Tests</span>
+                  </button>
+                </div>
+              }
+              <div class="filter-item">
+                <mat-form-field appearance="outline" class="dense-field">
+                  <mat-label>Academic Session</mat-label>
+                  <mat-select [(ngModel)]="selectedSession" (selectionChange)="onFilterChanged()">
+                    @for (s of myData.availableSessions; track s) {
+                      <mat-option [value]="s">{{ s }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <div class="filter-item">
+                <mat-form-field appearance="outline" class="dense-field">
+                  <mat-label>Exam Type</mat-label>
+                  <mat-select [(ngModel)]="selectedExamType" (selectionChange)="onFilterChanged()">
+                    <mat-option value="All">All Exam Types</mat-option>
+                    @for (t of myData.availableExamTypes; track t) {
+                      <mat-option [value]="t">{{ t }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <div class="filter-item search-box">
+                <span class="filter-count-chip">
+                  <mat-icon>playlist_add_check</mat-icon>
+                  <span>Showing {{ filteredExams.length }} of {{ myData.exams.length }} papers</span>
+                </span>
+              </div>
+            </div>
+          </mat-card>
+          <!-- Exam Tabs: 1. Datesheet & Timetable, 2. Results & Marksheet, 3. Admit Card Hall Ticket -->
+          <mat-card class="statement-card mat-elevation-z1">
+            <mat-tab-group class="statement-tabs" animationDuration="0ms">
+              <!-- Tab 1: Datesheet & Exam Timetable -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-label-icon">calendar_month</mat-icon>
+                  <span>Exam Datesheet &amp; Schedule ({{ myData.exams.length }})</span>
+                </ng-template>
+                <div class="tab-body-wrap">
+                  <div class="datesheet-intro-banner">
+                    <div class="banner-badge">
+                      <mat-icon>notification_important</mat-icon>
+                    </div>
+                    <div class="banner-content">
+                      <h4>Official Examination Timetable &amp; Schedule</h4>
+                      <p>All exams are scheduled according to Indian Standard Time (IST). Please arrive at the examination hall at least 15 minutes before paper commencement with your official Admit Card.</p>
+                    </div>
+                    <button mat-raised-button color="primary" class="datesheet-action-btn" (click)="printDatesheet()">
+                      <mat-icon>print</mat-icon>
+                      <span>Print Datesheet</span>
+                    </button>
+                  </div>
+                  @if (filteredExams.length > 0) {
+                    <div class="table-responsive">
+                      <table class="passbook-table datesheet-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Subject</th>
+                            <th>Exam Title / Paper</th>
+                            <th>Exam Date &amp; Day (IST)</th>
+                            <th>Max Marks</th>
+                            <th>Pass Marks</th>
+                            <th>Status</th>
+                            <th>Days Status</th>
+                            <th>Invigilator / Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (ex of filteredExams; track ex; let i = $index) {
+                            <tr [class.today-row]="ex.daysRemaining === 0" [class.past-row]="ex.daysRemaining < 0">
+                              <td class="bold-num">{{ i + 1 }}</td>
+                              <td>
+                                <div class="subject-box">
+                                  <div class="sub-name-row">
+                                    <span class="sub-name">{{ ex.subject }}</span>
+                                    <span class="cat-badge-pill" [ngClass]="ex.category?.toLowerCase() === 'coaching' ? 'coaching' : 'school'">
+                                      {{ ex.category === 'Coaching' ? '🎯 Coaching' : '🏛️ School' }}
+                                    </span>
+                                  </div>
+                                  <div class="sub-meta-tags">
+                                    <small class="exam-type-tag">{{ ex.examType }}</small>
+                                    @if (ex.batchName) {
+                                      <small class="batch-name-tag">• Batch: {{ ex.batchName }}</small>
+                                    }
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <div class="title-cell">
+                                  <strong>{{ ex.title }}</strong>
+                                </div>
+                              </td>
+                              <td>
+                                <div class="date-cell">
+                                  <span class="d-date">{{ ex.testDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
+                                  <small class="d-day">{{ ex.testDate | date:'EEEE':'Asia/Kolkata' }}</small>
+                                </div>
+                              </td>
+                              <td class="num-cell"><strong>{{ ex.maxMarks }}</strong></td>
+                              <td class="num-cell">{{ ex.passingMarks }}</td>
+                              <td>
+                                <span class="status-badge" [ngClass]="getExamStatusClass(ex)">
+                                  {{ getExamStatusLabel(ex) }}
+                                </span>
+                              </td>
+                              <td>
+                                <span class="countdown-chip" [ngClass]="getCountdownClass(ex)">
+                                  {{ getCountdownLabel(ex) }}
+                                </span>
+                              </td>
+                              <td>
+                                <span class="remarks-text">{{ ex.remarks || ex.evaluatorTeacherName || 'Standard Syllabus' }}</span>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                  @if (filteredExams.length === 0) {
+                    <div class="empty-state-card">
+                      <mat-icon class="large-icon">event_busy</mat-icon>
+                      <h3>No Exams Found</h3>
+                      <p>No exams match the selected session or exam type filter.</p>
+                    </div>
+                  }
+                </div>
+              </mat-tab>
+              <!-- Tab 2: Marksheet & Results -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-label-icon">assessment</mat-icon>
+                  <span>Marksheet &amp; Results</span>
+                </ng-template>
+                <div class="tab-body-wrap">
+                  <div class="results-header-bar">
+                    <div class="res-summary-box">
+                      <span class="res-label">Overall Result Status:</span>
+                      <strong class="res-badge" [ngClass]="myData.summary.resultStatus.toLowerCase()">
+                        {{ myData.summary.resultStatus }}
+                      </strong>
+                      <span class="res-divider">•</span>
+                      <span class="res-label">Total Marks:</span>
+                      <strong class="res-val">{{ myData.summary.totalMarksObtained }} / {{ myData.summary.totalMaxMarks }}</strong>
+                      <span class="res-divider">•</span>
+                      <span class="res-label">Percentage:</span>
+                      <strong class="res-val">{{ myData.summary.overallPercentage }}%</strong>
+                      <span class="res-divider">•</span>
+                      <span class="res-label">Grade:</span>
+                      <strong class="grade-chip">{{ myData.summary.overallGrade }}</strong>
+                    </div>
+                    <button mat-raised-button color="primary" class="print-result-btn" (click)="openReportCardDialog()">
+                      <mat-icon>print</mat-icon>
+                      <span>Print Formal Marksheet</span>
+                    </button>
+                  </div>
+                  @if (filteredExams.length > 0) {
+                    <div class="table-responsive">
+                      <table class="passbook-table marks-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Subject</th>
+                            <th>Exam Type</th>
+                            <th>Date (IST)</th>
+                            <th>Max Marks</th>
+                            <th>Pass Marks</th>
+                            <th>Marks Obtained</th>
+                            <th>Percentage</th>
+                            <th>Grade</th>
+                            <th>Result</th>
+                            <th>Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (ex of filteredExams; track ex; let i = $index) {
+                            <tr>
+                              <td class="bold-num">{{ i + 1 }}</td>
+                              <td>
+                                <div class="sub-name-row">
+                                  <strong class="sub-name">{{ ex.subject }}</strong>
+                                  <span class="cat-badge-pill" [ngClass]="ex.category?.toLowerCase() === 'coaching' ? 'coaching' : 'school'">
+                                    {{ ex.category === 'Coaching' ? 'Coaching' : 'School' }}
+                                  </span>
+                                </div>
+                                @if (ex.batchName) {
+                                  <small class="batch-name-tag">Batch: {{ ex.batchName }}</small>
+                                }
+                              </td>
+                              <td>{{ ex.examType }}</td>
+                              <td>
+                                <span>{{ ex.testDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
+                              </td>
+                              <td class="num-cell">{{ ex.maxMarks }}</td>
+                              <td class="num-cell">{{ ex.passingMarks }}</td>
+                              <td class="num-cell marks-cell">
+                                @if (ex.marksObtained !== null && !ex.isAbsent) {
+                                  <strong [class.text-danger]="ex.isPassed === false" [class.text-success]="ex.isPassed === true">
+                                    {{ ex.marksObtained }}
+                                  </strong>
+                                }
+                                @if (ex.isAbsent) {
+                                  <span class="text-danger bold">ABSENT</span>
+                                }
+                                @if (ex.marksObtained === null && !ex.isAbsent) {
+                                  <span class="text-muted italic">Under Evaluation</span>
+                                }
+                              </td>
+                              <td class="num-cell">
+                                @if (ex.percentage !== null) {
+                                  <span>{{ ex.percentage }}%</span>
+                                }
+                                @if (ex.percentage === null) {
+                                  <span class="text-muted">-</span>
+                                }
+                              </td>
+                              <td>
+                                @if (ex.grade) {
+                                  <span class="grade-pill"
+                                    [class.grade-a-plus]="ex.grade === 'A+'"
+                                    [class.grade-a]="ex.grade === 'A'"
+                                    [class.grade-b-plus]="ex.grade === 'B+'"
+                                    [class.grade-b]="ex.grade === 'B'"
+                                    [class.grade-c]="ex.grade === 'C'"
+                                    [class.grade-d]="ex.grade === 'D'"
+                                    [class.grade-f]="ex.grade === 'F'"
+                                    [class.grade-abs]="ex.grade === 'ABS'">
+                                    {{ ex.grade }}
+                                  </span>
+                                }
+                                @if (!ex.grade) {
+                                  <span class="text-muted">-</span>
+                                }
+                              </td>
+                              <td>
+                                @if (ex.isPassed !== null) {
+                                  <span class="result-pill" [ngClass]="ex.isPassed ? 'pass' : 'fail'">
+                                    {{ ex.isPassed ? 'Passed' : 'Needs Re-Exam' }}
+                                  </span>
+                                }
+                                @if (ex.isPassed === null) {
+                                  <span class="text-muted italic">Pending</span>
+                                }
+                              </td>
+                              <td>
+                                <small class="feedback-text">{{ ex.remarks || '-' }}</small>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                  @if (filteredExams.length === 0) {
+                    <div class="empty-state-card">
+                      <mat-icon class="large-icon">hourglass_empty</mat-icon>
+                      <h3>No Results Available</h3>
+                      <p>Examination evaluation is currently in progress or no exams were found for this criteria.</p>
+                    </div>
+                  }
+                </div>
+              </mat-tab>
+              <!-- Tab 3: Admit Card Preview & Hall Ticket -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-label-icon">badge</mat-icon>
+                  <span>Admit Card &amp; Hall Ticket</span>
+                </ng-template>
+                <div class="tab-body-wrap">
+                  <div class="admit-card-preview-shell" id="admitCardPrintSection">
+                    <div class="admit-card-paper">
+                      <!-- Institute Header -->
+                      <div class="hall-ticket-header">
+                        <div class="inst-brand">
+                          <h2>{{ myData.student.branchName || 'Jnandeep Campus' }}</h2>
+                          <p class="inst-sub">Official Examination Admit Card &amp; Hall Ticket</p>
+                          <span class="session-badge">ACADEMIC SESSION: {{ selectedSession }}</span>
+                        </div>
+                        <div class="hall-ticket-badge">
+                          @if (instituteLogo && !logoImgFailed) {
+                            <img [src]="instituteLogo" alt="Institute Logo" class="hall-logo-img" (error)="onLogoImgError()" />
+                          }
+                          @if (!instituteLogo || logoImgFailed) {
+                            <mat-icon>school</mat-icon>
+                          }
                         </div>
                       </div>
+                      <div class="admit-meta-grid">
+                        <div class="meta-col">
+                          <div class="meta-row"><span class="m-lbl">Candidate Name:</span> <strong class="m-val">{{ myData.student.studentName }}</strong></div>
+                          @if (!isCoachingOnly && myData.student.className) {
+                            <div class="meta-row"><span class="m-lbl">Class &amp; Section:</span> <strong class="m-val">{{ myData.student.className }} @if (myData.student.sectionName) {
+                            <span>({{ myData.student.sectionName }})</span>
+                          }</strong></div>
+                        }
+                        @if (myData.student.batchName) {
+                          <div class="meta-row"><span class="m-lbl">Coaching Batch:</span> <strong class="m-val">{{ myData.student.batchName }} @if (myData.student.batchSubject) {
+                          <span>({{ myData.student.batchSubject }})</span>
+                        }</strong></div>
+                      }
+                      @if (isCoachingOnly && myData.student.className) {
+                        <div class="meta-row"><span class="m-lbl">Academic Class:</span> <strong class="m-val">{{ myData.student.className }}</strong></div>
+                      }
+                      <div class="meta-row"><span class="m-lbl">Roll Number:</span> <strong class="m-val">{{ (isCoachingOnly ? myData.student.coachingRollNumber : myData.student.schoolRollNumber) || myData.student.rollNumber || 'N/A' }}</strong></div>
+                      @if (myData.student.admissionNumber) {
+                        <div class="meta-row"><span class="m-lbl">Admission No:</span> <strong class="m-val">{{ myData.student.admissionNumber }}</strong></div>
+                      }
                     </div>
-
-                    <!-- Scheduled Papers Table on Admit Card -->
-                    <div class="admit-papers-section">
-                      <h5 class="papers-title">Schedule of Examinations &amp; Subject Papers</h5>
-                      <div class="table-responsive">
-                        <table class="admit-table">
-                          <thead>
-                            <tr>
-                              <th>Sl No</th>
-                              <th>Subject Name</th>
-                              <th>Date (IST)</th>
-                              <th>Exam Day</th>
-                              <th>Max Marks</th>
-                              <th>Candidate Sign</th>
-                              <th>Invigilator Sign</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr *ngFor="let ex of filteredExams; let i = index">
-                              <td>{{ i + 1 }}</td>
-                              <td><strong>{{ ex.subject }}</strong> ({{ ex.examType }})</td>
-                              <td><span>{{ ex.testDate | date:'dd-MM-yyyy':'Asia/Kolkata' }}</span></td>
-                              <td><span>{{ ex.testDate | date:'EEEE':'Asia/Kolkata' }}</span></td>
-                              <td>{{ ex.maxMarks }}</td>
-                              <td class="sign-space"></td>
-                              <td class="sign-space"></td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <!-- Instructions & Signatures -->
-                    <div class="admit-instructions-block">
-                      <h6>Candidate Guidelines &amp; Hall Instructions:</h6>
-                      <ol>
-                        <li>Candidate must carry this Admit Card to every examination session. Entry without Admit Card will strictly be prohibited.</li>
-                        <li>Possession of calculators, smartphones, electronic devices, or unauthorized papers inside the examination hall is treated as unfair means.</li>
-                        <li>Candidate should report to the allotted examination hall at least 15 minutes before paper commencement.</li>
-                      </ol>
-                    </div>
-
-                    <div class="signatures-row">
-                      <div class="sign-box">
-                        <div class="sign-line"></div>
-                        <span>Candidate Signature</span>
-                      </div>
-                      <div class="sign-box">
-                        <div class="sign-line"></div>
-                        <span>Class Teacher Signature</span>
-                      </div>
-                      <div class="sign-box">
-                        <div class="sign-line"></div>
-                        <span>Principal / Exam Controller</span>
-                      </div>
+                    <div class="meta-col">
+                      <div class="meta-row"><span class="m-lbl">Father's Name:</span> <strong class="m-val">{{ myData.student.fatherName || myData.student.parentName || 'N/A' }}</strong></div>
+                      <div class="meta-row"><span class="m-lbl">Examination Center:</span> <strong class="m-val">{{ myData.student.branchName || 'Main Campus Hall' }}</strong></div>
+                      <div class="meta-row"><span class="m-lbl">Contact Phone:</span> <strong class="m-val">{{ myData.student.parentWhatsAppPhone || 'N/A' }}</strong></div>
+                      <div class="meta-row"><span class="m-lbl">Gender / DOB:</span> <strong class="m-val">{{ myData.student.gender || 'N/A' }} @if (myData.student.dateOfBirth) {
+                      <span>| {{ myData.student.dateOfBirth | date:'dd-MMM-yyyy' }}</span>
+                    }</strong></div>
+                  </div>
+                  <div class="photo-placeholder-box">
+                    <div class="photo-inner">
+                      <mat-icon>person</mat-icon>
+                      <span>Candidate Photo</span>
                     </div>
                   </div>
                 </div>
-
-                <div class="admit-bottom-actions">
-                  <button mat-raised-button color="primary" class="print-admit-btn" (click)="openAdmitCardDialog()">
-                    <mat-icon>print</mat-icon>
-                    <span>Print Official Admit Card</span>
-                  </button>
+                <!-- Scheduled Papers Table on Admit Card -->
+                <div class="admit-papers-section">
+                  <h5 class="papers-title">Schedule of Examinations &amp; Subject Papers</h5>
+                  <div class="table-responsive">
+                    <table class="admit-table">
+                      <thead>
+                        <tr>
+                          <th>Sl No</th>
+                          <th>Subject Name</th>
+                          <th>Date (IST)</th>
+                          <th>Exam Day</th>
+                          <th>Max Marks</th>
+                          <th>Candidate Sign</th>
+                          <th>Invigilator Sign</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (ex of filteredExams; track ex; let i = $index) {
+                          <tr>
+                            <td>{{ i + 1 }}</td>
+                            <td><strong>{{ ex.subject }}</strong> ({{ ex.examType }})</td>
+                            <td><span>{{ ex.testDate | date:'dd-MM-yyyy':'Asia/Kolkata' }}</span></td>
+                            <td><span>{{ ex.testDate | date:'EEEE':'Asia/Kolkata' }}</span></td>
+                            <td>{{ ex.maxMarks }}</td>
+                            <td class="sign-space"></td>
+                            <td class="sign-space"></td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <!-- Instructions & Signatures -->
+                <div class="admit-instructions-block">
+                  <h6>Candidate Guidelines &amp; Hall Instructions:</h6>
+                  <ol>
+                    <li>Candidate must carry this Admit Card to every examination session. Entry without Admit Card will strictly be prohibited.</li>
+                    <li>Possession of calculators, smartphones, electronic devices, or unauthorized papers inside the examination hall is treated as unfair means.</li>
+                    <li>Candidate should report to the allotted examination hall at least 15 minutes before paper commencement.</li>
+                  </ol>
+                </div>
+                <div class="signatures-row">
+                  <div class="sign-box">
+                    <div class="sign-line"></div>
+                    <span>Candidate Signature</span>
+                  </div>
+                  <div class="sign-box">
+                    <div class="sign-line"></div>
+                    <span>Class Teacher Signature</span>
+                  </div>
+                  <div class="sign-box">
+                    <div class="sign-line"></div>
+                    <span>Principal / Exam Controller</span>
+                  </div>
                 </div>
               </div>
-            </mat-tab>
-          </mat-tab-group>
-        </mat-card>
-      </div>
-
-      <!-- Error / Empty State if no student record mapped -->
-      <div class="empty-profile-box" *ngIf="!myData && !loading">
+            </div>
+            <div class="admit-bottom-actions">
+              <button mat-raised-button color="primary" class="print-admit-btn" (click)="openAdmitCardDialog()">
+                <mat-icon>print</mat-icon>
+                <span>Print Official Admit Card</span>
+              </button>
+            </div>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </mat-card>
+    </div>
+    }
+    
+    <!-- Error / Empty State if no student record mapped -->
+    @if (!myData && !loading) {
+      <div class="empty-profile-box">
         <mat-icon class="large-icon">contact_support</mat-icon>
         <h3>No Student Examination Record Linked</h3>
         <p>This parent account is not currently linked to an active student examination profile. Please contact the school or coaching administration office.</p>
       </div>
+    }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

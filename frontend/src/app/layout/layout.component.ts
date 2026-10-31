@@ -1,6 +1,6 @@
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -63,196 +63,162 @@ export interface BreadcrumbItem {
         [class.rail-collapsed]="isRailMode() && !isMobile()"
         [mode]="isMobile() ? 'over' : 'side'"
         [opened]="!isMobile()">
-
+    
         <div class="brand-section" [matTooltip]="(isRailMode() && !isMobile()) ? (currentUser()?.instituteName || 'Institute Management ERP') : ''" matTooltipPosition="right">
-          <img *ngIf="getInstituteLogoUrl() && !logoImgFailed()"
-               [src]="getInstituteLogoUrl()" 
-               (error)="logoImgFailed.set(true)"
-               class="brand-logo-img" 
-               alt="Institute Logo">
-          <div *ngIf="!getInstituteLogoUrl() || logoImgFailed()" class="brand-fallback-icon">
-            <mat-icon>account_balance</mat-icon>
-          </div>
-          <div class="brand-titles" *ngIf="!isRailMode() || isMobile()">
-            <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Institute Management ERP'">{{ currentUser()?.instituteName || 'Institute Management ERP' }}</span>
-            <span class="brand-sub">{{ getTenantModuleBadge() }}</span>
-          </div>
-          <button *ngIf="isMobile()" mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
-            <mat-icon>close</mat-icon>
-          </button>
+          @if (getInstituteLogoUrl() && !logoImgFailed()) {
+            <img
+              [src]="getInstituteLogoUrl()"
+              (error)="logoImgFailed.set(true)"
+              class="brand-logo-img"
+              alt="Institute Logo">
+          }
+          @if (!getInstituteLogoUrl() || logoImgFailed()) {
+            <div class="brand-fallback-icon">
+              <mat-icon>account_balance</mat-icon>
+            </div>
+          }
+          @if (!isRailMode() || isMobile()) {
+            <div class="brand-titles">
+              <span class="brand-name" [matTooltip]="currentUser()?.instituteName || 'Institute Management ERP'">{{ currentUser()?.instituteName || 'Institute Management ERP' }}</span>
+              <span class="brand-sub">{{ getTenantModuleBadge() }}</span>
+            </div>
+          }
+          @if (isMobile()) {
+            <button mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
         </div>
-
+    
         <div class="nav-container">
           <!-- Full Expanded Sidebar Menu (Default Desktop & Mobile Drawer) -->
-          <mat-accordion class="menu-accordion" [multi]="false" *ngIf="!isRailMode() || isMobile()">
-            <ng-container *ngFor="let item of menuTree()">
-              <!-- Item with sub-menus (e.g. Master Management, Admin Settings) -->
-              <mat-expansion-panel *ngIf="item.children && item.children.length > 0" class="mat-elevation-z0" [expanded]="isParentActive(item)">
-                <mat-expansion-panel-header [matTooltip]="item.title" matTooltipPosition="right">
-                  <mat-panel-title class="accordion-title">
-                    <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
-                      <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
-                    </span>
-                    <span class="module-title">{{ item.title }}</span>
-                  </mat-panel-title>
-                </mat-expansion-panel-header>
-
-                <div class="sub-nav-wrapper">
-                  <mat-nav-list class="sub-nav-list">
-                    <a *ngFor="let sub of item.children"
-                       mat-list-item
-                       [routerLink]="sub.routeUrl"
-                       routerLinkActive="active-link"
-                       [matTooltip]="sub.title"
-                       matTooltipPosition="right"
-                       (click)="onNavClick(drawer)">
-                      <mat-icon matListItemIcon class="sub-icon">{{ sub.icon || 'star' }}</mat-icon>
-                      <span matListItemTitle class="sub-title-text">{{ sub.title }}</span>
-                    </a>
-                  </mat-nav-list>
-                </div>
-              </mat-expansion-panel>
-
-              <!-- Direct item without children (e.g. Dashboard) -->
-              <div *ngIf="!item.children || item.children.length === 0" class="direct-nav-item">
-                <a class="direct-nav-link"
-                   [routerLink]="item.routeUrl"
-                   routerLinkActive="active-link"
-                   [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
-                   [matTooltip]="item.title"
-                   matTooltipPosition="right"
-                   (click)="onNavClick(drawer)">
-                  <span class="menu-icon-badge badge-main">
-                    <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
-                  </span>
-                  <span class="direct-title-text">{{ item.title }}</span>
-                </a>
-              </div>
-            </ng-container>
-          </mat-accordion>
-
-          <!-- Smart Compact Rail Menu (When Collapsed on Desktop) -->
-          <div class="rail-nav-list" *ngIf="isRailMode() && !isMobile()">
-            <ng-container *ngFor="let item of menuTree()">
-              <!-- Direct Item in Rail Mode (e.g. Dashboard) -->
-              <a *ngIf="!item.children || item.children.length === 0"
-                 class="rail-nav-btn"
-                 [routerLink]="item.routeUrl"
-                 routerLinkActive="rail-active"
-                 [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
-                 [matTooltip]="item.title"
-                 matTooltipPosition="right">
-                <span class="menu-icon-badge badge-main rail-badge">
-                  <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
-                </span>
-              </a>
-
-              <!-- Parent Category Item in Rail Mode (Opens Smart Floating Flyout Submenu) -->
-              <ng-container *ngIf="item.children && item.children.length > 0">
-                <button type="button"
-                        class="rail-nav-btn"
-                        [class.rail-active]="isParentActive(item)"
-                        [matMenuTriggerFor]="railSubMenu"
-                        [matTooltip]="item.title"
-                        matTooltipPosition="right">
-                  <span class="menu-icon-badge rail-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
-                    <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
-                  </span>
-                  <span class="rail-chevron-dot"></span>
-                </button>
-
-                <mat-menu #railSubMenu="matMenu" class="rail-flyout-menu" xPosition="after" yPosition="below" [overlapTrigger]="false">
-                  <div class="rail-flyout-header" (click)="$event.stopPropagation()">
-                    <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
-                      <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
-                    </span>
-                    <div class="rail-flyout-titles">
-                      <strong>{{ item.title }}</strong>
-                      <small>{{ item.children.length }} Module{{ item.children.length > 1 ? 's' : '' }}</small>
+          @if (!isRailMode() || isMobile()) {
+            <mat-accordion class="menu-accordion" [multi]="false">
+              @for (item of menuTree(); track item) {
+                <!-- Item with sub-menus (e.g. Master Management, Admin Settings) -->
+                @if (item.children && item.children.length > 0) {
+                  <mat-expansion-panel class="mat-elevation-z0" [expanded]="isParentActive(item)">
+                    <mat-expansion-panel-header [matTooltip]="item.title" matTooltipPosition="right">
+                      <mat-panel-title class="accordion-title">
+                        <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
+                          <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
+                        </span>
+                        <span class="module-title">{{ item.title }}</span>
+                      </mat-panel-title>
+                    </mat-expansion-panel-header>
+                    <div class="sub-nav-wrapper">
+                      <mat-nav-list class="sub-nav-list">
+                        @for (sub of item.children; track sub) {
+                          <a
+                            mat-list-item
+                            [routerLink]="sub.routeUrl"
+                            routerLinkActive="active-link"
+                            [matTooltip]="sub.title"
+                            matTooltipPosition="right"
+                            (click)="onNavClick(drawer)">
+                            <mat-icon matListItemIcon class="sub-icon">{{ sub.icon || 'star' }}</mat-icon>
+                            <span matListItemTitle class="sub-title-text">{{ sub.title }}</span>
+                          </a>
+                        }
+                      </mat-nav-list>
                     </div>
-                  </div>
-                  <div class="rail-flyout-items">
-                    <a *ngFor="let sub of item.children"
-                       mat-menu-item
-                       [routerLink]="sub.routeUrl"
-                       routerLinkActive="active-rail-sub"
-                       class="rail-flyout-item">
-                      <mat-icon class="rail-sub-icon">{{ sub.icon || 'star' }}</mat-icon>
-                      <span class="rail-sub-label">{{ sub.title }}</span>
+                  </mat-expansion-panel>
+                }
+                <!-- Direct item without children (e.g. Dashboard) -->
+                @if (!item.children || item.children.length === 0) {
+                  <div class="direct-nav-item">
+                    <a class="direct-nav-link"
+                      [routerLink]="item.routeUrl"
+                      routerLinkActive="active-link"
+                      [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
+                      [matTooltip]="item.title"
+                      matTooltipPosition="right"
+                      (click)="onNavClick(drawer)">
+                      <span class="menu-icon-badge badge-main">
+                        <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
+                      </span>
+                      <span class="direct-title-text">{{ item.title }}</span>
                     </a>
                   </div>
-                </mat-menu>
-              </ng-container>
-            </ng-container>
-          </div>
+                }
+              }
+            </mat-accordion>
+          }
+    
+          <!-- Smart Compact Rail Menu (When Collapsed on Desktop) -->
+          @if (isRailMode() && !isMobile()) {
+            <div class="rail-nav-list">
+              @for (item of menuTree(); track item) {
+                <!-- Direct Item in Rail Mode (e.g. Dashboard) -->
+                @if (!item.children || item.children.length === 0) {
+                  <a
+                    class="rail-nav-btn"
+                    [routerLink]="item.routeUrl"
+                    routerLinkActive="rail-active"
+                    [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
+                    [matTooltip]="item.title"
+                    matTooltipPosition="right">
+                    <span class="menu-icon-badge badge-main rail-badge">
+                      <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
+                    </span>
+                  </a>
+                }
+                <!-- Parent Category Item in Rail Mode (Opens Smart Floating Flyout Submenu) -->
+                @if (item.children && item.children.length > 0) {
+                  <button type="button"
+                    class="rail-nav-btn"
+                    [class.rail-active]="isParentActive(item)"
+                    [matMenuTriggerFor]="railSubMenu"
+                    [matTooltip]="item.title"
+                    matTooltipPosition="right">
+                    <span class="menu-icon-badge rail-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
+                      <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
+                    </span>
+                    <span class="rail-chevron-dot"></span>
+                  </button>
+                  <mat-menu #railSubMenu="matMenu" class="rail-flyout-menu" xPosition="after" yPosition="below" [overlapTrigger]="false">
+                    <div class="rail-flyout-header" (click)="$event.stopPropagation()">
+                      <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
+                        <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
+                      </span>
+                      <div class="rail-flyout-titles">
+                        <strong>{{ item.title }}</strong>
+                        <small>{{ item.children.length }} Module{{ item.children.length > 1 ? 's' : '' }}</small>
+                      </div>
+                    </div>
+                    <div class="rail-flyout-items">
+                      @for (sub of item.children; track sub) {
+                        <a
+                          mat-menu-item
+                          [routerLink]="sub.routeUrl"
+                          routerLinkActive="active-rail-sub"
+                          class="rail-flyout-item">
+                          <mat-icon class="rail-sub-icon">{{ sub.icon || 'star' }}</mat-icon>
+                          <span class="rail-sub-label">{{ sub.title }}</span>
+                        </a>
+                      }
+                    </div>
+                  </mat-menu>
+                }
+              }
+            </div>
+          }
         </div>
-
+    
         <!-- Expanded Mode Holiday Calendar -->
-        <div class="sidebar-calendar" *ngIf="!isRailMode() || isMobile()" [class.collapsed]="isCalendarCollapsed()">
-          <div class="calendar-title-row" (click)="toggleCalendarCollapse($event)">
-            <strong><mat-icon>event</mat-icon> Holiday Calendar</strong>
-            <div class="calendar-header-actions">
-              <span>{{ calendarYear }}</span>
-              <button mat-icon-button type="button" class="calendar-collapse-btn" [matTooltip]="isCalendarCollapsed() ? 'Expand Holiday Calendar' : 'Collapse Holiday Calendar'" (click)="toggleCalendarCollapse($event)">
-                <mat-icon>{{ isCalendarCollapsed() ? 'keyboard_arrow_down' : 'keyboard_arrow_up' }}</mat-icon>
-              </button>
-            </div>
-          </div>
-          <div class="calendar-collapsible-body" *ngIf="!isCalendarCollapsed()">
-            <div class="calendar-controls">
-              <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
-                <mat-icon>chevron_left</mat-icon>
-              </button>
-              <strong>{{ calendarMonths[calendarMonth] }}</strong>
-              <button mat-icon-button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month">
-                <mat-icon>chevron_right</mat-icon>
-              </button>
-            </div>
-            <div class="calendar-weekdays">
-              <span *ngFor="let day of calendarWeekdays">{{ day }}</span>
-            </div>
-            <div class="calendar-grid">
-              <span *ngFor="let blank of calendarLeadingBlanks"></span>
-              <button
-                *ngFor="let day of calendarDays"
-                type="button"
-                class="calendar-day"
-                [class.today]="day.isToday"
-                [class.saturday]="day.isSaturday"
-                [class.sunday]="day.isSunday"
-                [class.holiday]="day.holiday"
-                [matTooltip]="getCalendarDayTooltip(day)"
-                matTooltipPosition="right">
-                {{ day.day }}
-              </button>
-            </div>
-            <div class="calendar-legend">
-              <span><i class="holiday-dot"></i> Holiday</span>
-              <span><i class="sunday-dot"></i> Sun</span>
-              <span><i class="saturday-dot"></i> Sat</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Rail Mode Compact Footer Actions (Holiday Calendar Flyout, Install App, Developer Team) -->
-        <div class="rail-footer-actions" *ngIf="isRailMode() && !isMobile()">
-          <button type="button"
-                  class="rail-footer-btn calendar-rail-btn"
-                  [matMenuTriggerFor]="railCalendarFlyout"
-                  [matTooltip]="'Holiday Calendar (' + calendarMonths[calendarMonth] + ' ' + calendarYear + ')'"
-                  matTooltipPosition="right">
-            <mat-icon>event</mat-icon>
-          </button>
-          <mat-menu #railCalendarFlyout="matMenu" class="rail-calendar-flyout-menu" xPosition="after" yPosition="above" [overlapTrigger]="false">
-            <div class="rail-calendar-flyout-card" (click)="$event.stopPropagation()">
-              <div class="rail-cal-header">
-                <div class="cal-title">
-                  <mat-icon>event</mat-icon>
-                  <strong>Holiday Calendar ({{ calendarYear }})</strong>
-                </div>
-                <a routerLink="/holidays" class="cal-open-link" matTooltip="Open Holiday Master">View All</a>
+        @if (!isRailMode() || isMobile()) {
+          <div class="sidebar-calendar" [class.collapsed]="isCalendarCollapsed()">
+            <div class="calendar-title-row" (click)="toggleCalendarCollapse($event)">
+              <strong><mat-icon>event</mat-icon> Holiday Calendar</strong>
+              <div class="calendar-header-actions">
+                <span>{{ calendarYear }}</span>
+                <button mat-icon-button type="button" class="calendar-collapse-btn" [matTooltip]="isCalendarCollapsed() ? 'Expand Holiday Calendar' : 'Collapse Holiday Calendar'" (click)="toggleCalendarCollapse($event)">
+                  <mat-icon>{{ isCalendarCollapsed() ? 'keyboard_arrow_down' : 'keyboard_arrow_up' }}</mat-icon>
+                </button>
               </div>
-              <div class="sidebar-calendar rail-embedded-calendar">
+            </div>
+            @if (!isCalendarCollapsed()) {
+              <div class="calendar-collapsible-body">
                 <div class="calendar-controls">
                   <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
                     <mat-icon>chevron_left</mat-icon>
@@ -263,22 +229,27 @@ export interface BreadcrumbItem {
                   </button>
                 </div>
                 <div class="calendar-weekdays">
-                  <span *ngFor="let day of calendarWeekdays">{{ day }}</span>
+                  @for (day of calendarWeekdays; track day) {
+                    <span>{{ day }}</span>
+                  }
                 </div>
                 <div class="calendar-grid">
-                  <span *ngFor="let blank of calendarLeadingBlanks"></span>
-                  <button
-                    *ngFor="let day of calendarDays"
-                    type="button"
-                    class="calendar-day"
-                    [class.today]="day.isToday"
-                    [class.saturday]="day.isSaturday"
-                    [class.sunday]="day.isSunday"
-                    [class.holiday]="day.holiday"
-                    [matTooltip]="getCalendarDayTooltip(day)"
-                    matTooltipPosition="right">
-                    {{ day.day }}
-                  </button>
+                  @for (blank of calendarLeadingBlanks; track blank) {
+                    <span></span>
+                  }
+                  @for (day of calendarDays; track day) {
+                    <button
+                      type="button"
+                      class="calendar-day"
+                      [class.today]="day.isToday"
+                      [class.saturday]="day.isSaturday"
+                      [class.sunday]="day.isSunday"
+                      [class.holiday]="day.holiday"
+                      [matTooltip]="getCalendarDayTooltip(day)"
+                      matTooltipPosition="right">
+                      {{ day.day }}
+                    </button>
+                  }
                 </div>
                 <div class="calendar-legend">
                   <span><i class="holiday-dot"></i> Holiday</span>
@@ -286,87 +257,162 @@ export interface BreadcrumbItem {
                   <span><i class="saturday-dot"></i> Sat</span>
                 </div>
               </div>
-            </div>
-          </mat-menu>
-
-          <button type="button"
-                  class="rail-footer-btn pwa-rail-btn"
-                  (click)="installPwa()"
-                  [matTooltip]="isAppInstalled() ? 'App Installed' : 'Install ERP App'"
-                  matTooltipPosition="right">
-            <mat-icon>install_mobile</mat-icon>
-          </button>
-
-          <a class="rail-footer-btn dev-rail-btn"
-             routerLink="/developer"
-             routerLinkActive="rail-active"
-             matTooltip="Developer Team • Architecture & Support"
-             matTooltipPosition="right">
-            <mat-icon>engineering</mat-icon>
-          </a>
-        </div>
-
+            }
+          </div>
+        }
+    
+        <!-- Rail Mode Compact Footer Actions (Holiday Calendar Flyout, Install App, Developer Team) -->
+        @if (isRailMode() && !isMobile()) {
+          <div class="rail-footer-actions">
+            <button type="button"
+              class="rail-footer-btn calendar-rail-btn"
+              [matMenuTriggerFor]="railCalendarFlyout"
+              [matTooltip]="'Holiday Calendar (' + calendarMonths[calendarMonth] + ' ' + calendarYear + ')'"
+              matTooltipPosition="right">
+              <mat-icon>event</mat-icon>
+            </button>
+            <mat-menu #railCalendarFlyout="matMenu" class="rail-calendar-flyout-menu" xPosition="after" yPosition="above" [overlapTrigger]="false">
+              <div class="rail-calendar-flyout-card" (click)="$event.stopPropagation()">
+                <div class="rail-cal-header">
+                  <div class="cal-title">
+                    <mat-icon>event</mat-icon>
+                    <strong>Holiday Calendar ({{ calendarYear }})</strong>
+                  </div>
+                  <a routerLink="/holidays" class="cal-open-link" matTooltip="Open Holiday Master">View All</a>
+                </div>
+                <div class="sidebar-calendar rail-embedded-calendar">
+                  <div class="calendar-controls">
+                    <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
+                      <mat-icon>chevron_left</mat-icon>
+                    </button>
+                    <strong>{{ calendarMonths[calendarMonth] }}</strong>
+                    <button mat-icon-button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month">
+                      <mat-icon>chevron_right</mat-icon>
+                    </button>
+                  </div>
+                  <div class="calendar-weekdays">
+                    @for (day of calendarWeekdays; track day) {
+                      <span>{{ day }}</span>
+                    }
+                  </div>
+                  <div class="calendar-grid">
+                    @for (blank of calendarLeadingBlanks; track blank) {
+                      <span></span>
+                    }
+                    @for (day of calendarDays; track day) {
+                      <button
+                        type="button"
+                        class="calendar-day"
+                        [class.today]="day.isToday"
+                        [class.saturday]="day.isSaturday"
+                        [class.sunday]="day.isSunday"
+                        [class.holiday]="day.holiday"
+                        [matTooltip]="getCalendarDayTooltip(day)"
+                        matTooltipPosition="right">
+                        {{ day.day }}
+                      </button>
+                    }
+                  </div>
+                  <div class="calendar-legend">
+                    <span><i class="holiday-dot"></i> Holiday</span>
+                    <span><i class="sunday-dot"></i> Sun</span>
+                    <span><i class="saturday-dot"></i> Sat</span>
+                  </div>
+                </div>
+              </div>
+            </mat-menu>
+            <button type="button"
+              class="rail-footer-btn pwa-rail-btn"
+              (click)="installPwa()"
+              [matTooltip]="isAppInstalled() ? 'App Installed' : 'Install ERP App'"
+              matTooltipPosition="right">
+              <mat-icon>install_mobile</mat-icon>
+            </button>
+            <a class="rail-footer-btn dev-rail-btn"
+              routerLink="/developer"
+              routerLinkActive="rail-active"
+              matTooltip="Developer Team • Architecture & Support"
+              matTooltipPosition="right">
+              <mat-icon>engineering</mat-icon>
+            </a>
+          </div>
+        }
+    
         <!-- Sidebar PWA Install App Action (Expanded Mode) -->
-        <div class="sidebar-pwa-strip" *ngIf="!isRailMode() || isMobile()">
-          <button mat-button class="sidebar-pwa-btn" (click)="installPwa()">
-            <mat-icon>install_mobile</mat-icon>
-            <div class="pwa-text-wrap">
-              <strong>{{ isAppInstalled() ? 'App Installed' : 'Install ERP App' }}</strong>
-              <small>{{ isAppInstalled() ? 'Running as standalone app' : 'Add to Home Screen / Desktop' }}</small>
-            </div>
-          </button>
-        </div>
-
+        @if (!isRailMode() || isMobile()) {
+          <div class="sidebar-pwa-strip">
+            <button mat-button class="sidebar-pwa-btn" (click)="installPwa()">
+              <mat-icon>install_mobile</mat-icon>
+              <div class="pwa-text-wrap">
+                <strong>{{ isAppInstalled() ? 'App Installed' : 'Install ERP App' }}</strong>
+                <small>{{ isAppInstalled() ? 'Running as standalone app' : 'Add to Home Screen / Desktop' }}</small>
+              </div>
+            </button>
+          </div>
+        }
+    
         <!-- Sidebar Developer Team Action (Expanded Mode) -->
-        <div class="sidebar-pwa-strip sidebar-dev-strip" *ngIf="!isRailMode() || isMobile()">
-          <button mat-button class="sidebar-pwa-btn sidebar-dev-btn" routerLink="/developer" (click)="onNavClick(drawer)">
-            <mat-icon class="dev-icon">engineering</mat-icon>
-            <div class="pwa-text-wrap">
-              <strong class="dev-title">Developer Team</strong>
-              <small class="dev-sub">Architecture &amp; Support</small>
-            </div>
-          </button>
-        </div>
+        @if (!isRailMode() || isMobile()) {
+          <div class="sidebar-pwa-strip sidebar-dev-strip">
+            <button mat-button class="sidebar-pwa-btn sidebar-dev-btn" routerLink="/developer" (click)="onNavClick(drawer)">
+              <mat-icon class="dev-icon">engineering</mat-icon>
+              <div class="pwa-text-wrap">
+                <strong class="dev-title">Developer Team</strong>
+                <small class="dev-sub">Architecture &amp; Support</small>
+              </div>
+            </button>
+          </div>
+        }
       </mat-sidenav>
-
+    
       <mat-sidenav-content>
         <mat-toolbar class="header-toolbar">
           <button type="button"
-                  mat-icon-button
-                  (click)="onToggleSidebar(drawer)"
-                  class="menu-toggle-btn"
-                  [class.rail-toggled]="isRailMode() && !isMobile()"
-                  [matTooltip]="isMobile() ? 'Toggle Navigation Drawer' : (isRailMode() ? 'Expand Full Sidebar' : 'Collapse to Smart Rail Menu')"
-                  aria-label="Toggle navigation">
+            mat-icon-button
+            (click)="onToggleSidebar(drawer)"
+            class="menu-toggle-btn"
+            [class.rail-toggled]="isRailMode() && !isMobile()"
+            [matTooltip]="isMobile() ? 'Toggle Navigation Drawer' : (isRailMode() ? 'Expand Full Sidebar' : 'Collapse to Smart Rail Menu')"
+            aria-label="Toggle navigation">
             <mat-icon>menu</mat-icon>
           </button>
-
+    
           <div class="header-tools">
             <!-- PWA Network State Indicator (When Offline) -->
-            <div *ngIf="!isOnline()" class="offline-pill" matTooltip="Working offline. Local pages cached.">
-              <mat-icon>cloud_off</mat-icon>
-              <span>Offline</span>
-            </div>
-
+            @if (!isOnline()) {
+              <div class="offline-pill" matTooltip="Working offline. Local pages cached.">
+                <mat-icon>cloud_off</mat-icon>
+                <span>Offline</span>
+              </div>
+            }
+    
             <!-- PWA Install App Header Button -->
-            <button mat-button *ngIf="!isAppInstalled()" class="install-pwa-btn" (click)="installPwa()" [matTooltip]="'Install ' + (currentUser()?.instituteName || 'Campus ERP') + ' App on your Device'" aria-label="Install App">
-              <mat-icon class="install-icon">install_mobile</mat-icon>
-              <span class="install-text">Install App</span>
-            </button>
-
+            @if (!isAppInstalled()) {
+              <button mat-button class="install-pwa-btn" (click)="installPwa()" [matTooltip]="'Install ' + (currentUser()?.instituteName || 'Campus ERP') + ' App on your Device'" aria-label="Install App">
+                <mat-icon class="install-icon">install_mobile</mat-icon>
+                <span class="install-text">Install App</span>
+              </button>
+            }
+    
             <div class="header-search" [class.open]="headerSearchFocused" (click)="openAndFocusSearch()">
               <mat-icon class="search-icon" (click)="toggleSearch($event)">search</mat-icon>
               <input #headerSearchInput type="search" placeholder="Search pages..." [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
-              <button *ngIf="headerSearchFocused" type="button" class="search-clear-btn" (mousedown)="$event.preventDefault()" (click)="closeHeaderSearchImmediate($event)" aria-label="Close search">
-                <mat-icon>close</mat-icon>
-              </button>
-              <div class="search-results" *ngIf="headerSearchFocused && headerSearchResults.length > 0">
-                <a *ngFor="let result of headerSearchResults" [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
-                  <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title }}</span>
-                </a>
-              </div>
+              @if (headerSearchFocused) {
+                <button type="button" class="search-clear-btn" (mousedown)="$event.preventDefault()" (click)="closeHeaderSearchImmediate($event)" aria-label="Close search">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+              @if (headerSearchFocused && headerSearchResults.length > 0) {
+                <div class="search-results">
+                  @for (result of headerSearchResults; track result) {
+                    <a [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
+                      <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title }}</span>
+                    </a>
+                  }
+                </div>
+              }
             </div>
-
+    
             <!-- Real-time Multi-tenant Branch-wise Active Users Live Button -->
             <button mat-stroked-button [matMenuTriggerFor]="activeUsersMenu" class="active-users-pill-btn" [matTooltip]="presenceService.activeUsersCount() + ' user(s) currently active in ' + getCurrentBranchLabel()" aria-label="Active Users">
               <span class="active-pulse-dot"></span>
@@ -388,34 +434,44 @@ export interface BreadcrumbItem {
               </div>
               <mat-divider></mat-divider>
               <div class="active-users-scroll-container">
-                <div class="active-user-item-row" *ngFor="let u of presenceService.activeUsers()">
-                  <div class="user-avatar-circle">{{ getInitials(u.fullName) }}</div>
-                  <div class="user-details">
-                    <div class="name-line">
-                      <span class="user-name">{{ u.fullName }}</span>
-                      <span class="self-badge" *ngIf="u.userId === currentUser()?.userId">You</span>
+                @for (u of presenceService.activeUsers(); track u) {
+                  <div class="active-user-item-row">
+                    <div class="user-avatar-circle">{{ getInitials(u.fullName) }}</div>
+                    <div class="user-details">
+                      <div class="name-line">
+                        <span class="user-name">{{ u.fullName }}</span>
+                        @if (u.userId === currentUser()?.userId) {
+                          <span class="self-badge">You</span>
+                        }
+                      </div>
+                      <div class="sub-line">
+                        <span class="role-pill">{{ u.role }}</span>
+                        @if (u.branchName) {
+                          <span class="branch-info">&bull; {{ u.branchName }}</span>
+                        }
+                      </div>
                     </div>
-                    <div class="sub-line">
-                      <span class="role-pill">{{ u.role }}</span>
-                      <span class="branch-info" *ngIf="u.branchName">&bull; {{ u.branchName }}</span>
-                    </div>
+                    <span class="live-badge"><span class="dot"></span> Live</span>
                   </div>
-                  <span class="live-badge"><span class="dot"></span> Live</span>
-                </div>
-                <div class="no-other-users" *ngIf="presenceService.activeUsers().length === 0">
-                  <mat-icon>person</mat-icon>
-                  <span>1 active user online (You)</span>
-                </div>
+                }
+                @if (presenceService.activeUsers().length === 0) {
+                  <div class="no-other-users">
+                    <mat-icon>person</mat-icon>
+                    <span>1 active user online (You)</span>
+                  </div>
+                }
               </div>
             </mat-menu>
-
+    
             <button mat-icon-button routerLink="/chat" class="header-tool-button" matTooltip="Campus & Class Chat" aria-label="Campus & Class Chat">
               <mat-icon>forum</mat-icon>
-              <span class="chat-unread-badge" *ngIf="chatService.totalUnreadCount() > 0">
-                {{ chatService.totalUnreadCount() > 99 ? '99+' : chatService.totalUnreadCount() }}
-              </span>
+              @if (chatService.totalUnreadCount() > 0) {
+                <span class="chat-unread-badge">
+                  {{ chatService.totalUnreadCount() > 99 ? '99+' : chatService.totalUnreadCount() }}
+                </span>
+              }
             </button>
-
+    
             <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" matTooltip="Notifications" aria-label="Notifications">
               <mat-icon>notifications_none</mat-icon><span class="notification-dot"></span>
             </button>
@@ -430,16 +486,24 @@ export interface BreadcrumbItem {
                 <mat-icon class="chevron">chevron_right</mat-icon>
               </div>
               <mat-divider></mat-divider>
-              <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees') && isUpcomingBillingWindowActive()">
-                <mat-icon style="color: #2563eb;">calendar_month</mat-icon>
-                <span>Upcoming Fee Invoicing Alert ({{ getUpcomingBillingCycleLabel() }})</span>
-              </button>
+              @if (isRoutePermitted('/fees') && isUpcomingBillingWindowActive()) {
+                <button mat-menu-item routerLink="/fees">
+                  <mat-icon style="color: #2563eb;">calendar_month</mat-icon>
+                  <span>Upcoming Fee Invoicing Alert ({{ getUpcomingBillingCycleLabel() }})</span>
+                </button>
+              }
               <button mat-menu-item routerLink="/holidays"><mat-icon color="primary">event</mat-icon><span>View Holidays</span></button>
-              <button mat-menu-item routerLink="/fees" *ngIf="isRoutePermitted('/fees')"><mat-icon color="warn">payments</mat-icon><span>Review Overdue Fees</span></button>
-              <button mat-menu-item routerLink="/attendance/reports" *ngIf="isRoutePermitted('/attendance/reports')"><mat-icon color="accent">summarize</mat-icon><span>Open Attendance Reports</span></button>
-              <button mat-menu-item routerLink="/school/notices" *ngIf="isRoutePermitted('/school/notices')"><mat-icon color="primary">campaign</mat-icon><span>School Notices</span></button>
+              @if (isRoutePermitted('/fees')) {
+                <button mat-menu-item routerLink="/fees"><mat-icon color="warn">payments</mat-icon><span>Review Overdue Fees</span></button>
+              }
+              @if (isRoutePermitted('/attendance/reports')) {
+                <button mat-menu-item routerLink="/attendance/reports"><mat-icon color="accent">summarize</mat-icon><span>Open Attendance Reports</span></button>
+              }
+              @if (isRoutePermitted('/school/notices')) {
+                <button mat-menu-item routerLink="/school/notices"><mat-icon color="primary">campaign</mat-icon><span>School Notices</span></button>
+              }
             </mat-menu>
-
+    
             <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button">
               <mat-icon>bolt</mat-icon><span>Quick Actions</span>
             </button>
@@ -448,68 +512,94 @@ export interface BreadcrumbItem {
                 <mat-icon style="font-size:16px; width:16px; height:16px; margin-right:4px; vertical-align:middle;">bolt</mat-icon>
                 <span>Quick Actions ({{ currentUser()?.role || 'User' }})</span>
               </div>
-              <button mat-menu-item *ngFor="let a of dynamicQuickActions" [routerLink]="a.route">
-                <mat-icon [style.color]="a.color">{{ a.icon }}</mat-icon>
-                <span>{{ a.title }}</span>
-              </button>
-              <div *ngIf="dynamicQuickActions.length === 0" style="padding: 10px 16px; font-size: 12px; color: #64748b;">
-                No quick actions configured for your role
-              </div>
+              @for (a of dynamicQuickActions; track a) {
+                <button mat-menu-item [routerLink]="a.route">
+                  <mat-icon [style.color]="a.color">{{ a.icon }}</mat-icon>
+                  <span>{{ a.title }}</span>
+                </button>
+              }
+              @if (dynamicQuickActions.length === 0) {
+                <div style="padding: 10px 16px; font-size: 12px; color: #64748b;">
+                  No quick actions configured for your role
+                </div>
+              }
             </mat-menu>
           </div>
           <span class="spacer"></span>
-
+    
           <!-- Branch Switcher Dropdown Button (Only for Admins) -->
-          <button mat-stroked-button [matMenuTriggerFor]="branchMenu" class="branch-selector-button" *ngIf="branches.length > 0 && canSwitchBranches" [matTooltip]="'Branch: ' + getCurrentBranchLabel()">
-            <span class="branch-btn-content">
+          @if (branches.length > 0 && canSwitchBranches) {
+            <button mat-stroked-button [matMenuTriggerFor]="branchMenu" class="branch-selector-button" [matTooltip]="'Branch: ' + getCurrentBranchLabel()">
+              <span class="branch-btn-content">
+                <mat-icon class="branch-btn-icon">storefront</mat-icon>
+                <span class="branch-name-full">{{ getCurrentBranchLabel() }}</span>
+                <span class="branch-name-short">{{ getCurrentBranchCode() }}</span>
+                <mat-icon class="dropdown-chevron">expand_more</mat-icon>
+              </span>
+            </button>
+          }
+    
+          <!-- Branch Locked Badge for Staff / Teachers -->
+          @if (branches.length > 0 && !canSwitchBranches) {
+            <div class="branch-locked-badge" [matTooltip]="'Assigned Branch: ' + getCurrentBranchLabel()">
               <mat-icon class="branch-btn-icon">storefront</mat-icon>
               <span class="branch-name-full">{{ getCurrentBranchLabel() }}</span>
               <span class="branch-name-short">{{ getCurrentBranchCode() }}</span>
-              <mat-icon class="dropdown-chevron">expand_more</mat-icon>
-            </span>
-          </button>
-
-          <!-- Branch Locked Badge for Staff / Teachers -->
-          <div class="branch-locked-badge" *ngIf="branches.length > 0 && !canSwitchBranches" [matTooltip]="'Assigned Branch: ' + getCurrentBranchLabel()">
-            <mat-icon class="branch-btn-icon">storefront</mat-icon>
-            <span class="branch-name-full">{{ getCurrentBranchLabel() }}</span>
-            <span class="branch-name-short">{{ getCurrentBranchCode() }}</span>
-            <mat-icon class="lock-icon">lock</mat-icon>
-          </div>
-
+              <mat-icon class="lock-icon">lock</mat-icon>
+            </div>
+          }
+    
           <mat-menu #branchMenu="matMenu" xPosition="before" class="branch-dropdown-panel">
             <div class="menu-section-title">Active Branch Scope</div>
             <button mat-menu-item (click)="onSelectBranch(null)" [class.active-branch-item]="!selectedBranchId()">
               <mat-icon [color]="!selectedBranchId() ? 'primary' : ''">corporate_fare</mat-icon>
               <span>All Branches / Head Office</span>
-              <mat-icon *ngIf="!selectedBranchId()" class="branch-check-icon">check</mat-icon>
+              @if (!selectedBranchId()) {
+                <mat-icon class="branch-check-icon">check</mat-icon>
+              }
             </button>
             <mat-divider></mat-divider>
-            <button mat-menu-item *ngFor="let b of branches" (click)="onSelectBranch(b.id)" [class.active-branch-item]="selectedBranchId() === b.id">
-              <mat-icon [color]="selectedBranchId() === b.id ? 'primary' : ''">store</mat-icon>
-              <span>{{ b.name }} ({{ b.code }})</span>
-              <mat-icon *ngIf="selectedBranchId() === b.id" class="branch-check-icon">check</mat-icon>
-            </button>
+            @for (b of branches; track b) {
+              <button mat-menu-item (click)="onSelectBranch(b.id)" [class.active-branch-item]="selectedBranchId() === b.id">
+                <mat-icon [color]="selectedBranchId() === b.id ? 'primary' : ''">store</mat-icon>
+                <span>{{ b.name }} ({{ b.code }})</span>
+                @if (selectedBranchId() === b.id) {
+                  <mat-icon class="branch-check-icon">check</mat-icon>
+                }
+              </button>
+            }
           </mat-menu>
-          
+    
           <!-- User Account Menu Trigger Button -->
           <button mat-icon-button [matMenuTriggerFor]="accountMenu" class="account-btn" matTooltip="My Profile &amp; Settings">
-            <div class="header-avatar-circle" *ngIf="getUserPhoto() && !userAvatarFailed()">
-              <img [src]="getPhotoUrl(getUserPhoto())" [alt]="currentUser()?.fullName" class="header-avatar-img" (error)="onUserAvatarError()" />
-            </div>
-            <div class="header-avatar-circle header-avatar-initials" *ngIf="(!getUserPhoto() || userAvatarFailed()) && currentUser()?.fullName">
-              <span>{{ getUserInitials() }}</span>
-            </div>
-            <mat-icon *ngIf="(!getUserPhoto() || userAvatarFailed()) && !currentUser()?.fullName" class="account-icon">account_circle</mat-icon>
+            @if (getUserPhoto() && !userAvatarFailed()) {
+              <div class="header-avatar-circle">
+                <img [src]="getPhotoUrl(getUserPhoto())" [alt]="$safeNavigationMigration(currentUser()?.fullName)" class="header-avatar-img" (error)="onUserAvatarError()" />
+              </div>
+            }
+            @if ((!getUserPhoto() || userAvatarFailed()) && currentUser()?.fullName) {
+              <div class="header-avatar-circle header-avatar-initials">
+                <span>{{ getUserInitials() }}</span>
+              </div>
+            }
+            @if ((!getUserPhoto() || userAvatarFailed()) && !currentUser()?.fullName) {
+              <mat-icon class="account-icon">account_circle</mat-icon>
+            }
           </button>
-
+    
           <!-- Account Dropdown Menu -->
           <mat-menu #accountMenu="matMenu" xPosition="before" class="account-dropdown-panel">
             <div class="account-menu-header" (click)="$event.stopPropagation()">
               <div class="user-avatar-circle">
-                <img *ngIf="getUserPhoto() && !userAvatarFailed()" [src]="getPhotoUrl(getUserPhoto())" [alt]="currentUser()?.fullName" class="menu-avatar-img" (error)="onUserAvatarError()" />
-                <span *ngIf="(!getUserPhoto() || userAvatarFailed()) && currentUser()?.fullName" class="avatar-initials-text">{{ getUserInitials() }}</span>
-                <mat-icon *ngIf="(!getUserPhoto() || userAvatarFailed()) && !currentUser()?.fullName">person</mat-icon>
+                @if (getUserPhoto() && !userAvatarFailed()) {
+                  <img [src]="getPhotoUrl(getUserPhoto())" [alt]="$safeNavigationMigration(currentUser()?.fullName)" class="menu-avatar-img" (error)="onUserAvatarError()" />
+                }
+                @if ((!getUserPhoto() || userAvatarFailed()) && currentUser()?.fullName) {
+                  <span class="avatar-initials-text">{{ getUserInitials() }}</span>
+                }
+                @if ((!getUserPhoto() || userAvatarFailed()) && !currentUser()?.fullName) {
+                  <mat-icon>person</mat-icon>
+                }
               </div>
               <div class="user-info-text">
                 <span class="user-name">{{ currentUser()?.fullName || currentUser()?.username || 'Administrator' }}</span>
@@ -517,61 +607,80 @@ export interface BreadcrumbItem {
                 <span class="user-inst">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
               </div>
             </div>
-
+    
             <mat-divider></mat-divider>
-
+    
             <button mat-menu-item routerLink="/users">
               <mat-icon color="primary">manage_accounts</mat-icon>
               <span>User Profile &amp; Staff</span>
             </button>
-
+    
             <button mat-menu-item routerLink="/developer">
               <mat-icon style="color: #2563eb;">engineering</mat-icon>
               <span>Developer Team &amp; Support</span>
             </button>
-
+    
             <mat-divider></mat-divider>
-
+    
             <button mat-menu-item (click)="logout()" class="logout-item">
               <mat-icon color="warn">logout</mat-icon>
               <span class="text-warn">Logout</span>
             </button>
           </mat-menu>
         </mat-toolbar>
-
+    
         <main class="main-content">
           <!-- Dynamic Enterprise Breadcrumb Strip -->
-          <nav class="enterprise-breadcrumb-bar" aria-label="Breadcrumb" *ngIf="breadcrumbs().length > 0">
-            <ol class="breadcrumb-list">
-              <li class="breadcrumb-item" *ngFor="let b of breadcrumbs(); let isLast = last">
-                <a *ngIf="!isLast && b.url" [routerLink]="b.url" class="breadcrumb-link" [title]="b.label">
-                  <mat-icon class="bc-icon" *ngIf="b.icon">{{ b.icon }}</mat-icon>
-                  <span>{{ b.label }}</span>
-                </a>
-                <span *ngIf="!isLast && !b.url" (click)="onParentCategoryClick(b)" class="breadcrumb-link parent-category" [title]="b.label">
-                  <mat-icon class="bc-icon" *ngIf="b.icon">{{ b.icon }}</mat-icon>
-                  <span>{{ b.label }}</span>
-                </span>
-                <span *ngIf="isLast" class="breadcrumb-current" aria-current="page">
-                  <mat-icon class="bc-icon" *ngIf="b.icon">{{ b.icon }}</mat-icon>
-                  <span>{{ b.label }}</span>
-                </span>
-                <mat-icon class="breadcrumb-separator" *ngIf="!isLast">chevron_right</mat-icon>
-              </li>
-            </ol>
-          </nav>
-
+          @if (breadcrumbs().length > 0) {
+            <nav class="enterprise-breadcrumb-bar" aria-label="Breadcrumb">
+              <ol class="breadcrumb-list">
+                @for (b of breadcrumbs(); track b; let isLast = $last) {
+                  <li class="breadcrumb-item">
+                    @if (!isLast && b.url) {
+                      <a [routerLink]="b.url" class="breadcrumb-link" [title]="b.label">
+                        @if (b.icon) {
+                          <mat-icon class="bc-icon">{{ b.icon }}</mat-icon>
+                        }
+                        <span>{{ b.label }}</span>
+                      </a>
+                    }
+                    @if (!isLast && !b.url) {
+                      <span (click)="onParentCategoryClick(b)" class="breadcrumb-link parent-category" [title]="b.label">
+                        @if (b.icon) {
+                          <mat-icon class="bc-icon">{{ b.icon }}</mat-icon>
+                        }
+                        <span>{{ b.label }}</span>
+                      </span>
+                    }
+                    @if (isLast) {
+                      <span class="breadcrumb-current" aria-current="page">
+                        @if (b.icon) {
+                          <mat-icon class="bc-icon">{{ b.icon }}</mat-icon>
+                        }
+                        <span>{{ b.label }}</span>
+                      </span>
+                    }
+                    @if (!isLast) {
+                      <mat-icon class="breadcrumb-separator">chevron_right</mat-icon>
+                    }
+                  </li>
+                }
+              </ol>
+            </nav>
+          }
+    
           <router-outlet></router-outlet>
         </main>
-
+    
         <!-- Global ERP Footer Component -->
         <app-footer></app-footer>
       </mat-sidenav-content>
     </mat-sidenav-container>
-
+    
     <!-- Floating Settings Gear & Quick Settings Drawer -->
     <app-quick-settings-drawer></app-quick-settings-drawer>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .sidenav-container {
       height: 100vh;
@@ -1577,7 +1686,7 @@ export interface BreadcrumbItem {
       line-height: 1;
     }
     .quick-actions-button {
-      --mdc-outlined-button-label-text-color: #334155 !important;
+      --mat-button-outlined-label-text-color: #334155 !important;
       ::ng-deep .mdc-button__label {
         color: #334155 !important;
       }
@@ -1970,7 +2079,7 @@ export interface BreadcrumbItem {
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       flex-shrink: 0;
-      --mdc-outlined-button-label-text-color: #1e293b !important;
+      --mat-button-outlined-label-text-color: #1e293b !important;
 
       ::ng-deep .mdc-button__label {
         display: inline-flex !important;
@@ -2047,7 +2156,7 @@ export interface BreadcrumbItem {
         background: #eff6ff !important;
         border-color: #bfdbfe !important;
         color: #1d4ed8 !important;
-        --mdc-outlined-button-label-text-color: #1d4ed8 !important;
+        --mat-button-outlined-label-text-color: #1d4ed8 !important;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
         ::ng-deep .mdc-button__label {

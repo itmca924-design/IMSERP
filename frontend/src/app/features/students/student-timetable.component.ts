@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,711 +22,806 @@ import {
 } from '../../core/services/school.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.component';
-import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 @Component({
   selector: 'app-student-timetable',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     RouterLink,
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
-    MatDialogModule,
-    IstDatetimeDirective
-  ],
+    MatDialogModule
+],
   template: `
     <div class="timetable-page-container">
       <div class="no-print screen-ui-wrapper">
         <!-- Top Portal Navigation & Action Bar -->
         <div class="portal-header-bar">
-        <div class="header-left">
-          <div class="header-icon-box">
-            <mat-icon>calendar_view_week</mat-icon>
-          </div>
-          <div>
-            <div class="breadcrumb-row">
-              <a routerLink="/dashboard" class="bc-link"><mat-icon>home</mat-icon> Dashboard</a>
-              <span class="bc-sep">/</span>
-              <a routerLink="/students/my-profile" class="bc-link">Student 360°</a>
-              <span class="bc-sep">/</span>
-              <span class="bc-current">Live Routine &amp; Timetable</span>
+          <div class="header-left">
+            <div class="header-icon-box">
+              <mat-icon>calendar_view_week</mat-icon>
             </div>
-            <h1 class="page-title">Live Class Routine &amp; Timetable</h1>
-            <p class="page-subtitle">Real-time daily period sequence, live classroom tracking, faculty directory &amp; substitution updates</p>
-          </div>
-        </div>
-
-        <div class="header-actions" *ngIf="timetableData">
-          <!-- IST Digital Clock -->
-          <div class="live-clock-badge">
-            <div class="live-pulse-dot"></div>
-            <div class="clock-details">
-              <span class="clock-label">IST LOCAL TIME</span>
-              <span class="clock-time">{{ liveClockTime }}</span>
-            </div>
-          </div>
-
-          <button mat-stroked-button class="header-btn" (click)="toggleViewMode()">
-            <mat-icon>{{ viewMode === 'daily' ? 'grid_view' : 'view_day' }}</mat-icon>
-            {{ viewMode === 'daily' ? 'Weekly Matrix Grid' : 'Daily Timeline View' }}
-          </button>
-
-          <button mat-stroked-button class="header-btn" (click)="showFacultyModal = true">
-            <mat-icon>groups</mat-icon> Faculty Directory ({{ timetableData.facultyContacts.length || 0 }})
-          </button>
-
-          <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
-            <mat-icon>print</mat-icon> Print Routine
-          </button>
-        </div>
-      </div>
-
-      <!-- Scope Navigation Pills (School Classes vs Coaching Batches) -->
-      <div class="scope-nav-container" *ngIf="isAdminOrStaff && (hasSchoolModule && hasCoachingModule)">
-        <div class="scope-pills">
-          <button
-            type="button"
-            class="scope-pill-btn"
-            [class.active]="targetScope === 'school'"
-            (click)="setScope('school')">
-            <mat-icon class="pill-icon">account_balance</mat-icon>
-            <span>School Classes (स्कूल कक्षाएं)</span>
-          </button>
-
-          <button
-            type="button"
-            class="scope-pill-btn"
-            [class.active]="targetScope === 'coaching'"
-            (click)="setScope('coaching')">
-            <mat-icon class="pill-icon">groups</mat-icon>
-            <span>Coaching Batches (कोचिंग बैचेस)</span>
-          </button>
-        </div>
-
-        <div class="scope-meta-badge">
-          <mat-icon>verified_user</mat-icon>
-          <span *ngIf="targetScope === 'coaching'">Scope: <strong>Coaching Batch Routine</strong> (बैच रूटीन)</span>
-          <span *ngIf="targetScope === 'school'">Scope: <strong>School Section Routine</strong> (कक्षा वर्ग रूटीन)</span>
-        </div>
-      </div>
-
-      <!-- Academic Class & Section Selector for Staff/Admin (School Mode) -->
-      <div class="admin-selector-bar" *ngIf="isAdminOrStaff && targetScope === 'school' && classes.length > 0">
-        <div class="selector-left">
-          <div class="selector-badge">
-            <mat-icon>tune</mat-icon>
-            <span>School Routine</span>
-          </div>
-          
-          <div class="select-group">
-            <label class="select-label">Class (कक्षा):</label>
-            <select [(ngModel)]="selectedClassId" (change)="onClassSelect()" class="header-select">
-              <option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</option>
-            </select>
-          </div>
-
-          <div class="select-group" *ngIf="currentSections.length > 0">
-            <label class="select-label">Section (वर्ग):</label>
-            <select [(ngModel)]="selectedSectionId" (change)="onSectionSelect()" class="header-select">
-              <option *ngFor="let s of currentSections" [value]="s.id">{{ s.name }}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="selector-right">
-          <button type="button" class="setup-routine-btn" (click)="openConfigureRoutineDialog()" matTooltip="Add / edit periods and assign teachers for this section">
-            <mat-icon>edit_calendar</mat-icon>
-            <span>Configure Section Routine</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Coaching Batch Selector for Staff/Admin (Coaching Mode) -->
-      <div class="admin-selector-bar coaching-bar" *ngIf="isAdminOrStaff && targetScope === 'coaching'">
-        <div class="selector-left">
-          <div class="selector-badge coaching-badge">
-            <mat-icon>groups</mat-icon>
-            <span>Batch Routine</span>
-          </div>
-          
-          <div class="select-group" *ngIf="classes.length > 0">
-            <label class="select-label">Class (कक्षा):</label>
-            <select [(ngModel)]="coachingClassId" (change)="onCoachingClassChange()" class="header-select">
-              <option value="">All Classes (सभी कक्षाएं)</option>
-              <option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</option>
-            </select>
-          </div>
-
-          <div class="select-group">
-            <label class="select-label">Batch (कोचिंग बैच):</label>
-            <select [(ngModel)]="selectedBatchId" (change)="onBatchSelect()" class="header-select batch-select">
-              <option *ngIf="filteredBatches.length === 0" value="">No batches for this class</option>
-              <option *ngFor="let b of filteredBatches" [value]="b.id">
-                {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}{{ b.subject ? ' - ' + b.subject : '' }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="selector-right">
-          <button type="button" class="setup-routine-btn coaching-routine-btn" (click)="openConfigureBatchRoutineDialog()" [disabled]="!selectedBatchId" matTooltip="Add / edit lectures and assign faculty for this batch">
-            <mat-icon>edit_calendar</mat-icon>
-            <span>Configure Batch Routine</span>
-          </button>
-        </div>
-      </div>
-
-
-      <!-- Error State -->
-      <div class="error-state-card" *ngIf="!loading && errorMessage">
-        <mat-icon class="err-icon">error_outline</mat-icon>
-        <h3>Unable to Load Timetable</h3>
-        <p>{{ errorMessage }}</p>
-        <button mat-stroked-button color="primary" (click)="loadTimetable()">
-          <mat-icon>refresh</mat-icon> Retry Loading
-        </button>
-      </div>
-
-      <!-- Main Timetable Content -->
-      <div class="content-wrapper" *ngIf="!loading && timetableData">
-
-        <!-- No Routine Configured Alert Banner -->
-        <div class="no-routine-configured-banner" *ngIf="totalWeeklyPeriodsCount === 0">
-          <div class="banner-left">
-            <mat-icon>event_busy</mat-icon>
             <div>
-              <strong>No Periods Scheduled Yet for {{ targetScope === 'coaching' ? (timetableData.batchName || 'this Batch') : (timetableData.className + (timetableData.sectionName ? ' - ' + timetableData.sectionName : '')) }}</strong>
-              <p>Configure weekly routine, subjects, and period timings for {{ targetScope === 'coaching' ? 'this coaching batch' : 'this section' }}.</p>
-            </div>
-          </div>
-          <button type="button" class="btn-create-routine" (click)="targetScope === 'coaching' ? openConfigureBatchRoutineDialog() : openConfigureRoutineDialog()">
-            <mat-icon>add_circle_outline</mat-icon> Setup Weekly Routine
-          </button>
-        </div>
-
-        <!-- Student & Academic Identity Strip -->
-        <div class="student-identity-bar">
-          <div class="student-info-col">
-            <div class="student-avatar-box">
-              <mat-icon>school</mat-icon>
-            </div>
-            <div class="student-text">
-              <h2 class="student-name">{{ timetableData.studentName }}</h2>
-              <div class="student-pills">
-                <span class="id-pill" *ngIf="timetableData.className">
-                  <mat-icon>domain</mat-icon> Class: <strong>{{ timetableData.className }}{{ timetableData.sectionName ? ' - ' + timetableData.sectionName : '' }}</strong>
-                </span>
-                <span class="id-pill" *ngIf="timetableData.batchName">
-                  <mat-icon>class</mat-icon> Batch: <strong>{{ timetableData.batchName }}</strong>
-                </span>
-                <span class="id-pill">
-                  <mat-icon>pin</mat-icon> Roll No: <strong>{{ timetableData.rollNumber }}</strong>
-                </span>
-                <span class="id-pill" *ngIf="timetableData.branchName">
-                  <mat-icon>store</mat-icon> Campus: <strong>{{ timetableData.branchName }}</strong>
-                </span>
+              <div class="breadcrumb-row">
+                <a routerLink="/dashboard" class="bc-link"><mat-icon>home</mat-icon> Dashboard</a>
+                <span class="bc-sep">/</span>
+                <a routerLink="/students/my-profile" class="bc-link">Student 360°</a>
+                <span class="bc-sep">/</span>
+                <span class="bc-current">Live Routine &amp; Timetable</span>
               </div>
+              <h1 class="page-title">Live Class Routine &amp; Timetable</h1>
+              <p class="page-subtitle">Real-time daily period sequence, live classroom tracking, faculty directory &amp; substitution updates</p>
             </div>
           </div>
-
-          <div class="class-teacher-card" *ngIf="timetableData.classTeacherName">
-            <div class="ct-avatar">
-              <mat-icon>supervisor_account</mat-icon>
-            </div>
-            <div class="ct-info">
-              <span class="ct-role">Class Teacher / Incharge</span>
-              <strong class="ct-name">{{ timetableData.classTeacherName }}</strong>
-              <a *ngIf="timetableData.classTeacherPhone" [href]="'tel:' + timetableData.classTeacherPhone" class="ct-phone">
-                <mat-icon>phone</mat-icon> {{ timetableData.classTeacherPhone }}
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <!-- 🔴 LIVE CLASS SPOTLIGHT BANNER (Only on today's view) -->
-        <div class="live-spotlight-banner" *ngIf="selectedDay === timetableData.todayDayOfWeek && currentLivePeriod">
-          <div class="spotlight-left">
-            <div class="live-badge-glow">
-              <span class="dot-beacon"></span>
-              LIVE CLASS IN SESSION
-            </div>
-            <h3 class="live-subject">{{ currentLivePeriod.subject }}</h3>
-            <div class="live-meta-row">
-              <span class="live-meta-item">
-                <mat-icon>schedule</mat-icon> Period {{ currentLivePeriod.periodNumber }} &bull; {{ currentLivePeriod.timeSlot }}
-              </span>
-              <span class="live-meta-item room-tag">
-                <mat-icon>meeting_room</mat-icon> Room: <strong>{{ currentLivePeriod.roomNumber }}</strong>
-              </span>
-              <span class="live-meta-item faculty-tag">
-                <mat-icon>person</mat-icon> {{ currentLivePeriod.teacherName }}
-                <span class="ct-crown" *ngIf="currentLivePeriod.isClassTeacher" matTooltip="Class Teacher">👑</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- Proxy alert if substituted -->
-          <div class="spotlight-sub-alert" *ngIf="currentLivePeriod.isSubstituted">
-            <div class="sub-alert-head">
-              <mat-icon>swap_horiz</mat-icon>
-              <span>Substitute Faculty Active Today</span>
-            </div>
-            <div class="sub-alert-body">
-              <strong>{{ currentLivePeriod.substituteTeacherName }}</strong> is conducting this session.
-              <span *ngIf="currentLivePeriod.substituteTopic" class="sub-topic">Topic: "{{ currentLivePeriod.substituteTopic }}"</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Day Selector Navigation Bar -->
-        <div class="day-navigation-strip">
-          <div class="day-pills-row">
-            <button 
-              type="button" 
-              class="day-pill-btn today-highlight-btn" 
-              [class.active]="selectedDay === timetableData.todayDayOfWeek"
-              (click)="selectDay(timetableData.todayDayOfWeek)">
-              <mat-icon>bolt</mat-icon>
-              <span>Today ({{ timetableData.todayDayOfWeek }})</span>
-              <span class="period-count-badge">{{ (timetableData.weeklySchedule[timetableData.todayDayOfWeek] || []).length }}</span>
-            </button>
-
-            <button 
-              type="button" 
-              *ngFor="let day of daysList" 
-              class="day-pill-btn" 
-              [class.active]="selectedDay === day"
-              [class.today-day]="day === timetableData.todayDayOfWeek"
-              (click)="selectDay(day)">
-              <span>{{ day }}</span>
-              <span class="period-count-badge">{{ (timetableData.weeklySchedule[day] || []).length }}</span>
-            </button>
-          </div>
-
-          <div class="view-toggle-btns">
-            <button 
-              type="button" 
-              class="mode-btn" 
-              [class.active]="viewMode === 'daily'" 
-              (click)="viewMode = 'daily'"
-              matTooltip="Daily Timeline View">
-              <mat-icon>view_day</mat-icon> Daily Timeline
-            </button>
-            <button 
-              type="button" 
-              class="mode-btn" 
-              [class.active]="viewMode === 'weekly'" 
-              (click)="viewMode = 'weekly'"
-              matTooltip="Weekly Full Routine Matrix">
-              <mat-icon>grid_view</mat-icon> Full Week Grid
-            </button>
-          </div>
-        </div>
-
-        <!-- MODE 1: DAILY TIMELINE VIEW -->
-        <div class="daily-timeline-section" *ngIf="viewMode === 'daily'">
-          <div class="timeline-day-header">
-            <div class="day-heading-group">
-              <h3 class="current-day-title">
-                {{ selectedDay }}'s Schedule
-                <span class="today-tag" *ngIf="selectedDay === timetableData.todayDayOfWeek">Today's Live Routine</span>
-              </h3>
-              <p class="current-day-sub">
-                Total {{ currentDaySlots.length }} academic lectures / practical sessions scheduled for {{ selectedDay }}
-              </p>
-            </div>
-            <div class="timeline-legend">
-              <span class="legend-item"><span class="legend-dot completed"></span> Completed</span>
-              <span class="legend-item"><span class="legend-dot live"></span> Live Now</span>
-              <span class="legend-item"><span class="legend-dot upcoming"></span> Upcoming</span>
-              <span class="legend-item"><span class="legend-dot sub"></span> Substitute / Proxy</span>
-            </div>
-          </div>
-
-          <!-- Empty State for Day -->
-          <div class="empty-day-card" *ngIf="currentDaySlots.length === 0">
-            <div class="empty-illustration">
-              <mat-icon>weekend</mat-icon>
-            </div>
-            <h4>No Classes Scheduled on {{ selectedDay }}</h4>
-            <p>Enjoy your break or use this time for self-study and pending homework assignments!</p>
-            <a routerLink="/school/homework" class="view-hw-btn">
-              <mat-icon>auto_stories</mat-icon> Check Homework &amp; Diary
-            </a>
-          </div>
-
-          <!-- Period Cards Flow -->
-          <div class="period-cards-flow" *ngIf="currentDaySlots.length > 0">
-            <div 
-              class="period-card" 
-              *ngFor="let slot of currentDaySlots; let idx = index" 
-              [class.live-card]="slot.isLiveNow"
-              [class.completed-card]="slot.isCompleted"
-              [class.upcoming-card]="slot.isUpcoming"
-              [class.has-proxy]="slot.isSubstituted">
-
-              <!-- Left Number / Time Column -->
-              <div class="period-time-col">
-                <div class="period-badge">
-                  <span class="period-num">P{{ slot.periodNumber }}</span>
-                  <span class="period-word">Period</span>
-                </div>
-                <div class="time-range-box">
-                  <mat-icon>schedule</mat-icon>
-                  <span class="time-text">{{ slot.timeSlot }}</span>
-                </div>
-
-                <div class="status-indicator-pill" [class.live]="slot.isLiveNow" [class.completed]="slot.isCompleted" [class.upcoming]="slot.isUpcoming">
-                  <span class="status-dot"></span>
-                  <span class="status-name" *ngIf="slot.isLiveNow">LIVE NOW</span>
-                  <span class="status-name" *ngIf="slot.isCompleted">Completed</span>
-                  <span class="status-name" *ngIf="slot.isUpcoming">Upcoming</span>
+    
+          @if (timetableData) {
+            <div class="header-actions">
+              <!-- IST Digital Clock -->
+              <div class="live-clock-badge">
+                <div class="live-pulse-dot"></div>
+                <div class="clock-details">
+                  <span class="clock-label">IST LOCAL TIME</span>
+                  <span class="clock-time">{{ liveClockTime }}</span>
                 </div>
               </div>
-
-              <!-- Center Details Column -->
-              <div class="period-body-col">
-                <div class="subject-header-row">
-                  <div class="subject-title-wrap">
-                    <span class="subject-color-bar" [style.background-color]="getSubjectColor(slot.subject)"></span>
-                    <h4 class="subject-name">{{ slot.subject }}</h4>
-                    <span class="stream-pill" [class.coaching]="slot.stream === 'Coaching'">{{ slot.stream }}</span>
-                  </div>
-
-                  <div class="room-pill">
-                    <mat-icon>meeting_room</mat-icon>
-                    <span>Room: <strong>{{ slot.roomNumber }}</strong></span>
+              <button mat-stroked-button class="header-btn" (click)="toggleViewMode()">
+                <mat-icon>{{ viewMode === 'daily' ? 'grid_view' : 'view_day' }}</mat-icon>
+                {{ viewMode === 'daily' ? 'Weekly Matrix Grid' : 'Daily Timeline View' }}
+              </button>
+              <button mat-stroked-button class="header-btn" (click)="showFacultyModal = true">
+                <mat-icon>groups</mat-icon> Faculty Directory ({{ timetableData.facultyContacts.length || 0 }})
+              </button>
+              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
+                <mat-icon>print</mat-icon> Print Routine
+              </button>
+            </div>
+          }
+        </div>
+    
+        <!-- Scope Navigation Pills (School Classes vs Coaching Batches) -->
+        @if (isAdminOrStaff && (hasSchoolModule && hasCoachingModule)) {
+          <div class="scope-nav-container">
+            <div class="scope-pills">
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="targetScope === 'school'"
+                (click)="setScope('school')">
+                <mat-icon class="pill-icon">account_balance</mat-icon>
+                <span>School Classes (स्कूल कक्षाएं)</span>
+              </button>
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="targetScope === 'coaching'"
+                (click)="setScope('coaching')">
+                <mat-icon class="pill-icon">groups</mat-icon>
+                <span>Coaching Batches (कोचिंग बैचेस)</span>
+              </button>
+            </div>
+            <div class="scope-meta-badge">
+              <mat-icon>verified_user</mat-icon>
+              @if (targetScope === 'coaching') {
+                <span>Scope: <strong>Coaching Batch Routine</strong> (बैच रूटीन)</span>
+              }
+              @if (targetScope === 'school') {
+                <span>Scope: <strong>School Section Routine</strong> (कक्षा वर्ग रूटीन)</span>
+              }
+            </div>
+          </div>
+        }
+    
+        <!-- Academic Class & Section Selector for Staff/Admin (School Mode) -->
+        @if (isAdminOrStaff && targetScope === 'school' && classes.length > 0) {
+          <div class="admin-selector-bar">
+            <div class="selector-left">
+              <div class="selector-badge">
+                <mat-icon>tune</mat-icon>
+                <span>School Routine</span>
+              </div>
+              <div class="select-group">
+                <label class="select-label">Class (कक्षा):</label>
+                <select [(ngModel)]="selectedClassId" (change)="onClassSelect()" class="header-select">
+                  @for (c of classes; track c) {
+                    <option [value]="c.id">{{ c.name }}</option>
+                  }
+                </select>
+              </div>
+              @if (currentSections.length > 0) {
+                <div class="select-group">
+                  <label class="select-label">Section (वर्ग):</label>
+                  <select [(ngModel)]="selectedSectionId" (change)="onSectionSelect()" class="header-select">
+                    @for (s of currentSections; track s) {
+                      <option [value]="s.id">{{ s.name }}</option>
+                    }
+                  </select>
+                </div>
+              }
+            </div>
+            <div class="selector-right">
+              <button type="button" class="setup-routine-btn" (click)="openConfigureRoutineDialog()" matTooltip="Add / edit periods and assign teachers for this section">
+                <mat-icon>edit_calendar</mat-icon>
+                <span>Configure Section Routine</span>
+              </button>
+            </div>
+          </div>
+        }
+    
+        <!-- Coaching Batch Selector for Staff/Admin (Coaching Mode) -->
+        @if (isAdminOrStaff && targetScope === 'coaching') {
+          <div class="admin-selector-bar coaching-bar">
+            <div class="selector-left">
+              <div class="selector-badge coaching-badge">
+                <mat-icon>groups</mat-icon>
+                <span>Batch Routine</span>
+              </div>
+              @if (classes.length > 0) {
+                <div class="select-group">
+                  <label class="select-label">Class (कक्षा):</label>
+                  <select [(ngModel)]="coachingClassId" (change)="onCoachingClassChange()" class="header-select">
+                    <option value="">All Classes (सभी कक्षाएं)</option>
+                    @for (c of classes; track c) {
+                      <option [value]="c.id">{{ c.name }}</option>
+                    }
+                  </select>
+                </div>
+              }
+              <div class="select-group">
+                <label class="select-label">Batch (कोचिंग बैच):</label>
+                <select [(ngModel)]="selectedBatchId" (change)="onBatchSelect()" class="header-select batch-select">
+                  @if (filteredBatches.length === 0) {
+                    <option value="">No batches for this class</option>
+                  }
+                  @for (b of filteredBatches; track b) {
+                    <option [value]="b.id">
+                      {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}{{ b.subject ? ' - ' + b.subject : '' }}
+                    </option>
+                  }
+                </select>
+              </div>
+            </div>
+            <div class="selector-right">
+              <button type="button" class="setup-routine-btn coaching-routine-btn" (click)="openConfigureBatchRoutineDialog()" [disabled]="!selectedBatchId" matTooltip="Add / edit lectures and assign faculty for this batch">
+                <mat-icon>edit_calendar</mat-icon>
+                <span>Configure Batch Routine</span>
+              </button>
+            </div>
+          </div>
+        }
+    
+    
+        <!-- Error State -->
+        @if (!loading && errorMessage) {
+          <div class="error-state-card">
+            <mat-icon class="err-icon">error_outline</mat-icon>
+            <h3>Unable to Load Timetable</h3>
+            <p>{{ errorMessage }}</p>
+            <button mat-stroked-button color="primary" (click)="loadTimetable()">
+              <mat-icon>refresh</mat-icon> Retry Loading
+            </button>
+          </div>
+        }
+    
+        <!-- Main Timetable Content -->
+        @if (!loading && timetableData) {
+          <div class="content-wrapper">
+            <!-- No Routine Configured Alert Banner -->
+            @if (totalWeeklyPeriodsCount === 0) {
+              <div class="no-routine-configured-banner">
+                <div class="banner-left">
+                  <mat-icon>event_busy</mat-icon>
+                  <div>
+                    <strong>No Periods Scheduled Yet for {{ targetScope === 'coaching' ? (timetableData.batchName || 'this Batch') : (timetableData.className + (timetableData.sectionName ? ' - ' + timetableData.sectionName : '')) }}</strong>
+                    <p>Configure weekly routine, subjects, and period timings for {{ targetScope === 'coaching' ? 'this coaching batch' : 'this section' }}.</p>
                   </div>
                 </div>
-
-                <!-- Teacher Profile Info -->
-                <div class="faculty-profile-strip">
-                  <div class="fac-avatar" [style.background-color]="getSubjectColor(slot.subject)">
-                    <span *ngIf="!slot.teacherPhoto">{{ getInitials(slot.teacherName) }}</span>
-                    <img *ngIf="slot.teacherPhoto" [src]="slot.teacherPhoto" [alt]="slot.teacherName" />
-                  </div>
-                  <div class="fac-details">
-                    <div class="fac-name-row">
-                      <strong class="fac-name">{{ slot.teacherName }}</strong>
-                      <span class="ct-badge" *ngIf="slot.isClassTeacher">
-                        <mat-icon>verified</mat-icon> Class Teacher
+                <button type="button" class="btn-create-routine" (click)="targetScope === 'coaching' ? openConfigureBatchRoutineDialog() : openConfigureRoutineDialog()">
+                  <mat-icon>add_circle_outline</mat-icon> Setup Weekly Routine
+                </button>
+              </div>
+            }
+            <!-- Student & Academic Identity Strip -->
+            <div class="student-identity-bar">
+              <div class="student-info-col">
+                <div class="student-avatar-box">
+                  <mat-icon>school</mat-icon>
+                </div>
+                <div class="student-text">
+                  <h2 class="student-name">{{ timetableData.studentName }}</h2>
+                  <div class="student-pills">
+                    @if (timetableData.className) {
+                      <span class="id-pill">
+                        <mat-icon>domain</mat-icon> Class: <strong>{{ timetableData.className }}{{ timetableData.sectionName ? ' - ' + timetableData.sectionName : '' }}</strong>
                       </span>
-                    </div>
-                    <span class="fac-sub-label">Subject Faculty</span>
-                  </div>
-
-                  <div class="fac-quick-actions" *ngIf="slot.teacherPhone">
-                    <a [href]="'tel:' + slot.teacherPhone" class="action-circle-btn" matTooltip="Call Teacher">
-                      <mat-icon>phone</mat-icon>
-                    </a>
-                    <a [href]="'https://wa.me/' + cleanPhone(slot.teacherPhone)" target="_blank" class="action-circle-btn wa" matTooltip="WhatsApp Faculty">
-                      <mat-icon>chat</mat-icon>
-                    </a>
-                  </div>
-                </div>
-
-                <!-- ⚠️ Substitute / Proxy Teacher Callout -->
-                <div class="proxy-callout-banner" *ngIf="slot.isSubstituted">
-                  <div class="proxy-header">
-                    <mat-icon>swap_horiz</mat-icon>
-                    <span>Teacher Substitution / Proxy Notice</span>
-                  </div>
-                  <div class="proxy-body">
-                    <p>
-                      Regular faculty is away today. Class will be conducted by 
-                      <strong>{{ slot.substituteTeacherName }}</strong>.
-                    </p>
-                    <div class="proxy-meta" *ngIf="slot.substituteTopic || slot.substituteReason">
-                      <span *ngIf="slot.substituteTopic"><strong>Topic to cover:</strong> {{ slot.substituteTopic }}</span>
-                      <span *ngIf="slot.substituteReason" class="reason">({{ slot.substituteReason }})</span>
-                    </div>
+                    }
+                    @if (timetableData.batchName) {
+                      <span class="id-pill">
+                        <mat-icon>class</mat-icon> Batch: <strong>{{ timetableData.batchName }}</strong>
+                      </span>
+                    }
+                    <span class="id-pill">
+                      <mat-icon>pin</mat-icon> Roll No: <strong>{{ timetableData.rollNumber }}</strong>
+                    </span>
+                    @if (timetableData.branchName) {
+                      <span class="id-pill">
+                        <mat-icon>store</mat-icon> Campus: <strong>{{ timetableData.branchName }}</strong>
+                      </span>
+                    }
                   </div>
                 </div>
               </div>
-
-              <!-- Right Quick Action Column -->
-              <div class="period-action-col">
-                <a routerLink="/school/homework" class="period-hw-link" matTooltip="View Homework for this subject">
-                  <mat-icon>assignment</mat-icon>
-                  <span>Homework</span>
-                </a>
-              </div>
-
+              @if (timetableData.classTeacherName) {
+                <div class="class-teacher-card">
+                  <div class="ct-avatar">
+                    <mat-icon>supervisor_account</mat-icon>
+                  </div>
+                  <div class="ct-info">
+                    <span class="ct-role">Class Teacher / Incharge</span>
+                    <strong class="ct-name">{{ timetableData.classTeacherName }}</strong>
+                    @if (timetableData.classTeacherPhone) {
+                      <a [href]="'tel:' + timetableData.classTeacherPhone" class="ct-phone">
+                        <mat-icon>phone</mat-icon> {{ timetableData.classTeacherPhone }}
+                      </a>
+                    }
+                  </div>
+                </div>
+              }
             </div>
-          </div>
-        </div>
-
-        <!-- MODE 2: FULL WEEKLY GRID MATRIX (Google Calendar Aesthetic) -->
-        <div class="weekly-matrix-section" *ngIf="viewMode === 'weekly'">
-          <div class="matrix-header-bar">
-            <div class="matrix-header-title-box">
-              <div class="calendar-icon-chip">
-                <mat-icon>calendar_month</mat-icon>
+            <!-- 🔴 LIVE CLASS SPOTLIGHT BANNER (Only on today's view) -->
+            @if (selectedDay === timetableData.todayDayOfWeek && currentLivePeriod) {
+              <div class="live-spotlight-banner">
+                <div class="spotlight-left">
+                  <div class="live-badge-glow">
+                    <span class="dot-beacon"></span>
+                    LIVE CLASS IN SESSION
+                  </div>
+                  <h3 class="live-subject">{{ currentLivePeriod.subject }}</h3>
+                  <div class="live-meta-row">
+                    <span class="live-meta-item">
+                      <mat-icon>schedule</mat-icon> Period {{ currentLivePeriod.periodNumber }} &bull; {{ currentLivePeriod.timeSlot }}
+                    </span>
+                    <span class="live-meta-item room-tag">
+                      <mat-icon>meeting_room</mat-icon> Room: <strong>{{ currentLivePeriod.roomNumber }}</strong>
+                    </span>
+                    <span class="live-meta-item faculty-tag">
+                      <mat-icon>person</mat-icon> {{ currentLivePeriod.teacherName }}
+                      @if (currentLivePeriod.isClassTeacher) {
+                        <span class="ct-crown" matTooltip="Class Teacher">👑</span>
+                      }
+                    </span>
+                  </div>
+                </div>
+                <!-- Proxy alert if substituted -->
+                @if (currentLivePeriod.isSubstituted) {
+                  <div class="spotlight-sub-alert">
+                    <div class="sub-alert-head">
+                      <mat-icon>swap_horiz</mat-icon>
+                      <span>Substitute Faculty Active Today</span>
+                    </div>
+                    <div class="sub-alert-body">
+                      <strong>{{ currentLivePeriod.substituteTeacherName }}</strong> is conducting this session.
+                      @if (currentLivePeriod.substituteTopic) {
+                        <span class="sub-topic">Topic: "{{ currentLivePeriod.substituteTopic }}"</span>
+                      }
+                    </div>
+                  </div>
+                }
               </div>
-              <div>
-                <h3 class="matrix-title">Weekly Routine Matrix (Mon &ndash; Sat)</h3>
-                <p class="matrix-sub">Dynamic color-coded timetable grid &bull; Synchronized with real-time academic schedule</p>
+            }
+            <!-- Day Selector Navigation Bar -->
+            <div class="day-navigation-strip">
+              <div class="day-pills-row">
+                <button
+                  type="button"
+                  class="day-pill-btn today-highlight-btn"
+                  [class.active]="selectedDay === timetableData.todayDayOfWeek"
+                  (click)="selectDay(timetableData.todayDayOfWeek)">
+                  <mat-icon>bolt</mat-icon>
+                  <span>Today ({{ timetableData.todayDayOfWeek }})</span>
+                  <span class="period-count-badge">{{ (timetableData.weeklySchedule[timetableData.todayDayOfWeek] || []).length }}</span>
+                </button>
+                @for (day of daysList; track day) {
+                  <button
+                    type="button"
+                    class="day-pill-btn"
+                    [class.active]="selectedDay === day"
+                    [class.today-day]="day === timetableData.todayDayOfWeek"
+                    (click)="selectDay(day)">
+                    <span>{{ day }}</span>
+                    <span class="period-count-badge">{{ (timetableData.weeklySchedule[day] || []).length }}</span>
+                  </button>
+                }
               </div>
-            </div>
-
-            <!-- Subject Color Legend Strip -->
-            <div class="matrix-header-right">
-              <div class="subject-legend-strip" *ngIf="activeSubjects.length > 0">
-                <span class="legend-badge-item" *ngFor="let subj of activeSubjects"
-                      [style.background]="getSubjectTheme(subj).bg"
-                      [style.border-color]="getSubjectTheme(subj).border"
-                      [style.color]="getSubjectTheme(subj).darkText">
-                  <span class="subj-dot" [style.background]="getSubjectTheme(subj).border"></span>
-                  <mat-icon class="legend-icon">{{ getSubjectTheme(subj).icon }}</mat-icon>
-                  <span>{{ subj }}</span>
-                </span>
-              </div>
-
-              <div class="matrix-actions">
-                <button mat-stroked-button class="matrix-print-btn" (click)="triggerPrint()">
-                  <mat-icon>print</mat-icon> Print Grid
+              <div class="view-toggle-btns">
+                <button
+                  type="button"
+                  class="mode-btn"
+                  [class.active]="viewMode === 'daily'"
+                  (click)="viewMode = 'daily'"
+                  matTooltip="Daily Timeline View">
+                  <mat-icon>view_day</mat-icon> Daily Timeline
+                </button>
+                <button
+                  type="button"
+                  class="mode-btn"
+                  [class.active]="viewMode === 'weekly'"
+                  (click)="viewMode = 'weekly'"
+                  matTooltip="Weekly Full Routine Matrix">
+                  <mat-icon>grid_view</mat-icon> Full Week Grid
                 </button>
               </div>
             </div>
-          </div>
-
-          <div class="matrix-table-wrap">
-            <table class="routine-grid-table">
-              <thead>
-                <tr>
-                  <th class="day-col-th">
-                    <div class="th-day-label">
-                      <mat-icon>event</mat-icon>
-                      <span>Day / Period</span>
+            <!-- MODE 1: DAILY TIMELINE VIEW -->
+            @if (viewMode === 'daily') {
+              <div class="daily-timeline-section">
+                <div class="timeline-day-header">
+                  <div class="day-heading-group">
+                    <h3 class="current-day-title">
+                      {{ selectedDay }}'s Schedule
+                      @if (selectedDay === timetableData.todayDayOfWeek) {
+                        <span class="today-tag">Today's Live Routine</span>
+                      }
+                    </h3>
+                    <p class="current-day-sub">
+                      Total {{ currentDaySlots.length }} academic lectures / practical sessions scheduled for {{ selectedDay }}
+                    </p>
+                  </div>
+                  <div class="timeline-legend">
+                    <span class="legend-item"><span class="legend-dot completed"></span> Completed</span>
+                    <span class="legend-item"><span class="legend-dot live"></span> Live Now</span>
+                    <span class="legend-item"><span class="legend-dot upcoming"></span> Upcoming</span>
+                    <span class="legend-item"><span class="legend-dot sub"></span> Substitute / Proxy</span>
+                  </div>
+                </div>
+                <!-- Empty State for Day -->
+                @if (currentDaySlots.length === 0) {
+                  <div class="empty-day-card">
+                    <div class="empty-illustration">
+                      <mat-icon>weekend</mat-icon>
                     </div>
-                  </th>
-                  <th *ngFor="let p of maxPeriodsList" class="period-th">
-                    <div class="th-google-header">
-                      <div class="th-period-badge">
-                        <span class="p-num-pill">P{{ p }}</span>
-                        <span class="p-text">Period {{ p }}</span>
-                      </div>
-                      <div class="th-ptime" *ngIf="getPeriodTimeHeader(p)">
-                        <mat-icon>schedule</mat-icon>
-                        <span>{{ getPeriodTimeHeader(p) }}</span>
-                      </div>
-                      <div class="th-ptime empty-time" *ngIf="!getPeriodTimeHeader(p)">
-                        <span>Standard Slot</span>
-                      </div>
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let day of daysList" [class.highlight-today]="day === timetableData.todayDayOfWeek">
-                  <td class="day-name-cell" [class.is-today-cell]="day === timetableData.todayDayOfWeek">
-                    <div class="google-day-badge-col">
-                      <div class="day-circle" [class.today-circle]="day === timetableData.todayDayOfWeek">
-                        <span class="day-abbr">{{ day.substring(0, 3).toUpperCase() }}</span>
-                      </div>
-                      <div class="day-meta">
-                        <span class="day-full-name">{{ day }}</span>
-                        <span class="today-chip" *ngIf="day === timetableData.todayDayOfWeek">
-                          <span class="pulse-indicator"></span> TODAY
-                        </span>
-                        <span class="period-count-sub" *ngIf="day !== timetableData.todayDayOfWeek">
-                          {{ getPeriodCountForDay(day) === 0 ? 'No Lectures' : getPeriodCountForDay(day) + (getPeriodCountForDay(day) === 1 ? ' Lecture' : ' Lectures') }}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td *ngFor="let p of maxPeriodsList" class="slot-cell">
-                    <ng-container *ngIf="getSlotForDayAndPeriod(day, p) as slot">
-                      <div class="google-event-card" 
-                           [style.background]="getSubjectTheme(slot.subject).bg"
-                           [style.border-left-color]="getSubjectTheme(slot.subject).border"
-                           [class.is-live-slot]="slot.isLiveNow"
-                           [class.is-sub-slot]="slot.isSubstituted">
-                        
-                        <!-- Top Row: Subject Icon + Title + Live Dot -->
-                        <div class="gec-head">
-                          <div class="gec-subj-wrap">
-                            <span class="gec-subj-icon" [style.color]="getSubjectTheme(slot.subject).border">
-                              <mat-icon>{{ getSubjectTheme(slot.subject).icon }}</mat-icon>
-                            </span>
-                            <span class="gec-subject" [style.color]="getSubjectTheme(slot.subject).darkText" [title]="slot.subject">
-                              {{ slot.subject }}
-                            </span>
+                    <h4>No Classes Scheduled on {{ selectedDay }}</h4>
+                    <p>Enjoy your break or use this time for self-study and pending homework assignments!</p>
+                    <a routerLink="/school/homework" class="view-hw-btn">
+                      <mat-icon>auto_stories</mat-icon> Check Homework &amp; Diary
+                    </a>
+                  </div>
+                }
+                <!-- Period Cards Flow -->
+                @if (currentDaySlots.length > 0) {
+                  <div class="period-cards-flow">
+                    @for (slot of currentDaySlots; track slot; let idx = $index) {
+                      <div
+                        class="period-card"
+                        [class.live-card]="slot.isLiveNow"
+                        [class.completed-card]="slot.isCompleted"
+                        [class.upcoming-card]="slot.isUpcoming"
+                        [class.has-proxy]="slot.isSubstituted">
+                        <!-- Left Number / Time Column -->
+                        <div class="period-time-col">
+                          <div class="period-badge">
+                            <span class="period-num">P{{ slot.periodNumber }}</span>
+                            <span class="period-word">Period</span>
                           </div>
-                          <span class="gec-live-badge" *ngIf="slot.isLiveNow" matTooltip="Live Lecture Right Now">
-                            <span class="gec-live-dot"></span> LIVE
-                          </span>
-                        </div>
-
-                        <!-- Teacher Row with micro avatar -->
-                        <div class="gec-teacher-row" [style.color]="getSubjectTheme(slot.subject).darkText">
-                          <div class="gec-avatar" [style.background]="getSubjectTheme(slot.subject).border">
-                            {{ getInitials(slot.teacherName) }}
-                          </div>
-                          <span class="gec-teacher-name">{{ slot.teacherName }}</span>
-                        </div>
-
-                        <!-- Bottom: Room & Time Chips -->
-                        <div class="gec-chips-row">
-                          <span class="gec-pill room-pill" *ngIf="slot.roomNumber">
-                            <mat-icon>meeting_room</mat-icon>
-                            <span>{{ formatRoom(slot.roomNumber) }}</span>
-                          </span>
-                          <span class="gec-pill time-pill" *ngIf="slot.timeSlot">
+                          <div class="time-range-box">
                             <mat-icon>schedule</mat-icon>
-                            <span>{{ formatSlotTime(slot.timeSlot) }}</span>
-                          </span>
+                            <span class="time-text">{{ slot.timeSlot }}</span>
+                          </div>
+                          <div class="status-indicator-pill" [class.live]="slot.isLiveNow" [class.completed]="slot.isCompleted" [class.upcoming]="slot.isUpcoming">
+                            <span class="status-dot"></span>
+                            @if (slot.isLiveNow) {
+                              <span class="status-name">LIVE NOW</span>
+                            }
+                            @if (slot.isCompleted) {
+                              <span class="status-name">Completed</span>
+                            }
+                            @if (slot.isUpcoming) {
+                              <span class="status-name">Upcoming</span>
+                            }
+                          </div>
                         </div>
-
-                        <!-- Substitute / Proxy Badge -->
-                        <div class="gec-proxy-flag" *ngIf="slot.isSubstituted" [title]="'Substituted by ' + slot.substituteTeacherName">
-                          <mat-icon>swap_horiz</mat-icon>
-                          <span>Proxy: {{ slot.substituteTeacherName }}</span>
+                        <!-- Center Details Column -->
+                        <div class="period-body-col">
+                          <div class="subject-header-row">
+                            <div class="subject-title-wrap">
+                              <span class="subject-color-bar" [style.background-color]="getSubjectColor(slot.subject)"></span>
+                              <h4 class="subject-name">{{ slot.subject }}</h4>
+                              <span class="stream-pill" [class.coaching]="slot.stream === 'Coaching'">{{ slot.stream }}</span>
+                            </div>
+                            <div class="room-pill">
+                              <mat-icon>meeting_room</mat-icon>
+                              <span>Room: <strong>{{ slot.roomNumber }}</strong></span>
+                            </div>
+                          </div>
+                          <!-- Teacher Profile Info -->
+                          <div class="faculty-profile-strip">
+                            <div class="fac-avatar" [style.background-color]="getSubjectColor(slot.subject)">
+                              @if (!slot.teacherPhoto) {
+                                <span>{{ getInitials(slot.teacherName) }}</span>
+                              }
+                              @if (slot.teacherPhoto) {
+                                <img [src]="slot.teacherPhoto" [alt]="slot.teacherName" />
+                              }
+                            </div>
+                            <div class="fac-details">
+                              <div class="fac-name-row">
+                                <strong class="fac-name">{{ slot.teacherName }}</strong>
+                                @if (slot.isClassTeacher) {
+                                  <span class="ct-badge">
+                                    <mat-icon>verified</mat-icon> Class Teacher
+                                  </span>
+                                }
+                              </div>
+                              <span class="fac-sub-label">Subject Faculty</span>
+                            </div>
+                            @if (slot.teacherPhone) {
+                              <div class="fac-quick-actions">
+                                <a [href]="'tel:' + slot.teacherPhone" class="action-circle-btn" matTooltip="Call Teacher">
+                                  <mat-icon>phone</mat-icon>
+                                </a>
+                                <a [href]="'https://wa.me/' + cleanPhone(slot.teacherPhone)" target="_blank" class="action-circle-btn wa" matTooltip="WhatsApp Faculty">
+                                  <mat-icon>chat</mat-icon>
+                                </a>
+                              </div>
+                            }
+                          </div>
+                          <!-- ⚠️ Substitute / Proxy Teacher Callout -->
+                          @if (slot.isSubstituted) {
+                            <div class="proxy-callout-banner">
+                              <div class="proxy-header">
+                                <mat-icon>swap_horiz</mat-icon>
+                                <span>Teacher Substitution / Proxy Notice</span>
+                              </div>
+                              <div class="proxy-body">
+                                <p>
+                                  Regular faculty is away today. Class will be conducted by
+                                  <strong>{{ slot.substituteTeacherName }}</strong>.
+                                </p>
+                                @if (slot.substituteTopic || slot.substituteReason) {
+                                  <div class="proxy-meta">
+                                    @if (slot.substituteTopic) {
+                                      <span><strong>Topic to cover:</strong> {{ slot.substituteTopic }}</span>
+                                    }
+                                    @if (slot.substituteReason) {
+                                      <span class="reason">({{ slot.substituteReason }})</span>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
+                        <!-- Right Quick Action Column -->
+                        <div class="period-action-col">
+                          <a routerLink="/school/homework" class="period-hw-link" matTooltip="View Homework for this subject">
+                            <mat-icon>assignment</mat-icon>
+                            <span>Homework</span>
+                          </a>
                         </div>
                       </div>
-                    </ng-container>
-
-                    <div class="google-empty-cell" *ngIf="!getSlotForDayAndPeriod(day, p)">
-                      <span class="empty-dot">&bull;</span>
-                      <span class="empty-text">Free</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- 👥 FACULTY DIRECTORY MODAL OVERLAY -->
-      <div class="modal-backdrop" *ngIf="showFacultyModal" (click)="showFacultyModal = false">
-        <div class="faculty-modal-window" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <div class="modal-header-icon">
-              <mat-icon>groups</mat-icon>
-            </div>
-            <div>
-              <h3 class="modal-title">Assigned Faculty &amp; Teacher Directory</h3>
-              <p class="modal-sub">Direct contact coordinates for class teachers and subject instructors</p>
-            </div>
-            <button mat-icon-button class="modal-close-btn" (click)="showFacultyModal = false">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <div class="modal-body">
-            <div class="faculty-cards-grid" *ngIf="timetableData?.facultyContacts?.length">
-              <div class="faculty-contact-card" *ngFor="let fac of timetableData?.facultyContacts" [class.ct-card]="fac.isClassTeacher">
-                <div class="f-top">
-                  <div class="f-avatar" [style.background-color]="getSubjectColor(fac.subject)">
-                    <span *ngIf="!fac.photoUrl">{{ getInitials(fac.teacherName) }}</span>
-                    <img *ngIf="fac.photoUrl" [src]="fac.photoUrl" [alt]="fac.teacherName" />
+                    }
                   </div>
-                  <div class="f-titles">
-                    <div class="f-name-row">
-                      <h4 class="f-name">{{ fac.teacherName }}</h4>
-                      <span class="f-ct-crown" *ngIf="fac.isClassTeacher" matTooltip="Class Teacher">👑 Class Teacher</span>
+                }
+              </div>
+            }
+            <!-- MODE 2: FULL WEEKLY GRID MATRIX (Google Calendar Aesthetic) -->
+            @if (viewMode === 'weekly') {
+              <div class="weekly-matrix-section">
+                <div class="matrix-header-bar">
+                  <div class="matrix-header-title-box">
+                    <div class="calendar-icon-chip">
+                      <mat-icon>calendar_month</mat-icon>
                     </div>
-                    <span class="f-subject-badge">{{ fac.subject }}</span>
+                    <div>
+                      <h3 class="matrix-title">Weekly Routine Matrix (Mon &ndash; Sat)</h3>
+                      <p class="matrix-sub">Dynamic color-coded timetable grid &bull; Synchronized with real-time academic schedule</p>
+                    </div>
+                  </div>
+                  <!-- Subject Color Legend Strip -->
+                  <div class="matrix-header-right">
+                    @if (activeSubjects.length > 0) {
+                      <div class="subject-legend-strip">
+                        @for (subj of activeSubjects; track subj) {
+                          <span class="legend-badge-item"
+                            [style.background]="getSubjectTheme(subj).bg"
+                            [style.border-color]="getSubjectTheme(subj).border"
+                            [style.color]="getSubjectTheme(subj).darkText">
+                            <span class="subj-dot" [style.background]="getSubjectTheme(subj).border"></span>
+                            <mat-icon class="legend-icon">{{ getSubjectTheme(subj).icon }}</mat-icon>
+                            <span>{{ subj }}</span>
+                          </span>
+                        }
+                      </div>
+                    }
+                    <div class="matrix-actions">
+                      <button mat-stroked-button class="matrix-print-btn" (click)="triggerPrint()">
+                        <mat-icon>print</mat-icon> Print Grid
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div class="f-info-list">
-                  <div class="f-info-item" *ngIf="fac.roomNumber">
-                    <mat-icon>meeting_room</mat-icon>
-                    <span>Staff Room: <strong>{{ fac.roomNumber }}</strong></span>
-                  </div>
-                  <div class="f-info-item" *ngIf="fac.phone">
-                    <mat-icon>phone</mat-icon>
-                    <a [href]="'tel:' + fac.phone">{{ fac.phone }}</a>
-                  </div>
-                  <div class="f-info-item" *ngIf="fac.email">
-                    <mat-icon>email</mat-icon>
-                    <a [href]="'mailto:' + fac.email">{{ fac.email }}</a>
-                  </div>
-                </div>
-
-                <div class="f-footer" *ngIf="fac.phone">
-                  <a [href]="'tel:' + fac.phone" mat-stroked-button class="f-call-btn">
-                    <mat-icon>call</mat-icon> Call Teacher
-                  </a>
-                  <a [href]="'https://wa.me/' + cleanPhone(fac.phone)" target="_blank" mat-stroked-button class="f-wa-btn">
-                    <mat-icon>chat</mat-icon> WhatsApp
-                  </a>
+                <div class="matrix-table-wrap">
+                  <table class="routine-grid-table">
+                    <thead>
+                      <tr>
+                        <th class="day-col-th">
+                          <div class="th-day-label">
+                            <mat-icon>event</mat-icon>
+                            <span>Day / Period</span>
+                          </div>
+                        </th>
+                        @for (p of maxPeriodsList; track p) {
+                          <th class="period-th">
+                            <div class="th-google-header">
+                              <div class="th-period-badge">
+                                <span class="p-num-pill">P{{ p }}</span>
+                                <span class="p-text">Period {{ p }}</span>
+                              </div>
+                              @if (getPeriodTimeHeader(p)) {
+                                <div class="th-ptime">
+                                  <mat-icon>schedule</mat-icon>
+                                  <span>{{ getPeriodTimeHeader(p) }}</span>
+                                </div>
+                              }
+                              @if (!getPeriodTimeHeader(p)) {
+                                <div class="th-ptime empty-time">
+                                  <span>Standard Slot</span>
+                                </div>
+                              }
+                            </div>
+                          </th>
+                        }
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (day of daysList; track day) {
+                        <tr [class.highlight-today]="day === timetableData.todayDayOfWeek">
+                          <td class="day-name-cell" [class.is-today-cell]="day === timetableData.todayDayOfWeek">
+                            <div class="google-day-badge-col">
+                              <div class="day-circle" [class.today-circle]="day === timetableData.todayDayOfWeek">
+                                <span class="day-abbr">{{ day.substring(0, 3).toUpperCase() }}</span>
+                              </div>
+                              <div class="day-meta">
+                                <span class="day-full-name">{{ day }}</span>
+                                @if (day === timetableData.todayDayOfWeek) {
+                                  <span class="today-chip">
+                                    <span class="pulse-indicator"></span> TODAY
+                                  </span>
+                                }
+                                @if (day !== timetableData.todayDayOfWeek) {
+                                  <span class="period-count-sub">
+                                    {{ getPeriodCountForDay(day) === 0 ? 'No Lectures' : getPeriodCountForDay(day) + (getPeriodCountForDay(day) === 1 ? ' Lecture' : ' Lectures') }}
+                                  </span>
+                                }
+                              </div>
+                            </div>
+                          </td>
+                          @for (p of maxPeriodsList; track p) {
+                            <td class="slot-cell">
+                              @if (getSlotForDayAndPeriod(day, p); as slot) {
+                                <div class="google-event-card"
+                                  [style.background]="getSubjectTheme(slot.subject).bg"
+                                  [style.border-left-color]="getSubjectTheme(slot.subject).border"
+                                  [class.is-live-slot]="slot.isLiveNow"
+                                  [class.is-sub-slot]="slot.isSubstituted">
+                                  <!-- Top Row: Subject Icon + Title + Live Dot -->
+                                  <div class="gec-head">
+                                    <div class="gec-subj-wrap">
+                                      <span class="gec-subj-icon" [style.color]="getSubjectTheme(slot.subject).border">
+                                        <mat-icon>{{ getSubjectTheme(slot.subject).icon }}</mat-icon>
+                                      </span>
+                                      <span class="gec-subject" [style.color]="getSubjectTheme(slot.subject).darkText" [title]="slot.subject">
+                                        {{ slot.subject }}
+                                      </span>
+                                    </div>
+                                    @if (slot.isLiveNow) {
+                                      <span class="gec-live-badge" matTooltip="Live Lecture Right Now">
+                                        <span class="gec-live-dot"></span> LIVE
+                                      </span>
+                                    }
+                                  </div>
+                                  <!-- Teacher Row with micro avatar -->
+                                  <div class="gec-teacher-row" [style.color]="getSubjectTheme(slot.subject).darkText">
+                                    <div class="gec-avatar" [style.background]="getSubjectTheme(slot.subject).border">
+                                      {{ getInitials(slot.teacherName) }}
+                                    </div>
+                                    <span class="gec-teacher-name">{{ slot.teacherName }}</span>
+                                  </div>
+                                  <!-- Bottom: Room & Time Chips -->
+                                  <div class="gec-chips-row">
+                                    @if (slot.roomNumber) {
+                                      <span class="gec-pill room-pill">
+                                        <mat-icon>meeting_room</mat-icon>
+                                        <span>{{ formatRoom(slot.roomNumber) }}</span>
+                                      </span>
+                                    }
+                                    @if (slot.timeSlot) {
+                                      <span class="gec-pill time-pill">
+                                        <mat-icon>schedule</mat-icon>
+                                        <span>{{ formatSlotTime(slot.timeSlot) }}</span>
+                                      </span>
+                                    }
+                                  </div>
+                                  <!-- Substitute / Proxy Badge -->
+                                  @if (slot.isSubstituted) {
+                                    <div class="gec-proxy-flag" [title]="'Substituted by ' + slot.substituteTeacherName">
+                                      <mat-icon>swap_horiz</mat-icon>
+                                      <span>Proxy: {{ slot.substituteTeacherName }}</span>
+                                    </div>
+                                  }
+                                </div>
+                              }
+                              @if (!getSlotForDayAndPeriod(day, p)) {
+                                <div class="google-empty-cell">
+                                  <span class="empty-dot">&bull;</span>
+                                  <span class="empty-text">Free</span>
+                                </div>
+                              }
+                            </td>
+                          }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            </div>
-
-            <div class="empty-state-strip" *ngIf="!timetableData?.facultyContacts?.length">
-              <mat-icon>info</mat-icon>
-              <span>No faculty assignments linked to this class yet.</span>
-            </div>
+            }
           </div>
-        </div>
-      </div>
-      </div> <!-- End no-print screen-ui-wrapper -->
-
-      <!-- 🖨️ PRINTABLE TIMETABLE SHEET (Hidden on screen, visible during window.print) -->
-      <div class="printable-timetable-sheet" id="printTimetableArea" *ngIf="timetableData">
-        <div class="print-header">
-          <div class="print-institute-name">{{ timetableData.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE' }}</div>
-          <h2 class="print-doc-title">OFFICIAL CLASS ROUTINE &amp; TIMETABLE</h2>
-          <div class="print-meta-grid">
-            <div>Student Name: <strong>{{ timetableData.studentName }}</strong></div>
-            <div>Class &amp; Section: <strong>{{ timetableData.className }} {{ timetableData.sectionName }}</strong></div>
-            <div>Roll Number: <strong>{{ timetableData.rollNumber }}</strong></div>
-            <div>Class Teacher: <strong>{{ timetableData.classTeacherName || 'N/A' }}</strong></div>
-          </div>
-        </div>
-
-        <table class="print-table">
-          <thead>
-            <tr>
-              <th style="width: 100px;">Day</th>
-              <th *ngFor="let p of maxPeriodsList">Period {{ p }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let day of daysList">
-              <td class="print-day-name"><strong>{{ day }}</strong></td>
-              <td *ngFor="let p of maxPeriodsList">
-                <ng-container *ngIf="getSlotForDayAndPeriod(day, p) as slot">
-                  <div class="print-slot">
-                    <strong class="ps-subj">{{ slot.subject }}</strong>
-                    <div class="ps-fac">{{ slot.teacherName }}</div>
-                    <small class="ps-room">Rm: {{ slot.roomNumber }}</small>
-                    <small class="ps-time">{{ slot.timeSlot }}</small>
+        }
+    
+        <!-- 👥 FACULTY DIRECTORY MODAL OVERLAY -->
+        @if (showFacultyModal) {
+          <div class="modal-backdrop" (click)="showFacultyModal = false">
+            <div class="faculty-modal-window" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <div class="modal-header-icon">
+                  <mat-icon>groups</mat-icon>
+                </div>
+                <div>
+                  <h3 class="modal-title">Assigned Faculty &amp; Teacher Directory</h3>
+                  <p class="modal-sub">Direct contact coordinates for class teachers and subject instructors</p>
+                </div>
+                <button mat-icon-button class="modal-close-btn" (click)="showFacultyModal = false">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+              <div class="modal-body">
+                @if (timetableData?.facultyContacts?.length) {
+                  <div class="faculty-cards-grid">
+                    @for (fac of timetableData?.facultyContacts; track fac) {
+                      <div class="faculty-contact-card" [class.ct-card]="fac.isClassTeacher">
+                        <div class="f-top">
+                          <div class="f-avatar" [style.background-color]="getSubjectColor(fac.subject)">
+                            @if (!fac.photoUrl) {
+                              <span>{{ getInitials(fac.teacherName) }}</span>
+                            }
+                            @if (fac.photoUrl) {
+                              <img [src]="fac.photoUrl" [alt]="fac.teacherName" />
+                            }
+                          </div>
+                          <div class="f-titles">
+                            <div class="f-name-row">
+                              <h4 class="f-name">{{ fac.teacherName }}</h4>
+                              @if (fac.isClassTeacher) {
+                                <span class="f-ct-crown" matTooltip="Class Teacher">👑 Class Teacher</span>
+                              }
+                            </div>
+                            <span class="f-subject-badge">{{ fac.subject }}</span>
+                          </div>
+                        </div>
+                        <div class="f-info-list">
+                          @if (fac.roomNumber) {
+                            <div class="f-info-item">
+                              <mat-icon>meeting_room</mat-icon>
+                              <span>Staff Room: <strong>{{ fac.roomNumber }}</strong></span>
+                            </div>
+                          }
+                          @if (fac.phone) {
+                            <div class="f-info-item">
+                              <mat-icon>phone</mat-icon>
+                              <a [href]="'tel:' + fac.phone">{{ fac.phone }}</a>
+                            </div>
+                          }
+                          @if (fac.email) {
+                            <div class="f-info-item">
+                              <mat-icon>email</mat-icon>
+                              <a [href]="'mailto:' + fac.email">{{ fac.email }}</a>
+                            </div>
+                          }
+                        </div>
+                        @if (fac.phone) {
+                          <div class="f-footer">
+                            <a [href]="'tel:' + fac.phone" mat-stroked-button class="f-call-btn">
+                              <mat-icon>call</mat-icon> Call Teacher
+                            </a>
+                            <a [href]="'https://wa.me/' + cleanPhone(fac.phone)" target="_blank" mat-stroked-button class="f-wa-btn">
+                              <mat-icon>chat</mat-icon> WhatsApp
+                            </a>
+                          </div>
+                        }
+                      </div>
+                    }
                   </div>
-                </ng-container>
-                <span *ngIf="!getSlotForDayAndPeriod(day, p)">&mdash;</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="print-footer-signatures">
-          <div class="print-sign-col">
-            <div class="sign-line"></div>
-            <span>Class Teacher Signature</span>
+                }
+                @if (!timetableData?.facultyContacts?.length) {
+                  <div class="empty-state-strip">
+                    <mat-icon>info</mat-icon>
+                    <span>No faculty assignments linked to this class yet.</span>
+                  </div>
+                }
+              </div>
+            </div>
           </div>
-          <div class="print-sign-col">
-            <div class="sign-line"></div>
-            <span>Academic Coordinator</span>
+        }
+      </div> <!-- End no-print screen-ui-wrapper -->
+    
+      <!-- 🖨️ PRINTABLE TIMETABLE SHEET (Hidden on screen, visible during window.print) -->
+      @if (timetableData) {
+        <div class="printable-timetable-sheet" id="printTimetableArea">
+          <div class="print-header">
+            <div class="print-institute-name">{{ timetableData.branchName || 'INTERNATIONAL ACADEMY OF EXCELLENCE' }}</div>
+            <h2 class="print-doc-title">OFFICIAL CLASS ROUTINE &amp; TIMETABLE</h2>
+            <div class="print-meta-grid">
+              <div>Student Name: <strong>{{ timetableData.studentName }}</strong></div>
+              <div>Class &amp; Section: <strong>{{ timetableData.className }} {{ timetableData.sectionName }}</strong></div>
+              <div>Roll Number: <strong>{{ timetableData.rollNumber }}</strong></div>
+              <div>Class Teacher: <strong>{{ timetableData.classTeacherName || 'N/A' }}</strong></div>
+            </div>
           </div>
-          <div class="print-sign-col">
-            <div class="sign-line"></div>
-            <span>Principal / Director</span>
+          <table class="print-table">
+            <thead>
+              <tr>
+                <th style="width: 100px;">Day</th>
+                @for (p of maxPeriodsList; track p) {
+                  <th>Period {{ p }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (day of daysList; track day) {
+                <tr>
+                  <td class="print-day-name"><strong>{{ day }}</strong></td>
+                  @for (p of maxPeriodsList; track p) {
+                    <td>
+                      @if (getSlotForDayAndPeriod(day, p); as slot) {
+                        <div class="print-slot">
+                          <strong class="ps-subj">{{ slot.subject }}</strong>
+                          <div class="ps-fac">{{ slot.teacherName }}</div>
+                          <small class="ps-room">Rm: {{ slot.roomNumber }}</small>
+                          <small class="ps-time">{{ slot.timeSlot }}</small>
+                        </div>
+                      }
+                      @if (!getSlotForDayAndPeriod(day, p)) {
+                        <span>&mdash;</span>
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="print-footer-signatures">
+            <div class="print-sign-col">
+              <div class="sign-line"></div>
+              <span>Class Teacher Signature</span>
+            </div>
+            <div class="print-sign-col">
+              <div class="sign-line"></div>
+              <span>Academic Coordinator</span>
+            </div>
+            <div class="print-sign-col">
+              <div class="sign-line"></div>
+              <span>Principal / Director</span>
+            </div>
           </div>
         </div>
-      </div>
-
+      }
+    
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     /* =========================================================================
        CONTAINER & PORTAL HEADER (Strict Standard ERP Styling)

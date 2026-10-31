@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,282 +22,322 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
   template: `
     <div class="public-receipt-page">
       <!-- Loading State -->
-      <div class="state-container" *ngIf="loading">
-        <mat-spinner diameter="44"></mat-spinner>
-        <p class="state-text">Loading official fee receipt...</p>
-      </div>
-
+      @if (loading) {
+        <div class="state-container">
+          <mat-spinner diameter="44"></mat-spinner>
+          <p class="state-text">Loading official fee receipt...</p>
+        </div>
+      }
+    
       <!-- Error State -->
-      <div class="state-container error-state" *ngIf="!loading && error">
-        <mat-icon class="err-icon">error_outline</mat-icon>
-        <h2>Receipt Not Found</h2>
-        <p>{{ error }}</p>
-      </div>
-
+      @if (!loading && error) {
+        <div class="state-container error-state">
+          <mat-icon class="err-icon">error_outline</mat-icon>
+          <h2>Receipt Not Found</h2>
+          <p>{{ error }}</p>
+        </div>
+      }
+    
       <!-- Receipt Content -->
-      <div class="receipt-wrapper" *ngIf="!loading && receipt">
-        <!-- Floating Action Header (Hidden in Print) -->
-        <header class="public-actions-bar no-print">
-          <div class="bar-left">
-            <div class="verified-chip">
-              <mat-icon class="verified-icon">verified</mat-icon>
-              <span>Verified Official E-Receipt</span>
-            </div>
-            <span class="receipt-id">#{{ receipt.receiptNumber }}</span>
-          </div>
-
-          <div class="bar-actions">
-            <button mat-flat-button class="action-btn upi-pay-btn" (click)="openUpiPayment()" *ngIf="receipt.remainingDue > 0">
-              <mat-icon>qr_code_2</mat-icon>
-              <span>Pay Due via UPI</span>
-            </button>
-            <button mat-flat-button color="primary" class="action-btn download-btn" (click)="printReceipt()">
-              <mat-icon>download</mat-icon>
-              <span>Download PDF / Print</span>
-            </button>
-            <button mat-stroked-button class="action-btn wa-share-btn" (click)="shareWhatsApp()" *ngIf="receipt.parentPhone">
-              <mat-icon class="wa-icon">chat</mat-icon>
-              <span>WhatsApp</span>
-            </button>
-          </div>
-        </header>
-
-        <!-- Printable Official Receipt Paper -->
-        <div class="receipt-paper" id="public-receipt-paper">
-          <!-- Institute Header -->
-          <div class="paper-header">
-            <div class="inst-info">
-              <div class="logo-box" [class.has-img]="receipt.instituteLogoUrl && !logoFailed">
-                <img
-                  *ngIf="receipt.instituteLogoUrl && !logoFailed"
-                  [src]="receipt.instituteLogoUrl"
-                  alt="Institute Logo"
-                  class="inst-logo-img"
-                  (error)="logoFailed = true" />
-                <mat-icon *ngIf="!receipt.instituteLogoUrl || logoFailed" class="fallback-icon">school</mat-icon>
+      @if (!loading && receipt) {
+        <div class="receipt-wrapper">
+          <!-- Floating Action Header (Hidden in Print) -->
+          <header class="public-actions-bar no-print">
+            <div class="bar-left">
+              <div class="verified-chip">
+                <mat-icon class="verified-icon">verified</mat-icon>
+                <span>Verified Official E-Receipt</span>
               </div>
-              <div class="inst-text">
-                <h1 class="inst-name">{{ receipt.instituteName || 'Jnandeep Campus' }}</h1>
-                <p class="inst-sub">
-                  <span *ngIf="receipt.instituteAddress">{{ receipt.instituteAddress }} • </span>
-                  <span *ngIf="receipt.instituteContactPhone">Helpline: {{ receipt.instituteContactPhone }}</span>
-                </p>
-                <div class="inst-branch" *ngIf="receipt.branchName">
-                  <mat-icon class="branch-icon">location_city</mat-icon>
-                  <span>Branch: {{ receipt.branchName }}</span>
+              <span class="receipt-id">#{{ receipt.receiptNumber }}</span>
+            </div>
+            <div class="bar-actions">
+              @if (receipt.remainingDue > 0) {
+                <button mat-flat-button class="action-btn upi-pay-btn" (click)="openUpiPayment()">
+                  <mat-icon>qr_code_2</mat-icon>
+                  <span>Pay Due via UPI</span>
+                </button>
+              }
+              <button mat-flat-button color="primary" class="action-btn download-btn" (click)="printReceipt()">
+                <mat-icon>download</mat-icon>
+                <span>Download PDF / Print</span>
+              </button>
+              @if (receipt.parentPhone) {
+                <button mat-stroked-button class="action-btn wa-share-btn" (click)="shareWhatsApp()">
+                  <mat-icon class="wa-icon">chat</mat-icon>
+                  <span>WhatsApp</span>
+                </button>
+              }
+            </div>
+          </header>
+          <!-- Printable Official Receipt Paper -->
+          <div class="receipt-paper" id="public-receipt-paper">
+            <!-- Institute Header -->
+            <div class="paper-header">
+              <div class="inst-info">
+                <div class="logo-box" [class.has-img]="receipt.instituteLogoUrl && !logoFailed">
+                  @if (receipt.instituteLogoUrl && !logoFailed) {
+                    <img
+                      [src]="receipt.instituteLogoUrl"
+                      alt="Institute Logo"
+                      class="inst-logo-img"
+                      (error)="logoFailed = true" />
+                  }
+                  @if (!receipt.instituteLogoUrl || logoFailed) {
+                    <mat-icon class="fallback-icon">school</mat-icon>
+                  }
+                </div>
+                <div class="inst-text">
+                  <h1 class="inst-name">{{ receipt.instituteName || 'Jnandeep Campus' }}</h1>
+                  <p class="inst-sub">
+                    @if (receipt.instituteAddress) {
+                      <span>{{ receipt.instituteAddress }} • </span>
+                    }
+                    @if (receipt.instituteContactPhone) {
+                      <span>Helpline: {{ receipt.instituteContactPhone }}</span>
+                    }
+                  </p>
+                  @if (receipt.branchName) {
+                    <div class="inst-branch">
+                      <mat-icon class="branch-icon">location_city</mat-icon>
+                      <span>Branch: {{ receipt.branchName }}</span>
+                    </div>
+                  }
                 </div>
               </div>
-            </div>
-
-            <div class="receipt-badge">
-              <div class="badge-title">FEE RECEIPT</div>
-              <div class="badge-sub">शुल्क भुगतान रसीद</div>
-              <span class="copy-tag">STUDENT ORIGINAL</span>
-            </div>
-          </div>
-
-          <!-- Transaction & Metadata Strip -->
-          <div class="meta-strip">
-            <div class="meta-item">
-              <span class="meta-label">Receipt Number:</span>
-              <span class="meta-val highlight">{{ receipt.receiptNumber }}</span>
-            </div>
-            <div class="meta-item month-meta-item" *ngIf="feeMonthDisplay">
-              <span class="meta-label">Fee Month / Period:</span>
-              <span class="meta-val month-pill">{{ feeMonthDisplay }}</span>
-            </div>
-            <div class="meta-item time-item">
-              <span class="meta-label">Date & Time (IST):</span>
-              <span class="meta-val">{{ formatToIST(receipt.paymentDate) }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">Payment Mode:</span>
-              <span class="meta-val mode-pill">{{ getPaymentModeName(receipt.mode) }}</span>
-            </div>
-            <div class="meta-item" *ngIf="receipt.transactionRef">
-              <span class="meta-label">Txn / UTR Ref:</span>
-              <span class="meta-val">{{ receipt.transactionRef }}</span>
-            </div>
-          </div>
-
-          <!-- Student Profile Card -->
-          <div class="student-profile-card">
-            <div class="prof-col">
-              <div class="prof-row">
-                <span class="k">Student Name:</span>
-                <span class="v student-highlight">{{ receipt.studentName }}</span>
-              </div>
-              <div class="prof-row">
-                <span class="k">Roll / Admission No:</span>
-                <span class="v"><strong>{{ receipt.rollNumber || 'N/A' }}</strong></span>
-              </div>
-              <div class="prof-row" *ngIf="receipt.className && !receipt.batchName">
-                <span class="k">Class & Section:</span>
-                <span class="v"><strong>{{ receipt.className }}<span *ngIf="receipt.sectionName"> (Section {{ receipt.sectionName }})</span></strong></span>
-              </div>
-              <div class="prof-row" *ngIf="receipt.className && receipt.batchName">
-                <span class="k">Coaching:</span>
-                <span class="v"><strong>{{ receipt.className }}</strong></span>
-              </div>
-              <div class="prof-row" *ngIf="!receipt.className && receipt.batchName">
-                <span class="k">Coaching:</span>
-                <span class="v"><strong>Coaching</strong></span>
-              </div>
-              <div class="prof-row" *ngIf="!receipt.className && !receipt.batchName">
-                <span class="k">Academic Stream:</span>
-                <span class="v">General Academic</span>
-              </div>
-              <div class="prof-row fee-month-row" *ngIf="feeMonthDisplay">
-                <span class="k">Fee Month (शुल्क माह):</span>
-                <span class="v fee-month-badge" [title]="feeMonthTooltip">
-                  <strong>{{ feeMonthDisplay }}</strong>
-                </span>
+              <div class="receipt-badge">
+                <div class="badge-title">FEE RECEIPT</div>
+                <div class="badge-sub">शुल्क भुगतान रसीद</div>
+                <span class="copy-tag">STUDENT ORIGINAL</span>
               </div>
             </div>
-            <div class="prof-col">
-              <div class="prof-row">
-                <span class="k">Father / Guardian:</span>
-                <span class="v">{{ receipt.parentName || 'N/A' }}</span>
+            <!-- Transaction & Metadata Strip -->
+            <div class="meta-strip">
+              <div class="meta-item">
+                <span class="meta-label">Receipt Number:</span>
+                <span class="meta-val highlight">{{ receipt.receiptNumber }}</span>
               </div>
-              <div class="prof-row">
-                <span class="k">Contact / WhatsApp:</span>
-                <span class="v">{{ receipt.parentPhone || 'N/A' }}</span>
+              @if (feeMonthDisplay) {
+                <div class="meta-item month-meta-item">
+                  <span class="meta-label">Fee Month / Period:</span>
+                  <span class="meta-val month-pill">{{ feeMonthDisplay }}</span>
+                </div>
+              }
+              <div class="meta-item time-item">
+                <span class="meta-label">Date & Time (IST):</span>
+                <span class="meta-val">{{ formatToIST(receipt.paymentDate) }}</span>
               </div>
-              <div class="prof-row" *ngIf="receipt.batchName">
-                <span class="k">Batch:</span>
-                <span class="v"><strong>{{ receipt.batchName }}</strong></span>
+              <div class="meta-item">
+                <span class="meta-label">Payment Mode:</span>
+                <span class="meta-val mode-pill">{{ getPaymentModeName(receipt.mode) }}</span>
               </div>
-              <div class="prof-row">
-                <span class="k">Settlement Type:</span>
-                <span class="v status-pill">FIFO Auto-Settlement</span>
+              @if (receipt.transactionRef) {
+                <div class="meta-item">
+                  <span class="meta-label">Txn / UTR Ref:</span>
+                  <span class="meta-val">{{ receipt.transactionRef }}</span>
+                </div>
+              }
+            </div>
+            <!-- Student Profile Card -->
+            <div class="student-profile-card">
+              <div class="prof-col">
+                <div class="prof-row">
+                  <span class="k">Student Name:</span>
+                  <span class="v student-highlight">{{ receipt.studentName }}</span>
+                </div>
+                <div class="prof-row">
+                  <span class="k">Roll / Admission No:</span>
+                  <span class="v"><strong>{{ receipt.rollNumber || 'N/A' }}</strong></span>
+                </div>
+                @if (receipt.className && !receipt.batchName) {
+                  <div class="prof-row">
+                    <span class="k">Class & Section:</span>
+                    <span class="v"><strong>{{ receipt.className }}@if (receipt.sectionName) {
+                      <span> (Section {{ receipt.sectionName }})</span>
+                    }</strong></span>
+                  </div>
+                }
+                @if (receipt.className && receipt.batchName) {
+                  <div class="prof-row">
+                    <span class="k">Coaching:</span>
+                    <span class="v"><strong>{{ receipt.className }}</strong></span>
+                  </div>
+                }
+                @if (!receipt.className && receipt.batchName) {
+                  <div class="prof-row">
+                    <span class="k">Coaching:</span>
+                    <span class="v"><strong>Coaching</strong></span>
+                  </div>
+                }
+                @if (!receipt.className && !receipt.batchName) {
+                  <div class="prof-row">
+                    <span class="k">Academic Stream:</span>
+                    <span class="v">General Academic</span>
+                  </div>
+                }
+                @if (feeMonthDisplay) {
+                  <div class="prof-row fee-month-row">
+                    <span class="k">Fee Month (शुल्क माह):</span>
+                    <span class="v fee-month-badge" [title]="feeMonthTooltip">
+                      <strong>{{ feeMonthDisplay }}</strong>
+                    </span>
+                  </div>
+                }
               </div>
-              <div class="prof-row" *ngIf="receipt.hostelInfo">
-                <span class="k">🏠 Hostel Facility:</span>
-                <span class="v hostel-info-pill">{{ receipt.hostelInfo }}</span>
+              <div class="prof-col">
+                <div class="prof-row">
+                  <span class="k">Father / Guardian:</span>
+                  <span class="v">{{ receipt.parentName || 'N/A' }}</span>
+                </div>
+                <div class="prof-row">
+                  <span class="k">Contact / WhatsApp:</span>
+                  <span class="v">{{ receipt.parentPhone || 'N/A' }}</span>
+                </div>
+                @if (receipt.batchName) {
+                  <div class="prof-row">
+                    <span class="k">Batch:</span>
+                    <span class="v"><strong>{{ receipt.batchName }}</strong></span>
+                  </div>
+                }
+                <div class="prof-row">
+                  <span class="k">Settlement Type:</span>
+                  <span class="v status-pill">FIFO Auto-Settlement</span>
+                </div>
+                @if (receipt.hostelInfo) {
+                  <div class="prof-row">
+                    <span class="k">🏠 Hostel Facility:</span>
+                    <span class="v hostel-info-pill">{{ receipt.hostelInfo }}</span>
+                  </div>
+                }
               </div>
             </div>
-          </div>
-
-          <!-- Fee Particulars Breakdown Table -->
-          <div class="table-section">
-            <table class="receipt-table">
-              <thead>
-                <tr>
-                  <th class="text-center" style="width: 48px;">#</th>
-                  <th>Fee Head / Particulars</th>
-                  <th class="text-right" style="width: 180px;">Amount Received (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <ng-container *ngIf="receipt.items && receipt.items.length > 0; else fallbackReceiptRows">
-                  <tr *ngFor="let item of receipt.items">
-                    <td class="text-center">{{ item.itemIndex }}</td>
-                    <td>
-                      <strong class="fee-head-title">{{ item.particulars }}</strong>
-                      <div class="fee-head-sub" *ngIf="formatSubTitle(item.subTitle)">{{ formatSubTitle(item.subTitle) }}</div>
-                    </td>
-                    <td class="text-right amount-col">
-                      <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
-                    </td>
-                  </tr>
-                </ng-container>
-
-                <ng-template #fallbackReceiptRows>
+            <!-- Fee Particulars Breakdown Table -->
+            <div class="table-section">
+              <table class="receipt-table">
+                <thead>
                   <tr>
-                    <td class="text-center">1</td>
-                    <td>
-                      <strong class="fee-head-title">Fee Installment Settlement</strong>
-                      <div class="fee-head-sub">{{ receipt.remarks || 'Tuition & Academic installment' }}</div>
-                    </td>
-                    <td class="text-right amount-col">
-                      <strong>₹{{ receipt.amountPaid | number:'1.2-2' }}</strong>
-                    </td>
+                    <th class="text-center" style="width: 48px;">#</th>
+                    <th>Fee Head / Particulars</th>
+                    <th class="text-right" style="width: 180px;">Amount Received (₹)</th>
                   </tr>
-                </ng-template>
-
-                <tr class="summary-subtotal">
-                  <td colspan="2" class="text-right"><strong>Total Amount Received:</strong></td>
-                  <td class="text-right grand-paid">₹{{ receipt.amountPaid | number:'1.2-2' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Amount In Words Strip -->
-          <div class="amount-words-strip">
-            <div class="words-left">
-              <span class="w-label">Amount in Words:</span>
-              <span class="w-text">{{ getAmountInWords(receipt.amountPaid) }}</span>
+                </thead>
+                <tbody>
+                  @if (receipt.items && receipt.items.length > 0) {
+                    @for (item of receipt.items; track item) {
+                      <tr>
+                        <td class="text-center">{{ item.itemIndex }}</td>
+                        <td>
+                          <strong class="fee-head-title">{{ item.particulars }}</strong>
+                          @if (formatSubTitle(item.subTitle)) {
+                            <div class="fee-head-sub">{{ formatSubTitle(item.subTitle) }}</div>
+                          }
+                        </td>
+                        <td class="text-right amount-col">
+                          <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
+                        </td>
+                      </tr>
+                    }
+                  } @else {
+                    <tr>
+                      <td class="text-center">1</td>
+                      <td>
+                        <strong class="fee-head-title">Fee Installment Settlement</strong>
+                        <div class="fee-head-sub">{{ receipt.remarks || 'Tuition & Academic installment' }}</div>
+                      </td>
+                      <td class="text-right amount-col">
+                        <strong>₹{{ receipt.amountPaid | number:'1.2-2' }}</strong>
+                      </td>
+                    </tr>
+                  }
+                  <tr class="summary-subtotal">
+                    <td colspan="2" class="text-right"><strong>Total Amount Received:</strong></td>
+                    <td class="text-right grand-paid">₹{{ receipt.amountPaid | number:'1.2-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <div class="paid-stamp">
-              <mat-icon>check_circle</mat-icon>
-              <span>PAID</span>
-            </div>
-          </div>
-
-          <!-- Account Due Status Strip -->
-          <div class="due-status-strip" [class.cleared]="receipt.remainingDue <= 0" [class.due-alert]="receipt.remainingDue > 0">
-            <div class="due-text-group">
-              <div class="due-title">
-                <mat-icon class="status-icon">{{ receipt.remainingDue <= 0 ? 'check_circle' : 'info' }}</mat-icon>
-                <span>{{ receipt.remainingDue <= 0 ? 'Account Status: All Dues Cleared' : 'Current Account Status: Partial Payment Recorded' }}</span>
+            <!-- Amount In Words Strip -->
+            <div class="amount-words-strip">
+              <div class="words-left">
+                <span class="w-label">Amount in Words:</span>
+                <span class="w-text">{{ getAmountInWords(receipt.amountPaid) }}</span>
               </div>
-              <small class="due-desc" *ngIf="receipt.remainingDue > 0">
-                Please clear the remaining balance before the next installment cycle.
-              </small>
-            </div>
-            <div class="due-amount-box">
-              <span class="due-lbl">Remaining Balance Due:</span>
-              <span class="due-num">₹{{ receipt.remainingDue | number:'1.2-2' }}</span>
-            </div>
-            <div class="due-actions-box no-print" *ngIf="receipt.remainingDue > 0">
-              <button mat-flat-button class="pay-now-action-btn" (click)="openUpiPayment()">
-                <mat-icon>qr_code_scanner</mat-icon>
-                <span>Pay Now</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Terms & Signatures -->
-          <div class="receipt-terms">
-            <strong>Terms & Conditions / महत्वपूर्ण सूचना:</strong>
-            <ol>
-              <li>This digital receipt is an official acknowledgment of payment received by {{ receipt.instituteName || 'Jnandeep Campus' }}.</li>
-              <li>Fees once deposited are subject to the academy's official fee cancellation & refund policy.</li>
-              <li>All payments are securely audited in the IMSERP Cloud Management Suite.</li>
-            </ol>
-          </div>
-
-          <div class="signatures-row">
-            <div class="sig-col">
-              <div class="sig-line"></div>
-              <span class="sig-text">Student / Depositor Signature</span>
-            </div>
-            <div class="sig-col text-center">
-              <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
-              <div *ngIf="!officialSealUrl" class="digital-seal">
-                <mat-icon>verified</mat-icon>
-                <span>ELECTRONICALLY AUDITED</span>
-                <small>{{ receipt.paymentDate | date:'dd-MMM-yyyy' }}</small>
+              <div class="paid-stamp">
+                <mat-icon>check_circle</mat-icon>
+                <span>PAID</span>
               </div>
             </div>
-            <div class="sig-col text-right">
-              <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+            <!-- Account Due Status Strip -->
+            <div class="due-status-strip" [class.cleared]="receipt.remainingDue <= 0" [class.due-alert]="receipt.remainingDue > 0">
+              <div class="due-text-group">
+                <div class="due-title">
+                  <mat-icon class="status-icon">{{ receipt.remainingDue <= 0 ? 'check_circle' : 'info' }}</mat-icon>
+                  <span>{{ receipt.remainingDue <= 0 ? 'Account Status: All Dues Cleared' : 'Current Account Status: Partial Payment Recorded' }}</span>
+                </div>
+                @if (receipt.remainingDue > 0) {
+                  <small class="due-desc">
+                    Please clear the remaining balance before the next installment cycle.
+                  </small>
+                }
               </div>
-              <div class="sig-line"></div>
-              <span class="sig-text">Accounts In-charge / Cashier</span>
-              <small class="auth-sub">{{ receipt.instituteName || authService.getInstituteName() || 'Institution' }}</small>
+              <div class="due-amount-box">
+                <span class="due-lbl">Remaining Balance Due:</span>
+                <span class="due-num">₹{{ receipt.remainingDue | number:'1.2-2' }}</span>
+              </div>
+              @if (receipt.remainingDue > 0) {
+                <div class="due-actions-box no-print">
+                  <button mat-flat-button class="pay-now-action-btn" (click)="openUpiPayment()">
+                    <mat-icon>qr_code_scanner</mat-icon>
+                    <span>Pay Now</span>
+                  </button>
+                </div>
+              }
             </div>
-          </div>
-
-          <div class="paper-footer">
-            <span>This is an official computer-generated receipt from IMSERP Education ERP Suite.</span>
+            <!-- Terms & Signatures -->
+            <div class="receipt-terms">
+              <strong>Terms & Conditions / महत्वपूर्ण सूचना:</strong>
+              <ol>
+                <li>This digital receipt is an official acknowledgment of payment received by {{ receipt.instituteName || 'Jnandeep Campus' }}.</li>
+                <li>Fees once deposited are subject to the academy's official fee cancellation & refund policy.</li>
+                <li>All payments are securely audited in the IMSERP Cloud Management Suite.</li>
+              </ol>
+            </div>
+            <div class="signatures-row">
+              <div class="sig-col">
+                <div class="sig-line"></div>
+                <span class="sig-text">Student / Depositor Signature</span>
+              </div>
+              <div class="sig-col text-center">
+                @if (officialSealUrl) {
+                  <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+                }
+                @if (!officialSealUrl) {
+                  <div class="digital-seal">
+                    <mat-icon>verified</mat-icon>
+                    <span>ELECTRONICALLY AUDITED</span>
+                    <small>{{ receipt.paymentDate | date:'dd-MMM-yyyy' }}</small>
+                  </div>
+                }
+              </div>
+              <div class="sig-col text-right">
+                @if (digitalSignatureUrl) {
+                  <div class="digital-sign-wrapper">
+                    <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+                  </div>
+                }
+                <div class="sig-line"></div>
+                <span class="sig-text">Accounts In-charge / Cashier</span>
+                <small class="auth-sub">{{ receipt.instituteName || authService.getInstituteName() || 'Institution' }}</small>
+              </div>
+            </div>
+            <div class="paper-footer">
+              <span>This is an official computer-generated receipt from IMSERP Education ERP Suite.</span>
+            </div>
           </div>
         </div>
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

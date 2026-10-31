@@ -11,9 +11,11 @@
       </div>
     </div>
     <div class="header-actions">
-      <button mat-flat-button color="primary" class="action-btn matrix-top-btn" *ngIf="!isTeacher" (click)="openClassMultiSubjectDialog(filterClassId)">
-        <mat-icon>table_chart</mat-icon> Class Multi-Subject Marks
-      </button>
+      @if (!isTeacher) {
+        <button mat-flat-button color="primary" class="action-btn matrix-top-btn" (click)="openClassMultiSubjectDialog(filterClassId)">
+          <mat-icon>table_chart</mat-icon> Class Multi-Subject Marks
+        </button>
+      }
       <button mat-stroked-button color="primary" class="action-btn" (click)="printClassAdmitCards()" matTooltip="Print Admit Cards / Hall Tickets for Class">
         <mat-icon>badge</mat-icon> Print Admit Cards
       </button>
@@ -28,26 +30,30 @@
 
   <!-- Main Tabs -->
   <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="200ms" class="custom-tabs">
-    
+
     <!-- TAB 1: Scheduled Exams List -->
     <mat-tab>
       <ng-template mat-tab-label>
         <mat-icon class="tab-icon">event_note</mat-icon>
         <span>Exams List</span>
-        <span class="badge" *ngIf="displayedExams.length > 0">{{ displayedExams.length }}</span>
+        @if (displayedExams.length > 0) {
+          <span class="badge">{{ displayedExams.length }}</span>
+        }
       </ng-template>
 
       <div class="tab-content">
         <!-- Faculty Evaluator Banner (Role Notice) -->
-        <div class="teacher-evaluator-banner" *ngIf="isTeacher">
-          <div class="eval-banner-icon">
-            <mat-icon>assignment_turned_in</mat-icon>
+        @if (isTeacher) {
+          <div class="teacher-evaluator-banner">
+            <div class="eval-banner-icon">
+              <mat-icon>assignment_turned_in</mat-icon>
+            </div>
+            <div class="eval-banner-content">
+              <h4>Faculty Evaluator Portal &mdash; Welcome, {{ authService.currentUser()?.fullName || 'Teacher' }}!</h4>
+              <p>Showing <strong>{{ displayedExams.length }}</strong> exam evaluation bundle(s) assigned to you for physical answer sheet checking and marks entry.</p>
+            </div>
           </div>
-          <div class="eval-banner-content">
-            <h4>Faculty Evaluator Portal &mdash; Welcome, {{ authService.currentUser()?.fullName || 'Teacher' }}!</h4>
-            <p>Showing <strong>{{ displayedExams.length }}</strong> exam evaluation bundle(s) assigned to you for physical answer sheet checking and marks entry.</p>
-          </div>
-        </div>
+        }
 
         <!-- Filter Bar -->
         <mat-card class="filter-card">
@@ -56,22 +62,30 @@
               <mat-label>Class</mat-label>
               <mat-select [(value)]="filterClassId" (selectionChange)="onFilterClassChange($event.value)">
                 <mat-option value="">{{ isTeacher ? 'All My Classes' : 'All Classes' }}</mat-option>
-                <mat-option *ngFor="let c of availableClasses" [value]="c.id">{{ c.name }}</mat-option>
+                @for (c of availableClasses; track c) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="compact-field" *ngIf="sections.length > 0">
-              <mat-label>Section</mat-label>
-              <mat-select [(value)]="filterSectionId" (selectionChange)="loadExams()">
-                <mat-option value="">All Sections</mat-option>
-                <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+            @if (sections.length > 0) {
+              <mat-form-field appearance="outline" class="compact-field">
+                <mat-label>Section</mat-label>
+                <mat-select [(value)]="filterSectionId" (selectionChange)="loadExams()">
+                  <mat-option value="">All Sections</mat-option>
+                  @for (s of sections; track s) {
+                    <mat-option [value]="s.id">{{ s.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
 
             <mat-form-field appearance="outline" class="compact-field">
               <mat-label>Academic Session</mat-label>
               <mat-select [(value)]="filterAcademicYear" (selectionChange)="loadExams()">
-                <mat-option *ngFor="let s of availableSessions" [value]="s">{{ s }}</mat-option>
+                @for (s of availableSessions; track s) {
+                  <mat-option [value]="s">{{ s }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
 
@@ -79,22 +93,30 @@
               <mat-label>Exam Type</mat-label>
               <mat-select [(value)]="filterExamType" (selectionChange)="loadExams()">
                 <mat-option value="">{{ isTeacher ? 'All Assigned Exam Types' : 'All Exam Types' }}</mat-option>
-                <mat-option *ngFor="let et of availableExamTypes" [value]="et">{{ et }}</mat-option>
+                @for (et of availableExamTypes; track et) {
+                  <mat-option [value]="et">{{ et }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="compact-field search-field">
               <mat-label>Search Subject / Title</mat-label>
               <input matInput [(ngModel)]="searchTerm" (keyup.enter)="loadExams()" placeholder="e.g. Maths, Science...">
-              <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadExams()">
-                <mat-icon>clear</mat-icon>
-              </button>
+              @if (searchTerm) {
+                <button mat-icon-button matSuffix (click)="searchTerm=''; loadExams()">
+                  <mat-icon>clear</mat-icon>
+                </button>
+              }
             </mat-form-field>
 
             <div class="filter-actions">
               <button mat-flat-button color="primary" (click)="loadExams()" [disabled]="loadingExams">
-                <mat-icon *ngIf="!loadingExams">filter_list</mat-icon>
-                <mat-spinner diameter="18" *ngIf="loadingExams"></mat-spinner>
+                @if (!loadingExams) {
+                  <mat-icon>filter_list</mat-icon>
+                }
+                @if (loadingExams) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                }
                 <span>Filter</span>
               </button>
             </div>
@@ -104,450 +126,485 @@
 
 
         <!-- Empty State (Admin) -->
-        <div class="empty-state" *ngIf="!loadingExams && displayedExams.length === 0 && !isTeacher">
-          <div class="empty-icon-circle">
-            <mat-icon>school</mat-icon>
+        @if (!loadingExams && displayedExams.length === 0 && !isTeacher) {
+          <div class="empty-state">
+            <div class="empty-icon-circle">
+              <mat-icon>school</mat-icon>
+            </div>
+            <h3>No Exams Found</h3>
+            <p>No exams have been scheduled matching your selected filters. Schedule annual final exams across subjects in one click.</p>
+            <button mat-flat-button color="primary" (click)="activeTabIndex = 1">
+              <mat-icon>add</mat-icon> Schedule Bulk Exams Now
+            </button>
           </div>
-          <h3>No Exams Found</h3>
-          <p>No exams have been scheduled matching your selected filters. Schedule annual final exams across subjects in one click.</p>
-          <button mat-flat-button color="primary" (click)="activeTabIndex = 1">
-            <mat-icon>add</mat-icon> Schedule Bulk Exams Now
-          </button>
-        </div>
+        }
 
         <!-- Empty State (Teacher) -->
-        <div class="empty-state" *ngIf="!loadingExams && displayedExams.length === 0 && isTeacher">
-          <div class="empty-icon-circle">
-            <mat-icon>assignment_turned_in</mat-icon>
+        @if (!loadingExams && displayedExams.length === 0 && isTeacher) {
+          <div class="empty-state">
+            <div class="empty-icon-circle">
+              <mat-icon>assignment_turned_in</mat-icon>
+            </div>
+            <h3>No Exam Copies Assigned Yet</h3>
+            <p>You do not currently have any answer sheet bundles assigned for copy evaluation. Once the administration assigns bundles to you, they will appear here.</p>
           </div>
-          <h3>No Exam Copies Assigned Yet</h3>
-          <p>You do not currently have any answer sheet bundles assigned for copy evaluation. Once the administration assigns bundles to you, they will appear here.</p>
-        </div>
+        }
 
         <!-- Exams Grid -->
-        <div class="exams-grid" *ngIf="!loadingExams && displayedExams.length > 0">
-          <mat-card class="exam-card" *ngFor="let exam of displayedExams" [class.highlighted-exam]="exam.id === highlightedExamId">
-            <div class="target-exam-banner" *ngIf="exam.id === highlightedExamId">
-              <mat-icon>check_circle</mat-icon>
-              <span>Selected for Marks Entry</span>
-            </div>
-            <div class="exam-card-header">
-              <div class="header-badges">
-                <div class="exam-badge" [class.badge-annual]="exam.examType === 'Annual Exam'">
-                  {{ exam.examType }}
-                </div>
-                <!-- Copy Evaluation Workflow Status Badge (Single Status Progression) -->
-                <span class="workflow-status-badge status-locked" *ngIf="getWorkflowStatus(exam) === 'Locked'" matTooltip="Marks frozen & finalized by Admin">
-                  <mat-icon>lock</mat-icon> Marks Locked
-                </span>
-                <span class="workflow-status-badge status-entered" *ngIf="getWorkflowStatus(exam) === 'MarksEntered'" matTooltip="Marks entered by teacher, awaiting admin approval/freeze">
-                  <mat-icon>playlist_add_check</mat-icon> Marks Entered
-                </span>
-                <span class="workflow-status-badge status-completed" *ngIf="getWorkflowStatus(exam) === 'CopiesEvaluated'" matTooltip="Copies checked by teacher, ready for marks entry">
-                  <mat-icon>task_alt</mat-icon> Copies Evaluated
-                </span>
-                <span class="workflow-status-badge status-evaluating" *ngIf="getWorkflowStatus(exam) === 'CopyChecking'" matTooltip="Copies handed over to evaluator teacher">
-                  <mat-icon>rate_review</mat-icon> Copy Checking
-                </span>
-                <span class="workflow-status-badge status-scheduled" *ngIf="getWorkflowStatus(exam) === 'Scheduled'" matTooltip="Exam scheduled, copies not yet handed over">
-                  <mat-icon>hourglass_empty</mat-icon> Scheduled
-                </span>
-              </div>
-              <span class="exam-session">{{ exam.academicYear }}</span>
-            </div>
-
-            <div class="exam-card-body">
-              <h3 class="exam-title">{{ exam.title }}</h3>
-              <div class="exam-meta">
-                <div class="meta-item">
-                  <mat-icon>class</mat-icon>
-                  <span>{{ exam.className }} <strong *ngIf="exam.sectionName">({{ exam.sectionName }})</strong></span>
-                </div>
-                <div class="meta-item">
-                  <mat-icon>menu_book</mat-icon>
-                  <span>Subject: <strong>{{ exam.subject }}</strong></span>
-                </div>
-                <div class="meta-item">
-                  <mat-icon>calendar_today</mat-icon>
-                  <span>Date: {{ exam.testDate | date:'mediumDate' }}</span>
-                </div>
-                <div class="meta-item">
-                  <mat-icon>grade</mat-icon>
-                  <span>Marks: <strong>{{ exam.passingMarks }}</strong> / {{ exam.maxMarks }} (Pass / Max)</span>
-                </div>
-              </div>
-
-              <!-- Evaluator & Answer Sheet Allocation Info -->
-              <div class="exam-evaluator-card-box">
-                <div class="evaluator-main-row">
-                  <div class="evaluator-icon-label">
-                    <mat-icon>person</mat-icon>
-                    <span>Evaluator:</span>
+        @if (!loadingExams && displayedExams.length > 0) {
+          <div class="exams-grid">
+            @for (exam of displayedExams; track exam) {
+              <mat-card class="exam-card" [class.highlighted-exam]="exam.id === highlightedExamId">
+                @if (exam.id === highlightedExamId) {
+                  <div class="target-exam-banner">
+                    <mat-icon>check_circle</mat-icon>
+                    <span>Selected for Marks Entry</span>
                   </div>
-                  <strong class="evaluator-name" [class.unassigned]="!exam.evaluatorTeacherName">
-                    {{ exam.evaluatorTeacherName || 'Teacher Not Assigned' }}
-                  </strong>
-                  <button mat-button type="button" class="quick-assign-btn" *ngIf="!exam.evaluatorTeacherName && !exam.isMarksLocked && !isTeacher" (click)="openEvaluationModal(exam)">
-                    + Assign Bundle
-                  </button>
+                }
+                <div class="exam-card-header">
+                  <div class="header-badges">
+                    <div class="exam-badge" [class.badge-annual]="exam.examType === 'Annual Exam'">
+                      {{ exam.examType }}
+                    </div>
+                    <!-- Copy Evaluation Workflow Status Badge (Single Status Progression) -->
+                    @if (getWorkflowStatus(exam) === 'Locked') {
+                      <span class="workflow-status-badge status-locked" matTooltip="Marks frozen & finalized by Admin">
+                        <mat-icon>lock</mat-icon> Marks Locked
+                      </span>
+                    }
+                    @if (getWorkflowStatus(exam) === 'MarksEntered') {
+                      <span class="workflow-status-badge status-entered" matTooltip="Marks entered by teacher, awaiting admin approval/freeze">
+                        <mat-icon>playlist_add_check</mat-icon> Marks Entered
+                      </span>
+                    }
+                    @if (getWorkflowStatus(exam) === 'CopiesEvaluated') {
+                      <span class="workflow-status-badge status-completed" matTooltip="Copies checked by teacher, ready for marks entry">
+                        <mat-icon>task_alt</mat-icon> Copies Evaluated
+                      </span>
+                    }
+                    @if (getWorkflowStatus(exam) === 'CopyChecking') {
+                      <span class="workflow-status-badge status-evaluating" matTooltip="Copies handed over to evaluator teacher">
+                        <mat-icon>rate_review</mat-icon> Copy Checking
+                      </span>
+                    }
+                    @if (getWorkflowStatus(exam) === 'Scheduled') {
+                      <span class="workflow-status-badge status-scheduled" matTooltip="Exam scheduled, copies not yet handed over">
+                        <mat-icon>hourglass_empty</mat-icon> Scheduled
+                      </span>
+                    }
+                  </div>
+                  <span class="exam-session">{{ exam.academicYear }}</span>
                 </div>
-                <div class="evaluator-pills">
-                  <span class="eval-pill" *ngIf="exam.totalCopiesIssued !== null && exam.totalCopiesIssued !== undefined">
-                    <mat-icon>inventory_2</mat-icon> {{ exam.totalCopiesIssued }} Copies
-                  </span>
-                  <span class="eval-pill" *ngIf="exam.evaluationDueDate && !exam.copiesSubmittedDate && exam.evaluatedStudents === 0">
-                    <mat-icon>event</mat-icon> Due: {{ exam.evaluationDueDate | date:'mediumDate' }}
-                  </span>
-                  <span class="eval-pill submitted-pill" *ngIf="exam.copiesSubmittedDate || (exam.evaluatedStudents > 0 && exam.evaluatedStudents === exam.totalStudents)">
-                    <mat-icon>task_alt</mat-icon> Copies Checked by {{ exam.evaluatorTeacherName || 'Teacher' }}
-                  </span>
-                  <span class="eval-pill lock-pill" *ngIf="exam.isMarksLocked">
-                    <mat-icon>verified_user</mat-icon> Frozen by {{ exam.marksLockedBy || 'Principal' }}
-                  </span>
+                <div class="exam-card-body">
+                  <h3 class="exam-title">{{ exam.title }}</h3>
+                  <div class="exam-meta">
+                    <div class="meta-item">
+                      <mat-icon>class</mat-icon>
+                      <span>{{ exam.className }} @if (exam.sectionName) {
+                        <strong>({{ exam.sectionName }})</strong>
+                      }</span>
+                    </div>
+                    <div class="meta-item">
+                      <mat-icon>menu_book</mat-icon>
+                      <span>Subject: <strong>{{ exam.subject }}</strong></span>
+                    </div>
+                    <div class="meta-item">
+                      <mat-icon>calendar_today</mat-icon>
+                      <span>Date: {{ exam.testDate | date:'mediumDate' }}</span>
+                    </div>
+                    <div class="meta-item">
+                      <mat-icon>grade</mat-icon>
+                      <span>Marks: <strong>{{ exam.passingMarks }}</strong> / {{ exam.maxMarks }} (Pass / Max)</span>
+                    </div>
+                  </div>
+                  <!-- Evaluator & Answer Sheet Allocation Info -->
+                  <div class="exam-evaluator-card-box">
+                    <div class="evaluator-main-row">
+                      <div class="evaluator-icon-label">
+                        <mat-icon>person</mat-icon>
+                        <span>Evaluator:</span>
+                      </div>
+                      <strong class="evaluator-name" [class.unassigned]="!exam.evaluatorTeacherName">
+                        {{ exam.evaluatorTeacherName || 'Teacher Not Assigned' }}
+                      </strong>
+                      @if (!exam.evaluatorTeacherName && !exam.isMarksLocked && !isTeacher) {
+                        <button mat-button type="button" class="quick-assign-btn" (click)="openEvaluationModal(exam)">
+                          + Assign Bundle
+                        </button>
+                      }
+                    </div>
+                    <div class="evaluator-pills">
+                      @if (exam.totalCopiesIssued !== null && exam.totalCopiesIssued !== undefined) {
+                        <span class="eval-pill">
+                          <mat-icon>inventory_2</mat-icon> {{ exam.totalCopiesIssued }} Copies
+                        </span>
+                      }
+                      @if (exam.evaluationDueDate && !exam.copiesSubmittedDate && exam.evaluatedStudents === 0) {
+                        <span class="eval-pill">
+                          <mat-icon>event</mat-icon> Due: {{ exam.evaluationDueDate | date:'mediumDate' }}
+                        </span>
+                      }
+                      @if (exam.copiesSubmittedDate || (exam.evaluatedStudents > 0 && exam.evaluatedStudents === exam.totalStudents)) {
+                        <span class="eval-pill submitted-pill">
+                          <mat-icon>task_alt</mat-icon> Copies Checked by {{ exam.evaluatorTeacherName || 'Teacher' }}
+                        </span>
+                      }
+                      @if (exam.isMarksLocked) {
+                        <span class="eval-pill lock-pill">
+                          <mat-icon>verified_user</mat-icon> Frozen by {{ exam.marksLockedBy || 'Principal' }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                  <!-- Marks Entry Progress -->
+                  <div class="marks-progress-box">
+                    <div class="progress-labels">
+                      <span>Marks Evaluated:</span>
+                      <strong>{{ exam.evaluatedStudents }} / {{ exam.totalStudents }} Students</strong>
+                    </div>
+                    <mat-progress-bar
+                      mode="determinate"
+                      [value]="exam.totalStudents > 0 ? (exam.evaluatedStudents / exam.totalStudents) * 100 : 0"
+                      [color]="exam.evaluatedStudents === exam.totalStudents && exam.totalStudents > 0 ? 'primary' : 'accent'">
+                    </mat-progress-bar>
+                  </div>
                 </div>
-              </div>
-
-              <!-- Marks Entry Progress -->
-              <div class="marks-progress-box">
-                <div class="progress-labels">
-                  <span>Marks Evaluated:</span>
-                  <strong>{{ exam.evaluatedStudents }} / {{ exam.totalStudents }} Students</strong>
+                <mat-divider></mat-divider>
+                <div class="exam-card-actions">
+                  <!-- Primary Action Row - STRICT STAGE AWARE -->
+                  <div class="card-action-row-primary">
+                    <!-- STAGE 1: Scheduled / Bundle Not Handed Over -->
+                    @if (!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)) {
+                      <button
+                        mat-flat-button
+                        color="primary"
+                        class="assign-bundle-primary-btn"
+                        (click)="openEvaluationModal(exam)"
+                        matTooltip="Assign Evaluator Teacher & Hand Over Answer Sheet Bundle">
+                        <mat-icon>assignment_ind</mat-icon>
+                        <span>Assign Copy Bundle</span>
+                      </button>
+                      <button
+                        mat-stroked-button
+                        class="award-sheet-btn"
+                        (click)="openBlankAwardSheet(exam)"
+                        matTooltip="Print Blank Award Sheet (कच्चा अंक पत्रक) for physical copy checking">
+                        <mat-icon>print</mat-icon>
+                        <span>Award Sheet</span>
+                      </button>
+                    }
+                    <!-- STAGE 2: Copies Under Evaluation (Teacher Checking In Progress) -->
+                    @if (!exam.isMarksLocked && exam.evaluatorTeacherId && exam.evaluationStatus === 'CopiesUnderEvaluation') {
+                      <button
+                        mat-flat-button
+                        class="copies-evaluating-btn"
+                        (click)="openEvaluationModal(exam)"
+                        matTooltip="Click to update return status when teacher submits checked bundle">
+                        <mat-icon>hourglass_top</mat-icon>
+                        <span>Checking: {{ exam.evaluatorTeacherName || 'Teacher' }}</span>
+                      </button>
+                      <button
+                        mat-stroked-button
+                        class="enter-marks-secondary-btn"
+                        (click)="openMarksEntry(exam)"
+                        matTooltip="Enter marks once checked bundle is received">
+                        <mat-icon>edit_note</mat-icon>
+                        <span>Enter Marks</span>
+                      </button>
+                    }
+                    <!-- STAGE 3 & 4: Copies Checked & Received OR Marks In Progress -->
+                    @if (!exam.isMarksLocked && (exam.evaluationStatus === 'EvaluationCompleted' || exam.evaluationStatus === 'MarksEntered')) {
+                      <button
+                        mat-flat-button
+                        color="primary"
+                        class="enter-marks-btn"
+                        (click)="openMarksEntry(exam)">
+                        <mat-icon>edit_note</mat-icon>
+                        <span>{{ exam.evaluatedStudents > 0 ? 'Edit Marks' : 'Enter Marks' }}</span>
+                      </button>
+                      <button
+                        mat-stroked-button
+                        class="award-sheet-btn"
+                        (click)="openBlankAwardSheet(exam)"
+                        matTooltip="Print Blank Award Sheet (कच्चा अंक पत्रक)">
+                        <mat-icon>print</mat-icon>
+                        <span>Award Sheet</span>
+                      </button>
+                    }
+                    <!-- STAGE 5: Frozen & Locked by Principal -->
+                    @if (exam.isMarksLocked) {
+                      <button
+                        mat-flat-button
+                        color="accent"
+                        class="enter-marks-btn view-locked-btn"
+                        (click)="openMarksEntry(exam)">
+                        <mat-icon>lock</mat-icon>
+                        <span>View Marks</span>
+                      </button>
+                      <button
+                        mat-stroked-button
+                        class="award-sheet-btn"
+                        (click)="openBlankAwardSheet(exam)"
+                        matTooltip="Print Final Award Sheet">
+                        <mat-icon>print</mat-icon>
+                        <span>Award Sheet</span>
+                      </button>
+                    }
+                  </div>
+                  <!-- Secondary Utility Action Row -->
+                  <div class="card-action-row-secondary">
+                    <!-- For unassigned exams: allow direct oral entry link -->
+                    @if (!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)) {
+                      <button
+                        mat-button
+                        type="button"
+                        class="bypass-link-btn"
+                        (click)="openMarksEntry(exam)"
+                        matTooltip="Bypass copy checking for Oral, Practical or Class tests">
+                        <span>Oral/Direct Entry</span>
+                      </button>
+                    }
+                    <!-- Copy Tracking shortcut button (when assigned) -->
+                    @if (!exam.isMarksLocked && exam.evaluatorTeacherId) {
+                      <button
+                        mat-stroked-button
+                        class="tracking-quick-btn"
+                        (click)="openEvaluationModal(exam)"
+                        matTooltip="View/Edit Copy Tracking Details">
+                        <mat-icon>assignment_ind</mat-icon>
+                        <span>Copy Tracking</span>
+                      </button>
+                    }
+                    <!-- Locked Status Strip -->
+                    @if (exam.isMarksLocked) {
+                      <div class="locked-status-strip">
+                        <mat-icon>verified</mat-icon>
+                        <span>Evaluation Completed & Locked</span>
+                      </div>
+                    }
+                    @if (!isTeacher) {
+                      <div class="action-icons-group">
+                        <!-- Lock / Unlock Marks Toggle -->
+                        <button
+                          mat-icon-button
+                          [color]="exam.isMarksLocked ? 'warn' : 'accent'"
+                          class="action-icon-btn lock-toggle-btn"
+                          [class.is-locked]="exam.isMarksLocked"
+                          [disabled]="lockingExamId === exam.id"
+                          (click)="toggleLockMarks(exam)"
+                          [matTooltip]="exam.isMarksLocked ? 'Marks Locked & Verified. Click to Unlock.' : 'Click to Lock & Freeze Marks'">
+                          <mat-icon>{{ exam.isMarksLocked ? 'lock' : 'lock_open' }}</mat-icon>
+                        </button>
+                        <!-- Delete Exam (Only when unlocked) -->
+                        @if (!exam.isMarksLocked) {
+                          <button
+                            mat-icon-button
+                            color="warn"
+                            class="action-icon-btn delete-btn"
+                            (click)="deleteExam(exam)"
+                            matTooltip="Delete Exam">
+                            <mat-icon>delete_outline</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
                 </div>
-                <mat-progress-bar
-                  mode="determinate"
-                  [value]="exam.totalStudents > 0 ? (exam.evaluatedStudents / exam.totalStudents) * 100 : 0"
-                  [color]="exam.evaluatedStudents === exam.totalStudents && exam.totalStudents > 0 ? 'primary' : 'accent'">
-                </mat-progress-bar>
-              </div>
-            </div>
-
-            <mat-divider></mat-divider>
-
-            <div class="exam-card-actions">
-              <!-- Primary Action Row - STRICT STAGE AWARE -->
-              <div class="card-action-row-primary">
-
-                <!-- STAGE 1: Scheduled / Bundle Not Handed Over -->
-                <ng-container *ngIf="!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)">
-                  <button
-                    mat-flat-button
-                    color="primary"
-                    class="assign-bundle-primary-btn"
-                    (click)="openEvaluationModal(exam)"
-                    matTooltip="Assign Evaluator Teacher & Hand Over Answer Sheet Bundle">
-                    <mat-icon>assignment_ind</mat-icon>
-                    <span>Assign Copy Bundle</span>
-                  </button>
-
-                  <button
-                    mat-stroked-button
-                    class="award-sheet-btn"
-                    (click)="openBlankAwardSheet(exam)"
-                    matTooltip="Print Blank Award Sheet (कच्चा अंक पत्रक) for physical copy checking">
-                    <mat-icon>print</mat-icon>
-                    <span>Award Sheet</span>
-                  </button>
-                </ng-container>
-
-                <!-- STAGE 2: Copies Under Evaluation (Teacher Checking In Progress) -->
-                <ng-container *ngIf="!exam.isMarksLocked && exam.evaluatorTeacherId && exam.evaluationStatus === 'CopiesUnderEvaluation'">
-                  <button
-                    mat-flat-button
-                    class="copies-evaluating-btn"
-                    (click)="openEvaluationModal(exam)"
-                    matTooltip="Click to update return status when teacher submits checked bundle">
-                    <mat-icon>hourglass_top</mat-icon>
-                    <span>Checking: {{ exam.evaluatorTeacherName || 'Teacher' }}</span>
-                  </button>
-
-                  <button
-                    mat-stroked-button
-                    class="enter-marks-secondary-btn"
-                    (click)="openMarksEntry(exam)"
-                    matTooltip="Enter marks once checked bundle is received">
-                    <mat-icon>edit_note</mat-icon>
-                    <span>Enter Marks</span>
-                  </button>
-                </ng-container>
-
-                <!-- STAGE 3 & 4: Copies Checked & Received OR Marks In Progress -->
-                <ng-container *ngIf="!exam.isMarksLocked && (exam.evaluationStatus === 'EvaluationCompleted' || exam.evaluationStatus === 'MarksEntered')">
-                  <button
-                    mat-flat-button
-                    color="primary"
-                    class="enter-marks-btn"
-                    (click)="openMarksEntry(exam)">
-                    <mat-icon>edit_note</mat-icon>
-                    <span>{{ exam.evaluatedStudents > 0 ? 'Edit Marks' : 'Enter Marks' }}</span>
-                  </button>
-
-                  <button
-                    mat-stroked-button
-                    class="award-sheet-btn"
-                    (click)="openBlankAwardSheet(exam)"
-                    matTooltip="Print Blank Award Sheet (कच्चा अंक पत्रक)">
-                    <mat-icon>print</mat-icon>
-                    <span>Award Sheet</span>
-                  </button>
-                </ng-container>
-
-                <!-- STAGE 5: Frozen & Locked by Principal -->
-                <ng-container *ngIf="exam.isMarksLocked">
-                  <button
-                    mat-flat-button
-                    color="accent"
-                    class="enter-marks-btn view-locked-btn"
-                    (click)="openMarksEntry(exam)">
-                    <mat-icon>lock</mat-icon>
-                    <span>View Marks</span>
-                  </button>
-
-                  <button
-                    mat-stroked-button
-                    class="award-sheet-btn"
-                    (click)="openBlankAwardSheet(exam)"
-                    matTooltip="Print Final Award Sheet">
-                    <mat-icon>print</mat-icon>
-                    <span>Award Sheet</span>
-                  </button>
-                </ng-container>
-              </div>
-
-              <!-- Secondary Utility Action Row -->
-              <div class="card-action-row-secondary">
-                <!-- For unassigned exams: allow direct oral entry link -->
-                <button
-                  mat-button
-                  type="button"
-                  class="bypass-link-btn"
-                  *ngIf="!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)"
-                  (click)="openMarksEntry(exam)"
-                  matTooltip="Bypass copy checking for Oral, Practical or Class tests">
-                  <span>Oral/Direct Entry</span>
-                </button>
-
-                <!-- Copy Tracking shortcut button (when assigned) -->
-                <button
-                  mat-stroked-button
-                  class="tracking-quick-btn"
-                  *ngIf="!exam.isMarksLocked && exam.evaluatorTeacherId"
-                  (click)="openEvaluationModal(exam)"
-                  matTooltip="View/Edit Copy Tracking Details">
-                  <mat-icon>assignment_ind</mat-icon>
-                  <span>Copy Tracking</span>
-                </button>
-
-                <!-- Locked Status Strip -->
-                <div class="locked-status-strip" *ngIf="exam.isMarksLocked">
-                  <mat-icon>verified</mat-icon>
-                  <span>Evaluation Completed & Locked</span>
-                </div>
-
-                <div class="action-icons-group" *ngIf="!isTeacher">
-                  <!-- Lock / Unlock Marks Toggle -->
-                  <button
-                    mat-icon-button
-                    [color]="exam.isMarksLocked ? 'warn' : 'accent'"
-                    class="action-icon-btn lock-toggle-btn"
-                    [class.is-locked]="exam.isMarksLocked"
-                    [disabled]="lockingExamId === exam.id"
-                    (click)="toggleLockMarks(exam)"
-                    [matTooltip]="exam.isMarksLocked ? 'Marks Locked & Verified. Click to Unlock.' : 'Click to Lock & Freeze Marks'">
-                    <mat-icon>{{ exam.isMarksLocked ? 'lock' : 'lock_open' }}</mat-icon>
-                  </button>
-
-                  <!-- Delete Exam (Only when unlocked) -->
-                  <button
-                    mat-icon-button
-                    color="warn"
-                    class="action-icon-btn delete-btn"
-                    *ngIf="!exam.isMarksLocked"
-                    (click)="deleteExam(exam)"
-                    matTooltip="Delete Exam">
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </mat-card>
-        </div>
+              </mat-card>
+            }
+          </div>
+        }
       </div>
     </mat-tab>
 
     <!-- TAB 2: Bulk Exam Scheduler (Admin / Coordinator Only) -->
-    <mat-tab *ngIf="!isTeacher">
-      <ng-template mat-tab-label>
-        <mat-icon class="tab-icon">playlist_add</mat-icon>
-        <span>Bulk Exam Scheduler</span>
-      </ng-template>
-
-      <div class="tab-content">
-        <mat-card class="form-card">
-          <div class="card-accent-bar"></div>
-          <div class="card-header-inner">
-            <div>
-              <h2 class="section-title">Schedule Multiple Subject Exams in One Go</h2>
-              <p class="section-subtitle">Set up Annual or Term exam papers for an entire class at once. Standard subjects are auto-populated for your convenience.</p>
-            </div>
-          </div>
-
-          <form [formGroup]="scheduleForm" (ngSubmit)="saveBulkSchedule()">
-            <!-- Configuration row -->
-            <div class="scheduler-config-grid">
-              <mat-form-field appearance="outline">
-                <mat-label>Target Class *</mat-label>
-                <mat-select formControlName="classId" (selectionChange)="onScheduleClassChange($event.value)">
-                  <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Section (Optional)</mat-label>
-                <mat-select formControlName="sectionId">
-                  <mat-option value="">All Sections</mat-option>
-                  <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Academic Session *</mat-label>
-                <mat-select formControlName="academicYear">
-                  <mat-option value="2024-2025">2024-2025</mat-option>
-                  <mat-option value="2025-2026">2025-2026</mat-option>
-                  <mat-option value="2026-2027">2026-2027</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Exam Type / Term *</mat-label>
-                <mat-select formControlName="examType">
-                  <mat-option *ngFor="let et of availableExamTypes" [value]="et">{{ et }}</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Default Max Marks</mat-label>
-                <input matInput type="number" formControlName="defaultMaxMarks" min="1">
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Default Passing Marks</mat-label>
-                <input matInput type="number" formControlName="defaultPassingMarks" min="1">
-              </mat-form-field>
-
-              <!-- Start Date & Paper Spacing Controls -->
-              <mat-form-field appearance="outline" class="start-date-field" [class.field-sunday]="isSunday(scheduleForm.get('startDate')?.value)">
-                <mat-label>Exam Start Date *</mat-label>
-                <input matInput type="date" formControlName="startDate" (change)="autoSequenceExamDates()">
-                <mat-hint *ngIf="isSunday(scheduleForm.get('startDate')?.value)" class="sunday-hint-text">
-                  ⚠️ Sunday (Holiday!)
-                </mat-hint>
-                <mat-hint *ngIf="!isSunday(scheduleForm.get('startDate')?.value) && scheduleForm.get('startDate')?.value" class="weekday-hint-text">
-                  📅 Starts {{ getDayName(scheduleForm.get('startDate')?.value) }}
-                </mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Paper Spacing (Skip Sun)</mat-label>
-                <mat-select formControlName="examSpacing" (selectionChange)="autoSequenceExamDates()">
-                  <mat-option value="daily">Consecutive Days (Skip Sundays)</mat-option>
-                  <mat-option value="alternate">1 Day Gap / Study Leave (Skip Sundays)</mat-option>
-                  <mat-option value="gap2">2 Days Gap (Skip Sundays)</mat-option>
-                  <mat-option value="same_day">All On Same Day (Single Day)</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-
-            <!-- Subject Rows Table -->
-            <div class="subjects-schedule-header">
-              <div class="schedule-header-title">
-                <h3>Subject Exam Papers ({{ examRows.length }})</h3>
-                <span class="curriculum-pill" *ngIf="currentClassSubjects.length > 0">
-                  <mat-icon>verified</mat-icon> {{ currentClassSubjects.length }} Curriculum Subjects
-                </span>
-              </div>
-              <div class="schedule-actions-btns">
-                <button mat-stroked-button type="button" class="populate-curriculum-btn" (click)="populateFromClassCurriculum()" matTooltip="Reset and auto-populate all subjects mapped to this class in Subject Master">
-                  <mat-icon>auto_awesome</mat-icon>
-                  <span>{{ currentClassSubjects.length > 0 ? 'Load Curriculum (' + currentClassSubjects.length + ' Subjects)' : 'Load Default Subjects' }}</span>
-                </button>
-                <button mat-stroked-button type="button" class="seq-dates-btn" (click)="autoSequenceExamDates()" matTooltip="Re-sequence all subject exam dates starting from start date and skip Sundays">
-                  <mat-icon>event_repeat</mat-icon>
-                  <span>Re-Sequence (Skip Sun)</span>
-                </button>
-                <button mat-stroked-button type="button" color="primary" (click)="addScheduleRow()">
-                  <mat-icon>add</mat-icon> Add Subject
-                </button>
+    @if (!isTeacher) {
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">playlist_add</mat-icon>
+          <span>Bulk Exam Scheduler</span>
+        </ng-template>
+        <div class="tab-content">
+          <mat-card class="form-card">
+            <div class="card-accent-bar"></div>
+            <div class="card-header-inner">
+              <div>
+                <h2 class="section-title">Schedule Multiple Subject Exams in One Go</h2>
+                <p class="section-subtitle">Set up Annual or Term exam papers for an entire class at once. Standard subjects are auto-populated for your convenience.</p>
               </div>
             </div>
-
-            <div class="subject-rows-container" formArrayName="exams">
-              <div class="subject-row" *ngFor="let row of examRows.controls; let i = index" [formGroupName]="i" [class.row-sunday-alert]="isSunday(row.get('testDate')?.value)">
-                <span class="row-num">{{ i + 1 }}</span>
-
-                <mat-form-field appearance="outline" class="sub-field">
-                  <mat-label>Subject Name *</mat-label>
-                  <mat-select formControlName="subject" (selectionChange)="onSubjectChange(i, $event.value)">
-                    <mat-optgroup label="Class Curriculum Subjects" *ngIf="currentClassSubjects.length > 0">
-                      <mat-option *ngFor="let s of currentClassSubjects" [value]="s.subjectName">
-                        ⭐ {{ s.subjectName }} (Marks: {{ s.totalMarks }})
-                      </mat-option>
-                    </mat-optgroup>
-                    <mat-optgroup label="Other Catalog Subjects">
-                      <mat-option *ngFor="let s of allSubjects" [value]="s.name">
-                        {{ s.name }}
-                      </mat-option>
-                    </mat-optgroup>
-                    <mat-option *ngIf="row.get('subject')?.value && !isKnownSubject(row.get('subject')?.value)" [value]="row.get('subject')?.value">
-                      {{ row.get('subject')?.value }} (Custom)
-                    </mat-option>
+            <form [formGroup]="scheduleForm" (ngSubmit)="saveBulkSchedule()">
+              <!-- Configuration row -->
+              <div class="scheduler-config-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Target Class *</mat-label>
+                  <mat-select formControlName="classId" (selectionChange)="onScheduleClassChange($event.value)">
+                    @for (c of classes; track c) {
+                      <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                    }
                   </mat-select>
                 </mat-form-field>
-
-                <mat-form-field appearance="outline" class="title-field">
-                  <mat-label>Exam Paper Title *</mat-label>
-                  <input matInput formControlName="title" placeholder="e.g. Annual Exam - Mathematics">
+                <mat-form-field appearance="outline">
+                  <mat-label>Section (Optional)</mat-label>
+                  <mat-select formControlName="sectionId">
+                    <mat-option value="">All Sections</mat-option>
+                    @for (s of sections; track s) {
+                      <mat-option [value]="s.id">{{ s.name }}</mat-option>
+                    }
+                  </mat-select>
                 </mat-form-field>
-
-                <mat-form-field appearance="outline" class="date-field" [class.field-sunday]="isSunday(row.get('testDate')?.value)">
-                  <mat-label>Exam Date *</mat-label>
-                  <input matInput type="date" formControlName="testDate">
-                  <mat-hint *ngIf="isSunday(row.get('testDate')?.value)" class="sunday-hint-text">
-                    ⚠️ Sunday (Holiday!)
-                  </mat-hint>
-                  <mat-hint *ngIf="!isSunday(row.get('testDate')?.value) && row.get('testDate')?.value" class="weekday-hint-text">
-                    📅 {{ getDayName(row.get('testDate')?.value) }}
-                  </mat-hint>
+                <mat-form-field appearance="outline">
+                  <mat-label>Academic Session *</mat-label>
+                  <mat-select formControlName="academicYear">
+                    <mat-option value="2024-2025">2024-2025</mat-option>
+                    <mat-option value="2025-2026">2025-2026</mat-option>
+                    <mat-option value="2026-2027">2026-2027</mat-option>
+                  </mat-select>
                 </mat-form-field>
-
-                <mat-form-field appearance="outline" class="marks-field">
-                  <mat-label>Max Marks *</mat-label>
-                  <input matInput type="number" formControlName="maxMarks" min="1">
+                <mat-form-field appearance="outline">
+                  <mat-label>Exam Type / Term *</mat-label>
+                  <mat-select formControlName="examType">
+                    @for (et of availableExamTypes; track et) {
+                      <mat-option [value]="et">{{ et }}</mat-option>
+                    }
+                  </mat-select>
                 </mat-form-field>
-
-                <mat-form-field appearance="outline" class="marks-field">
-                  <mat-label>Passing Marks *</mat-label>
-                  <input matInput type="number" formControlName="passingMarks" min="1">
+                <mat-form-field appearance="outline">
+                  <mat-label>Default Max Marks</mat-label>
+                  <input matInput type="number" formControlName="defaultMaxMarks" min="1">
                 </mat-form-field>
-
-                <button mat-icon-button color="warn" type="button" (click)="removeScheduleRow(i)" matTooltip="Remove Subject" [disabled]="examRows.length <= 1">
-                  <mat-icon>remove_circle_outline</mat-icon>
+                <mat-form-field appearance="outline">
+                  <mat-label>Default Passing Marks</mat-label>
+                  <input matInput type="number" formControlName="defaultPassingMarks" min="1">
+                </mat-form-field>
+                <!-- Start Date & Paper Spacing Controls -->
+                <mat-form-field appearance="outline" class="start-date-field" [class.field-sunday]="isSunday($safeNavigationMigration(scheduleForm.get('startDate')?.value))">
+                  <mat-label>Exam Start Date *</mat-label>
+                  <input matInput type="date" formControlName="startDate" (change)="autoSequenceExamDates()">
+                  @if (isSunday($safeNavigationMigration(scheduleForm.get('startDate')?.value))) {
+                    <mat-hint class="sunday-hint-text">
+                      ⚠️ Sunday (Holiday!)
+                    </mat-hint>
+                  }
+                  @if (!isSunday($safeNavigationMigration(scheduleForm.get('startDate')?.value)) && scheduleForm.get('startDate')?.value) {
+                    <mat-hint class="weekday-hint-text">
+                      📅 Starts {{ getDayName($safeNavigationMigration(scheduleForm.get('startDate')?.value)) }}
+                    </mat-hint>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Paper Spacing (Skip Sun)</mat-label>
+                  <mat-select formControlName="examSpacing" (selectionChange)="autoSequenceExamDates()">
+                    <mat-option value="daily">Consecutive Days (Skip Sundays)</mat-option>
+                    <mat-option value="alternate">1 Day Gap / Study Leave (Skip Sundays)</mat-option>
+                    <mat-option value="gap2">2 Days Gap (Skip Sundays)</mat-option>
+                    <mat-option value="same_day">All On Same Day (Single Day)</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <!-- Subject Rows Table -->
+              <div class="subjects-schedule-header">
+                <div class="schedule-header-title">
+                  <h3>Subject Exam Papers ({{ examRows.length }})</h3>
+                  @if (currentClassSubjects.length > 0) {
+                    <span class="curriculum-pill">
+                      <mat-icon>verified</mat-icon> {{ currentClassSubjects.length }} Curriculum Subjects
+                    </span>
+                  }
+                </div>
+                <div class="schedule-actions-btns">
+                  <button mat-stroked-button type="button" class="populate-curriculum-btn" (click)="populateFromClassCurriculum()" matTooltip="Reset and auto-populate all subjects mapped to this class in Subject Master">
+                    <mat-icon>auto_awesome</mat-icon>
+                    <span>{{ currentClassSubjects.length > 0 ? 'Load Curriculum (' + currentClassSubjects.length + ' Subjects)' : 'Load Default Subjects' }}</span>
+                  </button>
+                  <button mat-stroked-button type="button" class="seq-dates-btn" (click)="autoSequenceExamDates()" matTooltip="Re-sequence all subject exam dates starting from start date and skip Sundays">
+                    <mat-icon>event_repeat</mat-icon>
+                    <span>Re-Sequence (Skip Sun)</span>
+                  </button>
+                  <button mat-stroked-button type="button" color="primary" (click)="addScheduleRow()">
+                    <mat-icon>add</mat-icon> Add Subject
+                  </button>
+                </div>
+              </div>
+              <div class="subject-rows-container" formArrayName="exams">
+                @for (row of examRows.controls; track row; let i = $index) {
+                  <div class="subject-row" [formGroupName]="i" [class.row-sunday-alert]="isSunday($safeNavigationMigration(row.get('testDate')?.value))">
+                    <span class="row-num">{{ i + 1 }}</span>
+                    <mat-form-field appearance="outline" class="sub-field">
+                      <mat-label>Subject Name *</mat-label>
+                      <mat-select formControlName="subject" (selectionChange)="onSubjectChange(i, $event.value)">
+                        @if (currentClassSubjects.length > 0) {
+                          <mat-optgroup label="Class Curriculum Subjects">
+                            @for (s of currentClassSubjects; track s) {
+                              <mat-option [value]="s.subjectName">
+                                ⭐ {{ s.subjectName }} (Marks: {{ s.totalMarks }})
+                              </mat-option>
+                            }
+                          </mat-optgroup>
+                        }
+                        <mat-optgroup label="Other Catalog Subjects">
+                          @for (s of allSubjects; track s) {
+                            <mat-option [value]="s.name">
+                              {{ s.name }}
+                            </mat-option>
+                          }
+                        </mat-optgroup>
+                        @if (row.get('subject')?.value && !isKnownSubject($safeNavigationMigration(row.get('subject')?.value))) {
+                          <mat-option [value]="$safeNavigationMigration(row.get('subject')?.value)">
+                            {{ row.get('subject')?.value }} (Custom)
+                          </mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="title-field">
+                      <mat-label>Exam Paper Title *</mat-label>
+                      <input matInput formControlName="title" placeholder="e.g. Annual Exam - Mathematics">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="date-field" [class.field-sunday]="isSunday($safeNavigationMigration(row.get('testDate')?.value))">
+                      <mat-label>Exam Date *</mat-label>
+                      <input matInput type="date" formControlName="testDate">
+                      @if (isSunday($safeNavigationMigration(row.get('testDate')?.value))) {
+                        <mat-hint class="sunday-hint-text">
+                          ⚠️ Sunday (Holiday!)
+                        </mat-hint>
+                      }
+                      @if (!isSunday($safeNavigationMigration(row.get('testDate')?.value)) && row.get('testDate')?.value) {
+                        <mat-hint class="weekday-hint-text">
+                          📅 {{ getDayName($safeNavigationMigration(row.get('testDate')?.value)) }}
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="marks-field">
+                      <mat-label>Max Marks *</mat-label>
+                      <input matInput type="number" formControlName="maxMarks" min="1">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="marks-field">
+                      <mat-label>Passing Marks *</mat-label>
+                      <input matInput type="number" formControlName="passingMarks" min="1">
+                    </mat-form-field>
+                    <button mat-icon-button color="warn" type="button" (click)="removeScheduleRow(i)" matTooltip="Remove Subject" [disabled]="examRows.length <= 1">
+                      <mat-icon>remove_circle_outline</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+              <div class="scheduler-actions">
+                <button mat-button type="button" (click)="activeTabIndex = 0">Cancel</button>
+                <button mat-raised-button color="primary" type="submit" [disabled]="savingSchedule || examRows.length === 0">
+                  @if (savingSchedule) {
+                    <mat-spinner diameter="18"></mat-spinner>
+                  }
+                  @if (!savingSchedule) {
+                    <mat-icon>check_circle</mat-icon>
+                  }
+                  <span>Schedule {{ examRows.length }} Exam Papers</span>
                 </button>
               </div>
-            </div>
-
-            <div class="scheduler-actions">
-              <button mat-button type="button" (click)="activeTabIndex = 0">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="savingSchedule || examRows.length === 0">
-                <mat-spinner diameter="18" *ngIf="savingSchedule"></mat-spinner>
-                <mat-icon *ngIf="!savingSchedule">check_circle</mat-icon>
-                <span>Schedule {{ examRows.length }} Exam Papers</span>
-              </button>
-            </div>
-          </form>
-        </mat-card>
-      </div>
-    </mat-tab>
+            </form>
+          </mat-card>
+        </div>
+      </mat-tab>
+    }
 
     <!-- TAB 3: Consolidated Result Sheet -->
     <mat-tab>
@@ -564,14 +621,18 @@
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-input-col">
                 <mat-label>Class *</mat-label>
                 <mat-select [(value)]="resultClassId">
-                  <mat-option *ngFor="let c of classes" [value]="c.id">{{ c.name }}</mat-option>
+                  @for (c of classes; track c) {
+                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
 
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-input-col">
                 <mat-label>Academic Session *</mat-label>
                 <mat-select [(value)]="resultAcademicYear">
-                  <mat-option *ngFor="let s of availableSessions" [value]="s">{{ s }}</mat-option>
+                  @for (s of availableSessions; track s) {
+                    <mat-option [value]="s">{{ s }}</mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
 
@@ -579,7 +640,9 @@
                 <mat-label>Exam Type</mat-label>
                 <mat-select [(value)]="resultExamType">
                   <mat-option value="">All Exam Types</mat-option>
-                  <mat-option *ngFor="let et of availableExamTypes" [value]="et">{{ et }}</mat-option>
+                  @for (et of availableExamTypes; track et) {
+                    <mat-option [value]="et">{{ et }}</mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
             </div>
@@ -591,705 +654,752 @@
               </button>
 
               <button mat-flat-button color="primary" class="btn-view-sheet" (click)="loadConsolidatedResults()" [disabled]="loadingResults || !resultClassId">
-                <mat-icon *ngIf="!loadingResults">table_view</mat-icon>
-                <mat-spinner diameter="18" *ngIf="loadingResults"></mat-spinner>
+                @if (!loadingResults) {
+                  <mat-icon>table_view</mat-icon>
+                }
+                @if (loadingResults) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                }
                 <span>View Result Sheet</span>
               </button>
             </div>
           </div>
 
           <!-- DYNAMIC EVALUATION SETTINGS PANEL -->
-          <div class="dynamic-settings-drawer" *ngIf="showSettingsBar">
-            <div class="settings-drawer-header">
-              <div class="sd-left">
-                <div class="sd-icon-box">
-                  <mat-icon>tune</mat-icon>
+          @if (showSettingsBar) {
+            <div class="dynamic-settings-drawer">
+              <div class="settings-drawer-header">
+                <div class="sd-left">
+                  <div class="sd-icon-box">
+                    <mat-icon>tune</mat-icon>
+                  </div>
+                  <div>
+                    <h4 class="sd-title">Evaluation &amp; Passing Benchmark Settings</h4>
+                    <p class="sd-subtitle">Adjust criteria on-the-fly or save as institute default rules.</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 class="sd-title">Evaluation &amp; Passing Benchmark Settings</h4>
-                  <p class="sd-subtitle">Adjust criteria on-the-fly or save as institute default rules.</p>
+                <div class="sd-badge">Dynamic Rule Config</div>
+              </div>
+              <div class="settings-body-grid">
+                <!-- Field 1: Passing % -->
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field">
+                  <mat-label>Minimum Passing % *</mat-label>
+                  <input matInput type="number" [(ngModel)]="settingPassingPercentage" min="1" max="100">
+                  <span matSuffix class="pct-suffix">%</span>
+                </mat-form-field>
+                <!-- Field 2: Max Compartment -->
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field">
+                  <mat-label>Max Compartment Subjects</mat-label>
+                  <input matInput type="number" [(ngModel)]="settingMaxCompartment" min="0" max="5">
+                </mat-form-field>
+                <!-- Field 3: Allow Grace Marks Card -->
+                <div class="sd-checkbox-card" [class.checked]="settingAllowGrace" (click)="settingAllowGrace = !settingAllowGrace">
+                  <mat-checkbox [(ngModel)]="settingAllowGrace" color="primary" (click)="$event.stopPropagation()">
+                    Allow Grace Marks
+                  </mat-checkbox>
+                </div>
+                <!-- Field 4: Standalone Max Grace Marks (No Overlap) -->
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field sd-grace-field" [class.disabled-field]="!settingAllowGrace">
+                  <mat-label>Max Grace Marks</mat-label>
+                  <input matInput type="number" [(ngModel)]="settingMaxGrace" min="1" max="15" [disabled]="!settingAllowGrace">
+                  <span matSuffix class="marks-suffix">Marks</span>
+                </mat-form-field>
+              </div>
+              <!-- Footer Actions Row -->
+              <div class="sd-footer-actions">
+                <div class="sd-footer-hint">
+                  <mat-icon>info_outline</mat-icon>
+                  <span>Changing benchmarks instantly updates promotion &amp; compartment status.</span>
+                </div>
+                <div class="sd-actions-row">
+                  <button mat-stroked-button color="primary" type="button" class="sd-btn-save" (click)="saveExamSettingsAsDefault()" [disabled]="savingSettings">
+                    @if (!savingSettings) {
+                      <mat-icon>save</mat-icon>
+                    }
+                    @if (savingSettings) {
+                      <mat-spinner diameter="16"></mat-spinner>
+                    }
+                    <span>Save as Default</span>
+                  </button>
+                  <button mat-flat-button color="primary" type="button" class="sd-btn-apply" (click)="loadConsolidatedResults()">
+                    <mat-icon>refresh</mat-icon>
+                    <span>Apply &amp; Re-evaluate</span>
+                  </button>
                 </div>
               </div>
-              <div class="sd-badge">Dynamic Rule Config</div>
             </div>
-
-            <div class="settings-body-grid">
-              <!-- Field 1: Passing % -->
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field">
-                <mat-label>Minimum Passing % *</mat-label>
-                <input matInput type="number" [(ngModel)]="settingPassingPercentage" min="1" max="100">
-                <span matSuffix class="pct-suffix">%</span>
-              </mat-form-field>
-
-              <!-- Field 2: Max Compartment -->
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field">
-                <mat-label>Max Compartment Subjects</mat-label>
-                <input matInput type="number" [(ngModel)]="settingMaxCompartment" min="0" max="5">
-              </mat-form-field>
-
-              <!-- Field 3: Allow Grace Marks Card -->
-              <div class="sd-checkbox-card" [class.checked]="settingAllowGrace" (click)="settingAllowGrace = !settingAllowGrace">
-                <mat-checkbox [(ngModel)]="settingAllowGrace" color="primary" (click)="$event.stopPropagation()">
-                  Allow Grace Marks
-                </mat-checkbox>
-              </div>
-
-              <!-- Field 4: Standalone Max Grace Marks (No Overlap) -->
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-field sd-grace-field" [class.disabled-field]="!settingAllowGrace">
-                <mat-label>Max Grace Marks</mat-label>
-                <input matInput type="number" [(ngModel)]="settingMaxGrace" min="1" max="15" [disabled]="!settingAllowGrace">
-                <span matSuffix class="marks-suffix">Marks</span>
-              </mat-form-field>
-            </div>
-
-            <!-- Footer Actions Row -->
-            <div class="sd-footer-actions">
-              <div class="sd-footer-hint">
-                <mat-icon>info_outline</mat-icon>
-                <span>Changing benchmarks instantly updates promotion &amp; compartment status.</span>
-              </div>
-              <div class="sd-actions-row">
-                <button mat-stroked-button color="primary" type="button" class="sd-btn-save" (click)="saveExamSettingsAsDefault()" [disabled]="savingSettings">
-                  <mat-icon *ngIf="!savingSettings">save</mat-icon>
-                  <mat-spinner diameter="16" *ngIf="savingSettings"></mat-spinner>
-                  <span>Save as Default</span>
-                </button>
-                <button mat-flat-button color="primary" type="button" class="sd-btn-apply" (click)="loadConsolidatedResults()">
-                  <mat-icon>refresh</mat-icon>
-                  <span>Apply &amp; Re-evaluate</span>
-                </button>
-              </div>
-            </div>
-          </div>
+          }
         </mat-card>
 
 
         <!-- Initial or Empty State -->
-        <div class="empty-state" *ngIf="!loadingResults && !consolidatedResult">
-          <div class="empty-icon-circle">
-            <mat-icon>leaderboard</mat-icon>
+        @if (!loadingResults && !consolidatedResult) {
+          <div class="empty-state">
+            <div class="empty-icon-circle">
+              <mat-icon>leaderboard</mat-icon>
+            </div>
+            <h3>Select Class to View Consolidated Results</h3>
+            <p>Generate a complete student-by-subject annual marksheet matrix with overall percentage, grade, and promotion eligibility.</p>
           </div>
-          <h3>Select Class to View Consolidated Results</h3>
-          <p>Generate a complete student-by-subject annual marksheet matrix with overall percentage, grade, and promotion eligibility.</p>
-        </div>
+        }
 
         <!-- Result Sheet Content -->
-        <div class="result-sheet-container" *ngIf="!loadingResults && consolidatedResult">
-          <!-- Summary Metrics -->
-          <div class="metrics-grid">
-            <div class="metric-card">
-              <span class="metric-label">Total Students</span>
-              <span class="metric-val">{{ consolidatedResult.totalStudents }}</span>
-            </div>
-            <div class="metric-card passed-card">
-              <span class="metric-label">Passed (Eligible for Promotion)</span>
-              <span class="metric-val text-success">{{ consolidatedResult.passedCount }}</span>
-            </div>
-            <div class="metric-card compartment-card" *ngIf="consolidatedResult.compartmentCount > 0">
-              <span class="metric-label">Compartment / Supplementary</span>
-              <span class="metric-val text-warning">{{ consolidatedResult.compartmentCount }}</span>
-            </div>
-            <div class="metric-card failed-card">
-              <span class="metric-label">Failed / Detained</span>
-              <span class="metric-val text-danger">{{ consolidatedResult.failedCount }}</span>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">Passing Benchmark</span>
-              <span class="metric-val">{{ consolidatedResult.passingPercentage }}%</span>
-            </div>
-          </div>
-
-          <!-- Marksheet Card -->
-          <mat-card class="matrix-card">
-            <div class="matrix-header">
-              <div class="matrix-title-block">
-                <h2>{{ consolidatedResult.className }} - {{ consolidatedResult.examType || 'Overall' }} Marksheet</h2>
-                <p>
-                  Academic Session: <strong>{{ consolidatedResult.academicYear }}</strong> | 
-                  Evaluation Benchmark: <strong>{{ consolidatedResult.passingPercentage }}%</strong> Subject-wise Pass Criterion
-                </p>
+        @if (!loadingResults && consolidatedResult) {
+          <div class="result-sheet-container">
+            <!-- Summary Metrics -->
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <span class="metric-label">Total Students</span>
+                <span class="metric-val">{{ consolidatedResult.totalStudents }}</span>
               </div>
-              <div class="matrix-actions-top">
-                <button mat-flat-button color="primary" class="bulk-print-btn" (click)="bulkPrintBsebMarksheets()" matTooltip="Print State Board Style Marksheets for all students with Page Breaks">
-                  <mat-icon>auto_stories</mat-icon>
-                  <span>Bulk Board Style Marksheets</span>
-                </button>
-
-                <button mat-flat-button color="accent" class="bulk-print-btn" (click)="bulkPrintAdmitCards()" matTooltip="Print Admit Cards / Hall Tickets for all students of this class">
-                  <mat-icon>badge</mat-icon>
-                  <span>Bulk Admit Cards</span>
-                </button>
-
-                <button mat-stroked-button (click)="bulkPrintResultCards()" matTooltip="Print Student Result Cards for all students">
-                  <mat-icon>analytics</mat-icon>
-                  <span>Result Cards</span>
-                </button>
-
-                <button mat-stroked-button (click)="bulkPrintAllReportCards()" matTooltip="Print Comprehensive Progress Report Cards">
-                  <mat-icon>description</mat-icon>
-                  <span>Report Cards</span>
-                </button>
-
-                <button mat-stroked-button (click)="printResultSheet()">
-                  <mat-icon>table_chart</mat-icon> Broadsheet
-                </button>
-
-                <button mat-stroked-button color="primary" (click)="goToPromotion()">
-                  <mat-icon>school</mat-icon> Promotion
-                </button>
+              <div class="metric-card passed-card">
+                <span class="metric-label">Passed (Eligible for Promotion)</span>
+                <span class="metric-val text-success">{{ consolidatedResult.passedCount }}</span>
+              </div>
+              @if (consolidatedResult.compartmentCount > 0) {
+                <div class="metric-card compartment-card">
+                  <span class="metric-label">Compartment / Supplementary</span>
+                  <span class="metric-val text-warning">{{ consolidatedResult.compartmentCount }}</span>
+                </div>
+              }
+              <div class="metric-card failed-card">
+                <span class="metric-label">Failed / Detained</span>
+                <span class="metric-val text-danger">{{ consolidatedResult.failedCount }}</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Passing Benchmark</span>
+                <span class="metric-val">{{ consolidatedResult.passingPercentage }}%</span>
               </div>
             </div>
-
-            <!-- Matrix Table -->
-            <div class="matrix-table-wrapper">
-              <table class="marksheet-table">
-                <thead>
-                  <tr>
-                    <th class="col-rank">Rank</th>
-                    <th class="col-roll">Roll #</th>
-                    <th class="col-adm">Adm #</th>
-                    <th class="col-name">Student Name</th>
-                    <!-- Dynamic Subject Columns -->
-                    <th class="col-sub" *ngFor="let sub of consolidatedResult.subjects">
-                      <div class="sub-header-name">{{ sub }}</div>
-                    </th>
-                    <th class="col-total">Total Marks</th>
-                    <th class="col-pct">%</th>
-                    <th class="col-grade">Grade</th>
-                    <th class="col-status">Final Result</th>
-                    <th class="col-actions text-center">Reports &amp; Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let s of consolidatedResult.students" [class.row-failed]="s.resultStatus === 'Failed'">
-                    <td class="col-rank">
-                      <span class="rank-badge" [class.gold]="s.rank === 1" [class.silver]="s.rank === 2" [class.bronze]="s.rank === 3" *ngIf="s.rank > 0">
-                        {{ s.rank === 1 ? '🥇' : (s.rank === 2 ? '🥈' : (s.rank === 3 ? '🥉' : '#' + s.rank)) }}
-                      </span>
-                      <span *ngIf="s.rank === 0" class="text-muted">-</span>
-                    </td>
-                    <td class="col-roll">{{ s.rollNumber || '-' }}</td>
-                    <td class="col-adm">{{ s.admissionNumber }}</td>
-                    <td class="col-name">
-                      <strong>{{ s.studentName }}</strong>
-                      <span class="sec-label" *ngIf="s.sectionName">({{ s.sectionName }})</span>
-                    </td>
-
-                    <!-- Dynamic Subject Marks -->
-                    <td class="col-sub" *ngFor="let sub of consolidatedResult.subjects">
-                      <ng-container *ngIf="s.subjectMarks[sub] !== null && s.subjectMarks[sub] !== undefined; else noMark">
-                        <span>{{ s.subjectMarks[sub] }}</span>
-                      </ng-container>
-                      <ng-template #noMark>
-                        <span class="text-muted">-</span>
-                      </ng-template>
-                    </td>
-
-                    <!-- Aggregates -->
-                    <td class="col-total">
-                      <strong>{{ s.totalObtained }}</strong> / {{ s.totalMax }}
-                    </td>
-                    <td class="col-pct">
-                      <strong>{{ s.overallPercentage }}%</strong>
-                    </td>
-                    <td class="col-grade">
-                      <span class="grade-pill grade-{{ s.grade }}">{{ s.grade }}</span>
-                    </td>
-                    <td class="col-status">
-                      <span class="status-badge" 
-                            [class.status-pass]="s.resultStatus === 'Passed' || s.resultStatus === 'Passed with Grace'" 
-                            [class.status-comp]="s.resultStatus === 'Compartment'" 
+            <!-- Marksheet Card -->
+            <mat-card class="matrix-card">
+              <div class="matrix-header">
+                <div class="matrix-title-block">
+                  <h2>{{ consolidatedResult.className }} - {{ consolidatedResult.examType || 'Overall' }} Marksheet</h2>
+                  <p>
+                    Academic Session: <strong>{{ consolidatedResult.academicYear }}</strong> |
+                    Evaluation Benchmark: <strong>{{ consolidatedResult.passingPercentage }}%</strong> Subject-wise Pass Criterion
+                  </p>
+                </div>
+                <div class="matrix-actions-top">
+                  <button mat-flat-button color="primary" class="bulk-print-btn" (click)="bulkPrintBsebMarksheets()" matTooltip="Print State Board Style Marksheets for all students with Page Breaks">
+                    <mat-icon>auto_stories</mat-icon>
+                    <span>Bulk Board Style Marksheets</span>
+                  </button>
+                  <button mat-flat-button color="accent" class="bulk-print-btn" (click)="bulkPrintAdmitCards()" matTooltip="Print Admit Cards / Hall Tickets for all students of this class">
+                    <mat-icon>badge</mat-icon>
+                    <span>Bulk Admit Cards</span>
+                  </button>
+                  <button mat-stroked-button (click)="bulkPrintResultCards()" matTooltip="Print Student Result Cards for all students">
+                    <mat-icon>analytics</mat-icon>
+                    <span>Result Cards</span>
+                  </button>
+                  <button mat-stroked-button (click)="bulkPrintAllReportCards()" matTooltip="Print Comprehensive Progress Report Cards">
+                    <mat-icon>description</mat-icon>
+                    <span>Report Cards</span>
+                  </button>
+                  <button mat-stroked-button (click)="printResultSheet()">
+                    <mat-icon>table_chart</mat-icon> Broadsheet
+                  </button>
+                  <button mat-stroked-button color="primary" (click)="goToPromotion()">
+                    <mat-icon>school</mat-icon> Promotion
+                  </button>
+                </div>
+              </div>
+              <!-- Matrix Table -->
+              <div class="matrix-table-wrapper">
+                <table class="marksheet-table">
+                  <thead>
+                    <tr>
+                      <th class="col-rank">Rank</th>
+                      <th class="col-roll">Roll #</th>
+                      <th class="col-adm">Adm #</th>
+                      <th class="col-name">Student Name</th>
+                      <!-- Dynamic Subject Columns -->
+                      @for (sub of consolidatedResult.subjects; track sub) {
+                        <th class="col-sub">
+                          <div class="sub-header-name">{{ sub }}</div>
+                        </th>
+                      }
+                      <th class="col-total">Total Marks</th>
+                      <th class="col-pct">%</th>
+                      <th class="col-grade">Grade</th>
+                      <th class="col-status">Final Result</th>
+                      <th class="col-actions text-center">Reports &amp; Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (s of consolidatedResult.students; track s) {
+                      <tr [class.row-failed]="s.resultStatus === 'Failed'">
+                        <td class="col-rank">
+                          @if (s.rank > 0) {
+                            <span class="rank-badge" [class.gold]="s.rank === 1" [class.silver]="s.rank === 2" [class.bronze]="s.rank === 3">
+                              {{ s.rank === 1 ? '🥇' : (s.rank === 2 ? '🥈' : (s.rank === 3 ? '🥉' : '#' + s.rank)) }}
+                            </span>
+                          }
+                          @if (s.rank === 0) {
+                            <span class="text-muted">-</span>
+                          }
+                        </td>
+                        <td class="col-roll">{{ s.rollNumber || '-' }}</td>
+                        <td class="col-adm">{{ s.admissionNumber }}</td>
+                        <td class="col-name">
+                          <strong>{{ s.studentName }}</strong>
+                          @if (s.sectionName) {
+                            <span class="sec-label">({{ s.sectionName }})</span>
+                          }
+                        </td>
+                        <!-- Dynamic Subject Marks -->
+                        @for (sub of consolidatedResult.subjects; track sub) {
+                          <td class="col-sub">
+                            @if (s.subjectMarks[sub] !== null && s.subjectMarks[sub] !== undefined) {
+                              <span>{{ s.subjectMarks[sub] }}</span>
+                            } @else {
+                              <span class="text-muted">-</span>
+                            }
+                          </td>
+                        }
+                        <!-- Aggregates -->
+                        <td class="col-total">
+                          <strong>{{ s.totalObtained }}</strong> / {{ s.totalMax }}
+                        </td>
+                        <td class="col-pct">
+                          <strong>{{ s.overallPercentage }}%</strong>
+                        </td>
+                        <td class="col-grade">
+                          <span class="grade-pill grade-{{ s.grade }}">{{ s.grade }}</span>
+                        </td>
+                        <td class="col-status">
+                          <span class="status-badge"
+                            [class.status-pass]="s.resultStatus === 'Passed' || s.resultStatus === 'Passed with Grace'"
+                            [class.status-comp]="s.resultStatus === 'Compartment'"
                             [class.status-fail]="s.resultStatus === 'Failed' || s.resultStatus === 'Absent'">
-                        <mat-icon class="status-icon">
-                          {{ (s.resultStatus === 'Passed' || s.resultStatus === 'Passed with Grace') ? 'check_circle' : (s.resultStatus === 'Compartment' ? 'warning' : 'cancel') }}
-                        </mat-icon>
-                        {{ s.resultStatus }}
-                      </span>
-                    </td>
-
-                    <!-- Action Buttons per Student -->
-                    <td class="col-actions">
-                      <div class="row-action-btns">
-                        <button mat-icon-button class="action-btn bseb-btn" (click)="openBsebMarksheet(s)" matTooltip="Bihar Board Style Marksheet (बिहार बोर्ड अंक विवरण)">
-                          <mat-icon>auto_stories</mat-icon>
-                        </button>
-                        <button mat-icon-button class="action-btn admit-btn" (click)="openAdmitCard(s)" matTooltip="Admit Card / Exam Card (प्रवेश पत्र)">
-                          <mat-icon>badge</mat-icon>
-                        </button>
-                        <button mat-icon-button class="action-btn res-btn" (click)="openResultCard(s)" matTooltip="Result Card (परीक्षाफल पत्रक)">
-                          <mat-icon>analytics</mat-icon>
-                        </button>
-                        <button mat-icon-button class="action-btn rc-btn" (click)="openReportCard(s, 'single')" matTooltip="Progress Report Card (प्रगति पत्रक)">
-                          <mat-icon>assignment_turned_in</mat-icon>
-                        </button>
-                        <button mat-icon-button class="action-btn cert-btn" (click)="openPromotionCertificate(s)" matTooltip="Promotion Certificate (प्रमाण पत्र)">
-                          <mat-icon>workspace_premium</mat-icon>
-                        </button>
-                        <button mat-icon-button class="action-btn wa-btn" (click)="sendStudentWhatsApp(s)" matTooltip="Share Result on WhatsApp">
-                          <mat-icon>send</mat-icon>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Matrix Footer -->
-            <div class="matrix-footer-actions">
-              <p class="footer-note">
-                <mat-icon>info</mat-icon>
-                <span>
-                  Students marked <strong>Passed</strong> will be auto-recommended for promotion on the Student Promotion screen.
-                  You can print individual or bulk report cards with school crest and grading legend directly from above.
-                </span>
-              </p>
-              <button mat-raised-button color="primary" class="big-action-btn" (click)="goToPromotion()">
-                <mat-icon>arrow_forward</mat-icon>
-                <span>Open Promotion Screen with these Students</span>
-              </button>
-            </div>
-          </mat-card>
-        </div>
+                            <mat-icon class="status-icon">
+                              {{ (s.resultStatus === 'Passed' || s.resultStatus === 'Passed with Grace') ? 'check_circle' : (s.resultStatus === 'Compartment' ? 'warning' : 'cancel') }}
+                            </mat-icon>
+                            {{ s.resultStatus }}
+                          </span>
+                        </td>
+                        <!-- Action Buttons per Student -->
+                        <td class="col-actions">
+                          <div class="row-action-btns">
+                            <button mat-icon-button class="action-btn bseb-btn" (click)="openBsebMarksheet(s)" matTooltip="Bihar Board Style Marksheet (बिहार बोर्ड अंक विवरण)">
+                              <mat-icon>auto_stories</mat-icon>
+                            </button>
+                            <button mat-icon-button class="action-btn admit-btn" (click)="openAdmitCard(s)" matTooltip="Admit Card / Exam Card (प्रवेश पत्र)">
+                              <mat-icon>badge</mat-icon>
+                            </button>
+                            <button mat-icon-button class="action-btn res-btn" (click)="openResultCard(s)" matTooltip="Result Card (परीक्षाफल पत्रक)">
+                              <mat-icon>analytics</mat-icon>
+                            </button>
+                            <button mat-icon-button class="action-btn rc-btn" (click)="openReportCard(s, 'single')" matTooltip="Progress Report Card (प्रगति पत्रक)">
+                              <mat-icon>assignment_turned_in</mat-icon>
+                            </button>
+                            <button mat-icon-button class="action-btn cert-btn" (click)="openPromotionCertificate(s)" matTooltip="Promotion Certificate (प्रमाण पत्र)">
+                              <mat-icon>workspace_premium</mat-icon>
+                            </button>
+                            <button mat-icon-button class="action-btn wa-btn" (click)="sendStudentWhatsApp(s)" matTooltip="Share Result on WhatsApp">
+                              <mat-icon>send</mat-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <!-- Matrix Footer -->
+              <div class="matrix-footer-actions">
+                <p class="footer-note">
+                  <mat-icon>info</mat-icon>
+                  <span>
+                    Students marked <strong>Passed</strong> will be auto-recommended for promotion on the Student Promotion screen.
+                    You can print individual or bulk report cards with school crest and grading legend directly from above.
+                  </span>
+                </p>
+                <button mat-raised-button color="primary" class="big-action-btn" (click)="goToPromotion()">
+                  <mat-icon>arrow_forward</mat-icon>
+                  <span>Open Promotion Screen with these Students</span>
+                </button>
+              </div>
+            </mat-card>
+          </div>
+        }
       </div>
     </mat-tab>
   </mat-tab-group>
 
   <!-- MARKS ENTRY OVERLAY MODAL -->
-  <div class="marks-entry-overlay" *ngIf="activeExamForMarks" (click)="closeMarksEntry()">
-    <div class="marks-entry-modal" (click)="$event.stopPropagation()">
-      <!-- Light Blue Gradient Header (Strict UI Rule) -->
-      <div class="modal-header">
-        <div class="modal-header-left">
-          <div class="modal-icon-box">
-            <mat-icon>{{ activeExamForMarks.isMarksLocked ? 'lock' : 'edit_note' }}</mat-icon>
-          </div>
-          <div>
-            <div class="title-with-lock">
-              <h2 class="modal-title">Enter Marks: {{ activeExamForMarks.title }}</h2>
-              <span class="locked-indicator-pill" *ngIf="activeExamForMarks.isMarksLocked">
-                <mat-icon>lock</mat-icon> LOCKED & FROZEN
-              </span>
+  @if (activeExamForMarks) {
+    <div class="marks-entry-overlay" (click)="closeMarksEntry()">
+      <div class="marks-entry-modal" (click)="$event.stopPropagation()">
+        <!-- Light Blue Gradient Header (Strict UI Rule) -->
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <div class="modal-icon-box">
+              <mat-icon>{{ activeExamForMarks.isMarksLocked ? 'lock' : 'edit_note' }}</mat-icon>
             </div>
-            <div class="modal-subtitle">
-              <span>Class: <strong>{{ activeExamForMarks.className }}</strong></span>
-              <span>Session: <strong>{{ activeExamForMarks.academicYear }}</strong></span>
-              <span>Passing: <strong>{{ activeExamForMarks.passingMarks }} / {{ activeExamForMarks.maxMarks }}</strong></span>
-            </div>
-          </div>
-        </div>
-        <button mat-icon-button class="modal-close-btn" (click)="closeMarksEntry()">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      <!-- Modal Body -->
-      <div class="modal-body">
-        <!-- Locked Marks Warning Banner -->
-        <div class="marks-locked-alert-box" *ngIf="activeExamForMarks.isMarksLocked">
-          <mat-icon class="lock-alert-icon">lock</mat-icon>
-          <div class="alert-content">
-            <strong>Evaluation Marks Frozen:</strong> Marks for this exam have been finalized and locked by <em>{{ activeExamForMarks.marksLockedBy || 'Exam Authority' }}</em>. Data is read-only to preserve evaluation audit integrity.
-          </div>
-          <button mat-stroked-button color="warn" class="unlock-btn-inline" (click)="toggleLockMarks(activeExamForMarks)">
-            <mat-icon>lock_open</mat-icon> Unlock Exam
-          </button>
-        </div>
-
-        <!-- Search filter inside modal -->
-        <div class="modal-search-bar">
-          <mat-form-field appearance="outline" class="compact-field">
-            <mat-label>Filter Student by Name or Roll #</mat-label>
-            <input matInput [(ngModel)]="marksFilterText" placeholder="Type student name...">
-            <button mat-icon-button matSuffix *ngIf="marksFilterText" (click)="marksFilterText=''">
-              <mat-icon>clear</mat-icon>
-            </button>
-          </mat-form-field>
-          <div class="marks-count-label">
-            Showing {{ filteredMarksList.length }} of {{ marksList.length }} students
-          </div>
-        </div>
-
-
-        <!-- Marks Grid -->
-        <div class="modal-marks-table-wrapper" *ngIf="!loadingMarks">
-          <table class="marks-input-table">
-            <thead>
-              <tr>
-                <th style="width: 60px;">Roll #</th>
-                <th style="width: 105px;">Adm #</th>
-                <th style="min-width: 130px;">Student Name</th>
-                <th style="width: 75px; text-align: center;">Absent?</th>
-                <th style="width: 115px; text-align: center;">Marks</th>
-                <th style="width: 65px; text-align: center;">Max</th>
-                <th style="width: 65px; text-align: center;">%</th>
-                <th style="width: 80px; text-align: center;">Status</th>
-                <th style="width: 180px; min-width: 150px;">Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of filteredMarksList" [class.row-absent]="item.isAbsent" [class.row-fail]="!item.isAbsent && !item.isPassed && item.marksObtained !== null">
-                <td>{{ item.schoolRollNumber || '-' }}</td>
-                <td>{{ item.admissionNumber }}</td>
-                <td>
-                  <strong>{{ item.studentName }}</strong>
-                </td>
-                <td style="text-align: center;">
-                  <mat-checkbox [(ngModel)]="item.isAbsent" (change)="onAbsentToggled(item)" [disabled]="!!activeExamForMarks.isMarksLocked"></mat-checkbox>
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    class="marks-num-input"
-                    [(ngModel)]="item.marksObtained"
-                    (input)="onMarksChanged(item)"
-                    [disabled]="item.isAbsent || !!activeExamForMarks.isMarksLocked"
-                    [min]="0"
-                    [max]="activeExamForMarks.maxMarks"
-                    placeholder="0">
-                </td>
-                <td style="text-align: center;" class="text-muted">{{ activeExamForMarks.maxMarks }}</td>
-                <td style="text-align: center;">
-                  <strong>{{ item.percentage }}%</strong>
-                </td>
-                <td style="text-align: center;">
-                  <span *ngIf="item.isAbsent" class="badge-absent">ABSENT</span>
-                  <span *ngIf="!item.isAbsent && item.isPassed" class="badge-pass">PASS</span>
-                  <span *ngIf="!item.isAbsent && !item.isPassed" class="badge-fail">FAIL</span>
-                </td>
-                <td>
-                  <input type="text" class="remarks-input" [(ngModel)]="item.remarks" [disabled]="!!activeExamForMarks.isMarksLocked" placeholder="Optional remark...">
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="modal-footer">
-        <button mat-stroked-button (click)="closeMarksEntry()">Close</button>
-        <button mat-flat-button color="primary" (click)="saveAllMarks()" [disabled]="!!activeExamForMarks.isMarksLocked || savingMarks || marksList.length === 0">
-          <mat-spinner diameter="18" *ngIf="savingMarks"></mat-spinner>
-          <mat-icon *ngIf="!savingMarks">save</mat-icon>
-          <span>{{ activeExamForMarks.isMarksLocked ? 'Marks Locked (Read Only)' : 'Save All Marks' }}</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- COPY EVALUATION WORKFLOW TRACKING MODAL -->
-  <div class="marks-entry-overlay" *ngIf="showEvaluationModal && selectedExamForEvaluation" (click)="closeEvaluationModal()">
-    <div class="evaluation-workflow-modal" (click)="$event.stopPropagation()">
-      <!-- Light Blue Gradient Header (Strict UI Rule) -->
-      <div class="modal-header">
-        <div class="modal-header-left">
-          <div class="modal-icon-box">
-            <mat-icon>assignment_ind</mat-icon>
-          </div>
-          <div>
-            <h2 class="modal-title">Answer Sheet Evaluation & Evaluator Tracking</h2>
-            <div class="modal-subtitle">
-              <span>Exam: <strong>{{ selectedExamForEvaluation.title }}</strong></span>
-              <span>Class: <strong>{{ selectedExamForEvaluation.className }}</strong></span>
-              <span>Subject: <strong>{{ selectedExamForEvaluation.subject }}</strong></span>
-            </div>
-          </div>
-        </div>
-        <button mat-icon-button class="modal-close-btn" (click)="closeEvaluationModal()">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      <!-- Modal Body -->
-      <div class="modal-body eval-modal-body">
-        <div class="eval-guidance-card">
-          <mat-icon>info</mat-icon>
-          <p>
-            Track physical answer sheet bundles handed over to teachers for evaluation. Setting a due date and issuing blank award sheets ensures orderly copy checking before marks are keyed into the ERP.
-          </p>
-        </div>
-
-        <div class="eval-form-grid">
-          <!-- Evaluator Teacher with Live Search & Smart Subject Badges -->
-          <mat-form-field appearance="outline" class="form-full smart-teacher-field" subscriptSizing="dynamic">
-            <mat-label>Designated Evaluator Teacher</mat-label>
-            <mat-select
-              [(ngModel)]="evaluatorTeacherId"
-              placeholder="Search or Select Evaluator Teacher"
-              panelClass="smart-teacher-select-panel">
-              <mat-select-trigger *ngIf="getSelectedTeacher() as st">
-                <span class="selected-teacher-trigger">
-                  <span class="trigger-name">{{ st.fullName || st.name }}</span>
-                  <span class="trigger-subject-badge" *ngIf="st.specialization">
-                    <mat-icon>menu_book</mat-icon> {{ st.specialization }}
+            <div>
+              <div class="title-with-lock">
+                <h2 class="modal-title">Enter Marks: {{ activeExamForMarks.title }}</h2>
+                @if (activeExamForMarks.isMarksLocked) {
+                  <span class="locked-indicator-pill">
+                    <mat-icon>lock</mat-icon> LOCKED & FROZEN
                   </span>
-                  <span class="trigger-match-badge" *ngIf="isSubjectMatch(st)">
-                    ⭐ Specialist
-                  </span>
-                </span>
-              </mat-select-trigger>
-
-              <!-- Sticky Search Box inside dropdown panel -->
-              <div class="teacher-dropdown-search-wrapper" (click)="$event.stopPropagation()">
-                <mat-icon class="search-icon">search</mat-icon>
-                <input
-                  type="text"
-                  class="teacher-search-input"
-                  [(ngModel)]="teacherSearchTerm"
-                  (keydown)="$event.stopPropagation()"
-                  placeholder="Type teacher name, subject, or phone..."
-                  autocomplete="off">
-                <button
-                  type="button"
-                  class="clear-search-btn"
-                  *ngIf="teacherSearchTerm"
-                  (click)="teacherSearchTerm = ''; $event.stopPropagation()">
-                  <mat-icon>close</mat-icon>
-                </button>
+                }
               </div>
-
-              <!-- Unassign Option -->
-              <mat-option value="">
-                <span class="no-teacher-option">-- No Teacher Assigned --</span>
-              </mat-option>
-
-              <!-- Filtered List of Teachers with Subject & Phone Badges -->
-              <mat-option *ngFor="let t of filteredTeachers" [value]="t.id" class="smart-teacher-option" [class.option-match]="isSubjectMatch(t)">
-                <div class="teacher-option-row">
-                  <div class="teacher-avatar-circle" [class.avatar-specialist]="isSubjectMatch(t)">
-                    {{ (t.fullName || t.name || 'T').substring(0, 1).toUpperCase() }}
-                  </div>
-                  <div class="teacher-details-col">
-                    <div class="teacher-name-line">
-                      <span class="teacher-name">{{ t.fullName || t.name }}</span>
-                      <span class="specialist-pill" *ngIf="isSubjectMatch(t)">
-                        <mat-icon>verified</mat-icon> {{ selectedExamForEvaluation.subject }} Specialist
-                      </span>
-                    </div>
-                    <div class="teacher-meta-chips">
-                      <span class="subject-tag" *ngIf="t.specialization">
-                        <mat-icon>menu_book</mat-icon> {{ t.specialization }}
-                      </span>
-                      <span class="dept-tag" *ngIf="!t.specialization && (t.department || t.designation)">
-                        {{ t.department || t.designation }}
-                      </span>
-                      <span class="phone-tag" *ngIf="t.phone || t.phoneNumber">
-                        <mat-icon>call</mat-icon> {{ t.phone || t.phoneNumber }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </mat-option>
-
-              <!-- Empty state when search has no matches -->
-              <div class="no-teachers-found" *ngIf="filteredTeachers.length === 0">
-                <mat-icon>person_off</mat-icon>
-                <span>No teachers found matching "{{ teacherSearchTerm }}"</span>
+              <div class="modal-subtitle">
+                <span>Class: <strong>{{ activeExamForMarks.className }}</strong></span>
+                <span>Session: <strong>{{ activeExamForMarks.academicYear }}</strong></span>
+                <span>Passing: <strong>{{ activeExamForMarks.passingMarks }} / {{ activeExamForMarks.maxMarks }}</strong></span>
               </div>
-            </mat-select>
-            <mat-hint>Search & select teacher responsible for physical copy checking</mat-hint>
-          </mat-form-field>
-
-          <!-- Evaluation Workflow Status -->
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Evaluation Stage / Status</mat-label>
-            <mat-select [(ngModel)]="evaluationStatus">
-              <mat-option value="Scheduled">Scheduled (Not Handed Over)</mat-option>
-              <mat-option value="CopiesUnderEvaluation">Copies Under Evaluation (With Teacher)</mat-option>
-              <mat-option value="EvaluationCompleted">Evaluation Completed (Returned)</mat-option>
-              <mat-option value="MarksEntered">Marks Entered (In ERP)</mat-option>
-            </mat-select>
-            <mat-hint>Current workflow progress</mat-hint>
-          </mat-form-field>
-
-          <!-- Total Copies Issued -->
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Total Copies Issued</mat-label>
-            <input matInput type="number" [(ngModel)]="totalCopiesIssued" min="0" placeholder="Count of physical copies">
-            <mat-hint>Physical copies handed over</mat-hint>
-          </mat-form-field>
-
-          <!-- Evaluation Due Date -->
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Evaluation Due Date</mat-label>
-            <input matInput type="date" [(ngModel)]="evaluationDueDate" [min]="minExamDate">
-            <mat-hint *ngIf="!isDueDateInvalid">Target deadline (Exam: {{ minExamDate | date:'mediumDate' }})</mat-hint>
-            <mat-hint *ngIf="isDueDateInvalid" style="color: #dc2626 !important; font-size: 11px; font-weight: 600;">
-              ⚠️ Due date cannot be earlier than exam date ({{ minExamDate }})
-            </mat-hint>
-          </mat-form-field>
-
-          <!-- Bundle Returned / Submitted Date -->
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Return / Submitted Date (Optional)</mat-label>
-            <input matInput type="date" [(ngModel)]="copiesSubmittedDate" [min]="minExamDate" [max]="todayIsoDate">
-            <mat-hint *ngIf="!isReturnDateInvalid">Actual date received (leave blank if not yet returned)</mat-hint>
-            <mat-hint *ngIf="isReturnDateInvalid" style="color: #dc2626 !important; font-size: 11px; font-weight: 600;">
-              ⚠️ {{ returnDateErrorMsg }}
-            </mat-hint>
-          </mat-form-field>
-
-          <!-- Instructions / Remarks -->
-          <mat-form-field appearance="outline" class="form-full" subscriptSizing="dynamic">
-            <mat-label>Special Instructions / Evaluation Remarks</mat-label>
-            <textarea matInput [(ngModel)]="evaluationRemarks" rows="2" placeholder="e.g. Follow CBSE rubric, step marking required..."></textarea>
-          </mat-form-field>
-        </div>
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="modal-footer">
-        <button mat-stroked-button (click)="closeEvaluationModal()">Cancel</button>
-        <button mat-flat-button color="primary" (click)="saveEvaluationWorkflow()" [disabled]="savingEvaluationWorkflow">
-          <mat-spinner diameter="18" *ngIf="savingEvaluationWorkflow"></mat-spinner>
-          <mat-icon *ngIf="!savingEvaluationWorkflow">save</mat-icon>
-          <span>Save Tracking Details</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- BLANK AWARD SHEET (कच्चा अंक पत्रक) MODAL -->
-  <div class="marks-entry-overlay" *ngIf="showAwardSheetModal" (click)="closeAwardSheetModal()">
-    <div class="award-sheet-modal" (click)="$event.stopPropagation()">
-      <!-- Light Blue Gradient Header (Strict UI Rule) -->
-      <div class="modal-header no-print">
-        <div class="modal-header-left">
-          <div class="modal-icon-box">
-            <mat-icon>print</mat-icon>
-          </div>
-          <div>
-            <h2 class="modal-title">Blank Award Sheet / कच्चा अंक पत्रक (Answer Book Evaluation)</h2>
-            <div class="modal-subtitle" *ngIf="awardSheetData">
-              <span>Exam: <strong>{{ awardSheetData.examTitle }}</strong></span>
-              <span>Class: <strong>{{ awardSheetData.className }} {{ awardSheetData.sectionName ? '(' + awardSheetData.sectionName + ')' : '' }}</strong></span>
-              <span>Subject: <strong>{{ awardSheetData.subject }}</strong></span>
             </div>
           </div>
-        </div>
-        <div class="header-right-actions">
-          <button mat-flat-button color="primary" class="print-direct-btn" (click)="printAwardSheet()" [disabled]="loadingAwardSheet || !awardSheetData">
-            <mat-icon>print</mat-icon>
-            <span>Print Award Sheet (A4)</span>
-          </button>
-          <button mat-icon-button class="modal-close-btn" (click)="closeAwardSheetModal()">
+          <button mat-icon-button class="modal-close-btn" (click)="closeMarksEntry()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
-      </div>
-
-      <!-- Modal Body / Printable Document -->
-      <div class="modal-body award-sheet-scrollable-body">
-
-        <!-- THE PRINTABLE AWARD SHEET DOCUMENT -->
-        <div class="blank-award-sheet-sheet" *ngIf="!loadingAwardSheet && awardSheetData" id="printable-award-sheet">
-          <!-- Sheet Header -->
-          <div class="sheet-institute-header">
-            <div class="school-affiliation-tag">AFFILIATED SCHOOL EXAMINATION & EVALUATION CELL</div>
-            <h1 class="sheet-main-title">BLANK EVALUATION & AWARD SHEET</h1>
-            <div class="sheet-hindi-title">(कच्चा अंक पत्रक - उत्तर पुस्तिका मूल्यांकन)</div>
-            <div class="sheet-session-badge">ACADEMIC SESSION: {{ awardSheetData.academicYear }} | {{ awardSheetData.examType }}</div>
-          </div>
-
-          <!-- Meta Information Grid -->
-          <table class="sheet-meta-table">
-            <tbody>
-              <tr>
-                <td style="width: 25%;"><strong>Class & Section:</strong> {{ awardSheetData.className }} {{ awardSheetData.sectionName ? '(' + awardSheetData.sectionName + ')' : '' }}</td>
-                <td style="width: 25%;"><strong>Subject:</strong> {{ awardSheetData.subject }}</td>
-                <td style="width: 25%;"><strong>Maximum Marks:</strong> {{ awardSheetData.maxMarks }}</td>
-                <td style="width: 25%;"><strong>Passing Marks:</strong> {{ awardSheetData.passingMarks }}</td>
-              </tr>
-              <tr>
-                <td><strong>Exam Date:</strong> {{ awardSheetData.examDate | date:'mediumDate' }}</td>
-                <td><strong>Evaluator Teacher:</strong> {{ awardSheetData.evaluatorTeacherName || '____________________' }}</td>
-                <td><strong>Total Copies Issued:</strong> {{ awardSheetData.totalCopiesIssued ?? awardSheetData.students.length }}</td>
-                <td><strong>Submission Due:</strong> {{ awardSheetData.evaluationDueDate ? (awardSheetData.evaluationDueDate | date:'mediumDate') : 'As Scheduled' }}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="sheet-instructions-note">
-            <strong>Instructions to Evaluator:</strong> Please enter marks awarded against each student after physical checking of answer books in legible handwriting using Black / Blue ink. Mark <strong>'AB'</strong> in bold for absent students. Cross-cutting or overwriting must be countersigned.
-          </div>
-
-          <!-- Award Table -->
-          <table class="award-sheet-table">
-            <thead>
-              <tr>
-                <th style="width: 40px; text-align: center;">S.N.</th>
-                <th style="width: 70px; text-align: center;">Roll #</th>
-                <th style="width: 80px; text-align: center;">School Roll</th>
-                <th style="width: 90px; text-align: center;">Adm #</th>
-                <th style="text-align: left; min-width: 140px;">Student Name</th>
-                <th style="width: 55px; text-align: center;">Gender</th>
-                <th style="width: 110px; text-align: center;">Marks Obtained<br><small>(In Figures)</small></th>
-                <th style="width: 170px; text-align: left;">Marks Obtained<br><small>(In Words)</small></th>
-                <th style="width: 120px; text-align: left;">Examiner Remarks / Initial</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let s of awardSheetData.students; let i = index">
-                <td style="text-align: center;">{{ i + 1 }}</td>
-                <td style="text-align: center; font-weight: 600;">{{ s.rollNumber || '-' }}</td>
-                <td style="text-align: center;">{{ s.schoolRollNumber || '-' }}</td>
-                <td style="text-align: center;">{{ s.admissionNumber }}</td>
-                <td style="text-align: left;"><strong>{{ s.studentName }}</strong></td>
-                <td style="text-align: center;">{{ s.gender ? (s.gender | slice:0:1 | uppercase) : '-' }}</td>
-                <td class="blank-cell-box">
-                  <!-- Blank box for teacher pen writing -->
-                </td>
-                <td class="blank-cell-line">
-                  <!-- Blank dotted line for teacher pen writing in words -->
-                </td>
-                <td class="blank-cell-remarks">
-                  <!-- Blank area for examiner remarks -->
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- Certification & Signatures Section -->
-          <div class="sheet-footer-verification">
-            <div class="certification-statement">
-              <strong>CERTIFICATE:</strong> Certified that I have personally evaluated <strong>{{ awardSheetData.students.length }}</strong> answer sheets of the above examination according to the marking scheme provided, and the marks recorded above are correct and authentic without any omission.
+        <!-- Modal Body -->
+        <div class="modal-body">
+          <!-- Locked Marks Warning Banner -->
+          @if (activeExamForMarks.isMarksLocked) {
+            <div class="marks-locked-alert-box">
+              <mat-icon class="lock-alert-icon">lock</mat-icon>
+              <div class="alert-content">
+                <strong>Evaluation Marks Frozen:</strong> Marks for this exam have been finalized and locked by <em>{{ activeExamForMarks.marksLockedBy || 'Exam Authority' }}</em>. Data is read-only to preserve evaluation audit integrity.
+              </div>
+              <button mat-stroked-button color="warn" class="unlock-btn-inline" (click)="toggleLockMarks(activeExamForMarks)">
+                <mat-icon>lock_open</mat-icon> Unlock Exam
+              </button>
             </div>
-
-            <div class="signature-blocks-grid">
-              <div class="sig-block">
-                <div class="sig-line"></div>
-                <div class="sig-title">Evaluator Teacher's Signature</div>
-                <div class="sig-name">Name: {{ awardSheetData.evaluatorTeacherName || '__________________' }}</div>
-                <div class="sig-date">Date: ____________________</div>
-              </div>
-
-              <div class="sig-block">
-                <div class="sig-line"></div>
-                <div class="sig-title">Scrutinizer / Checker's Signature</div>
-                <div class="sig-name">Name: ____________________</div>
-                <div class="sig-date">Date: ____________________</div>
-              </div>
-
-              <div class="sig-block">
-                <div class="sig-line"></div>
-                <div class="sig-title">Exam Controller / Principal</div>
-                <div class="sig-name">Seal & Signature</div>
-                <div class="sig-date">Date: ____________________</div>
-              </div>
+          }
+          <!-- Search filter inside modal -->
+          <div class="modal-search-bar">
+            <mat-form-field appearance="outline" class="compact-field">
+              <mat-label>Filter Student by Name or Roll #</mat-label>
+              <input matInput [(ngModel)]="marksFilterText" placeholder="Type student name...">
+              @if (marksFilterText) {
+                <button mat-icon-button matSuffix (click)="marksFilterText=''">
+                  <mat-icon>clear</mat-icon>
+                </button>
+              }
+            </mat-form-field>
+            <div class="marks-count-label">
+              Showing {{ filteredMarksList.length }} of {{ marksList.length }} students
             </div>
           </div>
+          <!-- Marks Grid -->
+          @if (!loadingMarks) {
+            <div class="modal-marks-table-wrapper">
+              <table class="marks-input-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">Roll #</th>
+                    <th style="width: 105px;">Adm #</th>
+                    <th style="min-width: 130px;">Student Name</th>
+                    <th style="width: 75px; text-align: center;">Absent?</th>
+                    <th style="width: 115px; text-align: center;">Marks</th>
+                    <th style="width: 65px; text-align: center;">Max</th>
+                    <th style="width: 65px; text-align: center;">%</th>
+                    <th style="width: 80px; text-align: center;">Status</th>
+                    <th style="width: 180px; min-width: 150px;">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of filteredMarksList; track item) {
+                    <tr [class.row-absent]="item.isAbsent" [class.row-fail]="!item.isAbsent && !item.isPassed && item.marksObtained !== null">
+                      <td>{{ item.schoolRollNumber || '-' }}</td>
+                      <td>{{ item.admissionNumber }}</td>
+                      <td>
+                        <strong>{{ item.studentName }}</strong>
+                      </td>
+                      <td style="text-align: center;">
+                        <mat-checkbox [(ngModel)]="item.isAbsent" (change)="onAbsentToggled(item)" [disabled]="!!activeExamForMarks.isMarksLocked"></mat-checkbox>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          class="marks-num-input"
+                          [(ngModel)]="item.marksObtained"
+                          (input)="onMarksChanged(item)"
+                          [disabled]="item.isAbsent || !!activeExamForMarks.isMarksLocked"
+                          [min]="0"
+                          [max]="activeExamForMarks.maxMarks"
+                          placeholder="0">
+                      </td>
+                      <td style="text-align: center;" class="text-muted">{{ activeExamForMarks.maxMarks }}</td>
+                      <td style="text-align: center;">
+                        <strong>{{ item.percentage }}%</strong>
+                      </td>
+                      <td style="text-align: center;">
+                        @if (item.isAbsent) {
+                          <span class="badge-absent">ABSENT</span>
+                        }
+                        @if (!item.isAbsent && item.isPassed) {
+                          <span class="badge-pass">PASS</span>
+                        }
+                        @if (!item.isAbsent && !item.isPassed) {
+                          <span class="badge-fail">FAIL</span>
+                        }
+                      </td>
+                      <td>
+                        <input type="text" class="remarks-input" [(ngModel)]="item.remarks" [disabled]="!!activeExamForMarks.isMarksLocked" placeholder="Optional remark...">
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button mat-stroked-button (click)="closeMarksEntry()">Close</button>
+          <button mat-flat-button color="primary" (click)="saveAllMarks()" [disabled]="!!activeExamForMarks.isMarksLocked || savingMarks || marksList.length === 0">
+            @if (savingMarks) {
+              <mat-spinner diameter="18"></mat-spinner>
+            }
+            @if (!savingMarks) {
+              <mat-icon>save</mat-icon>
+            }
+            <span>{{ activeExamForMarks.isMarksLocked ? 'Marks Locked (Read Only)' : 'Save All Marks' }}</span>
+          </button>
         </div>
       </div>
+    </div>
+  }
 
-      <!-- Modal Footer -->
-      <div class="modal-footer no-print">
-        <button mat-stroked-button (click)="closeAwardSheetModal()">Close</button>
-        <button mat-flat-button color="primary" (click)="printAwardSheet()" [disabled]="loadingAwardSheet || !awardSheetData">
-          <mat-icon>print</mat-icon>
-          <span>Print Official Sheet</span>
-        </button>
+  <!-- COPY EVALUATION WORKFLOW TRACKING MODAL -->
+  @if (showEvaluationModal && selectedExamForEvaluation) {
+    <div class="marks-entry-overlay" (click)="closeEvaluationModal()">
+      <div class="evaluation-workflow-modal" (click)="$event.stopPropagation()">
+        <!-- Light Blue Gradient Header (Strict UI Rule) -->
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <div class="modal-icon-box">
+              <mat-icon>assignment_ind</mat-icon>
+            </div>
+            <div>
+              <h2 class="modal-title">Answer Sheet Evaluation & Evaluator Tracking</h2>
+              <div class="modal-subtitle">
+                <span>Exam: <strong>{{ selectedExamForEvaluation.title }}</strong></span>
+                <span>Class: <strong>{{ selectedExamForEvaluation.className }}</strong></span>
+                <span>Subject: <strong>{{ selectedExamForEvaluation.subject }}</strong></span>
+              </div>
+            </div>
+          </div>
+          <button mat-icon-button class="modal-close-btn" (click)="closeEvaluationModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <!-- Modal Body -->
+        <div class="modal-body eval-modal-body">
+          <div class="eval-guidance-card">
+            <mat-icon>info</mat-icon>
+            <p>
+              Track physical answer sheet bundles handed over to teachers for evaluation. Setting a due date and issuing blank award sheets ensures orderly copy checking before marks are keyed into the ERP.
+            </p>
+          </div>
+          <div class="eval-form-grid">
+            <!-- Evaluator Teacher with Live Search & Smart Subject Badges -->
+            <mat-form-field appearance="outline" class="form-full smart-teacher-field" subscriptSizing="dynamic">
+              <mat-label>Designated Evaluator Teacher</mat-label>
+              <mat-select
+                [(ngModel)]="evaluatorTeacherId"
+                placeholder="Search or Select Evaluator Teacher"
+                panelClass="smart-teacher-select-panel">
+                @if (getSelectedTeacher(); as st) {
+                  <mat-select-trigger>
+                    <span class="selected-teacher-trigger">
+                      <span class="trigger-name">{{ st.fullName || st.name }}</span>
+                      @if (st.specialization) {
+                        <span class="trigger-subject-badge">
+                          <mat-icon>menu_book</mat-icon> {{ st.specialization }}
+                        </span>
+                      }
+                      @if (isSubjectMatch(st)) {
+                        <span class="trigger-match-badge">
+                          ⭐ Specialist
+                        </span>
+                      }
+                    </span>
+                  </mat-select-trigger>
+                }
+                <!-- Sticky Search Box inside dropdown panel -->
+                <div class="teacher-dropdown-search-wrapper" (click)="$event.stopPropagation()">
+                  <mat-icon class="search-icon">search</mat-icon>
+                  <input
+                    type="text"
+                    class="teacher-search-input"
+                    [(ngModel)]="teacherSearchTerm"
+                    (keydown)="$event.stopPropagation()"
+                    placeholder="Type teacher name, subject, or phone..."
+                    autocomplete="off">
+                  @if (teacherSearchTerm) {
+                    <button
+                      type="button"
+                      class="clear-search-btn"
+                      (click)="teacherSearchTerm = ''; $event.stopPropagation()">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </div>
+                <!-- Unassign Option -->
+                <mat-option value="">
+                  <span class="no-teacher-option">-- No Teacher Assigned --</span>
+                </mat-option>
+                <!-- Filtered List of Teachers with Subject & Phone Badges -->
+                @for (t of filteredTeachers; track t) {
+                  <mat-option [value]="t.id" class="smart-teacher-option" [class.option-match]="isSubjectMatch(t)">
+                    <div class="teacher-option-row">
+                      <div class="teacher-avatar-circle" [class.avatar-specialist]="isSubjectMatch(t)">
+                        {{ (t.fullName || t.name || 'T').substring(0, 1).toUpperCase() }}
+                      </div>
+                      <div class="teacher-details-col">
+                        <div class="teacher-name-line">
+                          <span class="teacher-name">{{ t.fullName || t.name }}</span>
+                          @if (isSubjectMatch(t)) {
+                            <span class="specialist-pill">
+                              <mat-icon>verified</mat-icon> {{ selectedExamForEvaluation.subject }} Specialist
+                            </span>
+                          }
+                        </div>
+                        <div class="teacher-meta-chips">
+                          @if (t.specialization) {
+                            <span class="subject-tag">
+                              <mat-icon>menu_book</mat-icon> {{ t.specialization }}
+                            </span>
+                          }
+                          @if (!t.specialization && (t.department || t.designation)) {
+                            <span class="dept-tag">
+                              {{ t.department || t.designation }}
+                            </span>
+                          }
+                          @if (t.phone || t.phoneNumber) {
+                            <span class="phone-tag">
+                              <mat-icon>call</mat-icon> {{ t.phone || t.phoneNumber }}
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </mat-option>
+                }
+                <!-- Empty state when search has no matches -->
+                @if (filteredTeachers.length === 0) {
+                  <div class="no-teachers-found">
+                    <mat-icon>person_off</mat-icon>
+                    <span>No teachers found matching "{{ teacherSearchTerm }}"</span>
+                  </div>
+                }
+              </mat-select>
+              <mat-hint>Search & select teacher responsible for physical copy checking</mat-hint>
+            </mat-form-field>
+            <!-- Evaluation Workflow Status -->
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Evaluation Stage / Status</mat-label>
+              <mat-select [(ngModel)]="evaluationStatus">
+                <mat-option value="Scheduled">Scheduled (Not Handed Over)</mat-option>
+                <mat-option value="CopiesUnderEvaluation">Copies Under Evaluation (With Teacher)</mat-option>
+                <mat-option value="EvaluationCompleted">Evaluation Completed (Returned)</mat-option>
+                <mat-option value="MarksEntered">Marks Entered (In ERP)</mat-option>
+              </mat-select>
+              <mat-hint>Current workflow progress</mat-hint>
+            </mat-form-field>
+            <!-- Total Copies Issued -->
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Total Copies Issued</mat-label>
+              <input matInput type="number" [(ngModel)]="totalCopiesIssued" min="0" placeholder="Count of physical copies">
+              <mat-hint>Physical copies handed over</mat-hint>
+            </mat-form-field>
+            <!-- Evaluation Due Date -->
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Evaluation Due Date</mat-label>
+              <input matInput type="date" [(ngModel)]="evaluationDueDate" [min]="minExamDate">
+              @if (!isDueDateInvalid) {
+                <mat-hint>Target deadline (Exam: {{ minExamDate | date:'mediumDate' }})</mat-hint>
+              }
+              @if (isDueDateInvalid) {
+                <mat-hint style="color: #dc2626 !important; font-size: 11px; font-weight: 600;">
+                  ⚠️ Due date cannot be earlier than exam date ({{ minExamDate }})
+                </mat-hint>
+              }
+            </mat-form-field>
+            <!-- Bundle Returned / Submitted Date -->
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Return / Submitted Date (Optional)</mat-label>
+              <input matInput type="date" [(ngModel)]="copiesSubmittedDate" [min]="minExamDate" [max]="todayIsoDate">
+              @if (!isReturnDateInvalid) {
+                <mat-hint>Actual date received (leave blank if not yet returned)</mat-hint>
+              }
+              @if (isReturnDateInvalid) {
+                <mat-hint style="color: #dc2626 !important; font-size: 11px; font-weight: 600;">
+                  ⚠️ {{ returnDateErrorMsg }}
+                </mat-hint>
+              }
+            </mat-form-field>
+            <!-- Instructions / Remarks -->
+            <mat-form-field appearance="outline" class="form-full" subscriptSizing="dynamic">
+              <mat-label>Special Instructions / Evaluation Remarks</mat-label>
+              <textarea matInput [(ngModel)]="evaluationRemarks" rows="2" placeholder="e.g. Follow CBSE rubric, step marking required..."></textarea>
+            </mat-form-field>
+          </div>
+        </div>
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button mat-stroked-button (click)="closeEvaluationModal()">Cancel</button>
+          <button mat-flat-button color="primary" (click)="saveEvaluationWorkflow()" [disabled]="savingEvaluationWorkflow">
+            @if (savingEvaluationWorkflow) {
+              <mat-spinner diameter="18"></mat-spinner>
+            }
+            @if (!savingEvaluationWorkflow) {
+              <mat-icon>save</mat-icon>
+            }
+            <span>Save Tracking Details</span>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  }
+
+  <!-- BLANK AWARD SHEET (कच्चा अंक पत्रक) MODAL -->
+  @if (showAwardSheetModal) {
+    <div class="marks-entry-overlay" (click)="closeAwardSheetModal()">
+      <div class="award-sheet-modal" (click)="$event.stopPropagation()">
+        <!-- Light Blue Gradient Header (Strict UI Rule) -->
+        <div class="modal-header no-print">
+          <div class="modal-header-left">
+            <div class="modal-icon-box">
+              <mat-icon>print</mat-icon>
+            </div>
+            <div>
+              <h2 class="modal-title">Blank Award Sheet / कच्चा अंक पत्रक (Answer Book Evaluation)</h2>
+              @if (awardSheetData) {
+                <div class="modal-subtitle">
+                  <span>Exam: <strong>{{ awardSheetData.examTitle }}</strong></span>
+                  <span>Class: <strong>{{ awardSheetData.className }} {{ awardSheetData.sectionName ? '(' + awardSheetData.sectionName + ')' : '' }}</strong></span>
+                  <span>Subject: <strong>{{ awardSheetData.subject }}</strong></span>
+                </div>
+              }
+            </div>
+          </div>
+          <div class="header-right-actions">
+            <button mat-flat-button color="primary" class="print-direct-btn" (click)="printAwardSheet()" [disabled]="loadingAwardSheet || !awardSheetData">
+              <mat-icon>print</mat-icon>
+              <span>Print Award Sheet (A4)</span>
+            </button>
+            <button mat-icon-button class="modal-close-btn" (click)="closeAwardSheetModal()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+        <!-- Modal Body / Printable Document -->
+        <div class="modal-body award-sheet-scrollable-body">
+          <!-- THE PRINTABLE AWARD SHEET DOCUMENT -->
+          @if (!loadingAwardSheet && awardSheetData) {
+            <div class="blank-award-sheet-sheet" id="printable-award-sheet">
+              <!-- Sheet Header -->
+              <div class="sheet-institute-header">
+                <div class="school-affiliation-tag">AFFILIATED SCHOOL EXAMINATION & EVALUATION CELL</div>
+                <h1 class="sheet-main-title">BLANK EVALUATION & AWARD SHEET</h1>
+                <div class="sheet-hindi-title">(कच्चा अंक पत्रक - उत्तर पुस्तिका मूल्यांकन)</div>
+                <div class="sheet-session-badge">ACADEMIC SESSION: {{ awardSheetData.academicYear }} | {{ awardSheetData.examType }}</div>
+              </div>
+              <!-- Meta Information Grid -->
+              <table class="sheet-meta-table">
+                <tbody>
+                  <tr>
+                    <td style="width: 25%;"><strong>Class & Section:</strong> {{ awardSheetData.className }} {{ awardSheetData.sectionName ? '(' + awardSheetData.sectionName + ')' : '' }}</td>
+                    <td style="width: 25%;"><strong>Subject:</strong> {{ awardSheetData.subject }}</td>
+                    <td style="width: 25%;"><strong>Maximum Marks:</strong> {{ awardSheetData.maxMarks }}</td>
+                    <td style="width: 25%;"><strong>Passing Marks:</strong> {{ awardSheetData.passingMarks }}</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Exam Date:</strong> {{ awardSheetData.examDate | date:'mediumDate' }}</td>
+                    <td><strong>Evaluator Teacher:</strong> {{ awardSheetData.evaluatorTeacherName || '____________________' }}</td>
+                    <td><strong>Total Copies Issued:</strong> {{ awardSheetData.totalCopiesIssued ?? awardSheetData.students.length }}</td>
+                    <td><strong>Submission Due:</strong> {{ awardSheetData.evaluationDueDate ? (awardSheetData.evaluationDueDate | date:'mediumDate') : 'As Scheduled' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="sheet-instructions-note">
+                <strong>Instructions to Evaluator:</strong> Please enter marks awarded against each student after physical checking of answer books in legible handwriting using Black / Blue ink. Mark <strong>'AB'</strong> in bold for absent students. Cross-cutting or overwriting must be countersigned.
+              </div>
+              <!-- Award Table -->
+              <table class="award-sheet-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px; text-align: center;">S.N.</th>
+                    <th style="width: 70px; text-align: center;">Roll #</th>
+                    <th style="width: 80px; text-align: center;">School Roll</th>
+                    <th style="width: 90px; text-align: center;">Adm #</th>
+                    <th style="text-align: left; min-width: 140px;">Student Name</th>
+                    <th style="width: 55px; text-align: center;">Gender</th>
+                    <th style="width: 110px; text-align: center;">Marks Obtained<br><small>(In Figures)</small></th>
+                    <th style="width: 170px; text-align: left;">Marks Obtained<br><small>(In Words)</small></th>
+                    <th style="width: 120px; text-align: left;">Examiner Remarks / Initial</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (s of awardSheetData.students; track s; let i = $index) {
+                    <tr>
+                      <td style="text-align: center;">{{ i + 1 }}</td>
+                      <td style="text-align: center; font-weight: 600;">{{ s.rollNumber || '-' }}</td>
+                      <td style="text-align: center;">{{ s.schoolRollNumber || '-' }}</td>
+                      <td style="text-align: center;">{{ s.admissionNumber }}</td>
+                      <td style="text-align: left;"><strong>{{ s.studentName }}</strong></td>
+                      <td style="text-align: center;">{{ s.gender ? (s.gender | slice:0:1 | uppercase) : '-' }}</td>
+                      <td class="blank-cell-box">
+                        <!-- Blank box for teacher pen writing -->
+                      </td>
+                      <td class="blank-cell-line">
+                        <!-- Blank dotted line for teacher pen writing in words -->
+                      </td>
+                      <td class="blank-cell-remarks">
+                        <!-- Blank area for examiner remarks -->
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+              <!-- Certification & Signatures Section -->
+              <div class="sheet-footer-verification">
+                <div class="certification-statement">
+                  <strong>CERTIFICATE:</strong> Certified that I have personally evaluated <strong>{{ awardSheetData.students.length }}</strong> answer sheets of the above examination according to the marking scheme provided, and the marks recorded above are correct and authentic without any omission.
+                </div>
+                <div class="signature-blocks-grid">
+                  <div class="sig-block">
+                    <div class="sig-line"></div>
+                    <div class="sig-title">Evaluator Teacher's Signature</div>
+                    <div class="sig-name">Name: {{ awardSheetData.evaluatorTeacherName || '__________________' }}</div>
+                    <div class="sig-date">Date: ____________________</div>
+                  </div>
+                  <div class="sig-block">
+                    <div class="sig-line"></div>
+                    <div class="sig-title">Scrutinizer / Checker's Signature</div>
+                    <div class="sig-name">Name: ____________________</div>
+                    <div class="sig-date">Date: ____________________</div>
+                  </div>
+                  <div class="sig-block">
+                    <div class="sig-line"></div>
+                    <div class="sig-title">Exam Controller / Principal</div>
+                    <div class="sig-name">Seal & Signature</div>
+                    <div class="sig-date">Date: ____________________</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+        <!-- Modal Footer -->
+        <div class="modal-footer no-print">
+          <button mat-stroked-button (click)="closeAwardSheetModal()">Close</button>
+          <button mat-flat-button color="primary" (click)="printAwardSheet()" [disabled]="loadingAwardSheet || !awardSheetData">
+            <mat-icon>print</mat-icon>
+            <span>Print Official Sheet</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 </div>

@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -50,7 +50,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
           <span>Add New Holiday</span>
         </button>
       </div>
-
+    
       <!-- Summary KPI Badges -->
       <div class="kpi-grid">
         <div class="kpi-card total">
@@ -60,7 +60,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
             <small>Total Declared</small>
           </div>
         </div>
-
+    
         <div class="kpi-card national">
           <div class="kpi-icon"><mat-icon>flag</mat-icon></div>
           <div class="kpi-data">
@@ -68,7 +68,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
             <small>National Holidays</small>
           </div>
         </div>
-
+    
         <div class="kpi-card festival">
           <div class="kpi-icon"><mat-icon>celebration</mat-icon></div>
           <div class="kpi-data">
@@ -76,7 +76,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
             <small>Festivals</small>
           </div>
         </div>
-
+    
         <div class="kpi-card academic">
           <div class="kpi-icon"><mat-icon>school</mat-icon></div>
           <div class="kpi-data">
@@ -85,68 +85,64 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
           </div>
         </div>
       </div>
-
+    
       <!-- Add/Edit Drawer Card -->
-      <mat-card class="form-drawer-card mat-elevation-z2" *ngIf="showForm">
-        <div class="form-header">
-          <div class="form-header-title">
-            <mat-icon color="primary">{{ isEditing ? 'edit_calendar' : 'add_circle' }}</mat-icon>
-            <div>
-              <strong>{{ isEditing ? 'Edit Holiday Record' : 'Declare New Holiday / Vacation' }}</strong>
-              <p>Holidays automatically synchronize with the faculty attendance register and payroll engine.</p>
+      @if (showForm) {
+        <mat-card class="form-drawer-card mat-elevation-z2">
+          <div class="form-header">
+            <div class="form-header-title">
+              <mat-icon color="primary">{{ isEditing ? 'edit_calendar' : 'add_circle' }}</mat-icon>
+              <div>
+                <strong>{{ isEditing ? 'Edit Holiday Record' : 'Declare New Holiday / Vacation' }}</strong>
+                <p>Holidays automatically synchronize with the faculty attendance register and payroll engine.</p>
+              </div>
             </div>
-          </div>
-          <button mat-icon-button (click)="closeForm()">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <div class="form-grid">
-          <mat-form-field appearance="outline" class="form-field-title">
-            <mat-label>Holiday Title *</mat-label>
-            <input matInput [(ngModel)]="formData.title" placeholder="e.g. Republic Day, Holi, Diwali Break" required />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field-type">
-            <mat-label>Holiday Category *</mat-label>
-            <mat-select [(ngModel)]="formData.holidayType">
-              <mat-option value="National">National Holiday</mat-option>
-              <mat-option value="Festival">Festival Break</mat-option>
-              <mat-option value="Academic">Academic Recess</mat-option>
-              <mat-option value="Institutional">Institutional Off</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field-date">
-            <mat-label>Start Date *</mat-label>
-            <input matInput type="date" [(ngModel)]="formData.startDate" (ngModelChange)="onStartDateChange()" required />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field-date">
-            <mat-label>End Date *</mat-label>
-            <input matInput type="date" [(ngModel)]="formData.endDate" required />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field-desc">
-            <mat-label>Description / Notice (Optional)</mat-label>
-            <input matInput [(ngModel)]="formData.description" placeholder="e.g. Institute and library remain closed." />
-          </mat-form-field>
-        </div>
-
-        <div class="form-footer">
-          <mat-slide-toggle [(ngModel)]="formData.isActive" color="primary">
-            Active Holiday
-          </mat-slide-toggle>
-          <div class="btn-group">
-            <button mat-button (click)="closeForm()">Cancel</button>
-            <button mat-raised-button color="primary" (click)="saveHoliday()" [disabled]="!formData.title || !formData.startDate || !formData.endDate || saving">
-              <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
-              {{ isEditing ? 'Update Holiday' : 'Save Holiday' }}
+            <button mat-icon-button (click)="closeForm()">
+              <mat-icon>close</mat-icon>
             </button>
           </div>
-        </div>
-      </mat-card>
-
+          <div class="form-grid">
+            <mat-form-field appearance="outline" class="form-field-title">
+              <mat-label>Holiday Title *</mat-label>
+              <input matInput [(ngModel)]="formData.title" placeholder="e.g. Republic Day, Holi, Diwali Break" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="form-field-type">
+              <mat-label>Holiday Category *</mat-label>
+              <mat-select [(ngModel)]="formData.holidayType">
+                <mat-option value="National">National Holiday</mat-option>
+                <mat-option value="Festival">Festival Break</mat-option>
+                <mat-option value="Academic">Academic Recess</mat-option>
+                <mat-option value="Institutional">Institutional Off</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="form-field-date">
+              <mat-label>Start Date *</mat-label>
+              <input matInput type="date" [(ngModel)]="formData.startDate" (ngModelChange)="onStartDateChange()" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="form-field-date">
+              <mat-label>End Date *</mat-label>
+              <input matInput type="date" [(ngModel)]="formData.endDate" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="form-field-desc">
+              <mat-label>Description / Notice (Optional)</mat-label>
+              <input matInput [(ngModel)]="formData.description" placeholder="e.g. Institute and library remain closed." />
+            </mat-form-field>
+          </div>
+          <div class="form-footer">
+            <mat-slide-toggle [(ngModel)]="formData.isActive" color="primary">
+              Active Holiday
+            </mat-slide-toggle>
+            <div class="btn-group">
+              <button mat-button (click)="closeForm()">Cancel</button>
+              <button mat-raised-button color="primary" (click)="saveHoliday()" [disabled]="!formData.title || !formData.startDate || !formData.endDate || saving">
+                <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
+                {{ isEditing ? 'Update Holiday' : 'Save Holiday' }}
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      }
+    
       <!-- Main Directory Card -->
       <mat-card class="table-card mat-elevation-z1">
         <!-- Filter Toolbar -->
@@ -161,15 +157,17 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
                 <mat-option [value]="2027">2027</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-select month-filter">
               <mat-label>Month</mat-label>
               <mat-select [(ngModel)]="selectedMonth" (selectionChange)="onFilterChange()">
                 <mat-option [value]="0">All Months</mat-option>
-                <mat-option *ngFor="let m of months; let i = index" [value]="i + 1">{{ m }}</mat-option>
+                @for (m of months; track m; let i = $index) {
+                  <mat-option [value]="i + 1">{{ m }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="filter-select category-filter">
               <mat-label>Category Filter</mat-label>
               <mat-select [(ngModel)]="selectedType" (selectionChange)="onFilterChange()">
@@ -181,104 +179,118 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
               </mat-select>
             </mat-form-field>
           </div>
-
+    
           <div class="search-wrap">
             <mat-form-field appearance="outline" class="search-input">
               <mat-label>Search holidays...</mat-label>
               <input matInput [(ngModel)]="searchKeyword" (keyup.enter)="onSearch()" (ngModelChange)="onSearchInput()" placeholder="Search by title or description" />
-              <button mat-icon-button matSuffix *ngIf="searchKeyword" (click)="clearSearch()">
-                <mat-icon>close</mat-icon>
-              </button>
+              @if (searchKeyword) {
+                <button mat-icon-button matSuffix (click)="clearSearch()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
               <button mat-icon-button matSuffix (click)="onSearch()" matTooltip="Search">
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
           </div>
         </div>
-
+    
         <!-- Server-side operation loader -->
-        <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
-
+        @if (loading) {
+          <mat-progress-bar mode="indeterminate" class="grid-loader"></mat-progress-bar>
+        }
+    
         <!-- Table View with Server-Side Sorting -->
-        <div class="table-responsive" *ngIf="holidays.length > 0">
-          <table class="holiday-table" matSort (matSortChange)="onSortChange($event)">
-            <thead>
-              <tr>
-                <th mat-sort-header="startDate">Date &amp; Schedule</th>
-                <th mat-sort-header="title">Holiday Title</th>
-                <th mat-sort-header="category">Category</th>
-                <th mat-sort-header="duration">Duration</th>
-                <th mat-sort-header="description">Description / Notes</th>
-                <th mat-sort-header="status">Status</th>
-                <th class="actions-header">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of holidays">
-                <td class="date-cell">
-                  <div class="date-box">
-                    <span class="day-num">{{ formatDayNum(item.startDate) }}</span>
-                    <div class="date-meta">
-                      <span class="month-yr">{{ formatMonthYear(item.startDate) }}</span>
-                      <span class="day-name">{{ formatDayName(item.startDate) }}</span>
-                    </div>
-                  </div>
-                  <div *ngIf="item.startDate.split('T')[0] !== item.endDate.split('T')[0]" class="range-hint">
-                    to {{ formatShortDate(item.endDate) }}
-                  </div>
-                </td>
-                <td class="title-cell">
-                  <strong>{{ item.title }}</strong>
-                </td>
-                <td>
-                  <span class="type-badge" [ngClass]="item.holidayType.toLowerCase()">
-                    {{ item.holidayType }}
-                  </span>
-                </td>
-                <td>
-                  <span class="duration-badge">{{ calculateDuration(item.startDate, item.endDate) }}</span>
-                </td>
-                <td class="desc-cell">
-                  {{ item.description || '—' }}
-                </td>
-                <td>
-                  <span class="status-pill" [class.active]="item.isActive" [class.inactive]="!item.isActive">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-                <td class="actions-cell">
-                  <button mat-icon-button color="primary" matTooltip="Edit Holiday" (click)="editHoliday(item)">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button mat-icon-button color="warn" matTooltip="Delete Holiday" (click)="deleteHoliday(item)">
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
+        @if (holidays.length > 0) {
+          <div class="table-responsive">
+            <table class="holiday-table" matSort (matSortChange)="onSortChange($event)">
+              <thead>
+                <tr>
+                  <th mat-sort-header="startDate">Date &amp; Schedule</th>
+                  <th mat-sort-header="title">Holiday Title</th>
+                  <th mat-sort-header="category">Category</th>
+                  <th mat-sort-header="duration">Duration</th>
+                  <th mat-sort-header="description">Description / Notes</th>
+                  <th mat-sort-header="status">Status</th>
+                  <th class="actions-header">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of holidays; track item) {
+                  <tr>
+                    <td class="date-cell">
+                      <div class="date-box">
+                        <span class="day-num">{{ formatDayNum(item.startDate) }}</span>
+                        <div class="date-meta">
+                          <span class="month-yr">{{ formatMonthYear(item.startDate) }}</span>
+                          <span class="day-name">{{ formatDayName(item.startDate) }}</span>
+                        </div>
+                      </div>
+                      @if (item.startDate.split('T')[0] !== item.endDate.split('T')[0]) {
+                        <div class="range-hint">
+                          to {{ formatShortDate(item.endDate) }}
+                        </div>
+                      }
+                    </td>
+                    <td class="title-cell">
+                      <strong>{{ item.title }}</strong>
+                    </td>
+                    <td>
+                      <span class="type-badge" [ngClass]="item.holidayType.toLowerCase()">
+                        {{ item.holidayType }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="duration-badge">{{ calculateDuration(item.startDate, item.endDate) }}</span>
+                    </td>
+                    <td class="desc-cell">
+                      {{ item.description || '—' }}
+                    </td>
+                    <td>
+                      <span class="status-pill" [class.active]="item.isActive" [class.inactive]="!item.isActive">
+                        {{ item.isActive ? 'Active' : 'Inactive' }}
+                      </span>
+                    </td>
+                    <td class="actions-cell">
+                      <button mat-icon-button color="primary" matTooltip="Edit Holiday" (click)="editHoliday(item)">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button color="warn" matTooltip="Delete Holiday" (click)="deleteHoliday(item)">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+    
         <!-- Server-side Pagination -->
-        <mat-paginator
-          *ngIf="totalCount > 0"
-          [length]="totalCount"
-          [pageSize]="pageSize"
-          [pageIndex]="pageIndex"
-          [pageSizeOptions]="[5, 10, 25, 50]"
-          (page)="onPageChange($event)"
-          showFirstLastButtons
-          class="holiday-paginator">
-        </mat-paginator>
-
-        <div class="empty-state" *ngIf="holidays.length === 0 && !loading">
-          <mat-icon>event_busy</mat-icon>
-          <h3>No Holidays Found</h3>
-          <p>No holiday records matched your filter criteria. Click "Add New Holiday" to declare a holiday or reset your filters.</p>
-        </div>
+        @if (totalCount > 0) {
+          <mat-paginator
+            [length]="totalCount"
+            [pageSize]="pageSize"
+            [pageIndex]="pageIndex"
+            [pageSizeOptions]="[5, 10, 25, 50]"
+            (page)="onPageChange($event)"
+            showFirstLastButtons
+            class="holiday-paginator">
+          </mat-paginator>
+        }
+    
+        @if (holidays.length === 0 && !loading) {
+          <div class="empty-state">
+            <mat-icon>event_busy</mat-icon>
+            <h3>No Holidays Found</h3>
+            <p>No holiday records matched your filter criteria. Click "Add New Holiday" to declare a holiday or reset your filters.</p>
+          </div>
+        }
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display: flex; flex-direction: column; gap: 20px; }
     .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }

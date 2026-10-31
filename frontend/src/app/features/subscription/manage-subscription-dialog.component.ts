@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, inject } from '@angular/core';
+import { Component, Inject, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -47,10 +47,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <div class="dialog-content">
-
+    
           <!-- Current Status Callout Strip -->
           <div class="current-strip">
             <div class="strip-item">
@@ -68,7 +68,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <span class="expiry-val">{{ (data.trialEndDate | date:'mediumDate') || 'Not set' }}</span>
             </div>
           </div>
-
+    
           <!-- Quick Validity Extension Buttons -->
           <div class="extension-section">
             <label class="section-title">
@@ -92,17 +92,19 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 +1 Year (365 Days)
               </button>
             </div>
-
+    
             <!-- Dynamic Projected Expiry Alert -->
-            <div class="projected-preview" *ngIf="previewDate">
-              <mat-icon class="preview-icon">event_available</mat-icon>
-              <span>New Expiration Date will be: <strong>{{ previewDate | date:'fullDate' }}</strong> ({{ daysRemainingPreview }} days from today)</span>
-            </div>
+            @if (previewDate) {
+              <div class="projected-preview">
+                <mat-icon class="preview-icon">event_available</mat-icon>
+                <span>New Expiration Date will be: <strong>{{ previewDate | date:'fullDate' }}</strong> ({{ daysRemainingPreview }} days from today)</span>
+              </div>
+            }
           </div>
-
+    
           <!-- Form Fields Grid: Plan, Status, Quotas -->
           <div class="form-grid">
-            
+    
             <mat-form-field appearance="outline" class="form-col" subscriptSizing="dynamic">
               <mat-label>Subscription Edition / Tier</mat-label>
               <mat-select formControlName="newPlan">
@@ -113,7 +115,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </mat-select>
               <mat-icon matSuffix color="primary">workspace_premium</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-col" subscriptSizing="dynamic">
               <mat-label>Subscription Status</mat-label>
               <mat-select formControlName="newStatus">
@@ -124,39 +126,44 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </mat-select>
               <mat-icon matSuffix color="primary">verified</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-col" subscriptSizing="dynamic">
               <mat-label>Max Students Quota</mat-label>
               <input matInput type="number" formControlName="maxStudentsLimit" placeholder="e.g. 50, 150, 500, 2000" />
               <mat-icon matSuffix color="primary">school</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-col" subscriptSizing="dynamic">
               <mat-label>Max Branch Campuses</mat-label>
               <input matInput type="number" formControlName="maxBranchesLimit" placeholder="e.g. 2, 3, 5, 10" />
               <mat-icon matSuffix color="primary">apartment</mat-icon>
             </mat-form-field>
-
+    
           </div>
-
+    
           <div class="note-box">
             <mat-icon class="note-icon">info</mat-icon>
             <span>Setting status to <strong>Active</strong> and extending the date immediately unlocks all ERP pages for the tenant and lifts any lockout screen.</span>
           </div>
-
+    
         </div>
-
+    
         <div class="dialog-actions">
           <button mat-stroked-button type="button" (click)="dialogRef.close()" [disabled]="saving">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="saving || form.invalid" class="save-btn">
-            <mat-spinner diameter="18" *ngIf="saving" style="display:inline-block; margin-right:6px;"></mat-spinner>
-            <mat-icon *ngIf="!saving">save</mat-icon>
+            @if (saving) {
+              <mat-spinner diameter="18" style="display:inline-block; margin-right:6px;"></mat-spinner>
+            }
+            @if (!saving) {
+              <mat-icon>save</mat-icon>
+            }
             <span>Save &amp; Update Subscription</span>
           </button>
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

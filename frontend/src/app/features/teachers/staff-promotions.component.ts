@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
@@ -56,10 +56,12 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           </p>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button color="primary" class="action-btn" (click)="openPolicyModal()" *ngIf="canManagePolicy" matTooltip="Configure Minimum Service Tenure & Appraisal Guidelines (HR / Admin)">
-            <mat-icon>tune</mat-icon>
-            <span>Policy Rules</span>
-          </button>
+          @if (canManagePolicy) {
+            <button mat-stroked-button color="primary" class="action-btn" (click)="openPolicyModal()" matTooltip="Configure Minimum Service Tenure & Appraisal Guidelines (HR / Admin)">
+              <mat-icon>tune</mat-icon>
+              <span>Policy Rules</span>
+            </button>
+          }
           <button mat-stroked-button color="primary" class="action-btn" (click)="openBulkModal()">
             <mat-icon>auto_graph</mat-icon>
             <span>Bulk Annual Hike</span>
@@ -70,7 +72,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           </button>
         </div>
       </div>
-
+    
       <!-- KPI Summary Cards - Standard Compact Horizontal Layout -->
       <div class="stats-grid">
         <mat-card class="stat-card total mat-elevation-z1">
@@ -82,7 +84,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card promo mat-elevation-z1">
           <div class="stat-icon"><mat-icon>trending_up</mat-icon></div>
           <div class="stat-info">
@@ -92,7 +94,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card inc mat-elevation-z1">
           <div class="stat-icon"><mat-icon>payments</mat-icon></div>
           <div class="stat-info">
@@ -102,21 +104,23 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="stat-card budget mat-elevation-z1">
           <div class="stat-icon"><mat-icon>currency_rupee</mat-icon></div>
           <div class="stat-info">
             <span class="stat-lbl">Monthly Budget Hike</span>
             <div class="stat-val-row">
               <span class="stat-val">₹{{ summary.totalMonthlyGrossHike | number:'1.0-0' }}</span>
-              <span class="stat-sub-pill" *ngIf="summary.averageHikePercentage > 0">
-                Avg +{{ summary.averageHikePercentage }}%
-              </span>
+              @if (summary.averageHikePercentage > 0) {
+                <span class="stat-sub-pill">
+                  Avg +{{ summary.averageHikePercentage }}%
+                </span>
+              }
             </div>
           </div>
         </mat-card>
       </div>
-
+    
       <!-- Filter & Search Toolbar with Smart View Switcher -->
       <mat-card class="filter-card mat-elevation-z1">
         <div class="filter-toolbar">
@@ -128,12 +132,14 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               [(ngModel)]="searchQuery"
               (ngModelChange)="onSearchInput($event)"
               (keyup.enter)="loadData()"
-            />
-            <button *ngIf="searchQuery" type="button" class="clear-btn" (click)="clearSearch()">
-              <mat-icon>close</mat-icon>
-            </button>
+              />
+            @if (searchQuery) {
+              <button type="button" class="clear-btn" (click)="clearSearch()">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </div>
-
+    
           <div class="filter-selects">
             <mat-form-field appearance="outline" class="mini-field" subscriptSizing="dynamic">
               <mat-label>Staff Type</mat-label>
@@ -145,7 +151,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                 <mat-option value="Support">Support Staff</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="mini-field" subscriptSizing="dynamic">
               <mat-label>Appraisal Type</mat-label>
               <mat-select [(ngModel)]="selectedType" (selectionChange)="onFilterChange()">
@@ -155,16 +161,18 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                 <mat-option value="Promotion">Promotion Only</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="mini-field cycle-field" subscriptSizing="dynamic">
               <mat-label>Appraisal Cycle</mat-label>
               <mat-select [(ngModel)]="selectedCycle" (selectionChange)="onFilterChange()">
                 <mat-option value="All">All Cycles</mat-option>
-                <mat-option *ngFor="let c of distinctCycles" [value]="c">{{ c }}</mat-option>
+                @for (c of distinctCycles; track c) {
+                  <mat-option [value]="c">{{ c }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
           </div>
-
+    
           <!-- Smart View Mode Toggle & Total Counter -->
           <div class="filter-controls-right">
             <div class="records-count-chip">
@@ -177,7 +185,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                 [class.active]="viewMode === 'table'"
                 (click)="viewMode = 'table'"
                 matTooltip="Table View (Dense & Detailed)"
-              >
+                >
                 <mat-icon>table_chart</mat-icon>
                 <span>Table</span>
               </button>
@@ -187,7 +195,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                 [class.active]="viewMode === 'grid'"
                 (click)="viewMode = 'grid'"
                 matTooltip="Smart Card Grid View"
-              >
+                >
                 <mat-icon>grid_view</mat-icon>
                 <span>Cards</span>
               </button>
@@ -195,1140 +203,1213 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           </div>
         </div>
       </mat-card>
-
+    
       <!-- Main Data Records Container -->
-      <div class="records-container" *ngIf="records.length > 0 || loading">
-        <!-- 1. Smart Table View -->
-        <div class="table-responsive" [class.table-loading]="loading" *ngIf="viewMode === 'table'">
-          <!-- Prominent Server Loader Overlay -->
-          <div class="table-loading-overlay" *ngIf="loading">
-            <div class="loading-spinner-box">
-              <div class="spinner-ring"></div>
-              <span>Fetching server records...</span>
+      @if (records.length > 0 || loading) {
+        <div class="records-container">
+          <!-- 1. Smart Table View -->
+          @if (viewMode === 'table') {
+            <div class="table-responsive" [class.table-loading]="loading">
+              <!-- Prominent Server Loader Overlay -->
+              @if (loading) {
+                <div class="table-loading-overlay">
+                  <div class="loading-spinner-box">
+                    <div class="spinner-ring"></div>
+                    <span>Fetching server records...</span>
+                  </div>
+                </div>
+              }
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th class="sortable" (click)="onSort('teacherName')" matTooltip="Click to sort by Staff Member">
+                      <div class="th-content">
+                        <span>Staff Member</span>
+                        <mat-icon class="sort-icon" [class.active]="isSorted('teacherName')">{{ getSortIcon('teacherName') }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable" (click)="onSort('type')" matTooltip="Click to sort by Appraisal Type">
+                      <div class="th-content">
+                        <span>Appraisal Type</span>
+                        <mat-icon class="sort-icon" [class.active]="isSorted('type')">{{ getSortIcon('type') }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable" (click)="onSort('newDesignation')" matTooltip="Click to sort by Designation">
+                      <div class="th-content">
+                        <span>Designation Shift</span>
+                        <mat-icon class="sort-icon" [class.active]="isSorted('newDesignation')">{{ getSortIcon('newDesignation') }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable" (click)="onSort('newGrossSalary')" matTooltip="Click to sort by Revised Gross CTC">
+                      <div class="th-content">
+                        <span>Salary Revision (Gross CTC)</span>
+                        <mat-icon class="sort-icon" [class.active]="isSorted('newGrossSalary')">{{ getSortIcon('newGrossSalary') }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable" (click)="onSort('effectiveDate')" matTooltip="Click to sort by Effective Date">
+                      <div class="th-content">
+                        <span>Effective Date</span>
+                        <mat-icon class="sort-icon" [class.active]="isSorted('effectiveDate')">{{ getSortIcon('effectiveDate') }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="sortable" (click)="onSort('reason')" matTooltip="Click to sort by Reason/Cycle">
+                      <div class="th-content">
+                        <span>Reason / Cycle</span>
+                        <mat-icon class="sort-icon" [class.active]="isSorted('reason')">{{ getSortIcon('reason') }}</mat-icon>
+                      </div>
+                    </th>
+                    <th class="text-center actions-th">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of records; track r) {
+                    <tr class="table-data-row" (click)="openDetailDrawer(r)">
+                      <td>
+                        <div class="staff-id-cell">
+                          <div class="staff-avatar">
+                            @if (getStaffPhoto(r) && !imgErrors[r.teacherId]) {
+                              <img
+                                [src]="getStaffPhoto(r)"
+                                (error)="imgErrors[r.teacherId] = true"
+                                class="staff-photo-img"
+                                [alt]="r.teacherName"
+                                />
+                            }
+                            @if (!getStaffPhoto(r) || imgErrors[r.teacherId]) {
+                              <div class="staff-initials-avatar">
+                                {{ getInitials(r.teacherName) }}
+                              </div>
+                            }
+                          </div>
+                          <div>
+                            <strong class="staff-name">{{ r.teacherName }}</strong>
+                            <div class="staff-meta">
+                              <span class="code-badge">{{ r.employeeCode }}</span>
+                              <span class="type-pill" [class.teaching]="r.staffType === 'Teaching'">{{ r.staffType }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="type-badge" [ngClass]="getTypeBadgeClass(r.type)">
+                          {{ getTypeText(r.type) }}
+                        </span>
+                      </td>
+                      <td>
+                        @if (r.oldDesignation !== r.newDesignation || r.type === 'Promotion' || r.type === 'PromotionAndIncrement') {
+                          <div class="shift-cell">
+                            <span class="old-role">{{ r.oldDesignation }}</span>
+                            <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+                            <strong class="new-role">{{ r.newDesignation }}</strong>
+                          </div>
+                        }
+                        @if (r.oldDesignation === r.newDesignation && r.type === 'Increment') {
+                          <span class="no-change">
+                            {{ r.newDesignation }} (No change)
+                          </span>
+                        }
+                      </td>
+                      <td>
+                        @if (r.newGrossSalary > 0) {
+                          <div class="salary-cell">
+                            <div class="salary-row">
+                              <span class="old-sal">₹{{ r.oldGrossSalary | number:'1.0-0' }}</span>
+                              <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+                              <strong class="new-sal">₹{{ r.newGrossSalary | number:'1.0-0' }}</strong>
+                            </div>
+                            @if (r.newGrossSalary > r.oldGrossSalary) {
+                              <div class="hike-badge">
+                                <mat-icon>trending_up</mat-icon>
+                                <span>+₹{{ (r.newGrossSalary - r.oldGrossSalary) | number:'1.0-0' }} (+{{ r.incrementPercentage }}%)</span>
+                              </div>
+                            }
+                          </div>
+                        }
+                        @if (r.type === 'Promotion' && r.newGrossSalary === r.oldGrossSalary) {
+                          <span class="no-change">
+                            ₹{{ r.oldGrossSalary | number:'1.0-0' }} (Unchanged)
+                          </span>
+                        }
+                      </td>
+                      <td>
+                        <div class="date-cell">
+                          <span class="date-text">{{ r.effectiveDate | date:'dd MMM yyyy' }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="reason-pill" [matTooltip]="r.reason + (r.remarks ? ' • ' + r.remarks : '')">
+                          {{ formatReason(r.reason) }}
+                        </span>
+                      </td>
+                      <td class="text-center actions-td" (click)="$event.stopPropagation()">
+                        <button mat-icon-button [matMenuTriggerFor]="rowMenu" class="action-menu-btn" matTooltip="More Actions">
+                          <mat-icon>more_vert</mat-icon>
+                        </button>
+                        <mat-menu #rowMenu="matMenu" xPosition="before" class="appraisal-action-menu">
+                          <button mat-menu-item (click)="openDetailDrawer(r)">
+                            <mat-icon style="color: #2563eb;">visibility</mat-icon>
+                            <span>View Details</span>
+                          </button>
+                          <button mat-menu-item (click)="viewLetter(r)">
+                            <mat-icon style="color: #0284c7;">description</mat-icon>
+                            <span>Official Letter</span>
+                          </button>
+                          <button mat-menu-item (click)="deleteRecord(r)">
+                            <mat-icon style="color: #ef4444;">delete_outline</mat-icon>
+                            <span style="color: #ef4444;">Delete Record</span>
+                          </button>
+                        </mat-menu>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
             </div>
-          </div>
-          <table class="erp-table">
-            <thead>
-              <tr>
-                <th class="sortable" (click)="onSort('teacherName')" matTooltip="Click to sort by Staff Member">
-                  <div class="th-content">
-                    <span>Staff Member</span>
-                    <mat-icon class="sort-icon" [class.active]="isSorted('teacherName')">{{ getSortIcon('teacherName') }}</mat-icon>
+          }
+          <!-- 2. Smart Compact Card Grid View -->
+          @if (viewMode === 'grid') {
+            <div class="smart-cards-grid" [class.table-loading]="loading">
+              <!-- Prominent Server Loader Overlay -->
+              @if (loading) {
+                <div class="table-loading-overlay">
+                  <div class="loading-spinner-box">
+                    <div class="spinner-ring"></div>
+                    <span>Fetching server records...</span>
                   </div>
-                </th>
-                <th class="sortable" (click)="onSort('type')" matTooltip="Click to sort by Appraisal Type">
-                  <div class="th-content">
-                    <span>Appraisal Type</span>
-                    <mat-icon class="sort-icon" [class.active]="isSorted('type')">{{ getSortIcon('type') }}</mat-icon>
-                  </div>
-                </th>
-                <th class="sortable" (click)="onSort('newDesignation')" matTooltip="Click to sort by Designation">
-                  <div class="th-content">
-                    <span>Designation Shift</span>
-                    <mat-icon class="sort-icon" [class.active]="isSorted('newDesignation')">{{ getSortIcon('newDesignation') }}</mat-icon>
-                  </div>
-                </th>
-                <th class="sortable" (click)="onSort('newGrossSalary')" matTooltip="Click to sort by Revised Gross CTC">
-                  <div class="th-content">
-                    <span>Salary Revision (Gross CTC)</span>
-                    <mat-icon class="sort-icon" [class.active]="isSorted('newGrossSalary')">{{ getSortIcon('newGrossSalary') }}</mat-icon>
-                  </div>
-                </th>
-                <th class="sortable" (click)="onSort('effectiveDate')" matTooltip="Click to sort by Effective Date">
-                  <div class="th-content">
-                    <span>Effective Date</span>
-                    <mat-icon class="sort-icon" [class.active]="isSorted('effectiveDate')">{{ getSortIcon('effectiveDate') }}</mat-icon>
-                  </div>
-                </th>
-                <th class="sortable" (click)="onSort('reason')" matTooltip="Click to sort by Reason/Cycle">
-                  <div class="th-content">
-                    <span>Reason / Cycle</span>
-                    <mat-icon class="sort-icon" [class.active]="isSorted('reason')">{{ getSortIcon('reason') }}</mat-icon>
-                  </div>
-                </th>
-                <th class="text-center actions-th">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let r of records" class="table-data-row" (click)="openDetailDrawer(r)">
-                <td>
-                  <div class="staff-id-cell">
-                    <div class="staff-avatar">
-                      <img
-                        *ngIf="getStaffPhoto(r) && !imgErrors[r.teacherId]"
-                        [src]="getStaffPhoto(r)"
-                        (error)="imgErrors[r.teacherId] = true"
-                        class="staff-photo-img"
-                        [alt]="r.teacherName"
-                      />
-                      <div *ngIf="!getStaffPhoto(r) || imgErrors[r.teacherId]" class="staff-initials-avatar">
-                        {{ getInitials(r.teacherName) }}
+                </div>
+              }
+              @for (r of records; track r) {
+                <div class="smart-record-card">
+                  <div class="card-accent-bar" [ngClass]="getTypeBadgeClass(r.type)"></div>
+                  <div class="card-top-header">
+                    <div class="staff-header-left">
+                      <div class="staff-card-avatar">
+                        @if (getStaffPhoto(r) && !imgErrors[r.teacherId]) {
+                          <img
+                            [src]="getStaffPhoto(r)"
+                            (error)="imgErrors[r.teacherId] = true"
+                            class="staff-photo-img"
+                            [alt]="r.teacherName"
+                            />
+                        }
+                        @if (!getStaffPhoto(r) || imgErrors[r.teacherId]) {
+                          <div class="staff-initials-avatar">
+                            {{ getInitials(r.teacherName) }}
+                          </div>
+                        }
+                      </div>
+                      <div class="staff-card-title">
+                        <strong class="teacher-title">{{ r.teacherName }}</strong>
+                        <div class="meta-row">
+                          <span class="code-tag">{{ r.employeeCode }}</span>
+                          <span class="type-pill" [class.teaching]="r.staffType === 'Teaching'">{{ r.staffType }}</span>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <strong class="staff-name">{{ r.teacherName }}</strong>
-                      <div class="staff-meta">
-                        <span class="code-badge">{{ r.employeeCode }}</span>
-                        <span class="type-pill" [class.teaching]="r.staffType === 'Teaching'">{{ r.staffType }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span class="type-badge" [ngClass]="getTypeBadgeClass(r.type)">
-                    {{ getTypeText(r.type) }}
-                  </span>
-                </td>
-                <td>
-                  <div class="shift-cell" *ngIf="r.oldDesignation !== r.newDesignation || r.type === 'Promotion' || r.type === 'PromotionAndIncrement'">
-                    <span class="old-role">{{ r.oldDesignation }}</span>
-                    <mat-icon class="arrow-icon">arrow_forward</mat-icon>
-                    <strong class="new-role">{{ r.newDesignation }}</strong>
-                  </div>
-                  <span class="no-change" *ngIf="r.oldDesignation === r.newDesignation && r.type === 'Increment'">
-                    {{ r.newDesignation }} (No change)
-                  </span>
-                </td>
-                <td>
-                  <div class="salary-cell" *ngIf="r.newGrossSalary > 0">
-                    <div class="salary-row">
-                      <span class="old-sal">₹{{ r.oldGrossSalary | number:'1.0-0' }}</span>
-                      <mat-icon class="arrow-icon">arrow_forward</mat-icon>
-                      <strong class="new-sal">₹{{ r.newGrossSalary | number:'1.0-0' }}</strong>
-                    </div>
-                    <div class="hike-badge" *ngIf="r.newGrossSalary > r.oldGrossSalary">
-                      <mat-icon>trending_up</mat-icon>
-                      <span>+₹{{ (r.newGrossSalary - r.oldGrossSalary) | number:'1.0-0' }} (+{{ r.incrementPercentage }}%)</span>
-                    </div>
-                  </div>
-                  <span class="no-change" *ngIf="r.type === 'Promotion' && r.newGrossSalary === r.oldGrossSalary">
-                    ₹{{ r.oldGrossSalary | number:'1.0-0' }} (Unchanged)
-                  </span>
-                </td>
-                <td>
-                  <div class="date-cell">
-                    <span class="date-text">{{ r.effectiveDate | date:'dd MMM yyyy' }}</span>
-                  </div>
-                </td>
-                <td>
-                  <span class="reason-pill" [matTooltip]="r.reason + (r.remarks ? ' • ' + r.remarks : '')">
-                    {{ formatReason(r.reason) }}
-                  </span>
-                </td>
-                <td class="text-center actions-td" (click)="$event.stopPropagation()">
-                  <button mat-icon-button [matMenuTriggerFor]="rowMenu" class="action-menu-btn" matTooltip="More Actions">
-                    <mat-icon>more_vert</mat-icon>
-                  </button>
-                  <mat-menu #rowMenu="matMenu" xPosition="before" class="appraisal-action-menu">
-                    <button mat-menu-item (click)="openDetailDrawer(r)">
-                      <mat-icon style="color: #2563eb;">visibility</mat-icon>
-                      <span>View Details</span>
-                    </button>
-                    <button mat-menu-item (click)="viewLetter(r)">
-                      <mat-icon style="color: #0284c7;">description</mat-icon>
-                      <span>Official Letter</span>
-                    </button>
-                    <button mat-menu-item (click)="deleteRecord(r)">
-                      <mat-icon style="color: #ef4444;">delete_outline</mat-icon>
-                      <span style="color: #ef4444;">Delete Record</span>
-                    </button>
-                  </mat-menu>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- 2. Smart Compact Card Grid View -->
-        <div class="smart-cards-grid" [class.table-loading]="loading" *ngIf="viewMode === 'grid'">
-          <!-- Prominent Server Loader Overlay -->
-          <div class="table-loading-overlay" *ngIf="loading">
-            <div class="loading-spinner-box">
-              <div class="spinner-ring"></div>
-              <span>Fetching server records...</span>
-            </div>
-          </div>
-          <div class="smart-record-card" *ngFor="let r of records">
-            <div class="card-accent-bar" [ngClass]="getTypeBadgeClass(r.type)"></div>
-
-            <div class="card-top-header">
-              <div class="staff-header-left">
-                <div class="staff-card-avatar">
-                  <img
-                    *ngIf="getStaffPhoto(r) && !imgErrors[r.teacherId]"
-                    [src]="getStaffPhoto(r)"
-                    (error)="imgErrors[r.teacherId] = true"
-                    class="staff-photo-img"
-                    [alt]="r.teacherName"
-                  />
-                  <div *ngIf="!getStaffPhoto(r) || imgErrors[r.teacherId]" class="staff-initials-avatar">
-                    {{ getInitials(r.teacherName) }}
-                  </div>
-                </div>
-                <div class="staff-card-title">
-                  <strong class="teacher-title">{{ r.teacherName }}</strong>
-                  <div class="meta-row">
-                    <span class="code-tag">{{ r.employeeCode }}</span>
-                    <span class="type-pill" [class.teaching]="r.staffType === 'Teaching'">{{ r.staffType }}</span>
-                  </div>
-                </div>
-              </div>
-              <span class="type-badge" [ngClass]="getTypeBadgeClass(r.type)">
-                {{ getTypeText(r.type) }}
-              </span>
-            </div>
-
-            <!-- Compact Metrics Grid -->
-            <div class="card-metrics-box">
-              <div class="metric-row">
-                <span class="metric-label">Role Shift:</span>
-                <div class="shift-cell">
-                  <span class="old-role" *ngIf="r.oldDesignation !== r.newDesignation">{{ r.oldDesignation }}</span>
-                  <mat-icon class="arrow-icon" *ngIf="r.oldDesignation !== r.newDesignation">arrow_forward</mat-icon>
-                  <strong class="new-role">{{ r.newDesignation }}</strong>
-                </div>
-              </div>
-
-              <div class="metric-row" *ngIf="r.newGrossSalary > 0">
-                <span class="metric-label">Gross CTC:</span>
-                <div class="salary-inline-cell">
-                  <span class="old-sal">₹{{ r.oldGrossSalary | number:'1.0-0' }}</span>
-                  <mat-icon class="arrow-icon">arrow_forward</mat-icon>
-                  <strong class="new-sal">₹{{ r.newGrossSalary | number:'1.0-0' }}</strong>
-                  <span class="hike-chip" *ngIf="r.newGrossSalary > r.oldGrossSalary">
-                    +{{ r.incrementPercentage }}%
-                  </span>
-                </div>
-              </div>
-
-              <div class="metric-row-footer">
-                <span class="date-tag">
-                  <mat-icon>calendar_today</mat-icon>
-                  {{ r.effectiveDate | date:'dd MMM yyyy' }}
-                </span>
-                <span class="cycle-tag" [matTooltip]="r.remarks || ''">
-                  {{ r.reason || 'Appraisal' }}
-                </span>
-              </div>
-            </div>
-
-            <div class="card-action-bar">
-              <button mat-button class="card-btn inspect" (click)="openDetailDrawer(r)">
-                <mat-icon>visibility</mat-icon>
-                <span>Details</span>
-              </button>
-              <div class="right-actions">
-                <button mat-stroked-button class="card-btn letter" (click)="viewLetter(r)" matTooltip="View / Print Letter">
-                  <mat-icon>description</mat-icon>
-                  <span>Letter</span>
-                </button>
-                <button mat-icon-button class="card-icon-btn delete" (click)="deleteRecord(r)" matTooltip="Delete Record">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. Smart Pagination Bar -->
-        <div class="pagination-container" *ngIf="totalCount > 0 || records.length > 0">
-          <div class="pagination-info">
-            Showing <strong>{{ totalCount > 0 ? (currentPage - 1) * pageSize + 1 : (records.length > 0 ? 1 : 0) }}</strong> to
-            <strong>{{ min(currentPage * pageSize, totalCount || records.length) }}</strong> of
-            <strong>{{ totalCount || records.length }}</strong> records
-          </div>
-
-          <div class="pagination-controls">
-            <div class="page-size-selector">
-              <span>Rows per page:</span>
-              <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
-                <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
-              </select>
-            </div>
-
-            <div class="page-nav-btns">
-              <button
-                type="button"
-                class="page-nav-btn"
-                [disabled]="currentPage === 1 || loading"
-                (click)="prevPage()"
-                matTooltip="Previous Page"
-              >
-                <mat-icon>chevron_left</mat-icon>
-              </button>
-
-              <span class="page-counter">
-                Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong>
-              </span>
-
-              <button
-                type="button"
-                class="page-nav-btn"
-                [disabled]="currentPage >= totalPages || loading"
-                (click)="nextPage()"
-                matTooltip="Next Page"
-              >
-                <mat-icon>chevron_right</mat-icon>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && records.length === 0">
-        <div class="empty-icon-wrap">
-          <mat-icon>military_tech</mat-icon>
-        </div>
-        <h3>No Promotion or Appraisal Records Found</h3>
-        <p>Record employee promotions and salary revisions with zero-gap historical audit tracking.</p>
-        <button mat-raised-button color="primary" class="primary-btn" (click)="openDrawer()">
-          <mat-icon>add_circle</mat-icon>
-          <span>Record First Promotion / Increment</span>
-        </button>
-      </div>
-
-      <!-- New Promotion / Appraisal Drawer / Modal -->
-      <div class="modal-overlay" *ngIf="showDrawer" (click)="closeDrawer()">
-        <div class="modal-card" (click)="$event.stopPropagation()">
-          <!-- Strict Light Blue Header matching AGENTS.md rule -->
-          <div class="modal-header">
-            <div class="header-left">
-              <div class="header-icon-box">
-                <mat-icon>military_tech</mat-icon>
-              </div>
-              <div class="header-title-box">
-                <h2 class="modal-title">Record Promotion &amp; Salary Increment</h2>
-                <p class="modal-subtitle">Official Staff Appraisal, Cadre Upgrade &amp; CTC Revision</p>
-              </div>
-            </div>
-            <button mat-icon-button class="close-btn" (click)="closeDrawer()" matTooltip="Close">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <div class="modal-body">
-            <!-- 1. Staff Selector with In-Dropdown Search -->
-            <div class="form-group">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Select Faculty / Staff Member</mat-label>
-                <mat-select
-                  [(ngModel)]="formData.teacherId"
-                  (selectionChange)="onTeacherSelect()"
-                  placeholder="Choose employee..."
-                  (openedChange)="onStaffSelectOpened($event)"
-                  panelClass="staff-searchable-select-panel"
-                >
-                  <mat-select-trigger>
-                    <span *ngIf="selectedTeacher">
-                      <strong>{{ selectedTeacher.fullName }}</strong> ({{ selectedTeacher.employeeCode }}) &bull; {{ selectedTeacher.designation || 'Staff' }}
+                    <span class="type-badge" [ngClass]="getTypeBadgeClass(r.type)">
+                      {{ getTypeText(r.type) }}
                     </span>
-                  </mat-select-trigger>
-
-                  <!-- Sticky Search Option inside Dropdown Panel -->
-                  <mat-option disabled class="dropdown-search-option">
-                    <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                      <mat-icon class="search-box-icon">search</mat-icon>
-                      <input
-                        id="staff-dropdown-search-input"
-                        type="text"
-                        class="search-inner-input"
-                        placeholder="Search by name, employee code, role, department..."
-                        [(ngModel)]="staffSearchQuery"
-                        (input)="filterTeachersForSelect()"
-                        (click)="$event.stopPropagation()"
-                        (mousedown)="$event.stopPropagation()"
-                        (keydown)="$event.stopPropagation()"
-                      />
-                      <button
-                        type="button"
-                        class="clear-mini-btn"
-                        *ngIf="staffSearchQuery"
-                        (click)="clearStaffSearch($event)"
-                        (mousedown)="$event.stopPropagation()"
-                      >
-                        <mat-icon>close</mat-icon>
+                  </div>
+                  <!-- Compact Metrics Grid -->
+                  <div class="card-metrics-box">
+                    <div class="metric-row">
+                      <span class="metric-label">Role Shift:</span>
+                      <div class="shift-cell">
+                        @if (r.oldDesignation !== r.newDesignation) {
+                          <span class="old-role">{{ r.oldDesignation }}</span>
+                        }
+                        @if (r.oldDesignation !== r.newDesignation) {
+                          <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+                        }
+                        <strong class="new-role">{{ r.newDesignation }}</strong>
+                      </div>
+                    </div>
+                    @if (r.newGrossSalary > 0) {
+                      <div class="metric-row">
+                        <span class="metric-label">Gross CTC:</span>
+                        <div class="salary-inline-cell">
+                          <span class="old-sal">₹{{ r.oldGrossSalary | number:'1.0-0' }}</span>
+                          <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+                          <strong class="new-sal">₹{{ r.newGrossSalary | number:'1.0-0' }}</strong>
+                          @if (r.newGrossSalary > r.oldGrossSalary) {
+                            <span class="hike-chip">
+                              +{{ r.incrementPercentage }}%
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    }
+                    <div class="metric-row-footer">
+                      <span class="date-tag">
+                        <mat-icon>calendar_today</mat-icon>
+                        {{ r.effectiveDate | date:'dd MMM yyyy' }}
+                      </span>
+                      <span class="cycle-tag" [matTooltip]="r.remarks || ''">
+                        {{ r.reason || 'Appraisal' }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="card-action-bar">
+                    <button mat-button class="card-btn inspect" (click)="openDetailDrawer(r)">
+                      <mat-icon>visibility</mat-icon>
+                      <span>Details</span>
+                    </button>
+                    <div class="right-actions">
+                      <button mat-stroked-button class="card-btn letter" (click)="viewLetter(r)" matTooltip="View / Print Letter">
+                        <mat-icon>description</mat-icon>
+                        <span>Letter</span>
+                      </button>
+                      <button mat-icon-button class="card-icon-btn delete" (click)="deleteRecord(r)" matTooltip="Delete Record">
+                        <mat-icon>delete_outline</mat-icon>
                       </button>
                     </div>
-                    <div class="search-meta-bar">
-                      <span>Showing <strong>{{ filteredTeachersForSelect.length }}</strong> of {{ teachers.length }} staff</span>
-                    </div>
-                  </mat-option>
-
-                  <!-- No Results State -->
-                  <mat-option disabled *ngIf="filteredTeachersForSelect.length === 0" class="no-results-option">
-                    <div class="no-results-wrap">
-                      <mat-icon>search_off</mat-icon>
-                      <span>No staff found matching "<strong>{{ staffSearchQuery }}</strong>"</span>
-                    </div>
-                  </mat-option>
-
-                  <!-- Filtered Staff Options -->
-                  <mat-option *ngFor="let t of filteredTeachersForSelect" [value]="t.id" class="staff-option-item">
-                    <div class="staff-option-content">
-                      <div class="staff-opt-title">
-                        <strong>{{ t.fullName }}</strong>
-                        <span class="staff-opt-code">({{ t.employeeCode }})</span>
-                        <span class="staff-opt-type" [class.teaching]="t.staffType === 'Teaching'">{{ t.staffType || 'Staff' }}</span>
-                      </div>
-                      <div class="staff-opt-subtitle">
-                        <span>{{ t.designation || 'Faculty' }}</span>
-                        <span *ngIf="t.department">&bull; {{ t.department }}</span>
-                      </div>
-                    </div>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
+                  </div>
+                </div>
+              }
             </div>
-
-            <!-- Current Profile Preview Box -->
-            <div class="current-profile-box" *ngIf="selectedTeacher">
-              <div class="prof-avatar">
-                <mat-icon>{{ selectedTeacher.staffType === 'Teaching' ? 'school' : 'badge' }}</mat-icon>
+          }
+          <!-- 3. Smart Pagination Bar -->
+          @if (totalCount > 0 || records.length > 0) {
+            <div class="pagination-container">
+              <div class="pagination-info">
+                Showing <strong>{{ totalCount > 0 ? (currentPage - 1) * pageSize + 1 : (records.length > 0 ? 1 : 0) }}</strong> to
+                <strong>{{ min(currentPage * pageSize, totalCount || records.length) }}</strong> of
+                <strong>{{ totalCount || records.length }}</strong> records
               </div>
-              <div class="prof-details">
-                <div class="prof-name-row">
-                  <strong>{{ selectedTeacher.fullName }}</strong>
-                  <span class="code-badge">({{ selectedTeacher.employeeCode }})</span>
-                  <span class="type-pill">{{ selectedTeacher.staffType || 'Teaching' }}</span>
+              <div class="pagination-controls">
+                <div class="page-size-selector">
+                  <span>Rows per page:</span>
+                  <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+                    @for (opt of pageSizeOptions; track opt) {
+                      <option [value]="opt">{{ opt }}</option>
+                    }
+                  </select>
                 </div>
-                <div class="prof-meta-row">
-                  <span>Current Designation: <strong>{{ selectedTeacher.designation || 'Faculty' }}</strong></span>
-                  <span *ngIf="selectedTeacher.department">&bull; Dept: <strong>{{ selectedTeacher.department }}</strong></span>
-                </div>
-                <div class="prof-salary-row" *ngIf="currentSalaryInfo">
-                  <span>Current Basic: <strong>₹{{ currentSalaryInfo.basicSalary | number:'1.0-0' }}</strong></span>
-                  <span>&bull; HRA: <strong>₹{{ currentSalaryInfo.hra | number:'1.0-0' }}</strong></span>
-                  <span>&bull; Allowances: <strong>₹{{ currentSalaryInfo.otherAllowances | number:'1.0-0' }}</strong></span>
-                  <span>&bull; Current Gross: <strong class="text-primary">₹{{ currentSalaryInfo.grossSalary | number:'1.0-0' }}</strong></span>
-                </div>
-                <!-- Joining Date & Service Tenure -->
-                <div class="prof-tenure-row" *ngIf="selectedTeacher">
-                  <span>Joining: <strong>{{ (selectedTeacher.joiningDate || selectedTeacher.createdAt) | date:'mediumDate' }}</strong></span>
-                  <span>&bull; Service Tenure: <strong [class.text-amber]="isUnderProbation" [class.text-green]="!isUnderProbation">{{ selectedTeacherTenureDisplay }}</strong></span>
-                  <span *ngIf="isUnderProbation" class="probation-tag">
-                    <mat-icon>hourglass_top</mat-icon> Under Policy Threshold (&lt; {{ policy.minServiceMonthsForIncrement }} Mo)
+                <div class="page-nav-btns">
+                  <button
+                    type="button"
+                    class="page-nav-btn"
+                    [disabled]="currentPage === 1 || loading"
+                    (click)="prevPage()"
+                    matTooltip="Previous Page"
+                    >
+                    <mat-icon>chevron_left</mat-icon>
+                  </button>
+                  <span class="page-counter">
+                    Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong>
                   </span>
-                </div>
-                <div class="prof-salary-missing-row" *ngIf="!currentSalaryInfo">
-                  <mat-icon class="warn-icon">warning_amber</mat-icon>
-                  <span>Salary Structure not configured yet (संरचना नहीं बनी है).</span>
-                  <a [routerLink]="['/teachers/salary']" [queryParams]="{ teacherId: selectedTeacher.id }" target="_blank" class="configure-link">
-                    Define Salary Structure &rarr;
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. Appraisal Operation Mode -->
-            <div class="form-group">
-              <label class="section-label">Select Action Type:</label>
-              <div class="mode-chips">
-                <button
-                  type="button"
-                  class="mode-chip"
-                  [class.active]="formData.type === 'PromotionAndIncrement'"
-                  (click)="setMode('PromotionAndIncrement')"
-                >
-                  <mat-icon>auto_awesome</mat-icon>
-                  <span>Promotion + Salary Increment</span>
-                </button>
-                <button
-                  type="button"
-                  class="mode-chip"
-                  [class.active]="formData.type === 'Increment'"
-                  (click)="setMode('Increment')"
-                >
-                  <mat-icon>payments</mat-icon>
-                  <span>Salary Increment Only</span>
-                </button>
-                <button
-                  type="button"
-                  class="mode-chip"
-                  [class.active]="formData.type === 'Promotion'"
-                  (click)="setMode('Promotion')"
-                >
-                  <mat-icon>trending_up</mat-icon>
-                  <span>Promotion Only (Dry)</span>
-                </button>
-              </div>
-
-              <!-- Probation Policy Advisory & Special Bypass -->
-              <div class="probation-policy-banner" *ngIf="isUnderProbation">
-                <div class="banner-top">
-                  <mat-icon class="banner-icon">info</mat-icon>
-                  <div class="banner-text">
-                    <strong>Tenure Policy Advisory:</strong>
-                    Staff member has completed <strong>{{ selectedTeacherTenureDisplay }}</strong> of service. Institute policy requires minimum <strong>{{ policy.minServiceMonthsForIncrement }} months</strong> for financial increments.
-                    <span *ngIf="policy.enforceDryPromotionInProbation">
-                      <em>"Promotion Only (Dry)"</em> is recommended during initial service duration.
-                    </span>
-                  </div>
-                </div>
-
-                <div class="bypass-box" *ngIf="policy.allowSpecialBypass && canManagePolicy">
-                  <mat-checkbox [(ngModel)]="formData.isSpecialBypass" (ngModelChange)="onBypassToggle()" color="primary">
-                    <span class="bypass-chk-lbl">
-                      <strong>Special Management / HR Approval Bypass (विशेष अनुमोदन)</strong>
-                      <small>Authorize salary increment for staff under probation with approval justification</small>
-                    </span>
-                  </mat-checkbox>
-                  <div class="bypass-reason-wrap" *ngIf="formData.isSpecialBypass">
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Bypass Justification / Approval Authority Note *</mat-label>
-                      <input matInput [(ngModel)]="formData.specialBypassReason" placeholder="e.g. Approved by Director / HR Committee for exceptional performance" />
-                    </mat-form-field>
-                  </div>
+                  <button
+                    type="button"
+                    class="page-nav-btn"
+                    [disabled]="currentPage >= totalPages || loading"
+                    (click)="nextPage()"
+                    matTooltip="Next Page"
+                    >
+                    <mat-icon>chevron_right</mat-icon>
+                  </button>
                 </div>
               </div>
             </div>
-
-            <!-- 3. Promotion Section (If Mode involves Promotion) -->
-            <div class="section-box" *ngIf="formData.type === 'Promotion' || formData.type === 'PromotionAndIncrement'">
-              <div class="sec-title">
-                <mat-icon>badge</mat-icon>
-                <span>New Designation &amp; Department Details</span>
+          }
+        </div>
+      }
+    
+      <!-- Empty State -->
+      @if (!loading && records.length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon-wrap">
+            <mat-icon>military_tech</mat-icon>
+          </div>
+          <h3>No Promotion or Appraisal Records Found</h3>
+          <p>Record employee promotions and salary revisions with zero-gap historical audit tracking.</p>
+          <button mat-raised-button color="primary" class="primary-btn" (click)="openDrawer()">
+            <mat-icon>add_circle</mat-icon>
+            <span>Record First Promotion / Increment</span>
+          </button>
+        </div>
+      }
+    
+      <!-- New Promotion / Appraisal Drawer / Modal -->
+      @if (showDrawer) {
+        <div class="modal-overlay" (click)="closeDrawer()">
+          <div class="modal-card" (click)="$event.stopPropagation()">
+            <!-- Strict Light Blue Header matching AGENTS.md rule -->
+            <div class="modal-header">
+              <div class="header-left">
+                <div class="header-icon-box">
+                  <mat-icon>military_tech</mat-icon>
+                </div>
+                <div class="header-title-box">
+                  <h2 class="modal-title">Record Promotion &amp; Salary Increment</h2>
+                  <p class="modal-subtitle">Official Staff Appraisal, Cadre Upgrade &amp; CTC Revision</p>
+                </div>
               </div>
-              <div class="form-row">
-                <mat-form-field appearance="outline" class="flex-1">
-                  <mat-label>New Designation (पद)</mat-label>
-                  <input matInput [(ngModel)]="formData.newDesignation" placeholder="e.g. Senior PGT / HOD / Vice Principal / HR Manager" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="flex-1">
-                  <mat-label>New Department (विभाग)</mat-label>
+              <button mat-icon-button class="close-btn" (click)="closeDrawer()" matTooltip="Close">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            <div class="modal-body">
+              <!-- 1. Staff Selector with In-Dropdown Search -->
+              <div class="form-group">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Select Faculty / Staff Member</mat-label>
                   <mat-select
-                    [(ngModel)]="formData.newDepartment"
-                    placeholder="Select Department..."
-                    (openedChange)="onDeptSelectOpened($event)"
-                    panelClass="dept-searchable-select-panel"
-                  >
+                    [(ngModel)]="formData.teacherId"
+                    (selectionChange)="onTeacherSelect()"
+                    placeholder="Choose employee..."
+                    (openedChange)="onStaffSelectOpened($event)"
+                    panelClass="staff-searchable-select-panel"
+                    >
                     <mat-select-trigger>
-                      <span>{{ formData.newDepartment }}</span>
+                      @if (selectedTeacher) {
+                        <span>
+                          <strong>{{ selectedTeacher.fullName }}</strong> ({{ selectedTeacher.employeeCode }}) &bull; {{ selectedTeacher.designation || 'Staff' }}
+                        </span>
+                      }
                     </mat-select-trigger>
-
-                    <!-- Search Header inside Department Dropdown -->
+                    <!-- Sticky Search Option inside Dropdown Panel -->
                     <mat-option disabled class="dropdown-search-option">
                       <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                         <mat-icon class="search-box-icon">search</mat-icon>
                         <input
-                          id="dept-dropdown-search-input"
+                          id="staff-dropdown-search-input"
                           type="text"
                           class="search-inner-input"
-                          placeholder="Search or filter department..."
-                          [(ngModel)]="departmentSearchQuery"
-                          (input)="filterDepartments()"
+                          placeholder="Search by name, employee code, role, department..."
+                          [(ngModel)]="staffSearchQuery"
+                          (input)="filterTeachersForSelect()"
                           (click)="$event.stopPropagation()"
                           (mousedown)="$event.stopPropagation()"
                           (keydown)="$event.stopPropagation()"
-                        />
-                        <button
-                          type="button"
-                          class="clear-mini-btn"
-                          *ngIf="departmentSearchQuery"
-                          (click)="clearDeptSearch($event)"
-                          (mousedown)="$event.stopPropagation()"
-                        >
-                          <mat-icon>close</mat-icon>
-                        </button>
+                          />
+                        @if (staffSearchQuery) {
+                          <button
+                            type="button"
+                            class="clear-mini-btn"
+                            (click)="clearStaffSearch($event)"
+                            (mousedown)="$event.stopPropagation()"
+                            >
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                      </div>
+                      <div class="search-meta-bar">
+                        <span>Showing <strong>{{ filteredTeachersForSelect.length }}</strong> of {{ teachers.length }} staff</span>
                       </div>
                     </mat-option>
-
-                    <!-- Option for current department if not in standard list -->
-                    <mat-option *ngIf="formData.newDepartment && !departments.includes(formData.newDepartment)" [value]="formData.newDepartment">
-                      <div class="dept-opt-item">
-                        <mat-icon class="dept-icon">apartment</mat-icon>
-                        <strong>{{ formData.newDepartment }}</strong>
-                        <small style="color: #64748b; margin-left: 6px;">(Current)</small>
-                      </div>
-                    </mat-option>
-
-                    <!-- Dynamic API Departments -->
-                    <mat-option *ngFor="let d of filteredDepartments" [value]="d">
-                      <div class="dept-opt-item">
-                        <mat-icon class="dept-icon">apartment</mat-icon>
-                        <span>{{ d }}</span>
-                      </div>
-                    </mat-option>
-
-                    <mat-option disabled *ngIf="filteredDepartments.length === 0" class="no-results-option">
-                      <div class="no-results-wrap">
-                        <mat-icon>search_off</mat-icon>
-                        <span>No department found matching "{{ departmentSearchQuery }}"</span>
-                      </div>
-                    </mat-option>
+                    <!-- No Results State -->
+                    @if (filteredTeachersForSelect.length === 0) {
+                      <mat-option disabled class="no-results-option">
+                        <div class="no-results-wrap">
+                          <mat-icon>search_off</mat-icon>
+                          <span>No staff found matching "<strong>{{ staffSearchQuery }}</strong>"</span>
+                        </div>
+                      </mat-option>
+                    }
+                    <!-- Filtered Staff Options -->
+                    @for (t of filteredTeachersForSelect; track t) {
+                      <mat-option [value]="t.id" class="staff-option-item">
+                        <div class="staff-option-content">
+                          <div class="staff-opt-title">
+                            <strong>{{ t.fullName }}</strong>
+                            <span class="staff-opt-code">({{ t.employeeCode }})</span>
+                            <span class="staff-opt-type" [class.teaching]="t.staffType === 'Teaching'">{{ t.staffType || 'Staff' }}</span>
+                          </div>
+                          <div class="staff-opt-subtitle">
+                            <span>{{ t.designation || 'Faculty' }}</span>
+                            @if (t.department) {
+                              <span>&bull; {{ t.department }}</span>
+                            }
+                          </div>
+                        </div>
+                      </mat-option>
+                    }
                   </mat-select>
                 </mat-form-field>
               </div>
-              <div class="quick-roles-row">
-                <span class="quick-lbl">Suggestions:</span>
-                <span class="quick-role-chip" *ngFor="let r of roleSuggestions" (click)="formData.newDesignation = r">{{ r }}</span>
-              </div>
-            </div>
-
-            <!-- 4. Salary Increment Section (If Mode involves Increment) -->
-            <div class="section-box" *ngIf="formData.type === 'Increment' || formData.type === 'PromotionAndIncrement'">
-              <div class="sec-title">
-                <mat-icon>currency_rupee</mat-icon>
-                <span>Salary Increment Revision</span>
-              </div>
-
-              <!-- Fast Calculation Tools -->
-              <div class="calc-toolbar">
-                <div class="calc-group">
-                  <label>Percentage Hike (%):</label>
-                  <div class="pct-input-wrap">
-                    <input type="number" [(ngModel)]="hikePercent" (ngModelChange)="applyPercentHike()" placeholder="10" min="0" max="100" />
-                    <span>%</span>
+              <!-- Current Profile Preview Box -->
+              @if (selectedTeacher) {
+                <div class="current-profile-box">
+                  <div class="prof-avatar">
+                    <mat-icon>{{ selectedTeacher.staffType === 'Teaching' ? 'school' : 'badge' }}</mat-icon>
+                  </div>
+                  <div class="prof-details">
+                    <div class="prof-name-row">
+                      <strong>{{ selectedTeacher.fullName }}</strong>
+                      <span class="code-badge">({{ selectedTeacher.employeeCode }})</span>
+                      <span class="type-pill">{{ selectedTeacher.staffType || 'Teaching' }}</span>
+                    </div>
+                    <div class="prof-meta-row">
+                      <span>Current Designation: <strong>{{ selectedTeacher.designation || 'Faculty' }}</strong></span>
+                      @if (selectedTeacher.department) {
+                        <span>&bull; Dept: <strong>{{ selectedTeacher.department }}</strong></span>
+                      }
+                    </div>
+                    @if (currentSalaryInfo) {
+                      <div class="prof-salary-row">
+                        <span>Current Basic: <strong>₹{{ currentSalaryInfo.basicSalary | number:'1.0-0' }}</strong></span>
+                        <span>&bull; HRA: <strong>₹{{ currentSalaryInfo.hra | number:'1.0-0' }}</strong></span>
+                        <span>&bull; Allowances: <strong>₹{{ currentSalaryInfo.otherAllowances | number:'1.0-0' }}</strong></span>
+                        <span>&bull; Current Gross: <strong class="text-primary">₹{{ currentSalaryInfo.grossSalary | number:'1.0-0' }}</strong></span>
+                      </div>
+                    }
+                    <!-- Joining Date & Service Tenure -->
+                    @if (selectedTeacher) {
+                      <div class="prof-tenure-row">
+                        <span>Joining: <strong>{{ (selectedTeacher.joiningDate || selectedTeacher.createdAt) | date:'mediumDate' }}</strong></span>
+                        <span>&bull; Service Tenure: <strong [class.text-amber]="isUnderProbation" [class.text-green]="!isUnderProbation">{{ selectedTeacherTenureDisplay }}</strong></span>
+                        @if (isUnderProbation) {
+                          <span class="probation-tag">
+                            <mat-icon>hourglass_top</mat-icon> Under Policy Threshold (&lt; {{ policy.minServiceMonthsForIncrement }} Mo)
+                          </span>
+                        }
+                      </div>
+                    }
+                    @if (!currentSalaryInfo) {
+                      <div class="prof-salary-missing-row">
+                        <mat-icon class="warn-icon">warning_amber</mat-icon>
+                        <span>Salary Structure not configured yet (संरचना नहीं बनी है).</span>
+                        <a [routerLink]="['/teachers/salary']" [queryParams]="{ teacherId: selectedTeacher.id }" target="_blank" class="configure-link">
+                          Define Salary Structure &rarr;
+                        </a>
+                      </div>
+                    }
                   </div>
                 </div>
-                <div class="quick-pct-chips">
-                  <button type="button" (click)="hikePercent = 5; applyPercentHike()">+5%</button>
-                  <button type="button" (click)="hikePercent = 10; applyPercentHike()">+10%</button>
-                  <button type="button" (click)="hikePercent = 15; applyPercentHike()">+15%</button>
-                  <button type="button" (click)="hikePercent = 20; applyPercentHike()">+20%</button>
-                </div>
-              </div>
-
-              <div class="form-row three-cols">
-                <mat-form-field appearance="outline" class="flex-1">
-                  <mat-label>New Basic Salary (₹)</mat-label>
-                  <input matInput type="number" [(ngModel)]="formData.newBasicSalary" (ngModelChange)="recalcGross()" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="flex-1">
-                  <mat-label>New HRA (₹)</mat-label>
-                  <input matInput type="number" [(ngModel)]="formData.newHRA" (ngModelChange)="recalcGross()" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="flex-1">
-                  <mat-label>New Other Allowances (₹)</mat-label>
-                  <input matInput type="number" [(ngModel)]="formData.newOtherAllowances" (ngModelChange)="recalcGross()" />
-                </mat-form-field>
-              </div>
-
-              <!-- Live Comparison Card -->
-              <div class="live-comparison-card">
-                <div class="comp-col">
-                  <span class="comp-lbl">Current Gross CTC:</span>
-                  <strong class="comp-val">₹{{ currentOldGross | number:'1.0-0' }}</strong>
-                </div>
-                <mat-icon class="comp-arrow">arrow_forward</mat-icon>
-                <div class="comp-col">
-                  <span class="comp-lbl">Revised Gross CTC:</span>
-                  <strong class="comp-val new">₹{{ currentNewGross | number:'1.0-0' }}</strong>
-                </div>
-                <div class="comp-delta" *ngIf="currentNewGross > currentOldGross">
-                  <span class="delta-amt">+₹{{ (currentNewGross - currentOldGross) | number:'1.0-0' }} / mo</span>
-                  <span class="delta-pct">(+{{ computedHikePct }}% Hike)</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 5. Effective Date & Dynamic Reason / Cycle -->
-            <div class="form-row">
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Effective Date (लागू होने की तिथि)</mat-label>
-                <input matInput type="date" [(ngModel)]="effectiveDateStr" (ngModelChange)="calcTeacherTenure()" />
-                <mat-hint>Date from which new designation and salary takes effect</mat-hint>
-              </mat-form-field>
-
-              <div class="flex-1 cycle-input-wrap">
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Appraisal Cycle / Reason</mat-label>
-                  <input matInput [(ngModel)]="formData.reason" placeholder="Type cycle name or choose from suggestions..." />
-                  <button *ngIf="formData.reason" matSuffix mat-icon-button type="button" (click)="formData.reason = ''" matTooltip="Clear">
-                    <mat-icon>close</mat-icon>
+              }
+              <!-- 2. Appraisal Operation Mode -->
+              <div class="form-group">
+                <label class="section-label">Select Action Type:</label>
+                <div class="mode-chips">
+                  <button
+                    type="button"
+                    class="mode-chip"
+                    [class.active]="formData.type === 'PromotionAndIncrement'"
+                    (click)="setMode('PromotionAndIncrement')"
+                    >
+                    <mat-icon>auto_awesome</mat-icon>
+                    <span>Promotion + Salary Increment</span>
                   </button>
-                  <mat-hint>Dynamic cycle name set from UI</mat-hint>
+                  <button
+                    type="button"
+                    class="mode-chip"
+                    [class.active]="formData.type === 'Increment'"
+                    (click)="setMode('Increment')"
+                    >
+                    <mat-icon>payments</mat-icon>
+                    <span>Salary Increment Only</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="mode-chip"
+                    [class.active]="formData.type === 'Promotion'"
+                    (click)="setMode('Promotion')"
+                    >
+                    <mat-icon>trending_up</mat-icon>
+                    <span>Promotion Only (Dry)</span>
+                  </button>
+                </div>
+                <!-- Probation Policy Advisory & Special Bypass -->
+                @if (isUnderProbation) {
+                  <div class="probation-policy-banner">
+                    <div class="banner-top">
+                      <mat-icon class="banner-icon">info</mat-icon>
+                      <div class="banner-text">
+                        <strong>Tenure Policy Advisory:</strong>
+                        Staff member has completed <strong>{{ selectedTeacherTenureDisplay }}</strong> of service. Institute policy requires minimum <strong>{{ policy.minServiceMonthsForIncrement }} months</strong> for financial increments.
+                        @if (policy.enforceDryPromotionInProbation) {
+                          <span>
+                            <em>"Promotion Only (Dry)"</em> is recommended during initial service duration.
+                          </span>
+                        }
+                      </div>
+                    </div>
+                    @if (policy.allowSpecialBypass && canManagePolicy) {
+                      <div class="bypass-box">
+                        <mat-checkbox [(ngModel)]="formData.isSpecialBypass" (ngModelChange)="onBypassToggle()" color="primary">
+                          <span class="bypass-chk-lbl">
+                            <strong>Special Management / HR Approval Bypass (विशेष अनुमोदन)</strong>
+                            <small>Authorize salary increment for staff under probation with approval justification</small>
+                          </span>
+                        </mat-checkbox>
+                        @if (formData.isSpecialBypass) {
+                          <div class="bypass-reason-wrap">
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>Bypass Justification / Approval Authority Note *</mat-label>
+                              <input matInput [(ngModel)]="formData.specialBypassReason" placeholder="e.g. Approved by Director / HR Committee for exceptional performance" />
+                            </mat-form-field>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              <!-- 3. Promotion Section (If Mode involves Promotion) -->
+              @if (formData.type === 'Promotion' || formData.type === 'PromotionAndIncrement') {
+                <div class="section-box">
+                  <div class="sec-title">
+                    <mat-icon>badge</mat-icon>
+                    <span>New Designation &amp; Department Details</span>
+                  </div>
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="flex-1">
+                      <mat-label>New Designation (पद)</mat-label>
+                      <input matInput [(ngModel)]="formData.newDesignation" placeholder="e.g. Senior PGT / HOD / Vice Principal / HR Manager" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="flex-1">
+                      <mat-label>New Department (विभाग)</mat-label>
+                      <mat-select
+                        [(ngModel)]="formData.newDepartment"
+                        placeholder="Select Department..."
+                        (openedChange)="onDeptSelectOpened($event)"
+                        panelClass="dept-searchable-select-panel"
+                        >
+                        <mat-select-trigger>
+                          <span>{{ formData.newDepartment }}</span>
+                        </mat-select-trigger>
+                        <!-- Search Header inside Department Dropdown -->
+                        <mat-option disabled class="dropdown-search-option">
+                          <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                            <mat-icon class="search-box-icon">search</mat-icon>
+                            <input
+                              id="dept-dropdown-search-input"
+                              type="text"
+                              class="search-inner-input"
+                              placeholder="Search or filter department..."
+                              [(ngModel)]="departmentSearchQuery"
+                              (input)="filterDepartments()"
+                              (click)="$event.stopPropagation()"
+                              (mousedown)="$event.stopPropagation()"
+                              (keydown)="$event.stopPropagation()"
+                              />
+                            @if (departmentSearchQuery) {
+                              <button
+                                type="button"
+                                class="clear-mini-btn"
+                                (click)="clearDeptSearch($event)"
+                                (mousedown)="$event.stopPropagation()"
+                                >
+                                <mat-icon>close</mat-icon>
+                              </button>
+                            }
+                          </div>
+                        </mat-option>
+                        <!-- Option for current department if not in standard list -->
+                        @if (formData.newDepartment && !departments.includes(formData.newDepartment)) {
+                          <mat-option [value]="formData.newDepartment">
+                            <div class="dept-opt-item">
+                              <mat-icon class="dept-icon">apartment</mat-icon>
+                              <strong>{{ formData.newDepartment }}</strong>
+                              <small style="color: #64748b; margin-left: 6px;">(Current)</small>
+                            </div>
+                          </mat-option>
+                        }
+                        <!-- Dynamic API Departments -->
+                        @for (d of filteredDepartments; track d) {
+                          <mat-option [value]="d">
+                            <div class="dept-opt-item">
+                              <mat-icon class="dept-icon">apartment</mat-icon>
+                              <span>{{ d }}</span>
+                            </div>
+                          </mat-option>
+                        }
+                        @if (filteredDepartments.length === 0) {
+                          <mat-option disabled class="no-results-option">
+                            <div class="no-results-wrap">
+                              <mat-icon>search_off</mat-icon>
+                              <span>No department found matching "{{ departmentSearchQuery }}"</span>
+                            </div>
+                          </mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                  <div class="quick-roles-row">
+                    <span class="quick-lbl">Suggestions:</span>
+                    @for (r of roleSuggestions; track r) {
+                      <span class="quick-role-chip" (click)="formData.newDesignation = r">{{ r }}</span>
+                    }
+                  </div>
+                </div>
+              }
+              <!-- 4. Salary Increment Section (If Mode involves Increment) -->
+              @if (formData.type === 'Increment' || formData.type === 'PromotionAndIncrement') {
+                <div class="section-box">
+                  <div class="sec-title">
+                    <mat-icon>currency_rupee</mat-icon>
+                    <span>Salary Increment Revision</span>
+                  </div>
+                  <!-- Fast Calculation Tools -->
+                  <div class="calc-toolbar">
+                    <div class="calc-group">
+                      <label>Percentage Hike (%):</label>
+                      <div class="pct-input-wrap">
+                        <input type="number" [(ngModel)]="hikePercent" (ngModelChange)="applyPercentHike()" placeholder="10" min="0" max="100" />
+                        <span>%</span>
+                      </div>
+                    </div>
+                    <div class="quick-pct-chips">
+                      <button type="button" (click)="hikePercent = 5; applyPercentHike()">+5%</button>
+                      <button type="button" (click)="hikePercent = 10; applyPercentHike()">+10%</button>
+                      <button type="button" (click)="hikePercent = 15; applyPercentHike()">+15%</button>
+                      <button type="button" (click)="hikePercent = 20; applyPercentHike()">+20%</button>
+                    </div>
+                  </div>
+                  <div class="form-row three-cols">
+                    <mat-form-field appearance="outline" class="flex-1">
+                      <mat-label>New Basic Salary (₹)</mat-label>
+                      <input matInput type="number" [(ngModel)]="formData.newBasicSalary" (ngModelChange)="recalcGross()" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="flex-1">
+                      <mat-label>New HRA (₹)</mat-label>
+                      <input matInput type="number" [(ngModel)]="formData.newHRA" (ngModelChange)="recalcGross()" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="flex-1">
+                      <mat-label>New Other Allowances (₹)</mat-label>
+                      <input matInput type="number" [(ngModel)]="formData.newOtherAllowances" (ngModelChange)="recalcGross()" />
+                    </mat-form-field>
+                  </div>
+                  <!-- Live Comparison Card -->
+                  <div class="live-comparison-card">
+                    <div class="comp-col">
+                      <span class="comp-lbl">Current Gross CTC:</span>
+                      <strong class="comp-val">₹{{ currentOldGross | number:'1.0-0' }}</strong>
+                    </div>
+                    <mat-icon class="comp-arrow">arrow_forward</mat-icon>
+                    <div class="comp-col">
+                      <span class="comp-lbl">Revised Gross CTC:</span>
+                      <strong class="comp-val new">₹{{ currentNewGross | number:'1.0-0' }}</strong>
+                    </div>
+                    @if (currentNewGross > currentOldGross) {
+                      <div class="comp-delta">
+                        <span class="delta-amt">+₹{{ (currentNewGross - currentOldGross) | number:'1.0-0' }} / mo</span>
+                        <span class="delta-pct">(+{{ computedHikePct }}% Hike)</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+              <!-- 5. Effective Date & Dynamic Reason / Cycle -->
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Effective Date (लागू होने की तिथि)</mat-label>
+                  <input matInput type="date" [(ngModel)]="effectiveDateStr" (ngModelChange)="calcTeacherTenure()" />
+                  <mat-hint>Date from which new designation and salary takes effect</mat-hint>
                 </mat-form-field>
-                <div class="quick-roles-row" *ngIf="availableCycles.length > 0">
-                  <span class="quick-lbl">Suggestions:</span>
-                  <span
-                    class="quick-role-chip"
-                    *ngFor="let c of availableCycles"
-                    (click)="formData.reason = c"
-                    [class.selected]="formData.reason === c"
-                  >
-                    {{ c }}
-                  </span>
+                <div class="flex-1 cycle-input-wrap">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Appraisal Cycle / Reason</mat-label>
+                    <input matInput [(ngModel)]="formData.reason" placeholder="Type cycle name or choose from suggestions..." />
+                    @if (formData.reason) {
+                      <button matSuffix mat-icon-button type="button" (click)="formData.reason = ''" matTooltip="Clear">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
+                    <mat-hint>Dynamic cycle name set from UI</mat-hint>
+                  </mat-form-field>
+                  @if (availableCycles.length > 0) {
+                    <div class="quick-roles-row">
+                      <span class="quick-lbl">Suggestions:</span>
+                      @for (c of availableCycles; track c) {
+                        <span
+                          class="quick-role-chip"
+                          (click)="formData.reason = c"
+                          [class.selected]="formData.reason === c"
+                          >
+                          {{ c }}
+                        </span>
+                      }
+                    </div>
+                  }
                 </div>
               </div>
-            </div>
-
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Appraisal Remarks / Notes (टिप्पणी)</mat-label>
-              <textarea matInput [(ngModel)]="formData.remarks" rows="2" placeholder="Management notes, approval reference, or appraisal committee remarks..."></textarea>
-            </mat-form-field>
-          </div>
-
-          <div class="modal-footer">
-            <button mat-button class="btn-cancel" (click)="closeDrawer()" [disabled]="submitting">Cancel</button>
-            <button mat-flat-button color="primary" class="btn-save" (click)="savePromotion()" [disabled]="submitting || !formData.teacherId">
-              <mat-icon>{{ submitting ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
-              <span>{{ submitting ? 'Processing...' : 'Approve & Save Appraisal' }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bulk Annual Increment Modal -->
-      <div class="modal-overlay" *ngIf="showBulkModal" (click)="closeBulkModal()">
-        <div class="modal-card bulk-card" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <div class="header-left">
-              <div class="header-icon-box">
-                <mat-icon>auto_graph</mat-icon>
-              </div>
-              <div class="header-title-box">
-                <h2 class="modal-title">Bulk Annual Salary Increment</h2>
-                <p class="modal-subtitle">Apply mass percentage or flat increment across department/grade</p>
-              </div>
-            </div>
-            <button mat-icon-button class="close-btn" (click)="closeBulkModal()">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <div class="modal-body">
-            <div class="bulk-info-note">
-              <mat-icon>info</mat-icon>
-              <span>This tool applies salary increments to all active staff in the selected group. Historical logs and salary structures will be updated automatically.</span>
-            </div>
-
-            <div class="form-row">
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Target Staff Category</mat-label>
-                <mat-select [(ngModel)]="bulkData.staffType">
-                  <mat-option value="All">All Staff Members</mat-option>
-                  <mat-option value="Teaching">Teaching Faculty Only</mat-option>
-                  <mat-option value="NonTeaching">Non-Teaching Staff Only</mat-option>
-                  <mat-option value="Administrative">Administrative Staff</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Increment Type</mat-label>
-                <mat-select [(ngModel)]="bulkData.incrementType">
-                  <mat-option value="Percentage">Percentage (%) Hike</mat-option>
-                  <mat-option value="FixedAmount">Flat Fixed Amount (+₹)</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-
-            <div class="form-row">
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>{{ bulkData.incrementType === 'Percentage' ? 'Hike Percentage (%)' : 'Flat Amount (₹)' }}</mat-label>
-                <input matInput type="number" [(ngModel)]="bulkData.incrementValue" placeholder="e.g. 10" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Effective Date</mat-label>
-                <input matInput type="date" [(ngModel)]="bulkEffectiveDateStr" />
-              </mat-form-field>
-            </div>
-
-            <div class="form-group full-width cycle-input-wrap">
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Appraisal Cycle / Reason Description</mat-label>
-                <input matInput [(ngModel)]="bulkData.reason" placeholder="Type cycle name or choose from suggestions..." />
-                <button *ngIf="bulkData.reason" matSuffix mat-icon-button type="button" (click)="bulkData.reason = ''" matTooltip="Clear">
-                  <mat-icon>close</mat-icon>
-                </button>
-                <mat-hint>Dynamic cycle name recorded in audit log for all staff</mat-hint>
+                <mat-label>Appraisal Remarks / Notes (टिप्पणी)</mat-label>
+                <textarea matInput [(ngModel)]="formData.remarks" rows="2" placeholder="Management notes, approval reference, or appraisal committee remarks..."></textarea>
               </mat-form-field>
-              <div class="quick-roles-row" *ngIf="availableCycles.length > 0">
-                <span class="quick-lbl">Suggestions:</span>
-                <span
-                  class="quick-role-chip"
-                  *ngFor="let c of availableCycles"
-                  (click)="bulkData.reason = c"
-                  [class.selected]="bulkData.reason === c"
-                >
-                  {{ c }}
-                </span>
-              </div>
             </div>
-          </div>
-
-          <div class="modal-footer">
-            <button mat-button class="btn-cancel" (click)="closeBulkModal()" [disabled]="submitting">Cancel</button>
-            <button mat-flat-button color="primary" class="btn-save" (click)="executeBulkIncrement()" [disabled]="submitting || !bulkData.incrementValue">
-              <mat-icon>{{ submitting ? 'hourglass_empty' : 'bolt' }}</mat-icon>
-              <span>{{ submitting ? 'Applying...' : 'Apply Bulk Increment' }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Appraisal Letter Preview & Print Modal -->
-      <div class="modal-overlay" *ngIf="showLetterModal" (click)="showLetterModal = false">
-        <div class="modal-card letter-modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <div class="header-left">
-              <div class="header-icon-box">
-                <mat-icon>description</mat-icon>
-              </div>
-              <div class="header-title-box">
-                <h2 class="modal-title">Official Appraisal &amp; Promotion Letter</h2>
-                <p class="modal-subtitle">Official Institute Letterhead Format</p>
-              </div>
-            </div>
-            <button mat-icon-button class="close-btn" (click)="showLetterModal = false">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <div class="letter-print-body" *ngIf="selectedRecordForLetter" id="printable-appraisal-letter">
-            <div class="letter-header">
-              <div class="institute-brand">
-                <mat-icon class="brand-icon">school</mat-icon>
-                <div>
-                  <h3 class="inst-name">JNANDEEP CAMPUS</h3>
-                  <p class="inst-sub">Enterprise Coaching &amp; School Education ERP</p>
-                </div>
-              </div>
-              <div class="letter-ref-box">
-                <span>Ref: <strong>JC/HR/APR/{{ selectedRecordForLetter.id.substring(0, 8).toUpperCase() }}</strong></span>
-                <span>Date: <strong>{{ selectedRecordForLetter.createdAt | date:'dd MMM yyyy' }}</strong></span>
-              </div>
-            </div>
-
-            <hr class="letter-divider" />
-
-            <div class="recipient-box">
-              <p>To,</p>
-              <h4>{{ selectedRecordForLetter.teacherName }}</h4>
-              <p>Employee Code: <strong>{{ selectedRecordForLetter.employeeCode }}</strong></p>
-              <p>Department: <strong>{{ selectedRecordForLetter.newDepartment || selectedRecordForLetter.oldDepartment || 'Academic' }}</strong></p>
-            </div>
-
-            <div class="letter-subject">
-              <strong>SUBJECT: {{ selectedRecordForLetter.type === 'Promotion' ? 'LETTER OF PROMOTION' : 'OFFICIAL APPRAISAL & SALARY REVISION ADVICE' }}</strong>
-            </div>
-
-            <div class="letter-narrative">
-              <p>Dear <strong>{{ selectedRecordForLetter.teacherName }}</strong>,</p>
-              <p>
-                The Management and Academic Directorate are pleased to recognize your contributions, dedication, and service towards the institution. In accordance with your recent performance review, we are delighted to convey the following official revision effective from <strong>{{ selectedRecordForLetter.effectiveDate | date:'dd MMMM yyyy' }}</strong>:
-              </p>
-            </div>
-
-            <table class="letter-breakup-table">
-              <thead>
-                <tr>
-                  <th>Particulars</th>
-                  <th>Existing (Previous)</th>
-                  <th>Revised (Approved)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Designation / Cadre</strong></td>
-                  <td>{{ selectedRecordForLetter.oldDesignation }}</td>
-                  <td><strong class="text-primary">{{ selectedRecordForLetter.newDesignation }}</strong></td>
-                </tr>
-                <tr *ngIf="selectedRecordForLetter.newGrossSalary > 0">
-                  <td><strong>Basic Salary</strong></td>
-                  <td>₹{{ selectedRecordForLetter.oldBasicSalary | number:'1.2-2' }}</td>
-                  <td><strong>₹{{ selectedRecordForLetter.newBasicSalary | number:'1.2-2' }}</strong></td>
-                </tr>
-                <tr *ngIf="selectedRecordForLetter.newGrossSalary > 0">
-                  <td><strong>House Rent Allowance (HRA)</strong></td>
-                  <td>₹{{ selectedRecordForLetter.oldHRA | number:'1.2-2' }}</td>
-                  <td><strong>₹{{ selectedRecordForLetter.newHRA | number:'1.2-2' }}</strong></td>
-                </tr>
-                <tr *ngIf="selectedRecordForLetter.newGrossSalary > 0">
-                  <td><strong>Special / Other Allowances</strong></td>
-                  <td>₹{{ selectedRecordForLetter.oldOtherAllowances | number:'1.2-2' }}</td>
-                  <td><strong>₹{{ selectedRecordForLetter.newOtherAllowances | number:'1.2-2' }}</strong></td>
-                </tr>
-                <tr class="gross-row" *ngIf="selectedRecordForLetter.newGrossSalary > 0">
-                  <td><strong>TOTAL GROSS CTC (Monthly)</strong></td>
-                  <td>₹{{ selectedRecordForLetter.oldGrossSalary | number:'1.2-2' }}</td>
-                  <td><strong class="text-success">₹{{ selectedRecordForLetter.newGrossSalary | number:'1.2-2' }}</strong></td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div class="letter-footer-note">
-              <p>All other service conditions, confidentiality agreements, and code of conduct remain in force. We look forward to your continued excellence in guiding our students towards academic success.</p>
-            </div>
-
-            <div class="sign-block">
-              <div class="sign-box">
-                <div class="sign-line"></div>
-                <strong>Director / Principal</strong>
-                <p>Authorized Signatory</p>
-              </div>
-              <div class="sign-box text-right">
-                <div class="sign-line"></div>
-                <strong>Employee Acknowledgment</strong>
-                <p>Signature &amp; Date</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button mat-button class="btn-cancel" (click)="showLetterModal = false">Close</button>
-            <button mat-flat-button color="primary" class="btn-save" (click)="printLetter()">
-              <mat-icon>print</mat-icon>
-              <span>Print Official Letter</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Staff Appraisal Policy Configuration Modal (Admin & HR) -->
-      <div class="modal-overlay" *ngIf="showPolicyModal" (click)="closePolicyModal()">
-        <div class="modal-card policy-card" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <div class="header-left">
-              <div class="header-icon-box">
-                <mat-icon>tune</mat-icon>
-              </div>
-              <div class="header-title-box">
-                <h2 class="modal-title">Staff Appraisal &amp; Promotion Policy Rules</h2>
-                <p class="modal-subtitle">Dynamic institute tenure guidelines (संस्थान पदोन्नति एवं वेतन वृद्धि नीति)</p>
-              </div>
-            </div>
-            <button mat-icon-button class="close-btn" (click)="closePolicyModal()">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <div class="modal-body">
-            <div class="policy-info-box">
-              <mat-icon>gavel</mat-icon>
-              <div>
-                <strong>Central Institute Appraisal Policy</strong>
-                <p>This dynamic policy is shared by SuperAdmin, InstituteAdmin, and HR. All staff appraisal workflows automatically validate against these parameters.</p>
-              </div>
-            </div>
-
-            <div class="policy-setting-row">
-              <div class="setting-info">
-                <label class="setting-title">Minimum Service Tenure for Salary Increment</label>
-                <p class="setting-desc">Minimum continuous months of service required before staff qualifies for financial salary revision (e.g. 12 months = 1 Year).</p>
-              </div>
-              <div class="setting-input-wrap">
-                <input type="number" min="0" max="60" [(ngModel)]="policy.minServiceMonthsForIncrement" class="policy-num-input" />
-                <span class="unit-lbl">Months (माह)</span>
-              </div>
-            </div>
-
-            <div class="policy-setting-row">
-              <div class="setting-info">
-                <label class="setting-title">Enforce "Dry Promotion" During Initial Tenure</label>
-                <p class="setting-desc">When staff has not completed minimum tenure, require rank/cadre upgrade only without immediate salary hike.</p>
-              </div>
-              <div class="setting-control">
-                <mat-slide-toggle [(ngModel)]="policy.enforceDryPromotionInProbation" color="primary"></mat-slide-toggle>
-              </div>
-            </div>
-
-            <div class="policy-setting-row">
-              <div class="setting-info">
-                <label class="setting-title">Allow Special Management / HR Approval Bypass</label>
-                <p class="setting-desc">Permit Admin &amp; HR to grant out-of-turn financial increments with an official approval reason/justification.</p>
-              </div>
-              <div class="setting-control">
-                <mat-slide-toggle [(ngModel)]="policy.allowSpecialBypass" color="primary"></mat-slide-toggle>
-              </div>
-            </div>
-
-            <div class="policy-roles-chip-box">
-              <span class="chip-lbl">Authorized Roles:</span>
-              <span class="role-badge">SuperAdmin</span>
-              <span class="role-badge">InstituteAdmin</span>
-              <span class="role-badge">HR Manager</span>
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button mat-button class="btn-cancel" (click)="closePolicyModal()" [disabled]="savingPolicy">Cancel</button>
-            <button mat-flat-button color="primary" class="btn-save" (click)="savePolicy()" [disabled]="savingPolicy">
-              <mat-icon>{{ savingPolicy ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
-              <span>{{ savingPolicy ? 'Saving Rules...' : 'Save & Update Policy' }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Smart Slide-Over Detail Drawer -->
-      <div class="drawer-overlay" *ngIf="showDetailDrawer" (click)="closeDetailDrawer()">
-        <aside class="detail-drawer" (click)="$event.stopPropagation()">
-          <!-- Header with Strict Light Blue Gradient matching AGENTS.md rule -->
-          <div class="drawer-header">
-            <div class="header-left">
-              <div class="header-icon-box">
-                <mat-icon>military_tech</mat-icon>
-              </div>
-              <div class="header-title-box">
-                <h2 class="drawer-title">Staff Appraisal Record</h2>
-                <p class="drawer-subtitle">
-                  Ref: <strong>JC-APR-{{ selectedRecordForDetails?.id?.substring(0, 8)?.toUpperCase() }}</strong>
-                </p>
-              </div>
-            </div>
-            <button mat-icon-button class="close-btn" (click)="closeDetailDrawer()" matTooltip="Close">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <div class="drawer-body" *ngIf="selectedRecordForDetails">
-            <!-- Staff Summary Card -->
-            <div class="drawer-card staff-summary">
-              <div class="staff-avatar-large">
-                <img
-                  *ngIf="getStaffPhoto(selectedRecordForDetails) && !imgErrors[selectedRecordForDetails.teacherId]"
-                  [src]="getStaffPhoto(selectedRecordForDetails)"
-                  (error)="imgErrors[selectedRecordForDetails.teacherId] = true"
-                  class="staff-photo-img"
-                  [alt]="selectedRecordForDetails.teacherName"
-                />
-                <div *ngIf="!getStaffPhoto(selectedRecordForDetails) || imgErrors[selectedRecordForDetails.teacherId]" class="staff-initials-avatar">
-                  {{ getInitials(selectedRecordForDetails.teacherName) }}
-                </div>
-              </div>
-              <div class="staff-meta-details">
-                <div class="staff-title-row">
-                  <h3 class="staff-name">{{ selectedRecordForDetails.teacherName }}</h3>
-                  <span class="code-badge">{{ selectedRecordForDetails.employeeCode }}</span>
-                  <span class="type-pill" [class.teaching]="selectedRecordForDetails.staffType === 'Teaching'">
-                    {{ selectedRecordForDetails.staffType }}
-                  </span>
-                </div>
-                <div class="staff-dept-row">
-                  <span>Department: <strong>{{ selectedRecordForDetails.newDepartment || selectedRecordForDetails.oldDepartment || 'Academic' }}</strong></span>
-                </div>
-                <div class="appraisal-type-pill-wrap">
-                  <span class="type-badge" [ngClass]="getTypeBadgeClass(selectedRecordForDetails.type)">
-                    {{ getTypeText(selectedRecordForDetails.type) }}
-                  </span>
-                  <span class="cycle-pill">{{ selectedRecordForDetails.reason || 'Appraisal Cycle' }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Designation Progression Tile -->
-            <div class="drawer-card">
-              <div class="card-section-title">
-                <mat-icon>badge</mat-icon>
-                <span>Designation Progression</span>
-              </div>
-              <div class="progression-box">
-                <div class="prog-col">
-                  <span class="prog-lbl">Previous Cadre</span>
-                  <strong class="prog-val old">{{ selectedRecordForDetails.oldDesignation || 'N/A' }}</strong>
-                </div>
-                <div class="prog-arrow-wrap">
-                  <mat-icon>arrow_forward</mat-icon>
-                </div>
-                <div class="prog-col">
-                  <span class="prog-lbl">Revised Cadre</span>
-                  <strong class="prog-val new">{{ selectedRecordForDetails.newDesignation }}</strong>
-                </div>
-              </div>
-            </div>
-
-            <!-- Salary Structure CTC Revision Breakdown -->
-            <div class="drawer-card" *ngIf="selectedRecordForDetails.newGrossSalary > 0">
-              <div class="card-section-title">
-                <mat-icon>payments</mat-icon>
-                <span>Salary CTC Revision Breakdown</span>
-              </div>
-
-              <div class="salary-hike-banner" *ngIf="selectedRecordForDetails.newGrossSalary > selectedRecordForDetails.oldGrossSalary">
-                <div class="hike-stat">
-                  <span class="hike-lbl">Gross Monthly Hike</span>
-                  <strong class="hike-val">+₹{{ (selectedRecordForDetails.newGrossSalary - selectedRecordForDetails.oldGrossSalary) | number:'1.0-0' }}</strong>
-                </div>
-                <div class="hike-pct-badge">
-                  +{{ selectedRecordForDetails.incrementPercentage }}% Hike
-                </div>
-              </div>
-
-              <div class="drawer-breakdown-table">
-                <div class="b-row header">
-                  <span>Component</span>
-                  <span class="text-right">Previous</span>
-                  <span class="text-right">Revised</span>
-                </div>
-                <div class="b-row">
-                  <span>Basic Salary</span>
-                  <span class="text-right old">₹{{ selectedRecordForDetails.oldBasicSalary | number:'1.0-0' }}</span>
-                  <span class="text-right new">₹{{ selectedRecordForDetails.newBasicSalary | number:'1.0-0' }}</span>
-                </div>
-                <div class="b-row">
-                  <span>HRA</span>
-                  <span class="text-right old">₹{{ selectedRecordForDetails.oldHRA | number:'1.0-0' }}</span>
-                  <span class="text-right new">₹{{ selectedRecordForDetails.newHRA | number:'1.0-0' }}</span>
-                </div>
-                <div class="b-row">
-                  <span>Other / Special Allowances</span>
-                  <span class="text-right old">₹{{ selectedRecordForDetails.oldOtherAllowances | number:'1.0-0' }}</span>
-                  <span class="text-right new">₹{{ selectedRecordForDetails.newOtherAllowances | number:'1.0-0' }}</span>
-                </div>
-                <div class="b-row total">
-                  <strong>Total Monthly Gross CTC</strong>
-                  <strong class="text-right old">₹{{ selectedRecordForDetails.oldGrossSalary | number:'1.0-0' }}</strong>
-                  <strong class="text-right total-new">₹{{ selectedRecordForDetails.newGrossSalary | number:'1.0-0' }}</strong>
-                </div>
-              </div>
-            </div>
-
-            <!-- Audit & Timeline Details -->
-            <div class="drawer-card">
-              <div class="card-section-title">
-                <mat-icon>history</mat-icon>
-                <span>Audit &amp; Timeline Details</span>
-              </div>
-              <div class="audit-list">
-                <div class="audit-item">
-                  <span class="audit-lbl">Effective Date:</span>
-                  <div class="audit-val">
-                    <strong>{{ selectedRecordForDetails.effectiveDate | date:'dd MMMM yyyy' }}</strong>
-                    <small>(Indian Standard Time)</small>
-                  </div>
-                </div>
-                <div class="audit-item">
-                  <span class="audit-lbl">Recorded On:</span>
-                  <div class="audit-val">
-                    <span>{{ selectedRecordForDetails.createdAt | date:'dd MMM yyyy, hh:mm a' }}</span>
-                  </div>
-                </div>
-                <div class="audit-item" *ngIf="selectedRecordForDetails.remarks">
-                  <span class="audit-lbl">Notes / Remarks:</span>
-                  <div class="audit-val notes">
-                    <span>{{ selectedRecordForDetails.remarks }}</span>
-                  </div>
-                </div>
-                <div class="audit-item bypass-notice" *ngIf="selectedRecordForDetails.isSpecialBypass">
-                  <mat-icon class="shield-icon">verified_user</mat-icon>
-                  <div>
-                    <strong>Management Approval Bypass Authorized</strong>
-                    <p>{{ selectedRecordForDetails.specialBypassReason || 'Approved by HR Committee' }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="drawer-footer" *ngIf="selectedRecordForDetails">
-            <button mat-stroked-button color="warn" (click)="deleteRecord(selectedRecordForDetails); closeDetailDrawer()">
-              <mat-icon>delete_outline</mat-icon>
-              <span>Delete</span>
-            </button>
-            <div class="footer-right">
-              <button mat-stroked-button (click)="closeDetailDrawer()">Close</button>
-              <button mat-flat-button color="primary" (click)="viewLetter(selectedRecordForDetails)">
-                <mat-icon>description</mat-icon>
-                <span>Official Letter</span>
+            <div class="modal-footer">
+              <button mat-button class="btn-cancel" (click)="closeDrawer()" [disabled]="submitting">Cancel</button>
+              <button mat-flat-button color="primary" class="btn-save" (click)="savePromotion()" [disabled]="submitting || !formData.teacherId">
+                <mat-icon>{{ submitting ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+                <span>{{ submitting ? 'Processing...' : 'Approve & Save Appraisal' }}</span>
               </button>
             </div>
           </div>
-        </aside>
-      </div>
+        </div>
+      }
+    
+      <!-- Bulk Annual Increment Modal -->
+      @if (showBulkModal) {
+        <div class="modal-overlay" (click)="closeBulkModal()">
+          <div class="modal-card bulk-card" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <div class="header-left">
+                <div class="header-icon-box">
+                  <mat-icon>auto_graph</mat-icon>
+                </div>
+                <div class="header-title-box">
+                  <h2 class="modal-title">Bulk Annual Salary Increment</h2>
+                  <p class="modal-subtitle">Apply mass percentage or flat increment across department/grade</p>
+                </div>
+              </div>
+              <button mat-icon-button class="close-btn" (click)="closeBulkModal()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="bulk-info-note">
+                <mat-icon>info</mat-icon>
+                <span>This tool applies salary increments to all active staff in the selected group. Historical logs and salary structures will be updated automatically.</span>
+              </div>
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Target Staff Category</mat-label>
+                  <mat-select [(ngModel)]="bulkData.staffType">
+                    <mat-option value="All">All Staff Members</mat-option>
+                    <mat-option value="Teaching">Teaching Faculty Only</mat-option>
+                    <mat-option value="NonTeaching">Non-Teaching Staff Only</mat-option>
+                    <mat-option value="Administrative">Administrative Staff</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Increment Type</mat-label>
+                  <mat-select [(ngModel)]="bulkData.incrementType">
+                    <mat-option value="Percentage">Percentage (%) Hike</mat-option>
+                    <mat-option value="FixedAmount">Flat Fixed Amount (+₹)</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>{{ bulkData.incrementType === 'Percentage' ? 'Hike Percentage (%)' : 'Flat Amount (₹)' }}</mat-label>
+                  <input matInput type="number" [(ngModel)]="bulkData.incrementValue" placeholder="e.g. 10" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Effective Date</mat-label>
+                  <input matInput type="date" [(ngModel)]="bulkEffectiveDateStr" />
+                </mat-form-field>
+              </div>
+              <div class="form-group full-width cycle-input-wrap">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Appraisal Cycle / Reason Description</mat-label>
+                  <input matInput [(ngModel)]="bulkData.reason" placeholder="Type cycle name or choose from suggestions..." />
+                  @if (bulkData.reason) {
+                    <button matSuffix mat-icon-button type="button" (click)="bulkData.reason = ''" matTooltip="Clear">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                  <mat-hint>Dynamic cycle name recorded in audit log for all staff</mat-hint>
+                </mat-form-field>
+                @if (availableCycles.length > 0) {
+                  <div class="quick-roles-row">
+                    <span class="quick-lbl">Suggestions:</span>
+                    @for (c of availableCycles; track c) {
+                      <span
+                        class="quick-role-chip"
+                        (click)="bulkData.reason = c"
+                        [class.selected]="bulkData.reason === c"
+                        >
+                        {{ c }}
+                      </span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button mat-button class="btn-cancel" (click)="closeBulkModal()" [disabled]="submitting">Cancel</button>
+              <button mat-flat-button color="primary" class="btn-save" (click)="executeBulkIncrement()" [disabled]="submitting || !bulkData.incrementValue">
+                <mat-icon>{{ submitting ? 'hourglass_empty' : 'bolt' }}</mat-icon>
+                <span>{{ submitting ? 'Applying...' : 'Apply Bulk Increment' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+    
+      <!-- Appraisal Letter Preview & Print Modal -->
+      @if (showLetterModal) {
+        <div class="modal-overlay" (click)="showLetterModal = false">
+          <div class="modal-card letter-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <div class="header-left">
+                <div class="header-icon-box">
+                  <mat-icon>description</mat-icon>
+                </div>
+                <div class="header-title-box">
+                  <h2 class="modal-title">Official Appraisal &amp; Promotion Letter</h2>
+                  <p class="modal-subtitle">Official Institute Letterhead Format</p>
+                </div>
+              </div>
+              <button mat-icon-button class="close-btn" (click)="showLetterModal = false">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            @if (selectedRecordForLetter) {
+              <div class="letter-print-body" id="printable-appraisal-letter">
+                <div class="letter-header">
+                  <div class="institute-brand">
+                    <mat-icon class="brand-icon">school</mat-icon>
+                    <div>
+                      <h3 class="inst-name">JNANDEEP CAMPUS</h3>
+                      <p class="inst-sub">Enterprise Coaching &amp; School Education ERP</p>
+                    </div>
+                  </div>
+                  <div class="letter-ref-box">
+                    <span>Ref: <strong>JC/HR/APR/{{ selectedRecordForLetter.id.substring(0, 8).toUpperCase() }}</strong></span>
+                    <span>Date: <strong>{{ selectedRecordForLetter.createdAt | date:'dd MMM yyyy' }}</strong></span>
+                  </div>
+                </div>
+                <hr class="letter-divider" />
+                <div class="recipient-box">
+                  <p>To,</p>
+                  <h4>{{ selectedRecordForLetter.teacherName }}</h4>
+                  <p>Employee Code: <strong>{{ selectedRecordForLetter.employeeCode }}</strong></p>
+                  <p>Department: <strong>{{ selectedRecordForLetter.newDepartment || selectedRecordForLetter.oldDepartment || 'Academic' }}</strong></p>
+                </div>
+                <div class="letter-subject">
+                  <strong>SUBJECT: {{ selectedRecordForLetter.type === 'Promotion' ? 'LETTER OF PROMOTION' : 'OFFICIAL APPRAISAL & SALARY REVISION ADVICE' }}</strong>
+                </div>
+                <div class="letter-narrative">
+                  <p>Dear <strong>{{ selectedRecordForLetter.teacherName }}</strong>,</p>
+                  <p>
+                    The Management and Academic Directorate are pleased to recognize your contributions, dedication, and service towards the institution. In accordance with your recent performance review, we are delighted to convey the following official revision effective from <strong>{{ selectedRecordForLetter.effectiveDate | date:'dd MMMM yyyy' }}</strong>:
+                  </p>
+                </div>
+                <table class="letter-breakup-table">
+                  <thead>
+                    <tr>
+                      <th>Particulars</th>
+                      <th>Existing (Previous)</th>
+                      <th>Revised (Approved)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Designation / Cadre</strong></td>
+                      <td>{{ selectedRecordForLetter.oldDesignation }}</td>
+                      <td><strong class="text-primary">{{ selectedRecordForLetter.newDesignation }}</strong></td>
+                    </tr>
+                    @if (selectedRecordForLetter.newGrossSalary > 0) {
+                      <tr>
+                        <td><strong>Basic Salary</strong></td>
+                        <td>₹{{ selectedRecordForLetter.oldBasicSalary | number:'1.2-2' }}</td>
+                        <td><strong>₹{{ selectedRecordForLetter.newBasicSalary | number:'1.2-2' }}</strong></td>
+                      </tr>
+                    }
+                    @if (selectedRecordForLetter.newGrossSalary > 0) {
+                      <tr>
+                        <td><strong>House Rent Allowance (HRA)</strong></td>
+                        <td>₹{{ selectedRecordForLetter.oldHRA | number:'1.2-2' }}</td>
+                        <td><strong>₹{{ selectedRecordForLetter.newHRA | number:'1.2-2' }}</strong></td>
+                      </tr>
+                    }
+                    @if (selectedRecordForLetter.newGrossSalary > 0) {
+                      <tr>
+                        <td><strong>Special / Other Allowances</strong></td>
+                        <td>₹{{ selectedRecordForLetter.oldOtherAllowances | number:'1.2-2' }}</td>
+                        <td><strong>₹{{ selectedRecordForLetter.newOtherAllowances | number:'1.2-2' }}</strong></td>
+                      </tr>
+                    }
+                    @if (selectedRecordForLetter.newGrossSalary > 0) {
+                      <tr class="gross-row">
+                        <td><strong>TOTAL GROSS CTC (Monthly)</strong></td>
+                        <td>₹{{ selectedRecordForLetter.oldGrossSalary | number:'1.2-2' }}</td>
+                        <td><strong class="text-success">₹{{ selectedRecordForLetter.newGrossSalary | number:'1.2-2' }}</strong></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="letter-footer-note">
+                  <p>All other service conditions, confidentiality agreements, and code of conduct remain in force. We look forward to your continued excellence in guiding our students towards academic success.</p>
+                </div>
+                <div class="sign-block">
+                  <div class="sign-box">
+                    <div class="sign-line"></div>
+                    <strong>Director / Principal</strong>
+                    <p>Authorized Signatory</p>
+                  </div>
+                  <div class="sign-box text-right">
+                    <div class="sign-line"></div>
+                    <strong>Employee Acknowledgment</strong>
+                    <p>Signature &amp; Date</p>
+                  </div>
+                </div>
+              </div>
+            }
+            <div class="modal-footer">
+              <button mat-button class="btn-cancel" (click)="showLetterModal = false">Close</button>
+              <button mat-flat-button color="primary" class="btn-save" (click)="printLetter()">
+                <mat-icon>print</mat-icon>
+                <span>Print Official Letter</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+    
+      <!-- Staff Appraisal Policy Configuration Modal (Admin & HR) -->
+      @if (showPolicyModal) {
+        <div class="modal-overlay" (click)="closePolicyModal()">
+          <div class="modal-card policy-card" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <div class="header-left">
+                <div class="header-icon-box">
+                  <mat-icon>tune</mat-icon>
+                </div>
+                <div class="header-title-box">
+                  <h2 class="modal-title">Staff Appraisal &amp; Promotion Policy Rules</h2>
+                  <p class="modal-subtitle">Dynamic institute tenure guidelines (संस्थान पदोन्नति एवं वेतन वृद्धि नीति)</p>
+                </div>
+              </div>
+              <button mat-icon-button class="close-btn" (click)="closePolicyModal()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="policy-info-box">
+                <mat-icon>gavel</mat-icon>
+                <div>
+                  <strong>Central Institute Appraisal Policy</strong>
+                  <p>This dynamic policy is shared by SuperAdmin, InstituteAdmin, and HR. All staff appraisal workflows automatically validate against these parameters.</p>
+                </div>
+              </div>
+              <div class="policy-setting-row">
+                <div class="setting-info">
+                  <label class="setting-title">Minimum Service Tenure for Salary Increment</label>
+                  <p class="setting-desc">Minimum continuous months of service required before staff qualifies for financial salary revision (e.g. 12 months = 1 Year).</p>
+                </div>
+                <div class="setting-input-wrap">
+                  <input type="number" min="0" max="60" [(ngModel)]="policy.minServiceMonthsForIncrement" class="policy-num-input" />
+                  <span class="unit-lbl">Months (माह)</span>
+                </div>
+              </div>
+              <div class="policy-setting-row">
+                <div class="setting-info">
+                  <label class="setting-title">Enforce "Dry Promotion" During Initial Tenure</label>
+                  <p class="setting-desc">When staff has not completed minimum tenure, require rank/cadre upgrade only without immediate salary hike.</p>
+                </div>
+                <div class="setting-control">
+                  <mat-slide-toggle [(ngModel)]="policy.enforceDryPromotionInProbation" color="primary"></mat-slide-toggle>
+                </div>
+              </div>
+              <div class="policy-setting-row">
+                <div class="setting-info">
+                  <label class="setting-title">Allow Special Management / HR Approval Bypass</label>
+                  <p class="setting-desc">Permit Admin &amp; HR to grant out-of-turn financial increments with an official approval reason/justification.</p>
+                </div>
+                <div class="setting-control">
+                  <mat-slide-toggle [(ngModel)]="policy.allowSpecialBypass" color="primary"></mat-slide-toggle>
+                </div>
+              </div>
+              <div class="policy-roles-chip-box">
+                <span class="chip-lbl">Authorized Roles:</span>
+                <span class="role-badge">SuperAdmin</span>
+                <span class="role-badge">InstituteAdmin</span>
+                <span class="role-badge">HR Manager</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button mat-button class="btn-cancel" (click)="closePolicyModal()" [disabled]="savingPolicy">Cancel</button>
+              <button mat-flat-button color="primary" class="btn-save" (click)="savePolicy()" [disabled]="savingPolicy">
+                <mat-icon>{{ savingPolicy ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+                <span>{{ savingPolicy ? 'Saving Rules...' : 'Save & Update Policy' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+    
+      <!-- Smart Slide-Over Detail Drawer -->
+      @if (showDetailDrawer) {
+        <div class="drawer-overlay" (click)="closeDetailDrawer()">
+          <aside class="detail-drawer" (click)="$event.stopPropagation()">
+            <!-- Header with Strict Light Blue Gradient matching AGENTS.md rule -->
+            <div class="drawer-header">
+              <div class="header-left">
+                <div class="header-icon-box">
+                  <mat-icon>military_tech</mat-icon>
+                </div>
+                <div class="header-title-box">
+                  <h2 class="drawer-title">Staff Appraisal Record</h2>
+                  <p class="drawer-subtitle">
+                    Ref: <strong>JC-APR-{{ selectedRecordForDetails?.id?.substring(0, 8)?.toUpperCase() }}</strong>
+                  </p>
+                </div>
+              </div>
+              <button mat-icon-button class="close-btn" (click)="closeDetailDrawer()" matTooltip="Close">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            @if (selectedRecordForDetails) {
+              <div class="drawer-body">
+                <!-- Staff Summary Card -->
+                <div class="drawer-card staff-summary">
+                  <div class="staff-avatar-large">
+                    @if (getStaffPhoto(selectedRecordForDetails) && !imgErrors[selectedRecordForDetails.teacherId]) {
+                      <img
+                        [src]="getStaffPhoto(selectedRecordForDetails)"
+                        (error)="imgErrors[selectedRecordForDetails.teacherId] = true"
+                        class="staff-photo-img"
+                        [alt]="selectedRecordForDetails.teacherName"
+                        />
+                    }
+                    @if (!getStaffPhoto(selectedRecordForDetails) || imgErrors[selectedRecordForDetails.teacherId]) {
+                      <div class="staff-initials-avatar">
+                        {{ getInitials(selectedRecordForDetails.teacherName) }}
+                      </div>
+                    }
+                  </div>
+                  <div class="staff-meta-details">
+                    <div class="staff-title-row">
+                      <h3 class="staff-name">{{ selectedRecordForDetails.teacherName }}</h3>
+                      <span class="code-badge">{{ selectedRecordForDetails.employeeCode }}</span>
+                      <span class="type-pill" [class.teaching]="selectedRecordForDetails.staffType === 'Teaching'">
+                        {{ selectedRecordForDetails.staffType }}
+                      </span>
+                    </div>
+                    <div class="staff-dept-row">
+                      <span>Department: <strong>{{ selectedRecordForDetails.newDepartment || selectedRecordForDetails.oldDepartment || 'Academic' }}</strong></span>
+                    </div>
+                    <div class="appraisal-type-pill-wrap">
+                      <span class="type-badge" [ngClass]="getTypeBadgeClass(selectedRecordForDetails.type)">
+                        {{ getTypeText(selectedRecordForDetails.type) }}
+                      </span>
+                      <span class="cycle-pill">{{ selectedRecordForDetails.reason || 'Appraisal Cycle' }}</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- Designation Progression Tile -->
+                <div class="drawer-card">
+                  <div class="card-section-title">
+                    <mat-icon>badge</mat-icon>
+                    <span>Designation Progression</span>
+                  </div>
+                  <div class="progression-box">
+                    <div class="prog-col">
+                      <span class="prog-lbl">Previous Cadre</span>
+                      <strong class="prog-val old">{{ selectedRecordForDetails.oldDesignation || 'N/A' }}</strong>
+                    </div>
+                    <div class="prog-arrow-wrap">
+                      <mat-icon>arrow_forward</mat-icon>
+                    </div>
+                    <div class="prog-col">
+                      <span class="prog-lbl">Revised Cadre</span>
+                      <strong class="prog-val new">{{ selectedRecordForDetails.newDesignation }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <!-- Salary Structure CTC Revision Breakdown -->
+                @if (selectedRecordForDetails.newGrossSalary > 0) {
+                  <div class="drawer-card">
+                    <div class="card-section-title">
+                      <mat-icon>payments</mat-icon>
+                      <span>Salary CTC Revision Breakdown</span>
+                    </div>
+                    @if (selectedRecordForDetails.newGrossSalary > selectedRecordForDetails.oldGrossSalary) {
+                      <div class="salary-hike-banner">
+                        <div class="hike-stat">
+                          <span class="hike-lbl">Gross Monthly Hike</span>
+                          <strong class="hike-val">+₹{{ (selectedRecordForDetails.newGrossSalary - selectedRecordForDetails.oldGrossSalary) | number:'1.0-0' }}</strong>
+                        </div>
+                        <div class="hike-pct-badge">
+                          +{{ selectedRecordForDetails.incrementPercentage }}% Hike
+                        </div>
+                      </div>
+                    }
+                    <div class="drawer-breakdown-table">
+                      <div class="b-row header">
+                        <span>Component</span>
+                        <span class="text-right">Previous</span>
+                        <span class="text-right">Revised</span>
+                      </div>
+                      <div class="b-row">
+                        <span>Basic Salary</span>
+                        <span class="text-right old">₹{{ selectedRecordForDetails.oldBasicSalary | number:'1.0-0' }}</span>
+                        <span class="text-right new">₹{{ selectedRecordForDetails.newBasicSalary | number:'1.0-0' }}</span>
+                      </div>
+                      <div class="b-row">
+                        <span>HRA</span>
+                        <span class="text-right old">₹{{ selectedRecordForDetails.oldHRA | number:'1.0-0' }}</span>
+                        <span class="text-right new">₹{{ selectedRecordForDetails.newHRA | number:'1.0-0' }}</span>
+                      </div>
+                      <div class="b-row">
+                        <span>Other / Special Allowances</span>
+                        <span class="text-right old">₹{{ selectedRecordForDetails.oldOtherAllowances | number:'1.0-0' }}</span>
+                        <span class="text-right new">₹{{ selectedRecordForDetails.newOtherAllowances | number:'1.0-0' }}</span>
+                      </div>
+                      <div class="b-row total">
+                        <strong>Total Monthly Gross CTC</strong>
+                        <strong class="text-right old">₹{{ selectedRecordForDetails.oldGrossSalary | number:'1.0-0' }}</strong>
+                        <strong class="text-right total-new">₹{{ selectedRecordForDetails.newGrossSalary | number:'1.0-0' }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                }
+                <!-- Audit & Timeline Details -->
+                <div class="drawer-card">
+                  <div class="card-section-title">
+                    <mat-icon>history</mat-icon>
+                    <span>Audit &amp; Timeline Details</span>
+                  </div>
+                  <div class="audit-list">
+                    <div class="audit-item">
+                      <span class="audit-lbl">Effective Date:</span>
+                      <div class="audit-val">
+                        <strong>{{ selectedRecordForDetails.effectiveDate | date:'dd MMMM yyyy' }}</strong>
+                        <small>(Indian Standard Time)</small>
+                      </div>
+                    </div>
+                    <div class="audit-item">
+                      <span class="audit-lbl">Recorded On:</span>
+                      <div class="audit-val">
+                        <span>{{ selectedRecordForDetails.createdAt | date:'dd MMM yyyy, hh:mm a' }}</span>
+                      </div>
+                    </div>
+                    @if (selectedRecordForDetails.remarks) {
+                      <div class="audit-item">
+                        <span class="audit-lbl">Notes / Remarks:</span>
+                        <div class="audit-val notes">
+                          <span>{{ selectedRecordForDetails.remarks }}</span>
+                        </div>
+                      </div>
+                    }
+                    @if (selectedRecordForDetails.isSpecialBypass) {
+                      <div class="audit-item bypass-notice">
+                        <mat-icon class="shield-icon">verified_user</mat-icon>
+                        <div>
+                          <strong>Management Approval Bypass Authorized</strong>
+                          <p>{{ selectedRecordForDetails.specialBypassReason || 'Approved by HR Committee' }}</p>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+            @if (selectedRecordForDetails) {
+              <div class="drawer-footer">
+                <button mat-stroked-button color="warn" (click)="deleteRecord(selectedRecordForDetails); closeDetailDrawer()">
+                  <mat-icon>delete_outline</mat-icon>
+                  <span>Delete</span>
+                </button>
+                <div class="footer-right">
+                  <button mat-stroked-button (click)="closeDetailDrawer()">Close</button>
+                  <button mat-flat-button color="primary" (click)="viewLetter(selectedRecordForDetails)">
+                    <mat-icon>description</mat-icon>
+                    <span>Official Letter</span>
+                  </button>
+                </div>
+              </div>
+            }
+          </aside>
+        </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

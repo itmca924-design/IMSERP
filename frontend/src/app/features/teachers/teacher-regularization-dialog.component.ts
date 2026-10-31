@@ -1,5 +1,6 @@
-import { Component, Inject, OnInit, inject } from '@angular/core';
+import { Component, Inject, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -25,7 +26,6 @@ import {
   selector: 'app-apply-teacher-regularization-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -36,7 +36,7 @@ import {
     MatSelectModule,
     MatProgressBarModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="reg-dialog-container">
       <!-- Strict Light Blue Header matching IMSERP AGENTS.md UI Rule -->
@@ -54,60 +54,74 @@ import {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar *ngIf="loadingPolicy || saving" mode="indeterminate" class="reg-loader"></mat-progress-bar>
-
+    
+      @if (loadingPolicy || saving) {
+        <mat-progress-bar mode="indeterminate" class="reg-loader"></mat-progress-bar>
+      }
+    
       <form [formGroup]="form" (ngSubmit)="submit()">
         <div class="reg-dialog-body">
-
+    
           <!-- Policy Guidance Banner -->
-          <div class="policy-notice" *ngIf="policy">
-            <mat-icon>info</mat-icon>
-            <div>
-              <strong>Regularization Guidelines:</strong> Requests must be submitted within 
-              <strong>{{policy.maxRegularizationDaysBackdated}} days</strong> of the occurrence. 
-              Maximum <strong>{{policy.maxRegularizationPerMonth}} requests</strong> allowed per calendar month.
+          @if (policy) {
+            <div class="policy-notice">
+              <mat-icon>info</mat-icon>
+              <div>
+                <strong>Regularization Guidelines:</strong> Requests must be submitted within
+                <strong>{{policy.maxRegularizationDaysBackdated}} days</strong> of the occurrence.
+                Maximum <strong>{{policy.maxRegularizationPerMonth}} requests</strong> allowed per calendar month.
+              </div>
             </div>
-          </div>
-
+          }
+    
           <!-- Error Alert Banner -->
-          <div class="error-banner" *ngIf="errorMessage">
-            <mat-icon>error</mat-icon>
-            <span>{{errorMessage}}</span>
-          </div>
-
+          @if (errorMessage) {
+            <div class="error-banner">
+              <mat-icon>error</mat-icon>
+              <span>{{errorMessage}}</span>
+            </div>
+          }
+    
           <!-- Faculty Member Selector (Only shown for Admin/HR applying on behalf of a teacher) -->
-          <mat-form-field appearance="outline" class="w-full" *ngIf="!isTeacherSelf">
-            <mat-label>Faculty Member *</mat-label>
-            <mat-select formControlName="teacherId">
-              <mat-option *ngFor="let t of teachers" [value]="t.id">
-                {{t.fullName}} ({{t.employeeCode}}){{t.department ? ' — ' + t.department : ''}}
-              </mat-option>
-            </mat-select>
-            <mat-hint>Select active faculty member for regularization</mat-hint>
-          </mat-form-field>
-
+          @if (!isTeacherSelf) {
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Faculty Member *</mat-label>
+              <mat-select formControlName="teacherId">
+                @for (t of teachers; track t) {
+                  <mat-option [value]="t.id">
+                    {{t.fullName}} ({{t.employeeCode}}){{t.department ? ' — ' + t.department : ''}}
+                  </mat-option>
+                }
+              </mat-select>
+              <mat-hint>Select active faculty member for regularization</mat-hint>
+            </mat-form-field>
+          }
+    
           <!-- Self Faculty Profile Display (Shown for Teacher self-apply) -->
-          <div class="self-strip" *ngIf="isTeacherSelf">
-            <div class="self-avatar"><mat-icon>account_circle</mat-icon></div>
-            <div class="self-meta">
-              <strong>{{myProfile?.fullName || 'Your Faculty Account'}}</strong>
-              <span>Emp Code: <strong>{{myProfile?.employeeCode || 'Registered Faculty'}}</strong></span>
+          @if (isTeacherSelf) {
+            <div class="self-strip">
+              <div class="self-avatar"><mat-icon>account_circle</mat-icon></div>
+              <div class="self-meta">
+                <strong>{{myProfile?.fullName || 'Your Faculty Account'}}</strong>
+                <span>Emp Code: <strong>{{myProfile?.employeeCode || 'Registered Faculty'}}</strong></span>
+              </div>
+              <div class="self-badge-pill">
+                <mat-icon>verified_user</mat-icon>
+                <span>Faculty Portal</span>
+              </div>
             </div>
-            <div class="self-badge-pill">
-              <mat-icon>verified_user</mat-icon>
-              <span>Faculty Portal</span>
-            </div>
-          </div>
-
+          }
+    
           <!-- Date & Requested Status Row -->
           <div class="form-row">
             <mat-form-field appearance="outline" class="form-col">
               <mat-label>Occurrence Date *</mat-label>
               <input matInput type="date" formControlName="attendanceDate" [max]="todayStr" />
-              <mat-hint *ngIf="!isSundaySelected">Date when punch was missed or incorrect ({{selectedDayName}})</mat-hint>
+              @if (!isSundaySelected) {
+                <mat-hint>Date when punch was missed or incorrect ({{selectedDayName}})</mat-hint>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-col">
               <mat-label>Requested Status *</mat-label>
               <mat-select formControlName="requestedStatus">
@@ -117,29 +131,31 @@ import {
               <mat-hint>Target attendance mark after review</mat-hint>
             </mat-form-field>
           </div>
-
+    
           <!-- Sunday / Weekly Off Blocking Alert Banner -->
-          <div class="sunday-alert-banner" *ngIf="isSundaySelected">
-            <div class="sab-icon"><mat-icon>event_busy</mat-icon></div>
-            <div class="sab-content">
-              <strong>Weekly Off / Sunday Detected ({{selectedDateFormatted}}):</strong>
-              <span>Attendance regularization cannot be requested on a Sunday or official weekly off. Please select a valid working day when duty or classes took place.</span>
+          @if (isSundaySelected) {
+            <div class="sunday-alert-banner">
+              <div class="sab-icon"><mat-icon>event_busy</mat-icon></div>
+              <div class="sab-content">
+                <strong>Weekly Off / Sunday Detected ({{selectedDateFormatted}}):</strong>
+                <span>Attendance regularization cannot be requested on a Sunday or official weekly off. Please select a valid working day when duty or classes took place.</span>
+              </div>
             </div>
-          </div>
-
+          }
+    
           <!-- In-Time & Out-Time Row -->
           <div class="form-row">
             <mat-form-field appearance="outline" class="form-col">
               <mat-label>Punch-In Time (HH:MM)</mat-label>
               <input matInput type="text" formControlName="requestedCheckIn" placeholder="e.g. 08:30" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-col">
               <mat-label>Punch-Out Time (HH:MM)</mat-label>
               <input matInput type="text" formControlName="requestedCheckOut" placeholder="e.g. 15:30" />
             </mat-form-field>
           </div>
-
+    
           <!-- Reason & Notes -->
           <div class="quick-reasons-label">Quick Reason Shortcuts:</div>
           <div class="chips-row">
@@ -159,23 +175,23 @@ import {
               📋 Manual Roll-Call Error
             </button>
           </div>
-
+    
           <mat-form-field appearance="outline" class="w-full">
             <mat-label>Reason / Explanation *</mat-label>
             <textarea matInput formControlName="reason" rows="3" placeholder="Explain why attendance regularization is requested..."></textarea>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="w-full">
             <mat-label>Supporting Document URL (Optional)</mat-label>
             <input matInput formControlName="attachmentUrl" placeholder="https://..." />
             <mat-hint>Link to OD duty slip, medical certificate, or exam allotment letter</mat-hint>
           </mat-form-field>
         </div>
-
+    
         <!-- Strict Light Blue Header / Footer styling -->
         <div class="reg-dialog-footer">
           <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-          <button mat-flat-button class="btn-submit" type="submit" 
+          <button mat-flat-button class="btn-submit" type="submit"
             [disabled]="saving || form.invalid || isSundaySelected"
             [matTooltip]="isSundaySelected ? 'Cannot submit regularization on a Sunday / Weekly Off' : ''">
             <mat-icon>{{saving ? 'hourglass_empty' : 'send'}}</mat-icon>
@@ -184,7 +200,8 @@ import {
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .reg-dialog-container {
       width: 100%;
@@ -609,7 +626,7 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule
-  ],
+],
   template: `
     <div class="review-dialog-container">
       <!-- Strict Light Blue Header matching IMSERP UI Rule -->
@@ -622,7 +639,7 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
             {{data.approve ? 'Approve Attendance Regularization' : 'Reject Regularization Request'}}
           </h2>
           <span class="reg-dialog-sub">
-            {{data.regularization.teacherName}} ({{data.regularization.employeeCode}}) • 
+            {{data.regularization.teacherName}} ({{data.regularization.employeeCode}}) •
             <strong>{{data.regularization.attendanceDate | date:'dd MMM yyyy'}}</strong>
           </span>
         </div>
@@ -630,9 +647,11 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar *ngIf="saving" mode="indeterminate" class="reg-loader"></mat-progress-bar>
-
+    
+      @if (saving) {
+        <mat-progress-bar mode="indeterminate" class="reg-loader"></mat-progress-bar>
+      }
+    
       <div class="review-dialog-body">
         <div class="info-card">
           <div class="info-row">
@@ -643,46 +662,53 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
             <span class="lbl">Requested Mark:</span>
             <span class="val font-semibold">{{data.regularization.requestedStatus}}</span>
           </div>
-          <div class="info-row" *ngIf="data.regularization.requestedCheckIn || data.regularization.requestedCheckOut">
-            <span class="lbl">Timestamps:</span>
-            <span class="val">{{data.regularization.requestedCheckIn || '—'}} to {{data.regularization.requestedCheckOut || '—'}}</span>
-          </div>
+          @if (data.regularization.requestedCheckIn || data.regularization.requestedCheckOut) {
+            <div class="info-row">
+              <span class="lbl">Timestamps:</span>
+              <span class="val">{{data.regularization.requestedCheckIn || '—'}} to {{data.regularization.requestedCheckOut || '—'}}</span>
+            </div>
+          }
           <div class="info-row">
             <span class="lbl">Reason Given:</span>
             <span class="val">{{data.regularization.reason}}</span>
           </div>
-          <div class="info-row" *ngIf="data.regularization.attachmentUrl">
-            <span class="lbl">Attachment:</span>
-            <span class="val">
-              <a [href]="data.regularization.attachmentUrl" target="_blank" rel="noopener noreferrer" class="link-btn">
-                View Attached Document ↗
-              </a>
-            </span>
-          </div>
+          @if (data.regularization.attachmentUrl) {
+            <div class="info-row">
+              <span class="lbl">Attachment:</span>
+              <span class="val">
+                <a [href]="data.regularization.attachmentUrl" target="_blank" rel="noopener noreferrer" class="link-btn">
+                  View Attached Document ↗
+                </a>
+              </span>
+            </div>
+          }
         </div>
-
+    
         <mat-form-field appearance="outline" class="w-full" style="margin-top: 10px;">
           <mat-label>{{data.approve ? 'Approval Remarks (Optional)' : 'Rejection Reason *'}}</mat-label>
-          <textarea matInput [(ngModel)]="remarks" rows="3" 
-            [placeholder]="data.approve ? 'Optional sanction notes for records...' : 'State reason for rejecting regularization...'"></textarea>
+          <textarea matInput [(ngModel)]="remarks" rows="3"
+          [placeholder]="data.approve ? 'Optional sanction notes for records...' : 'State reason for rejecting regularization...'"></textarea>
         </mat-form-field>
-
-        <div class="error-banner" *ngIf="errorMessage">
-          <mat-icon>error</mat-icon>
-          <span>{{errorMessage}}</span>
-        </div>
+    
+        @if (errorMessage) {
+          <div class="error-banner">
+            <mat-icon>error</mat-icon>
+            <span>{{errorMessage}}</span>
+          </div>
+        }
       </div>
-
+    
       <div class="reg-dialog-footer">
         <button mat-stroked-button (click)="cancel()">Cancel</button>
-        <button mat-flat-button [color]="data.approve ? 'primary' : 'warn'" 
+        <button mat-flat-button [color]="data.approve ? 'primary' : 'warn'"
           (click)="confirm()" [disabled]="saving || (!data.approve && !remarks.trim())">
           <mat-icon>{{data.approve ? 'done_all' : 'block'}}</mat-icon>
           {{saving ? 'Processing...' : (data.approve ? 'Approve & Update Attendance' : 'Reject Request')}}
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .review-dialog-container {
       width: 100%;

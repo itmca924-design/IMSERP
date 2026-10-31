@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -93,6 +93,7 @@ type SortDir = 'asc' | 'desc';
     MatTooltipModule
   ],
   templateUrl: './attendance-reports.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./attendance-reports.component.css']
 })
 export class AttendanceReportsComponent implements OnInit, OnDestroy {
@@ -179,7 +180,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     return weeks;
   }
 
-  trackByWeekIndex(index: number): number {
+  trackByWeekIndex(index: number, _week: unknown): number {
     return index;
   }
 

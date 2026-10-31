@@ -1,5 +1,5 @@
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -15,7 +15,6 @@ import { AuthService } from '../../core/services/auth.service';
   selector: 'app-teacher-selector',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatFormFieldModule,
     MatSelectModule,
@@ -23,7 +22,7 @@ import { AuthService } from '../../core/services/auth.service';
     MatCardModule,
     MatTooltipModule,
     MatButtonModule
-  ],
+],
   template: `
     <mat-card class="selector-card mat-elevation-z1">
       <div class="selector-container">
@@ -32,163 +31,185 @@ import { AuthService } from '../../core/services/auth.service';
           <div class="selector-icon-box">
             <mat-icon>person_search</mat-icon>
           </div>
-          
+    
           <mat-form-field appearance="outline" class="selector-field" subscriptSizing="dynamic">
             <mat-label>Select Staff / Faculty Member</mat-label>
-            <mat-select [(ngModel)]="selectedId" 
-                        (ngModelChange)="onSelect($event)"
-                        [disabled]="isSelfOnlyMode && teachers.length <= 1"
-                        panelClass="teacher-select-panel"
-                        (openedChange)="onSelectOpened($event)">
-
+            <mat-select [(ngModel)]="selectedId"
+              (ngModelChange)="onSelect($event)"
+              [disabled]="isSelfOnlyMode && teachers.length <= 1"
+              panelClass="teacher-select-panel"
+              (openedChange)="onSelectOpened($event)">
+    
               <!-- Custom Trigger when Select is closed (Only Teacher Name) -->
               <mat-select-trigger>
-                <span class="trigger-name" *ngIf="selected">{{ selected.fullName }}</span>
+                @if (selected) {
+                  <span class="trigger-name">{{ selected.fullName }}</span>
+                }
               </mat-select-trigger>
-
+    
               <!-- Sticky Search Box Option inside Dropdown -->
               <mat-option disabled class="select-search-option">
                 <div class="select-search-wrap" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                   <div class="search-input-box">
                     <mat-icon class="search-icon">search</mat-icon>
                     <input #searchInput
-                           type="text"
-                           class="search-inner-input"
-                           placeholder="Search by name, code, subject, department..."
-                           [value]="searchQuery"
-                           (input)="onSearchInput($event)"
-                           (click)="$event.stopPropagation()"
-                           (mousedown)="$event.stopPropagation()"
-                           (keydown)="$event.stopPropagation()"
-                           (keyup)="$event.stopPropagation()" />
-                    <button type="button" 
-                            class="clear-search-btn" 
-                            *ngIf="searchQuery" 
-                            (click)="clearSearch($event)" 
-                            (mousedown)="$event.stopPropagation()"
-                            matTooltip="Clear search">
-                      <mat-icon>close</mat-icon>
-                    </button>
+                      type="text"
+                      class="search-inner-input"
+                      placeholder="Search by name, code, subject, department..."
+                      [value]="searchQuery"
+                      (input)="onSearchInput($event)"
+                      (click)="$event.stopPropagation()"
+                      (mousedown)="$event.stopPropagation()"
+                      (keydown)="$event.stopPropagation()"
+                      (keyup)="$event.stopPropagation()" />
+                    @if (searchQuery) {
+                      <button type="button"
+                        class="clear-search-btn"
+                        (click)="clearSearch($event)"
+                        (mousedown)="$event.stopPropagation()"
+                        matTooltip="Clear search">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
                   </div>
-
+    
                   <div class="search-stats-bar">
                     <span class="stats-count">
                       <strong>{{ filteredTeachers.length }}</strong> of {{ teachers.length }} faculty
                     </span>
-                    <span class="stats-hint" *ngIf="!searchQuery">Multi-search: Name, Code, Subject</span>
-                    <span class="stats-active" *ngIf="searchQuery">Filtering: "{{ searchQuery }}"</span>
+                    @if (!searchQuery) {
+                      <span class="stats-hint">Multi-search: Name, Code, Subject</span>
+                    }
+                    @if (searchQuery) {
+                      <span class="stats-active">Filtering: "{{ searchQuery }}"</span>
+                    }
                   </div>
                 </div>
               </mat-option>
-
+    
               <!-- Empty State when search has no matches -->
-              <mat-option *ngIf="filteredTeachers.length === 0" disabled class="no-teachers-option">
-                <div class="no-teachers-box">
-                  <mat-icon>search_off</mat-icon>
-                  <p>No faculty or staff found matching "<strong>{{ searchQuery }}</strong>"</p>
-                  <button type="button" class="reset-filter-btn" (click)="clearSearch($event)" (mousedown)="$event.stopPropagation()">
-                    <mat-icon>refresh</mat-icon> Show All Teachers
-                  </button>
-                </div>
-              </mat-option>
-
-              <!-- Options List with Full Subject & Department Details -->
-              <mat-option *ngFor="let t of filteredTeachers" [value]="t.id" class="teacher-custom-option">
-                <div class="teacher-option-card">
-                  <!-- Row 1: Code + Full Name + Role Tag + Status Dot -->
-                  <div class="opt-row-primary">
-                    <span class="opt-code-badge">{{ t.employeeCode }}</span>
-                    <span class="opt-name">{{ t.fullName }}</span>
-                    <span class="staff-tag" [class.non-teach]="isNonTeaching(t)">
-                      {{ isNonTeaching(t) ? (t.designation || 'Staff') : 'Faculty' }}
-                    </span>
-                    <span class="opt-dot" [class.active]="t.isActive" [class.inactive]="!t.isActive"
-                          [matTooltip]="t.isActive ? 'Active Staff' : 'Inactive Staff'"></span>
+              @if (filteredTeachers.length === 0) {
+                <mat-option disabled class="no-teachers-option">
+                  <div class="no-teachers-box">
+                    <mat-icon>search_off</mat-icon>
+                    <p>No faculty or staff found matching "<strong>{{ searchQuery }}</strong>"</p>
+                    <button type="button" class="reset-filter-btn" (click)="clearSearch($event)" (mousedown)="$event.stopPropagation()">
+                      <mat-icon>refresh</mat-icon> Show All Teachers
+                    </button>
                   </div>
-
-                  <!-- Row 2: Subject Badge + Department + Experience -->
-                  <div class="opt-row-secondary">
-                    <!-- Subject Pill with Theme Color & Icon -->
-                    <span class="opt-subject-pill" 
-                          *ngIf="getTeacherSubject(t)"
+                </mat-option>
+              }
+    
+              <!-- Options List with Full Subject & Department Details -->
+              @for (t of filteredTeachers; track t) {
+                <mat-option [value]="t.id" class="teacher-custom-option">
+                  <div class="teacher-option-card">
+                    <!-- Row 1: Code + Full Name + Role Tag + Status Dot -->
+                    <div class="opt-row-primary">
+                      <span class="opt-code-badge">{{ t.employeeCode }}</span>
+                      <span class="opt-name">{{ t.fullName }}</span>
+                      <span class="staff-tag" [class.non-teach]="isNonTeaching(t)">
+                        {{ isNonTeaching(t) ? (t.designation || 'Staff') : 'Faculty' }}
+                      </span>
+                      <span class="opt-dot" [class.active]="t.isActive" [class.inactive]="!t.isActive"
+                      [matTooltip]="t.isActive ? 'Active Staff' : 'Inactive Staff'"></span>
+                    </div>
+                    <!-- Row 2: Subject Badge + Department + Experience -->
+                    <div class="opt-row-secondary">
+                      <!-- Subject Pill with Theme Color & Icon -->
+                      @if (getTeacherSubject(t)) {
+                        <span class="opt-subject-pill"
                           [style.background]="getSubjectTheme(getTeacherSubject(t)).bg"
                           [style.border-color]="getSubjectTheme(getTeacherSubject(t)).border"
                           [style.color]="getSubjectTheme(getTeacherSubject(t)).darkText">
-                      <mat-icon class="sub-icon">{{ getSubjectTheme(getTeacherSubject(t)).icon }}</mat-icon>
-                      <strong class="sub-name">{{ getTeacherSubject(t) }}</strong>
-                    </span>
-
-                    <!-- Department tag -->
-                    <span class="opt-dept-chip" *ngIf="t.department && t.department !== getTeacherSubject(t)">
-                      <mat-icon class="dept-icon">apartment</mat-icon>
-                      <span>{{ t.department }}</span>
-                    </span>
-
-                    <!-- Experience tag -->
-                    <span class="opt-exp-chip" *ngIf="!isNonTeaching(t) && t.experienceYears">
-                      {{ t.experienceYears }} yrs exp
-                    </span>
+                          <mat-icon class="sub-icon">{{ getSubjectTheme(getTeacherSubject(t)).icon }}</mat-icon>
+                          <strong class="sub-name">{{ getTeacherSubject(t) }}</strong>
+                        </span>
+                      }
+                      <!-- Department tag -->
+                      @if (t.department && t.department !== getTeacherSubject(t)) {
+                        <span class="opt-dept-chip">
+                          <mat-icon class="dept-icon">apartment</mat-icon>
+                          <span>{{ t.department }}</span>
+                        </span>
+                      }
+                      <!-- Experience tag -->
+                      @if (!isNonTeaching(t) && t.experienceYears) {
+                        <span class="opt-exp-chip">
+                          {{ t.experienceYears }} yrs exp
+                        </span>
+                      }
+                    </div>
                   </div>
-                </div>
-              </mat-option>
-
+                </mat-option>
+              }
+    
             </mat-select>
-
+    
             <!-- Self-only badge shown when teacher logs in -->
-            <mat-hint *ngIf="isSelfOnlyMode" class="self-hint">
-              <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle;color:#16a34a;">lock</mat-icon>
-              Viewing your own records
-            </mat-hint>
+            @if (isSelfOnlyMode) {
+              <mat-hint class="self-hint">
+                <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle;color:#16a34a;">lock</mat-icon>
+                Viewing your own records
+              </mat-hint>
+            }
           </mat-form-field>
         </div>
-
+    
         <!-- Right: Clean Quick Status & Metadata Badges -->
-        <div class="selector-quick-meta" *ngIf="selected">
-          <div class="selector-v-divider"></div>
-
-          <!-- Subject Pill -->
-          <span class="meta-pill subj" 
-                *ngIf="getTeacherSubject(selected)"
+        @if (selected) {
+          <div class="selector-quick-meta">
+            <div class="selector-v-divider"></div>
+            <!-- Subject Pill -->
+            @if (getTeacherSubject(selected)) {
+              <span class="meta-pill subj"
                 [style.background]="getSubjectTheme(getTeacherSubject(selected)).bg"
                 [style.border-color]="getSubjectTheme(getTeacherSubject(selected)).border"
                 [style.color]="getSubjectTheme(getTeacherSubject(selected)).darkText">
-            <mat-icon class="pill-icon">{{ getSubjectTheme(getTeacherSubject(selected)).icon }}</mat-icon>
-            <span class="pill-text">{{ getTeacherSubject(selected) }}</span>
-          </span>
-
-          <!-- Department Pill (if no subject) -->
-          <span class="meta-pill dept" *ngIf="!getTeacherSubject(selected) && selected.department">
-            <mat-icon class="pill-icon">apartment</mat-icon>
-            <span class="pill-text">{{ selected.department }}</span>
-          </span>
-
-          <!-- Contact Phone Pill -->
-          <span class="meta-pill phone" *ngIf="selected.phoneNumber">
-            <mat-icon class="pill-icon">call</mat-icon>
-            <span>{{ selected.phoneNumber }}</span>
-          </span>
-
-          <!-- Experience Pill -->
-          <span class="meta-pill exp" *ngIf="selected.experienceYears !== undefined && selected.experienceYears !== null">
-            <mat-icon class="pill-icon">history_edu</mat-icon>
-            <span>{{ selected.experienceYears }} Yrs Exp</span>
-          </span>
-
-          <!-- Active Status Pill -->
-          <span class="meta-pill status" [class.active]="selected.isActive" [class.inactive]="!selected.isActive">
-            <span class="status-dot"></span>
-            <span>{{ selected.isActive ? 'Active Staff' : 'Inactive' }}</span>
-          </span>
-        </div>
-
+                <mat-icon class="pill-icon">{{ getSubjectTheme(getTeacherSubject(selected)).icon }}</mat-icon>
+                <span class="pill-text">{{ getTeacherSubject(selected) }}</span>
+              </span>
+            }
+            <!-- Department Pill (if no subject) -->
+            @if (!getTeacherSubject(selected) && selected.department) {
+              <span class="meta-pill dept">
+                <mat-icon class="pill-icon">apartment</mat-icon>
+                <span class="pill-text">{{ selected.department }}</span>
+              </span>
+            }
+            <!-- Contact Phone Pill -->
+            @if (selected.phoneNumber) {
+              <span class="meta-pill phone">
+                <mat-icon class="pill-icon">call</mat-icon>
+                <span>{{ selected.phoneNumber }}</span>
+              </span>
+            }
+            <!-- Experience Pill -->
+            @if (selected.experienceYears !== undefined && selected.experienceYears !== null) {
+              <span class="meta-pill exp">
+                <mat-icon class="pill-icon">history_edu</mat-icon>
+                <span>{{ selected.experienceYears }} Yrs Exp</span>
+              </span>
+            }
+            <!-- Active Status Pill -->
+            <span class="meta-pill status" [class.active]="selected.isActive" [class.inactive]="!selected.isActive">
+              <span class="status-dot"></span>
+              <span>{{ selected.isActive ? 'Active Staff' : 'Inactive' }}</span>
+            </span>
+          </div>
+        }
+    
         <!-- Placeholder hint when no staff is selected -->
-        <div class="selector-empty-hint" *ngIf="!selected">
-          <mat-icon>touch_app</mat-icon>
-          <span>Select any staff member from the dropdown to load records</span>
-        </div>
+        @if (!selected) {
+          <div class="selector-empty-hint">
+            <mat-icon>touch_app</mat-icon>
+            <span>Select any staff member from the dropdown to load records</span>
+          </div>
+        }
       </div>
     </mat-card>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .selector-card { 
       padding: 10px 18px; 

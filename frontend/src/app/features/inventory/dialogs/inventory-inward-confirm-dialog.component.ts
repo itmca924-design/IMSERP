@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -54,7 +54,7 @@ export interface InventoryInwardConfirmDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <mat-dialog-content class="dialog-body">
         <!-- 1. Vendor & Inward Meta Strip -->
         <div class="meta-strip">
@@ -71,14 +71,14 @@ export interface InventoryInwardConfirmDialogData {
             <span class="meta-val" [appIstDatetime]="data.inwardDate"></span>
           </div>
         </div>
-
+    
         <!-- 2. Prominent Financial Settlement Callout -->
         <div
           class="payment-callout-card"
           [class.card-paid]="data.paymentStatus === 'Paid'"
           [class.card-pending]="data.paymentStatus === 'Pending'"
           [class.card-partial]="data.paymentStatus === 'Partial'">
-
+    
           <div class="callout-header">
             <div class="callout-title-row">
               <mat-icon class="callout-icon">
@@ -91,51 +91,59 @@ export interface InventoryInwardConfirmDialogData {
                 </h3>
               </div>
             </div>
-
+    
             <div class="callout-amount-wrap">
               <span class="amt-lbl">NET INWARD BILL</span>
               <span class="amt-val">₹{{ data.netTotal | number:'1.2-2' }}</span>
             </div>
           </div>
-
+    
           <div class="callout-body">
             <!-- If Paid Full -->
-            <div *ngIf="data.paymentStatus === 'Paid'" class="treatment-line">
-              <mat-icon class="sub-ic text-emerald">check_circle</mat-icon>
-              <span>
-                <strong>₹{{ (data.selectedVendorAdvanceCredit > 0 ? Math.max(0, data.netTotal - data.selectedVendorAdvanceCredit) : data.netTotal) | number:'1.2-2' }}</strong>
-                will be disbursed immediately to <strong>{{ data.vendorName }}</strong> via <strong>{{ data.paymentMode }}</strong>.
-              </span>
-            </div>
-
+            @if (data.paymentStatus === 'Paid') {
+              <div class="treatment-line">
+                <mat-icon class="sub-ic text-emerald">check_circle</mat-icon>
+                <span>
+                  <strong>₹{{ (data.selectedVendorAdvanceCredit > 0 ? Math.max(0, data.netTotal - data.selectedVendorAdvanceCredit) : data.netTotal) | number:'1.2-2' }}</strong>
+                  will be disbursed immediately to <strong>{{ data.vendorName }}</strong> via <strong>{{ data.paymentMode }}</strong>.
+                </span>
+              </div>
+            }
+    
             <!-- If Pending / Credit -->
-            <div *ngIf="data.paymentStatus === 'Pending'" class="treatment-line">
-              <mat-icon class="sub-ic text-danger">pending_actions</mat-icon>
-              <span>
-                <strong>₹{{ data.netTotal | number:'1.2-2' }}</strong> will be recorded as <strong>Unpaid Credit Bill</strong> and added to <strong>{{ data.vendorName }}'s</strong> outstanding credit balance in Vendor Ledger.
-              </span>
-            </div>
-
+            @if (data.paymentStatus === 'Pending') {
+              <div class="treatment-line">
+                <mat-icon class="sub-ic text-danger">pending_actions</mat-icon>
+                <span>
+                  <strong>₹{{ data.netTotal | number:'1.2-2' }}</strong> will be recorded as <strong>Unpaid Credit Bill</strong> and added to <strong>{{ data.vendorName }}'s</strong> outstanding credit balance in Vendor Ledger.
+                </span>
+              </div>
+            }
+    
             <!-- If Partial -->
-            <div *ngIf="data.paymentStatus === 'Partial'" class="treatment-line">
-              <mat-icon class="sub-ic text-blue">payments</mat-icon>
-              <span>
-                Partial settlement recorded via <strong>{{ data.paymentMode }}</strong>. Balance liability tracked in Vendor Ledger.
-              </span>
-            </div>
-
+            @if (data.paymentStatus === 'Partial') {
+              <div class="treatment-line">
+                <mat-icon class="sub-ic text-blue">payments</mat-icon>
+                <span>
+                  Partial settlement recorded via <strong>{{ data.paymentMode }}</strong>. Balance liability tracked in Vendor Ledger.
+                </span>
+              </div>
+            }
+    
             <!-- Existing Debit Note Advance Credit Adjustment Notice -->
-            <div *ngIf="data.selectedVendorAdvanceCredit > 0" class="credit-adj-notice">
-              <mat-icon class="sub-ic text-emerald">auto_fix_high</mat-icon>
-              <span>
-                Supplier has <strong>₹{{ data.selectedVendorAdvanceCredit | number:'1.2-2' }}</strong> advance credit from previous Debit Notes.
-                <strong>-₹{{ Math.min(data.selectedVendorAdvanceCredit, data.netTotal) | number:'1.2-2' }}</strong> adjusted automatically.
-                Net cash outflow: <strong>₹{{ Math.max(0, data.netTotal - data.selectedVendorAdvanceCredit) | number:'1.2-2' }}</strong>.
-              </span>
-            </div>
+            @if (data.selectedVendorAdvanceCredit > 0) {
+              <div class="credit-adj-notice">
+                <mat-icon class="sub-ic text-emerald">auto_fix_high</mat-icon>
+                <span>
+                  Supplier has <strong>₹{{ data.selectedVendorAdvanceCredit | number:'1.2-2' }}</strong> advance credit from previous Debit Notes.
+                  <strong>-₹{{ Math.min(data.selectedVendorAdvanceCredit, data.netTotal) | number:'1.2-2' }}</strong> adjusted automatically.
+                  Net cash outflow: <strong>₹{{ Math.max(0, data.netTotal - data.selectedVendorAdvanceCredit) | number:'1.2-2' }}</strong>.
+                </span>
+              </div>
+            }
           </div>
         </div>
-
+    
         <!-- 3. Items Arriving into Store Summary -->
         <div class="items-summary-card">
           <div class="items-card-header">
@@ -146,21 +154,25 @@ export interface InventoryInwardConfirmDialogData {
               Total: {{ totalQuantity }} Units
             </span>
           </div>
-
+    
           <div class="items-mini-table">
-            <div *ngFor="let it of data.items; let idx = index" class="mini-table-row">
-              <span class="row-num">#{{ idx + 1 }}</span>
-              <div class="row-item-info">
-                <strong>{{ it.itemName }}</strong>
-                <span *ngIf="it.itemCode" class="row-code">({{ it.itemCode }})</span>
+            @for (it of data.items; track it; let idx = $index) {
+              <div class="mini-table-row">
+                <span class="row-num">#{{ idx + 1 }}</span>
+                <div class="row-item-info">
+                  <strong>{{ it.itemName }}</strong>
+                  @if (it.itemCode) {
+                    <span class="row-code">({{ it.itemCode }})</span>
+                  }
+                </div>
+                <span class="row-qty">{{ it.quantity }} Pcs &times; ₹{{ it.unitPrice | number:'1.2-2' }}</span>
+                <strong class="row-total">₹{{ it.totalAmount | number:'1.2-2' }}</strong>
               </div>
-              <span class="row-qty">{{ it.quantity }} Pcs &times; ₹{{ it.unitPrice | number:'1.2-2' }}</span>
-              <strong class="row-total">₹{{ it.totalAmount | number:'1.2-2' }}</strong>
-            </div>
+            }
           </div>
         </div>
       </mat-dialog-content>
-
+    
       <mat-dialog-actions align="end" class="dialog-actions">
         <button mat-button type="button" (click)="onCancel()" class="btn-cancel">
           Back to Edit
@@ -171,7 +183,8 @@ export interface InventoryInwardConfirmDialogData {
         </button>
       </mat-dialog-actions>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .confirm-dialog-container {
       display: flex;

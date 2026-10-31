@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -63,7 +63,7 @@ interface ExperienceSlabRecommendation {
         class="mode-pill"
         [class.active]="viewMode === 'single'"
         (click)="switchViewMode('single')"
-      >
+        >
         <mat-icon>person</mat-icon>
         <span>Individual Staff View</span>
       </button>
@@ -72,10 +72,12 @@ interface ExperienceSlabRecommendation {
         class="mode-pill"
         [class.active]="viewMode === 'batch'"
         (click)="switchViewMode('batch')"
-      >
+        >
         <mat-icon>groups</mat-icon>
         <span>Batch / Multiple Staff Setup</span>
-        <span class="badge-pill" *ngIf="unconfiguredCount > 0">{{ unconfiguredCount }} Missing</span>
+        @if (unconfiguredCount > 0) {
+          <span class="badge-pill">{{ unconfiguredCount }} Missing</span>
+        }
       </button>
     </div>
   </div>
@@ -112,668 +114,690 @@ interface ExperienceSlabRecommendation {
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading || batchProcessing"></mat-progress-bar>
+  @if (loading || batchProcessing) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- ========================================================================= -->
   <!-- 1. INDIVIDUAL STAFF VIEW MODE -->
   <!-- ========================================================================= -->
-  <div *ngIf="viewMode === 'single'" class="single-view-section">
-    <!-- Clean Searchable Staff Selector -->
-    <app-teacher-selector
-      [preSelectId]="preSelectId"
-      (teacherSelected)="onTeacherSelected($event)"
-    ></app-teacher-selector>
-
-    <div *ngIf="!selectedTeacher" class="no-selection-card mat-elevation-z1">
-      <div class="empty-icon-wrap">
-        <mat-icon>person_search</mat-icon>
-      </div>
-      <h3>Select a Faculty or Staff Member</h3>
-      <p>Choose an employee from the dropdown above to view, configure, or auto-calculate their salary structure based on experience.</p>
+  @if (viewMode === 'single') {
+    <div class="single-view-section">
+      <!-- Clean Searchable Staff Selector -->
+      <app-teacher-selector
+        [preSelectId]="preSelectId"
+        (teacherSelected)="onTeacherSelected($event)"
+      ></app-teacher-selector>
+      @if (!selectedTeacher) {
+        <div class="no-selection-card mat-elevation-z1">
+          <div class="empty-icon-wrap">
+            <mat-icon>person_search</mat-icon>
+          </div>
+          <h3>Select a Faculty or Staff Member</h3>
+          <p>Choose an employee from the dropdown above to view, configure, or auto-calculate their salary structure based on experience.</p>
+        </div>
+      }
+      @if (selectedTeacher) {
+        <div class="staff-workspace">
+          <!-- Staff Profile Summary Banner -->
+          <div class="staff-banner-card mat-elevation-z1">
+            <div class="staff-avatar-box">
+              <mat-icon>{{ selectedTeacher.staffType === 'Teaching' ? 'school' : 'badge' }}</mat-icon>
+            </div>
+            <div class="staff-banner-info">
+              <div class="banner-title-row">
+                <h2 class="staff-name">{{ selectedTeacher.fullName }}</h2>
+                <span class="code-pill">[{{ selectedTeacher.employeeCode }}]</span>
+                <span class="type-pill" [class.teaching]="selectedTeacher.staffType === 'Teaching'">
+                  {{ selectedTeacher.staffType || 'Teaching' }}
+                </span>
+                <span class="status-badge" [class.success]="salaryStructure" [class.warn]="!salaryStructure">
+                  <mat-icon>{{ salaryStructure ? 'verified' : 'error_outline' }}</mat-icon>
+                  {{ salaryStructure ? 'Structure Configured' : 'No Structure Configured (संरचना नहीं बनी)' }}
+                </span>
+              </div>
+              <div class="banner-meta-row">
+                <span>Designation: <strong>{{ selectedTeacher.designation || 'Faculty' }}</strong></span>
+                @if (selectedTeacher.department) {
+                  <span>&bull; Dept: <strong>{{ selectedTeacher.department }}</strong></span>
+                }
+                <span>&bull; Experience: <strong class="exp-highlight">{{ selectedTeacher.experienceYears || 0 }} Yrs Exp</strong></span>
+              </div>
+            </div>
+            <div class="banner-actions">
+              <button mat-stroked-button color="primary" class="action-btn" (click)="toggleForm()">
+                <mat-icon>{{ showForm ? 'close' : (salaryStructure ? 'edit' : 'add_circle') }}</mat-icon>
+                <span>{{ showForm ? 'Cancel' : (salaryStructure ? 'Modify Structure' : 'Set Salary Structure') }}</span>
+              </button>
+            </div>
+          </div>
+          <!-- Experience-Based Pay Matrix Smart Recommendation Card -->
+          @if (showForm) {
+            <div class="smart-exp-card">
+              <div class="exp-card-header">
+                <div class="exp-header-left">
+                  <mat-icon class="ai-spark-icon">auto_awesome</mat-icon>
+                  <div>
+                    <h4 class="exp-title">Experience-Based Pay Scale Recommendation (अनुभव अनुसार वेतनमान)</h4>
+                    <p class="exp-desc">
+                      {{ selectedTeacher.fullName }} has <strong>{{ selectedTeacher.experienceYears || 0 }} Years</strong> experience as
+                      <strong>{{ selectedTeacher.designation || 'Faculty' }}</strong>. Recommended Pay Band:
+                      <span class="band-tag">{{ getExpBandName(selectedTeacher.experienceYears || 0) }}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="auto-fill-btn"
+                  (click)="applyExperienceRecommendation(selectedTeacher)"
+                  matTooltip="Instantly fill Basic, HRA, Allowances, and PF according to experience slab"
+                  >
+                  <mat-icon>bolt</mat-icon>
+                  <span>Auto-Calculate by Exp ({{ selectedTeacher.experienceYears || 0 }}y)</span>
+                </button>
+              </div>
+              <!-- Quick Standard Slab Chips -->
+              <div class="slab-chips-row">
+                <span class="slab-chips-lbl">Quick Pay Slabs:</span>
+                @for (slab of getStandardSlabs(selectedTeacher.designation || ''); track slab) {
+                  <button
+                    type="button"
+                    class="slab-chip"
+                    (click)="applySlab(slab)"
+                    >
+                    <span class="slab-chip-name">{{ slab.slabName }} ({{ slab.expRange }})</span>
+                    <span class="slab-chip-val">₹{{ slab.grossSalary | number:'1.0-0' }}</span>
+                  </button>
+                }
+              </div>
+            </div>
+          }
+          <!-- Salary Form -->
+          @if (showForm) {
+            <mat-card class="form-card mat-elevation-z1">
+              <form [formGroup]="salaryForm" (ngSubmit)="saveSalary()">
+                <div class="form-grid">
+                  <!-- Earnings -->
+                  <div class="form-column earnings-col">
+                    <div class="column-title earnings-title">
+                      <mat-icon>payments</mat-icon>
+                      <span>Earnings (मासिक आय)</span>
+                    </div>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Basic Salary (मूल वेतन) ₹ *</mat-label>
+                      <input matInput type="number" formControlName="basicSalary" (input)="recalcLiveSalary()" min="1" placeholder="e.g. 25000">
+                      <mat-hint>Standard: ~50-60% of total Gross</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>HRA (मकान किराया भत्ता) ₹</mat-label>
+                      <input matInput type="number" formControlName="hra" (input)="recalcLiveSalary()" min="0" placeholder="e.g. 5000">
+                      <mat-hint>Standard: ~20-25% of Gross</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Other Allowances (विशेष/अन्य भत्ते) ₹</mat-label>
+                      <input matInput type="number" formControlName="otherAllowances" (input)="recalcLiveSalary()" min="0" placeholder="e.g. 3000">
+                      <mat-hint>DA / Conveyance / Academic Allowances</mat-hint>
+                    </mat-form-field>
+                  </div>
+                  <!-- Deductions -->
+                  <div class="form-column deductions-col">
+                    <div class="column-title deductions-title">
+                      <mat-icon>remove_circle_outline</mat-icon>
+                      <span>Statutory Deductions (कटौती)</span>
+                    </div>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>PF Deduction (भविष्य निधि) ₹</mat-label>
+                      <input matInput type="number" formControlName="pfDeduction" (input)="recalcLiveSalary()" min="0" placeholder="0">
+                      <mat-hint>12% of Basic Salary (if opted)</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>TDS Deduction (आयकर) ₹</mat-label>
+                      <input matInput type="number" formControlName="tdsDeduction" (input)="recalcLiveSalary()" min="0" placeholder="0">
+                      <mat-hint>Income Tax deduction</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Other Deductions (अन्य कटौती) ₹</mat-label>
+                      <input matInput type="number" formControlName="otherDeductions" (input)="recalcLiveSalary()" min="0" placeholder="0">
+                      <mat-hint>Society / Insurance / Welfare fund</mat-hint>
+                    </mat-form-field>
+                  </div>
+                  <!-- Effective Date & Summary Preview -->
+                  <div class="form-column summary-col">
+                    <div class="column-title summary-title">
+                      <mat-icon>calculate</mat-icon>
+                      <span>Live Breakdown &amp; Effective Date</span>
+                    </div>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Effective From (लागू होने की तिथि) *</mat-label>
+                      <input matInput type="date" formControlName="effectiveFrom">
+                    </mat-form-field>
+                    <!-- Live Calculated CTC Card -->
+                    <div class="live-calc-box">
+                      <div class="live-row">
+                        <span>Gross Salary (CTC):</span>
+                        <strong class="val-gross">₹{{ liveGrossSalary | number:'1.0-0' }}</strong>
+                      </div>
+                      <div class="live-row deduction">
+                        <span>Total Deductions:</span>
+                        <strong class="val-deduct">-₹{{ liveTotalDeductions | number:'1.0-0' }}</strong>
+                      </div>
+                      <div class="live-divider"></div>
+                      <div class="live-row net">
+                        <span>Net Take-Home Pay:</span>
+                        <strong class="val-net">₹{{ liveNetSalary | number:'1.0-0' }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button mat-button type="button" (click)="showForm = false" [disabled]="submitting">Cancel</button>
+                  <button mat-flat-button color="primary" type="submit" [disabled]="salaryForm.invalid || submitting" class="btn-save">
+                    <mat-icon>{{ submitting ? 'hourglass_empty' : 'save' }}</mat-icon>
+                    <span>{{ submitting ? 'Saving...' : 'Save Salary Structure' }}</span>
+                  </button>
+                </div>
+              </form>
+            </mat-card>
+          }
+          <!-- Salary Structure Visual Display (When not editing) -->
+          @if (salaryStructure && !showForm) {
+            <div class="salary-display-container">
+              <mat-card class="salary-card mat-elevation-z2">
+                <div class="card-top-header">
+                  <div>
+                    <span class="card-eyebrow">ACTIVE COMPENSATION STRUCTURE</span>
+                    <h3 class="card-main-title">{{ selectedTeacher.fullName }}</h3>
+                  </div>
+                  <div class="net-badge-large">
+                    <span class="badge-sub">MONTHLY TAKE-HOME</span>
+                    <strong class="badge-amt">₹{{ salaryStructure.netSalary | number:'1.0-0' }}</strong>
+                  </div>
+                </div>
+                <div class="breakdown-grid">
+                  <!-- Earnings Block -->
+                  <div class="breakdown-col">
+                    <h4 class="col-head earnings"><mat-icon>payments</mat-icon> Earnings Breakup</h4>
+                    <div class="sal-item">
+                      <span>Basic Salary (मूल वेतन):</span>
+                      <strong>₹{{ salaryStructure.basicSalary | number:'1.0-0' }}</strong>
+                    </div>
+                    <div class="sal-item">
+                      <span>House Rent Allowance (HRA):</span>
+                      <strong>₹{{ salaryStructure.hra | number:'1.0-0' }}</strong>
+                    </div>
+                    <div class="sal-item">
+                      <span>Other / Special Allowances:</span>
+                      <strong>₹{{ salaryStructure.otherAllowances | number:'1.0-0' }}</strong>
+                    </div>
+                    <div class="sal-item total-row gross-row">
+                      <span>Gross Monthly Salary:</span>
+                      <strong>₹{{ salaryStructure.grossSalary | number:'1.0-0' }}</strong>
+                    </div>
+                  </div>
+                  <!-- Deductions Block -->
+                  <div class="breakdown-col">
+                    <h4 class="col-head deductions"><mat-icon>remove_circle_outline</mat-icon> Deductions Breakup</h4>
+                    <div class="sal-item">
+                      <span>Provident Fund (PF):</span>
+                      <span class="ded-val">-₹{{ salaryStructure.pfDeduction | number:'1.0-0' }}</span>
+                    </div>
+                    <div class="sal-item">
+                      <span>Income Tax (TDS):</span>
+                      <span class="ded-val">-₹{{ salaryStructure.tdsDeduction | number:'1.0-0' }}</span>
+                    </div>
+                    <div class="sal-item">
+                      <span>Other Deductions:</span>
+                      <span class="ded-val">-₹{{ salaryStructure.otherDeductions | number:'1.0-0' }}</span>
+                    </div>
+                    <div class="sal-item total-row ded-row">
+                      <span>Total Monthly Deductions:</span>
+                      <strong>-₹{{ (salaryStructure.pfDeduction + salaryStructure.tdsDeduction + salaryStructure.otherDeductions) | number:'1.0-0' }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <!-- Visual Distribution Bar -->
+                <div class="distribution-bar-wrap">
+                  <div class="dist-meta">
+                    <span>Salary Composition: Basic {{ getBasicPercent() }}% &bull; HRA {{ getHraPercent() }}% &bull; Allowances {{ getAllowancesPercent() }}%</span>
+                    <span>Effective Since: {{ salaryStructure.effectiveFrom | date:'dd MMM yyyy' }}</span>
+                  </div>
+                  <div class="dist-bar">
+                    <div class="segment basic" [style.width.%]="getBasicPercent()" matTooltip="Basic Salary"></div>
+                    <div class="segment hra" [style.width.%]="getHraPercent()" matTooltip="HRA"></div>
+                    <div class="segment allowances" [style.width.%]="getAllowancesPercent()" matTooltip="Allowances"></div>
+                  </div>
+                </div>
+              </mat-card>
+            </div>
+          }
+          <!-- Empty State if selected teacher has no structure -->
+          @if (!salaryStructure && !loading && !showForm) {
+            <div class="missing-structure-box">
+              <div class="missing-icon-wrap">
+                <mat-icon>warning_amber</mat-icon>
+              </div>
+              <h3>No Salary Structure Configured Yet</h3>
+              <p>This faculty member does not have an active compensation package defined. Their appraisal records and payroll require a configured structure.</p>
+              <button mat-flat-button color="primary" class="primary-btn" (click)="toggleForm()">
+                <mat-icon>add_circle</mat-icon>
+                <span>Define Salary Structure Now</span>
+              </button>
+            </div>
+          }
+        </div>
+      }
     </div>
-
-    <div *ngIf="selectedTeacher" class="staff-workspace">
-      <!-- Staff Profile Summary Banner -->
-      <div class="staff-banner-card mat-elevation-z1">
-        <div class="staff-avatar-box">
-          <mat-icon>{{ selectedTeacher.staffType === 'Teaching' ? 'school' : 'badge' }}</mat-icon>
-        </div>
-        <div class="staff-banner-info">
-          <div class="banner-title-row">
-            <h2 class="staff-name">{{ selectedTeacher.fullName }}</h2>
-            <span class="code-pill">[{{ selectedTeacher.employeeCode }}]</span>
-            <span class="type-pill" [class.teaching]="selectedTeacher.staffType === 'Teaching'">
-              {{ selectedTeacher.staffType || 'Teaching' }}
-            </span>
-            <span class="status-badge" [class.success]="salaryStructure" [class.warn]="!salaryStructure">
-              <mat-icon>{{ salaryStructure ? 'verified' : 'error_outline' }}</mat-icon>
-              {{ salaryStructure ? 'Structure Configured' : 'No Structure Configured (संरचना नहीं बनी)' }}
-            </span>
-          </div>
-          <div class="banner-meta-row">
-            <span>Designation: <strong>{{ selectedTeacher.designation || 'Faculty' }}</strong></span>
-            <span *ngIf="selectedTeacher.department">&bull; Dept: <strong>{{ selectedTeacher.department }}</strong></span>
-            <span>&bull; Experience: <strong class="exp-highlight">{{ selectedTeacher.experienceYears || 0 }} Yrs Exp</strong></span>
-          </div>
-        </div>
-
-        <div class="banner-actions">
-          <button mat-stroked-button color="primary" class="action-btn" (click)="toggleForm()">
-            <mat-icon>{{ showForm ? 'close' : (salaryStructure ? 'edit' : 'add_circle') }}</mat-icon>
-            <span>{{ showForm ? 'Cancel' : (salaryStructure ? 'Modify Structure' : 'Set Salary Structure') }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Experience-Based Pay Matrix Smart Recommendation Card -->
-      <div class="smart-exp-card" *ngIf="showForm">
-        <div class="exp-card-header">
-          <div class="exp-header-left">
-            <mat-icon class="ai-spark-icon">auto_awesome</mat-icon>
-            <div>
-              <h4 class="exp-title">Experience-Based Pay Scale Recommendation (अनुभव अनुसार वेतनमान)</h4>
-              <p class="exp-desc">
-                {{ selectedTeacher.fullName }} has <strong>{{ selectedTeacher.experienceYears || 0 }} Years</strong> experience as 
-                <strong>{{ selectedTeacher.designation || 'Faculty' }}</strong>. Recommended Pay Band: 
-                <span class="band-tag">{{ getExpBandName(selectedTeacher.experienceYears || 0) }}</span>
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            class="auto-fill-btn"
-            (click)="applyExperienceRecommendation(selectedTeacher)"
-            matTooltip="Instantly fill Basic, HRA, Allowances, and PF according to experience slab"
-          >
-            <mat-icon>bolt</mat-icon>
-            <span>Auto-Calculate by Exp ({{ selectedTeacher.experienceYears || 0 }}y)</span>
-          </button>
-        </div>
-
-        <!-- Quick Standard Slab Chips -->
-        <div class="slab-chips-row">
-          <span class="slab-chips-lbl">Quick Pay Slabs:</span>
-          <button
-            type="button"
-            class="slab-chip"
-            *ngFor="let slab of getStandardSlabs(selectedTeacher.designation || '')"
-            (click)="applySlab(slab)"
-          >
-            <span class="slab-chip-name">{{ slab.slabName }} ({{ slab.expRange }})</span>
-            <span class="slab-chip-val">₹{{ slab.grossSalary | number:'1.0-0' }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Salary Form -->
-      <mat-card class="form-card mat-elevation-z1" *ngIf="showForm">
-        <form [formGroup]="salaryForm" (ngSubmit)="saveSalary()">
-          <div class="form-grid">
-            <!-- Earnings -->
-            <div class="form-column earnings-col">
-              <div class="column-title earnings-title">
-                <mat-icon>payments</mat-icon>
-                <span>Earnings (मासिक आय)</span>
-              </div>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Basic Salary (मूल वेतन) ₹ *</mat-label>
-                <input matInput type="number" formControlName="basicSalary" (input)="recalcLiveSalary()" min="1" placeholder="e.g. 25000">
-                <mat-hint>Standard: ~50-60% of total Gross</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>HRA (मकान किराया भत्ता) ₹</mat-label>
-                <input matInput type="number" formControlName="hra" (input)="recalcLiveSalary()" min="0" placeholder="e.g. 5000">
-                <mat-hint>Standard: ~20-25% of Gross</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Other Allowances (विशेष/अन्य भत्ते) ₹</mat-label>
-                <input matInput type="number" formControlName="otherAllowances" (input)="recalcLiveSalary()" min="0" placeholder="e.g. 3000">
-                <mat-hint>DA / Conveyance / Academic Allowances</mat-hint>
-              </mat-form-field>
-            </div>
-
-            <!-- Deductions -->
-            <div class="form-column deductions-col">
-              <div class="column-title deductions-title">
-                <mat-icon>remove_circle_outline</mat-icon>
-                <span>Statutory Deductions (कटौती)</span>
-              </div>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>PF Deduction (भविष्य निधि) ₹</mat-label>
-                <input matInput type="number" formControlName="pfDeduction" (input)="recalcLiveSalary()" min="0" placeholder="0">
-                <mat-hint>12% of Basic Salary (if opted)</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>TDS Deduction (आयकर) ₹</mat-label>
-                <input matInput type="number" formControlName="tdsDeduction" (input)="recalcLiveSalary()" min="0" placeholder="0">
-                <mat-hint>Income Tax deduction</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Other Deductions (अन्य कटौती) ₹</mat-label>
-                <input matInput type="number" formControlName="otherDeductions" (input)="recalcLiveSalary()" min="0" placeholder="0">
-                <mat-hint>Society / Insurance / Welfare fund</mat-hint>
-              </mat-form-field>
-            </div>
-
-            <!-- Effective Date & Summary Preview -->
-            <div class="form-column summary-col">
-              <div class="column-title summary-title">
-                <mat-icon>calculate</mat-icon>
-                <span>Live Breakdown &amp; Effective Date</span>
-              </div>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Effective From (लागू होने की तिथि) *</mat-label>
-                <input matInput type="date" formControlName="effectiveFrom">
-              </mat-form-field>
-
-              <!-- Live Calculated CTC Card -->
-              <div class="live-calc-box">
-                <div class="live-row">
-                  <span>Gross Salary (CTC):</span>
-                  <strong class="val-gross">₹{{ liveGrossSalary | number:'1.0-0' }}</strong>
-                </div>
-                <div class="live-row deduction">
-                  <span>Total Deductions:</span>
-                  <strong class="val-deduct">-₹{{ liveTotalDeductions | number:'1.0-0' }}</strong>
-                </div>
-                <div class="live-divider"></div>
-                <div class="live-row net">
-                  <span>Net Take-Home Pay:</span>
-                  <strong class="val-net">₹{{ liveNetSalary | number:'1.0-0' }}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button mat-button type="button" (click)="showForm = false" [disabled]="submitting">Cancel</button>
-            <button mat-flat-button color="primary" type="submit" [disabled]="salaryForm.invalid || submitting" class="btn-save">
-              <mat-icon>{{ submitting ? 'hourglass_empty' : 'save' }}</mat-icon>
-              <span>{{ submitting ? 'Saving...' : 'Save Salary Structure' }}</span>
-            </button>
-          </div>
-        </form>
-      </mat-card>
-
-      <!-- Salary Structure Visual Display (When not editing) -->
-      <div class="salary-display-container" *ngIf="salaryStructure && !showForm">
-        <mat-card class="salary-card mat-elevation-z2">
-          <div class="card-top-header">
-            <div>
-              <span class="card-eyebrow">ACTIVE COMPENSATION STRUCTURE</span>
-              <h3 class="card-main-title">{{ selectedTeacher.fullName }}</h3>
-            </div>
-            <div class="net-badge-large">
-              <span class="badge-sub">MONTHLY TAKE-HOME</span>
-              <strong class="badge-amt">₹{{ salaryStructure.netSalary | number:'1.0-0' }}</strong>
-            </div>
-          </div>
-
-          <div class="breakdown-grid">
-            <!-- Earnings Block -->
-            <div class="breakdown-col">
-              <h4 class="col-head earnings"><mat-icon>payments</mat-icon> Earnings Breakup</h4>
-              <div class="sal-item">
-                <span>Basic Salary (मूल वेतन):</span>
-                <strong>₹{{ salaryStructure.basicSalary | number:'1.0-0' }}</strong>
-              </div>
-              <div class="sal-item">
-                <span>House Rent Allowance (HRA):</span>
-                <strong>₹{{ salaryStructure.hra | number:'1.0-0' }}</strong>
-              </div>
-              <div class="sal-item">
-                <span>Other / Special Allowances:</span>
-                <strong>₹{{ salaryStructure.otherAllowances | number:'1.0-0' }}</strong>
-              </div>
-              <div class="sal-item total-row gross-row">
-                <span>Gross Monthly Salary:</span>
-                <strong>₹{{ salaryStructure.grossSalary | number:'1.0-0' }}</strong>
-              </div>
-            </div>
-
-            <!-- Deductions Block -->
-            <div class="breakdown-col">
-              <h4 class="col-head deductions"><mat-icon>remove_circle_outline</mat-icon> Deductions Breakup</h4>
-              <div class="sal-item">
-                <span>Provident Fund (PF):</span>
-                <span class="ded-val">-₹{{ salaryStructure.pfDeduction | number:'1.0-0' }}</span>
-              </div>
-              <div class="sal-item">
-                <span>Income Tax (TDS):</span>
-                <span class="ded-val">-₹{{ salaryStructure.tdsDeduction | number:'1.0-0' }}</span>
-              </div>
-              <div class="sal-item">
-                <span>Other Deductions:</span>
-                <span class="ded-val">-₹{{ salaryStructure.otherDeductions | number:'1.0-0' }}</span>
-              </div>
-              <div class="sal-item total-row ded-row">
-                <span>Total Monthly Deductions:</span>
-                <strong>-₹{{ (salaryStructure.pfDeduction + salaryStructure.tdsDeduction + salaryStructure.otherDeductions) | number:'1.0-0' }}</strong>
-              </div>
-            </div>
-          </div>
-
-          <!-- Visual Distribution Bar -->
-          <div class="distribution-bar-wrap">
-            <div class="dist-meta">
-              <span>Salary Composition: Basic {{ getBasicPercent() }}% &bull; HRA {{ getHraPercent() }}% &bull; Allowances {{ getAllowancesPercent() }}%</span>
-              <span>Effective Since: {{ salaryStructure.effectiveFrom | date:'dd MMM yyyy' }}</span>
-            </div>
-            <div class="dist-bar">
-              <div class="segment basic" [style.width.%]="getBasicPercent()" matTooltip="Basic Salary"></div>
-              <div class="segment hra" [style.width.%]="getHraPercent()" matTooltip="HRA"></div>
-              <div class="segment allowances" [style.width.%]="getAllowancesPercent()" matTooltip="Allowances"></div>
-            </div>
-          </div>
-        </mat-card>
-      </div>
-
-      <!-- Empty State if selected teacher has no structure -->
-      <div class="missing-structure-box" *ngIf="!salaryStructure && !loading && !showForm">
-        <div class="missing-icon-wrap">
-          <mat-icon>warning_amber</mat-icon>
-        </div>
-        <h3>No Salary Structure Configured Yet</h3>
-        <p>This faculty member does not have an active compensation package defined. Their appraisal records and payroll require a configured structure.</p>
-        <button mat-flat-button color="primary" class="primary-btn" (click)="toggleForm()">
-          <mat-icon>add_circle</mat-icon>
-          <span>Define Salary Structure Now</span>
-        </button>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- ========================================================================= -->
   <!-- 2. BATCH / MULTIPLE STAFF DYNAMIC SETUP VIEW MODE -->
   <!-- ========================================================================= -->
-  <div *ngIf="viewMode === 'batch'" class="batch-view-section">
-    <!-- Filter & Multi-Select Action Toolbar -->
-    <mat-card class="batch-toolbar-card mat-elevation-z1">
-      <div class="batch-toolbar">
-        <div class="search-box">
-          <mat-icon>search</mat-icon>
-          <input
-            type="text"
-            placeholder="Search staff by name, code, designation, department..."
-            [(ngModel)]="batchSearchQuery"
-            (ngModelChange)="onSearchChange($event)"
-          />
-          <button type="button" class="clear-btn" *ngIf="batchSearchQuery" (click)="clearSearch()">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <div class="filter-dropdowns">
-          <mat-form-field appearance="outline" class="mini-filter">
-            <mat-label>Status Filter</mat-label>
-            <mat-select [(ngModel)]="batchStatusFilter" (selectionChange)="onFilterChange()">
-              <mat-option value="all">All Staff ({{ totalActiveStaffCount }})</mat-option>
-              <mat-option value="missing">⚠️ Missing Structure ({{ unconfiguredCount }})</mat-option>
-              <mat-option value="configured">Configured ({{ configuredCount }})</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="mini-filter">
-            <mat-label>Department</mat-label>
-            <mat-select [(ngModel)]="batchDeptFilter" (selectionChange)="onFilterChange()">
-              <mat-option value="all">All Departments</mat-option>
-              <mat-option *ngFor="let d of departments" [value]="d">{{ d }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-      </div>
-
-      <!-- Multi-Select Action Strip -->
-      <div class="selection-action-strip">
-        <div class="selection-meta">
-          <mat-checkbox
-            [checked]="isAllSelected()"
-            [indeterminate]="isIndeterminate()"
-            (change)="toggleSelectAll($event.checked)"
-          >
-            <strong>{{ selectedStaffCount }}</strong> Staff Selected
-          </mat-checkbox>
-          <button type="button" class="quick-link-btn" (click)="selectAllMissing()">
-            Filter Missing Structure ({{ unconfiguredCount }})
-          </button>
-        </div>
-
-        <div class="strip-right-actions">
-          <button
-            mat-flat-button
-            color="primary"
-            class="batch-create-btn"
-            [disabled]="selectedStaffCount === 0"
-            (click)="openBulkModal()"
-          >
-            <mat-icon>auto_awesome</mat-icon>
-            <span>Setup Salary for {{ selectedStaffCount }} Selected Staff</span>
-          </button>
-        </div>
-      </div>
-    </mat-card>
-
-    <!-- Staff Overview Table (Desktop & Tablet) -->
-    <div class="desktop-tablet-view table-responsive mat-elevation-z1">
-      <table class="erp-table">
-        <thead>
-          <tr>
-            <th style="width: 44px;">
-              <mat-checkbox
-                [checked]="isAllSelected()"
-                [indeterminate]="isIndeterminate()"
-                (change)="toggleSelectAll($event.checked)"
-              ></mat-checkbox>
-            </th>
-            <th class="sortable-th" (click)="onSort('name')" matTooltip="Click to sort by Staff Name">
-              <div class="th-content">
-                <span>Staff Member</span>
-                <mat-icon class="sort-icon" [class.active]="sortBy === 'name'">{{ getSortIcon('name') }}</mat-icon>
-              </div>
-            </th>
-            <th class="sortable-th" (click)="onSort('designation')" matTooltip="Click to sort by Role & Department">
-              <div class="th-content">
-                <span>Role &amp; Department</span>
-                <mat-icon class="sort-icon" [class.active]="sortBy === 'designation'">{{ getSortIcon('designation') }}</mat-icon>
-              </div>
-            </th>
-            <th class="sortable-th" (click)="onSort('experience')" matTooltip="Click to sort by Experience">
-              <div class="th-content">
-                <span>Experience (अनुभव)</span>
-                <mat-icon class="sort-icon" [class.active]="sortBy === 'experience'">{{ getSortIcon('experience') }}</mat-icon>
-              </div>
-            </th>
-            <th class="sortable-th" (click)="onSort('band')" matTooltip="Click to sort by Pay Band">
-              <div class="th-content">
-                <span>Recommended Pay Band</span>
-                <mat-icon class="sort-icon" [class.active]="sortBy === 'band'">{{ getSortIcon('band') }}</mat-icon>
-              </div>
-            </th>
-            <th class="sortable-th" (click)="onSort('grosssalary')" matTooltip="Click to sort by Salary Amount">
-              <div class="th-content">
-                <span>Current Status</span>
-                <mat-icon class="sort-icon" [class.active]="sortBy === 'grosssalary'">{{ getSortIcon('grosssalary') }}</mat-icon>
-              </div>
-            </th>
-            <th class="text-right">Quick Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Loading state when filteredBatchList is empty -->
-          <tr *ngIf="loading && filteredBatchList.length === 0">
-            <td colspan="7" class="text-center empty-td">
-              <div class="table-loader-wrap">
-                <mat-spinner diameter="32"></mat-spinner>
-                <span>Loading staff salary structures...</span>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Data Rows -->
-          <tr *ngFor="let item of filteredBatchList" [class.selected-row]="item.selected">
-            <td>
-              <mat-checkbox [(ngModel)]="item.selected" (change)="onRowSelectChange()"></mat-checkbox>
-            </td>
-            <td>
-              <div class="staff-row-cell">
-                <div class="cell-avatar">
-                  <mat-icon>{{ item.teacher.staffType === 'Teaching' ? 'school' : 'badge' }}</mat-icon>
-                </div>
-                <div>
-                  <strong class="cell-name">{{ item.teacher.fullName }}</strong>
-                  <div class="cell-sub">
-                    <span>{{ item.teacher.employeeCode }}</span>
-                    <span class="type-badge" [class.teaching]="item.teacher.staffType === 'Teaching'">
-                      {{ item.teacher.staffType || 'Staff' }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </td>
-            <td>
-              <div class="cell-role-wrap">
-                <strong>{{ item.teacher.designation || 'Faculty' }}</strong>
-                <small *ngIf="item.teacher.department">{{ item.teacher.department }}</small>
-              </div>
-            </td>
-            <td>
-              <div class="exp-pill-cell">
-                <span class="exp-val">{{ item.teacher.experienceYears || 0 }} Yrs</span>
-              </div>
-            </td>
-            <td>
-              <span class="band-chip">{{ getExpBandName(item.teacher.experienceYears || 0) }}</span>
-            </td>
-            <td>
-              <span class="status-pill configured" *ngIf="item.salary">
-                <mat-icon>check_circle</mat-icon>
-                <span>₹{{ item.salary.grossSalary | number:'1.0-0' }} / mo</span>
-              </span>
-              <span class="status-pill missing" *ngIf="!item.salary">
-                <mat-icon>warning_amber</mat-icon>
-                <span>Not Configured</span>
-              </span>
-            </td>
-            <td class="text-right">
-              <button mat-stroked-button class="mini-btn" (click)="configureSingleFromBatch(item.teacher)">
-                <mat-icon>{{ item.salary ? 'edit' : 'add' }}</mat-icon>
-                <span>{{ item.salary ? 'Edit' : 'Configure' }}</span>
+  @if (viewMode === 'batch') {
+    <div class="batch-view-section">
+      <!-- Filter & Multi-Select Action Toolbar -->
+      <mat-card class="batch-toolbar-card mat-elevation-z1">
+        <div class="batch-toolbar">
+          <div class="search-box">
+            <mat-icon>search</mat-icon>
+            <input
+              type="text"
+              placeholder="Search staff by name, code, designation, department..."
+              [(ngModel)]="batchSearchQuery"
+              (ngModelChange)="onSearchChange($event)"
+              />
+            @if (batchSearchQuery) {
+              <button type="button" class="clear-btn" (click)="clearSearch()">
+                <mat-icon>close</mat-icon>
               </button>
-            </td>
-          </tr>
-
-          <!-- Empty State -->
-          <tr *ngIf="!loading && filteredBatchList.length === 0">
-            <td colspan="7" class="text-center empty-td">
-              <div class="no-records-wrap">
-                <mat-icon>search_off</mat-icon>
-                <span>No staff members match the selected filter criteria.</span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Server-Side Paginator -->
-      <mat-paginator
-        [length]="totalCount"
-        [pageSize]="pageSize"
-        [pageIndex]="pageIndex"
-        [pageSizeOptions]="pageSizeOptions"
-        [showFirstLastButtons]="true"
-        (page)="onPageChange($event)"
-        aria-label="Select page of staff salary structures"
-      ></mat-paginator>
-    </div>
-
-    <!-- Mobile Cards List (Mobile screens) -->
-    <div class="mobile-only-cards">
-      <div class="m-staff-card mat-elevation-z1" *ngFor="let item of filteredBatchList">
-        <div class="m-card-top">
-          <mat-checkbox [(ngModel)]="item.selected" (change)="onRowSelectChange()"></mat-checkbox>
-          <div class="m-staff-text">
-            <strong>{{ item.teacher.fullName }}</strong>
-            <small>({{ item.teacher.employeeCode }}) &bull; {{ item.teacher.designation || 'Staff' }}</small>
+            }
           </div>
-          <span class="status-pill configured" *ngIf="item.salary">
-            <span>₹{{ item.salary.grossSalary | number:'1.0-0' }}</span>
-          </span>
-          <span class="status-pill missing" *ngIf="!item.salary">
-            <span>Not Set</span>
-          </span>
+          <div class="filter-dropdowns">
+            <mat-form-field appearance="outline" class="mini-filter">
+              <mat-label>Status Filter</mat-label>
+              <mat-select [(ngModel)]="batchStatusFilter" (selectionChange)="onFilterChange()">
+                <mat-option value="all">All Staff ({{ totalActiveStaffCount }})</mat-option>
+                <mat-option value="missing">⚠️ Missing Structure ({{ unconfiguredCount }})</mat-option>
+                <mat-option value="configured">Configured ({{ configuredCount }})</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="mini-filter">
+              <mat-label>Department</mat-label>
+              <mat-select [(ngModel)]="batchDeptFilter" (selectionChange)="onFilterChange()">
+                <mat-option value="all">All Departments</mat-option>
+                @for (d of departments; track d) {
+                  <mat-option [value]="d">{{ d }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
         </div>
-        <div class="m-card-meta">
-          <span>Dept: <strong>{{ item.teacher.department || 'General' }}</strong></span>
-          <span>Exp: <strong>{{ item.teacher.experienceYears || 0 }} Yrs</strong> ({{ getExpBandName(item.teacher.experienceYears || 0) }})</span>
+        <!-- Multi-Select Action Strip -->
+        <div class="selection-action-strip">
+          <div class="selection-meta">
+            <mat-checkbox
+              [checked]="isAllSelected()"
+              [indeterminate]="isIndeterminate()"
+              (change)="toggleSelectAll($event.checked)"
+              >
+              <strong>{{ selectedStaffCount }}</strong> Staff Selected
+            </mat-checkbox>
+            <button type="button" class="quick-link-btn" (click)="selectAllMissing()">
+              Filter Missing Structure ({{ unconfiguredCount }})
+            </button>
+          </div>
+          <div class="strip-right-actions">
+            <button
+              mat-flat-button
+              color="primary"
+              class="batch-create-btn"
+              [disabled]="selectedStaffCount === 0"
+              (click)="openBulkModal()"
+              >
+              <mat-icon>auto_awesome</mat-icon>
+              <span>Setup Salary for {{ selectedStaffCount }} Selected Staff</span>
+            </button>
+          </div>
         </div>
-        <div class="m-card-bottom">
-          <button mat-stroked-button class="m-config-btn" (click)="configureSingleFromBatch(item.teacher)">
-            <mat-icon>{{ item.salary ? 'edit' : 'add' }}</mat-icon>
-            <span>{{ item.salary ? 'Modify Structure' : 'Set Structure' }}</span>
-          </button>
-        </div>
+      </mat-card>
+      <!-- Staff Overview Table (Desktop & Tablet) -->
+      <div class="desktop-tablet-view table-responsive mat-elevation-z1">
+        <table class="erp-table">
+          <thead>
+            <tr>
+              <th style="width: 44px;">
+                <mat-checkbox
+                  [checked]="isAllSelected()"
+                  [indeterminate]="isIndeterminate()"
+                  (change)="toggleSelectAll($event.checked)"
+                ></mat-checkbox>
+              </th>
+              <th class="sortable-th" (click)="onSort('name')" matTooltip="Click to sort by Staff Name">
+                <div class="th-content">
+                  <span>Staff Member</span>
+                  <mat-icon class="sort-icon" [class.active]="sortBy === 'name'">{{ getSortIcon('name') }}</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th" (click)="onSort('designation')" matTooltip="Click to sort by Role & Department">
+                <div class="th-content">
+                  <span>Role &amp; Department</span>
+                  <mat-icon class="sort-icon" [class.active]="sortBy === 'designation'">{{ getSortIcon('designation') }}</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th" (click)="onSort('experience')" matTooltip="Click to sort by Experience">
+                <div class="th-content">
+                  <span>Experience (अनुभव)</span>
+                  <mat-icon class="sort-icon" [class.active]="sortBy === 'experience'">{{ getSortIcon('experience') }}</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th" (click)="onSort('band')" matTooltip="Click to sort by Pay Band">
+                <div class="th-content">
+                  <span>Recommended Pay Band</span>
+                  <mat-icon class="sort-icon" [class.active]="sortBy === 'band'">{{ getSortIcon('band') }}</mat-icon>
+                </div>
+              </th>
+              <th class="sortable-th" (click)="onSort('grosssalary')" matTooltip="Click to sort by Salary Amount">
+                <div class="th-content">
+                  <span>Current Status</span>
+                  <mat-icon class="sort-icon" [class.active]="sortBy === 'grosssalary'">{{ getSortIcon('grosssalary') }}</mat-icon>
+                </div>
+              </th>
+              <th class="text-right">Quick Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Loading state when filteredBatchList is empty -->
+            @if (loading && filteredBatchList.length === 0) {
+              <tr>
+                <td colspan="7" class="text-center empty-td">
+                  <div class="table-loader-wrap">
+                    <mat-spinner diameter="32"></mat-spinner>
+                    <span>Loading staff salary structures...</span>
+                  </div>
+                </td>
+              </tr>
+            }
+            <!-- Data Rows -->
+            @for (item of filteredBatchList; track item) {
+              <tr [class.selected-row]="item.selected">
+                <td>
+                  <mat-checkbox [(ngModel)]="item.selected" (change)="onRowSelectChange()"></mat-checkbox>
+                </td>
+                <td>
+                  <div class="staff-row-cell">
+                    <div class="cell-avatar">
+                      <mat-icon>{{ item.teacher.staffType === 'Teaching' ? 'school' : 'badge' }}</mat-icon>
+                    </div>
+                    <div>
+                      <strong class="cell-name">{{ item.teacher.fullName }}</strong>
+                      <div class="cell-sub">
+                        <span>{{ item.teacher.employeeCode }}</span>
+                        <span class="type-badge" [class.teaching]="item.teacher.staffType === 'Teaching'">
+                          {{ item.teacher.staffType || 'Staff' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="cell-role-wrap">
+                    <strong>{{ item.teacher.designation || 'Faculty' }}</strong>
+                    @if (item.teacher.department) {
+                      <small>{{ item.teacher.department }}</small>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <div class="exp-pill-cell">
+                    <span class="exp-val">{{ item.teacher.experienceYears || 0 }} Yrs</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="band-chip">{{ getExpBandName(item.teacher.experienceYears || 0) }}</span>
+                </td>
+                <td>
+                  @if (item.salary) {
+                    <span class="status-pill configured">
+                      <mat-icon>check_circle</mat-icon>
+                      <span>₹{{ item.salary.grossSalary | number:'1.0-0' }} / mo</span>
+                    </span>
+                  }
+                  @if (!item.salary) {
+                    <span class="status-pill missing">
+                      <mat-icon>warning_amber</mat-icon>
+                      <span>Not Configured</span>
+                    </span>
+                  }
+                </td>
+                <td class="text-right">
+                  <button mat-stroked-button class="mini-btn" (click)="configureSingleFromBatch(item.teacher)">
+                    <mat-icon>{{ item.salary ? 'edit' : 'add' }}</mat-icon>
+                    <span>{{ item.salary ? 'Edit' : 'Configure' }}</span>
+                  </button>
+                </td>
+              </tr>
+            }
+            <!-- Empty State -->
+            @if (!loading && filteredBatchList.length === 0) {
+              <tr>
+                <td colspan="7" class="text-center empty-td">
+                  <div class="no-records-wrap">
+                    <mat-icon>search_off</mat-icon>
+                    <span>No staff members match the selected filter criteria.</span>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <!-- Server-Side Paginator -->
+        <mat-paginator
+          [length]="totalCount"
+          [pageSize]="pageSize"
+          [pageIndex]="pageIndex"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="onPageChange($event)"
+          aria-label="Select page of staff salary structures"
+        ></mat-paginator>
       </div>
-
-      <!-- Mobile Server-Side Paginator -->
-      <mat-paginator
-        *ngIf="totalCount > 0"
-        [length]="totalCount"
-        [pageSize]="pageSize"
-        [pageIndex]="pageIndex"
-        [pageSizeOptions]="pageSizeOptions"
-        [showFirstLastButtons]="true"
-        (page)="onPageChange($event)"
-        aria-label="Select page of staff salary structures"
-      ></mat-paginator>
+      <!-- Mobile Cards List (Mobile screens) -->
+      <div class="mobile-only-cards">
+        @for (item of filteredBatchList; track item) {
+          <div class="m-staff-card mat-elevation-z1">
+            <div class="m-card-top">
+              <mat-checkbox [(ngModel)]="item.selected" (change)="onRowSelectChange()"></mat-checkbox>
+              <div class="m-staff-text">
+                <strong>{{ item.teacher.fullName }}</strong>
+                <small>({{ item.teacher.employeeCode }}) &bull; {{ item.teacher.designation || 'Staff' }}</small>
+              </div>
+              @if (item.salary) {
+                <span class="status-pill configured">
+                  <span>₹{{ item.salary.grossSalary | number:'1.0-0' }}</span>
+                </span>
+              }
+              @if (!item.salary) {
+                <span class="status-pill missing">
+                  <span>Not Set</span>
+                </span>
+              }
+            </div>
+            <div class="m-card-meta">
+              <span>Dept: <strong>{{ item.teacher.department || 'General' }}</strong></span>
+              <span>Exp: <strong>{{ item.teacher.experienceYears || 0 }} Yrs</strong> ({{ getExpBandName(item.teacher.experienceYears || 0) }})</span>
+            </div>
+            <div class="m-card-bottom">
+              <button mat-stroked-button class="m-config-btn" (click)="configureSingleFromBatch(item.teacher)">
+                <mat-icon>{{ item.salary ? 'edit' : 'add' }}</mat-icon>
+                <span>{{ item.salary ? 'Modify Structure' : 'Set Structure' }}</span>
+              </button>
+            </div>
+          </div>
+        }
+        <!-- Mobile Server-Side Paginator -->
+        @if (totalCount > 0) {
+          <mat-paginator
+            [length]="totalCount"
+            [pageSize]="pageSize"
+            [pageIndex]="pageIndex"
+            [pageSizeOptions]="pageSizeOptions"
+            [showFirstLastButtons]="true"
+            (page)="onPageChange($event)"
+            aria-label="Select page of staff salary structures"
+          ></mat-paginator>
+        }
+      </div>
     </div>
-  </div>
+  }
 
   <!-- ========================================================================= -->
   <!-- 3. BULK / BATCH SETUP MODAL (Strict Light Blue Header Rule) -->
   <!-- ========================================================================= -->
-  <div class="modal-overlay" *ngIf="showBulkModal" (click)="closeBulkModal()">
-    <div class="modal-card bulk-setup-dialog" (click)="$event.stopPropagation()">
-      <!-- Strict Light Blue Header matching AGENTS.md rule -->
-      <div class="modal-header">
-        <div class="header-left">
-          <div class="header-icon-box">
-            <mat-icon>auto_awesome</mat-icon>
-          </div>
-          <div class="header-title-box">
-            <h2 class="modal-title">Bulk Salary Structure Setup (बल्क वेतन संरचना)</h2>
-            <p class="modal-subtitle">Applying compensation package for {{ selectedStaffCount }} selected staff members</p>
-          </div>
-        </div>
-        <button mat-icon-button class="close-btn" (click)="closeBulkModal()" matTooltip="Close">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      <div class="modal-body">
-        <!-- Choose Generation Strategy -->
-        <div class="form-group">
-          <label class="section-label">Select Bulk Setup Strategy (पद्धति चुनें):</label>
-          <div class="bulk-strategy-chips">
-            <button
-              type="button"
-              class="strategy-chip"
-              [class.active]="bulkStrategy === 'matrix'"
-              (click)="bulkStrategy = 'matrix'"
-            >
+  @if (showBulkModal) {
+    <div class="modal-overlay" (click)="closeBulkModal()">
+      <div class="modal-card bulk-setup-dialog" (click)="$event.stopPropagation()">
+        <!-- Strict Light Blue Header matching AGENTS.md rule -->
+        <div class="modal-header">
+          <div class="header-left">
+            <div class="header-icon-box">
               <mat-icon>auto_awesome</mat-icon>
-              <div>
-                <strong>Smart Experience Matrix (अनुभव अनुसार स्वतः अलग-अलग गणना)</strong>
-                <small>Calculates fair salary automatically for each staff member based on their individual experience &amp; cadre</small>
-              </div>
-            </button>
-            <button
-              type="button"
-              class="strategy-chip"
-              [class.active]="bulkStrategy === 'uniform'"
-              (click)="bulkStrategy = 'uniform'"
-            >
-              <mat-icon>payments</mat-icon>
-              <div>
-                <strong>Uniform Pay Scale (समान वेतनमान)</strong>
-                <small>Applies identical Basic, HRA, and Allowance figures across all selected staff</small>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <!-- Strategy 1: Smart Experience Matrix Preview -->
-        <div class="strategy-details" *ngIf="bulkStrategy === 'matrix'">
-          <div class="info-alert-box">
-            <mat-icon>info</mat-icon>
-            <div>
-              <strong>Dynamic Experience Matrix Formula:</strong>
-              <span>Suggested Gross = Cadre Base + (Exp Years &times; Step Increments). Breakdown: 55% Basic, 25% HRA, 20% Allowances, 12% PF.</span>
+            </div>
+            <div class="header-title-box">
+              <h2 class="modal-title">Bulk Salary Structure Setup (बल्क वेतन संरचना)</h2>
+              <p class="modal-subtitle">Applying compensation package for {{ selectedStaffCount }} selected staff members</p>
             </div>
           </div>
-
-          <div class="bulk-preview-table-wrap">
-            <table class="preview-mini-table">
-              <thead>
-                <tr>
-                  <th>Staff Member</th>
-                  <th>Designation</th>
-                  <th>Exp</th>
-                  <th>Calculated Basic</th>
-                  <th>HRA</th>
-                  <th>Allowances</th>
-                  <th>Total Gross</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let s of getSelectedStaffList()">
-                  <td><strong>{{ s.fullName }}</strong></td>
-                  <td>{{ s.designation || 'Faculty' }}</td>
-                  <td><span class="exp-tag">{{ s.experienceYears || 0 }}y</span></td>
-                  <td>₹{{ calculateExpSalary(s).basic | number:'1.0-0' }}</td>
-                  <td>₹{{ calculateExpSalary(s).hra | number:'1.0-0' }}</td>
-                  <td>₹{{ calculateExpSalary(s).allowances | number:'1.0-0' }}</td>
-                  <td><strong class="gross-highlight">₹{{ calculateExpSalary(s).gross | number:'1.0-0' }}</strong></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <button mat-icon-button class="close-btn" (click)="closeBulkModal()" matTooltip="Close">
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
-
-        <!-- Strategy 2: Uniform Pay Inputs -->
-        <div class="strategy-details" *ngIf="bulkStrategy === 'uniform'">
-          <div class="form-row three-cols">
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Basic Salary ₹ *</mat-label>
-              <input matInput type="number" [(ngModel)]="uniformData.basicSalary" min="1" placeholder="e.g. 25000">
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>HRA ₹</mat-label>
-              <input matInput type="number" [(ngModel)]="uniformData.hra" min="0" placeholder="e.g. 5000">
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Other Allowances ₹</mat-label>
-              <input matInput type="number" [(ngModel)]="uniformData.otherAllowances" min="0" placeholder="e.g. 3000">
-            </mat-form-field>
+        <div class="modal-body">
+          <!-- Choose Generation Strategy -->
+          <div class="form-group">
+            <label class="section-label">Select Bulk Setup Strategy (पद्धति चुनें):</label>
+            <div class="bulk-strategy-chips">
+              <button
+                type="button"
+                class="strategy-chip"
+                [class.active]="bulkStrategy === 'matrix'"
+                (click)="bulkStrategy = 'matrix'"
+                >
+                <mat-icon>auto_awesome</mat-icon>
+                <div>
+                  <strong>Smart Experience Matrix (अनुभव अनुसार स्वतः अलग-अलग गणना)</strong>
+                  <small>Calculates fair salary automatically for each staff member based on their individual experience &amp; cadre</small>
+                </div>
+              </button>
+              <button
+                type="button"
+                class="strategy-chip"
+                [class.active]="bulkStrategy === 'uniform'"
+                (click)="bulkStrategy = 'uniform'"
+                >
+                <mat-icon>payments</mat-icon>
+                <div>
+                  <strong>Uniform Pay Scale (समान वेतनमान)</strong>
+                  <small>Applies identical Basic, HRA, and Allowance figures across all selected staff</small>
+                </div>
+              </button>
+            </div>
           </div>
-          <div class="form-row three-cols">
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>PF Deduction ₹</mat-label>
-              <input matInput type="number" [(ngModel)]="uniformData.pfDeduction" min="0" placeholder="0">
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>TDS Deduction ₹</mat-label>
-              <input matInput type="number" [(ngModel)]="uniformData.tdsDeduction" min="0" placeholder="0">
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Other Deductions ₹</mat-label>
-              <input matInput type="number" [(ngModel)]="uniformData.otherDeductions" min="0" placeholder="0">
-            </mat-form-field>
-          </div>
+          <!-- Strategy 1: Smart Experience Matrix Preview -->
+          @if (bulkStrategy === 'matrix') {
+            <div class="strategy-details">
+              <div class="info-alert-box">
+                <mat-icon>info</mat-icon>
+                <div>
+                  <strong>Dynamic Experience Matrix Formula:</strong>
+                  <span>Suggested Gross = Cadre Base + (Exp Years &times; Step Increments). Breakdown: 55% Basic, 25% HRA, 20% Allowances, 12% PF.</span>
+                </div>
+              </div>
+              <div class="bulk-preview-table-wrap">
+                <table class="preview-mini-table">
+                  <thead>
+                    <tr>
+                      <th>Staff Member</th>
+                      <th>Designation</th>
+                      <th>Exp</th>
+                      <th>Calculated Basic</th>
+                      <th>HRA</th>
+                      <th>Allowances</th>
+                      <th>Total Gross</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (s of getSelectedStaffList(); track s) {
+                      <tr>
+                        <td><strong>{{ s.fullName }}</strong></td>
+                        <td>{{ s.designation || 'Faculty' }}</td>
+                        <td><span class="exp-tag">{{ s.experienceYears || 0 }}y</span></td>
+                        <td>₹{{ calculateExpSalary(s).basic | number:'1.0-0' }}</td>
+                        <td>₹{{ calculateExpSalary(s).hra | number:'1.0-0' }}</td>
+                        <td>₹{{ calculateExpSalary(s).allowances | number:'1.0-0' }}</td>
+                        <td><strong class="gross-highlight">₹{{ calculateExpSalary(s).gross | number:'1.0-0' }}</strong></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+          <!-- Strategy 2: Uniform Pay Inputs -->
+          @if (bulkStrategy === 'uniform') {
+            <div class="strategy-details">
+              <div class="form-row three-cols">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Basic Salary ₹ *</mat-label>
+                  <input matInput type="number" [(ngModel)]="uniformData.basicSalary" min="1" placeholder="e.g. 25000">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>HRA ₹</mat-label>
+                  <input matInput type="number" [(ngModel)]="uniformData.hra" min="0" placeholder="e.g. 5000">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Other Allowances ₹</mat-label>
+                  <input matInput type="number" [(ngModel)]="uniformData.otherAllowances" min="0" placeholder="e.g. 3000">
+                </mat-form-field>
+              </div>
+              <div class="form-row three-cols">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>PF Deduction ₹</mat-label>
+                  <input matInput type="number" [(ngModel)]="uniformData.pfDeduction" min="0" placeholder="0">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>TDS Deduction ₹</mat-label>
+                  <input matInput type="number" [(ngModel)]="uniformData.tdsDeduction" min="0" placeholder="0">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Other Deductions ₹</mat-label>
+                  <input matInput type="number" [(ngModel)]="uniformData.otherDeductions" min="0" placeholder="0">
+                </mat-form-field>
+              </div>
+            </div>
+          }
+          <mat-form-field appearance="outline" class="full-width" style="margin-top: 10px;">
+            <mat-label>Effective From Date *</mat-label>
+            <input matInput type="date" [(ngModel)]="bulkEffectiveDate">
+          </mat-form-field>
         </div>
-
-        <mat-form-field appearance="outline" class="full-width" style="margin-top: 10px;">
-          <mat-label>Effective From Date *</mat-label>
-          <input matInput type="date" [(ngModel)]="bulkEffectiveDate">
-        </mat-form-field>
-      </div>
-
-      <div class="modal-footer">
-        <button mat-button (click)="closeBulkModal()" [disabled]="batchProcessing">Cancel</button>
-        <button
-          mat-flat-button
-          color="primary"
-          class="btn-save"
-          [disabled]="batchProcessing || (bulkStrategy === 'uniform' && (!uniformData.basicSalary || uniformData.basicSalary <= 0))"
-          (click)="executeBulkSalarySetup()"
-        >
-          <mat-icon>{{ batchProcessing ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
-          <span>{{ batchProcessing ? 'Applying (' + batchProgressCount + '/' + selectedStaffCount + ')...' : 'Apply & Save (' + selectedStaffCount + ' Staff)' }}</span>
-        </button>
+        <div class="modal-footer">
+          <button mat-button (click)="closeBulkModal()" [disabled]="batchProcessing">Cancel</button>
+          <button
+            mat-flat-button
+            color="primary"
+            class="btn-save"
+            [disabled]="batchProcessing || (bulkStrategy === 'uniform' && (!uniformData.basicSalary || uniformData.basicSalary <= 0))"
+            (click)="executeBulkSalarySetup()"
+            >
+            <mat-icon>{{ batchProcessing ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+            <span>{{ batchProcessing ? 'Applying (' + batchProgressCount + '/' + selectedStaffCount + ')...' : 'Apply & Save (' + selectedStaffCount + ' Staff)' }}</span>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  }
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

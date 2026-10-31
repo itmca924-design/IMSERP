@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewChecked, ElementRef, ViewChild, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewChecked, ElementRef, ViewChild, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -14,10 +14,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { ChatService, ChatConversation, ChatMessage } from '../../core/services/chat.service';
 import { AuthService } from '../../core/services/auth.service';
-import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
-import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { ChatDirectoryDialogComponent } from './chat-directory-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -37,8 +36,7 @@ import { environment } from '../../../environments/environment';
     MatDialogModule,
     MatTooltipModule,
     MatMenuModule,
-    LocalDatetimePipe,
-    IstDatetimeDirective
+    LocalDatetimePipe
   ],
   template: `
     <div class="page-container">
@@ -52,11 +50,13 @@ import { environment } from '../../../environments/environment';
             <h1 class="page-title">Campus Connect • Real-Time Chat</h1>
             <p class="page-subtitle">
               Class-wise peer discussions, direct campus messaging & faculty assistance
-              <strong *ngIf="authService.currentUser()?.branchName"> • {{ authService.currentUser()?.branchName }}</strong>
+              @if (authService.currentUser()?.branchName) {
+                <strong> • {{ authService.currentUser()?.branchName }}</strong>
+              }
             </p>
           </div>
         </div>
-
+    
         <div class="chat-header-actions">
           <button mat-raised-button color="primary" class="new-chat-btn" (click)="openDirectoryDialog()">
             <mat-icon>chat</mat-icon>
@@ -67,11 +67,11 @@ import { environment } from '../../../environments/environment';
           </button>
         </div>
       </div>
-
+    
       <!-- Main Chat Shell (Dual Panel Card) -->
       <mat-card class="chat-shell-card" [class.mobile-view-active]="activeChat() !== null">
         <div class="chat-layout-grid">
-
+    
           <!-- Left Sidebar Panel: Conversation List -->
           <div class="sidebar-panel" [class.hidden-on-mobile]="activeChat() !== null">
             <!-- Search & Filter Deck -->
@@ -79,11 +79,13 @@ import { environment } from '../../../environments/environment';
               <mat-form-field appearance="outline" class="search-form-field" subscriptSizing="dynamic">
                 <mat-icon matPrefix>search</mat-icon>
                 <input matInput [formControl]="searchControl" placeholder="Search chats or members...">
-                <button *ngIf="searchControl.value" mat-icon-button matSuffix type="button" (click)="searchControl.setValue('')">
-                  <mat-icon>close</mat-icon>
-                </button>
+                @if (searchControl.value) {
+                  <button mat-icon-button matSuffix type="button" (click)="searchControl.setValue('')">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
               </mat-form-field>
-
+    
               <mat-button-toggle-group [formControl]="tabFilterControl" class="category-toggle" aria-label="Conversation Category">
                 <mat-button-toggle value="all">All ({{ getCount('all') }})</mat-button-toggle>
                 <mat-button-toggle value="class">
@@ -96,84 +98,119 @@ import { environment } from '../../../environments/environment';
                 </mat-button-toggle>
               </mat-button-toggle-group>
             </div>
-
+    
             <!-- Conversation Scroll List -->
             <div class="conversations-scroll-box">
-              <div *ngIf="chatService.loadingConversations()" class="loading-box">
-                <mat-spinner diameter="28"></mat-spinner>
-                <span>Loading conversations...</span>
-              </div>
-
-              <div *ngIf="!chatService.loadingConversations() && filteredConversations().length === 0" class="empty-conversations">
-                <mat-icon class="empty-icon">chat_bubble_outline</mat-icon>
-                <p class="empty-title">
-                  <span *ngIf="searchQuery()">No chats matching "{{ searchQuery() }}"</span>
-                  <span *ngIf="!searchQuery() && activeTab() === 'class'">No class channels joined yet</span>
-                  <span *ngIf="!searchQuery() && activeTab() === 'direct'">No 1-on-1 direct chats yet</span>
-                  <span *ngIf="!searchQuery() && activeTab() === 'all'">No conversations yet</span>
-                </p>
-                <p class="empty-sub">
-                  <span *ngIf="activeTab() === 'direct'">Click 'Find People' to start a direct message with any student or faculty.</span>
-                  <span *ngIf="activeTab() === 'class'">Class channels will auto-appear once created for your campus.</span>
-                  <span *ngIf="activeTab() === 'all' || searchQuery()">Explore the campus directory to message classmates or teachers.</span>
-                </p>
-                <button mat-stroked-button color="primary" class="start-btn-empty" (click)="openDirectoryDialog()">
-                  <mat-icon>group_add</mat-icon>
-                  <span>+ Find People to Chat</span>
-                </button>
-              </div>
-
-              <div *ngFor="let c of filteredConversations()" 
-                   class="conversation-row" 
-                   [class.selected]="activeChat()?.id === c.id"
-                   (click)="onSelectConversation(c)">
-                
-                <div class="avatar-box">
-                  <div class="conv-avatar" [ngClass]="getAvatarClass(c)">
-                    <mat-icon *ngIf="c.conversationType === 2">groups</mat-icon>
-                    <span *ngIf="c.conversationType !== 2">{{ getInitials(c.title) }}</span>
-                  </div>
-                  <span *ngIf="c.conversationType === 1" class="presence-dot" [class.online]="c.isOnline"></span>
+              @if (chatService.loadingConversations()) {
+                <div class="loading-box">
+                  <mat-spinner diameter="28"></mat-spinner>
+                  <span>Loading conversations...</span>
                 </div>
-
-                <div class="conv-details">
-                  <div class="title-row">
-                    <strong class="conv-title">{{ c.title }}</strong>
-                    <span *ngIf="c.lastMessageAt" class="conv-time">
-                      {{ c.lastMessageAt | localDatetime:'shortTime' }}
-                    </span>
+              }
+    
+              @if (!chatService.loadingConversations() && filteredConversations().length === 0) {
+                <div class="empty-conversations">
+                  <mat-icon class="empty-icon">chat_bubble_outline</mat-icon>
+                  <p class="empty-title">
+                    @if (searchQuery()) {
+                      <span>No chats matching "{{ searchQuery() }}"</span>
+                    }
+                    @if (!searchQuery() && activeTab() === 'class') {
+                      <span>No class channels joined yet</span>
+                    }
+                    @if (!searchQuery() && activeTab() === 'direct') {
+                      <span>No 1-on-1 direct chats yet</span>
+                    }
+                    @if (!searchQuery() && activeTab() === 'all') {
+                      <span>No conversations yet</span>
+                    }
+                  </p>
+                  <p class="empty-sub">
+                    @if (activeTab() === 'direct') {
+                      <span>Click 'Find People' to start a direct message with any student or faculty.</span>
+                    }
+                    @if (activeTab() === 'class') {
+                      <span>Class channels will auto-appear once created for your campus.</span>
+                    }
+                    @if (activeTab() === 'all' || searchQuery()) {
+                      <span>Explore the campus directory to message classmates or teachers.</span>
+                    }
+                  </p>
+                  <button mat-stroked-button color="primary" class="start-btn-empty" (click)="openDirectoryDialog()">
+                    <mat-icon>group_add</mat-icon>
+                    <span>+ Find People to Chat</span>
+                  </button>
+                </div>
+              }
+    
+              @for (c of filteredConversations(); track c) {
+                <div
+                  class="conversation-row"
+                  [class.selected]="activeChat()?.id === c.id"
+                  (click)="onSelectConversation(c)">
+                  <div class="avatar-box">
+                    <div class="conv-avatar" [ngClass]="getAvatarClass(c)">
+                      @if (c.conversationType === 2) {
+                        <mat-icon>groups</mat-icon>
+                      }
+                      @if (c.conversationType !== 2) {
+                        <span>{{ getInitials(c.title) }}</span>
+                      }
+                    </div>
+                    @if (c.conversationType === 1) {
+                      <span class="presence-dot" [class.online]="c.isOnline"></span>
+                    }
                   </div>
-
-                  <div class="meta-tag-row">
-                    <span *ngIf="c.conversationType === 2" class="conv-type-badge class">
-                      🏫 Class Channel
-                    </span>
-                    <span *ngIf="c.conversationType === 1" class="conv-type-badge direct">
-                      👤 Direct 1-on-1<span *ngIf="c.targetUserRole"> • {{ c.targetUserRole }}</span>
-                    </span>
+                  <div class="conv-details">
+                    <div class="title-row">
+                      <strong class="conv-title">{{ c.title }}</strong>
+                      @if (c.lastMessageAt) {
+                        <span class="conv-time">
+                          {{ c.lastMessageAt | localDatetime:'shortTime' }}
+                        </span>
+                      }
+                    </div>
+                    <div class="meta-tag-row">
+                      @if (c.conversationType === 2) {
+                        <span class="conv-type-badge class">
+                          🏫 Class Channel
+                        </span>
+                      }
+                      @if (c.conversationType === 1) {
+                        <span class="conv-type-badge direct">
+                          👤 Direct 1-on-1@if (c.targetUserRole) {
+                          <span> • {{ c.targetUserRole }}</span>
+                        }
+                      </span>
+                    }
                   </div>
-
                   <div class="message-preview-row">
                     <span class="preview-text">
-                      <span *ngIf="c.lastMessageSenderName && c.conversationType === 2" class="sender-prefix">
-                        {{ c.lastMessageSenderName.split(' ')[0] }}:
-                      </span>
+                      @if (c.lastMessageSenderName && c.conversationType === 2) {
+                        <span class="sender-prefix">
+                          {{ c.lastMessageSenderName.split(' ')[0] }}:
+                        </span>
+                      }
                       {{ c.lastMessageContent || 'No messages yet' }}
                     </span>
-                    <span *ngIf="c.unreadCount > 0" class="unread-badge">
-                      {{ c.unreadCount > 99 ? '99+' : c.unreadCount }}
-                    </span>
+                    @if (c.unreadCount > 0) {
+                      <span class="unread-badge">
+                        {{ c.unreadCount > 99 ? '99+' : c.unreadCount }}
+                      </span>
+                    }
                   </div>
                 </div>
               </div>
-            </div>
+            }
           </div>
-
-          <!-- Right Main Panel: Active Conversation View -->
-          <div class="main-chat-panel" [class.visible-on-mobile]="activeChat() !== null">
-
-            <!-- Empty State when no chat is selected -->
-            <div *ngIf="!activeChat()" class="no-chat-selected">
+        </div>
+    
+        <!-- Right Main Panel: Active Conversation View -->
+        <div class="main-chat-panel" [class.visible-on-mobile]="activeChat() !== null">
+    
+          <!-- Empty State when no chat is selected -->
+          @if (!activeChat()) {
+            <div class="no-chat-selected">
               <div class="welcome-box">
                 <div class="welcome-icon-bubble">
                   <mat-icon>maps_ugc</mat-icon>
@@ -196,58 +233,69 @@ import { environment } from '../../../environments/environment';
                 </button>
               </div>
             </div>
-
-            <!-- Active Conversation Container -->
-            <div *ngIf="activeChat() as chat" class="active-chat-wrapper">
-
+          }
+    
+          <!-- Active Conversation Container -->
+          @if (activeChat(); as chat) {
+            <div class="active-chat-wrapper">
               <!-- Active Chat Header -->
               <div class="active-header">
                 <button mat-icon-button class="mobile-back-btn" (click)="activeChat.set(null)" aria-label="Back to conversations">
                   <mat-icon>arrow_back</mat-icon>
                 </button>
-
                 <div class="header-avatar-box">
                   <div class="conv-avatar header-avatar" [ngClass]="getAvatarClass(chat)">
-                    <mat-icon *ngIf="chat.conversationType === 2">groups</mat-icon>
-                    <span *ngIf="chat.conversationType !== 2">{{ getInitials(chat.title) }}</span>
+                    @if (chat.conversationType === 2) {
+                      <mat-icon>groups</mat-icon>
+                    }
+                    @if (chat.conversationType !== 2) {
+                      <span>{{ getInitials(chat.title) }}</span>
+                    }
                   </div>
-                  <span *ngIf="chat.conversationType === 1" class="presence-dot" [class.online]="chat.isOnline"></span>
+                  @if (chat.conversationType === 1) {
+                    <span class="presence-dot" [class.online]="chat.isOnline"></span>
+                  }
                 </div>
-
                 <div class="header-title-details">
                   <div class="top-row">
                     <h2 class="active-title">{{ chat.title }}</h2>
-                    <span *ngIf="chat.conversationType === 2" class="channel-pill">
-                      🏫 CLASS CHANNEL
-                    </span>
-                    <span *ngIf="chat.conversationType === 1 && chat.targetUserRole" class="channel-pill user">
-                      {{ chat.targetUserRole }}
-                    </span>
+                    @if (chat.conversationType === 2) {
+                      <span class="channel-pill">
+                        🏫 CLASS CHANNEL
+                      </span>
+                    }
+                    @if (chat.conversationType === 1 && chat.targetUserRole) {
+                      <span class="channel-pill user">
+                        {{ chat.targetUserRole }}
+                      </span>
+                    }
                   </div>
-
                   <div class="active-sub">
-                    <span *ngIf="chatService.typingStatus()" class="typing-notice">
-                      <mat-icon class="pulse-icon">edit</mat-icon>
-                      {{ chatService.typingStatus() }}
-                    </span>
-                    <span *ngIf="!chatService.typingStatus() && chat.conversationType === 1" class="status-indicator">
-                      {{ chat.isOnline ? '🟢 Online now' : '⚪ Offline' }}
-                    </span>
-                    <span *ngIf="!chatService.typingStatus() && chat.conversationType === 2" class="status-indicator">
-                      {{ chat.participants.length }} Members enrolled
-                    </span>
+                    @if (chatService.typingStatus()) {
+                      <span class="typing-notice">
+                        <mat-icon class="pulse-icon">edit</mat-icon>
+                        {{ chatService.typingStatus() }}
+                      </span>
+                    }
+                    @if (!chatService.typingStatus() && chat.conversationType === 1) {
+                      <span class="status-indicator">
+                        {{ chat.isOnline ? '🟢 Online now' : '⚪ Offline' }}
+                      </span>
+                    }
+                    @if (!chatService.typingStatus() && chat.conversationType === 2) {
+                      <span class="status-indicator">
+                        {{ chat.participants.length }} Members enrolled
+                      </span>
+                    }
                   </div>
                 </div>
-
                 <div class="active-header-actions">
                   <button mat-icon-button type="button" (click)="refreshActiveMessages()" matTooltip="Reload messages">
                     <mat-icon>sync</mat-icon>
                   </button>
-
                   <button mat-icon-button type="button" [matMenuTriggerFor]="activeChatMenu" matTooltip="Conversation options">
                     <mat-icon>more_vert</mat-icon>
                   </button>
-
                   <mat-menu #activeChatMenu="matMenu">
                     <button mat-menu-item (click)="onClearChatHistory()">
                       <mat-icon style="color: #ef4444;">delete_sweep</mat-icon>
@@ -256,164 +304,184 @@ import { environment } from '../../../environments/environment';
                   </mat-menu>
                 </div>
               </div>
-
               <!-- Message Stream Scroll Container -->
               <div #messageScrollBox class="message-stream-box">
-                <div *ngIf="chatService.loadingMessages()" class="stream-loader">
-                  <mat-spinner diameter="24"></mat-spinner>
-                  <span>Loading message history...</span>
-                </div>
-
-                <div *ngIf="!chatService.loadingMessages() && chatService.messages().length === 0" class="stream-empty">
-                  <mat-icon>waving_hand</mat-icon>
-                  <p>Say hello! Be the first to start the conversation.</p>
-                </div>
-
-                <div *ngFor="let msg of chatService.messages(); let i = index" 
-                     class="message-row" 
-                     [class.outgoing]="msg.isMe" 
-                     [class.incoming]="!msg.isMe">
-
-                  <!-- Incoming Sender Avatar -->
-                  <div *ngIf="!msg.isMe && (i === 0 || chatService.messages()[i - 1].senderUserId !== msg.senderUserId)" class="msg-sender-avatar">
-                    {{ getInitials(msg.senderName) }}
+                @if (chatService.loadingMessages()) {
+                  <div class="stream-loader">
+                    <mat-spinner diameter="24"></mat-spinner>
+                    <span>Loading message history...</span>
                   </div>
-                  <div *ngIf="!msg.isMe && (i > 0 && chatService.messages()[i - 1].senderUserId === msg.senderUserId)" class="avatar-spacer"></div>
-
-                  <!-- Hover Action Toolbar (Delete Message) -->
-                  <div *ngIf="canDeleteMessage(msg)" class="msg-actions-hover">
-                    <button type="button" class="bubble-action-btn delete-action" (click)="onDeleteMessage(msg, $event)" matTooltip="Delete message">
-                      <mat-icon>delete_outline</mat-icon>
-                    </button>
+                }
+                @if (!chatService.loadingMessages() && chatService.messages().length === 0) {
+                  <div class="stream-empty">
+                    <mat-icon>waving_hand</mat-icon>
+                    <p>Say hello! Be the first to start the conversation.</p>
                   </div>
-
-                  <div class="message-bubble" [class.outgoing-bubble]="msg.isMe">
-                    <!-- Sender Name in Group Chat -->
-                    <div *ngIf="!msg.isMe && chat.conversationType === 2 && (i === 0 || chatService.messages()[i - 1].senderUserId !== msg.senderUserId)" class="sender-header">
-                      <strong class="sender-name">{{ msg.senderName }}</strong>
-                      <span class="sender-role-pill" [class.teacher]="msg.senderRole === 'Teacher' || msg.senderRole === 'Principal'">
-                        {{ msg.senderRole }}
-                      </span>
-                    </div>
-
-                    <!-- Attachment Preview if Image or Document -->
-                    <div *ngIf="msg.attachmentUrl" class="attachment-box">
-                      <!-- Image Preview with Click-to-Download -->
-                      <div *ngIf="msg.messageType === 'Image'" class="image-attachment-wrapper" (click)="downloadAttachment(msg, $event)">
-                        <img [src]="getFileFullUrl(msg.attachmentUrl)" [alt]="msg.attachmentFileName || 'Attachment'" class="attachment-thumbnail" loading="lazy">
-                        <button type="button" class="img-download-overlay" (click)="downloadAttachment(msg, $event)" matTooltip="Download Image">
-                          <mat-icon>download</mat-icon>
+                }
+                @for (msg of chatService.messages(); track msg; let i = $index) {
+                  <div
+                    class="message-row"
+                    [class.outgoing]="msg.isMe"
+                    [class.incoming]="!msg.isMe">
+                    <!-- Incoming Sender Avatar -->
+                    @if (!msg.isMe && (i === 0 || chatService.messages()[i - 1].senderUserId !== msg.senderUserId)) {
+                      <div class="msg-sender-avatar">
+                        {{ getInitials(msg.senderName) }}
+                      </div>
+                    }
+                    @if (!msg.isMe && (i > 0 && chatService.messages()[i - 1].senderUserId === msg.senderUserId)) {
+                      <div class="avatar-spacer"></div>
+                    }
+                    <!-- Hover Action Toolbar (Delete Message) -->
+                    @if (canDeleteMessage(msg)) {
+                      <div class="msg-actions-hover">
+                        <button type="button" class="bubble-action-btn delete-action" (click)="onDeleteMessage(msg, $event)" matTooltip="Delete message">
+                          <mat-icon>delete_outline</mat-icon>
                         </button>
                       </div>
-
-                      <!-- Document Card with Click-to-Download -->
-                      <div *ngIf="msg.messageType !== 'Image'" class="doc-attachment-card" (click)="downloadAttachment(msg, $event)" role="button" tabindex="0">
-                        <mat-icon class="doc-icon">description</mat-icon>
-                        <div class="doc-meta">
-                          <strong class="doc-title">{{ msg.attachmentFileName || 'Download Document' }}</strong>
-                          <span *ngIf="msg.fileSizeBytes" class="doc-size">{{ formatFileSize(msg.fileSizeBytes) }}</span>
+                    }
+                    <div class="message-bubble" [class.outgoing-bubble]="msg.isMe">
+                      <!-- Sender Name in Group Chat -->
+                      @if (!msg.isMe && chat.conversationType === 2 && (i === 0 || chatService.messages()[i - 1].senderUserId !== msg.senderUserId)) {
+                        <div class="sender-header">
+                          <strong class="sender-name">{{ msg.senderName }}</strong>
+                          <span class="sender-role-pill" [class.teacher]="msg.senderRole === 'Teacher' || msg.senderRole === 'Principal'">
+                            {{ msg.senderRole }}
+                          </span>
                         </div>
-                        <button type="button" class="card-dl-btn" (click)="downloadAttachment(msg, $event)" matTooltip="Download">
-                          <mat-icon class="dl-icon">download</mat-icon>
-                        </button>
+                      }
+                      <!-- Attachment Preview if Image or Document -->
+                      @if (msg.attachmentUrl) {
+                        <div class="attachment-box">
+                          <!-- Image Preview with Click-to-Download -->
+                          @if (msg.messageType === 'Image') {
+                            <div class="image-attachment-wrapper" (click)="downloadAttachment(msg, $event)">
+                              <img [src]="getFileFullUrl(msg.attachmentUrl)" [alt]="msg.attachmentFileName || 'Attachment'" class="attachment-thumbnail" loading="lazy">
+                              <button type="button" class="img-download-overlay" (click)="downloadAttachment(msg, $event)" matTooltip="Download Image">
+                                <mat-icon>download</mat-icon>
+                              </button>
+                            </div>
+                          }
+                          <!-- Document Card with Click-to-Download -->
+                          @if (msg.messageType !== 'Image') {
+                            <div class="doc-attachment-card" (click)="downloadAttachment(msg, $event)" role="button" tabindex="0">
+                              <mat-icon class="doc-icon">description</mat-icon>
+                              <div class="doc-meta">
+                                <strong class="doc-title">{{ msg.attachmentFileName || 'Download Document' }}</strong>
+                                @if (msg.fileSizeBytes) {
+                                  <span class="doc-size">{{ formatFileSize(msg.fileSizeBytes) }}</span>
+                                }
+                              </div>
+                              <button type="button" class="card-dl-btn" (click)="downloadAttachment(msg, $event)" matTooltip="Download">
+                                <mat-icon class="dl-icon">download</mat-icon>
+                              </button>
+                            </div>
+                          }
+                        </div>
+                      }
+                      <!-- Message Text -->
+                      @if (msg.content) {
+                        <div class="message-text">
+                          {{ msg.content }}
+                        </div>
+                      }
+                      <!-- Timestamp and Read Status -->
+                      <div class="message-footer">
+                        <span class="message-time">
+                          {{ msg.createdAt | localDatetime:'shortTime' }}
+                        </span>
+                        @if (msg.isMe) {
+                          <mat-icon class="tick-icon">done_all</mat-icon>
+                        }
                       </div>
                     </div>
-
-                    <!-- Message Text -->
-                    <div *ngIf="msg.content" class="message-text">
-                      {{ msg.content }}
-                    </div>
-
-                    <!-- Timestamp and Read Status -->
-                    <div class="message-footer">
-                      <span class="message-time">
-                        {{ msg.createdAt | localDatetime:'shortTime' }}
-                      </span>
-                      <mat-icon *ngIf="msg.isMe" class="tick-icon">done_all</mat-icon>
-                    </div>
                   </div>
-                </div>
+                }
               </div>
-
               <!-- Pending Attachment Preview Bar -->
-              <div *ngIf="pendingAttachment()" class="pending-attachment-bar">
-                <mat-icon class="preview-icon">attach_file</mat-icon>
-                <div class="pending-meta">
-                  <span class="pending-filename">{{ pendingAttachment()?.fileName }}</span>
-                  <span class="pending-filesize">({{ formatFileSize(pendingAttachment()?.fileSizeBytes || 0) }})</span>
+              @if (pendingAttachment()) {
+                <div class="pending-attachment-bar">
+                  <mat-icon class="preview-icon">attach_file</mat-icon>
+                  <div class="pending-meta">
+                    <span class="pending-filename">{{ pendingAttachment()?.fileName }}</span>
+                    <span class="pending-filesize">({{ formatFileSize(pendingAttachment()?.fileSizeBytes || 0) }})</span>
+                  </div>
+                  <button mat-icon-button type="button" class="remove-attachment-btn" (click)="removePendingAttachment()">
+                    <mat-icon>close</mat-icon>
+                  </button>
                 </div>
-                <button mat-icon-button type="button" class="remove-attachment-btn" (click)="removePendingAttachment()">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </div>
-
+              }
               <!-- Bottom Input Dock -->
               <div class="bottom-input-dock">
                 <input #fileInput type="file" style="display: none;" (change)="onFileSelected($event)">
-
                 <button mat-icon-button type="button" class="action-dock-btn" (click)="fileInput.click()" [disabled]="uploadingAttachment()" matTooltip="Attach image or file">
-                  <mat-icon *ngIf="!uploadingAttachment()">attach_file</mat-icon>
-                  <mat-spinner *ngIf="uploadingAttachment()" diameter="18"></mat-spinner>
+                  @if (!uploadingAttachment()) {
+                    <mat-icon>attach_file</mat-icon>
+                  }
+                  @if (uploadingAttachment()) {
+                    <mat-spinner diameter="18"></mat-spinner>
+                  }
                 </button>
-
                 <!-- Emoji Picker Trigger Button -->
                 <button mat-icon-button type="button" class="action-dock-btn emoji-trigger-btn" [matMenuTriggerFor]="emojiMenu" matTooltip="Add emoji">
                   <mat-icon>sentiment_satisfied_alt</mat-icon>
                 </button>
-
                 <!-- Categorized Emoji Menu -->
                 <mat-menu #emojiMenu="matMenu" class="emoji-picker-menu" xPosition="before" yPosition="above">
                   <div class="emoji-picker-container" (click)="$event.stopPropagation()">
                     <!-- Category Tabs -->
                     <div class="emoji-cat-tabs">
-                      <button *ngFor="let cat of emojiCategories; let ci = index" 
-                              type="button" 
-                              class="cat-tab-btn" 
-                              [class.active]="selectedEmojiCategory() === ci"
-                              (click)="selectedEmojiCategory.set(ci)">
-                        <mat-icon>{{ cat.icon }}</mat-icon>
-                        <span>{{ cat.name }}</span>
-                      </button>
+                      @for (cat of emojiCategories; track cat; let ci = $index) {
+                        <button
+                          type="button"
+                          class="cat-tab-btn"
+                          [class.active]="selectedEmojiCategory() === ci"
+                          (click)="selectedEmojiCategory.set(ci)">
+                          <mat-icon>{{ cat.icon }}</mat-icon>
+                          <span>{{ cat.name }}</span>
+                        </button>
+                      }
                     </div>
-
                     <!-- Emoji Grid -->
                     <div class="emoji-grid">
-                      <button *ngFor="let em of emojiCategories[selectedEmojiCategory()].emojis" 
-                              type="button" 
-                              class="emoji-btn" 
-                              (click)="insertEmoji(em)">
-                        {{ em }}
-                      </button>
+                      @for (em of emojiCategories[selectedEmojiCategory()].emojis; track em) {
+                        <button
+                          type="button"
+                          class="emoji-btn"
+                          (click)="insertEmoji(em)">
+                          {{ em }}
+                        </button>
+                      }
                     </div>
                   </div>
                 </mat-menu>
-
                 <div class="message-input-wrapper">
-                  <textarea 
+                  <textarea
                     #messageTextarea
-                    class="chat-textarea" 
-                    [formControl]="messageControl" 
+                    class="chat-textarea"
+                    [formControl]="messageControl"
                     placeholder="Type a message... (Press Enter to send)"
                     rows="1"
                     (keydown)="onTextareaKeyDown($event)"
-                    (input)="onTextInput()"></textarea>
+                  (input)="onTextInput()"></textarea>
                 </div>
-
-                <button 
-                  mat-flat-button 
-                  color="primary" 
-                  class="send-message-btn" 
+                <button
+                  mat-flat-button
+                  color="primary"
+                  class="send-message-btn"
                   [disabled]="(!messageControl.value || !messageControl.value.trim()) && !pendingAttachment()"
                   (click)="onSendMessage()">
                   <mat-icon>send</mat-icon>
                 </button>
               </div>
             </div>
-          </div>
+          }
         </div>
-      </mat-card>
+      </div>
+    </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

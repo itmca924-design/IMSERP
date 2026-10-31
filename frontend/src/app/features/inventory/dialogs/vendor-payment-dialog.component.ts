@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -53,7 +53,7 @@ export interface VendorPaymentDialogResult {
           <div class="header-title-wrap">
             <h2>{{ isRefund ? 'Record Supplier Refund Receipt (रिफंड वापसी)' : 'Disburse Supplier Payment Voucher (भुगतान वाउचर)' }}</h2>
             <p>
-              Supplier: <strong>{{ currentVendor?.vendorName || currentVendor?.name || 'Vendor' }}</strong> • 
+              Supplier: <strong>{{ currentVendor?.vendorName || currentVendor?.name || 'Vendor' }}</strong> •
               {{ isRefund ? 'Record cash, UPI or bank refund received against Debit Notes' : 'Record payment disbursed to settle supplier ledger' }}
             </p>
           </div>
@@ -62,10 +62,10 @@ export interface VendorPaymentDialogResult {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-body">
-
+    
           <!-- Voucher Type Segmented Toggle -->
           <div class="voucher-type-switch-row">
             <mat-button-toggle-group formControlName="paymentType" class="voucher-type-toggle" (change)="onTypeChange($event.value)">
@@ -79,37 +79,53 @@ export interface VendorPaymentDialogResult {
               </mat-button-toggle>
             </mat-button-toggle-group>
           </div>
-
+    
           <div class="form-grid">
             <!-- Vendor Select -->
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Supplier / Vendor *</mat-label>
               <mat-select formControlName="vendorId">
-                <mat-option *ngFor="let v of vendorsList" [value]="v.id">
-                  {{ v.vendorName || v.name }} 
-                  <span *ngIf="(v.balanceDue ?? 0) < 0" class="opt-credit">(Credit: ₹{{ Math.abs(v.balanceDue ?? 0) | number:'1.2-2' }})</span>
-                  <span *ngIf="(v.balanceDue ?? 0) > 0" class="opt-due">(Due: ₹{{ (v.balanceDue ?? 0) | number:'1.2-2' }})</span>
-                  <span *ngIf="(v.balanceDue ?? 0) === 0" class="opt-nil">(Settled)</span>
-                </mat-option>
+                @for (v of vendorsList; track v) {
+                  <mat-option [value]="v.id">
+                    {{ v.vendorName || v.name }}
+                    @if ((v.balanceDue ?? 0) < 0) {
+                      <span class="opt-credit">(Credit: ₹{{ Math.abs(v.balanceDue ?? 0) | number:'1.2-2' }})</span>
+                    }
+                    @if ((v.balanceDue ?? 0) > 0) {
+                      <span class="opt-due">(Due: ₹{{ (v.balanceDue ?? 0) | number:'1.2-2' }})</span>
+                    }
+                    @if ((v.balanceDue ?? 0) === 0) {
+                      <span class="opt-nil">(Settled)</span>
+                    }
+                  </mat-option>
+                }
               </mat-select>
-              <mat-error *ngIf="form.get('vendorId')?.hasError('required')">Vendor is required</mat-error>
+              @if (form.get('vendorId')?.hasError('required')) {
+                <mat-error>Vendor is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Date -->
             <mat-form-field appearance="outline">
               <mat-label>{{ isRefund ? 'Refund Receipt Date *' : 'Payment Date *' }}</mat-label>
               <input matInput type="date" formControlName="paymentDate" />
-              <mat-error *ngIf="form.get('paymentDate')?.hasError('required')">Date is required</mat-error>
+              @if (form.get('paymentDate')?.hasError('required')) {
+                <mat-error>Date is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Amount -->
             <mat-form-field appearance="outline">
               <mat-label>{{ isRefund ? 'Refund Amount Received (₹) *' : 'Payment Amount (₹) *' }}</mat-label>
               <input matInput type="number" formControlName="amount" placeholder="0.00" min="0.01" step="0.01" />
-              <mat-error *ngIf="form.get('amount')?.hasError('required')">Amount is required</mat-error>
-              <mat-error *ngIf="form.get('amount')?.hasError('min')">Amount must be greater than 0</mat-error>
+              @if (form.get('amount')?.hasError('required')) {
+                <mat-error>Amount is required</mat-error>
+              }
+              @if (form.get('amount')?.hasError('min')) {
+                <mat-error>Amount must be greater than 0</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Payment Mode -->
             <mat-form-field appearance="outline">
               <mat-label>{{ isRefund ? 'Refund Mode *' : 'Payment Mode *' }}</mat-label>
@@ -121,66 +137,78 @@ export interface VendorPaymentDialogResult {
                 <mat-option value="DemandDraft">Demand Draft (DD)</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <!-- Reference / UTR -->
             <mat-form-field appearance="outline">
               <mat-label>Reference / UTR / Cheque No.</mat-label>
               <input matInput formControlName="referenceNumber" placeholder="e.g. UTR891238912" />
             </mat-form-field>
-
+    
             <!-- Bank Name -->
             <mat-form-field appearance="outline">
               <mat-label>Bank Name (Optional)</mat-label>
               <input matInput formControlName="bankName" placeholder="e.g. State Bank of India" />
             </mat-form-field>
-
+    
             <!-- Remarks -->
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Remarks / Notes</mat-label>
               <input matInput formControlName="notes" [placeholder]="isRefund ? 'e.g. Refund against Debit Note / Purchase Return' : 'e.g. Part payment against invoice'" />
             </mat-form-field>
           </div>
-
+    
           <!-- Live Dynamic Settlement Preview Banner -->
           <div class="settlement-preview-card" [class.refund-preview-card]="isRefund">
             <div class="preview-metric">
               <span class="metric-label">{{ isRefund ? 'Current Advance Credit:' : 'Current Outstanding Due:' }}</span>
               <strong class="metric-val" [class.text-emerald]="isRefund" [class.text-danger]="!isRefund">
                 ₹{{ Math.abs(currentVendor?.balanceDue ?? 0) | number:'1.2-2' }}
-                <small *ngIf="(currentVendor?.balanceDue ?? 0) < 0"> (Cr)</small>
-                <small *ngIf="(currentVendor?.balanceDue ?? 0) > 0"> (Dr)</small>
+                @if ((currentVendor?.balanceDue ?? 0) < 0) {
+                  <small> (Cr)</small>
+                }
+                @if ((currentVendor?.balanceDue ?? 0) > 0) {
+                  <small> (Dr)</small>
+                }
               </strong>
             </div>
-
+    
             <mat-icon class="preview-arrow">trending_flat</mat-icon>
-
+    
             <div class="preview-metric">
               <span class="metric-label">{{ isRefund ? 'Receiving Refund Now:' : 'Disbursing Amount:' }}</span>
               <strong class="metric-val" [class.text-emerald]="isRefund" [class.text-blue]="!isRefund">
                 ₹{{ (form.get('amount')?.value || 0) | number:'1.2-2' }}
               </strong>
             </div>
-
+    
             <mat-icon class="preview-arrow">trending_flat</mat-icon>
-
+    
             <div class="preview-metric">
               <span class="metric-label">Remaining Balance:</span>
               <strong class="metric-val" [class.text-emerald]="remainingBalance <= 0" [class.text-danger]="remainingBalance > 0">
                 ₹{{ Math.abs(remainingBalance) | number:'1.2-2' }}
-                <span *ngIf="remainingBalance === 0" class="status-pill pill-settled">Settled</span>
-                <span *ngIf="remainingBalance < 0" class="status-pill pill-credit">Credit (Cr)</span>
-                <span *ngIf="remainingBalance > 0" class="status-pill pill-due">Due (Dr)</span>
+                @if (remainingBalance === 0) {
+                  <span class="status-pill pill-settled">Settled</span>
+                }
+                @if (remainingBalance < 0) {
+                  <span class="status-pill pill-credit">Credit (Cr)</span>
+                }
+                @if (remainingBalance > 0) {
+                  <span class="status-pill pill-due">Due (Dr)</span>
+                }
               </strong>
             </div>
           </div>
-
-          <div *ngIf="errorMessage" class="error-banner">
-            <mat-icon>error_outline</mat-icon>
-            <span>{{ errorMessage }}</span>
-          </div>
-
+    
+          @if (errorMessage) {
+            <div class="error-banner">
+              <mat-icon>error_outline</mat-icon>
+              <span>{{ errorMessage }}</span>
+            </div>
+          }
+    
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
             Cancel
@@ -192,14 +220,19 @@ export interface VendorPaymentDialogResult {
             [disabled]="form.invalid || submitting"
             class="submit-btn"
             [class.btn-emerald-submit]="isRefund">
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner-btn"></mat-spinner>
-            <mat-icon *ngIf="!submitting">{{ isRefund ? 'call_received' : 'receipt_long' }}</mat-icon>
+            @if (submitting) {
+              <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
+            }
+            @if (!submitting) {
+              <mat-icon>{{ isRefund ? 'call_received' : 'receipt_long' }}</mat-icon>
+            }
             <span>{{ submitting ? 'Processing...' : (isRefund ? 'Record Refund & Settle Credit' : 'Disburse Voucher & Debit Ledger') }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

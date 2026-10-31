@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -33,12 +33,14 @@ export interface FeeReceiptDialogData {
           </div>
         </div>
         <div class="btn-group">
-          <button mat-flat-button class="header-action-btn wa-btn" (click)="shareWhatsApp()" *ngIf="data.receipt.parentPhone" matTooltip="Send WhatsApp Receipt">
-            <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-            </svg>
-            <span>WhatsApp</span>
-          </button>
+          @if (data.receipt.parentPhone) {
+            <button mat-flat-button class="header-action-btn wa-btn" (click)="shareWhatsApp()" matTooltip="Send WhatsApp Receipt">
+              <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+              </svg>
+              <span>WhatsApp</span>
+            </button>
+          }
           <button mat-flat-button class="header-action-btn print-btn" (click)="printReceipt()" matTooltip="Print or Download PDF">
             <mat-icon>print</mat-icon>
             <span>Print Receipt</span>
@@ -48,27 +50,35 @@ export interface FeeReceiptDialogData {
           </button>
         </div>
       </div>
-
+    
       <!-- Printable Receipt Document -->
       <div class="receipt-paper" id="receipt-paper">
         <!-- Transparent Dynamic Watermark in background -->
-        <div class="receipt-watermark" *ngIf="logoUrl && !logoFailed" [style.backgroundImage]="'url(' + logoUrl + ')'"></div>
-
+        @if (logoUrl && !logoFailed) {
+          <div class="receipt-watermark" [style.backgroundImage]="'url(' + logoUrl + ')'"></div>
+        }
+    
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
             <div class="logo-mark transparent-logo-mark" [class.has-img]="logoUrl && !logoFailed">
-              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-              <mat-icon *ngIf="!logoUrl || logoFailed" class="fallback-inst-icon">account_balance</mat-icon>
+              @if (logoUrl && !logoFailed) {
+                <img [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+              }
+              @if (!logoUrl || logoFailed) {
+                <mat-icon class="fallback-inst-icon">account_balance</mat-icon>
+              }
             </div>
             <div>
               <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Official Fee Receipt' }}</h2>
               <p class="inst-subtitle">Premier Center for Academic Excellence & Competitive Coaching</p>
-              <p class="inst-branch" *ngIf="effectiveBranchName">
-                <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
-                <span class="branch-dept-sep">|</span>
-                <span class="branch-dept">Authorized Accounts Department</span>
-              </p>
+              @if (effectiveBranchName) {
+                <p class="inst-branch">
+                  <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
+                  <span class="branch-dept-sep">|</span>
+                  <span class="branch-dept">Authorized Accounts Department</span>
+                </p>
+              }
             </div>
           </div>
           <div class="receipt-badge">
@@ -77,17 +87,19 @@ export interface FeeReceiptDialogData {
             <span class="copy-tag">STUDENT ORIGINAL</span>
           </div>
         </div>
-
+    
         <!-- Meta Info Strip -->
         <div class="meta-strip" [class.has-ref]="!!data.receipt.transactionRef">
           <div class="meta-item">
             <span class="meta-label">Receipt Number:</span>
             <span class="meta-val highlight">{{ data.receipt.receiptNumber }}</span>
           </div>
-          <div class="meta-item month-meta-item" *ngIf="feeMonthDisplay">
-            <span class="meta-label">Fee Month / Period:</span>
-            <span class="meta-val month-pill">{{ feeMonthDisplay }}</span>
-          </div>
+          @if (feeMonthDisplay) {
+            <div class="meta-item month-meta-item">
+              <span class="meta-label">Fee Month / Period:</span>
+              <span class="meta-val month-pill">{{ feeMonthDisplay }}</span>
+            </div>
+          }
           <div class="meta-item">
             <span class="meta-label">Academic Session:</span>
             <span class="meta-val session-pill">{{ effectiveSession }}</span>
@@ -100,12 +112,14 @@ export interface FeeReceiptDialogData {
             <span class="meta-label">Payment Mode:</span>
             <span class="meta-val mode-pill">{{ getPaymentModeName(data.receipt.mode) }}</span>
           </div>
-          <div class="meta-item" *ngIf="data.receipt.transactionRef">
-            <span class="meta-label">Txn / UTR Ref:</span>
-            <span class="meta-val">{{ data.receipt.transactionRef }}</span>
-          </div>
+          @if (data.receipt.transactionRef) {
+            <div class="meta-item">
+              <span class="meta-label">Txn / UTR Ref:</span>
+              <span class="meta-val">{{ data.receipt.transactionRef }}</span>
+            </div>
+          }
         </div>
-
+    
         <!-- Student Profile Box -->
         <div class="student-profile-card">
           <div class="prof-col">
@@ -117,32 +131,46 @@ export interface FeeReceiptDialogData {
               <span class="k">Roll / Admission No:</span>
               <span class="v"><strong>{{ data.receipt.rollNumber || 'N/A' }}</strong></span>
             </div>
-            <div class="prof-row" *ngIf="data.receipt.className && !data.receipt.batchName">
-              <span class="k">Class & Section:</span>
-              <span class="v"><strong>{{ data.receipt.className }}<span *ngIf="data.receipt.sectionName"> (Section {{ data.receipt.sectionName }})</span></strong></span>
-            </div>
-            <div class="prof-row" *ngIf="data.receipt.className && data.receipt.batchName">
-              <span class="k">Coaching:</span>
-              <span class="v"><strong>{{ data.receipt.className }}</strong></span>
-            </div>
-            <div class="prof-row" *ngIf="!data.receipt.className && data.receipt.batchName">
-              <span class="k">Coaching:</span>
-              <span class="v"><strong>Coaching</strong></span>
-            </div>
-            <div class="prof-row" *ngIf="!data.receipt.className && !data.receipt.batchName">
-              <span class="k">Academic Stream:</span>
-              <span class="v">General Academic</span>
-            </div>
-            <div class="prof-row fee-month-row" *ngIf="feeMonthDisplay">
-              <span class="k">Fee Month (शुल्क माह):</span>
-              <span class="v fee-month-badge" [title]="feeMonthTooltip">
-                <strong>{{ feeMonthDisplay }}</strong>
-              </span>
-            </div>
-            <div class="prof-row" *ngIf="!feeMonthDisplay">
-              <span class="k">Academic Session:</span>
-              <span class="v"><strong>{{ effectiveSession }}</strong></span>
-            </div>
+            @if (data.receipt.className && !data.receipt.batchName) {
+              <div class="prof-row">
+                <span class="k">Class & Section:</span>
+                <span class="v"><strong>{{ data.receipt.className }}@if (data.receipt.sectionName) {
+                  <span> (Section {{ data.receipt.sectionName }})</span>
+                }</strong></span>
+              </div>
+            }
+            @if (data.receipt.className && data.receipt.batchName) {
+              <div class="prof-row">
+                <span class="k">Coaching:</span>
+                <span class="v"><strong>{{ data.receipt.className }}</strong></span>
+              </div>
+            }
+            @if (!data.receipt.className && data.receipt.batchName) {
+              <div class="prof-row">
+                <span class="k">Coaching:</span>
+                <span class="v"><strong>Coaching</strong></span>
+              </div>
+            }
+            @if (!data.receipt.className && !data.receipt.batchName) {
+              <div class="prof-row">
+                <span class="k">Academic Stream:</span>
+                <span class="v">General Academic</span>
+              </div>
+            }
+            @if (feeMonthDisplay) {
+              <div class="prof-row fee-month-row">
+                <span class="k">Fee Month (शुल्क माह):</span>
+                <span class="v fee-month-badge" [title]="feeMonthTooltip">
+                  <strong>{{ feeMonthDisplay }}</strong>
+                </span>
+              </div>
+            }
+            @if (!feeMonthDisplay) {
+              <div class="prof-row">
+                <span class="k">Academic Session:</span>
+                <span class="v"><strong>{{ effectiveSession }}</strong></span>
+              </div>
+            }
           </div>
           <div class="prof-col">
             <div class="prof-row">
@@ -153,21 +181,25 @@ export interface FeeReceiptDialogData {
               <span class="k">Contact / WhatsApp:</span>
               <span class="v">{{ data.receipt.parentPhone || 'N/A' }}</span>
             </div>
-            <div class="prof-row" *ngIf="data.receipt.batchName">
-              <span class="k">Batch:</span>
-              <span class="v"><strong>{{ data.receipt.batchName }}</strong></span>
-            </div>
+            @if (data.receipt.batchName) {
+              <div class="prof-row">
+                <span class="k">Batch:</span>
+                <span class="v"><strong>{{ data.receipt.batchName }}</strong></span>
+              </div>
+            }
             <div class="prof-row">
               <span class="k">Settlement Type:</span>
               <span class="v status-pill">FIFO Auto-Settlement</span>
             </div>
-            <div class="prof-row" *ngIf="data.receipt.hostelInfo">
-              <span class="k">🏠 Hostel Facility:</span>
-              <span class="v hostel-info-pill">{{ data.receipt.hostelInfo }}</span>
-            </div>
+            @if (data.receipt.hostelInfo) {
+              <div class="prof-row">
+                <span class="k">🏠 Hostel Facility:</span>
+                <span class="v hostel-info-pill">{{ data.receipt.hostelInfo }}</span>
+              </div>
+            }
           </div>
         </div>
-
+    
         <!-- Fees Breakdown Table -->
         <div class="table-section">
           <table class="receipt-table">
@@ -180,20 +212,22 @@ export interface FeeReceiptDialogData {
             </thead>
             <tbody>
               <!-- Multi-line breakdown (Tuition + Library Fine) -->
-              <ng-container *ngIf="data.receipt.items && data.receipt.items.length > 0; else fallbackReceiptRows">
-                <tr *ngFor="let item of data.receipt.items">
-                  <td class="text-center">{{ item.itemIndex }}</td>
-                  <td>
-                    <strong class="fee-head-title">{{ item.particulars }}</strong>
-                    <div class="fee-head-sub" *ngIf="formatSubTitle(item.subTitle)">{{ formatSubTitle(item.subTitle) }}</div>
-                  </td>
-                  <td class="text-right amount-col">
-                    <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
-                  </td>
-                </tr>
-              </ng-container>
-
-              <ng-template #fallbackReceiptRows>
+              @if (data.receipt.items && data.receipt.items.length > 0) {
+                @for (item of data.receipt.items; track item) {
+                  <tr>
+                    <td class="text-center">{{ item.itemIndex }}</td>
+                    <td>
+                      <strong class="fee-head-title">{{ item.particulars }}</strong>
+                      @if (formatSubTitle(item.subTitle)) {
+                        <div class="fee-head-sub">{{ formatSubTitle(item.subTitle) }}</div>
+                      }
+                    </td>
+                    <td class="text-right amount-col">
+                      <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                }
+              } @else {
                 <tr>
                   <td class="text-center">1</td>
                   <td>
@@ -204,18 +238,21 @@ export interface FeeReceiptDialogData {
                     <strong>₹{{ (data.receipt.tuitionAmountPaid !== undefined && data.receipt.tuitionAmountPaid > 0 ? data.receipt.tuitionAmountPaid : data.receipt.amountPaid) | number:'1.2-2' }}</strong>
                   </td>
                 </tr>
-                <tr *ngIf="data.receipt.libraryFineAmountPaid && data.receipt.libraryFineAmountPaid > 0">
-                  <td class="text-center">2</td>
-                  <td>
-                    <strong class="fee-head-title">Library Overdue Fine Settlement</strong>
-                    <div class="fee-head-sub">{{ data.receipt.libraryFineParticulars || 'Late Return Fine Settlement' }}</div>
-                  </td>
-                  <td class="text-right amount-col">
-                    <strong>₹{{ data.receipt.libraryFineAmountPaid | number:'1.2-2' }}</strong>
-                  </td>
-                </tr>
-              </ng-template>
-
+                @if (data.receipt.libraryFineAmountPaid && data.receipt.libraryFineAmountPaid > 0) {
+                  <tr>
+                    <td class="text-center">2</td>
+                    <td>
+                      <strong class="fee-head-title">Library Overdue Fine Settlement</strong>
+                      <div class="fee-head-sub">{{ data.receipt.libraryFineParticulars || 'Late Return Fine Settlement' }}</div>
+                    </td>
+                    <td class="text-right amount-col">
+                      <strong>₹{{ data.receipt.libraryFineAmountPaid | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                }
+              }
+    
+    
               <tr class="summary-subtotal">
                 <td colspan="2" class="text-right"><strong>Total Amount Received:</strong></td>
                 <td class="text-right grand-paid">₹{{ data.receipt.amountPaid | number:'1.2-2' }}</td>
@@ -223,7 +260,7 @@ export interface FeeReceiptDialogData {
             </tbody>
           </table>
         </div>
-
+    
         <!-- Amount In Words Box -->
         <div class="amount-words-strip">
           <div class="words-left">
@@ -237,42 +274,46 @@ export interface FeeReceiptDialogData {
             </div>
           </div>
         </div>
-
+    
         <!-- Statement of Previous Unpaid Arrears / पिछला बकाया विवरण -->
-        <div class="arrears-card" *ngIf="data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0">
-          <div class="arrears-card-header">
-            <div class="arr-header-title">
-              <mat-icon class="arr-icon">history_toggle_off</mat-icon>
-              <span>Statement of Previous Dues &amp; Arrears (पिछला बकाया विवरण)</span>
+        @if (data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0) {
+          <div class="arrears-card">
+            <div class="arrears-card-header">
+              <div class="arr-header-title">
+                <mat-icon class="arr-icon">history_toggle_off</mat-icon>
+                <span>Statement of Previous Dues &amp; Arrears (पिछला बकाया विवरण)</span>
+              </div>
+              <span class="arr-total-pill">
+                Total Previous Arrears: <strong>₹{{ totalArrearsAmount | number:'1.2-2' }}</strong>
+              </span>
             </div>
-            <span class="arr-total-pill">
-              Total Previous Arrears: <strong>₹{{ totalArrearsAmount | number:'1.2-2' }}</strong>
-            </span>
+            <table class="arrears-table">
+              <thead>
+                <tr>
+                  <th style="width: 35px;" class="text-center">#</th>
+                  <th>Billing Cycle / Month</th>
+                  <th>Bill / Invoice Reference</th>
+                  <th>Particulars</th>
+                  <th class="text-right" style="width: 150px;">Unsettled Due (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (arr of data.receipt.pendingArrears; track arr; let idx = $index) {
+                  <tr>
+                    <td class="text-center">{{ idx + 1 }}</td>
+                    <td><strong class="arr-period">{{ arr.period }}</strong></td>
+                    <td><code class="arr-inv-code">{{ arr.invoiceNumber }}</code></td>
+                    <td>{{ arr.title }}</td>
+                    <td class="text-right arr-due-val">
+                      <strong>₹{{ arr.dueAmount | number:'1.2-2' }}</strong>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
-          <table class="arrears-table">
-            <thead>
-              <tr>
-                <th style="width: 35px;" class="text-center">#</th>
-                <th>Billing Cycle / Month</th>
-                <th>Bill / Invoice Reference</th>
-                <th>Particulars</th>
-                <th class="text-right" style="width: 150px;">Unsettled Due (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let arr of data.receipt.pendingArrears; let idx = index">
-                <td class="text-center">{{ idx + 1 }}</td>
-                <td><strong class="arr-period">{{ arr.period }}</strong></td>
-                <td><code class="arr-inv-code">{{ arr.invoiceNumber }}</code></td>
-                <td>{{ arr.title }}</td>
-                <td class="text-right arr-due-val">
-                  <strong>₹{{ arr.dueAmount | number:'1.2-2' }}</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
+        }
+    
         <!-- Remaining Due Balance Strip with Full Demand Reconciliation -->
         <div class="due-status-strip" [class.cleared]="data.receipt.remainingDue === 0" [class.due-alert]="data.receipt.remainingDue > 0">
           <div class="due-info">
@@ -280,112 +321,129 @@ export interface FeeReceiptDialogData {
               <mat-icon class="status-icon">{{ data.receipt.remainingDue === 0 ? 'verified' : 'info' }}</mat-icon>
               {{ data.receipt.remainingDue === 0 ? 'Account Status: All Dues Cleared' : 'Current Account Status: Partial Payment Recorded' }}
             </span>
-            <span class="due-desc" *ngIf="data.receipt.remainingDue > 0 && data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0">
-              Notice: Previous billing cycles (listed above) remain unsettled. Total outstanding balance is ₹{{ data.receipt.remainingDue | number:'1.2-2' }}.
-            </span>
-            <span class="due-desc" *ngIf="data.receipt.remainingDue > 0 && (!data.receipt.pendingArrears || data.receipt.pendingArrears.length === 0)">
-              Please clear the remaining balance before the next installment cycle.
-            </span>
+            @if (data.receipt.remainingDue > 0 && data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0) {
+              <span class="due-desc">
+                Notice: Previous billing cycles (listed above) remain unsettled. Total outstanding balance is ₹{{ data.receipt.remainingDue | number:'1.2-2' }}.
+              </span>
+            }
+            @if (data.receipt.remainingDue > 0 && (!data.receipt.pendingArrears || data.receipt.pendingArrears.length === 0)) {
+              <span class="due-desc">
+                Please clear the remaining balance before the next installment cycle.
+              </span>
+            }
           </div>
-          <div class="demand-reconcile-box" *ngIf="data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0">
-            <div class="rec-item">
-              <span class="rec-lbl">Total Demand:</span>
-              <span class="rec-val">₹{{ totalDemandAmount | number:'1.2-2' }}</span>
+          @if (data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0) {
+            <div class="demand-reconcile-box">
+              <div class="rec-item">
+                <span class="rec-lbl">Total Demand:</span>
+                <span class="rec-val">₹{{ totalDemandAmount | number:'1.2-2' }}</span>
+              </div>
+              <div class="rec-sep">-</div>
+              <div class="rec-item">
+                <span class="rec-lbl">Paid Today:</span>
+                <span class="rec-val paid-now">₹{{ data.receipt.amountPaid | number:'1.2-2' }}</span>
+              </div>
+              <div class="rec-sep">=</div>
+              <div class="due-amount-box">
+                <span class="due-lbl">Balance Due:</span>
+                <span class="due-num">₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
+              </div>
             </div>
-            <div class="rec-sep">-</div>
-            <div class="rec-item">
-              <span class="rec-lbl">Paid Today:</span>
-              <span class="rec-val paid-now">₹{{ data.receipt.amountPaid | number:'1.2-2' }}</span>
-            </div>
-            <div class="rec-sep">=</div>
+          }
+          @if (!data.receipt.pendingArrears || data.receipt.pendingArrears.length === 0) {
             <div class="due-amount-box">
-              <span class="due-lbl">Balance Due:</span>
+              <span class="due-lbl">Remaining Balance Due:</span>
               <span class="due-num">₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
             </div>
-          </div>
-          <div class="due-amount-box" *ngIf="!data.receipt.pendingArrears || data.receipt.pendingArrears.length === 0">
-            <span class="due-lbl">Remaining Balance Due:</span>
-            <span class="due-num">₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
-          </div>
+          }
         </div>
-
+    
         <!-- UPI Dynamic Scan & Pay Block for Remaining Dues -->
-        <div class="upi-payment-banner" *ngIf="data.receipt.remainingDue > 0">
-          <div class="upi-qr-col">
-            <div class="qr-frame">
-              <img *ngIf="qrDataUrl" [src]="qrDataUrl" alt="Scan to Pay Remaining Due via UPI" class="qr-img" />
-              <div *ngIf="!qrDataUrl" class="qr-placeholder">
-                <mat-icon>qr_code_2</mat-icon>
+        @if (data.receipt.remainingDue > 0) {
+          <div class="upi-payment-banner">
+            <div class="upi-qr-col">
+              <div class="qr-frame">
+                @if (qrDataUrl) {
+                  <img [src]="qrDataUrl" alt="Scan to Pay Remaining Due via UPI" class="qr-img" />
+                }
+                @if (!qrDataUrl) {
+                  <div class="qr-placeholder">
+                    <mat-icon>qr_code_2</mat-icon>
+                  </div>
+                }
+              </div>
+              <div class="scan-tag">
+                <span>SCAN TO PAY REMAINING DUE</span>
               </div>
             </div>
-            <div class="scan-tag">
-              <span>SCAN TO PAY REMAINING DUE</span>
+            <div class="upi-info-col">
+              <div class="upi-info-header">
+                <div class="upi-badge">
+                  <mat-icon>qr_code_scanner</mat-icon>
+                  <span>Clear Balance Due via UPI (बकाया शुल्क क्यूआर भुगतान)</span>
+                </div>
+                <div class="upi-supported-apps">
+                  <span class="app-chip gpay">GPay</span>
+                  <span class="app-chip phonepe">PhonePe</span>
+                  <span class="app-chip paytm">Paytm</span>
+                  <span class="app-chip bhim">BHIM</span>
+                  <span class="app-chip">Any UPI</span>
+                </div>
+              </div>
+              <div class="upi-details-grid">
+                <div class="detail-box amt-box">
+                  <span class="d-label">Exact Balance Due:</span>
+                  <span class="d-val amt-val">₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
+                </div>
+                <div class="detail-box">
+                  <span class="d-label">Payee Name:</span>
+                  <span class="d-val">{{ payeeMerchantName }}</span>
+                </div>
+                <div class="detail-box">
+                  <span class="d-label">Payee UPI ID (VPA):</span>
+                  <span class="d-val font-mono upi-id-val">{{ payeeUpiId }}</span>
+                </div>
+                @if (bankAccountDisplay) {
+                  <div class="detail-box">
+                    <span class="d-label">Institute Bank A/C:</span>
+                    <span class="d-val font-mono">{{ bankAccountDisplay }}</span>
+                  </div>
+                }
+              </div>
+              <div class="upi-help-note">
+                <mat-icon>verified</mat-icon>
+                <span>Scan using any UPI app to pay the remaining ₹{{ data.receipt.remainingDue | number:'1.2-2' }}. Student Roll #{{ data.receipt.rollNumber || 'N/A' }} and receipt ref {{ data.receipt.receiptNumber }} will be auto-attached.</span>
+              </div>
             </div>
           </div>
-
-          <div class="upi-info-col">
-            <div class="upi-info-header">
-              <div class="upi-badge">
-                <mat-icon>qr_code_scanner</mat-icon>
-                <span>Clear Balance Due via UPI (बकाया शुल्क क्यूआर भुगतान)</span>
-              </div>
-              <div class="upi-supported-apps">
-                <span class="app-chip gpay">GPay</span>
-                <span class="app-chip phonepe">PhonePe</span>
-                <span class="app-chip paytm">Paytm</span>
-                <span class="app-chip bhim">BHIM</span>
-                <span class="app-chip">Any UPI</span>
-              </div>
-            </div>
-
-            <div class="upi-details-grid">
-              <div class="detail-box amt-box">
-                <span class="d-label">Exact Balance Due:</span>
-                <span class="d-val amt-val">₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
-              </div>
-              <div class="detail-box">
-                <span class="d-label">Payee Name:</span>
-                <span class="d-val">{{ payeeMerchantName }}</span>
-              </div>
-              <div class="detail-box">
-                <span class="d-label">Payee UPI ID (VPA):</span>
-                <span class="d-val font-mono upi-id-val">{{ payeeUpiId }}</span>
-              </div>
-              <div class="detail-box" *ngIf="bankAccountDisplay">
-                <span class="d-label">Institute Bank A/C:</span>
-                <span class="d-val font-mono">{{ bankAccountDisplay }}</span>
-              </div>
-            </div>
-
-            <div class="upi-help-note">
-              <mat-icon>verified</mat-icon>
-              <span>Scan using any UPI app to pay the remaining ₹{{ data.receipt.remainingDue | number:'1.2-2' }}. Student Roll #{{ data.receipt.rollNumber || 'N/A' }} and receipt ref {{ data.receipt.receiptNumber }} will be auto-attached.</span>
-            </div>
-          </div>
-        </div>
-
+        }
+    
         <!-- Official E-Receipt Verification Seal (When All Dues Cleared) -->
-        <div class="cleared-receipt-qr-strip" *ngIf="data.receipt.remainingDue === 0 && qrDataUrl">
-          <div class="qr-mini-box">
-            <img [src]="qrDataUrl" alt="Verified Receipt QR" class="qr-mini-img" />
+        @if (data.receipt.remainingDue === 0 && qrDataUrl) {
+          <div class="cleared-receipt-qr-strip">
+            <div class="qr-mini-box">
+              <img [src]="qrDataUrl" alt="Verified Receipt QR" class="qr-mini-img" />
+            </div>
+            <div class="qr-verify-text">
+              <div class="v-title"><mat-icon>verified</mat-icon> <span>Tamper-Proof Digital Verification QR</span></div>
+              <p>Official cryptographic proof of payment for Receipt #<strong>{{ data.receipt.receiptNumber }}</strong>. Scan to verify transaction authenticity &amp; student clearance.</p>
+            </div>
           </div>
-          <div class="qr-verify-text">
-            <div class="v-title"><mat-icon>verified</mat-icon> <span>Tamper-Proof Digital Verification QR</span></div>
-            <p>Official cryptographic proof of payment for Receipt #<strong>{{ data.receipt.receiptNumber }}</strong>. Scan to verify transaction authenticity &amp; student clearance.</p>
-          </div>
-        </div>
-
+        }
+    
         <!-- Library Dues Clearance Notice (Printed when student has pending library dues) -->
-        <div class="library-clearance-notice" *ngIf="data.receipt.pendingLibraryFine && data.receipt.pendingLibraryFine > 0">
-          <div class="notice-badge">
-            <mat-icon class="notice-icon">local_library</mat-icon>
-            <span>INSTITUTIONAL CLEARANCE NOTICE:</span>
+        @if (data.receipt.pendingLibraryFine && data.receipt.pendingLibraryFine > 0) {
+          <div class="library-clearance-notice">
+            <div class="notice-badge">
+              <mat-icon class="notice-icon">local_library</mat-icon>
+              <span>INSTITUTIONAL CLEARANCE NOTICE:</span>
+            </div>
+            <div class="notice-body">
+              Student has an unsettled Library Fine balance of <strong>₹{{ data.receipt.pendingLibraryFine | number:'1.2-2' }}</strong>. Please clear at the library circulation desk to obtain No-Dues clearance.
+            </div>
           </div>
-          <div class="notice-body">
-            Student has an unsettled Library Fine balance of <strong>₹{{ data.receipt.pendingLibraryFine | number:'1.2-2' }}</strong>. Please clear at the library circulation desk to obtain No-Dues clearance.
-          </div>
-        </div>
-
+        }
+    
         <!-- Terms & Notes -->
         <div class="receipt-terms">
           <span class="terms-title">Terms & Conditions / महत्वपूर्ण सूचना:</span>
@@ -395,7 +453,7 @@ export interface FeeReceiptDialogData {
             <li>In case of online/cheque payments, receipt is valid subject to actual realization in institute bank account.</li>
           </ol>
         </div>
-
+    
         <!-- Signature Blocks -->
         <div class="signatures-row">
           <div class="sig-col">
@@ -403,30 +461,37 @@ export interface FeeReceiptDialogData {
             <span class="sig-text">Student / Depositor Signature</span>
           </div>
           <div class="sig-col text-center">
-            <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
-            <div *ngIf="!officialSealUrl" class="digital-seal">
-              <mat-icon>verified</mat-icon>
-              <span>ELECTRONICALLY AUDITED</span>
-              <small>{{ data.receipt.paymentDate | date:'dd-MMM-yyyy' }}</small>
-            </div>
+            @if (officialSealUrl) {
+              <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+            }
+            @if (!officialSealUrl) {
+              <div class="digital-seal">
+                <mat-icon>verified</mat-icon>
+                <span>ELECTRONICALLY AUDITED</span>
+                <small>{{ data.receipt.paymentDate | date:'dd-MMM-yyyy' }}</small>
+              </div>
+            }
           </div>
           <div class="sig-col text-right">
-            <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-              <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
-            </div>
+            @if (digitalSignatureUrl) {
+              <div class="digital-sign-wrapper">
+                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+              </div>
+            }
             <div class="sig-line"></div>
             <span class="sig-text">Accounts In-charge / Cashier</span>
             <small class="auth-sub">{{ data.instituteName || authService.currentUser()?.instituteName || authService.getInstituteName() || 'Institution' }}</small>
           </div>
         </div>
-
+    
         <!-- Footer Notice -->
         <div class="paper-footer">
           <span>This is an official computer-generated receipt from IMSERP Coaching Management Suite.</span>
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ViewChild, ElementRef, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,7 +21,6 @@ export interface StampMakerData {
   selector: 'app-stamp-maker-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -32,7 +31,7 @@ export interface StampMakerData {
     MatSelectModule,
     MatCheckboxModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="stamp-maker-container">
       <!-- Standard Light Blue Header -->
@@ -48,7 +47,7 @@ export interface StampMakerData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="stamp-maker-body">
         <!-- Left: Form Controls Deck -->
         <div class="controls-panel">
@@ -63,7 +62,7 @@ export interface StampMakerData {
                   <mat-option value="box">Rectangular Box (चौकोर)</mat-option>
                 </mat-select>
               </mat-form-field>
-
+    
               <mat-form-field appearance="outline" class="density-compact">
                 <mat-label>Finish Effect (टेक्सचर)</mat-label>
                 <mat-select formControlName="effect">
@@ -72,55 +71,58 @@ export interface StampMakerData {
                 </mat-select>
               </mat-form-field>
             </div>
-
+    
             <!-- Ink Color Selection Bar -->
             <div class="color-picker-box">
               <label class="section-label">Stamp Ink Color (मुहर की स्याही):</label>
               <div class="color-options">
-                <button
-                  type="button"
-                  *ngFor="let c of colorPalette"
-                  class="color-btn"
-                  [style.background]="c.hex"
-                  [class.active]="stampForm.get('color')?.value === c.hex"
-                  (click)="setColor(c.hex)"
-                  [matTooltip]="c.name">
-                  <mat-icon *ngIf="stampForm.get('color')?.value === c.hex">check</mat-icon>
-                </button>
+                @for (c of colorPalette; track c) {
+                  <button
+                    type="button"
+                    class="color-btn"
+                    [style.background]="c.hex"
+                    [class.active]="stampForm.get('color')?.value === c.hex"
+                    (click)="setColor(c.hex)"
+                    [matTooltip]="c.name">
+                    @if (stampForm.get('color')?.value === c.hex) {
+                      <mat-icon>check</mat-icon>
+                    }
+                  </button>
+                }
               </div>
             </div>
-
+    
             <!-- Text Slots -->
             <mat-form-field appearance="outline" class="density-compact w-100">
               <mat-label>Top Arc (संस्थान का नाम)</mat-label>
               <input matInput formControlName="topText" placeholder="e.g. JNANDEEP CAMPUS" />
               <mat-icon matSuffix>business</mat-icon>
             </mat-form-field>
-
+    
             <div class="row-2col">
               <mat-form-field appearance="outline" class="density-compact">
                 <mat-label>Center Text Line 1</mat-label>
                 <input matInput formControlName="centerLine1" placeholder="e.g. ★ ESTD 2018 ★" />
               </mat-form-field>
-
+    
               <mat-form-field appearance="outline" class="density-compact">
                 <mat-label>Center Text Line 2</mat-label>
                 <input matInput formControlName="centerLine2" placeholder="e.g. OFFICIAL SEAL" />
               </mat-form-field>
             </div>
-
+    
             <mat-form-field appearance="outline" class="density-compact w-100">
               <mat-label>Bottom Arc (स्थान / शहर / मान्यता)</mat-label>
               <input matInput formControlName="bottomText" placeholder="e.g. PATNA, BIHAR • REGD." />
               <mat-icon matSuffix>place</mat-icon>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="density-compact w-100">
               <mat-label>Seal Label / Title (गैलरी नाम)</mat-label>
               <input matInput formControlName="title" placeholder="e.g. Main Campus Official Seal" />
               <mat-hint>For distinguishing in multi-seal library</mat-hint>
             </mat-form-field>
-
+    
             <div class="checkbox-row">
               <mat-checkbox formControlName="setAsDefault" color="primary">
                 <strong>Set as Default Seal (मुख्य मुहर बनाएं)</strong>
@@ -128,7 +130,7 @@ export interface StampMakerData {
             </div>
           </form>
         </div>
-
+    
         <!-- Right: Live Canvas Preview Area -->
         <div class="preview-panel">
           <div class="preview-header">
@@ -139,27 +141,32 @@ export interface StampMakerData {
               <mat-icon>refresh</mat-icon>
             </button>
           </div>
-
+    
           <div class="canvas-checkerboard-wrapper">
             <canvas #stampCanvas width="600" height="600" class="stamp-canvas"></canvas>
           </div>
           <p class="preview-hint">100% Transparent PNG • Crisp 300 DPI Vector Quality on all ERP Prints</p>
         </div>
       </div>
-
+    
       <!-- Action Footer -->
       <div class="dialog-actions">
         <button mat-stroked-button (click)="onClose()" [disabled]="uploading">
           Cancel
         </button>
         <button mat-raised-button color="primary" class="apply-btn" (click)="applyAndUpload()" [disabled]="uploading">
-          <mat-icon *ngIf="!uploading">verified</mat-icon>
-          <mat-icon class="spin" *ngIf="uploading">sync</mat-icon>
+          @if (!uploading) {
+            <mat-icon>verified</mat-icon>
+          }
+          @if (uploading) {
+            <mat-icon class="spin">sync</mat-icon>
+          }
           <span>{{ uploading ? 'Uploading & Applying...' : 'Apply & Save Seal (मुहर लागू करें)' }}</span>
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .stamp-maker-container {
       display: flex;

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -49,7 +49,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Dialog Body Content -->
       <div class="dialog-body">
         <!-- Add / Edit Inline Box -->
@@ -57,38 +57,40 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <div class="pfc-header">
             <mat-icon color="primary">{{ isEditMode ? 'edit_note' : 'add_circle' }}</mat-icon>
             <strong>{{ isEditMode ? 'Edit Selected Shift' : 'Add New Shift / Plan' }}</strong>
-            <button mat-button color="warn" type="button" *ngIf="isEditMode" (click)="resetForm()" class="cancel-edit-btn">
-              Cancel Edit
-            </button>
+            @if (isEditMode) {
+              <button mat-button color="warn" type="button" (click)="resetForm()" class="cancel-edit-btn">
+                Cancel Edit
+              </button>
+            }
           </div>
-
+    
           <form [formGroup]="planForm" (ngSubmit)="savePlan()" class="pfc-form">
             <div class="form-row">
               <mat-form-field appearance="outline" class="flex-2">
                 <mat-label>Plan / Shift Name *</mat-label>
                 <input matInput formControlName="planName" placeholder="e.g. Morning Shift (8AM - 1PM)" />
               </mat-form-field>
-
+    
               <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>Shift Timing</mat-label>
                 <input matInput formControlName="shiftTiming" placeholder="e.g. 8:00 AM - 1:00 PM" />
               </mat-form-field>
-
+    
               <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>Monthly Fee (₹) *</mat-label>
                 <input matInput type="number" formControlName="monthlyFee" min="0" placeholder="0" />
               </mat-form-field>
-
+    
               <mat-form-field appearance="outline" style="width: 110px;">
                 <mat-label>Max Books</mat-label>
                 <input matInput type="number" formControlName="maxBooks" min="1" max="20" placeholder="2" />
               </mat-form-field>
-
+    
               <mat-form-field appearance="outline" style="width: 80px;">
                 <mat-label>Order</mat-label>
                 <input matInput type="number" formControlName="sortOrder" min="1" placeholder="1" />
               </mat-form-field>
-
+    
               <div class="submit-col">
                 <button mat-raised-button color="primary" type="submit" [disabled]="planForm.invalid || saving" class="save-plan-btn">
                   <mat-icon>{{ saving ? 'hourglass_top' : (isEditMode ? 'save' : 'add') }}</mat-icon>
@@ -98,7 +100,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </div>
           </form>
         </div>
-
+    
         <!-- Table of Existing Plans -->
         <div class="plans-table-wrapper">
           <table mat-table [dataSource]="plans" class="plans-table">
@@ -109,20 +111,22 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <span class="order-tag">{{ p.sortOrder }}</span>
               </td>
             </ng-container>
-
+    
             <!-- Plan Name Column -->
             <ng-container matColumnDef="planName">
               <th mat-header-cell *matHeaderCellDef>Shift / Membership Plan</th>
               <td mat-cell *matCellDef="let p">
                 <div class="name-block">
                   <span class="p-name">{{ p.planName }}</span>
-                  <span class="p-timing" *ngIf="p.shiftTiming">
-                    <mat-icon>access_time</mat-icon> {{ p.shiftTiming }}
-                  </span>
+                  @if (p.shiftTiming) {
+                    <span class="p-timing">
+                      <mat-icon>access_time</mat-icon> {{ p.shiftTiming }}
+                    </span>
+                  }
                 </div>
               </td>
             </ng-container>
-
+    
             <!-- Fee Column -->
             <ng-container matColumnDef="monthlyFee">
               <th mat-header-cell *matHeaderCellDef>Monthly Rate</th>
@@ -132,7 +136,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </span>
               </td>
             </ng-container>
-
+    
             <!-- Books Limit Column -->
             <ng-container matColumnDef="maxBooks">
               <th mat-header-cell *matHeaderCellDef>Quota</th>
@@ -140,7 +144,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <span class="quota-text">{{ p.maxBooks }} Books</span>
               </td>
             </ng-container>
-
+    
             <!-- Status Column -->
             <ng-container matColumnDef="isActive">
               <th mat-header-cell *matHeaderCellDef>Status</th>
@@ -149,7 +153,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <span>{{ p.isActive ? 'Active' : 'Disabled' }}</span>
               </td>
             </ng-container>
-
+    
             <!-- Actions Column -->
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef style="text-align: right;">Actions</th>
@@ -162,10 +166,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </button>
               </td>
             </ng-container>
-
+    
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
-
+    
             <tr class="mat-row" *matNoDataRow>
               <td class="mat-cell empty-row" colspan="6">
                 No shifts found. Fill the form above to add a new shift.
@@ -174,7 +178,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </table>
         </div>
       </div>
-
+    
       <!-- Dialog Footer -->
       <div class="dialog-footer">
         <span class="footer-hint">
@@ -186,7 +190,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .plans-dialog-wrapper {
       display: flex;

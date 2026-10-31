@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, Inject, OnInit, ElementRef, ViewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -71,244 +71,252 @@ export interface UpiPaymentDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </header>
-
+    
       <!-- Dialog Body -->
       <div class="dialog-content">
         <!-- Error Banner -->
-        <div class="error-banner" *ngIf="errorMessage">
-          <mat-icon>error_outline</mat-icon>
-          <span>{{ errorMessage }}</span>
-        </div>
-
+        @if (errorMessage) {
+          <div class="error-banner">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ errorMessage }}</span>
+          </div>
+        }
+    
         <!-- Success Screen -->
-        <div class="success-screen" *ngIf="paymentSuccess && receipt">
-          <div class="success-icon-wrap">
-            <mat-icon>check_circle</mat-icon>
+        @if (paymentSuccess && receipt) {
+          <div class="success-screen">
+            <div class="success-icon-wrap">
+              <mat-icon>check_circle</mat-icon>
+            </div>
+            <h3 class="success-title">Payment Verified &amp; Settled!</h3>
+            <p class="success-sub">
+              Official E-Receipt <strong>#{{ receipt.receiptNumber }}</strong> has been generated and dues have been updated in real-time.
+            </p>
+            <div class="receipt-summary-box">
+              <div class="summary-row">
+                <span class="lbl">Student Name:</span>
+                <span class="val">{{ receipt.studentName }} (Roll: {{ receipt.rollNumber }})</span>
+              </div>
+              <div class="summary-row">
+                <span class="lbl">Amount Settled:</span>
+                <span class="val highlight text-success">₹{{ receipt.amountPaid | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-row">
+                <span class="lbl">Bank UTR / Ref:</span>
+                <span class="val font-mono">{{ receipt.transactionRef || 'UPI-ONLINE' }}</span>
+              </div>
+              <div class="summary-row">
+                <span class="lbl">Remaining Net Balance:</span>
+                <span class="val" [class.text-danger]="receipt.remainingDue > 0" [class.text-success]="receipt.remainingDue <= 0">
+                  ₹{{ receipt.remainingDue | number:'1.2-2' }}
+                </span>
+              </div>
+            </div>
+            <div class="success-actions">
+              <button mat-flat-button color="primary" class="primary-action-btn" (click)="openOfficialReceipt()">
+                <mat-icon>receipt</mat-icon>
+                <span>View &amp; Print Official Receipt</span>
+              </button>
+              <button mat-stroked-button class="secondary-btn" (click)="closeWithSuccess()">
+                <mat-icon>done_all</mat-icon>
+                <span>Done / Close</span>
+              </button>
+            </div>
           </div>
-          <h3 class="success-title">Payment Verified &amp; Settled!</h3>
-          <p class="success-sub">
-            Official E-Receipt <strong>#{{ receipt.receiptNumber }}</strong> has been generated and dues have been updated in real-time.
-          </p>
-
-          <div class="receipt-summary-box">
-            <div class="summary-row">
-              <span class="lbl">Student Name:</span>
-              <span class="val">{{ receipt.studentName }} (Roll: {{ receipt.rollNumber }})</span>
-            </div>
-            <div class="summary-row">
-              <span class="lbl">Amount Settled:</span>
-              <span class="val highlight text-success">₹{{ receipt.amountPaid | number:'1.2-2' }}</span>
-            </div>
-            <div class="summary-row">
-              <span class="lbl">Bank UTR / Ref:</span>
-              <span class="val font-mono">{{ receipt.transactionRef || 'UPI-ONLINE' }}</span>
-            </div>
-            <div class="summary-row">
-              <span class="lbl">Remaining Net Balance:</span>
-              <span class="val" [class.text-danger]="receipt.remainingDue > 0" [class.text-success]="receipt.remainingDue <= 0">
-                ₹{{ receipt.remainingDue | number:'1.2-2' }}
-              </span>
-            </div>
-          </div>
-
-          <div class="success-actions">
-            <button mat-flat-button color="primary" class="primary-action-btn" (click)="openOfficialReceipt()">
-              <mat-icon>receipt</mat-icon>
-              <span>View &amp; Print Official Receipt</span>
-            </button>
-            <button mat-stroked-button class="secondary-btn" (click)="closeWithSuccess()">
-              <mat-icon>done_all</mat-icon>
-              <span>Done / Close</span>
-            </button>
-          </div>
-        </div>
-
+        }
+    
         <!-- Main Payment & QR Section -->
-        <div class="payment-grid" *ngIf="!paymentSuccess">
-          <!-- Left Column: Interactive Dynamic Bharat QR Code -->
-          <div class="qr-column">
-            <div class="qr-card">
-              <!-- Verified Merchant Badge -->
-              <div class="merchant-badge">
-                <img *ngIf="merchantLogoUrl && !merchantLogoFailed" [src]="merchantLogoUrl" (error)="merchantLogoFailed = true" alt="Logo" class="merchant-logo-img" />
-                <mat-icon *ngIf="!merchantLogoUrl || merchantLogoFailed" class="verified-icon">verified_user</mat-icon>
-                <div class="merchant-info">
-                  <span class="merchant-name">{{ upiIntent?.payeeName || data.studentName || authService.currentUser()?.instituteName || 'School Fee Collection' }}</span>
-                  <span class="merchant-tag">Verified Institute UPI</span>
-                </div>
-              </div>
-
-              <!-- Canvas QR Code Frame -->
-              <div class="qr-canvas-wrapper">
-                <div class="qr-border-box">
-                  <canvas #qrCanvas class="upi-qr-canvas"></canvas>
-                  <div class="qr-center-logo">
-                    <span class="upi-logo-text">UPI</span>
+        @if (!paymentSuccess) {
+          <div class="payment-grid">
+            <!-- Left Column: Interactive Dynamic Bharat QR Code -->
+            <div class="qr-column">
+              <div class="qr-card">
+                <!-- Verified Merchant Badge -->
+                <div class="merchant-badge">
+                  @if (merchantLogoUrl && !merchantLogoFailed) {
+                    <img [src]="merchantLogoUrl" (error)="merchantLogoFailed = true" alt="Logo" class="merchant-logo-img" />
+                  }
+                  @if (!merchantLogoUrl || merchantLogoFailed) {
+                    <mat-icon class="verified-icon">verified_user</mat-icon>
+                  }
+                  <div class="merchant-info">
+                    <span class="merchant-name">{{ upiIntent?.payeeName || data.studentName || authService.currentUser()?.instituteName || 'School Fee Collection' }}</span>
+                    <span class="merchant-tag">Verified Institute UPI</span>
                   </div>
                 </div>
-                <div class="scan-hint">
-                  <mat-icon>crop_free</mat-icon>
-                  <span>Scan with Any UPI App</span>
+                <!-- Canvas QR Code Frame -->
+                <div class="qr-canvas-wrapper">
+                  <div class="qr-border-box">
+                    <canvas #qrCanvas class="upi-qr-canvas"></canvas>
+                    <div class="qr-center-logo">
+                      <span class="upi-logo-text">UPI</span>
+                    </div>
+                  </div>
+                  <div class="scan-hint">
+                    <mat-icon>crop_free</mat-icon>
+                    <span>Scan with Any UPI App</span>
+                  </div>
                 </div>
-              </div>
-
-              <!-- VPA Copy Strip -->
-              <div class="upi-id-box">
-                <div class="vpa-text">
-                  <span class="vpa-label">UPI ID (VPA):</span>
-                  <strong class="vpa-val font-mono">{{ upiIntent?.payeeUpiId || 'fees@upi' }}</strong>
+                <!-- VPA Copy Strip -->
+                <div class="upi-id-box">
+                  <div class="vpa-text">
+                    <span class="vpa-label">UPI ID (VPA):</span>
+                    <strong class="vpa-val font-mono">{{ upiIntent?.payeeUpiId || 'fees@upi' }}</strong>
+                  </div>
+                  <button
+                    mat-icon-button
+                    class="copy-btn"
+                    [matTooltip]="copiedVpa ? 'Copied to Clipboard!' : 'Copy UPI ID'"
+                    (click)="copyVpa()"
+                    type="button"
+                    >
+                    <mat-icon>{{ copiedVpa ? 'check' : 'content_copy' }}</mat-icon>
+                  </button>
                 </div>
-                <button
-                  mat-icon-button
-                  class="copy-btn"
-                  [matTooltip]="copiedVpa ? 'Copied to Clipboard!' : 'Copy UPI ID'"
-                  (click)="copyVpa()"
-                  type="button"
-                >
-                  <mat-icon>{{ copiedVpa ? 'check' : 'content_copy' }}</mat-icon>
-                </button>
-              </div>
-
-              <!-- Quick Mobile Deep Links (1-Tap Payment) -->
-              <div class="mobile-apps-container">
-                <span class="mobile-launch-label">Or Pay Directly with Mobile App:</span>
-                <div class="upi-apps-row">
-                  <a [href]="upiIntent?.gpayUri || upiIntent?.upiIntentUri" class="upi-app-btn gpay" target="_self">
-                    <span class="app-icon">G</span>
-                    <span>GPay</span>
-                  </a>
-                  <a [href]="upiIntent?.phonepeUri || upiIntent?.upiIntentUri" class="upi-app-btn phonepe" target="_self">
-                    <span class="app-icon">पे</span>
-                    <span>PhonePe</span>
-                  </a>
-                  <a [href]="upiIntent?.paytmUri || upiIntent?.upiIntentUri" class="upi-app-btn paytm" target="_self">
-                    <span class="app-icon">₹</span>
-                    <span>Paytm</span>
-                  </a>
-                  <a [href]="upiIntent?.upiIntentUri" class="upi-app-btn any" target="_self">
-                    <mat-icon>open_in_new</mat-icon>
-                    <span>Any App</span>
-                  </a>
+                <!-- Quick Mobile Deep Links (1-Tap Payment) -->
+                <div class="mobile-apps-container">
+                  <span class="mobile-launch-label">Or Pay Directly with Mobile App:</span>
+                  <div class="upi-apps-row">
+                    <a [href]="upiIntent?.gpayUri || upiIntent?.upiIntentUri" class="upi-app-btn gpay" target="_self">
+                      <span class="app-icon">G</span>
+                      <span>GPay</span>
+                    </a>
+                    <a [href]="upiIntent?.phonepeUri || upiIntent?.upiIntentUri" class="upi-app-btn phonepe" target="_self">
+                      <span class="app-icon">पे</span>
+                      <span>PhonePe</span>
+                    </a>
+                    <a [href]="upiIntent?.paytmUri || upiIntent?.upiIntentUri" class="upi-app-btn paytm" target="_self">
+                      <span class="app-icon">₹</span>
+                      <span>Paytm</span>
+                    </a>
+                    <a [href]="$safeNavigationMigration(upiIntent?.upiIntentUri)" class="upi-app-btn any" target="_self">
+                      <mat-icon>open_in_new</mat-icon>
+                      <span>Any App</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Right Column: Billing Particulars & 12-digit UTR Verification Form -->
-          <div class="form-column">
-            <!-- Student & Fee Meta Card (Spacious Flex Row) -->
-            <div class="billing-summary-card">
-              <div class="st-left">
-                <div class="st-avatar">
-                  <mat-icon>school</mat-icon>
-                </div>
-                <div class="st-info">
-                  <div class="st-name-row">
-                    <h4 class="st-name">{{ upiIntent?.studentName || data.studentName }}</h4>
-                    <span class="st-status-tag">Active Student</span>
+            <!-- Right Column: Billing Particulars & 12-digit UTR Verification Form -->
+            <div class="form-column">
+              <!-- Student & Fee Meta Card (Spacious Flex Row) -->
+              <div class="billing-summary-card">
+                <div class="st-left">
+                  <div class="st-avatar">
+                    <mat-icon>school</mat-icon>
                   </div>
-                  <div class="st-chips">
-                    <span class="mini-chip">Roll: <strong>{{ upiIntent?.rollNumber || data.rollNumber || 'N/A' }}</strong></span>
-                    <span class="mini-chip" *ngIf="upiIntent?.className || data.className">Class: <strong>{{ upiIntent?.className || data.className }}</strong></span>
-                    <span class="mini-chip invoice-chip" *ngIf="upiIntent?.invoiceNumber || data.invoiceNumber">
-                      Inv: <strong>{{ upiIntent?.invoiceNumber || data.invoiceNumber }}</strong>
-                    </span>
+                  <div class="st-info">
+                    <div class="st-name-row">
+                      <h4 class="st-name">{{ upiIntent?.studentName || data.studentName }}</h4>
+                      <span class="st-status-tag">Active Student</span>
+                    </div>
+                    <div class="st-chips">
+                      <span class="mini-chip">Roll: <strong>{{ upiIntent?.rollNumber || data.rollNumber || 'N/A' }}</strong></span>
+                      @if (upiIntent?.className || data.className) {
+                        <span class="mini-chip">Class: <strong>{{ upiIntent?.className || data.className }}</strong></span>
+                      }
+                      @if (upiIntent?.invoiceNumber || data.invoiceNumber) {
+                        <span class="mini-chip invoice-chip">
+                          Inv: <strong>{{ upiIntent?.invoiceNumber || data.invoiceNumber }}</strong>
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </div>
+                <div class="amount-deck">
+                  <div class="amount-pill">
+                    <span class="amt-lbl">PAYABLE NOW</span>
+                    <span class="amt-val">₹{{ $safeNavigationMigration(paymentForm.get('amount')?.value) | number:'1.2-2' }}</span>
                   </div>
                 </div>
               </div>
-
-              <div class="amount-deck">
-                <div class="amount-pill">
-                  <span class="amt-lbl">PAYABLE NOW</span>
-                  <span class="amt-val">₹{{ paymentForm.get('amount')?.value | number:'1.2-2' }}</span>
+              <!-- Settlement Form -->
+              <form [formGroup]="paymentForm" (ngSubmit)="onSubmitPayment()" class="settle-form">
+                <div class="form-section-title">
+                  <mat-icon>verified</mat-icon>
+                  <span>Step 2: Enter Transaction Details &amp; Verify</span>
                 </div>
-              </div>
+                <div class="step-guide-box">
+                  <mat-icon class="guide-icon">info</mat-icon>
+                  <span>After paying via UPI, enter the <strong>12-digit UTR / Bank Reference No.</strong> from your payment receipt to instantly verify and issue the official fee receipt.</span>
+                </div>
+                <!-- Amount Input (Readonly) -->
+                <mat-form-field appearance="outline" class="w-100 field-unit amount-field-readonly">
+                  <mat-label>Settlement Amount (₹)</mat-label>
+                  <input matInput type="number" formControlName="amount" [readonly]="true" />
+                  <span matPrefix class="prefix-sym">₹&nbsp;</span>
+                  <mat-icon matSuffix class="readonly-lock-icon" matTooltip="Settlement amount is fixed to current payable due">lock</mat-icon>
+                  <mat-hint>Total outstanding due: ₹{{ maxPayableAmount | number:'1.2-2' }}</mat-hint>
+                </mat-form-field>
+                <!-- 12-Digit UTR / Bank Reference Number -->
+                <mat-form-field appearance="outline" class="w-100 field-unit utr-field">
+                  <mat-label>12-Digit UPI Reference ID / UTR No.</mat-label>
+                  <input
+                    matInput
+                    type="text"
+                    formControlName="upiRrn"
+                    placeholder="e.g. 428912345678 (12-digit UTR)"
+                    maxlength="22"
+                    autocomplete="off"
+                    />
+                  <mat-icon matSuffix class="field-icon">dialpad</mat-icon>
+                  <mat-hint class="utr-hint">Found under "UPI Ref No", "UTR", or "Bank Ref No" in your payment app</mat-hint>
+                  @if (paymentForm.get('upiRrn')?.hasError('required')) {
+                    <mat-error>
+                      UPI Reference ID / UTR is strictly required to verify payment.
+                    </mat-error>
+                  }
+                  @if (paymentForm.get('upiRrn')?.hasError('minlength')) {
+                    <mat-error>
+                      UTR must contain at least 8 alphanumeric characters.
+                    </mat-error>
+                  }
+                </mat-form-field>
+                <!-- Optional Payer Details in 2 Wide Columns -->
+                <div class="form-row-2">
+                  <mat-form-field appearance="outline" class="field-unit">
+                    <mat-label>Payer Name (Optional)</mat-label>
+                    <input matInput type="text" formControlName="payerName" placeholder="e.g. Ramesh Kumar" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="field-unit">
+                    <mat-label>Payer Phone / WhatsApp (Optional)</mat-label>
+                    <input matInput type="tel" formControlName="payerPhone" placeholder="e.g. 9876543210" />
+                  </mat-form-field>
+                </div>
+                <!-- Options -->
+                <div class="checkbox-row">
+                  <mat-checkbox formControlName="sendWhatsAppReceipt" color="primary">
+                    <span>Send instant digital fee receipt on WhatsApp to parent phone</span>
+                  </mat-checkbox>
+                  @if (data.pendingLibraryFine && data.pendingLibraryFine > 0) {
+                    <mat-checkbox formControlName="includeLibraryFine" color="primary">
+                      <span>Include pending Library Fine (₹{{ data.pendingLibraryFine | number:'1.2-2' }})</span>
+                    </mat-checkbox>
+                  }
+                </div>
+                <!-- Submit Action Button -->
+                <div class="submit-action-wrap">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    class="verify-submit-btn"
+                    [disabled]="paymentForm.invalid || submitting || loading"
+                    >
+                    @if (!submitting) {
+                      <mat-icon>check_circle_outline</mat-icon>
+                    }
+                    <span>{{ submitting ? 'Verifying & Generating Receipt...' : 'Verify Payment & Generate Receipt' }}</span>
+                  </button>
+                </div>
+              </form>
             </div>
-
-            <!-- Settlement Form -->
-            <form [formGroup]="paymentForm" (ngSubmit)="onSubmitPayment()" class="settle-form">
-              <div class="form-section-title">
-                <mat-icon>verified</mat-icon>
-                <span>Step 2: Enter Transaction Details &amp; Verify</span>
-              </div>
-
-              <div class="step-guide-box">
-                <mat-icon class="guide-icon">info</mat-icon>
-                <span>After paying via UPI, enter the <strong>12-digit UTR / Bank Reference No.</strong> from your payment receipt to instantly verify and issue the official fee receipt.</span>
-              </div>
-
-              <!-- Amount Input (Readonly) -->
-              <mat-form-field appearance="outline" class="w-100 field-unit amount-field-readonly">
-                <mat-label>Settlement Amount (₹)</mat-label>
-                <input matInput type="number" formControlName="amount" [readonly]="true" />
-                <span matPrefix class="prefix-sym">₹&nbsp;</span>
-                <mat-icon matSuffix class="readonly-lock-icon" matTooltip="Settlement amount is fixed to current payable due">lock</mat-icon>
-                <mat-hint>Total outstanding due: ₹{{ maxPayableAmount | number:'1.2-2' }}</mat-hint>
-              </mat-form-field>
-
-              <!-- 12-Digit UTR / Bank Reference Number -->
-              <mat-form-field appearance="outline" class="w-100 field-unit utr-field">
-                <mat-label>12-Digit UPI Reference ID / UTR No.</mat-label>
-                <input
-                  matInput
-                  type="text"
-                  formControlName="upiRrn"
-                  placeholder="e.g. 428912345678 (12-digit UTR)"
-                  maxlength="22"
-                  autocomplete="off"
-                />
-                <mat-icon matSuffix class="field-icon">dialpad</mat-icon>
-                <mat-hint class="utr-hint">Found under "UPI Ref No", "UTR", or "Bank Ref No" in your payment app</mat-hint>
-                <mat-error *ngIf="paymentForm.get('upiRrn')?.hasError('required')">
-                  UPI Reference ID / UTR is strictly required to verify payment.
-                </mat-error>
-                <mat-error *ngIf="paymentForm.get('upiRrn')?.hasError('minlength')">
-                  UTR must contain at least 8 alphanumeric characters.
-                </mat-error>
-              </mat-form-field>
-
-              <!-- Optional Payer Details in 2 Wide Columns -->
-              <div class="form-row-2">
-                <mat-form-field appearance="outline" class="field-unit">
-                  <mat-label>Payer Name (Optional)</mat-label>
-                  <input matInput type="text" formControlName="payerName" placeholder="e.g. Ramesh Kumar" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="field-unit">
-                  <mat-label>Payer Phone / WhatsApp (Optional)</mat-label>
-                  <input matInput type="tel" formControlName="payerPhone" placeholder="e.g. 9876543210" />
-                </mat-form-field>
-              </div>
-
-              <!-- Options -->
-              <div class="checkbox-row">
-                <mat-checkbox formControlName="sendWhatsAppReceipt" color="primary">
-                  <span>Send instant digital fee receipt on WhatsApp to parent phone</span>
-                </mat-checkbox>
-                <mat-checkbox *ngIf="data.pendingLibraryFine && data.pendingLibraryFine > 0" formControlName="includeLibraryFine" color="primary">
-                  <span>Include pending Library Fine (₹{{ data.pendingLibraryFine | number:'1.2-2' }})</span>
-                </mat-checkbox>
-              </div>
-
-              <!-- Submit Action Button -->
-              <div class="submit-action-wrap">
-                <button
-                  mat-flat-button
-                  color="primary"
-                  type="submit"
-                  class="verify-submit-btn"
-                  [disabled]="paymentForm.invalid || submitting || loading"
-                >
-                  <mat-icon *ngIf="!submitting">check_circle_outline</mat-icon>
-                  <span>{{ submitting ? 'Verifying & Generating Receipt...' : 'Verify Payment & Generate Receipt' }}</span>
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
+        }
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .upi-dialog-container {
       display: flex;

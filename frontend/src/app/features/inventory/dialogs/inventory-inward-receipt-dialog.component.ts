@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -50,24 +50,30 @@ export interface InventoryInwardReceiptDialogData {
           </button>
         </div>
       </div>
-
+    
       <!-- Printable Document Container -->
       <div class="receipt-paper" id="store-inward-paper">
         <!-- Header -->
         <div class="paper-header">
           <div class="inst-info">
             <div class="logo-mark transparent-logo-mark" [class.has-img]="logoUrl && !logoFailed">
-              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-              <mat-icon *ngIf="!logoUrl || logoFailed" class="fallback-inst-icon">local_shipping</mat-icon>
+              @if (logoUrl && !logoFailed) {
+                <img [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+              }
+              @if (!logoUrl || logoFailed) {
+                <mat-icon class="fallback-inst-icon">local_shipping</mat-icon>
+              }
             </div>
             <div>
               <h2 class="inst-name">{{ data.instituteName || authService.currentUser()?.instituteName || 'Official Store GRN' }}</h2>
               <p class="inst-subtitle">Central Store Inventory & Procurement Department</p>
-              <p class="inst-branch" *ngIf="effectiveBranchName">
-                <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
-                <span class="branch-dept-sep">|</span>
-                <span class="branch-dept">Goods Receiving & Inward Verification</span>
-              </p>
+              @if (effectiveBranchName) {
+                <p class="inst-branch">
+                  <span class="branch-pill">🏛️ Branch: {{ effectiveBranchName }}</span>
+                  <span class="branch-dept-sep">|</span>
+                  <span class="branch-dept">Goods Receiving & Inward Verification</span>
+                </p>
+              }
             </div>
           </div>
           <div class="receipt-badge">
@@ -76,7 +82,7 @@ export interface InventoryInwardReceiptDialogData {
             <span class="copy-tag">STORE / ACCOUNTS COPY</span>
           </div>
         </div>
-
+    
         <!-- Meta Strip -->
         <div class="meta-strip">
           <div class="meta-item">
@@ -102,7 +108,7 @@ export interface InventoryInwardReceiptDialogData {
             <span class="meta-val mode-pill">{{ data.inward.paymentMode || 'Cash' }}</span>
           </div>
         </div>
-
+    
         <!-- Vendor & Purchase Info Card -->
         <div class="vendor-profile-card">
           <div class="prof-col">
@@ -110,19 +116,23 @@ export interface InventoryInwardReceiptDialogData {
               <span class="p-lbl">Supplier / Vendor:</span>
               <span class="p-val bold-text">{{ data.inward.vendorName || 'Direct Market Purchase' }}</span>
             </div>
-            <div class="prof-row" *ngIf="data.inward.remarks">
-              <span class="p-lbl">Purchase Notes:</span>
-              <span class="p-val notes-val">{{ data.inward.remarks }}</span>
-            </div>
+            @if (data.inward.remarks) {
+              <div class="prof-row">
+                <span class="p-lbl">Purchase Notes:</span>
+                <span class="p-val notes-val">{{ data.inward.remarks }}</span>
+              </div>
+            }
           </div>
-          <div class="prof-col text-right-col" *ngIf="qrCodeUrl">
-            <div class="qr-box">
-              <img [src]="qrCodeUrl" alt="QR Verification" class="qr-img" />
-              <span class="qr-caption">Scan to Verify GRN</span>
+          @if (qrCodeUrl) {
+            <div class="prof-col text-right-col">
+              <div class="qr-box">
+                <img [src]="qrCodeUrl" alt="QR Verification" class="qr-img" />
+                <span class="qr-caption">Scan to Verify GRN</span>
+              </div>
             </div>
-          </div>
+          }
         </div>
-
+    
         <!-- Arriving Items Table -->
         <div class="items-table-wrap">
           <table class="receipt-table">
@@ -138,24 +148,28 @@ export interface InventoryInwardReceiptDialogData {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of data.inward.items; let i = index">
-                <td style="text-align: center;">{{ i + 1 }}</td>
-                <td><span class="code-tag">{{ item.itemCode || 'ITM' }}</span></td>
-                <td>
-                  <strong>{{ item.itemName }}</strong>
-                  <span *ngIf="item.remarks" class="item-sub-desc"> &bull; {{ item.remarks }}</span>
-                </td>
-                <td>{{ item.batchOrSerialNo || '—' }}</td>
-                <td style="text-align: center;">
-                  <strong class="qty-badge">{{ item.quantity }}</strong>
-                </td>
-                <td style="text-align: right;">₹{{ item.unitPrice | number:'1.2-2' }}</td>
-                <td style="text-align: right;"><strong>₹{{ item.totalAmount | number:'1.2-2' }}</strong></td>
-              </tr>
+              @for (item of data.inward.items; track item; let i = $index) {
+                <tr>
+                  <td style="text-align: center;">{{ i + 1 }}</td>
+                  <td><span class="code-tag">{{ item.itemCode || 'ITM' }}</span></td>
+                  <td>
+                    <strong>{{ item.itemName }}</strong>
+                    @if (item.remarks) {
+                      <span class="item-sub-desc"> &bull; {{ item.remarks }}</span>
+                    }
+                  </td>
+                  <td>{{ item.batchOrSerialNo || '—' }}</td>
+                  <td style="text-align: center;">
+                    <strong class="qty-badge">{{ item.quantity }}</strong>
+                  </td>
+                  <td style="text-align: right;">₹{{ item.unitPrice | number:'1.2-2' }}</td>
+                  <td style="text-align: right;"><strong>₹{{ item.totalAmount | number:'1.2-2' }}</strong></td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-
+    
         <!-- Totals & Breakdown Card -->
         <div class="totals-block">
           <div class="terms-notes">
@@ -169,21 +183,25 @@ export interface InventoryInwardReceiptDialogData {
               <span>Gross Items Value:</span>
               <strong>₹{{ data.inward.totalAmount | number:'1.2-2' }}</strong>
             </div>
-            <div class="t-row discount-row" *ngIf="data.inward.discountAmount > 0">
-              <span>Trade Discount (-):</span>
-              <strong class="text-emerald">-₹{{ data.inward.discountAmount | number:'1.2-2' }}</strong>
-            </div>
-            <div class="t-row tax-row" *ngIf="data.inward.taxAmount > 0">
-              <span>GST / Taxes (+):</span>
-              <strong>₹{{ data.inward.taxAmount | number:'1.2-2' }}</strong>
-            </div>
+            @if (data.inward.discountAmount > 0) {
+              <div class="t-row discount-row">
+                <span>Trade Discount (-):</span>
+                <strong class="text-emerald">-₹{{ data.inward.discountAmount | number:'1.2-2' }}</strong>
+              </div>
+            }
+            @if (data.inward.taxAmount > 0) {
+              <div class="t-row tax-row">
+                <span>GST / Taxes (+):</span>
+                <strong>₹{{ data.inward.taxAmount | number:'1.2-2' }}</strong>
+              </div>
+            }
             <div class="t-row grand-total-row">
               <span>Net Bill Amount:</span>
               <strong class="grand-val">₹{{ data.inward.netAmount | number:'1.2-2' }}</strong>
             </div>
           </div>
         </div>
-
+    
         <!-- Signature Strip -->
         <div class="signatures-strip">
           <div class="sig-col">
@@ -197,14 +215,15 @@ export interface InventoryInwardReceiptDialogData {
             <span class="sig-desc">Accounts & Finance Controller</span>
           </div>
         </div>
-
+    
         <!-- Footer Notice -->
         <div class="paper-footer">
           <span>This is an official computer-generated Goods Receipt Note (GRN) issued via IMSERP Central Store System.</span>
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .receipt-modal-container {
       display: flex;

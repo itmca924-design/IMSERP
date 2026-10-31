@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -45,7 +45,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             </p>
           </div>
         </div>
-
+    
         <div class="header-actions">
           <button mat-stroked-button class="refresh-btn" (click)="loadEvents()" [disabled]="loading">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
@@ -57,7 +57,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
           </button>
         </div>
       </div>
-
+    
       <!-- KPI Summary Cards -->
       <div class="kpi-grid">
         <div class="kpi-card total">
@@ -67,7 +67,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             <span class="kpi-label">Total Events</span>
           </div>
         </div>
-
+    
         <div class="kpi-card national">
           <div class="kpi-icon"><mat-icon>flag</mat-icon></div>
           <div class="kpi-info">
@@ -75,7 +75,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             <span class="kpi-label">National Festivals</span>
           </div>
         </div>
-
+    
         <div class="kpi-card cultural">
           <div class="kpi-icon"><mat-icon>theater_comedy</mat-icon></div>
           <div class="kpi-info">
@@ -83,7 +83,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             <span class="kpi-label">Cultural & Farewells</span>
           </div>
         </div>
-
+    
         <div class="kpi-card gallery">
           <div class="kpi-icon"><mat-icon>collections</mat-icon></div>
           <div class="kpi-info">
@@ -92,7 +92,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
           </div>
         </div>
       </div>
-
+    
       <!-- Filter & Search Toolbar -->
       <div class="toolbar-card">
         <div class="category-chips">
@@ -101,7 +101,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             class="chip-tab"
             [class.active]="selectedCategory === ''"
             (click)="setCategory('')"
-          >
+            >
             All Events ({{ events.length }})
           </button>
           <button
@@ -109,7 +109,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             class="chip-tab national-tab"
             [class.active]="selectedCategory === 'National'"
             (click)="setCategory('National')"
-          >
+            >
             🇮🇳 National ({{ getCategoryCount('National') }})
           </button>
           <button
@@ -117,7 +117,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             class="chip-tab cultural-tab"
             [class.active]="selectedCategory === 'Cultural'"
             (click)="setCategory('Cultural')"
-          >
+            >
             🎭 Cultural & Farewell ({{ getCategoryCount('Cultural') }})
           </button>
           <button
@@ -125,7 +125,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             class="chip-tab sports-tab"
             [class.active]="selectedCategory === 'Sports'"
             (click)="setCategory('Sports')"
-          >
+            >
             🏆 Sports ({{ getCategoryCount('Sports') }})
           </button>
           <button
@@ -133,7 +133,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             class="chip-tab ptm-tab"
             [class.active]="selectedCategory === 'PTM'"
             (click)="setCategory('PTM')"
-          >
+            >
             🤝 PTM ({{ getCategoryCount('PTM') }})
           </button>
           <button
@@ -141,11 +141,11 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             class="chip-tab academic-tab"
             [class.active]="selectedCategory === 'Academic'"
             (click)="setCategory('Academic')"
-          >
+            >
             📚 Academic Fair ({{ getCategoryCount('Academic') }})
           </button>
         </div>
-
+    
         <div class="search-row">
           <div class="search-input-box">
             <mat-icon class="search-icon">search</mat-icon>
@@ -154,12 +154,14 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
               placeholder="Search by event title, venue, chief guest or coordinator..."
               [(ngModel)]="searchQuery"
               (input)="onSearchChange()"
-            />
-            <button *ngIf="searchQuery" class="clear-btn" (click)="searchQuery = ''; onSearchChange()">
-              <mat-icon>close</mat-icon>
-            </button>
+              />
+            @if (searchQuery) {
+              <button class="clear-btn" (click)="searchQuery = ''; onSearchChange()">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </div>
-
+    
           <div class="status-dropdown">
             <mat-select [(ngModel)]="selectedStatus" (selectionChange)="onSearchChange()">
               <mat-option value="">All Statuses</mat-option>
@@ -170,117 +172,134 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
           </div>
         </div>
       </div>
-
+    
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && filteredEvents.length === 0">
-        <div class="empty-icon-wrap">
-          <mat-icon>celebration</mat-icon>
+      @if (!loading && filteredEvents.length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon-wrap">
+            <mat-icon>celebration</mat-icon>
+          </div>
+          <h3 class="empty-title">No Events Found</h3>
+          <p class="empty-sub">
+            {{ searchQuery || selectedCategory ? 'No events matched your current filters.' : 'Get started by scheduling your first school function or celebration!' }}
+          </p>
+          <button mat-raised-button color="primary" (click)="openCreateDialog()">
+            <mat-icon>add</mat-icon>
+            <span>Schedule School Event</span>
+          </button>
         </div>
-        <h3 class="empty-title">No Events Found</h3>
-        <p class="empty-sub">
-          {{ searchQuery || selectedCategory ? 'No events matched your current filters.' : 'Get started by scheduling your first school function or celebration!' }}
-        </p>
-        <button mat-raised-button color="primary" (click)="openCreateDialog()">
-          <mat-icon>add</mat-icon>
-          <span>Schedule School Event</span>
-        </button>
-      </div>
-
+      }
+    
       <!-- Events Cards Grid -->
-      <div class="events-grid" *ngIf="!loading && filteredEvents.length > 0">
-        <div class="event-card" *ngFor="let ev of filteredEvents">
-          <!-- Card Banner Area -->
-          <div class="card-banner" [style.background-image]="ev.bannerUrl ? 'url(' + ev.bannerUrl + ')' : getFallbackGradient(ev.category)">
-            <div class="banner-overlay"></div>
-            
-            <div class="banner-top-badges">
-              <span class="category-pill" [ngClass]="ev.category.toLowerCase()">
-                {{ getCategoryEmoji(ev.category) }} {{ ev.category }}
-              </span>
-              <span class="status-pill" [ngClass]="ev.status.toLowerCase()">
-                {{ ev.status }}
-              </span>
-            </div>
-
-            <div class="date-badge-overlay">
-              <span class="month-text">{{ ev.startDate | date:'MMM' | uppercase }}</span>
-              <span class="day-text">{{ ev.startDate | date:'dd' }}</span>
-            </div>
-          </div>
-
-          <!-- Card Body -->
-          <div class="card-body">
-            <div class="card-title-row">
-              <h3 class="event-title" [title]="ev.title">{{ ev.title }}</h3>
-            </div>
-
-            <!-- Meta details (Time, Venue, Target Audience) -->
-            <div class="meta-list">
-              <div class="meta-item" *ngIf="ev.startTime">
-                <mat-icon class="meta-icon">schedule</mat-icon>
-                <span>{{ ev.startTime }} <span *ngIf="ev.endTime">- {{ ev.endTime }}</span></span>
+      @if (!loading && filteredEvents.length > 0) {
+        <div class="events-grid">
+          @for (ev of filteredEvents; track ev) {
+            <div class="event-card">
+              <!-- Card Banner Area -->
+              <div class="card-banner" [style.background-image]="ev.bannerUrl ? 'url(' + ev.bannerUrl + ')' : getFallbackGradient(ev.category)">
+                <div class="banner-overlay"></div>
+                <div class="banner-top-badges">
+                  <span class="category-pill" [ngClass]="ev.category.toLowerCase()">
+                    {{ getCategoryEmoji(ev.category) }} {{ ev.category }}
+                  </span>
+                  <span class="status-pill" [ngClass]="ev.status.toLowerCase()">
+                    {{ ev.status }}
+                  </span>
+                </div>
+                <div class="date-badge-overlay">
+                  <span class="month-text">{{ ev.startDate | date:'MMM' | uppercase }}</span>
+                  <span class="day-text">{{ ev.startDate | date:'dd' }}</span>
+                </div>
               </div>
-              <div class="meta-item" *ngIf="ev.venue">
-                <mat-icon class="meta-icon">place</mat-icon>
-                <span [title]="ev.venue">{{ ev.venue }}</span>
+              <!-- Card Body -->
+              <div class="card-body">
+                <div class="card-title-row">
+                  <h3 class="event-title" [title]="ev.title">{{ ev.title }}</h3>
+                </div>
+                <!-- Meta details (Time, Venue, Target Audience) -->
+                <div class="meta-list">
+                  @if (ev.startTime) {
+                    <div class="meta-item">
+                      <mat-icon class="meta-icon">schedule</mat-icon>
+                      <span>{{ ev.startTime }} @if (ev.endTime) {
+                        <span>- {{ ev.endTime }}</span>
+                      }</span>
+                    </div>
+                  }
+                  @if (ev.venue) {
+                    <div class="meta-item">
+                      <mat-icon class="meta-icon">place</mat-icon>
+                      <span [title]="ev.venue">{{ ev.venue }}</span>
+                    </div>
+                  }
+                  @if (ev.targetAudience) {
+                    <div class="meta-item">
+                      <mat-icon class="meta-icon">groups</mat-icon>
+                      <span>{{ ev.targetAudience }}</span>
+                    </div>
+                  }
+                  @if (ev.chiefGuestName) {
+                    <div class="meta-item">
+                      <mat-icon class="meta-icon guest-icon">star</mat-icon>
+                      <span>Chief Guest: <strong>{{ ev.chiefGuestName }}</strong></span>
+                    </div>
+                  }
+                  @if (ev.coordinatorName) {
+                    <div class="meta-item">
+                      <mat-icon class="meta-icon">person_outline</mat-icon>
+                      <span>In-Charge: <strong>{{ ev.coordinatorName }}</strong></span>
+                    </div>
+                  }
+                  @if (ev.branchName) {
+                    <div class="meta-item">
+                      <mat-icon class="meta-icon">apartment</mat-icon>
+                      <span>Branch: <strong>{{ ev.branchName }}</strong></span>
+                    </div>
+                  }
+                </div>
+                @if (ev.description) {
+                  <p class="event-desc" [title]="ev.description">
+                    {{ ev.description }}
+                  </p>
+                }
+                <!-- Attachment Circular Link (if present) -->
+                @if (ev.attachmentPdfUrl) {
+                  <div class="circular-attachment">
+                    <a [href]="ev.attachmentPdfUrl" target="_blank" class="circular-link" download>
+                      <mat-icon class="pdf-icon">picture_as_pdf</mat-icon>
+                      <span>Download Circular / Notice PDF</span>
+                      <mat-icon class="ext-icon">open_in_new</mat-icon>
+                    </a>
+                  </div>
+                }
               </div>
-              <div class="meta-item" *ngIf="ev.targetAudience">
-                <mat-icon class="meta-icon">groups</mat-icon>
-                <span>{{ ev.targetAudience }}</span>
-              </div>
-              <div class="meta-item" *ngIf="ev.chiefGuestName">
-                <mat-icon class="meta-icon guest-icon">star</mat-icon>
-                <span>Chief Guest: <strong>{{ ev.chiefGuestName }}</strong></span>
-              </div>
-              <div class="meta-item" *ngIf="ev.coordinatorName">
-                <mat-icon class="meta-icon">person_outline</mat-icon>
-                <span>In-Charge: <strong>{{ ev.coordinatorName }}</strong></span>
-              </div>
-              <div class="meta-item" *ngIf="ev.branchName">
-                <mat-icon class="meta-icon">apartment</mat-icon>
-                <span>Branch: <strong>{{ ev.branchName }}</strong></span>
+              <!-- Card Actions Footer -->
+              <div class="card-footer">
+                <button
+                  mat-stroked-button
+                  class="gallery-btn"
+                  (click)="openGalleryDialog(ev)"
+                  matTooltip="View & upload event photo memories"
+                  >
+                  <mat-icon>photo_library</mat-icon>
+                  <span>Memories ({{ ev.photosCount }})</span>
+                </button>
+                <div class="action-buttons">
+                  <button mat-icon-button class="edit-btn" (click)="openEditDialog(ev)" matTooltip="Edit Event">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button class="del-btn" (click)="deleteEvent(ev)" matTooltip="Delete Event">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </div>
               </div>
             </div>
-
-            <p class="event-desc" *ngIf="ev.description" [title]="ev.description">
-              {{ ev.description }}
-            </p>
-
-            <!-- Attachment Circular Link (if present) -->
-            <div class="circular-attachment" *ngIf="ev.attachmentPdfUrl">
-              <a [href]="ev.attachmentPdfUrl" target="_blank" class="circular-link" download>
-                <mat-icon class="pdf-icon">picture_as_pdf</mat-icon>
-                <span>Download Circular / Notice PDF</span>
-                <mat-icon class="ext-icon">open_in_new</mat-icon>
-              </a>
-            </div>
-          </div>
-
-          <!-- Card Actions Footer -->
-          <div class="card-footer">
-            <button
-              mat-stroked-button
-              class="gallery-btn"
-              (click)="openGalleryDialog(ev)"
-              matTooltip="View & upload event photo memories"
-            >
-              <mat-icon>photo_library</mat-icon>
-              <span>Memories ({{ ev.photosCount }})</span>
-            </button>
-
-            <div class="action-buttons">
-              <button mat-icon-button class="edit-btn" (click)="openEditDialog(ev)" matTooltip="Edit Event">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button mat-icon-button class="del-btn" (click)="deleteEvent(ev)" matTooltip="Delete Event">
-                <mat-icon>delete_outline</mat-icon>
-              </button>
-            </div>
-          </div>
+          }
         </div>
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .events-page-container {
       padding: 0 0 40px;

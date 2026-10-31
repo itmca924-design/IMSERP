@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,146 +19,163 @@ import { AuthService } from '../../core/services/auth.service';
   ],
   template: `
     <div class="pay-portal-page">
-      <div class="pay-card" *ngIf="!loading && upiIntent; else loadingOrError">
-        <!-- Smart Dynamic Brand Header -->
-        <div class="card-header">
-          <div class="brand-crest" [class.has-img]="!!resolvedLogoUrl">
-            <img
-              *ngIf="resolvedLogoUrl"
-              [src]="resolvedLogoUrl"
-              [alt]="upiIntent.instituteName || 'Institute Logo'"
-              class="brand-logo-img"
-              (error)="resolvedLogoUrl = null"
-            />
-            <mat-icon *ngIf="!resolvedLogoUrl">account_balance</mat-icon>
-          </div>
-          <div class="brand-text-block">
-            <h2 class="institute-name">{{ upiIntent.instituteName || upiIntent.payeeName || 'Campus Fee Desk' }}</h2>
-            <div class="header-meta-row">
-              <span class="verified-badge">
-                <mat-icon class="badge-icon">verified</mat-icon>
-                <span>Verified Payment Desk</span>
-              </span>
-              <span class="branch-pill" *ngIf="upiIntent.branchName">{{ upiIntent.branchName }}</span>
+      @if (!loading && upiIntent) {
+        <div class="pay-card">
+          <!-- Smart Dynamic Brand Header -->
+          <div class="card-header">
+            <div class="brand-crest" [class.has-img]="!!resolvedLogoUrl">
+              @if (resolvedLogoUrl) {
+                <img
+                  [src]="resolvedLogoUrl"
+                  [alt]="upiIntent.instituteName || 'Institute Logo'"
+                  class="brand-logo-img"
+                  (error)="resolvedLogoUrl = null"
+                  />
+              }
+              @if (!resolvedLogoUrl) {
+                <mat-icon>account_balance</mat-icon>
+              }
             </div>
-          </div>
-        </div>
-
-        <!-- Student & Invoice Details -->
-        <div class="details-section">
-          <div class="detail-row">
-            <span class="label">Student Name:</span>
-            <span class="value font-bold">{{ upiIntent.studentName }}</span>
-          </div>
-          <div class="detail-row" *ngIf="upiIntent.className">
-            <span class="label">Academic Class:</span>
-            <span class="value">{{ upiIntent.className }}</span>
-          </div>
-          <div class="detail-row" *ngIf="upiIntent.invoiceNumber">
-            <span class="label">Invoice Reference:</span>
-            <span class="value">#{{ upiIntent.invoiceNumber }}</span>
-          </div>
-        </div>
-
-        <!-- Status: Already Settled vs Active Due -->
-        <div class="settled-notice" *ngIf="upiIntent.dueAmount <= 0">
-          <mat-icon class="settled-icon">check_circle</mat-icon>
-          <h3>Fee Already Settled!</h3>
-          <p>This invoice has been fully cleared and verified. No outstanding balance remains.</p>
-        </div>
-
-        <div class="payment-action-block" *ngIf="upiIntent.dueAmount > 0">
-          <!-- Payable Amount Display -->
-          <div class="amount-deck">
-            <span class="amount-label">Total Payable Amount</span>
-            <span class="amount-val">₹{{ upiIntent.dueAmount | number:'1.0-0' }}</span>
-          </div>
-
-          <!-- Dynamic Bharat QR Code -->
-          <div class="qr-container">
-            <div class="qr-frame" [class.highlight-pulse]="qrHighlighted">
-              <img *ngIf="qrDataUrl" [src]="qrDataUrl" alt="Bharat Dynamic UPI QR" class="qr-img" />
-              <div class="qr-loading" *ngIf="!qrDataUrl">
-                <mat-spinner diameter="32"></mat-spinner>
+            <div class="brand-text-block">
+              <h2 class="institute-name">{{ upiIntent.instituteName || upiIntent.payeeName || 'Campus Fee Desk' }}</h2>
+              <div class="header-meta-row">
+                <span class="verified-badge">
+                  <mat-icon class="badge-icon">verified</mat-icon>
+                  <span>Verified Payment Desk</span>
+                </span>
+                @if (upiIntent.branchName) {
+                  <span class="branch-pill">{{ upiIntent.branchName }}</span>
+                }
               </div>
             </div>
-            <span class="qr-caption">Scan with any UPI App (GPay, PhonePe, Paytm, BHIM)</span>
           </div>
-
-          <!-- Desktop Helper Notice -->
-          <div class="notice-toast" *ngIf="copiedNotice">
-            <mat-icon>info</mat-icon>
-            <span>{{ copiedNotice }}</span>
-          </div>
-
-          <!-- 1-Tap Mobile Payment Buttons -->
-          <div class="mobile-apps-group">
-            <span class="apps-label">Or Tap to Pay Instantly:</span>
-            <div class="apps-buttons-grid">
-              <a
-                [href]="upiIntent.gpayUri || upiIntent.upiIntentUri"
-                (click)="onAppClick('Google Pay', upiIntent.gpayUri || upiIntent.upiIntentUri, $event)"
-                class="app-btn gpay"
-                target="_self"
-              >
-                <span class="app-name">Google Pay</span>
-              </a>
-              <a
-                [href]="upiIntent.phonepeUri || upiIntent.upiIntentUri"
-                (click)="onAppClick('PhonePe', upiIntent.phonepeUri || upiIntent.upiIntentUri, $event)"
-                class="app-btn phonepe"
-                target="_self"
-              >
-                <span class="app-name">PhonePe</span>
-              </a>
-              <a
-                [href]="upiIntent.paytmUri || upiIntent.upiIntentUri"
-                (click)="onAppClick('Paytm', upiIntent.paytmUri || upiIntent.upiIntentUri, $event)"
-                class="app-btn paytm"
-                target="_self"
-              >
-                <span class="app-name">Paytm</span>
-              </a>
-              <a
-                [href]="upiIntent.upiIntentUri"
-                (click)="onAppClick('Any UPI App', upiIntent.upiIntentUri, $event)"
-                class="app-btn any-upi"
-                target="_self"
-              >
-                <span class="app-name">Any UPI App</span>
-              </a>
+          <!-- Student & Invoice Details -->
+          <div class="details-section">
+            <div class="detail-row">
+              <span class="label">Student Name:</span>
+              <span class="value font-bold">{{ upiIntent.studentName }}</span>
             </div>
+            @if (upiIntent.className) {
+              <div class="detail-row">
+                <span class="label">Academic Class:</span>
+                <span class="value">{{ upiIntent.className }}</span>
+              </div>
+            }
+            @if (upiIntent.invoiceNumber) {
+              <div class="detail-row">
+                <span class="label">Invoice Reference:</span>
+                <span class="value">#{{ upiIntent.invoiceNumber }}</span>
+              </div>
+            }
           </div>
-
-          <!-- Payee UPI Details with 1-Click Copy -->
-          <div class="vpa-box" (click)="copyVpa()" matTooltip="Click to Copy Payee UPI ID">
-            <span class="vpa-label">Payee UPI ID:</span>
-            <code class="vpa-id">{{ upiIntent.payeeUpiId }}</code>
-            <mat-icon class="copy-icon">content_copy</mat-icon>
+          <!-- Status: Already Settled vs Active Due -->
+          @if (upiIntent.dueAmount <= 0) {
+            <div class="settled-notice">
+              <mat-icon class="settled-icon">check_circle</mat-icon>
+              <h3>Fee Already Settled!</h3>
+              <p>This invoice has been fully cleared and verified. No outstanding balance remains.</p>
+            </div>
+          }
+          @if (upiIntent.dueAmount > 0) {
+            <div class="payment-action-block">
+              <!-- Payable Amount Display -->
+              <div class="amount-deck">
+                <span class="amount-label">Total Payable Amount</span>
+                <span class="amount-val">₹{{ upiIntent.dueAmount | number:'1.0-0' }}</span>
+              </div>
+              <!-- Dynamic Bharat QR Code -->
+              <div class="qr-container">
+                <div class="qr-frame" [class.highlight-pulse]="qrHighlighted">
+                  @if (qrDataUrl) {
+                    <img [src]="qrDataUrl" alt="Bharat Dynamic UPI QR" class="qr-img" />
+                  }
+                  @if (!qrDataUrl) {
+                    <div class="qr-loading">
+                      <mat-spinner diameter="32"></mat-spinner>
+                    </div>
+                  }
+                </div>
+                <span class="qr-caption">Scan with any UPI App (GPay, PhonePe, Paytm, BHIM)</span>
+              </div>
+              <!-- Desktop Helper Notice -->
+              @if (copiedNotice) {
+                <div class="notice-toast">
+                  <mat-icon>info</mat-icon>
+                  <span>{{ copiedNotice }}</span>
+                </div>
+              }
+              <!-- 1-Tap Mobile Payment Buttons -->
+              <div class="mobile-apps-group">
+                <span class="apps-label">Or Tap to Pay Instantly:</span>
+                <div class="apps-buttons-grid">
+                  <a
+                    [href]="upiIntent.gpayUri || upiIntent.upiIntentUri"
+                    (click)="onAppClick('Google Pay', upiIntent.gpayUri || upiIntent.upiIntentUri, $event)"
+                    class="app-btn gpay"
+                    target="_self"
+                    >
+                    <span class="app-name">Google Pay</span>
+                  </a>
+                  <a
+                    [href]="upiIntent.phonepeUri || upiIntent.upiIntentUri"
+                    (click)="onAppClick('PhonePe', upiIntent.phonepeUri || upiIntent.upiIntentUri, $event)"
+                    class="app-btn phonepe"
+                    target="_self"
+                    >
+                    <span class="app-name">PhonePe</span>
+                  </a>
+                  <a
+                    [href]="upiIntent.paytmUri || upiIntent.upiIntentUri"
+                    (click)="onAppClick('Paytm', upiIntent.paytmUri || upiIntent.upiIntentUri, $event)"
+                    class="app-btn paytm"
+                    target="_self"
+                    >
+                    <span class="app-name">Paytm</span>
+                  </a>
+                  <a
+                    [href]="upiIntent.upiIntentUri"
+                    (click)="onAppClick('Any UPI App', upiIntent.upiIntentUri, $event)"
+                    class="app-btn any-upi"
+                    target="_self"
+                    >
+                    <span class="app-name">Any UPI App</span>
+                  </a>
+                </div>
+              </div>
+              <!-- Payee UPI Details with 1-Click Copy -->
+              <div class="vpa-box" (click)="copyVpa()" matTooltip="Click to Copy Payee UPI ID">
+                <span class="vpa-label">Payee UPI ID:</span>
+                <code class="vpa-id">{{ upiIntent.payeeUpiId }}</code>
+                <mat-icon class="copy-icon">content_copy</mat-icon>
+              </div>
+            </div>
+          }
+          <!-- Footer -->
+          <div class="card-footer">
+            <mat-icon class="secure-icon">verified_user</mat-icon>
+            <span>Secured via NPCI Unified Payments Interface (UPI)</span>
           </div>
         </div>
-
-        <!-- Footer -->
-        <div class="card-footer">
-          <mat-icon class="secure-icon">verified_user</mat-icon>
-          <span>Secured via NPCI Unified Payments Interface (UPI)</span>
-        </div>
-      </div>
-
+      } @else {
+        @if (loading) {
+          <div class="state-card">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p>Connecting to secure fee portal...</p>
+          </div>
+        }
+        @if (!loading && errorMsg) {
+          <div class="state-card error-card">
+            <mat-icon class="err-icon">error_outline</mat-icon>
+            <h3>Payment Link Error</h3>
+            <p>{{ errorMsg }}</p>
+          </div>
+        }
+      }
+    
       <!-- Loading / Error Template -->
-      <ng-template #loadingOrError>
-        <div class="state-card" *ngIf="loading">
-          <mat-spinner diameter="40"></mat-spinner>
-          <p>Connecting to secure fee portal...</p>
-        </div>
-        <div class="state-card error-card" *ngIf="!loading && errorMsg">
-          <mat-icon class="err-icon">error_outline</mat-icon>
-          <h3>Payment Link Error</h3>
-          <p>{{ errorMsg }}</p>
-        </div>
-      </ng-template>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .pay-portal-page {
       height: 100vh;

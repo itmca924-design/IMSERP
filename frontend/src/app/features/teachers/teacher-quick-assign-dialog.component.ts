@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -59,73 +59,90 @@ export interface QuickAssignDialogData {
         <span class="label">Enrolled Students</span>
         <span class="val">{{data.batch.studentCount || 0}} Students</span>
       </div>
-      <div class="strip-item" *ngIf="data.batch.academicYear">
-        <span class="label">Academic Year</span>
-        <span class="val">{{data.batch.academicYear}}</span>
-      </div>
+      @if (data.batch.academicYear) {
+        <div class="strip-item">
+          <span class="label">Academic Year</span>
+          <span class="val">{{data.batch.academicYear}}</span>
+        </div>
+      }
     </div>
 
     <!-- Search Faculty -->
     <div class="teacher-search-box">
       <mat-icon class="search-icon">search</mat-icon>
       <input type="text" [(ngModel)]="searchQuery" placeholder="Search teacher by name, employee code, or specialization..." />
-      <button type="button" class="clear-btn" *ngIf="searchQuery" (click)="searchQuery = ''">
-        <mat-icon>close</mat-icon>
-      </button>
+      @if (searchQuery) {
+        <button type="button" class="clear-btn" (click)="searchQuery = ''">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
     </div>
 
     <!-- Teachers List -->
     <div class="teachers-list-container">
       <div class="list-title-row">
         <span class="list-title">Select Faculty ({{filteredTeachers.length}} Available):</span>
-        <span class="subject-match-hint" *ngIf="data.batch.subject">
-          💡 Faculty with matching subject specialization highlighted
-        </span>
+        @if (data.batch.subject) {
+          <span class="subject-match-hint">
+            💡 Faculty with matching subject specialization highlighted
+          </span>
+        }
       </div>
 
       <div class="teachers-scroll">
-        <div *ngFor="let t of filteredTeachers"
-          class="teacher-option-card"
-          [class.selected]="selectedTeacher?.id === t.id"
-          [class.specialist-match]="isSubjectMatch(t)"
-          (click)="selectedTeacher = t">
-          
-          <div class="t-radio">
-            <div class="radio-circle" [class.checked]="selectedTeacher?.id === t.id">
-              <div class="inner-dot" *ngIf="selectedTeacher?.id === t.id"></div>
+        @for (t of filteredTeachers; track t) {
+          <div
+            class="teacher-option-card"
+            [class.selected]="selectedTeacher?.id === t.id"
+            [class.specialist-match]="isSubjectMatch(t)"
+            (click)="selectedTeacher = t">
+            <div class="t-radio">
+              <div class="radio-circle" [class.checked]="selectedTeacher?.id === t.id">
+                @if (selectedTeacher?.id === t.id) {
+                  <div class="inner-dot"></div>
+                }
+              </div>
+            </div>
+            <div class="t-avatar">
+              {{t.fullName.charAt(0) | uppercase}}
+            </div>
+            <div class="t-details">
+              <div class="t-name-row">
+                <span class="t-name">{{t.fullName}}</span>
+                <span class="t-code">{{t.employeeCode}}</span>
+                @if (isSubjectMatch(t)) {
+                  <span class="match-badge">
+                    <mat-icon>verified</mat-icon> Subject Match
+                  </span>
+                }
+              </div>
+              <div class="t-meta-row">
+                @if (t.specialization) {
+                  <span class="t-spec">
+                    <mat-icon>school</mat-icon> {{t.specialization}}
+                  </span>
+                }
+                @if (t.experienceYears) {
+                  <span class="t-exp">
+                    {{t.experienceYears}} yrs exp
+                  </span>
+                }
+                @if (t.phoneNumber) {
+                  <span class="t-phone">
+                    <mat-icon>call</mat-icon> {{t.phoneNumber}}
+                  </span>
+                }
+              </div>
             </div>
           </div>
+        }
 
-          <div class="t-avatar">
-            {{t.fullName.charAt(0) | uppercase}}
+        @if (filteredTeachers.length === 0) {
+          <div class="no-teachers-found">
+            <mat-icon>person_off</mat-icon>
+            <p>No faculty found matching "{{searchQuery}}"</p>
           </div>
-
-          <div class="t-details">
-            <div class="t-name-row">
-              <span class="t-name">{{t.fullName}}</span>
-              <span class="t-code">{{t.employeeCode}}</span>
-              <span class="match-badge" *ngIf="isSubjectMatch(t)">
-                <mat-icon>verified</mat-icon> Subject Match
-              </span>
-            </div>
-            <div class="t-meta-row">
-              <span class="t-spec" *ngIf="t.specialization">
-                <mat-icon>school</mat-icon> {{t.specialization}}
-              </span>
-              <span class="t-exp" *ngIf="t.experienceYears">
-                {{t.experienceYears}} yrs exp
-              </span>
-              <span class="t-phone" *ngIf="t.phoneNumber">
-                <mat-icon>call</mat-icon> {{t.phoneNumber}}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div class="no-teachers-found" *ngIf="filteredTeachers.length === 0">
-          <mat-icon>person_off</mat-icon>
-          <p>No faculty found matching "{{searchQuery}}"</p>
-        </div>
+        }
       </div>
     </div>
   </div>
@@ -138,7 +155,8 @@ export interface QuickAssignDialogData {
     </button>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .quick-assign-modal { display: flex; flex-direction: column; max-height: 85vh; }
     

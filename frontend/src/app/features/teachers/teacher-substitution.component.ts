@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -47,7 +47,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- Metrics / Counter Cards -->
   <div class="stats-grid">
@@ -99,245 +101,275 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   </mat-card>
 
   <!-- Substitutions List Grid -->
-  <div class="sub-grid" *ngIf="!loading && substitutions.length > 0">
-    <mat-card class="sub-card mat-elevation-z2" *ngFor="let s of substitutions">
-      <div class="sub-card-header">
-        <div class="time-badge">
-          <mat-icon>access_time</mat-icon>
-          <span>{{s.timeSlot}}</span>
-        </div>
-        <span class="status-chip" [ngClass]="'status-' + s.status.toLowerCase()">
-          {{s.status}}
-        </span>
-      </div>
-
-      <div class="sub-teachers-flow">
-        <!-- Original Teacher (Absent) -->
-        <div class="teacher-block absent-block">
-          <div class="role-tag tag-absent">अनुपस्थित (Absent)</div>
-          <div class="teacher-name-row">
-            <mat-icon class="flow-avatar">person_off</mat-icon>
-            <div>
-              <div class="t-name">{{s.originalTeacherName}}</div>
-              <div class="t-code">{{s.originalTeacherCode}}</div>
+  @if (!loading && substitutions.length > 0) {
+    <div class="sub-grid">
+      @for (s of substitutions; track s) {
+        <mat-card class="sub-card mat-elevation-z2">
+          <div class="sub-card-header">
+            <div class="time-badge">
+              <mat-icon>access_time</mat-icon>
+              <span>{{s.timeSlot}}</span>
+            </div>
+            <span class="status-chip" [ngClass]="'status-' + s.status.toLowerCase()">
+              {{s.status}}
+            </span>
+          </div>
+          <div class="sub-teachers-flow">
+            <!-- Original Teacher (Absent) -->
+            <div class="teacher-block absent-block">
+              <div class="role-tag tag-absent">अनुपस्थित (Absent)</div>
+              <div class="teacher-name-row">
+                <mat-icon class="flow-avatar">person_off</mat-icon>
+                <div>
+                  <div class="t-name">{{s.originalTeacherName}}</div>
+                  <div class="t-code">{{s.originalTeacherCode}}</div>
+                </div>
+              </div>
+            </div>
+            <div class="flow-arrow">
+              <mat-icon>arrow_forward</mat-icon>
+              <span class="sub-tag">Substituted By</span>
+            </div>
+            <!-- Proxy Teacher -->
+            <div class="teacher-block proxy-block">
+              <div class="role-tag tag-proxy">प्रॉक्सी (Substitute)</div>
+              <div class="teacher-name-row">
+                <mat-icon class="flow-avatar proxy-avatar">school</mat-icon>
+                <div>
+                  <div class="t-name">{{s.substituteTeacherName}}</div>
+                  <div class="t-code">{{s.substituteTeacherCode}}</div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="flow-arrow">
-          <mat-icon>arrow_forward</mat-icon>
-          <span class="sub-tag">Substituted By</span>
-        </div>
-
-        <!-- Proxy Teacher -->
-        <div class="teacher-block proxy-block">
-          <div class="role-tag tag-proxy">प्रॉक्सी (Substitute)</div>
-          <div class="teacher-name-row">
-            <mat-icon class="flow-avatar proxy-avatar">school</mat-icon>
-            <div>
-              <div class="t-name">{{s.substituteTeacherName}}</div>
-              <div class="t-code">{{s.substituteTeacherCode}}</div>
+          <div class="sub-details">
+            @if (s.classSectionName) {
+              <div class="detail-pill">
+                <mat-icon>meeting_room</mat-icon> Class: <strong>{{s.classSectionName}}</strong>
+              </div>
+            }
+            @if (s.batchName) {
+              <div class="detail-pill">
+                <mat-icon>class</mat-icon> Batch: <strong>{{s.batchName}}</strong>
+              </div>
+            }
+            @if (s.subjectName) {
+              <div class="detail-pill">
+                <mat-icon>menu_book</mat-icon> Subject: <strong>{{s.subjectName}}</strong>
+              </div>
+            }
+            @if (s.roomNumber) {
+              <div class="detail-pill">
+                <mat-icon>room</mat-icon> Room: <strong>{{s.roomNumber}}</strong>
+              </div>
+            }
+            @if (s.proxyAllowance > 0) {
+              <div class="detail-pill">
+                <mat-icon>payments</mat-icon> Proxy Allowance: <strong>₹{{s.proxyAllowance}}</strong>
+              </div>
+            }
+          </div>
+          @if (s.topicToCover) {
+            <div class="topic-box">
+              <div class="topic-label"><mat-icon>assignment</mat-icon> Topic / Lesson Instructions:</div>
+              <div class="topic-content">{{s.topicToCover}}</div>
+            </div>
+          }
+          @if (s.reason) {
+            <div class="reason-text">
+              <em>Absence Reason: {{s.reason}}</em>
+            </div>
+          }
+          <div class="sub-footer">
+            <span class="date-text"><mat-icon>calendar_today</mat-icon> {{s.substitutionDate | date:'dd MMM yyyy'}}</span>
+            <div class="action-btns">
+              @if (s.status === 'Assigned') {
+                <button mat-stroked-button color="primary" size="small" (click)="updateStatus(s, 'Completed')">
+                  <mat-icon>check_circle</mat-icon> Done
+                </button>
+              }
+              @if (s.status === 'Assigned') {
+                <button mat-icon-button color="warn" matTooltip="Cancel Proxy" (click)="updateStatus(s, 'Cancelled')">
+                  <mat-icon>cancel</mat-icon>
+                </button>
+              }
+              <button mat-icon-button color="warn" matTooltip="Delete Record" (click)="deleteSubstitution(s.id)">
+                <mat-icon>delete</mat-icon>
+              </button>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div class="sub-details">
-        <div class="detail-pill" *ngIf="s.classSectionName">
-          <mat-icon>meeting_room</mat-icon> Class: <strong>{{s.classSectionName}}</strong>
-        </div>
-        <div class="detail-pill" *ngIf="s.batchName">
-          <mat-icon>class</mat-icon> Batch: <strong>{{s.batchName}}</strong>
-        </div>
-        <div class="detail-pill" *ngIf="s.subjectName">
-          <mat-icon>menu_book</mat-icon> Subject: <strong>{{s.subjectName}}</strong>
-        </div>
-        <div class="detail-pill" *ngIf="s.roomNumber">
-          <mat-icon>room</mat-icon> Room: <strong>{{s.roomNumber}}</strong>
-        </div>
-        <div class="detail-pill" *ngIf="s.proxyAllowance > 0">
-          <mat-icon>payments</mat-icon> Proxy Allowance: <strong>₹{{s.proxyAllowance}}</strong>
-        </div>
-      </div>
-
-      <div class="topic-box" *ngIf="s.topicToCover">
-        <div class="topic-label"><mat-icon>assignment</mat-icon> Topic / Lesson Instructions:</div>
-        <div class="topic-content">{{s.topicToCover}}</div>
-      </div>
-
-      <div class="reason-text" *ngIf="s.reason">
-        <em>Absence Reason: {{s.reason}}</em>
-      </div>
-
-      <div class="sub-footer">
-        <span class="date-text"><mat-icon>calendar_today</mat-icon> {{s.substitutionDate | date:'dd MMM yyyy'}}</span>
-        <div class="action-btns">
-          <button mat-stroked-button color="primary" size="small" *ngIf="s.status === 'Assigned'" (click)="updateStatus(s, 'Completed')">
-            <mat-icon>check_circle</mat-icon> Done
-          </button>
-          <button mat-icon-button color="warn" matTooltip="Cancel Proxy" *ngIf="s.status === 'Assigned'" (click)="updateStatus(s, 'Cancelled')">
-            <mat-icon>cancel</mat-icon>
-          </button>
-          <button mat-icon-button color="warn" matTooltip="Delete Record" (click)="deleteSubstitution(s.id)">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </div>
-      </div>
-    </mat-card>
-  </div>
+        </mat-card>
+      }
+    </div>
+  }
 
   <!-- Empty State -->
-  <mat-card class="empty-card mat-elevation-z1" *ngIf="!loading && substitutions.length === 0">
-    <mat-icon class="empty-icon">event_available</mat-icon>
-    <h3>No Substitutions for this Date</h3>
-    <p>No proxy teacher substitutions recorded for the selected date. Click below to assign a substitute teacher.</p>
-    <button mat-stroked-button color="primary" (click)="openCreateModal()">
-      <mat-icon>add_task</mat-icon> Assign Proxy Now
-    </button>
-  </mat-card>
+  @if (!loading && substitutions.length === 0) {
+    <mat-card class="empty-card mat-elevation-z1">
+      <mat-icon class="empty-icon">event_available</mat-icon>
+      <h3>No Substitutions for this Date</h3>
+      <p>No proxy teacher substitutions recorded for the selected date. Click below to assign a substitute teacher.</p>
+      <button mat-stroked-button color="primary" (click)="openCreateModal()">
+        <mat-icon>add_task</mat-icon> Assign Proxy Now
+      </button>
+    </mat-card>
+  }
 </div>
 
 <!-- ============================================================== -->
 <!-- MODAL: ASSIGN PROXY TEACHER (Strict Light-Blue Gradient Header) -->
 <!-- ============================================================== -->
-<div class="modal-backdrop" *ngIf="showCreateModal" (click)="closeCreateModal()">
-  <div class="modal-container" (click)="$event.stopPropagation()">
-    <!-- Header adhering strictly to AGENTS.md rule -->
-    <div class="modal-header">
-      <div class="header-left-box">
-        <div class="header-icon">
-          <mat-icon>swap_horiz</mat-icon>
-        </div>
-        <div>
-          <h2 class="modal-title">Assign Proxy / Substitute Teacher</h2>
-          <p class="modal-subtitle">शिक्षक प्रतिस्थापन — अनुपस्थित क्लास के लिए प्रॉक्सी असाइन करें।</p>
-        </div>
-      </div>
-      <button mat-icon-button (click)="closeCreateModal()" class="close-btn">
-        <mat-icon>close</mat-icon>
-      </button>
-    </div>
-
-    <div class="modal-body">
-      <div class="form-grid">
-        <!-- Date -->
-        <mat-form-field appearance="outline" class="col-full">
-          <mat-label>Substitution Date *</mat-label>
-          <input matInput type="date" [(ngModel)]="newForm.substitutionDate">
-        </mat-form-field>
-
-        <!-- Absent Regular Teacher -->
-        <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Absent Teacher (अनुपस्थित) *</mat-label>
-          <mat-select [(ngModel)]="newForm.originalTeacherId" (selectionChange)="onOriginalTeacherChange()">
-            <mat-option *ngFor="let t of teachers" [value]="t.id">
-              {{t.fullName}} ({{t.employeeCode}}) — {{t.specialization || 'Faculty'}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Substitute Proxy Teacher -->
-        <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Substitute Teacher (प्रॉक्सी) *</mat-label>
-          <mat-select [(ngModel)]="newForm.substituteTeacherId">
-            <mat-option *ngFor="let t of getAvailableSubstituteTeachers()" [value]="t.id">
-              {{t.fullName}} ({{t.employeeCode}}) — {{t.specialization || 'Faculty'}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Stream Type Selector: School vs Coaching -->
-        <div class="col-full target-toggle-box">
-          <label class="toggle-label">क्लास या बैच चुनें (Class or Batch Stream):</label>
-          <div class="toggle-pills">
-            <button type="button" class="pill-btn" [class.active]="streamType === 'School'" (click)="setStreamType('School')">
-              <mat-icon>school</mat-icon> School Class &amp; Section
-            </button>
-            <button type="button" class="pill-btn" [class.active]="streamType === 'Coaching'" (click)="setStreamType('Coaching')">
-              <mat-icon>class</mat-icon> Coaching Batch
-            </button>
+@if (showCreateModal) {
+  <div class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <!-- Header adhering strictly to AGENTS.md rule -->
+      <div class="modal-header">
+        <div class="header-left-box">
+          <div class="header-icon">
+            <mat-icon>swap_horiz</mat-icon>
+          </div>
+          <div>
+            <h2 class="modal-title">Assign Proxy / Substitute Teacher</h2>
+            <p class="modal-subtitle">शिक्षक प्रतिस्थापन — अनुपस्थित क्लास के लिए प्रॉक्सी असाइन करें।</p>
           </div>
         </div>
-
-        <!-- If School Class Stream -->
-        <ng-container *ngIf="streamType === 'School'">
+        <button mat-icon-button (click)="closeCreateModal()" class="close-btn">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <!-- Date -->
+          <mat-form-field appearance="outline" class="col-full">
+            <mat-label>Substitution Date *</mat-label>
+            <input matInput type="date" [(ngModel)]="newForm.substitutionDate">
+          </mat-form-field>
+          <!-- Absent Regular Teacher -->
           <mat-form-field appearance="outline" class="col-half">
-            <mat-label>School Class (कक्षा)</mat-label>
-            <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
-              <mat-option [value]="''">-- Select School Class --</mat-option>
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                {{c.name}}
-              </mat-option>
+            <mat-label>Absent Teacher (अनुपस्थित) *</mat-label>
+            <mat-select [(ngModel)]="newForm.originalTeacherId" (selectionChange)="onOriginalTeacherChange()">
+              @for (t of teachers; track t) {
+                <mat-option [value]="t.id">
+                  {{t.fullName}} ({{t.employeeCode}}) — {{t.specialization || 'Faculty'}}
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+          <!-- Substitute Proxy Teacher -->
           <mat-form-field appearance="outline" class="col-half">
-            <mat-label>Section (सेक्शन)</mat-label>
-            <mat-select [(ngModel)]="newForm.classSectionId" (selectionChange)="onSchoolSectionChange()" [disabled]="!selectedClassId">
-              <mat-option [value]="undefined">-- Select Section --</mat-option>
-              <mat-option *ngFor="let sec of availableSections" [value]="sec.id">
-                Section {{sec.name}} {{ sec.roomNumber ? '(' + sec.roomNumber + ')' : '' }}
-              </mat-option>
+            <mat-label>Substitute Teacher (प्रॉक्सी) *</mat-label>
+            <mat-select [(ngModel)]="newForm.substituteTeacherId">
+              @for (t of getAvailableSubstituteTeachers(); track t) {
+                <mat-option [value]="t.id">
+                  {{t.fullName}} ({{t.employeeCode}}) — {{t.specialization || 'Faculty'}}
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-        </ng-container>
-
-        <!-- If Coaching Batch Stream (Class ➔ Batches Hierarchy) -->
-        <ng-container *ngIf="streamType === 'Coaching'">
-          <mat-form-field appearance="outline" class="col-half">
-            <mat-label>Academic Class (कक्षा)</mat-label>
-            <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassChange()">
-              <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                {{c.name}}
-              </mat-option>
+          <!-- Stream Type Selector: School vs Coaching -->
+          <div class="col-full target-toggle-box">
+            <label class="toggle-label">क्लास या बैच चुनें (Class or Batch Stream):</label>
+            <div class="toggle-pills">
+              <button type="button" class="pill-btn" [class.active]="streamType === 'School'" (click)="setStreamType('School')">
+                <mat-icon>school</mat-icon> School Class &amp; Section
+              </button>
+              <button type="button" class="pill-btn" [class.active]="streamType === 'Coaching'" (click)="setStreamType('Coaching')">
+                <mat-icon>class</mat-icon> Coaching Batch
+              </button>
+            </div>
+          </div>
+          <!-- If School Class Stream -->
+          @if (streamType === 'School') {
+            <mat-form-field appearance="outline" class="col-half">
+              <mat-label>School Class (कक्षा)</mat-label>
+              <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
+                <mat-option [value]="''">-- Select School Class --</mat-option>
+                @for (c of schoolClasses; track c) {
+                  <mat-option [value]="c.id">
+                    {{c.name}}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="col-half">
+              <mat-label>Section (सेक्शन)</mat-label>
+              <mat-select [(ngModel)]="newForm.classSectionId" (selectionChange)="onSchoolSectionChange()" [disabled]="!selectedClassId">
+                <mat-option [value]="undefined">-- Select Section --</mat-option>
+                @for (sec of availableSections; track sec) {
+                  <mat-option [value]="sec.id">
+                    Section {{sec.name}} {{ sec.roomNumber ? '(' + sec.roomNumber + ')' : '' }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+          <!-- If Coaching Batch Stream (Class ➔ Batches Hierarchy) -->
+          @if (streamType === 'Coaching') {
+            <mat-form-field appearance="outline" class="col-half">
+              <mat-label>Academic Class (कक्षा)</mat-label>
+              <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassChange()">
+                <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                @for (c of schoolClasses; track c) {
+                  <mat-option [value]="c.id">
+                    {{c.name}}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="col-half">
+              <mat-label>Coaching Batch (कोचिंग बैच) *</mat-label>
+              <mat-select [(ngModel)]="newForm.batchId" (selectionChange)="onCoachingBatchChange()">
+                <mat-option [value]="undefined">-- Select Coaching Batch --</mat-option>
+                @if (filteredBatches.length === 0) {
+                  <mat-option disabled [value]="undefined">
+                    No Batches found in this class
+                  </mat-option>
+                }
+                @for (b of filteredBatches; track b) {
+                  <mat-option [value]="b.id">
+                    {{b.name}} @if (b.subject) {
+                    <span>({{b.subject}})</span>
+                    } @if (b.className) {
+                    <span>&bull; {{b.className}}</span>
+                  }
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
-          <mat-form-field appearance="outline" class="col-half">
-            <mat-label>Coaching Batch (कोचिंग बैच) *</mat-label>
-            <mat-select [(ngModel)]="newForm.batchId" (selectionChange)="onCoachingBatchChange()">
-              <mat-option [value]="undefined">-- Select Coaching Batch --</mat-option>
-              <mat-option *ngIf="filteredBatches.length === 0" disabled [value]="undefined">
-                No Batches found in this class
-              </mat-option>
-              <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
-                {{b.name}} <span *ngIf="b.subject">({{b.subject}})</span> <span *ngIf="b.className">&bull; {{b.className}}</span>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-        </ng-container>
-
+        }
         <!-- Time Slot / Period -->
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Period / Time Slot *</mat-label>
           <mat-select [(ngModel)]="newForm.timeSlot">
-            <mat-option *ngFor="let slot of standardTimeSlots" [value]="slot">{{slot}}</mat-option>
+            @for (slot of standardTimeSlots; track slot) {
+              <mat-option [value]="slot">{{slot}}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
         <!-- Room Number bound to DB -->
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Room Number (कमरा)</mat-label>
           <mat-select [(ngModel)]="newForm.roomNumber">
             <mat-option [value]="''">-- No Room / Default --</mat-option>
-            <mat-option *ngFor="let rm of rooms" [value]="rm.roomNumber">
-              {{rm.roomNumber}} {{ rm.floor ? '(Floor: ' + rm.floor + ')' : '' }}
-            </mat-option>
+            @for (rm of rooms; track rm) {
+              <mat-option [value]="rm.roomNumber">
+                {{rm.roomNumber}} {{ rm.floor ? '(Floor: ' + rm.floor + ')' : '' }}
+              </mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
         <!-- Subject bound to DB -->
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Subject Name (विषय) *</mat-label>
           <mat-select [(ngModel)]="newForm.subjectId" (selectionChange)="onSubjectSelect($event.value)">
             <mat-option [value]="undefined">-- Select Subject --</mat-option>
-            <mat-option *ngFor="let sub of subjects" [value]="sub.id">
-              {{sub.name}} {{ sub.code ? '(' + sub.code + ')' : '' }}
-            </mat-option>
+            @for (sub of subjects; track sub) {
+              <mat-option [value]="sub.id">
+                {{sub.name}} {{ sub.code ? '(' + sub.code + ')' : '' }}
+              </mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
         <!-- Absence Reason -->
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Reason for Absence</mat-label>
@@ -349,13 +381,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-option value="Late / Delayed">Late / Delayed</mat-option>
           </mat-select>
         </mat-form-field>
-
         <!-- Proxy Allowance -->
         <mat-form-field appearance="outline" class="col-full">
           <mat-label>Proxy Allowance (₹)</mat-label>
           <input matInput type="number" [(ngModel)]="newForm.proxyAllowance" placeholder="0">
         </mat-form-field>
-
         <!-- Topic to Cover -->
         <mat-form-field appearance="outline" class="col-full">
           <mat-label>Topic to Cover / Teacher Instructions</mat-label>
@@ -363,17 +393,20 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </mat-form-field>
       </div>
     </div>
-
     <div class="modal-footer">
       <button mat-button (click)="closeCreateModal()">Cancel</button>
       <button mat-raised-button color="primary" class="primary-btn" [disabled]="saving || !newForm.originalTeacherId || !newForm.substituteTeacherId || !newForm.timeSlot" (click)="saveSubstitution()">
-        <mat-icon *ngIf="!saving">check</mat-icon>
+        @if (!saving) {
+          <mat-icon>check</mat-icon>
+        }
         <span>{{saving ? 'Saving...' : 'Confirm &amp; Assign Proxy'}}</span>
       </button>
     </div>
   </div>
 </div>
-  `,
+}
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       padding: 0 0 40px;

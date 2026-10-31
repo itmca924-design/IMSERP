@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -60,114 +60,140 @@ export interface TeacherIdCardDialogData {
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- Printable Area -->
-  <div id="printable-staff-id-cards" class="id-cards-sheet print-area" *ngIf="!loading">
-    <div class="cards-grid">
-      <div class="card-pair-wrapper" *ngFor="let card of cards">
-        <!-- ================= FRONT SIDE ================= -->
-        <div class="id-card id-card-front" *ngIf="cardSide === 'both' || cardSide === 'front'">
-          <!-- Card Header -->
-          <div class="card-header-banner">
-            <div class="inst-logo-badge" [class.has-img]="getCardLogo(card) && !logoFailed">
-              <img *ngIf="getCardLogo(card) && !logoFailed" 
-                   [src]="getCardLogo(card)" 
-                   (error)="logoFailed = true" 
-                   alt="Logo" 
-                   class="inst-logo-img">
-              <mat-icon *ngIf="!getCardLogo(card) || logoFailed">school</mat-icon>
-            </div>
-            <div class="inst-names">
-              <div class="inst-title">{{card.institutionName}}</div>
-              <div class="inst-branch">{{card.branchName || 'Main Campus'}} &bull; Staff Identity Card</div>
-            </div>
-          </div>
-
-          <!-- Card Body -->
-          <div class="card-body">
-            <div class="photo-container">
-              <img *ngIf="card.photoUrl" [src]="getPhotoUrl(card.photoUrl)" alt="Photo" class="staff-photo">
-              <div *ngIf="!card.photoUrl" class="photo-placeholder">
-                {{getInitials(card.fullName)}}
+  @if (!loading) {
+    <div id="printable-staff-id-cards" class="id-cards-sheet print-area">
+      <div class="cards-grid">
+        @for (card of cards; track card) {
+          <div class="card-pair-wrapper">
+            <!-- ================= FRONT SIDE ================= -->
+            @if (cardSide === 'both' || cardSide === 'front') {
+              <div class="id-card id-card-front">
+                <!-- Card Header -->
+                <div class="card-header-banner">
+                  <div class="inst-logo-badge" [class.has-img]="getCardLogo(card) && !logoFailed">
+                    @if (getCardLogo(card) && !logoFailed) {
+                      <img
+                        [src]="getCardLogo(card)"
+                        (error)="logoFailed = true"
+                        alt="Logo"
+                        class="inst-logo-img">
+                    }
+                    @if (!getCardLogo(card) || logoFailed) {
+                      <mat-icon>school</mat-icon>
+                    }
+                  </div>
+                  <div class="inst-names">
+                    <div class="inst-title">{{card.institutionName}}</div>
+                    <div class="inst-branch">{{card.branchName || 'Main Campus'}} &bull; Staff Identity Card</div>
+                  </div>
+                </div>
+                <!-- Card Body -->
+                <div class="card-body">
+                  <div class="photo-container">
+                    @if (card.photoUrl) {
+                      <img [src]="getPhotoUrl(card.photoUrl)" alt="Photo" class="staff-photo">
+                    }
+                    @if (!card.photoUrl) {
+                      <div class="photo-placeholder">
+                        {{getInitials(card.fullName)}}
+                      </div>
+                    }
+                  </div>
+                  <div class="staff-primary-info">
+                    <h3 class="staff-name">{{card.fullName}}</h3>
+                    <div class="emp-id-badge">{{card.employeeCode}}</div>
+                    <div class="staff-desig">{{card.designation || 'Faculty / Teacher'}}</div>
+                    @if (card.qualification) {
+                      <div class="staff-qual">{{card.qualification}}</div>
+                    }
+                  </div>
+                  <div class="meta-table">
+                    <div class="meta-row">
+                      <span class="meta-label">Blood Grp:</span>
+                      <span class="meta-val highlight-red">{{card.bloodGroup || 'O+'}}</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-label">Mobile:</span>
+                      <span class="meta-val">{{card.phoneNumber}}</span>
+                    </div>
+                    @if (card.joiningDate) {
+                      <div class="meta-row">
+                        <span class="meta-label">Joined:</span>
+                        <span class="meta-val">{{card.joiningDate | date:'dd-MMM-yyyy'}}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+                <!-- Card Footer & QR -->
+                <div class="card-footer">
+                  <div class="qr-mock-box">
+                    @if (qrCodeUrls[card.id]) {
+                      <img [src]="qrCodeUrls[card.id]" alt="QR Code" class="real-qr-img" />
+                    }
+                    @if (!qrCodeUrls[card.id]) {
+                      <mat-icon class="qr-icon">qr_code_2</mat-icon>
+                    }
+                    <span class="qr-label">{{card.employeeCode}}</span>
+                  </div>
+                  <div class="signature-block">
+                    @if (digitalSignatureUrl) {
+                      <div class="id-digital-sign">
+                        <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="id-sign-img" />
+                      </div>
+                    }
+                    <div class="sign-line" [class.has-sign]="digitalSignatureUrl"></div>
+                    <span class="sign-label">Authorized Signatory</span>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div class="staff-primary-info">
-              <h3 class="staff-name">{{card.fullName}}</h3>
-              <div class="emp-id-badge">{{card.employeeCode}}</div>
-              <div class="staff-desig">{{card.designation || 'Faculty / Teacher'}}</div>
-              <div class="staff-qual" *ngIf="card.qualification">{{card.qualification}}</div>
-            </div>
-
-            <div class="meta-table">
-              <div class="meta-row">
-                <span class="meta-label">Blood Grp:</span>
-                <span class="meta-val highlight-red">{{card.bloodGroup || 'O+'}}</span>
+            }
+            <!-- ================= BACK SIDE ================= -->
+            @if (cardSide === 'both' || cardSide === 'back') {
+              <div class="id-card id-card-back">
+                <div class="back-header">
+                  <h4>Instructions &amp; Emergency Contact</h4>
+                </div>
+                <div class="back-content">
+                  <div class="info-block">
+                    <div class="info-line"><strong>Institution:</strong> {{card.institutionName}}</div>
+                    @if (card.institutionAddress) {
+                      <div class="info-line"><strong>Address:</strong> {{card.institutionAddress}}</div>
+                    }
+                    @if (card.institutionPhone) {
+                      <div class="info-line"><strong>Helpline:</strong> {{card.institutionPhone}}</div>
+                    }
+                  </div>
+                  <div class="rules-list">
+                    <div>&bull; This card is institutional property; please carry it at all times.</div>
+                    <div>&bull; Report immediately to the administrative office if lost.</div>
+                    <div>&bull; Non-transferable.</div>
+                    <div>&bull; If found, please return to the school reception.</div>
+                  </div>
+                  @if (card.emergencyContact) {
+                    <div class="emergency-box">
+                      <span class="em-title">Emergency Contact:</span>
+                      <span class="em-number">{{card.emergencyContact}}</span>
+                    </div>
+                  }
+                </div>
+                <div class="back-footer">
+                  <span>Official ERP System ID &bull; {{card.affiliationCode || 'IMS-STAFF'}}</span>
+                </div>
               </div>
-              <div class="meta-row">
-                <span class="meta-label">Mobile:</span>
-                <span class="meta-val">{{card.phoneNumber}}</span>
-              </div>
-              <div class="meta-row" *ngIf="card.joiningDate">
-                <span class="meta-label">Joined:</span>
-                <span class="meta-val">{{card.joiningDate | date:'dd-MMM-yyyy'}}</span>
-              </div>
-            </div>
+            }
           </div>
-
-          <!-- Card Footer & QR -->
-          <div class="card-footer">
-            <div class="qr-mock-box">
-              <img *ngIf="qrCodeUrls[card.id]" [src]="qrCodeUrls[card.id]" alt="QR Code" class="real-qr-img" />
-              <mat-icon *ngIf="!qrCodeUrls[card.id]" class="qr-icon">qr_code_2</mat-icon>
-              <span class="qr-label">{{card.employeeCode}}</span>
-            </div>
-            <div class="signature-block">
-              <div class="id-digital-sign" *ngIf="digitalSignatureUrl">
-                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="id-sign-img" />
-              </div>
-              <div class="sign-line" [class.has-sign]="digitalSignatureUrl"></div>
-              <span class="sign-label">Authorized Signatory</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- ================= BACK SIDE ================= -->
-        <div class="id-card id-card-back" *ngIf="cardSide === 'both' || cardSide === 'back'">
-          <div class="back-header">
-            <h4>Instructions &amp; Emergency Contact</h4>
-          </div>
-
-          <div class="back-content">
-            <div class="info-block">
-              <div class="info-line"><strong>Institution:</strong> {{card.institutionName}}</div>
-              <div class="info-line" *ngIf="card.institutionAddress"><strong>Address:</strong> {{card.institutionAddress}}</div>
-              <div class="info-line" *ngIf="card.institutionPhone"><strong>Helpline:</strong> {{card.institutionPhone}}</div>
-            </div>
-
-            <div class="rules-list">
-              <div>&bull; This card is institutional property; please carry it at all times.</div>
-              <div>&bull; Report immediately to the administrative office if lost.</div>
-              <div>&bull; Non-transferable.</div>
-              <div>&bull; If found, please return to the school reception.</div>
-            </div>
-
-            <div class="emergency-box" *ngIf="card.emergencyContact">
-              <span class="em-title">Emergency Contact:</span>
-              <span class="em-number">{{card.emergencyContact}}</span>
-            </div>
-          </div>
-
-          <div class="back-footer">
-            <span>Official ERP System ID &bull; {{card.affiliationCode || 'IMS-STAFF'}}</span>
-          </div>
-        </div>
+        }
       </div>
     </div>
-  </div>
+  }
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .idcard-modal-container {
       display: flex;

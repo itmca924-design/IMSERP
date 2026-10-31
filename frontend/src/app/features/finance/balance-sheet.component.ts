@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -64,26 +64,32 @@ import { AuthService } from '../../core/services/auth.service';
         </div>
       </div>
 
-      <div class="unit-separator" *ngIf="branches.length > 0"></div>
+      @if (branches.length > 0) {
+        <div class="unit-separator"></div>
+      }
 
       <!-- Campus / Branch Filter -->
-      <div class="control-unit branch-unit" *ngIf="branches.length > 0">
-        <div class="unit-icon-badge">
-          <mat-icon>apartment</mat-icon>
+      @if (branches.length > 0) {
+        <div class="control-unit branch-unit">
+          <div class="unit-icon-badge">
+            <mat-icon>apartment</mat-icon>
+          </div>
+          <div class="unit-details">
+            <span class="unit-label">Campus Scope</span>
+            <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="loadReport()" class="unit-select branch-select">
+              <mat-select-trigger>
+                <span class="select-value-text">{{ getSelectedBranchName() }}</span>
+              </mat-select-trigger>
+              <mat-option [value]="null">All Campuses Consolidated</mat-option>
+              @for (b of branches; track b) {
+                <mat-option [value]="b.id">
+                  {{ b.name }}
+                </mat-option>
+              }
+            </mat-select>
+          </div>
         </div>
-        <div class="unit-details">
-          <span class="unit-label">Campus Scope</span>
-          <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="loadReport()" class="unit-select branch-select">
-            <mat-select-trigger>
-              <span class="select-value-text">{{ getSelectedBranchName() }}</span>
-            </mat-select-trigger>
-            <mat-option [value]="null">All Campuses Consolidated</mat-option>
-            <mat-option *ngFor="let b of branches" [value]="b.id">
-              {{ b.name }}
-            </mat-option>
-          </mat-select>
-        </div>
-      </div>
+      }
 
       <div class="unit-separator"></div>
 
@@ -119,50 +125,62 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- Printable Header (Visible Only on Print) -->
   <div class="print-header only-print">
     <div class="print-title-box">
       <h2>IMSERP EDUCATIONAL INSTITUTION</h2>
       <h3>BALANCE SHEET (STATEMENT OF FINANCIAL POSITION)</h3>
-      <p>As of Date: <strong>{{ report?.asOfDate | date:'fullDate' }}</strong> &bull; Campus: <strong>{{ report?.branchName }}</strong> &bull; Division: <strong>{{ selectedAcademicScope === 'All' ? 'Hybrid Consolidated' : (selectedAcademicScope + ' Division') }}</strong></p>
+      <p>As of Date: <strong>{{ $safeNavigationMigration(report?.asOfDate) | date:'fullDate' }}</strong> &bull; Campus: <strong>{{ report?.branchName }}</strong> &bull; Division: <strong>{{ selectedAcademicScope === 'All' ? 'Hybrid Consolidated' : (selectedAcademicScope + ' Division') }}</strong></p>
     </div>
   </div>
 
   <!-- Balanced Status Banner -->
-  <div class="balance-banner" *ngIf="report" [ngClass]="report.isBalanced ? 'balanced' : 'unbalanced'">
-    <div class="banner-left">
-      <div class="status-icon">
-        <mat-icon>{{ report.isBalanced ? 'check_circle' : 'error' }}</mat-icon>
+  @if (report) {
+    <div class="balance-banner" [ngClass]="report.isBalanced ? 'balanced' : 'unbalanced'">
+      <div class="banner-left">
+        <div class="status-icon">
+          <mat-icon>{{ report.isBalanced ? 'check_circle' : 'error' }}</mat-icon>
+        </div>
+        <div>
+          <h4>{{ report.isBalanced ? 'FINANCIAL POSITION IS BALANCED & AUDIT-VERIFIED' : 'BALANCE MISMATCH DETECTED' }}</h4>
+          @if (report.isBalanced) {
+            <p>
+              Total Assets (<strong>₹{{ report.totalAssets | number:'1.2-2' }}</strong>) strictly equals Total Liabilities &amp; Equity (<strong>₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</strong>).
+              @if (report.academicScope && report.academicScope !== 'All') {
+                <span class="ml-2 text-xs text-muted">
+                  (Scope: {{ report.academicScope }} Division)
+                </span>
+              }
+            </p>
+          }
+          @if (!report.isBalanced) {
+            <p>
+              Discrepancy of ₹{{ report.difference | number:'1.2-2' }} between Assets and Liabilities + Equity.
+            </p>
+          }
+        </div>
       </div>
-      <div>
-        <h4>{{ report.isBalanced ? 'FINANCIAL POSITION IS BALANCED & AUDIT-VERIFIED' : 'BALANCE MISMATCH DETECTED' }}</h4>
-        <p *ngIf="report.isBalanced">
-          Total Assets (<strong>₹{{ report.totalAssets | number:'1.2-2' }}</strong>) strictly equals Total Liabilities &amp; Equity (<strong>₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</strong>).
-          <span class="ml-2 text-xs text-muted" *ngIf="report.academicScope && report.academicScope !== 'All'">
-            (Scope: {{ report.academicScope }} Division)
-          </span>
-        </p>
-        <p *ngIf="!report.isBalanced">
-          Discrepancy of ₹{{ report.difference | number:'1.2-2' }} between Assets and Liabilities + Equity.
-        </p>
+      <div class="banner-right">
+        <div class="equation-chip">
+          <span>Assets = Liabilities + Equity</span>
+        </div>
+        @if (report) {
+          <div class="quick-audit-chips">
+            <span class="audit-pill cash-pill" matTooltip="Combined liquid cash drawer and bank balance">
+              Cash/Bank: <strong>₹{{ (report.realizedCashBalance || 0) | number:'1.2-2' }}</strong>
+            </span>
+            <span class="audit-pill fees-pill" matTooltip="Historical student fee dues as of cutoff">
+              Receivables: <strong>₹{{ (report.accountsReceivableTotal || 0) | number:'1.2-2' }}</strong>
+            </span>
+          </div>
+        }
       </div>
     </div>
-    <div class="banner-right">
-      <div class="equation-chip">
-        <span>Assets = Liabilities + Equity</span>
-      </div>
-      <div class="quick-audit-chips" *ngIf="report">
-        <span class="audit-pill cash-pill" matTooltip="Combined liquid cash drawer and bank balance">
-          Cash/Bank: <strong>₹{{ (report.realizedCashBalance || 0) | number:'1.2-2' }}</strong>
-        </span>
-        <span class="audit-pill fees-pill" matTooltip="Historical student fee dues as of cutoff">
-          Receivables: <strong>₹{{ (report.accountsReceivableTotal || 0) | number:'1.2-2' }}</strong>
-        </span>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- Format Presentation Mode (T-Format vs Vertical) -->
   <div class="format-tabs-wrap no-print">
@@ -177,225 +195,256 @@ import { AuthService } from '../../core/services/auth.service';
   </div>
 
   <!-- 1. T-FORMAT PRESENTATION (Liabilities & Capital on Left, Assets on Right) -->
-  <div class="t-format-grid" *ngIf="report && viewMode === 't_format'">
-    <!-- Left Side: Liabilities & Equity -->
-    <div class="sheet-column liabilities-col">
-      <div class="column-header liabilities">
-        <div class="col-title-group">
-          <mat-icon>account_balance</mat-icon>
-          <h3>Capital, Reserves &amp; Liabilities</h3>
+  @if (report && viewMode === 't_format') {
+    <div class="t-format-grid">
+      <!-- Left Side: Liabilities & Equity -->
+      <div class="sheet-column liabilities-col">
+        <div class="column-header liabilities">
+          <div class="col-title-group">
+            <mat-icon>account_balance</mat-icon>
+            <h3>Capital, Reserves &amp; Liabilities</h3>
+          </div>
+          <span class="col-total">₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
         </div>
-        <span class="col-total">₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
+        <div class="column-body">
+          <!-- 1. Equity & Capital Section -->
+          <div class="section-block">
+            <div class="section-title">I. Capital Fund &amp; Reserves</div>
+            <table class="item-table">
+              <tbody>
+                @for (item of report.equityAndCapital.items; track item) {
+                  <tr (click)="showDetails(item)" class="clickable-row">
+                    <td class="item-title-cell">
+                      <div class="item-title">{{ item.title }}</div>
+                      @if (item.note) {
+                        <div class="text-xs text-muted">{{ item.note }}</div>
+                      }
+                    </td>
+                    <td class="text-right item-amt">{{ item.amount < 0 ? '-₹' + ((-item.amount) | number:'1.2-2') : '₹' + (item.amount | number:'1.2-2') }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="subtotal-row">
+                  <td>Subtotal (Capital &amp; Reserves)</td>
+                  <td class="text-right font-bold">₹{{ report.equityAndCapital.totalAmount | number:'1.2-2' }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <!-- 2. Long Term Liabilities -->
+          @if (report.longTermLiabilities.items.length > 0) {
+            <div class="section-block">
+              <div class="section-title">II. Long-Term Borrowings</div>
+              <table class="item-table">
+                <tbody>
+                  @for (item of report.longTermLiabilities.items; track item) {
+                    <tr (click)="showDetails(item)" class="clickable-row">
+                      <td class="item-title-cell">
+                        <div class="item-title">{{ item.title }}</div>
+                        @if (item.note) {
+                          <div class="text-xs text-muted">{{ item.note }}</div>
+                        }
+                      </td>
+                      <td class="text-right item-amt">₹{{ item.amount | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr class="subtotal-row">
+                    <td>Subtotal (Long-Term Loans)</td>
+                    <td class="text-right font-bold">₹{{ report.longTermLiabilities.totalAmount | number:'1.2-2' }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          }
+          <!-- 3. Current Liabilities -->
+          <div class="section-block">
+            <div class="section-title">III. Current Liabilities &amp; Provisions</div>
+            <table class="item-table">
+              <tbody>
+                @for (item of report.currentLiabilities.items; track item) {
+                  <tr (click)="showDetails(item)" class="clickable-row">
+                    <td class="item-title-cell">
+                      <div class="item-title">{{ item.title }}</div>
+                      @if (item.note) {
+                        <div class="text-xs text-muted">{{ item.note }}</div>
+                      }
+                    </td>
+                    <td class="text-right item-amt">₹{{ item.amount | number:'1.2-2' }}</td>
+                  </tr>
+                }
+                @if (report.currentLiabilities.items.length === 0) {
+                  <tr>
+                    <td colspan="2" class="text-muted text-xs p-2">No current liabilities recorded.</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="subtotal-row">
+                  <td>Subtotal (Current Liabilities)</td>
+                  <td class="text-right font-bold">₹{{ report.currentLiabilities.totalAmount | number:'1.2-2' }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        <!-- Grand Total Footer -->
+        <div class="column-grand-total liabilities-total">
+          <span>TOTAL LIABILITIES &amp; EQUITY</span>
+          <span class="grand-amt">₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
+        </div>
       </div>
-
-      <div class="column-body">
-        <!-- 1. Equity & Capital Section -->
-        <div class="section-block">
-          <div class="section-title">I. Capital Fund &amp; Reserves</div>
-          <table class="item-table">
-            <tbody>
-              <tr *ngFor="let item of report.equityAndCapital.items" (click)="showDetails(item)" class="clickable-row">
-                <td class="item-title-cell">
-                  <div class="item-title">{{ item.title }}</div>
-                  <div class="text-xs text-muted" *ngIf="item.note">{{ item.note }}</div>
-                </td>
-                <td class="text-right item-amt">{{ item.amount < 0 ? '-₹' + ((-item.amount) | number:'1.2-2') : '₹' + (item.amount | number:'1.2-2') }}</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr class="subtotal-row">
-                <td>Subtotal (Capital &amp; Reserves)</td>
-                <td class="text-right font-bold">₹{{ report.equityAndCapital.totalAmount | number:'1.2-2' }}</td>
-              </tr>
-            </tfoot>
-          </table>
+      <!-- Right Side: Assets -->
+      <div class="sheet-column assets-col">
+        <div class="column-header assets">
+          <div class="col-title-group">
+            <mat-icon>business</mat-icon>
+            <h3>Properties &amp; Institutional Assets</h3>
+          </div>
+          <span class="col-total">₹{{ report.totalAssets | number:'1.2-2' }}</span>
         </div>
-
-        <!-- 2. Long Term Liabilities -->
-        <div class="section-block" *ngIf="report.longTermLiabilities.items.length > 0">
-          <div class="section-title">II. Long-Term Borrowings</div>
-          <table class="item-table">
-            <tbody>
-              <tr *ngFor="let item of report.longTermLiabilities.items" (click)="showDetails(item)" class="clickable-row">
-                <td class="item-title-cell">
-                  <div class="item-title">{{ item.title }}</div>
-                  <div class="text-xs text-muted" *ngIf="item.note">{{ item.note }}</div>
-                </td>
-                <td class="text-right item-amt">₹{{ item.amount | number:'1.2-2' }}</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr class="subtotal-row">
-                <td>Subtotal (Long-Term Loans)</td>
-                <td class="text-right font-bold">₹{{ report.longTermLiabilities.totalAmount | number:'1.2-2' }}</td>
-              </tr>
-            </tfoot>
-          </table>
+        <div class="column-body">
+          <!-- 1. Fixed Assets (Non-Current) -->
+          <div class="section-block">
+            <div class="section-title">I. Fixed Assets (Net of Depreciation)</div>
+            <table class="item-table">
+              <tbody>
+                @for (item of report.fixedAssets.items; track item) {
+                  <tr (click)="showDetails(item)" class="clickable-row">
+                    <td class="item-title-cell">
+                      <div class="item-title">{{ item.title }}</div>
+                      @if (item.note) {
+                        <div class="text-xs text-muted">{{ item.note }}</div>
+                      }
+                    </td>
+                    <td class="text-right item-amt">₹{{ item.amount | number:'1.2-2' }}</td>
+                  </tr>
+                }
+                @if (report.fixedAssets.items.length === 0) {
+                  <tr>
+                    <td colspan="2" class="text-muted text-xs p-2">No fixed assets registered in Chart of Accounts.</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="subtotal-row">
+                  <td>Subtotal (Fixed Assets)</td>
+                  <td class="text-right font-bold">₹{{ report.fixedAssets.totalAmount | number:'1.2-2' }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <!-- 2. Current Assets -->
+          <div class="section-block">
+            <div class="section-title">II. Current Assets &amp; Receivables</div>
+            <table class="item-table">
+              <tbody>
+                @for (item of report.currentAssets.items; track item) {
+                  <tr (click)="showDetails(item)" class="clickable-row">
+                    <td class="item-title-cell">
+                      <div class="item-title">
+                        {{ item.title }}
+                        @if (item.isDynamic) {
+                          <span class="live-pill">Dynamic</span>
+                        }
+                      </div>
+                      @if (item.note) {
+                        <div class="text-xs text-muted">{{ item.note }}</div>
+                      }
+                    </td>
+                    <td class="text-right item-amt font-semibold">₹{{ item.amount | number:'1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="subtotal-row">
+                  <td>Subtotal (Current Assets)</td>
+                  <td class="text-right font-bold">₹{{ report.currentAssets.totalAmount | number:'1.2-2' }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
-
-        <!-- 3. Current Liabilities -->
-        <div class="section-block">
-          <div class="section-title">III. Current Liabilities &amp; Provisions</div>
-          <table class="item-table">
-            <tbody>
-              <tr *ngFor="let item of report.currentLiabilities.items" (click)="showDetails(item)" class="clickable-row">
-                <td class="item-title-cell">
-                  <div class="item-title">{{ item.title }}</div>
-                  <div class="text-xs text-muted" *ngIf="item.note">{{ item.note }}</div>
-                </td>
-                <td class="text-right item-amt">₹{{ item.amount | number:'1.2-2' }}</td>
-              </tr>
-              <tr *ngIf="report.currentLiabilities.items.length === 0">
-                <td colspan="2" class="text-muted text-xs p-2">No current liabilities recorded.</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr class="subtotal-row">
-                <td>Subtotal (Current Liabilities)</td>
-                <td class="text-right font-bold">₹{{ report.currentLiabilities.totalAmount | number:'1.2-2' }}</td>
-              </tr>
-            </tfoot>
-          </table>
+        <!-- Grand Total Footer -->
+        <div class="column-grand-total assets-total">
+          <span>TOTAL ASSETS</span>
+          <span class="grand-amt">₹{{ report.totalAssets | number:'1.2-2' }}</span>
         </div>
-      </div>
-
-      <!-- Grand Total Footer -->
-      <div class="column-grand-total liabilities-total">
-        <span>TOTAL LIABILITIES &amp; EQUITY</span>
-        <span class="grand-amt">₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
       </div>
     </div>
-
-    <!-- Right Side: Assets -->
-    <div class="sheet-column assets-col">
-      <div class="column-header assets">
-        <div class="col-title-group">
-          <mat-icon>business</mat-icon>
-          <h3>Properties &amp; Institutional Assets</h3>
-        </div>
-        <span class="col-total">₹{{ report.totalAssets | number:'1.2-2' }}</span>
-      </div>
-
-      <div class="column-body">
-        <!-- 1. Fixed Assets (Non-Current) -->
-        <div class="section-block">
-          <div class="section-title">I. Fixed Assets (Net of Depreciation)</div>
-          <table class="item-table">
-            <tbody>
-              <tr *ngFor="let item of report.fixedAssets.items" (click)="showDetails(item)" class="clickable-row">
-                <td class="item-title-cell">
-                  <div class="item-title">{{ item.title }}</div>
-                  <div class="text-xs text-muted" *ngIf="item.note">{{ item.note }}</div>
-                </td>
-                <td class="text-right item-amt">₹{{ item.amount | number:'1.2-2' }}</td>
-              </tr>
-              <tr *ngIf="report.fixedAssets.items.length === 0">
-                <td colspan="2" class="text-muted text-xs p-2">No fixed assets registered in Chart of Accounts.</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr class="subtotal-row">
-                <td>Subtotal (Fixed Assets)</td>
-                <td class="text-right font-bold">₹{{ report.fixedAssets.totalAmount | number:'1.2-2' }}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <!-- 2. Current Assets -->
-        <div class="section-block">
-          <div class="section-title">II. Current Assets &amp; Receivables</div>
-          <table class="item-table">
-            <tbody>
-              <tr *ngFor="let item of report.currentAssets.items" (click)="showDetails(item)" class="clickable-row">
-                <td class="item-title-cell">
-                  <div class="item-title">
-                    {{ item.title }}
-                    <span class="live-pill" *ngIf="item.isDynamic">Dynamic</span>
-                  </div>
-                  <div class="text-xs text-muted" *ngIf="item.note">{{ item.note }}</div>
-                </td>
-                <td class="text-right item-amt font-semibold">₹{{ item.amount | number:'1.2-2' }}</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr class="subtotal-row">
-                <td>Subtotal (Current Assets)</td>
-                <td class="text-right font-bold">₹{{ report.currentAssets.totalAmount | number:'1.2-2' }}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-
-      <!-- Grand Total Footer -->
-      <div class="column-grand-total assets-total">
-        <span>TOTAL ASSETS</span>
-        <span class="grand-amt">₹{{ report.totalAssets | number:'1.2-2' }}</span>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- 2. VERTICAL FORMAT PRESENTATION -->
-  <div class="vertical-format-wrap" *ngIf="report && viewMode === 'vertical'">
-    <!-- Assets Section -->
-    <div class="vertical-card">
-      <div class="vertical-card-header assets">
-        <h3>1. ASSETS</h3>
-        <span class="v-amt">₹{{ report.totalAssets | number:'1.2-2' }}</span>
-      </div>
-      <div class="vertical-card-body">
-        <h4 class="sub-head">A. Fixed Assets</h4>
-        <div class="v-row" *ngFor="let item of report.fixedAssets.items">
-          <span>{{ item.title }}</span>
-          <span class="font-bold">₹{{ item.amount | number:'1.2-2' }}</span>
+  @if (report && viewMode === 'vertical') {
+    <div class="vertical-format-wrap">
+      <!-- Assets Section -->
+      <div class="vertical-card">
+        <div class="vertical-card-header assets">
+          <h3>1. ASSETS</h3>
+          <span class="v-amt">₹{{ report.totalAssets | number:'1.2-2' }}</span>
         </div>
-        <div class="v-subtotal">Subtotal Fixed Assets: <strong>₹{{ report.fixedAssets.totalAmount | number:'1.2-2' }}</strong></div>
-
-        <h4 class="sub-head mt-4">B. Current Assets</h4>
-        <div class="v-row" *ngFor="let item of report.currentAssets.items">
-          <span>{{ item.title }}</span>
-          <span class="font-bold">₹{{ item.amount | number:'1.2-2' }}</span>
+        <div class="vertical-card-body">
+          <h4 class="sub-head">A. Fixed Assets</h4>
+          @for (item of report.fixedAssets.items; track item) {
+            <div class="v-row">
+              <span>{{ item.title }}</span>
+              <span class="font-bold">₹{{ item.amount | number:'1.2-2' }}</span>
+            </div>
+          }
+          <div class="v-subtotal">Subtotal Fixed Assets: <strong>₹{{ report.fixedAssets.totalAmount | number:'1.2-2' }}</strong></div>
+          <h4 class="sub-head mt-4">B. Current Assets</h4>
+          @for (item of report.currentAssets.items; track item) {
+            <div class="v-row">
+              <span>{{ item.title }}</span>
+              <span class="font-bold">₹{{ item.amount | number:'1.2-2' }}</span>
+            </div>
+          }
+          <div class="v-subtotal">Subtotal Current Assets: <strong>₹{{ report.currentAssets.totalAmount | number:'1.2-2' }}</strong></div>
         </div>
-        <div class="v-subtotal">Subtotal Current Assets: <strong>₹{{ report.currentAssets.totalAmount | number:'1.2-2' }}</strong></div>
+        <div class="v-grand-total assets">
+          <span>TOTAL ASSETS (A + B)</span>
+          <span>₹{{ report.totalAssets | number:'1.2-2' }}</span>
+        </div>
       </div>
-      <div class="v-grand-total assets">
-        <span>TOTAL ASSETS (A + B)</span>
-        <span>₹{{ report.totalAssets | number:'1.2-2' }}</span>
+      <!-- Liabilities & Equity Section -->
+      <div class="vertical-card mt-4">
+        <div class="vertical-card-header liabilities">
+          <h3>2. LIABILITIES &amp; CAPITAL FUND</h3>
+          <span class="v-amt">₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
+        </div>
+        <div class="vertical-card-body">
+          <h4 class="sub-head">A. Capital &amp; Reserves</h4>
+          @for (item of report.equityAndCapital.items; track item) {
+            <div class="v-row">
+              <span>{{ item.title }}</span>
+              <span class="font-bold">{{ item.amount < 0 ? '-₹' + ((-item.amount) | number:'1.2-2') : '₹' + (item.amount | number:'1.2-2') }}</span>
+            </div>
+          }
+          <div class="v-subtotal">Subtotal Capital &amp; Reserves: <strong>₹{{ report.equityAndCapital.totalAmount | number:'1.2-2' }}</strong></div>
+          <h4 class="sub-head mt-4">B. Liabilities</h4>
+          @for (item of report.currentLiabilities.items; track item) {
+            <div class="v-row">
+              <span>{{ item.title }}</span>
+              <span class="font-bold">₹{{ item.amount | number:'1.2-2' }}</span>
+            </div>
+          }
+          @for (item of report.longTermLiabilities.items; track item) {
+            <div class="v-row">
+              <span>{{ item.title }}</span>
+              <span class="font-bold">₹{{ item.amount | number:'1.2-2' }}</span>
+            </div>
+          }
+          <div class="v-subtotal">Subtotal Liabilities: <strong>₹{{ (report.currentLiabilities.totalAmount + report.longTermLiabilities.totalAmount) | number:'1.2-2' }}</strong></div>
+        </div>
+        <div class="v-grand-total liabilities">
+          <span>TOTAL LIABILITIES &amp; EQUITY (A + B)</span>
+          <span>₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
+        </div>
       </div>
     </div>
-
-    <!-- Liabilities & Equity Section -->
-    <div class="vertical-card mt-4">
-      <div class="vertical-card-header liabilities">
-        <h3>2. LIABILITIES &amp; CAPITAL FUND</h3>
-        <span class="v-amt">₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
-      </div>
-      <div class="vertical-card-body">
-        <h4 class="sub-head">A. Capital &amp; Reserves</h4>
-        <div class="v-row" *ngFor="let item of report.equityAndCapital.items">
-          <span>{{ item.title }}</span>
-          <span class="font-bold">{{ item.amount < 0 ? '-₹' + ((-item.amount) | number:'1.2-2') : '₹' + (item.amount | number:'1.2-2') }}</span>
-        </div>
-        <div class="v-subtotal">Subtotal Capital &amp; Reserves: <strong>₹{{ report.equityAndCapital.totalAmount | number:'1.2-2' }}</strong></div>
-
-        <h4 class="sub-head mt-4">B. Liabilities</h4>
-        <div class="v-row" *ngFor="let item of report.currentLiabilities.items">
-          <span>{{ item.title }}</span>
-          <span class="font-bold">₹{{ item.amount | number:'1.2-2' }}</span>
-        </div>
-        <div class="v-row" *ngFor="let item of report.longTermLiabilities.items">
-          <span>{{ item.title }}</span>
-          <span class="font-bold">₹{{ item.amount | number:'1.2-2' }}</span>
-        </div>
-        <div class="v-subtotal">Subtotal Liabilities: <strong>₹{{ (report.currentLiabilities.totalAmount + report.longTermLiabilities.totalAmount) | number:'1.2-2' }}</strong></div>
-      </div>
-      <div class="v-grand-total liabilities">
-        <span>TOTAL LIABILITIES &amp; EQUITY (A + B)</span>
-        <span>₹{{ report.totalLiabilitiesAndEquity | number:'1.2-2' }}</span>
-      </div>
-    </div>
-  </div>
+  }
 
   <!-- Signatures for Print -->
   <div class="print-signatures only-print">
@@ -413,7 +462,8 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       padding: 0 0 40px;

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, TemplateRef, ViewChild } from '@angular/core';
+import { Component, OnInit, inject, TemplateRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -76,9 +76,9 @@ export interface StudentGatePassItem {
               <span class="sgp-badge-role">{{ currentRoleLabel }}</span>
             </div>
             <p class="sgp-subtitle">
-              {{ isStudentOrParent 
-                  ? 'Submit early-exit gate pass requests, track real-time approval status, and print digital exit slips.' 
-                  : 'Review student early-exit requests, issue instant gate passes, and track campus exit/return logs.' }}
+              {{ isStudentOrParent
+              ? 'Submit early-exit gate pass requests, track real-time approval status, and print digital exit slips.'
+              : 'Review student early-exit requests, issue instant gate passes, and track campus exit/return logs.' }}
             </p>
           </div>
         </div>
@@ -86,34 +86,42 @@ export interface StudentGatePassItem {
           <button mat-stroked-button class="sgp-secondary-btn" routerLink="/students/leaves">
             <mat-icon>event_busy</mat-icon> Leave Requests
           </button>
-          <button mat-stroked-button class="sgp-secondary-btn" *ngIf="!isStudentOrParent" routerLink="/front-desk/visitors">
-            <mat-icon>transfer_within_a_station</mat-icon> Front Desk
-          </button>
+          @if (!isStudentOrParent) {
+            <button mat-stroked-button class="sgp-secondary-btn" routerLink="/front-desk/visitors">
+              <mat-icon>transfer_within_a_station</mat-icon> Front Desk
+            </button>
+          }
           <button mat-raised-button class="sgp-primary-btn" (click)="openRequestModal()">
             <mat-icon>add_circle</mat-icon> Request Gate Pass
           </button>
         </div>
       </div>
-
+    
       <!-- Linked Student Info Card (Student / Parent View) -->
-      <div class="sgp-student-profile-strip" *ngIf="isStudentOrParent && studentProfile">
-        <div class="profile-avatar">
-          <mat-icon>school</mat-icon>
-        </div>
-        <div class="profile-info">
-          <div class="profile-name">{{ studentProfile.studentName }}</div>
-          <div class="profile-meta">
-            <span>Class: <strong>{{ studentProfile.className }} - {{ studentProfile.sectionName }}</strong></span>
-            <span *ngIf="studentProfile.rollNumber">Roll No: <strong>{{ studentProfile.rollNumber }}</strong></span>
-            <span *ngIf="studentProfile.parentPhone">Parent Phone: <strong>{{ studentProfile.parentPhone }}</strong></span>
+      @if (isStudentOrParent && studentProfile) {
+        <div class="sgp-student-profile-strip">
+          <div class="profile-avatar">
+            <mat-icon>school</mat-icon>
+          </div>
+          <div class="profile-info">
+            <div class="profile-name">{{ studentProfile.studentName }}</div>
+            <div class="profile-meta">
+              <span>Class: <strong>{{ studentProfile.className }} - {{ studentProfile.sectionName }}</strong></span>
+              @if (studentProfile.rollNumber) {
+                <span>Roll No: <strong>{{ studentProfile.rollNumber }}</strong></span>
+              }
+              @if (studentProfile.parentPhone) {
+                <span>Parent Phone: <strong>{{ studentProfile.parentPhone }}</strong></span>
+              }
+            </div>
+          </div>
+          <div class="profile-tip">
+            <mat-icon>info</mat-icon>
+            <span>Gate pass must be approved by school administration before campus exit. Show pass number at security gate.</span>
           </div>
         </div>
-        <div class="profile-tip">
-          <mat-icon>info</mat-icon>
-          <span>Gate pass must be approved by school administration before campus exit. Show pass number at security gate.</span>
-        </div>
-      </div>
-
+      }
+    
       <!-- Stats Grid -->
       <div class="sgp-stats-grid">
         <div class="stat-card stat-all" (click)="filterStatus = ''; applyFilters()">
@@ -125,7 +133,7 @@ export interface StudentGatePassItem {
             <div class="stat-lbl">Total Passes</div>
           </div>
         </div>
-
+    
         <div class="stat-card stat-pending" (click)="filterStatus = 'Pending'; applyFilters()">
           <div class="stat-icon-box">
             <mat-icon>pending_actions</mat-icon>
@@ -134,9 +142,11 @@ export interface StudentGatePassItem {
             <div class="stat-val">{{ stats.pending }}</div>
             <div class="stat-lbl">Pending Approval</div>
           </div>
-          <span class="stat-sub-badge" *ngIf="stats.pending > 0">Under Review</span>
+          @if (stats.pending > 0) {
+            <span class="stat-sub-badge">Under Review</span>
+          }
         </div>
-
+    
         <div class="stat-card stat-approved" (click)="filterStatus = 'Approved'; applyFilters()">
           <div class="stat-icon-box">
             <mat-icon>verified</mat-icon>
@@ -145,9 +155,11 @@ export interface StudentGatePassItem {
             <div class="stat-val">{{ stats.approved }}</div>
             <div class="stat-lbl">Approved</div>
           </div>
-          <span class="stat-sub-badge" *ngIf="stats.approved > 0">Ready to Exit</span>
+          @if (stats.approved > 0) {
+            <span class="stat-sub-badge">Ready to Exit</span>
+          }
         </div>
-
+    
         <div class="stat-card stat-returned" (click)="filterStatus = 'Returned'; applyFilters()">
           <div class="stat-icon-box">
             <mat-icon>keyboard_return</mat-icon>
@@ -157,7 +169,7 @@ export interface StudentGatePassItem {
             <div class="stat-lbl">Returned</div>
           </div>
         </div>
-
+    
         <div class="stat-card stat-rejected" (click)="filterStatus = 'Rejected'; applyFilters()">
           <div class="stat-icon-box">
             <mat-icon>cancel</mat-icon>
@@ -168,24 +180,26 @@ export interface StudentGatePassItem {
           </div>
         </div>
       </div>
-
+    
       <!-- Filters & Controls Bar -->
       <div class="sgp-controls-card">
         <div class="controls-row">
           <!-- Search input -->
           <div class="search-box">
             <mat-icon class="search-icon">search</mat-icon>
-            <input 
-              type="text" 
-              [(ngModel)]="searchQuery" 
+            <input
+              type="text"
+              [(ngModel)]="searchQuery"
               (keyup.enter)="loadGatePasses()"
-              placeholder="Search by Pass #, student, reason..." 
+              placeholder="Search by Pass #, student, reason..."
               class="search-input" />
-            <button mat-icon-button *ngIf="searchQuery" (click)="searchQuery = ''; loadGatePasses()">
-              <mat-icon>close</mat-icon>
-            </button>
+            @if (searchQuery) {
+              <button mat-icon-button (click)="searchQuery = ''; loadGatePasses()">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </div>
-
+    
           <!-- Status Filter -->
           <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Status</mat-label>
@@ -197,21 +211,23 @@ export interface StudentGatePassItem {
               <mat-option value="Rejected">Rejected</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <!-- Category Filter -->
           <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Reason Category</mat-label>
             <mat-select [(ngModel)]="filterCategory" (selectionChange)="applyFilters()">
               <mat-option value="">All Categories</mat-option>
-              <mat-option *ngFor="let cat of reasonCategories" [value]="cat">{{ cat }}</mat-option>
+              @for (cat of reasonCategories; track cat) {
+                <mat-option [value]="cat">{{ cat }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
+    
           <!-- Refresh Button -->
           <button mat-stroked-button class="filter-btn" (click)="loadGatePasses()" [disabled]="loading">
             <mat-icon [class.spinning]="loading">refresh</mat-icon> Refresh
           </button>
-
+    
           <!-- View Toggle -->
           <div class="view-toggle">
             <button mat-icon-button [class.active-mode]="viewMode === 'grid'" (click)="viewMode = 'grid'" matTooltip="Card View">
@@ -223,253 +239,312 @@ export interface StudentGatePassItem {
           </div>
         </div>
       </div>
-
+    
       <!-- Loading State -->
-      <div class="loading-state" *ngIf="loading">
-        <mat-icon class="spinning">refresh</mat-icon>
-        <p>Loading gate passes...</p>
-      </div>
-
+      @if (loading) {
+        <div class="loading-state">
+          <mat-icon class="spinning">refresh</mat-icon>
+          <p>Loading gate passes...</p>
+        </div>
+      }
+    
       <!-- Empty State -->
-      <div class="sgp-empty-state" *ngIf="!loading && filteredPasses.length === 0">
-        <div class="empty-icon-wrap">
-          <mat-icon>receipt_long</mat-icon>
+      @if (!loading && filteredPasses.length === 0) {
+        <div class="sgp-empty-state">
+          <div class="empty-icon-wrap">
+            <mat-icon>receipt_long</mat-icon>
+          </div>
+          <h3>No Gate Passes Found</h3>
+          @if (filterStatus || filterCategory || searchQuery) {
+            <p>
+              No records match your selected filters. Try changing or clearing them.
+            </p>
+          }
+          @if (!filterStatus && !filterCategory && !searchQuery) {
+            <p>
+              {{ isStudentOrParent ? "You have not submitted any gate pass requests yet." : "No gate pass requests recorded in the system yet." }}
+            </p>
+          }
+          <button mat-raised-button class="sgp-primary-btn" (click)="openRequestModal()">
+            <mat-icon>add_circle</mat-icon> Submit New Request
+          </button>
         </div>
-        <h3>No Gate Passes Found</h3>
-        <p *ngIf="filterStatus || filterCategory || searchQuery">
-          No records match your selected filters. Try changing or clearing them.
-        </p>
-        <p *ngIf="!filterStatus && !filterCategory && !searchQuery">
-          {{ isStudentOrParent ? "You have not submitted any gate pass requests yet." : "No gate pass requests recorded in the system yet." }}
-        </p>
-        <button mat-raised-button class="sgp-primary-btn" (click)="openRequestModal()">
-          <mat-icon>add_circle</mat-icon> Submit New Request
-        </button>
-      </div>
-
+      }
+    
       <!-- GRID VIEW -->
-      <div class="sgp-cards-grid" *ngIf="!loading && viewMode === 'grid' && filteredPasses.length > 0">
-        <div class="pass-card" *ngFor="let p of filteredPasses" [class]="'border-' + p.status.toLowerCase()">
-          <!-- Card Header -->
-          <div class="pass-card-header">
-            <div class="pass-num-pill">
-              <mat-icon>confirmation_number</mat-icon>
-              <span>{{ p.gatePassNumber }}</span>
-            </div>
-            <span class="status-pill status-{{ p.status.toLowerCase() }}">
-              <mat-icon>{{ getStatusIcon(p.status) }}</mat-icon>
-              {{ p.status }}
-            </span>
-          </div>
-
-          <!-- Student Row (visible to admin or when showing student details) -->
-          <div class="pass-student-block">
-            <div class="student-avatar-circle">
-              <mat-icon>person</mat-icon>
-            </div>
-            <div class="student-meta-group">
-              <div class="student-name-text">{{ p.studentName }}</div>
-              <div class="student-class-text">
-                {{ p.className }} {{ p.sectionName }}
-                <span *ngIf="p.rollNumber">· Roll: {{ p.rollNumber }}</span>
+      @if (!loading && viewMode === 'grid' && filteredPasses.length > 0) {
+        <div class="sgp-cards-grid">
+          @for (p of filteredPasses; track p) {
+            <div class="pass-card" [class]="'border-' + p.status.toLowerCase()">
+              <!-- Card Header -->
+              <div class="pass-card-header">
+                <div class="pass-num-pill">
+                  <mat-icon>confirmation_number</mat-icon>
+                  <span>{{ p.gatePassNumber }}</span>
+                </div>
+                <span class="status-pill status-{{ p.status.toLowerCase() }}">
+                  <mat-icon>{{ getStatusIcon(p.status) }}</mat-icon>
+                  {{ p.status }}
+                </span>
               </div>
-            </div>
-          </div>
-
-          <!-- Reason & Category -->
-          <div class="pass-reason-box">
-            <span class="category-tag">{{ p.reasonCategory }}</span>
-            <p class="reason-full-text">{{ p.reason }}</p>
-          </div>
-
-          <!-- Timing Strip -->
-          <div class="pass-times-strip">
-            <div class="time-col">
-              <span class="time-label"><mat-icon>flight_takeoff</mat-icon> Out Time</span>
-              <span class="time-val">{{ p.outDateTime | date:'hh:mm a':'Asia/Kolkata' }}</span>
-              <span class="time-sub">{{ p.outDateTime | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-            </div>
-            <div class="time-col" *ngIf="p.expectedReturnTime">
-              <span class="time-label"><mat-icon>flight_land</mat-icon> Expected Return</span>
-              <span class="time-val">{{ p.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata' }}</span>
-              <span class="time-sub">{{ p.expectedReturnTime | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-            </div>
-            <div class="time-col" *ngIf="p.actualReturnTime">
-              <span class="time-label" style="color:#16a34a;"><mat-icon>task_alt</mat-icon> Returned At</span>
-              <span class="time-val" style="color:#16a34a;">{{ p.actualReturnTime | date:'hh:mm a':'Asia/Kolkata' }}</span>
-              <span class="time-sub">{{ p.actualReturnTime | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
-            </div>
-          </div>
-
-          <!-- Parent / Guardian Meta -->
-          <div class="pass-guardian-strip" *ngIf="p.parentGuardianName || p.parentContactNumber">
-            <mat-icon>contact_phone</mat-icon>
-            <span>
-              {{ p.parentGuardianName }} 
-              <span *ngIf="p.parentRelation">({{ p.parentRelation }})</span>
-              <strong *ngIf="p.parentContactNumber"> · {{ p.parentContactNumber }}</strong>
-            </span>
-          </div>
-
-          <!-- Approver Details -->
-          <div class="pass-approval-box" *ngIf="p.approvedBy">
-            <mat-icon [style.color]="p.status === 'Approved' ? '#16a34a' : '#dc2626'">
-              {{ p.status === 'Approved' ? 'check_circle' : 'cancel' }}
-            </mat-icon>
-            <div>
-              <div class="approver-name">
-                {{ p.status === 'Approved' ? 'Approved by' : 'Rejected by' }} <strong>{{ p.approvedBy }}</strong>
-              </div>
-              <div class="approver-time" *ngIf="p.approvedAt">
-                {{ p.approvedAt | date:'hh:mm a · dd MMM yyyy':'Asia/Kolkata' }}
-              </div>
-              <div class="approval-remarks" *ngIf="p.approvalRemarks">
-                "{{ p.approvalRemarks }}"
-              </div>
-            </div>
-          </div>
-
-          <!-- Card Actions -->
-          <div class="pass-card-footer">
-            <button mat-button class="view-slip-btn" (click)="viewDigitalPass(p)">
-              <mat-icon>visibility</mat-icon> View / Print Slip
-            </button>
-
-            <div class="footer-right-actions">
-              <!-- Student: Cancel Pending Request -->
-              <button mat-button color="warn" class="cancel-pass-btn" 
-                *ngIf="p.status === 'Pending' && isStudentOrParent" 
-                (click)="cancelPass(p)">
-                <mat-icon>close</mat-icon> Cancel
-              </button>
-
-              <!-- Admin/Staff: Quick Actions -->
-              <ng-container *ngIf="!isStudentOrParent">
-                <button mat-icon-button style="color:#16a34a;" *ngIf="p.status === 'Pending'" 
-                  (click)="reviewPass(p, 'Approve')" matTooltip="Approve Gate Pass">
-                  <mat-icon>check_circle</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" *ngIf="p.status === 'Pending'" 
-                  (click)="reviewPass(p, 'Reject')" matTooltip="Reject Request">
-                  <mat-icon>cancel</mat-icon>
-                </button>
-                <button mat-icon-button style="color:#2563eb;" *ngIf="p.status === 'Approved'" 
-                  (click)="markStudentReturned(p)" matTooltip="Mark Returned">
-                  <mat-icon>keyboard_return</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" (click)="deletePass(p)" matTooltip="Delete">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </ng-container>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- TABLE VIEW -->
-      <div class="sgp-table-card" *ngIf="!loading && viewMode === 'table' && filteredPasses.length > 0">
-        <div class="table-responsive">
-          <table class="sgp-table">
-            <thead>
-              <tr>
-                <th>Gate Pass #</th>
-                <th>Student</th>
-                <th>Reason & Category</th>
-                <th>Guardian Contact</th>
-                <th>Out Time</th>
-                <th>Expected Return</th>
-                <th>Status</th>
-                <th>Approval Details</th>
-                <th style="text-align: right;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let p of filteredPasses" [class.row-pending]="p.status === 'Pending'">
-                <td>
-                  <span class="tbl-pass-num">{{ p.gatePassNumber }}</span>
-                </td>
-                <td>
-                  <div class="tbl-student-name">{{ p.studentName }}</div>
-                  <div class="tbl-student-meta">
+              <!-- Student Row (visible to admin or when showing student details) -->
+              <div class="pass-student-block">
+                <div class="student-avatar-circle">
+                  <mat-icon>person</mat-icon>
+                </div>
+                <div class="student-meta-group">
+                  <div class="student-name-text">{{ p.studentName }}</div>
+                  <div class="student-class-text">
                     {{ p.className }} {{ p.sectionName }}
-                    <span *ngIf="p.rollNumber">· Roll: {{ p.rollNumber }}</span>
+                    @if (p.rollNumber) {
+                      <span>· Roll: {{ p.rollNumber }}</span>
+                    }
                   </div>
-                </td>
-                <td>
-                  <span class="category-tag-sm">{{ p.reasonCategory }}</span>
-                  <div class="tbl-reason">{{ p.reason | slice:0:45 }}{{ p.reason.length > 45 ? '...' : '' }}</div>
-                </td>
-                <td>
-                  <div *ngIf="p.parentGuardianName">{{ p.parentGuardianName }}</div>
-                  <div class="tbl-phone" *ngIf="p.parentContactNumber">
-                    <mat-icon>phone</mat-icon> {{ p.parentContactNumber }}
+                </div>
+              </div>
+              <!-- Reason & Category -->
+              <div class="pass-reason-box">
+                <span class="category-tag">{{ p.reasonCategory }}</span>
+                <p class="reason-full-text">{{ p.reason }}</p>
+              </div>
+              <!-- Timing Strip -->
+              <div class="pass-times-strip">
+                <div class="time-col">
+                  <span class="time-label"><mat-icon>flight_takeoff</mat-icon> Out Time</span>
+                  <span class="time-val">{{ p.outDateTime | date:'hh:mm a':'Asia/Kolkata' }}</span>
+                  <span class="time-sub">{{ p.outDateTime | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
+                </div>
+                @if (p.expectedReturnTime) {
+                  <div class="time-col">
+                    <span class="time-label"><mat-icon>flight_land</mat-icon> Expected Return</span>
+                    <span class="time-val">{{ p.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata' }}</span>
+                    <span class="time-sub">{{ p.expectedReturnTime | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
                   </div>
-                  <span *ngIf="!p.parentGuardianName && !p.parentContactNumber">—</span>
-                </td>
-                <td>
-                  <div class="time-val">{{ p.outDateTime | date:'hh:mm a':'Asia/Kolkata' }}</div>
-                  <div class="time-sub">{{ p.outDateTime | date:'dd MMM':'Asia/Kolkata' }}</div>
-                </td>
-                <td>
-                  <div *ngIf="p.expectedReturnTime">
-                    <div class="time-val">{{ p.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata' }}</div>
-                    <div class="time-sub">{{ p.expectedReturnTime | date:'dd MMM':'Asia/Kolkata' }}</div>
+                }
+                @if (p.actualReturnTime) {
+                  <div class="time-col">
+                    <span class="time-label" style="color:#16a34a;"><mat-icon>task_alt</mat-icon> Returned At</span>
+                    <span class="time-val" style="color:#16a34a;">{{ p.actualReturnTime | date:'hh:mm a':'Asia/Kolkata' }}</span>
+                    <span class="time-sub">{{ p.actualReturnTime | date:'dd MMM yyyy':'Asia/Kolkata' }}</span>
                   </div>
-                  <div *ngIf="p.actualReturnTime" style="color:#16a34a; font-size:11px; margin-top:2px;">
-                    Ret: {{ p.actualReturnTime | date:'hh:mm a':'Asia/Kolkata' }}
-                  </div>
-                  <span *ngIf="!p.expectedReturnTime && !p.actualReturnTime">—</span>
-                </td>
-                <td>
-                  <span class="status-pill status-{{ p.status.toLowerCase() }}">
-                    <mat-icon>{{ getStatusIcon(p.status) }}</mat-icon>
-                    {{ p.status }}
+                }
+              </div>
+              <!-- Parent / Guardian Meta -->
+              @if (p.parentGuardianName || p.parentContactNumber) {
+                <div class="pass-guardian-strip">
+                  <mat-icon>contact_phone</mat-icon>
+                  <span>
+                    {{ p.parentGuardianName }}
+                    @if (p.parentRelation) {
+                      <span>({{ p.parentRelation }})</span>
+                    }
+                    @if (p.parentContactNumber) {
+                      <strong> · {{ p.parentContactNumber }}</strong>
+                    }
                   </span>
-                </td>
-                <td>
-                  <div *ngIf="p.approvedBy" class="tbl-approver">{{ p.approvedBy }}</div>
-                  <div *ngIf="p.approvedAt" class="time-sub">
-                    {{ p.approvedAt | date:'hh:mm a · dd MMM':'Asia/Kolkata' }}
+                </div>
+              }
+              <!-- Approver Details -->
+              @if (p.approvedBy) {
+                <div class="pass-approval-box">
+                  <mat-icon [style.color]="p.status === 'Approved' ? '#16a34a' : '#dc2626'">
+                    {{ p.status === 'Approved' ? 'check_circle' : 'cancel' }}
+                  </mat-icon>
+                  <div>
+                    <div class="approver-name">
+                      {{ p.status === 'Approved' ? 'Approved by' : 'Rejected by' }} <strong>{{ p.approvedBy }}</strong>
+                    </div>
+                    @if (p.approvedAt) {
+                      <div class="approver-time">
+                        {{ p.approvedAt | date:'hh:mm a · dd MMM yyyy':'Asia/Kolkata' }}
+                      </div>
+                    }
+                    @if (p.approvalRemarks) {
+                      <div class="approval-remarks">
+                        "{{ p.approvalRemarks }}"
+                      </div>
+                    }
                   </div>
-                  <span *ngIf="!p.approvedBy" class="tbl-pending-lbl">Pending Review</span>
-                </td>
-                <td style="text-align: right;">
-                  <div class="tbl-actions">
-                    <button mat-icon-button (click)="viewDigitalPass(p)" matTooltip="View / Print Slip">
-                      <mat-icon>visibility</mat-icon>
+                </div>
+              }
+              <!-- Card Actions -->
+              <div class="pass-card-footer">
+                <button mat-button class="view-slip-btn" (click)="viewDigitalPass(p)">
+                  <mat-icon>visibility</mat-icon> View / Print Slip
+                </button>
+                <div class="footer-right-actions">
+                  <!-- Student: Cancel Pending Request -->
+                  @if (p.status === 'Pending' && isStudentOrParent) {
+                    <button mat-button color="warn" class="cancel-pass-btn"
+                      (click)="cancelPass(p)">
+                      <mat-icon>close</mat-icon> Cancel
                     </button>
-
-                    <button mat-icon-button color="warn" *ngIf="p.status === 'Pending' && isStudentOrParent" 
-                      (click)="cancelPass(p)" matTooltip="Cancel Request">
-                      <mat-icon>close</mat-icon>
-                    </button>
-
-                    <ng-container *ngIf="!isStudentOrParent">
-                      <button mat-icon-button style="color:#16a34a;" *ngIf="p.status === 'Pending'" 
-                        (click)="reviewPass(p, 'Approve')" matTooltip="Approve">
+                  }
+                  <!-- Admin/Staff: Quick Actions -->
+                  @if (!isStudentOrParent) {
+                    @if (p.status === 'Pending') {
+                      <button mat-icon-button style="color:#16a34a;"
+                        (click)="reviewPass(p, 'Approve')" matTooltip="Approve Gate Pass">
                         <mat-icon>check_circle</mat-icon>
                       </button>
-                      <button mat-icon-button color="warn" *ngIf="p.status === 'Pending'" 
-                        (click)="reviewPass(p, 'Reject')" matTooltip="Reject">
+                    }
+                    @if (p.status === 'Pending') {
+                      <button mat-icon-button color="warn"
+                        (click)="reviewPass(p, 'Reject')" matTooltip="Reject Request">
                         <mat-icon>cancel</mat-icon>
                       </button>
-                      <button mat-icon-button style="color:#2563eb;" *ngIf="p.status === 'Approved'" 
+                    }
+                    @if (p.status === 'Approved') {
+                      <button mat-icon-button style="color:#2563eb;"
                         (click)="markStudentReturned(p)" matTooltip="Mark Returned">
                         <mat-icon>keyboard_return</mat-icon>
                       </button>
-                      <button mat-icon-button color="warn" (click)="deletePass(p)" matTooltip="Delete">
-                        <mat-icon>delete</mat-icon>
-                      </button>
-                    </ng-container>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    }
+                    <button mat-icon-button color="warn" (click)="deletePass(p)" matTooltip="Delete">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
+            </div>
+          }
         </div>
-      </div>
+      }
+    
+      <!-- TABLE VIEW -->
+      @if (!loading && viewMode === 'table' && filteredPasses.length > 0) {
+        <div class="sgp-table-card">
+          <div class="table-responsive">
+            <table class="sgp-table">
+              <thead>
+                <tr>
+                  <th>Gate Pass #</th>
+                  <th>Student</th>
+                  <th>Reason & Category</th>
+                  <th>Guardian Contact</th>
+                  <th>Out Time</th>
+                  <th>Expected Return</th>
+                  <th>Status</th>
+                  <th>Approval Details</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of filteredPasses; track p) {
+                  <tr [class.row-pending]="p.status === 'Pending'">
+                    <td>
+                      <span class="tbl-pass-num">{{ p.gatePassNumber }}</span>
+                    </td>
+                    <td>
+                      <div class="tbl-student-name">{{ p.studentName }}</div>
+                      <div class="tbl-student-meta">
+                        {{ p.className }} {{ p.sectionName }}
+                        @if (p.rollNumber) {
+                          <span>· Roll: {{ p.rollNumber }}</span>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <span class="category-tag-sm">{{ p.reasonCategory }}</span>
+                      <div class="tbl-reason">{{ p.reason | slice:0:45 }}{{ p.reason.length > 45 ? '...' : '' }}</div>
+                    </td>
+                    <td>
+                      @if (p.parentGuardianName) {
+                        <div>{{ p.parentGuardianName }}</div>
+                      }
+                      @if (p.parentContactNumber) {
+                        <div class="tbl-phone">
+                          <mat-icon>phone</mat-icon> {{ p.parentContactNumber }}
+                        </div>
+                      }
+                      @if (!p.parentGuardianName && !p.parentContactNumber) {
+                        <span>—</span>
+                      }
+                    </td>
+                    <td>
+                      <div class="time-val">{{ p.outDateTime | date:'hh:mm a':'Asia/Kolkata' }}</div>
+                      <div class="time-sub">{{ p.outDateTime | date:'dd MMM':'Asia/Kolkata' }}</div>
+                    </td>
+                    <td>
+                      @if (p.expectedReturnTime) {
+                        <div>
+                          <div class="time-val">{{ p.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata' }}</div>
+                          <div class="time-sub">{{ p.expectedReturnTime | date:'dd MMM':'Asia/Kolkata' }}</div>
+                        </div>
+                      }
+                      @if (p.actualReturnTime) {
+                        <div style="color:#16a34a; font-size:11px; margin-top:2px;">
+                          Ret: {{ p.actualReturnTime | date:'hh:mm a':'Asia/Kolkata' }}
+                        </div>
+                      }
+                      @if (!p.expectedReturnTime && !p.actualReturnTime) {
+                        <span>—</span>
+                      }
+                    </td>
+                    <td>
+                      <span class="status-pill status-{{ p.status.toLowerCase() }}">
+                        <mat-icon>{{ getStatusIcon(p.status) }}</mat-icon>
+                        {{ p.status }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (p.approvedBy) {
+                        <div class="tbl-approver">{{ p.approvedBy }}</div>
+                      }
+                      @if (p.approvedAt) {
+                        <div class="time-sub">
+                          {{ p.approvedAt | date:'hh:mm a · dd MMM':'Asia/Kolkata' }}
+                        </div>
+                      }
+                      @if (!p.approvedBy) {
+                        <span class="tbl-pending-lbl">Pending Review</span>
+                      }
+                    </td>
+                    <td style="text-align: right;">
+                      <div class="tbl-actions">
+                        <button mat-icon-button (click)="viewDigitalPass(p)" matTooltip="View / Print Slip">
+                          <mat-icon>visibility</mat-icon>
+                        </button>
+                        @if (p.status === 'Pending' && isStudentOrParent) {
+                          <button mat-icon-button color="warn"
+                            (click)="cancelPass(p)" matTooltip="Cancel Request">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                        @if (!isStudentOrParent) {
+                          @if (p.status === 'Pending') {
+                            <button mat-icon-button style="color:#16a34a;"
+                              (click)="reviewPass(p, 'Approve')" matTooltip="Approve">
+                              <mat-icon>check_circle</mat-icon>
+                            </button>
+                          }
+                          @if (p.status === 'Pending') {
+                            <button mat-icon-button color="warn"
+                              (click)="reviewPass(p, 'Reject')" matTooltip="Reject">
+                              <mat-icon>cancel</mat-icon>
+                            </button>
+                          }
+                          @if (p.status === 'Approved') {
+                            <button mat-icon-button style="color:#2563eb;"
+                              (click)="markStudentReturned(p)" matTooltip="Mark Returned">
+                              <mat-icon>keyboard_return</mat-icon>
+                            </button>
+                          }
+                          <button mat-icon-button color="warn" (click)="deletePass(p)" matTooltip="Delete">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
     </div>
-
+    
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- REQUEST GATE PASS MODAL TEMPLATE (Strict Light Blue Header)   -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -489,33 +564,41 @@ export interface StudentGatePassItem {
             <mat-icon>close</mat-icon>
           </button>
         </div>
-
+    
         <div class="sgp-modal-body">
           <!-- Student Selection (Staff view) OR Student Badge (Student View) -->
-          <div class="student-select-section" *ngIf="!isStudentOrParent">
-            <div class="form-row-2">
-              <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Select Class</mat-label>
-                <mat-select [(ngModel)]="selectedClass" (selectionChange)="onClassChange()">
-                  <mat-option value="">-- All Classes --</mat-option>
-                  <mat-option *ngFor="let c of classList" [value]="c">{{ c }}</mat-option>
-                </mat-select>
-                <mat-icon matPrefix>domain</mat-icon>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Select Student *</mat-label>
-                <mat-select [(ngModel)]="requestForm.studentId" required (selectionChange)="onStudentSelected()">
-                  <mat-option *ngFor="let s of filteredStaffStudents" [value]="s.id">
-                    {{ s.studentName }} <span *ngIf="s.rollNumber">(Roll: {{ s.rollNumber }})</span>
-                  </mat-option>
+          @if (!isStudentOrParent) {
+            <div class="student-select-section">
+              <div class="form-row-2">
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Select Class</mat-label>
+                  <mat-select [(ngModel)]="selectedClass" (selectionChange)="onClassChange()">
+                    <mat-option value="">-- All Classes --</mat-option>
+                    @for (c of classList; track c) {
+                      <mat-option [value]="c">{{ c }}</mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matPrefix>domain</mat-icon>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Select Student *</mat-label>
+                  <mat-select [(ngModel)]="requestForm.studentId" required (selectionChange)="onStudentSelected()">
+                    @for (s of filteredStaffStudents; track s) {
+                      <mat-option [value]="s.id">
+                        {{ s.studentName }} @if (s.rollNumber) {
+                        <span>(Roll: {{ s.rollNumber }})</span>
+                      }
+                    </mat-option>
+                  }
                 </mat-select>
                 <mat-icon matPrefix>school</mat-icon>
               </mat-form-field>
             </div>
           </div>
-
-          <div class="student-locked-badge" *ngIf="isStudentOrParent && studentProfile">
+        }
+    
+        @if (isStudentOrParent && studentProfile) {
+          <div class="student-locked-badge">
             <mat-icon>verified_user</mat-icon>
             <div>
               <div class="locked-name">{{ studentProfile.studentName }}</div>
@@ -524,275 +607,284 @@ export interface StudentGatePassItem {
               </div>
             </div>
           </div>
-
-          <!-- Reason Category -->
-          <div class="form-row-2">
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Reason Category *</mat-label>
-              <mat-select [(ngModel)]="requestForm.reasonCategory" required>
-                <mat-option *ngFor="let cat of reasonCategories" [value]="cat">{{ cat }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Parent / Guardian Relation</mat-label>
-              <mat-select [(ngModel)]="requestForm.parentRelation">
-                <mat-option value="Father">Father</mat-option>
-                <mat-option value="Mother">Mother</mat-option>
-                <mat-option value="Guardian">Local Guardian</mat-option>
-                <mat-option value="Self">Self / Senior Student</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
-          <!-- Reason Description -->
+        }
+    
+        <!-- Reason Category -->
+        <div class="form-row-2">
           <mat-form-field appearance="outline" class="w-full">
-            <mat-label>Detailed Reason for Early Exit *</mat-label>
-            <textarea 
-              matInput 
-              rows="3" 
-              [(ngModel)]="requestForm.reason" 
-              required
-              placeholder="e.g. Doctor appointment scheduled at 11:30 AM, family emergency, feeling unwell..."></textarea>
+            <mat-label>Reason Category *</mat-label>
+            <mat-select [(ngModel)]="requestForm.reasonCategory" required>
+              @for (cat of reasonCategories; track cat) {
+                <mat-option [value]="cat">{{ cat }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
-
-          <!-- Expected Return Time Toggle & Picker -->
-          <div class="return-toggle-row">
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="willReturn" (change)="onReturnToggle()">
-              <span>Student will return to campus today</span>
-            </label>
-          </div>
-
-          <div class="form-row-2" *ngIf="willReturn">
+    
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Parent / Guardian Relation</mat-label>
+            <mat-select [(ngModel)]="requestForm.parentRelation">
+              <mat-option value="Father">Father</mat-option>
+              <mat-option value="Mother">Mother</mat-option>
+              <mat-option value="Guardian">Local Guardian</mat-option>
+              <mat-option value="Self">Self / Senior Student</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+    
+        <!-- Reason Description -->
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>Detailed Reason for Early Exit *</mat-label>
+          <textarea
+            matInput
+            rows="3"
+            [(ngModel)]="requestForm.reason"
+            required
+          placeholder="e.g. Doctor appointment scheduled at 11:30 AM, family emergency, feeling unwell..."></textarea>
+        </mat-form-field>
+    
+        <!-- Expected Return Time Toggle & Picker -->
+        <div class="return-toggle-row">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="willReturn" (change)="onReturnToggle()">
+            <span>Student will return to campus today</span>
+          </label>
+        </div>
+    
+        @if (willReturn) {
+          <div class="form-row-2">
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Expected Return Time *</mat-label>
               <input matInput type="time" [(ngModel)]="expectedReturnTimeStr">
             </mat-form-field>
           </div>
-
-          <!-- Parent Contact Info -->
-          <div class="form-row-2">
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Parent / Guardian Name</mat-label>
-              <input matInput [(ngModel)]="requestForm.parentGuardianName" placeholder="Father or Mother's name">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Parent Contact Phone *</mat-label>
-              <input matInput [(ngModel)]="requestForm.parentContactNumber" placeholder="10-digit mobile number">
-            </mat-form-field>
-          </div>
-
-          <!-- Remarks / Security info for Staff -->
-          <div *ngIf="!isStudentOrParent">
+        }
+    
+        <!-- Parent Contact Info -->
+        <div class="form-row-2">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Parent / Guardian Name</mat-label>
+            <input matInput [(ngModel)]="requestForm.parentGuardianName" placeholder="Father or Mother's name">
+          </mat-form-field>
+    
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Parent Contact Phone *</mat-label>
+            <input matInput [(ngModel)]="requestForm.parentContactNumber" placeholder="10-digit mobile number">
+          </mat-form-field>
+        </div>
+    
+        <!-- Remarks / Security info for Staff -->
+        @if (!isStudentOrParent) {
+          <div>
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Security Guard Name (Optional)</mat-label>
               <input matInput [(ngModel)]="requestForm.securityGuardName" placeholder="e.g. Guard Ram Singh">
             </mat-form-field>
           </div>
-        </div>
-
-        <div class="sgp-modal-footer">
-          <button mat-button (click)="dialogRef.close()" [disabled]="submitting">Cancel</button>
-          <button mat-raised-button class="sgp-primary-btn" 
-            (click)="submitGatePass(dialogRef)" 
-            [disabled]="submitting || !requestForm.reason || (!isStudentOrParent && !requestForm.studentId)">
-            <mat-icon *ngIf="!submitting">check</mat-icon>
-            <mat-icon *ngIf="submitting" class="spinning">refresh</mat-icon>
-            {{ submitting ? 'Submitting...' : 'Submit Request' }}
-          </button>
-        </div>
+        }
       </div>
+    
+      <div class="sgp-modal-footer">
+        <button mat-button (click)="dialogRef.close()" [disabled]="submitting">Cancel</button>
+        <button mat-raised-button class="sgp-primary-btn"
+          (click)="submitGatePass(dialogRef)"
+          [disabled]="submitting || !requestForm.reason || (!isStudentOrParent && !requestForm.studentId)">
+          @if (!submitting) {
+            <mat-icon>check</mat-icon>
+          }
+          @if (submitting) {
+            <mat-icon class="spinning">refresh</mat-icon>
+          }
+          {{ submitting ? 'Submitting...' : 'Submit Request' }}
+        </button>
+      </div>
+    </div>
     </ng-template>
-
+    
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- DIGITAL GATE PASS SLIP / PRINT MODAL (Strict Light Blue Header)-->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <ng-template #slipDialogTpl let-dialogRef>
-      <div class="sgp-modal slip-modal-wrap" *ngIf="selectedPass">
-        <div class="sgp-modal-header no-print">
-          <div class="sgp-modal-icon">
-            <mat-icon>confirmation_number</mat-icon>
+      @if (selectedPass) {
+        <div class="sgp-modal slip-modal-wrap">
+          <div class="sgp-modal-header no-print">
+            <div class="sgp-modal-icon">
+              <mat-icon>confirmation_number</mat-icon>
+            </div>
+            <div class="sgp-modal-header-titles">
+              <h2 class="sgp-modal-title">Student Gate Pass Slip</h2>
+              <p class="sgp-modal-sub">
+                Pass No: <strong>{{ selectedPass.gatePassNumber }}</strong> · {{ selectedPass.studentName }}
+              </p>
+            </div>
+            <button mat-icon-button class="sgp-modal-close" (click)="dialogRef.close()">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
-          <div class="sgp-modal-header-titles">
-            <h2 class="sgp-modal-title">Student Gate Pass Slip</h2>
-            <p class="sgp-modal-sub">
-              Pass No: <strong>{{ selectedPass.gatePassNumber }}</strong> · {{ selectedPass.studentName }}
-            </p>
-          </div>
-          <button mat-icon-button class="sgp-modal-close" (click)="dialogRef.close()">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <div class="sgp-modal-body slip-body" id="printable-gate-pass">
-          <!-- Official Gate Pass Printable Card -->
-          <div class="official-slip-card">
-            <!-- Header -->
-            <div class="slip-institute-header">
-              <div class="slip-logo-box">
-                <mat-icon>school</mat-icon>
-              </div>
-              <div class="slip-institute-titles">
-                <h3>CAMPUS STUDENT GATE PASS</h3>
-                <span class="slip-sub">Official Early Exit Authorization</span>
-              </div>
-              <div class="slip-qr-box">
-                <div class="qr-mock">
-                  <mat-icon>qr_code_2</mat-icon>
-                  <span>{{ selectedPass.gatePassNumber }}</span>
+          <div class="sgp-modal-body slip-body" id="printable-gate-pass">
+            <!-- Official Gate Pass Printable Card -->
+            <div class="official-slip-card">
+              <!-- Header -->
+              <div class="slip-institute-header">
+                <div class="slip-logo-box">
+                  <mat-icon>school</mat-icon>
+                </div>
+                <div class="slip-institute-titles">
+                  <h3>CAMPUS STUDENT GATE PASS</h3>
+                  <span class="slip-sub">Official Early Exit Authorization</span>
+                </div>
+                <div class="slip-qr-box">
+                  <div class="qr-mock">
+                    <mat-icon>qr_code_2</mat-icon>
+                    <span>{{ selectedPass.gatePassNumber }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <!-- Pass Number & Status Ribbon -->
-            <div class="slip-ribbon-bar">
-              <div class="ribbon-pass-no">
-                PASS #: <strong>{{ selectedPass.gatePassNumber }}</strong>
-              </div>
-              <div class="ribbon-status" [class]="'ribbon-' + selectedPass.status.toLowerCase()">
-                {{ selectedPass.status | uppercase }}
-              </div>
-            </div>
-
-            <!-- Student Grid -->
-            <div class="slip-details-grid">
-              <div class="slip-field">
-                <label>Student Name</label>
-                <strong>{{ selectedPass.studentName }}</strong>
-              </div>
-              <div class="slip-field">
-                <label>Class & Section</label>
-                <strong>{{ selectedPass.className }} - {{ selectedPass.sectionName }}</strong>
-              </div>
-              <div class="slip-field">
-                <label>Roll Number</label>
-                <strong>{{ selectedPass.rollNumber || 'N/A' }}</strong>
-              </div>
-              <div class="slip-field">
-                <label>Parent / Guardian</label>
-                <strong>{{ selectedPass.parentGuardianName || 'Parent' }} ({{ selectedPass.parentRelation || 'Guardian' }})</strong>
-              </div>
-              <div class="slip-field">
-                <label>Parent Contact Phone</label>
-                <strong>{{ selectedPass.parentContactNumber || 'N/A' }}</strong>
-              </div>
-              <div class="slip-field">
-                <label>Exit Category</label>
-                <strong>{{ selectedPass.reasonCategory }}</strong>
-              </div>
-            </div>
-
-            <!-- Reason Full -->
-            <div class="slip-reason-box">
-              <label>Reason for Early Exit:</label>
-              <p>{{ selectedPass.reason }}</p>
-            </div>
-
-            <!-- Time Details -->
-            <div class="slip-time-grid">
-              <div class="slip-time-card">
-                <label>Authorized Out Time</label>
-                <div class="time-big">{{ selectedPass.outDateTime | date:'hh:mm a':'Asia/Kolkata' }}</div>
-                <div class="date-sub">{{ selectedPass.outDateTime | date:'EEEE, dd MMMM yyyy':'Asia/Kolkata' }}</div>
-              </div>
-              <div class="slip-time-card" *ngIf="selectedPass.expectedReturnTime">
-                <label>Expected Return Time</label>
-                <div class="time-big">{{ selectedPass.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata' }}</div>
-                <div class="date-sub">{{ selectedPass.expectedReturnTime | date:'EEEE, dd MMMM yyyy':'Asia/Kolkata' }}</div>
-              </div>
-            </div>
-
-            <!-- Approval Stamp Strip -->
-            <div class="slip-approval-strip">
-              <div class="stamp-box" *ngIf="selectedPass.status === 'Approved'">
-                <div class="stamp-badge">
-                  <mat-icon>verified</mat-icon> APPROVED
+              <!-- Pass Number & Status Ribbon -->
+              <div class="slip-ribbon-bar">
+                <div class="ribbon-pass-no">
+                  PASS #: <strong>{{ selectedPass.gatePassNumber }}</strong>
                 </div>
-                <div class="stamp-meta">
-                  Approved by: <strong>{{ selectedPass.approvedBy || 'Administration' }}</strong><br>
-                  At: {{ selectedPass.approvedAt | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}
+                <div class="ribbon-status" [class]="'ribbon-' + selectedPass.status.toLowerCase()">
+                  {{ selectedPass.status | uppercase }}
                 </div>
               </div>
-
-              <div class="stamp-box-pending" *ngIf="selectedPass.status === 'Pending'">
-                <div class="stamp-badge-pending">
-                  <mat-icon>hourglass_top</mat-icon> PENDING APPROVAL
+              <!-- Student Grid -->
+              <div class="slip-details-grid">
+                <div class="slip-field">
+                  <label>Student Name</label>
+                  <strong>{{ selectedPass.studentName }}</strong>
                 </div>
-                <div class="stamp-meta">
-                  This request is awaiting authorization from school admin/warden.
+                <div class="slip-field">
+                  <label>Class & Section</label>
+                  <strong>{{ selectedPass.className }} - {{ selectedPass.sectionName }}</strong>
+                </div>
+                <div class="slip-field">
+                  <label>Roll Number</label>
+                  <strong>{{ selectedPass.rollNumber || 'N/A' }}</strong>
+                </div>
+                <div class="slip-field">
+                  <label>Parent / Guardian</label>
+                  <strong>{{ selectedPass.parentGuardianName || 'Parent' }} ({{ selectedPass.parentRelation || 'Guardian' }})</strong>
+                </div>
+                <div class="slip-field">
+                  <label>Parent Contact Phone</label>
+                  <strong>{{ selectedPass.parentContactNumber || 'N/A' }}</strong>
+                </div>
+                <div class="slip-field">
+                  <label>Exit Category</label>
+                  <strong>{{ selectedPass.reasonCategory }}</strong>
                 </div>
               </div>
-
-              <div class="security-signature-box">
-                <div class="signature-line"></div>
-                <span>Security Officer Exit Signature</span>
+              <!-- Reason Full -->
+              <div class="slip-reason-box">
+                <label>Reason for Early Exit:</label>
+                <p>{{ selectedPass.reason }}</p>
               </div>
-            </div>
-
-            <!-- Bottom Disclaimer -->
-            <div class="slip-disclaimer">
-              * Student must present this pass at the security gate before leaving campus. Parents are notified upon gate pass generation.
+              <!-- Time Details -->
+              <div class="slip-time-grid">
+                <div class="slip-time-card">
+                  <label>Authorized Out Time</label>
+                  <div class="time-big">{{ selectedPass.outDateTime | date:'hh:mm a':'Asia/Kolkata' }}</div>
+                  <div class="date-sub">{{ selectedPass.outDateTime | date:'EEEE, dd MMMM yyyy':'Asia/Kolkata' }}</div>
+                </div>
+                @if (selectedPass.expectedReturnTime) {
+                  <div class="slip-time-card">
+                    <label>Expected Return Time</label>
+                    <div class="time-big">{{ selectedPass.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata' }}</div>
+                    <div class="date-sub">{{ selectedPass.expectedReturnTime | date:'EEEE, dd MMMM yyyy':'Asia/Kolkata' }}</div>
+                  </div>
+                }
+              </div>
+              <!-- Approval Stamp Strip -->
+              <div class="slip-approval-strip">
+                @if (selectedPass.status === 'Approved') {
+                  <div class="stamp-box">
+                    <div class="stamp-badge">
+                      <mat-icon>verified</mat-icon> APPROVED
+                    </div>
+                    <div class="stamp-meta">
+                      Approved by: <strong>{{ selectedPass.approvedBy || 'Administration' }}</strong><br>
+                      At: {{ selectedPass.approvedAt | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}
+                    </div>
+                  </div>
+                }
+                @if (selectedPass.status === 'Pending') {
+                  <div class="stamp-box-pending">
+                    <div class="stamp-badge-pending">
+                      <mat-icon>hourglass_top</mat-icon> PENDING APPROVAL
+                    </div>
+                    <div class="stamp-meta">
+                      This request is awaiting authorization from school admin/warden.
+                    </div>
+                  </div>
+                }
+                <div class="security-signature-box">
+                  <div class="signature-line"></div>
+                  <span>Security Officer Exit Signature</span>
+                </div>
+              </div>
+              <!-- Bottom Disclaimer -->
+              <div class="slip-disclaimer">
+                * Student must present this pass at the security gate before leaving campus. Parents are notified upon gate pass generation.
+              </div>
             </div>
           </div>
+          <div class="sgp-modal-footer no-print">
+            <button mat-button (click)="dialogRef.close()">Close</button>
+            <button mat-raised-button class="sgp-primary-btn" (click)="printSlip()">
+              <mat-icon>print</mat-icon> Print Gate Pass
+            </button>
+          </div>
         </div>
-
-        <div class="sgp-modal-footer no-print">
-          <button mat-button (click)="dialogRef.close()">Close</button>
-          <button mat-raised-button class="sgp-primary-btn" (click)="printSlip()">
-            <mat-icon>print</mat-icon> Print Gate Pass
-          </button>
-        </div>
-      </div>
+      }
     </ng-template>
-
+    
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- APPROVE / REJECT MODAL (Strict Light Blue Header)               -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <ng-template #reviewDialogTpl let-dialogRef>
-      <div class="sgp-modal" *ngIf="reviewingPass">
-        <div class="sgp-modal-header">
-          <div class="sgp-modal-icon" [style.background]="reviewAction === 'Approve' ? '#16a34a' : '#dc2626'">
-            <mat-icon>{{ reviewAction === 'Approve' ? 'check_circle' : 'cancel' }}</mat-icon>
+      @if (reviewingPass) {
+        <div class="sgp-modal">
+          <div class="sgp-modal-header">
+            <div class="sgp-modal-icon" [style.background]="reviewAction === 'Approve' ? '#16a34a' : '#dc2626'">
+              <mat-icon>{{ reviewAction === 'Approve' ? 'check_circle' : 'cancel' }}</mat-icon>
+            </div>
+            <div class="sgp-modal-header-titles">
+              <h2 class="sgp-modal-title">{{ reviewAction }} Gate Pass</h2>
+              <p class="sgp-modal-sub">
+                Pass: <strong>{{ reviewingPass.gatePassNumber }}</strong> · {{ reviewingPass.studentName }}
+              </p>
+            </div>
+            <button mat-icon-button class="sgp-modal-close" (click)="dialogRef.close()">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
-          <div class="sgp-modal-header-titles">
-            <h2 class="sgp-modal-title">{{ reviewAction }} Gate Pass</h2>
-            <p class="sgp-modal-sub">
-              Pass: <strong>{{ reviewingPass.gatePassNumber }}</strong> · {{ reviewingPass.studentName }}
+          <div class="sgp-modal-body">
+            <p style="color:#475569; font-size:13.5px; margin-bottom:14px;">
+              Are you sure you want to <strong>{{ reviewAction | lowercase }}</strong> the early-exit gate pass for
+              <strong>{{ reviewingPass.studentName }}</strong> ({{ reviewingPass.className }} {{ reviewingPass.sectionName }})?
             </p>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Remarks / Notes (Optional)</mat-label>
+              <input matInput [(ngModel)]="reviewRemarks" placeholder="e.g. Verified with parent via phone call">
+            </mat-form-field>
           </div>
-          <button mat-icon-button class="sgp-modal-close" (click)="dialogRef.close()">
-            <mat-icon>close</mat-icon>
-          </button>
+          <div class="sgp-modal-footer">
+            <button mat-button (click)="dialogRef.close()" [disabled]="submitting">Cancel</button>
+            <button mat-raised-button
+              [style.background]="reviewAction === 'Approve' ? '#16a34a' : '#dc2626'"
+              style="color:#fff;"
+              (click)="confirmReview(dialogRef)"
+              [disabled]="submitting">
+              <mat-icon>{{ reviewAction === 'Approve' ? 'check' : 'close' }}</mat-icon>
+              Confirm {{ reviewAction }}
+            </button>
+          </div>
         </div>
-
-        <div class="sgp-modal-body">
-          <p style="color:#475569; font-size:13.5px; margin-bottom:14px;">
-            Are you sure you want to <strong>{{ reviewAction | lowercase }}</strong> the early-exit gate pass for 
-            <strong>{{ reviewingPass.studentName }}</strong> ({{ reviewingPass.className }} {{ reviewingPass.sectionName }})?
-          </p>
-
-          <mat-form-field appearance="outline" class="w-full">
-            <mat-label>Remarks / Notes (Optional)</mat-label>
-            <input matInput [(ngModel)]="reviewRemarks" placeholder="e.g. Verified with parent via phone call">
-          </mat-form-field>
-        </div>
-
-        <div class="sgp-modal-footer">
-          <button mat-button (click)="dialogRef.close()" [disabled]="submitting">Cancel</button>
-          <button mat-raised-button 
-            [style.background]="reviewAction === 'Approve' ? '#16a34a' : '#dc2626'" 
-            style="color:#fff;" 
-            (click)="confirmReview(dialogRef)" 
-            [disabled]="submitting">
-            <mat-icon>{{ reviewAction === 'Approve' ? 'check' : 'close' }}</mat-icon>
-            Confirm {{ reviewAction }}
-          </button>
-        </div>
-      </div>
+      }
     </ng-template>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .sgp-page {
       padding: 0 0 40px;

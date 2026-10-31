@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject, computed } from '@angular/core';
+import { Component, OnInit, Inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -169,34 +169,38 @@ export interface DailyDiaryReportHeader {
             </p>
           </div>
         </div>
-
+    
         <div class="header-actions">
           <!-- View switcher tab for admins/teachers -->
-          <div class="role-view-switch" *ngIf="!isStudentOrParent">
-            <button class="switch-pill" [class.active]="activeTab === 'teacher'" (click)="setTab('teacher')">
-              <mat-icon>co_present</mat-icon>
-              <span>Teacher / Admin View</span>
-            </button>
-            <button class="switch-pill" [class.active]="activeTab === 'student'" (click)="setTab('student')">
-              <mat-icon>school</mat-icon>
-              <span>Student Portal View</span>
-            </button>
-          </div>
-
+          @if (!isStudentOrParent) {
+            <div class="role-view-switch">
+              <button class="switch-pill" [class.active]="activeTab === 'teacher'" (click)="setTab('teacher')">
+                <mat-icon>co_present</mat-icon>
+                <span>Teacher / Admin View</span>
+              </button>
+              <button class="switch-pill" [class.active]="activeTab === 'student'" (click)="setTab('student')">
+                <mat-icon>school</mat-icon>
+                <span>Student Portal View</span>
+              </button>
+            </div>
+          }
+    
           <button mat-stroked-button class="refresh-btn" (click)="refreshCurrentView()" [disabled]="loading">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
-
-          <button mat-raised-button class="create-btn" *ngIf="activeTab === 'teacher' && diarySubTab === 'worksheets'" (click)="openHomeworkDialog()">
-            <mat-icon>add_circle</mat-icon>
-            <span>Assign Homework</span>
-          </button>
+    
+          @if (activeTab === 'teacher' && diarySubTab === 'worksheets') {
+            <button mat-raised-button class="create-btn" (click)="openHomeworkDialog()">
+              <mat-icon>add_circle</mat-icon>
+              <span>Assign Homework</span>
+            </button>
+          }
         </div>
       </div>
-
+    
       <!-- TEACHER / ADMIN VIEW -->
-      <ng-container *ngIf="activeTab === 'teacher'">
+      @if (activeTab === 'teacher') {
         <!-- Sub-Navigation Bar: Daily Diary Sheet vs Check HW vs Analytics vs Worksheets -->
         <div class="diary-subtabs-nav notranslate" translate="no">
           <button class="subtab-pill" [class.active]="diarySubTab === 'daily-diary'" (click)="setDiarySubTab('daily-diary')">
@@ -246,11 +250,10 @@ export interface DailyDiaryReportHeader {
             <span class="pill-badge" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">📊 Monthly Report</span>
           </a>
         </div>
-
         <!-- =================================================================== -->
         <!-- TAB 1: DAILY CLASSWORK & HOMEWORK DIARY SHEET (REPORT READY)       -->
         <!-- =================================================================== -->
-        <ng-container *ngIf="diarySubTab === 'daily-diary'">
+        @if (diarySubTab === 'daily-diary') {
           <!-- Scope Switcher Pill Tabs -->
           <div class="scope-nav-container">
             <div class="scope-pills">
@@ -262,7 +265,6 @@ export interface DailyDiaryReportHeader {
                 <mat-icon>school</mat-icon>
                 <span>School Classes (स्कूल कक्षाएं)</span>
               </button>
-
               <button
                 type="button"
                 class="scope-pill-btn"
@@ -272,14 +274,16 @@ export interface DailyDiaryReportHeader {
                 <span>Coaching Batches (कोचिंग बैचेस)</span>
               </button>
             </div>
-
             <div class="scope-meta-badge">
               <mat-icon>verified</mat-icon>
-              <span *ngIf="diaryScope === 'school'">Scope: <strong>School Classwork &amp; Homework Diary</strong></span>
-              <span *ngIf="diaryScope === 'coaching'">Scope: <strong>Coaching Batch DPP &amp; Daily Diary</strong></span>
+              @if (diaryScope === 'school') {
+                <span>Scope: <strong>School Classwork &amp; Homework Diary</strong></span>
+              }
+              @if (diaryScope === 'coaching') {
+                <span>Scope: <strong>Coaching Batch DPP &amp; Daily Diary</strong></span>
+              }
             </div>
           </div>
-
           <!-- Filter & Action Controls Card -->
           <div class="daily-diary-filter-card">
             <div class="dd-filter-row">
@@ -287,138 +291,174 @@ export interface DailyDiaryReportHeader {
                 <mat-label>Diary Date (तारीख)</mat-label>
                 <input matInput type="date" [(ngModel)]="diaryDate" (change)="loadDailyDiary()">
               </mat-form-field>
-
-              <ng-container *ngIf="diaryScope === 'school'">
+              @if (diaryScope === 'school') {
                 <mat-form-field appearance="outline" class="dd-class-field" [class.field-locked]="isClassTeacherLocked">
                   <mat-label>Select Class (कक्षा) *</mat-label>
                   <mat-select [(ngModel)]="diaryClassId" (selectionChange)="onDiaryClassChange()" [disabled]="isClassTeacherLocked">
-                    <mat-option *ngFor="let c of classes" [value]="c.id" [class.ct-highlight-opt]="isClassTeacherOf(c)">
-                      {{c.name}}
-                      <span class="ct-pill-badge" *ngIf="isClassTeacherOf(c)">⭐ Class Teacher</span>
-                    </mat-option>
+                    @for (c of classes; track c) {
+                      <mat-option [value]="c.id" [class.ct-highlight-opt]="isClassTeacherOf(c)">
+                        {{c.name}}
+                        @if (isClassTeacherOf(c)) {
+                          <span class="ct-pill-badge">⭐ Class Teacher</span>
+                        }
+                      </mat-option>
+                    }
                   </mat-select>
                 </mat-form-field>
-
-                <mat-form-field appearance="outline" class="dd-section-field" *ngIf="diarySections.length > 0" [class.field-locked]="isClassTeacherLocked && !!teacherAssignedSectionId">
-                  <mat-label>Section (वर्ग)</mat-label>
-                  <mat-select [(ngModel)]="diarySectionId" (selectionChange)="onDiarySectionChange()" [disabled]="isClassTeacherLocked && !!teacherAssignedSectionId">
-                    <mat-option value="">All Sections</mat-option>
-                    <mat-option *ngFor="let s of diarySections" [value]="s.id">{{s.name}}</mat-option>
-                  </mat-select>
-                </mat-form-field>
-              </ng-container>
-
-              <ng-container *ngIf="diaryScope === 'coaching'">
+                @if (diarySections.length > 0) {
+                  <mat-form-field appearance="outline" class="dd-section-field" [class.field-locked]="isClassTeacherLocked && !!teacherAssignedSectionId">
+                    <mat-label>Section (वर्ग)</mat-label>
+                    <mat-select [(ngModel)]="diarySectionId" (selectionChange)="onDiarySectionChange()" [disabled]="isClassTeacherLocked && !!teacherAssignedSectionId">
+                      <mat-option value="">All Sections</mat-option>
+                      @for (s of diarySections; track s) {
+                        <mat-option [value]="s.id">{{s.name}}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                }
+              }
+              @if (diaryScope === 'coaching') {
                 <mat-form-field appearance="outline" class="dd-class-field">
                   <mat-label>Academic Class (कक्षा)</mat-label>
                   <mat-select [(ngModel)]="diaryCoachingClassId" (selectionChange)="onDiaryCoachingClassChange()">
                     <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-                    <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                    @for (c of classes; track c) {
+                      <mat-option [value]="c.id">{{c.name}}</mat-option>
+                    }
                   </mat-select>
                 </mat-form-field>
-
                 <mat-form-field appearance="outline" class="dd-batch-field">
                   <mat-label>Select Coaching Batch (बैच) *</mat-label>
                   <mat-select [(ngModel)]="diaryBatchId" (selectionChange)="onDiaryBatchChange()">
-                    <mat-option *ngIf="filteredCoachingBatches.length === 0" disabled value="">
-                      No Batches Found for this Class
+                    @if (filteredCoachingBatches.length === 0) {
+                      <mat-option disabled value="">
+                        No Batches Found for this Class
+                      </mat-option>
+                    }
+                    @for (b of filteredCoachingBatches; track b) {
+                      <mat-option [value]="b.id">
+                        {{b.name}} @if (b.subject || b.courseName) {
+                        <span>({{b.subject || b.courseName}})</span>
+                      }
                     </mat-option>
-                    <mat-option *ngFor="let b of filteredCoachingBatches" [value]="b.id">
-                      {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
-                    </mat-option>
-                  </mat-select>
-                </mat-form-field>
-              </ng-container>
-
-              <!-- Student Filter Dropdown (All Students vs Individual Student) - Expanded Full Width -->
-              <mat-form-field appearance="outline" class="dd-student-field" *ngIf="diaryStudents.length > 0">
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+            <!-- Student Filter Dropdown (All Students vs Individual Student) - Expanded Full Width -->
+            @if (diaryStudents.length > 0) {
+              <mat-form-field appearance="outline" class="dd-student-field">
                 <mat-label>Student (विद्यार्थी)</mat-label>
                 <mat-select [(ngModel)]="selectedDiaryStudentId" (selectionChange)="onDiaryStudentSelectChange()" panelClass="dd-student-select-panel">
                   <mat-option value="">👥 All Students (सम्पूर्ण {{ diaryScope === 'coaching' ? 'बैच' : 'कक्षा' }} - {{diaryStudents.length}} बच्चे)</mat-option>
-                  <mat-option *ngFor="let st of diaryStudents" [value]="st.studentId">
-                    👤 {{st.studentName}} <span *ngIf="st.rollNumber">(Roll: {{st.rollNumber}})</span>
+                  @for (st of diaryStudents; track st) {
+                    <mat-option [value]="st.studentId">
+                      👤 {{st.studentName}} @if (st.rollNumber) {
+                      <span>(Roll: {{st.rollNumber}})</span>
+                    }
                   </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <div class="dd-action-buttons">
-                <button mat-stroked-button class="quickfill-toggle-btn" (click)="commonQuickFill.isOpen = !commonQuickFill.isOpen" [disabled]="diaryScope === 'school' ? !diaryClassId : !diaryBatchId">
-                  <mat-icon>{{commonQuickFill.isOpen ? 'expand_less' : 'bolt'}}</mat-icon>
-                  <span>{{commonQuickFill.isOpen ? 'Hide Quick Fill' : 'Quick Fill Common Work'}}</span>
-                </button>
-
-                <button mat-stroked-button class="print-report-btn" (click)="openDailyDiaryReportDialog()" [disabled]="diaryStudents.length === 0">
-                  <mat-icon>print</mat-icon>
-                  <span>Print / WhatsApp Report</span>
-                </button>
-
-                <button mat-raised-button class="save-diary-btn" (click)="saveDailyDiary()" [disabled]="savingDiary || diaryStudents.length === 0">
-                  <mat-icon *ngIf="!savingDiary">save</mat-icon>
-                  <mat-icon *ngIf="savingDiary" class="spin">sync</mat-icon>
-                  <span>{{savingDiary ? 'Saving...' : 'Save Diary Sheet'}}</span>
-                </button>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+          <div class="dd-action-buttons">
+            <button mat-stroked-button class="quickfill-toggle-btn" (click)="commonQuickFill.isOpen = !commonQuickFill.isOpen" [disabled]="diaryScope === 'school' ? !diaryClassId : !diaryBatchId">
+              <mat-icon>{{commonQuickFill.isOpen ? 'expand_less' : 'bolt'}}</mat-icon>
+              <span>{{commonQuickFill.isOpen ? 'Hide Quick Fill' : 'Quick Fill Common Work'}}</span>
+            </button>
+            <button mat-stroked-button class="print-report-btn" (click)="openDailyDiaryReportDialog()" [disabled]="diaryStudents.length === 0">
+              <mat-icon>print</mat-icon>
+              <span>Print / WhatsApp Report</span>
+            </button>
+            <button mat-raised-button class="save-diary-btn" (click)="saveDailyDiary()" [disabled]="savingDiary || diaryStudents.length === 0">
+              @if (!savingDiary) {
+                <mat-icon>save</mat-icon>
+              }
+              @if (savingDiary) {
+                <mat-icon class="spin">sync</mat-icon>
+              }
+              <span>{{savingDiary ? 'Saving...' : 'Save Diary Sheet'}}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- Quick Fill Accordion Panel -->
+      @if (commonQuickFill.isOpen && (diaryScope === 'school' ? !!diaryClassId : !!diaryBatchId)) {
+        <div class="quickfill-container">
+          <div class="qf-header">
+            <div class="qf-title-box">
+              <div class="qf-icon-wrap" [class.student-mode-icon]="!!selectedDiaryStudent">
+                <mat-icon>{{selectedDiaryStudent ? 'person' : 'flash_on'}}</mat-icon>
+              </div>
+              <div>
+                @if (!selectedDiaryStudent) {
+                  <h4>1-Click Apply Common Daily Tasks to All Present Students</h4>
+                }
+                @if (selectedDiaryStudent) {
+                  <h4>
+                    1-Click Apply Task to: <span class="student-target-name">{{selectedDiaryStudent.studentName}}</span>
+                    @if (selectedDiaryStudent.rollNumber) {
+                      <span>(Roll: {{selectedDiaryStudent.rollNumber}})</span>
+                    }
+                  </h4>
+                }
+                @if (!selectedDiaryStudent) {
+                  <p>Type daily C.W. &amp; H.W. for Hindi, English, Math, etc. once, then click "Apply to All Present" to fill the entire class in 1 second.</p>
+                }
+                @if (selectedDiaryStudent) {
+                  <p>Type tasks below and click "Apply to {{selectedDiaryStudent.studentName}}" to assign customized tasks for this student.</p>
+                }
               </div>
             </div>
-          </div>
-
-          <!-- Quick Fill Accordion Panel -->
-          <div class="quickfill-container" *ngIf="commonQuickFill.isOpen && (diaryScope === 'school' ? !!diaryClassId : !!diaryBatchId)">
-            <div class="qf-header">
-              <div class="qf-title-box">
-                <div class="qf-icon-wrap" [class.student-mode-icon]="!!selectedDiaryStudent">
-                  <mat-icon>{{selectedDiaryStudent ? 'person' : 'flash_on'}}</mat-icon>
-                </div>
-                <div>
-                  <h4 *ngIf="!selectedDiaryStudent">1-Click Apply Common Daily Tasks to All Present Students</h4>
-                  <h4 *ngIf="selectedDiaryStudent">
-                    1-Click Apply Task to: <span class="student-target-name">{{selectedDiaryStudent.studentName}}</span>
-                    <span *ngIf="selectedDiaryStudent.rollNumber">(Roll: {{selectedDiaryStudent.rollNumber}})</span>
-                  </h4>
-                  <p *ngIf="!selectedDiaryStudent">Type daily C.W. &amp; H.W. for Hindi, English, Math, etc. once, then click "Apply to All Present" to fill the entire class in 1 second.</p>
-                  <p *ngIf="selectedDiaryStudent">Type tasks below and click "Apply to {{selectedDiaryStudent.studentName}}" to assign customized tasks for this student.</p>
-                </div>
-              </div>
-              <div class="qf-actions-wrap">
-                <button
-                  mat-stroked-button
-                  type="button"
-                  class="qf-ai-btn"
-                  (click)="generateDiaryWithAI()"
-                  [disabled]="loadingAiGeneration || (diaryScope === 'school' ? !diaryClassId : !diaryBatchId)"
-                  matTooltip="Agentic AI analyzes curriculum & class level to auto-fill today's C.W. & H.W. in 1 click"
+            <div class="qf-actions-wrap">
+              <button
+                mat-stroked-button
+                type="button"
+                class="qf-ai-btn"
+                (click)="generateDiaryWithAI()"
+                [disabled]="loadingAiGeneration || (diaryScope === 'school' ? !diaryClassId : !diaryBatchId)"
+                matTooltip="Agentic AI analyzes curriculum & class level to auto-fill today's C.W. & H.W. in 1 click"
                 >
-                  <mat-icon class="ai-spark-icon">{{ loadingAiGeneration ? 'sync' : 'auto_awesome' }}</mat-icon>
-                  <span>{{ loadingAiGeneration ? 'AI Generating...' : '✨ AI Auto-Fill Diary' }}</span>
-                </button>
-                <button mat-flat-button class="apply-all-btn" [class.student-mode]="!!selectedDiaryStudent" (click)="applyCommonToAllPresent()" [disabled]="diaryStudents.length === 0">
-                  <mat-icon>{{selectedDiaryStudent ? 'person_add' : 'done_all'}}</mat-icon>
-                  <span *ngIf="!selectedDiaryStudent">Apply to All Present ({{diaryEligibleForWorkCount}})</span>
-                  <span *ngIf="selectedDiaryStudent">Apply to {{selectedDiaryStudent.studentName}}</span>
-                </button>
-                <button mat-stroked-button class="qf-switch-all-btn" *ngIf="selectedDiaryStudent" (click)="selectedDiaryStudentId = ''">
+                <mat-icon class="ai-spark-icon">{{ loadingAiGeneration ? 'sync' : 'auto_awesome' }}</mat-icon>
+                <span>{{ loadingAiGeneration ? 'AI Generating...' : '✨ AI Auto-Fill Diary' }}</span>
+              </button>
+              <button mat-flat-button class="apply-all-btn" [class.student-mode]="!!selectedDiaryStudent" (click)="applyCommonToAllPresent()" [disabled]="diaryStudents.length === 0">
+                <mat-icon>{{selectedDiaryStudent ? 'person_add' : 'done_all'}}</mat-icon>
+                @if (!selectedDiaryStudent) {
+                  <span>Apply to All Present ({{diaryEligibleForWorkCount}})</span>
+                }
+                @if (selectedDiaryStudent) {
+                  <span>Apply to {{selectedDiaryStudent.studentName}}</span>
+                }
+              </button>
+              @if (selectedDiaryStudent) {
+                <button mat-stroked-button class="qf-switch-all-btn" (click)="selectedDiaryStudentId = ''">
                   <mat-icon>groups</mat-icon>
                   <span>Show All Class</span>
                 </button>
-              </div>
+              }
             </div>
-
-            <div class="qf-grids">
-              <!-- Class Work Column -->
-              <div class="qf-col">
-                <div class="qf-col-title cw-title">
-                  <div class="title-left">
-                    <mat-icon>edit_note</mat-icon>
-                    <span>CLASS WORK (C.W.)</span>
-                  </div>
-                  <button mat-button class="qf-add-btn" (click)="addSubjectTask(commonQuickFill.classWork)">
-                    <mat-icon>add</mat-icon> Add Subject
-                  </button>
+          </div>
+          <div class="qf-grids">
+            <!-- Class Work Column -->
+            <div class="qf-col">
+              <div class="qf-col-title cw-title">
+                <div class="title-left">
+                  <mat-icon>edit_note</mat-icon>
+                  <span>CLASS WORK (C.W.)</span>
                 </div>
-                <div class="qf-task-rows">
-                  <div class="qf-task-block" *ngFor="let item of commonQuickFill.classWork; let i = index">
+                <button mat-button class="qf-add-btn" (click)="addSubjectTask(commonQuickFill.classWork)">
+                  <mat-icon>add</mat-icon> Add Subject
+                </button>
+              </div>
+              <div class="qf-task-rows">
+                @for (item of commonQuickFill.classWork; track item; let i = $index) {
+                  <div class="qf-task-block">
                     <div class="qf-task-item">
                       <select class="qf-subject-select" [(ngModel)]="item.subject" (change)="onSubjectChange(item)">
-                        <option *ngFor="let s of subjectOptions" [value]="s">{{s}}</option>
+                        @for (s of subjectOptions; track s) {
+                          <option [value]="s">{{s}}</option>
+                        }
                       </select>
                       <div class="qf-task-input-wrap">
                         <input
@@ -429,7 +469,7 @@ export interface DailyDiaryReportHeader {
                           (keydown)="onTaskKeydown($event, item, cwQuickInput)"
                           (blur)="onTaskBlur(item)"
                           [placeholder]="isHindiActive(item) ? 'हिन्दी C.W. (जैसे: ki + Space दबाएं = कि)...' : 'e.g. B to U, 1 to 10 counting...'"
-                        >
+                          >
                         <div class="qf-input-badges">
                           <button
                             type="button"
@@ -440,51 +480,60 @@ export interface DailyDiaryReportHeader {
                             [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
                             <span class="notranslate" translate="no">{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
                           </button>
-                          <button
-                            type="button"
-                            class="convert-pill"
-                            *ngIf="isHindiActive(item) && hasEnglish(item.task)"
-                            (click)="convertTaskToHindi(item)"
-                            matTooltip="Convert typed English text into Hindi (हिन्दी में बदलें)">
-                            <mat-icon>translate</mat-icon>
-                            <span>बदलें</span>
-                          </button>
+                          @if (isHindiActive(item) && hasEnglish(item.task)) {
+                            <button
+                              type="button"
+                              class="convert-pill"
+                              (click)="convertTaskToHindi(item)"
+                              matTooltip="Convert typed English text into Hindi (हिन्दी में बदलें)">
+                              <mat-icon>translate</mat-icon>
+                              <span>बदलें</span>
+                            </button>
+                          }
                         </div>
                       </div>
-                      <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.classWork, i)" *ngIf="commonQuickFill.classWork.length > 1">
-                        <mat-icon>close</mat-icon>
-                      </button>
-                    </div>
-
-                    <!-- Junior Class Quick Presets for Hindi -->
-                    <div class="hindi-presets-bar" *ngIf="isHindiActive(item)">
-                      <span class="preset-label">⚡ त्वरित कार्य:</span>
-                      <div class="preset-chips-scroll">
-                        <button type="button" class="preset-chip" *ngFor="let preset of hindiPresets" (click)="applyHindiPreset(item, preset)">
-                          {{preset}}
+                      @if (commonQuickFill.classWork.length > 1) {
+                        <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.classWork, i)">
+                          <mat-icon>close</mat-icon>
                         </button>
-                      </div>
+                      }
                     </div>
+                    <!-- Junior Class Quick Presets for Hindi -->
+                    @if (isHindiActive(item)) {
+                      <div class="hindi-presets-bar">
+                        <span class="preset-label">⚡ त्वरित कार्य:</span>
+                        <div class="preset-chips-scroll">
+                          @for (preset of hindiPresets; track preset) {
+                            <button type="button" class="preset-chip" (click)="applyHindiPreset(item, preset)">
+                              {{preset}}
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    }
                   </div>
-                </div>
+                }
               </div>
-
-              <!-- Home Work Column -->
-              <div class="qf-col">
-                <div class="qf-col-title hw-title">
-                  <div class="title-left">
-                    <mat-icon>home</mat-icon>
-                    <span>HOME WORK (H.W.)</span>
-                  </div>
-                  <button mat-button class="qf-add-btn" (click)="addSubjectTask(commonQuickFill.homeWork)">
-                    <mat-icon>add</mat-icon> Add Subject
-                  </button>
+            </div>
+            <!-- Home Work Column -->
+            <div class="qf-col">
+              <div class="qf-col-title hw-title">
+                <div class="title-left">
+                  <mat-icon>home</mat-icon>
+                  <span>HOME WORK (H.W.)</span>
                 </div>
-                <div class="qf-task-rows">
-                  <div class="qf-task-block" *ngFor="let item of commonQuickFill.homeWork; let i = index">
+                <button mat-button class="qf-add-btn" (click)="addSubjectTask(commonQuickFill.homeWork)">
+                  <mat-icon>add</mat-icon> Add Subject
+                </button>
+              </div>
+              <div class="qf-task-rows">
+                @for (item of commonQuickFill.homeWork; track item; let i = $index) {
+                  <div class="qf-task-block">
                     <div class="qf-task-item">
                       <select class="qf-subject-select" [(ngModel)]="item.subject" (change)="onSubjectChange(item)">
-                        <option *ngFor="let s of subjectOptions" [value]="s">{{s}}</option>
+                        @for (s of subjectOptions; track s) {
+                          <option [value]="s">{{s}}</option>
+                        }
                       </select>
                       <div class="qf-task-input-wrap">
                         <input
@@ -495,7 +544,7 @@ export interface DailyDiaryReportHeader {
                           (keydown)="onTaskKeydown($event, item, hwQuickInput)"
                           (blur)="onTaskBlur(item)"
                           [placeholder]="isHindiActive(item) ? 'हिन्दी H.W. (e.g. C.W. जैसा, Page 14 — ki + Space)...' : 'e.g. Same as C.W., Page 14 Practice...'"
-                        >
+                          >
                         <div class="qf-input-badges">
                           <button
                             type="button"
@@ -506,105 +555,128 @@ export interface DailyDiaryReportHeader {
                             [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
                             <span class="notranslate" translate="no">{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
                           </button>
-                          <button
-                            type="button"
-                            class="convert-pill"
-                            *ngIf="isHindiActive(item) && hasEnglish(item.task)"
-                            (click)="convertTaskToHindi(item)"
-                            matTooltip="Convert typed English text into Hindi (हिन्दी में बदलें)">
-                            <mat-icon>translate</mat-icon>
-                            <span>बदलें</span>
-                          </button>
+                          @if (isHindiActive(item) && hasEnglish(item.task)) {
+                            <button
+                              type="button"
+                              class="convert-pill"
+                              (click)="convertTaskToHindi(item)"
+                              matTooltip="Convert typed English text into Hindi (हिन्दी में बदलें)">
+                              <mat-icon>translate</mat-icon>
+                              <span>बदलें</span>
+                            </button>
+                          }
                         </div>
                       </div>
-                      <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.homeWork, i)" *ngIf="commonQuickFill.homeWork.length > 1">
-                        <mat-icon>close</mat-icon>
-                      </button>
-                    </div>
-
-                    <!-- Junior Class Quick Presets for Hindi -->
-                    <div class="hindi-presets-bar" *ngIf="isHindiActive(item)">
-                      <span class="preset-label">⚡ त्वरित कार्य:</span>
-                      <div class="preset-chips-scroll">
-                        <button type="button" class="preset-chip" *ngFor="let preset of hindiPresets" (click)="applyHindiPreset(item, preset)">
-                          {{preset}}
+                      @if (commonQuickFill.homeWork.length > 1) {
+                        <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.homeWork, i)">
+                          <mat-icon>close</mat-icon>
                         </button>
-                      </div>
+                      }
                     </div>
+                    <!-- Junior Class Quick Presets for Hindi -->
+                    @if (isHindiActive(item)) {
+                      <div class="hindi-presets-bar">
+                        <span class="preset-label">⚡ त्वरित कार्य:</span>
+                        <div class="preset-chips-scroll">
+                          @for (preset of hindiPresets; track preset) {
+                            <button type="button" class="preset-chip" (click)="applyHindiPreset(item, preset)">
+                              {{preset}}
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    }
                   </div>
-                </div>
+                }
               </div>
             </div>
           </div>
-
-          <!-- Empty State: No Class Selected -->
-          <div class="empty-diary-state" *ngIf="!diaryClassId">
-            <div class="empty-icon-wrap"><mat-icon>auto_stories</mat-icon></div>
-            <h3>Select a Class to Open Daily Diary</h3>
-            <p>Please select a class (e.g. Play, Nursery, LKG, UKG, Class 1) above to load students, sync attendance, and manage daily C.W. &amp; H.W.</p>
-          </div>
-
-          <!-- Empty State: No Students Found in Selected Class -->
-          <div class="empty-diary-state" *ngIf="diaryClassId && !loadingDiary && diaryStudents.length === 0">
-            <div class="empty-icon-wrap"><mat-icon>group_off</mat-icon></div>
-            <h3>No Students Found in this Class</h3>
-            <p>No active students are enrolled in the selected class or section.</p>
-          </div>
-
-          <!-- Student Roster Diary Table -->
-          <div class="diary-roster-card" *ngIf="diaryClassId && !loadingDiary && diaryStudents.length > 0">
-            <div class="roster-header-bar">
-              <div class="roster-summary">
-                <ng-container *ngIf="!selectedDiaryStudent">
-                  <span class="count-pill all">Total Students: <strong>{{diaryStudents.length}}</strong></span>
-                  <span class="count-pill present">Present: <strong>{{diaryPresentCount}}</strong></span>
-                  <span class="count-pill late" *ngIf="diaryLateCount > 0">Late: <strong>{{diaryLateCount}}</strong></span>
-                  <span class="count-pill halfday" *ngIf="diaryHalfDayCount > 0">Half Day: <strong>{{diaryHalfDayCount}}</strong></span>
-                  <span class="count-pill absent">Absent: <strong>{{diaryAbsentCount}}</strong></span>
-                  <span class="count-pill leave" *ngIf="diaryLeaveCount > 0">Leave: <strong>{{diaryLeaveCount}}</strong></span>
-                  <span class="count-pill not-marked" *ngIf="diaryNotMarkedCount > 0">Not Marked: <strong>{{diaryNotMarkedCount}}</strong></span>
-                </ng-container>
-
-                <ng-container *ngIf="selectedDiaryStudent">
-                  <span class="count-pill student-focus">
-                    <mat-icon class="pill-ic">person</mat-icon>
-                    Selected: <strong>{{selectedDiaryStudent.studentName}}</strong>
-                    <span *ngIf="selectedDiaryStudent.rollNumber">(Roll: {{selectedDiaryStudent.rollNumber}})</span>
-                  </span>
-                  <button mat-button class="view-all-pill-btn" (click)="selectedDiaryStudentId = ''">
-                    <mat-icon>groups</mat-icon>
-                    <span>View All Class ({{diaryStudents.length}})</span>
+        </div>
+      }
+      <!-- Empty State: No Class Selected -->
+      @if (!diaryClassId) {
+        <div class="empty-diary-state">
+          <div class="empty-icon-wrap"><mat-icon>auto_stories</mat-icon></div>
+          <h3>Select a Class to Open Daily Diary</h3>
+          <p>Please select a class (e.g. Play, Nursery, LKG, UKG, Class 1) above to load students, sync attendance, and manage daily C.W. &amp; H.W.</p>
+        </div>
+      }
+      <!-- Empty State: No Students Found in Selected Class -->
+      @if (diaryClassId && !loadingDiary && diaryStudents.length === 0) {
+        <div class="empty-diary-state">
+          <div class="empty-icon-wrap"><mat-icon>group_off</mat-icon></div>
+          <h3>No Students Found in this Class</h3>
+          <p>No active students are enrolled in the selected class or section.</p>
+        </div>
+      }
+      <!-- Student Roster Diary Table -->
+      @if (diaryClassId && !loadingDiary && diaryStudents.length > 0) {
+        <div class="diary-roster-card">
+          <div class="roster-header-bar">
+            <div class="roster-summary">
+              @if (!selectedDiaryStudent) {
+                <span class="count-pill all">Total Students: <strong>{{diaryStudents.length}}</strong></span>
+                <span class="count-pill present">Present: <strong>{{diaryPresentCount}}</strong></span>
+                @if (diaryLateCount > 0) {
+                  <span class="count-pill late">Late: <strong>{{diaryLateCount}}</strong></span>
+                }
+                @if (diaryHalfDayCount > 0) {
+                  <span class="count-pill halfday">Half Day: <strong>{{diaryHalfDayCount}}</strong></span>
+                }
+                <span class="count-pill absent">Absent: <strong>{{diaryAbsentCount}}</strong></span>
+                @if (diaryLeaveCount > 0) {
+                  <span class="count-pill leave">Leave: <strong>{{diaryLeaveCount}}</strong></span>
+                }
+                @if (diaryNotMarkedCount > 0) {
+                  <span class="count-pill not-marked">Not Marked: <strong>{{diaryNotMarkedCount}}</strong></span>
+                }
+              }
+              @if (selectedDiaryStudent) {
+                <span class="count-pill student-focus">
+                  <mat-icon class="pill-ic">person</mat-icon>
+                  Selected: <strong>{{selectedDiaryStudent.studentName}}</strong>
+                  @if (selectedDiaryStudent.rollNumber) {
+                    <span>(Roll: {{selectedDiaryStudent.rollNumber}})</span>
+                  }
+                </span>
+                <button mat-button class="view-all-pill-btn" (click)="selectedDiaryStudentId = ''">
+                  <mat-icon>groups</mat-icon>
+                  <span>View All Class ({{diaryStudents.length}})</span>
+                </button>
+                <div class="student-stepper-btns">
+                  <button mat-button class="step-student-btn" (click)="prevDiaryStudent()" [disabled]="!canPrevStudent" matTooltip="Previous Student">
+                    <mat-icon>chevron_left</mat-icon> Prev
                   </button>
-                  <div class="student-stepper-btns">
-                    <button mat-button class="step-student-btn" (click)="prevDiaryStudent()" [disabled]="!canPrevStudent" matTooltip="Previous Student">
-                      <mat-icon>chevron_left</mat-icon> Prev
-                    </button>
-                    <button mat-button class="step-student-btn" (click)="nextDiaryStudent()" [disabled]="!canNextStudent" matTooltip="Next Student">
-                      Next <mat-icon>chevron_right</mat-icon>
-                    </button>
-                  </div>
-                </ng-container>
-              </div>
-              <div class="roster-help">
-                <mat-icon>verified</mat-icon>
-                <span *ngIf="!selectedDiaryStudent">Showing all students. Use the Student dropdown above to edit an individual child's tasks.</span>
-                <span *ngIf="selectedDiaryStudent">Individual Mode: Editing tasks specifically for {{selectedDiaryStudent.studentName}}.</span>
-              </div>
+                  <button mat-button class="step-student-btn" (click)="nextDiaryStudent()" [disabled]="!canNextStudent" matTooltip="Next Student">
+                    Next <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
+              }
             </div>
-
-            <div class="diary-table-responsive">
-              <table class="diary-entry-table">
-                <thead>
-                  <tr>
-                    <th style="width: 44px;" class="text-center">#</th>
-                    <th style="width: 210px;">Student Details</th>
-                    <th style="width: 125px;" class="text-center">Attendance</th>
-                    <th style="min-width: 380px;">CLASS WORK (C.W.)</th>
-                    <th style="min-width: 300px;">HOME WORK (H.W.)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let s of filteredDiaryStudents; let idx = index" [class.student-absent-row]="s.isAbsent" [class.student-notmarked-row]="!s.isAbsent && s.attendanceStatus === 'NotMarked'">
+            <div class="roster-help">
+              <mat-icon>verified</mat-icon>
+              @if (!selectedDiaryStudent) {
+                <span>Showing all students. Use the Student dropdown above to edit an individual child's tasks.</span>
+              }
+              @if (selectedDiaryStudent) {
+                <span>Individual Mode: Editing tasks specifically for {{selectedDiaryStudent.studentName}}.</span>
+              }
+            </div>
+          </div>
+          <div class="diary-table-responsive">
+            <table class="diary-entry-table">
+              <thead>
+                <tr>
+                  <th style="width: 44px;" class="text-center">#</th>
+                  <th style="width: 210px;">Student Details</th>
+                  <th style="width: 125px;" class="text-center">Attendance</th>
+                  <th style="min-width: 380px;">CLASS WORK (C.W.)</th>
+                  <th style="min-width: 300px;">HOME WORK (H.W.)</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of filteredDiaryStudents; track s; let idx = $index) {
+                  <tr [class.student-absent-row]="s.isAbsent" [class.student-notmarked-row]="!s.isAbsent && s.attendanceStatus === 'NotMarked'">
                     <td class="text-center idx-cell">{{diaryStudents.indexOf(s) + 1}}</td>
                     <td class="student-info-cell">
                       <div class="student-info-header">
@@ -619,16 +691,23 @@ export interface DailyDiaryReportHeader {
                         </div>
                       </div>
                       <div class="student-meta-sub">
-                        <span *ngIf="s.rollNumber">Roll: {{s.rollNumber}}</span>
-                        <span *ngIf="s.admissionNumber">Adm: {{s.admissionNumber}}</span>
-                        <span *ngIf="s.className">{{s.className}}</span>
+                        @if (s.rollNumber) {
+                          <span>Roll: {{s.rollNumber}}</span>
+                        }
+                        @if (s.admissionNumber) {
+                          <span>Adm: {{s.admissionNumber}}</span>
+                        }
+                        @if (s.className) {
+                          <span>{{s.className}}</span>
+                        }
                       </div>
-                      <div class="student-general-note-pill" *ngIf="s.remarks" (click)="openRemarkDialog(s)" [matTooltip]="s.remarks">
-                        <mat-icon>chat_bubble</mat-icon>
-                        <span class="note-pill-text">{{s.remarks}}</span>
-                        <mat-icon class="note-pill-del" (click)="$event.stopPropagation(); s.remarks = ''">close</mat-icon>
-                      </div>
-
+                      @if (s.remarks) {
+                        <div class="student-general-note-pill" (click)="openRemarkDialog(s)" [matTooltip]="s.remarks">
+                          <mat-icon>chat_bubble</mat-icon>
+                          <span class="note-pill-text">{{s.remarks}}</span>
+                          <mat-icon class="note-pill-del" (click)="$event.stopPropagation(); s.remarks = ''">close</mat-icon>
+                        </div>
+                      }
                       <mat-menu #studentActionMenu="matMenu">
                         <button mat-menu-item (click)="sendStudentWhatsAppFromMain(s)">
                           <mat-icon class="text-success">chat</mat-icon>
@@ -638,10 +717,12 @@ export interface DailyDiaryReportHeader {
                           <mat-icon color="primary">edit_note</mat-icon>
                           <span>{{ s.remarks ? 'Edit General Note' : 'Add General Note' }}</span>
                         </button>
-                        <button mat-menu-item *ngIf="s.remarks" (click)="s.remarks = ''">
-                          <mat-icon class="text-danger">clear</mat-icon>
-                          <span>Clear General Note</span>
-                        </button>
+                        @if (s.remarks) {
+                          <button mat-menu-item (click)="s.remarks = ''">
+                            <mat-icon class="text-danger">clear</mat-icon>
+                            <span>Clear General Note</span>
+                          </button>
+                        }
                         <button mat-menu-item (click)="clearStudentTasks(s)" [disabled]="!hasStudentTasks(s)">
                           <mat-icon class="text-danger">delete_sweep</mat-icon>
                           <span>Clear All Tasks</span>
@@ -654,9 +735,8 @@ export interface DailyDiaryReportHeader {
                         <span>{{getAttendanceLabel(s)}}</span>
                       </span>
                     </td>
-
                     <!-- If Student is Absent -->
-                    <ng-container *ngIf="s.isAbsent">
+                    @if (s.isAbsent) {
                       <td colspan="2" class="absent-banner-cell">
                         <div class="row-absent-badge-wrap">
                           <span class="roster-absent-pill" [class.leave]="s.attendanceStatus === 'Leave'">
@@ -667,10 +747,9 @@ export interface DailyDiaryReportHeader {
                           </span>
                         </div>
                       </td>
-                    </ng-container>
-
+                    }
                     <!-- If Attendance is NOT MARKED: Disabled / Locked Banner -->
-                    <ng-container *ngIf="!s.isAbsent && s.attendanceStatus === 'NotMarked'">
+                    @if (!s.isAbsent && s.attendanceStatus === 'NotMarked') {
                       <td colspan="2" class="notmarked-banner-cell">
                         <div class="row-notmarked-badge-wrap">
                           <span class="roster-notmarked-pill">
@@ -682,355 +761,389 @@ export interface DailyDiaryReportHeader {
                           </span>
                         </div>
                       </td>
-                    </ng-container>
-
+                    }
                     <!-- If Student is Present / Late (Attending) -->
-                    <ng-container *ngIf="!s.isAbsent && s.attendanceStatus !== 'NotMarked'">
+                    @if (!s.isAbsent && s.attendanceStatus !== 'NotMarked') {
                       <!-- C.W. Cell -->
                       <td class="tasks-entry-cell">
                         <div class="entry-task-list">
-                          <div class="entry-task-block" *ngFor="let cw of s.classWork; let cIdx = index">
-                            <div class="entry-task-row">
-                              <select class="entry-sub-select" [(ngModel)]="cw.subject" (change)="onSubjectChange(cw)">
-                                <option *ngFor="let opt of subjectOptions" [value]="opt">{{opt}}</option>
-                              </select>
-                              <span class="task-arrow">&rarr;</span>
-                              <div class="entry-input-wrap">
-                                <input
-                                  #cwRowInput
-                                  type="text"
-                                  class="entry-task-input"
-                                  [(ngModel)]="cw.task"
-                                  (keydown)="onTaskKeydown($event, cw, cwRowInput)"
-                                  (blur)="onTaskBlur(cw)"
-                                  [placeholder]="isHindiActive(cw) ? 'हिन्दी C.W. (ki + Space = कि)...' : 'Enter classwork task...'"
-                                >
+                          @for (cw of s.classWork; track cw; let cIdx = $index) {
+                            <div class="entry-task-block">
+                              <div class="entry-task-row">
+                                <select class="entry-sub-select" [(ngModel)]="cw.subject" (change)="onSubjectChange(cw)">
+                                  @for (opt of subjectOptions; track opt) {
+                                    <option [value]="opt">{{opt}}</option>
+                                  }
+                                </select>
+                                <span class="task-arrow">&rarr;</span>
+                                <div class="entry-input-wrap">
+                                  <input
+                                    #cwRowInput
+                                    type="text"
+                                    class="entry-task-input"
+                                    [(ngModel)]="cw.task"
+                                    (keydown)="onTaskKeydown($event, cw, cwRowInput)"
+                                    (blur)="onTaskBlur(cw)"
+                                    [placeholder]="isHindiActive(cw) ? 'हिन्दी C.W. (ki + Space = कि)...' : 'Enter classwork task...'"
+                                    >
+                                  <button
+                                    type="button"
+                                    class="row-lang-pill notranslate"
+                                    translate="no"
+                                    [class.active]="isHindiActive(cw)"
+                                    (click)="toggleHindiMode(cw)"
+                                    [matTooltip]="isHindiActive(cw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
+                                    <span class="notranslate" translate="no">{{isHindiActive(cw) ? '🇮🇳' : 'EN'}}</span>
+                                  </button>
+                                  @if (isHindiActive(cw) && hasEnglish(cw.task)) {
+                                    <button
+                                      type="button"
+                                      class="row-convert-pill"
+                                      (click)="convertTaskToHindi(cw)"
+                                      matTooltip="Convert to Hindi (हिन्दी में बदलें)">
+                                      अ
+                                    </button>
+                                  }
+                                </div>
+                                <!-- Subject-wise C.W. Note / Status Button -->
                                 <button
                                   type="button"
-                                  class="row-lang-pill notranslate"
-                                  translate="no"
-                                  [class.active]="isHindiActive(cw)"
-                                  (click)="toggleHindiMode(cw)"
-                                  [matTooltip]="isHindiActive(cw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
-                                  <span class="notranslate" translate="no">{{isHindiActive(cw) ? '🇮🇳' : 'EN'}}</span>
+                                  class="cw-sub-note-btn"
+                                  [class.has-note]="cw.statusRemark"
+                                  [ngClass]="getCwNoteBadgeClass(cw.statusRemark)"
+                                  [matMenuTriggerFor]="cwRowNoteMenu"
+                                  matTooltip="Click to set subject-wise C.W. note (Checked, Remember, etc.)">
+                                  <span class="note-btn-label">{{ cw.statusRemark || '+ Note' }}</span>
+                                  <mat-icon class="note-btn-caret">arrow_drop_down</mat-icon>
                                 </button>
-                                <button
-                                  type="button"
-                                  class="row-convert-pill"
-                                  *ngIf="isHindiActive(cw) && hasEnglish(cw.task)"
-                                  (click)="convertTaskToHindi(cw)"
-                                  matTooltip="Convert to Hindi (हिन्दी में बदलें)">
-                                  अ
+                                <mat-menu #cwRowNoteMenu="matMenu" class="cw-note-dropdown-panel">
+                                  <button mat-menu-item (click)="cw.statusRemark = '✅ Checked'">
+                                    <span class="cw-item-opt ok">✅ Checked</span>
+                                  </button>
+                                  <button mat-menu-item (click)="cw.statusRemark = '⏳ Unchecked'">
+                                    <span class="cw-item-opt warn">⏳ Unchecked</span>
+                                  </button>
+                                  <button mat-menu-item (click)="cw.statusRemark = '🧠 Remember'">
+                                    <span class="cw-item-opt purple">🧠 Remember</span>
+                                  </button>
+                                  <button mat-menu-item (click)="cw.statusRemark = '❌ No Remember'">
+                                    <span class="cw-item-opt red">❌ No Remember</span>
+                                  </button>
+                                  <button mat-menu-item (click)="cw.statusRemark = '⭐ Very Good'">
+                                    <span class="cw-item-opt gold">⭐ Very Good</span>
+                                  </button>
+                                  <button mat-menu-item (click)="cw.statusRemark = '✍️ Needs Writing'">
+                                    <span class="cw-item-opt blue">✍️ Needs Writing</span>
+                                  </button>
+                                  <div class="cw-menu-divider"></div>
+                                  <button mat-menu-item (click)="openCustomCwNoteDialog(cw, s)">
+                                    <mat-icon color="primary">edit_note</mat-icon>
+                                    <span>Custom Note / Type...</span>
+                                  </button>
+                                  @if (cw.statusRemark) {
+                                    <button mat-menu-item (click)="cw.statusRemark = ''">
+                                      <mat-icon class="text-danger">clear</mat-icon>
+                                      <span class="text-danger">Clear Note</span>
+                                    </button>
+                                  }
+                                </mat-menu>
+                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.classWork, cIdx)">
+                                  <mat-icon>close</mat-icon>
                                 </button>
                               </div>
-
-                              <!-- Subject-wise C.W. Note / Status Button -->
-                              <button
-                                type="button"
-                                class="cw-sub-note-btn"
-                                [class.has-note]="cw.statusRemark"
-                                [ngClass]="getCwNoteBadgeClass(cw.statusRemark)"
-                                [matMenuTriggerFor]="cwRowNoteMenu"
-                                matTooltip="Click to set subject-wise C.W. note (Checked, Remember, etc.)">
-                                <span class="note-btn-label">{{ cw.statusRemark || '+ Note' }}</span>
-                                <mat-icon class="note-btn-caret">arrow_drop_down</mat-icon>
-                              </button>
-                              <mat-menu #cwRowNoteMenu="matMenu" class="cw-note-dropdown-panel">
-                                <button mat-menu-item (click)="cw.statusRemark = '✅ Checked'">
-                                  <span class="cw-item-opt ok">✅ Checked</span>
-                                </button>
-                                <button mat-menu-item (click)="cw.statusRemark = '⏳ Unchecked'">
-                                  <span class="cw-item-opt warn">⏳ Unchecked</span>
-                                </button>
-                                <button mat-menu-item (click)="cw.statusRemark = '🧠 Remember'">
-                                  <span class="cw-item-opt purple">🧠 Remember</span>
-                                </button>
-                                <button mat-menu-item (click)="cw.statusRemark = '❌ No Remember'">
-                                  <span class="cw-item-opt red">❌ No Remember</span>
-                                </button>
-                                <button mat-menu-item (click)="cw.statusRemark = '⭐ Very Good'">
-                                  <span class="cw-item-opt gold">⭐ Very Good</span>
-                                </button>
-                                <button mat-menu-item (click)="cw.statusRemark = '✍️ Needs Writing'">
-                                  <span class="cw-item-opt blue">✍️ Needs Writing</span>
-                                </button>
-                                <div class="cw-menu-divider"></div>
-                                <button mat-menu-item (click)="openCustomCwNoteDialog(cw, s)">
-                                  <mat-icon color="primary">edit_note</mat-icon>
-                                  <span>Custom Note / Type...</span>
-                                </button>
-                                <button mat-menu-item *ngIf="cw.statusRemark" (click)="cw.statusRemark = ''">
-                                  <mat-icon class="text-danger">clear</mat-icon>
-                                  <span class="text-danger">Clear Note</span>
-                                </button>
-                              </mat-menu>
-
-                              <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.classWork, cIdx)">
-                                <mat-icon>close</mat-icon>
-                              </button>
+                              @if (isHindiActive(cw) && !cw.task) {
+                                <div class="row-mini-presets">
+                                  @for (p of hindiMiniPresets; track p) {
+                                    <button type="button" class="mini-chip" (click)="applyHindiPreset(cw, p)">{{p}}</button>
+                                  }
+                                </div>
+                              }
                             </div>
-                            <div class="row-mini-presets" *ngIf="isHindiActive(cw) && !cw.task">
-                              <button type="button" class="mini-chip" *ngFor="let p of hindiMiniPresets" (click)="applyHindiPreset(cw, p)">{{p}}</button>
-                            </div>
-                          </div>
+                          }
                         </div>
                         <button type="button" class="add-sub-link-btn" (click)="addSubjectTask(s.classWork)">
                           <mat-icon>add</mat-icon>
                           <span>Add Subject</span>
                         </button>
                       </td>
-
                       <!-- H.W. Cell -->
                       <td class="tasks-entry-cell">
                         <div class="entry-task-list">
-                          <div class="entry-task-block" *ngFor="let hw of s.homeWork; let hIdx = index">
-                            <div class="entry-task-row">
-                              <select class="entry-sub-select" [(ngModel)]="hw.subject" (change)="onSubjectChange(hw)">
-                                <option *ngFor="let opt of subjectOptions" [value]="opt">{{opt}}</option>
-                              </select>
-                              <span class="task-arrow">&rarr;</span>
-                              <div class="entry-input-wrap">
-                                <input
-                                  #hwRowInput
-                                  type="text"
-                                  class="entry-task-input"
-                                  [(ngModel)]="hw.task"
-                                  (keydown)="onTaskKeydown($event, hw, hwRowInput)"
-                                  (blur)="onTaskBlur(hw)"
-                                  [placeholder]="isHindiActive(hw) ? 'हिन्दी H.W. (ki + Space = कि)...' : 'Enter homework task...'"
-                                >
-                                <button
-                                  type="button"
-                                  class="row-lang-pill notranslate"
-                                  translate="no"
-                                  [class.active]="isHindiActive(hw)"
-                                  (click)="toggleHindiMode(hw)"
-                                  [matTooltip]="isHindiActive(hw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
-                                  <span class="notranslate" translate="no">{{isHindiActive(hw) ? '🇮🇳' : 'EN'}}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  class="row-convert-pill"
-                                  *ngIf="isHindiActive(hw) && hasEnglish(hw.task)"
-                                  (click)="convertTaskToHindi(hw)"
-                                  matTooltip="Convert to Hindi (हिन्दी में बदलें)">
-                                  अ
+                          @for (hw of s.homeWork; track hw; let hIdx = $index) {
+                            <div class="entry-task-block">
+                              <div class="entry-task-row">
+                                <select class="entry-sub-select" [(ngModel)]="hw.subject" (change)="onSubjectChange(hw)">
+                                  @for (opt of subjectOptions; track opt) {
+                                    <option [value]="opt">{{opt}}</option>
+                                  }
+                                </select>
+                                <span class="task-arrow">&rarr;</span>
+                                <div class="entry-input-wrap">
+                                  <input
+                                    #hwRowInput
+                                    type="text"
+                                    class="entry-task-input"
+                                    [(ngModel)]="hw.task"
+                                    (keydown)="onTaskKeydown($event, hw, hwRowInput)"
+                                    (blur)="onTaskBlur(hw)"
+                                    [placeholder]="isHindiActive(hw) ? 'हिन्दी H.W. (ki + Space = कि)...' : 'Enter homework task...'"
+                                    >
+                                  <button
+                                    type="button"
+                                    class="row-lang-pill notranslate"
+                                    translate="no"
+                                    [class.active]="isHindiActive(hw)"
+                                    (click)="toggleHindiMode(hw)"
+                                    [matTooltip]="isHindiActive(hw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
+                                    <span class="notranslate" translate="no">{{isHindiActive(hw) ? '🇮🇳' : 'EN'}}</span>
+                                  </button>
+                                  @if (isHindiActive(hw) && hasEnglish(hw.task)) {
+                                    <button
+                                      type="button"
+                                      class="row-convert-pill"
+                                      (click)="convertTaskToHindi(hw)"
+                                      matTooltip="Convert to Hindi (हिन्दी में बदलें)">
+                                      अ
+                                    </button>
+                                  }
+                                </div>
+                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.homeWork, hIdx)">
+                                  <mat-icon>close</mat-icon>
                                 </button>
                               </div>
-                              <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.homeWork, hIdx)">
-                                <mat-icon>close</mat-icon>
-                              </button>
+                              @if (hw.teacherName) {
+                                <div class="hw-entry-meta">
+                                  <span>Assigned by {{hw.teacherName}}</span>
+                                </div>
+                              }
+                              @if (isHindiActive(hw) && !hw.task) {
+                                <div class="row-mini-presets">
+                                  @for (p of hindiMiniPresets; track p) {
+                                    <button type="button" class="mini-chip" (click)="applyHindiPreset(hw, p)">{{p}}</button>
+                                  }
+                                </div>
+                              }
                             </div>
-                            <div class="hw-entry-meta" *ngIf="hw.teacherName">
-                              <span>Assigned by {{hw.teacherName}}</span>
-                            </div>
-                            <div class="row-mini-presets" *ngIf="isHindiActive(hw) && !hw.task">
-                              <button type="button" class="mini-chip" *ngFor="let p of hindiMiniPresets" (click)="applyHindiPreset(hw, p)">{{p}}</button>
-                            </div>
-                          </div>
+                          }
                         </div>
                         <button type="button" class="add-sub-link-btn" (click)="addSubjectTask(s.homeWork)">
                           <mat-icon>add</mat-icon>
                           <span>Add Subject</span>
                         </button>
                       </td>
-                    </ng-container>
-
-
+                    }
                   </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Bottom Floating Action Bar -->
-            <div class="diary-bottom-action-bar">
-              <div class="bottom-left-summary">
-                <span *ngIf="!selectedDiaryStudent">
-                  Showing <strong>{{diaryStudents.length}}</strong> students &bull; 
+                }
+              </tbody>
+            </table>
+          </div>
+          <!-- Bottom Floating Action Bar -->
+          <div class="diary-bottom-action-bar">
+            <div class="bottom-left-summary">
+              @if (!selectedDiaryStudent) {
+                <span>
+                  Showing <strong>{{diaryStudents.length}}</strong> students &bull;
                   <strong>{{diaryPresentCount}}</strong> Present
-                  <span *ngIf="diaryLateCount > 0"> &bull; <strong>{{diaryLateCount}}</strong> Late</span>
-                  <span *ngIf="diaryHalfDayCount > 0"> &bull; <strong>{{diaryHalfDayCount}}</strong> Half Day</span>
-                  <span *ngIf="diaryNotMarkedCount > 0"> &bull; <strong>{{diaryNotMarkedCount}}</strong> Not Marked</span>
+                  @if (diaryLateCount > 0) {
+                    <span> &bull; <strong>{{diaryLateCount}}</strong> Late</span>
+                  }
+                  @if (diaryHalfDayCount > 0) {
+                    <span> &bull; <strong>{{diaryHalfDayCount}}</strong> Half Day</span>
+                  }
+                  @if (diaryNotMarkedCount > 0) {
+                    <span> &bull; <strong>{{diaryNotMarkedCount}}</strong> Not Marked</span>
+                  }
                   &bull; <strong class="text-red">{{diaryAbsentCount}}</strong> Absent
-                  <span *ngIf="diaryLeaveCount > 0"> &bull; <strong class="text-purple">{{diaryLeaveCount}}</strong> Leave</span>
+                  @if (diaryLeaveCount > 0) {
+                    <span> &bull; <strong class="text-purple">{{diaryLeaveCount}}</strong> Leave</span>
+                  }
                 </span>
-                <span *ngIf="selectedDiaryStudent">Showing student: <strong>{{selectedDiaryStudent.studentName}}</strong> (1 of {{diaryStudents.length}} in class)</span>
-              </div>
-              <div class="bottom-right-actions">
-                <button mat-stroked-button class="print-report-btn" (click)="openDailyDiaryReportDialog()">
-                  <mat-icon>print</mat-icon>
-                  <span>Print / WhatsApp Report</span>
-                </button>
-                <button mat-raised-button class="save-diary-btn" (click)="saveDailyDiary()" [disabled]="savingDiary">
-                  <mat-icon *ngIf="!savingDiary">save</mat-icon>
-                  <mat-icon *ngIf="savingDiary" class="spin">sync</mat-icon>
-                  <span>{{savingDiary ? 'Saving...' : 'Save All Changes'}}</span>
-                </button>
-              </div>
+              }
+              @if (selectedDiaryStudent) {
+                <span>Showing student: <strong>{{selectedDiaryStudent.studentName}}</strong> (1 of {{diaryStudents.length}} in class)</span>
+              }
             </div>
-          </div>
-        </ng-container>
-
-        <!-- =================================================================== -->
-        <!-- TAB: CHECK HOMEWORK (SAME-DAY / NEXT-DAY / BACK-DATED VERIFICATION) -->
-        <!-- =================================================================== -->
-        <ng-container *ngIf="diarySubTab === 'check-hw'">
-          <app-hw-check-panel
-            [classes]="classes"
-            [classId]="diaryClassId"
-            [sectionId]="diarySectionId"
-            [isClassTeacherLocked]="isClassTeacherLocked"
-            [teacherAssignedSectionId]="teacherAssignedSectionId"
-            (openReport)="openReportFromCheckHw($event)"
-            (saved)="onHwCheckSaved()">
-          </app-hw-check-panel>
-        </ng-container>
-
-        <!-- =================================================================== -->
-        <!-- TAB: HOMEWORK COMPLETION ANALYTICS & DEFAULTER LIST                -->
-        <!-- =================================================================== -->
-        <ng-container *ngIf="diarySubTab === 'hw-analytics'">
-          <app-hw-analytics-panel
-            [classes]="classes"
-            [classId]="diaryClassId"
-            [sectionId]="diarySectionId"
-            [isClassTeacherLocked]="isClassTeacherLocked"
-            [teacherAssignedSectionId]="teacherAssignedSectionId">
-          </app-hw-analytics-panel>
-        </ng-container>
-
-        <!-- =================================================================== -->
-        <!-- TAB 2: WORKSHEETS & ASSIGNMENTS (HIGHER CLASSES / DIGITAL COPY)    -->
-        <!-- =================================================================== -->
-        <ng-container *ngIf="diarySubTab === 'worksheets'">
-        <!-- Stats Bar -->
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon-wrap blue"><mat-icon>assignment</mat-icon></div>
-            <div class="stat-details">
-              <div class="stat-value">{{stats.totalActive}}</div>
-              <div class="stat-label">Active Assignments</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon-wrap amber"><mat-icon>alarm</mat-icon></div>
-            <div class="stat-details">
-              <div class="stat-value">{{stats.dueToday}}</div>
-              <div class="stat-label">Due Today</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon-wrap green"><mat-icon>today</mat-icon></div>
-            <div class="stat-details">
-              <div class="stat-value">{{stats.assignedToday}}</div>
-              <div class="stat-label">Assigned Today</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon-wrap purple"><mat-icon>task_alt</mat-icon></div>
-            <div class="stat-details">
-              <div class="stat-value">{{stats.completed}}</div>
-              <div class="stat-label">Completed Tasks</div>
+            <div class="bottom-right-actions">
+              <button mat-stroked-button class="print-report-btn" (click)="openDailyDiaryReportDialog()">
+                <mat-icon>print</mat-icon>
+                <span>Print / WhatsApp Report</span>
+              </button>
+              <button mat-raised-button class="save-diary-btn" (click)="saveDailyDiary()" [disabled]="savingDiary">
+                @if (!savingDiary) {
+                  <mat-icon>save</mat-icon>
+                }
+                @if (savingDiary) {
+                  <mat-icon class="spin">sync</mat-icon>
+                }
+                <span>{{savingDiary ? 'Saving...' : 'Save All Changes'}}</span>
+              </button>
             </div>
           </div>
         </div>
-
-        <!-- Scope Switcher Pill Tabs -->
-        <div class="scope-nav-container">
-          <div class="scope-pills">
-            <button
-              type="button"
-              class="scope-pill-btn"
-              [class.active]="worksheetScope === 'school'"
-              (click)="setWorksheetScope('school')">
-              <mat-icon>school</mat-icon>
-              <span>School Classes (स्कूल कक्षाएं)</span>
-            </button>
-
-            <button
-              type="button"
-              class="scope-pill-btn"
-              [class.active]="worksheetScope === 'coaching'"
-              (click)="setWorksheetScope('coaching')">
-              <mat-icon>groups</mat-icon>
-              <span>Coaching Batches (कोचिंग बैचेस)</span>
-            </button>
-          </div>
-
-          <div class="scope-meta-badge">
-            <mat-icon>assignment</mat-icon>
-            <span *ngIf="worksheetScope === 'school'">Scope: <strong>School Class Assignments</strong></span>
-            <span *ngIf="worksheetScope === 'coaching'">Scope: <strong>Coaching Batch DPPs &amp; Practice Sheets</strong></span>
+      }
+    }
+    <!-- =================================================================== -->
+    <!-- TAB: CHECK HOMEWORK (SAME-DAY / NEXT-DAY / BACK-DATED VERIFICATION) -->
+    <!-- =================================================================== -->
+    @if (diarySubTab === 'check-hw') {
+      <app-hw-check-panel
+        [classes]="classes"
+        [classId]="diaryClassId"
+        [sectionId]="diarySectionId"
+        [isClassTeacherLocked]="isClassTeacherLocked"
+        [teacherAssignedSectionId]="teacherAssignedSectionId"
+        (openReport)="openReportFromCheckHw($event)"
+        (saved)="onHwCheckSaved()">
+      </app-hw-check-panel>
+    }
+    <!-- =================================================================== -->
+    <!-- TAB: HOMEWORK COMPLETION ANALYTICS & DEFAULTER LIST                -->
+    <!-- =================================================================== -->
+    @if (diarySubTab === 'hw-analytics') {
+      <app-hw-analytics-panel
+        [classes]="classes"
+        [classId]="diaryClassId"
+        [sectionId]="diarySectionId"
+        [isClassTeacherLocked]="isClassTeacherLocked"
+        [teacherAssignedSectionId]="teacherAssignedSectionId">
+      </app-hw-analytics-panel>
+    }
+    <!-- =================================================================== -->
+    <!-- TAB 2: WORKSHEETS & ASSIGNMENTS (HIGHER CLASSES / DIGITAL COPY)    -->
+    <!-- =================================================================== -->
+    @if (diarySubTab === 'worksheets') {
+      <!-- Stats Bar -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon-wrap blue"><mat-icon>assignment</mat-icon></div>
+          <div class="stat-details">
+            <div class="stat-value">{{stats.totalActive}}</div>
+            <div class="stat-label">Active Assignments</div>
           </div>
         </div>
-
-        <!-- Filter Bar -->
-        <div class="filter-card">
-          <div class="filter-row">
-            <ng-container *ngIf="worksheetScope === 'school'">
+        <div class="stat-card">
+          <div class="stat-icon-wrap amber"><mat-icon>alarm</mat-icon></div>
+          <div class="stat-details">
+            <div class="stat-value">{{stats.dueToday}}</div>
+            <div class="stat-label">Due Today</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrap green"><mat-icon>today</mat-icon></div>
+          <div class="stat-details">
+            <div class="stat-value">{{stats.assignedToday}}</div>
+            <div class="stat-label">Assigned Today</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrap purple"><mat-icon>task_alt</mat-icon></div>
+          <div class="stat-details">
+            <div class="stat-value">{{stats.completed}}</div>
+            <div class="stat-label">Completed Tasks</div>
+          </div>
+        </div>
+      </div>
+      <!-- Scope Switcher Pill Tabs -->
+      <div class="scope-nav-container">
+        <div class="scope-pills">
+          <button
+            type="button"
+            class="scope-pill-btn"
+            [class.active]="worksheetScope === 'school'"
+            (click)="setWorksheetScope('school')">
+            <mat-icon>school</mat-icon>
+            <span>School Classes (स्कूल कक्षाएं)</span>
+          </button>
+          <button
+            type="button"
+            class="scope-pill-btn"
+            [class.active]="worksheetScope === 'coaching'"
+            (click)="setWorksheetScope('coaching')">
+            <mat-icon>groups</mat-icon>
+            <span>Coaching Batches (कोचिंग बैचेस)</span>
+          </button>
+        </div>
+        <div class="scope-meta-badge">
+          <mat-icon>assignment</mat-icon>
+          @if (worksheetScope === 'school') {
+            <span>Scope: <strong>School Class Assignments</strong></span>
+          }
+          @if (worksheetScope === 'coaching') {
+            <span>Scope: <strong>Coaching Batch DPPs &amp; Practice Sheets</strong></span>
+          }
+        </div>
+      </div>
+      <!-- Filter Bar -->
+      <div class="filter-card">
+        <div class="filter-row">
+          @if (worksheetScope === 'school') {
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Filter by Class</mat-label>
+              <mat-select [(ngModel)]="filterClassId" (selectionChange)="onClassChange()">
+                <mat-option value="">All Classes</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{c.name}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            @if (availableSections.length > 0) {
               <mat-form-field appearance="outline" class="filter-field">
-                <mat-label>Filter by Class</mat-label>
-                <mat-select [(ngModel)]="filterClassId" (selectionChange)="onClassChange()">
-                  <mat-option value="">All Classes</mat-option>
-                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="filter-field" *ngIf="availableSections.length > 0">
                 <mat-label>Section</mat-label>
                 <mat-select [(ngModel)]="filterSectionId" (selectionChange)="loadHomework()">
                   <mat-option value="">All Sections</mat-option>
-                  <mat-option *ngFor="let s of availableSections" [value]="s.id">{{s.name}}</mat-option>
+                  @for (s of availableSections; track s) {
+                    <mat-option [value]="s.id">{{s.name}}</mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
-            </ng-container>
-
-            <ng-container *ngIf="worksheetScope === 'coaching'">
-              <mat-form-field appearance="outline" class="filter-field">
-                <mat-label>Academic Class (कक्षा)</mat-label>
-                <mat-select [(ngModel)]="filterCoachingClassId" (selectionChange)="onWorksheetCoachingClassChange()">
-                  <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="filter-field">
-                <mat-label>Filter by Batch</mat-label>
-                <mat-select [(ngModel)]="filterBatchId" (selectionChange)="loadHomework()">
-                  <mat-option value="">All Batches</mat-option>
-                  <mat-option *ngFor="let b of filteredWorksheetBatches" [value]="b.id">{{b.name}}</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </ng-container>
-
+            }
+          }
+          @if (worksheetScope === 'coaching') {
             <mat-form-field appearance="outline" class="filter-field">
-              <mat-label>Status</mat-label>
-              <mat-select [(ngModel)]="filterStatus" (selectionChange)="loadHomework()">
-                <mat-option value="">All Statuses</mat-option>
-                <mat-option value="Active">Active</mat-option>
-                <mat-option value="Completed">Completed</mat-option>
-                <mat-option value="Archived">Archived</mat-option>
+              <mat-label>Academic Class (कक्षा)</mat-label>
+              <mat-select [(ngModel)]="filterCoachingClassId" (selectionChange)="onWorksheetCoachingClassChange()">
+                <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{c.name}}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="filter-field">
-              <mat-label>Search Title / Subject</mat-label>
-              <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadHomework()">
+              <mat-label>Filter by Batch</mat-label>
+              <mat-select [(ngModel)]="filterBatchId" (selectionChange)="loadHomework()">
+                <mat-option value="">All Batches</mat-option>
+                @for (b of filteredWorksheetBatches; track b) {
+                  <mat-option [value]="b.id">{{b.name}}</mat-option>
+                }
+              </mat-select>
             </mat-form-field>
-
-            <div class="view-toggle">
-              <button mat-icon-button [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Grid View">
-                <mat-icon>grid_view</mat-icon>
-              </button>
-              <button mat-icon-button [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table View">
-                <mat-icon>format_list_bulleted</mat-icon>
-              </button>
-            </div>
+          }
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="filterStatus" (selectionChange)="loadHomework()">
+              <mat-option value="">All Statuses</mat-option>
+              <mat-option value="Active">Active</mat-option>
+              <mat-option value="Completed">Completed</mat-option>
+              <mat-option value="Archived">Archived</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Search Title / Subject</mat-label>
+            <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadHomework()">
+          </mat-form-field>
+          <div class="view-toggle">
+            <button mat-icon-button [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Grid View">
+              <mat-icon>grid_view</mat-icon>
+            </button>
+            <button mat-icon-button [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table View">
+              <mat-icon>format_list_bulleted</mat-icon>
+            </button>
           </div>
         </div>
-
-        <!-- Empty State -->
-        <div class="empty-state" *ngIf="!loading && filteredItems.length === 0">
+      </div>
+      <!-- Empty State -->
+      @if (!loading && filteredItems.length === 0) {
+        <div class="empty-state">
           <div class="empty-icon-wrap"><mat-icon>menu_book</mat-icon></div>
           <h3>No Homework Assigned</h3>
           <p>No homework tasks found matching the selected filters. Click "Assign Homework" to post a new worksheet or assignment.</p>
@@ -1038,52 +1151,61 @@ export interface DailyDiaryReportHeader {
             <mat-icon>add</mat-icon> Assign First Homework
           </button>
         </div>
-
-        <!-- GRID VIEW -->
-        <div class="hw-grid" *ngIf="!loading && viewMode==='grid' && filteredItems.length > 0">
-          <div class="hw-card" *ngFor="let h of filteredItems">
-            <div class="hw-card-top">
-              <span class="subject-badge">{{h.subjectName || 'General'}}</span>
-              <div class="top-badges">
-                <span class="submissions-badge" (click)="openSubmissionsRoster(h)" matTooltip="View Student Submissions">
-                  <mat-icon>task</mat-icon> {{h.totalSubmissions || 0}} Submissions
-                </span>
-                <span class="status-pill" [ngClass]="h.status.toLowerCase()">{{h.status}}</span>
-              </div>
-            </div>
-
-            <h3 class="hw-title">{{h.title}}</h3>
-
-            <div class="hw-meta-chips">
-              <span class="meta-chip class-chip" *ngIf="h.className">
-                <mat-icon>domain</mat-icon>
-                {{h.className}}<span *ngIf="h.sectionName"> ({{h.sectionName}})</span>
-              </span>
-              <span class="meta-chip batch-chip" *ngIf="!h.className && h.batchName">
-                <mat-icon>class</mat-icon> {{h.batchName}}
-              </span>
-              <span class="meta-chip teacher-chip" *ngIf="h.teacherName">
-                <mat-icon>person</mat-icon> {{h.teacherName}}
-              </span>
-              <span class="meta-chip time-chip" *ngIf="h.estimatedMinutes">
-                <mat-icon>timer</mat-icon> {{h.estimatedMinutes}} min
-              </span>
-            </div>
-
-            <p class="hw-desc">{{h.description}}</p>
-
-            <!-- Attachment / Worksheet file button if attached -->
-            <div class="worksheet-attach-box" *ngIf="h.attachmentUrl">
-              <a [href]="getFileUrl(h.attachmentUrl)" target="_blank" class="worksheet-link" [matTooltip]="h.attachmentFileName || 'Download Worksheet / Assignment File'">
-                <mat-icon class="attach-lead-icon">attach_file</mat-icon>
-                <div class="link-texts">
-                  <span class="link-label">Worksheet / Material:</span>
-                  <span class="filename">{{h.attachmentFileName || 'Download Worksheet / Assignment File'}}</span>
+      }
+      <!-- GRID VIEW -->
+      @if (!loading && viewMode==='grid' && filteredItems.length > 0) {
+        <div class="hw-grid">
+          @for (h of filteredItems; track h) {
+            <div class="hw-card">
+              <div class="hw-card-top">
+                <span class="subject-badge">{{h.subjectName || 'General'}}</span>
+                <div class="top-badges">
+                  <span class="submissions-badge" (click)="openSubmissionsRoster(h)" matTooltip="View Student Submissions">
+                    <mat-icon>task</mat-icon> {{h.totalSubmissions || 0}} Submissions
+                  </span>
+                  <span class="status-pill" [ngClass]="h.status.toLowerCase()">{{h.status}}</span>
                 </div>
-                <mat-icon class="external-icon">open_in_new</mat-icon>
-              </a>
+              </div>
+              <h3 class="hw-title">{{h.title}}</h3>
+              <div class="hw-meta-chips">
+                @if (h.className) {
+                  <span class="meta-chip class-chip">
+                    <mat-icon>domain</mat-icon>
+                    {{h.className}}@if (h.sectionName) {
+                    <span> ({{h.sectionName}})</span>
+                  }
+                </span>
+              }
+              @if (!h.className && h.batchName) {
+                <span class="meta-chip batch-chip">
+                  <mat-icon>class</mat-icon> {{h.batchName}}
+                </span>
+              }
+              @if (h.teacherName) {
+                <span class="meta-chip teacher-chip">
+                  <mat-icon>person</mat-icon> {{h.teacherName}}
+                </span>
+              }
+              @if (h.estimatedMinutes) {
+                <span class="meta-chip time-chip">
+                  <mat-icon>timer</mat-icon> {{h.estimatedMinutes}} min
+                </span>
+              }
             </div>
-
+            <p class="hw-desc">{{h.description}}</p>
+            <!-- Attachment / Worksheet file button if attached -->
+            @if (h.attachmentUrl) {
+              <div class="worksheet-attach-box">
+                <a [href]="getFileUrl(h.attachmentUrl)" target="_blank" class="worksheet-link" [matTooltip]="h.attachmentFileName || 'Download Worksheet / Assignment File'">
+                  <mat-icon class="attach-lead-icon">attach_file</mat-icon>
+                  <div class="link-texts">
+                    <span class="link-label">Worksheet / Material:</span>
+                    <span class="filename">{{h.attachmentFileName || 'Download Worksheet / Assignment File'}}</span>
+                  </div>
+                  <mat-icon class="external-icon">open_in_new</mat-icon>
+                </a>
+              </div>
+            }
             <div class="hw-card-footer">
               <div class="hw-dates-bar">
                 <div class="date-item">
@@ -1095,7 +1217,6 @@ export interface DailyDiaryReportHeader {
                   <span class="date-val" [appIstDatetime]="h.dueDate"></span>
                 </div>
               </div>
-
               <div class="hw-actions-bar">
                 <button mat-stroked-button class="view-submissions-btn" (click)="openSubmissionsRoster(h)" matTooltip="Review Student Solutions">
                   <mat-icon>fact_check</mat-icon>
@@ -1117,27 +1238,30 @@ export interface DailyDiaryReportHeader {
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- TABLE VIEW -->
-        <div class="hw-table-wrap" *ngIf="!loading && viewMode==='table' && filteredItems.length > 0">
-          <table class="hw-table">
-            <thead>
+        }
+      </div>
+    }
+    <!-- TABLE VIEW -->
+    @if (!loading && viewMode==='table' && filteredItems.length > 0) {
+      <div class="hw-table-wrap">
+        <table class="hw-table">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Title & Description</th>
+              <th>Class / Section</th>
+              <th>Teacher</th>
+              <th>Worksheet</th>
+              <th>Submissions</th>
+              <th>Assigned Date</th>
+              <th>Due Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (h of filteredItems; track h) {
               <tr>
-                <th>Subject</th>
-                <th>Title & Description</th>
-                <th>Class / Section</th>
-                <th>Teacher</th>
-                <th>Worksheet</th>
-                <th>Submissions</th>
-                <th>Assigned Date</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let h of filteredItems">
                 <td>
                   <span class="subject-badge">{{h.subjectName}}</span>
                 </td>
@@ -1146,16 +1270,26 @@ export interface DailyDiaryReportHeader {
                   <div class="tbl-desc">{{h.description}}</div>
                 </td>
                 <td>
-                  <span *ngIf="h.className">{{h.className}}<span *ngIf="h.sectionName"> - {{h.sectionName}}</span></span>
-                  <span *ngIf="!h.className && h.batchName">{{h.batchName}}</span>
+                  @if (h.className) {
+                    <span>{{h.className}}@if (h.sectionName) {
+                      <span> - {{h.sectionName}}</span>
+                    }</span>
+                  }
+                  @if (!h.className && h.batchName) {
+                    <span>{{h.batchName}}</span>
+                  }
                 </td>
                 <td>{{h.teacherName || '—'}}</td>
                 <td>
-                  <a *ngIf="h.attachmentUrl" [href]="getFileUrl(h.attachmentUrl)" target="_blank" class="tbl-file-link" matTooltip="Open Worksheet">
-                    <mat-icon>attachment</mat-icon>
-                    <span>File</span>
-                  </a>
-                  <span *ngIf="!h.attachmentUrl" class="text-muted">—</span>
+                  @if (h.attachmentUrl) {
+                    <a [href]="getFileUrl(h.attachmentUrl)" target="_blank" class="tbl-file-link" matTooltip="Open Worksheet">
+                      <mat-icon>attachment</mat-icon>
+                      <span>File</span>
+                    </a>
+                  }
+                  @if (!h.attachmentUrl) {
+                    <span class="text-muted">—</span>
+                  }
                 </td>
                 <td>
                   <button mat-stroked-button class="tbl-submissions-btn" (click)="openSubmissionsRoster(h)">
@@ -1184,30 +1318,31 @@ export interface DailyDiaryReportHeader {
                   </div>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
-        </ng-container>
-      </ng-container>
-
-      <!-- STUDENT PORTAL VIEW (MY HOMEWORK & ASSIGNMENTS) -->
-      <ng-container *ngIf="activeTab === 'student'">
-        <div class="student-portal-banner">
-          <div class="banner-main">
-            <div class="banner-icon"><mat-icon>backpack</mat-icon></div>
-            <div class="banner-text">
-              <h3>My Homework & Assignment Solutions</h3>
-              <p>View assignments posted by your subject teachers, download worksheets, and upload your completed solution copy.</p>
-            </div>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    }
+    }
+    
+    <!-- STUDENT PORTAL VIEW (MY HOMEWORK & ASSIGNMENTS) -->
+    @if (activeTab === 'student') {
+      <div class="student-portal-banner">
+        <div class="banner-main">
+          <div class="banner-icon"><mat-icon>backpack</mat-icon></div>
+          <div class="banner-text">
+            <h3>My Homework & Assignment Solutions</h3>
+            <p>View assignments posted by your subject teachers, download worksheets, and upload your completed solution copy.</p>
           </div>
-
-          <!-- Preview as Student (Teacher/Admin view switcher: School Class / Coaching Batch -> Student) -->
-          <div class="student-preview-switcher" *ngIf="!isStudentOrParent">
+        </div>
+        <!-- Preview as Student (Teacher/Admin view switcher: School Class / Coaching Batch -> Student) -->
+        @if (!isStudentOrParent) {
+          <div class="student-preview-switcher">
             <div class="preview-badge">
               <mat-icon>school</mat-icon>
               <span>Student Preview:</span>
             </div>
-
             <div class="scope-pills" style="background:#dbeafe;padding:3px;border-radius:8px;display:inline-flex;gap:3px;">
               <button type="button" class="scope-pill-btn" [class.active]="previewScope === 'school'" (click)="setPreviewScope('school')" style="padding:4px 10px;font-size:12px;">
                 <mat-icon style="font-size:15px;width:15px;height:15px;">domain</mat-icon>
@@ -1218,91 +1353,114 @@ export interface DailyDiaryReportHeader {
                 <span>Coaching</span>
               </button>
             </div>
-
-            <ng-container *ngIf="previewScope === 'school'">
+            @if (previewScope === 'school') {
               <!-- Class Select -->
               <mat-form-field appearance="outline" class="preview-select-field class-field" [matTooltip]="(isTeacher && !isAdmin && hasAssignedClass) ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
-                <mat-label>Class (कक्षा) <span *ngIf="isTeacher && !isAdmin && hasAssignedClass">🔒</span></mat-label>
+                <mat-label>Class (कक्षा) @if (isTeacher && !isAdmin && hasAssignedClass) {
+                  <span>🔒</span>
+                }</mat-label>
                 <mat-select [(ngModel)]="previewClassId" (selectionChange)="onPreviewClassChange(true)" [disabled]="isTeacher && !isAdmin && hasAssignedClass">
-                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                  @for (c of classes; track c) {
+                    <mat-option [value]="c.id">{{c.name}}</mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
-
               <!-- Section Select -->
-              <mat-form-field appearance="outline" class="preview-select-field section-field" *ngIf="previewSections.length > 0" [matTooltip]="(isTeacher && !isAdmin && hasAssignedSection) ? '🔒 Assigned section locked' : ''">
-                <mat-label>Section (वर्ग) <span *ngIf="isTeacher && !isAdmin && hasAssignedSection">🔒</span></mat-label>
-                <mat-select [(ngModel)]="previewSectionId" (selectionChange)="onPreviewSectionChange(true)" [disabled]="isTeacher && !isAdmin && hasAssignedSection">
-                  <mat-option value="">All Sections</mat-option>
-                  <mat-option *ngFor="let s of previewSections" [value]="s.id">{{s.name}}</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </ng-container>
-
-            <ng-container *ngIf="previewScope === 'coaching'">
+              @if (previewSections.length > 0) {
+                <mat-form-field appearance="outline" class="preview-select-field section-field" [matTooltip]="(isTeacher && !isAdmin && hasAssignedSection) ? '🔒 Assigned section locked' : ''">
+                  <mat-label>Section (वर्ग) @if (isTeacher && !isAdmin && hasAssignedSection) {
+                    <span>🔒</span>
+                  }</mat-label>
+                  <mat-select [(ngModel)]="previewSectionId" (selectionChange)="onPreviewSectionChange(true)" [disabled]="isTeacher && !isAdmin && hasAssignedSection">
+                    <mat-option value="">All Sections</mat-option>
+                    @for (s of previewSections; track s) {
+                      <mat-option [value]="s.id">{{s.name}}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+            }
+            @if (previewScope === 'coaching') {
               <mat-form-field appearance="outline" class="preview-select-field class-field">
                 <mat-label>Class (कक्षा)</mat-label>
                 <mat-select [(ngModel)]="previewCoachingClassId" (selectionChange)="onPreviewCoachingClassChange(true)">
                   <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-                  <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+                  @for (c of classes; track c) {
+                    <mat-option [value]="c.id">{{c.name}}</mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
-
               <mat-form-field appearance="outline" class="preview-select-field class-field">
                 <mat-label>Coaching Batch (बैच)</mat-label>
                 <mat-select [(ngModel)]="previewBatchId" (selectionChange)="onPreviewBatchChange(true)">
-                  <mat-option *ngIf="filteredPreviewBatches.length === 0" value="" disabled>No Batches Found</mat-option>
-                  <mat-option *ngFor="let b of filteredPreviewBatches" [value]="b.id">{{b.name}}</mat-option>
+                  @if (filteredPreviewBatches.length === 0) {
+                    <mat-option value="" disabled>No Batches Found</mat-option>
+                  }
+                  @for (b of filteredPreviewBatches; track b) {
+                    <mat-option [value]="b.id">{{b.name}}</mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
-            </ng-container>
-
+            }
             <!-- Student Select -->
             <mat-form-field appearance="outline" class="preview-select-field student-field">
               <mat-label>Student (विद्यार्थी)</mat-label>
               <mat-select [(ngModel)]="selectedPreviewStudentId" (selectionChange)="onPreviewStudentChange()" [disabled]="previewStudents.length === 0">
-                <mat-option *ngIf="previewStudents.length === 0" value="">No Students Found</mat-option>
-                <mat-option *ngFor="let s of previewStudents" [value]="s.id">
-                  {{s.studentName}} <span *ngIf="s.rollNumber">(Roll: {{s.rollNumber}})</span>
+                @if (previewStudents.length === 0) {
+                  <mat-option value="">No Students Found</mat-option>
+                }
+                @for (s of previewStudents; track s) {
+                  <mat-option [value]="s.id">
+                    {{s.studentName}} @if (s.rollNumber) {
+                    <span>(Roll: {{s.rollNumber}})</span>
+                  }
                 </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
+              }
+            </mat-select>
+          </mat-form-field>
         </div>
-
-        <!-- Student Sub-Filter Tabs Bar -->
-        <div class="student-tabs-bar" *ngIf="studentHomeworks.length > 0">
-          <div class="filter-pills">
-            <button class="filter-tab-pill" [class.active]="studentFilterStatus === 'all'" (click)="studentFilterStatus = 'all'">
-              <mat-icon>assignment</mat-icon>
-              <span>All Homework ({{studentHomeworks.length}})</span>
-            </button>
-            <button class="filter-tab-pill pending" [class.active]="studentFilterStatus === 'pending'" (click)="studentFilterStatus = 'pending'">
-              <mat-icon>pending_actions</mat-icon>
-              <span>Pending Submission ({{pendingHomeworkCount}})</span>
-            </button>
-            <button class="filter-tab-pill submitted" [class.active]="studentFilterStatus === 'submitted'" (click)="studentFilterStatus = 'submitted'">
-              <mat-icon>check_circle</mat-icon>
-              <span>Submitted ({{submittedHomeworkCount}})</span>
-            </button>
-          </div>
+      }
+    </div>
+    <!-- Student Sub-Filter Tabs Bar -->
+    @if (studentHomeworks.length > 0) {
+      <div class="student-tabs-bar">
+        <div class="filter-pills">
+          <button class="filter-tab-pill" [class.active]="studentFilterStatus === 'all'" (click)="studentFilterStatus = 'all'">
+            <mat-icon>assignment</mat-icon>
+            <span>All Homework ({{studentHomeworks.length}})</span>
+          </button>
+          <button class="filter-tab-pill pending" [class.active]="studentFilterStatus === 'pending'" (click)="studentFilterStatus = 'pending'">
+            <mat-icon>pending_actions</mat-icon>
+            <span>Pending Submission ({{pendingHomeworkCount}})</span>
+          </button>
+          <button class="filter-tab-pill submitted" [class.active]="studentFilterStatus === 'submitted'" (click)="studentFilterStatus = 'submitted'">
+            <mat-icon>check_circle</mat-icon>
+            <span>Submitted ({{submittedHomeworkCount}})</span>
+          </button>
         </div>
-
-        <!-- Empty state for student -->
-        <div class="empty-state" *ngIf="!loadingStudent && filteredStudentHomeworks.length === 0">
-          <div class="empty-icon-wrap"><mat-icon>sentiment_satisfied_alt</mat-icon></div>
-          <h3>{{studentFilterStatus === 'pending' ? 'No Homework Pending!' : (studentFilterStatus === 'submitted' ? 'No Submitted Homework' : 'No Homework Assigned')}}</h3>
-          <p>{{studentFilterStatus === 'pending' ? 'Awesome! You have completed and submitted all assigned homework.' : (studentFilterStatus === 'submitted' ? 'You have not submitted any homework solutions yet.' : 'Check back later for updates from your teachers.')}}</p>
-        </div>
-
-        <!-- Student Homework Cards Grid -->
-        <div class="student-hw-grid" *ngIf="filteredStudentHomeworks.length > 0">
-          <div class="student-hw-card" *ngFor="let sh of filteredStudentHomeworks" [class.is-submitted]="sh.isSubmitted">
+      </div>
+    }
+    <!-- Empty state for student -->
+    @if (!loadingStudent && filteredStudentHomeworks.length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-wrap"><mat-icon>sentiment_satisfied_alt</mat-icon></div>
+        <h3>{{studentFilterStatus === 'pending' ? 'No Homework Pending!' : (studentFilterStatus === 'submitted' ? 'No Submitted Homework' : 'No Homework Assigned')}}</h3>
+        <p>{{studentFilterStatus === 'pending' ? 'Awesome! You have completed and submitted all assigned homework.' : (studentFilterStatus === 'submitted' ? 'You have not submitted any homework solutions yet.' : 'Check back later for updates from your teachers.')}}</p>
+      </div>
+    }
+    <!-- Student Homework Cards Grid -->
+    @if (filteredStudentHomeworks.length > 0) {
+      <div class="student-hw-grid">
+        @for (sh of filteredStudentHomeworks; track sh) {
+          <div class="student-hw-card" [class.is-submitted]="sh.isSubmitted">
             <div class="student-card-header">
               <div class="header-badges">
                 <span class="subject-badge">{{sh.subjectName}}</span>
-                <span class="meta-chip teacher-chip" *ngIf="sh.teacherName">
-                  <mat-icon>person</mat-icon> {{sh.teacherName}}
-                </span>
+                @if (sh.teacherName) {
+                  <span class="meta-chip teacher-chip">
+                    <mat-icon>person</mat-icon> {{sh.teacherName}}
+                  </span>
+                }
               </div>
               <div>
                 <span class="submission-status-pill" [ngClass]="sh.isSubmitted ? (sh.mySubmission?.status?.toLowerCase() || 'submitted') : 'pending'">
@@ -1311,64 +1469,76 @@ export interface DailyDiaryReportHeader {
                 </span>
               </div>
             </div>
-
             <h3 class="student-hw-title">{{sh.title}}</h3>
             <p class="student-hw-desc">{{sh.description}}</p>
-
             <!-- Teacher Worksheet Attached -->
-            <div class="worksheet-attach-box" *ngIf="sh.attachmentUrl">
-              <a [href]="getFileUrl(sh.attachmentUrl)" target="_blank" class="worksheet-link" [matTooltip]="sh.attachmentFileName || 'Download Assignment Material'">
-                <mat-icon class="attach-lead-icon">download_for_offline</mat-icon>
-                <div class="link-texts">
-                  <span class="link-label">Teacher's Worksheet / Questions:</span>
-                  <span class="filename">{{sh.attachmentFileName || 'Download Assignment Material'}}</span>
-                </div>
-                <mat-icon class="external-icon">open_in_new</mat-icon>
-              </a>
-            </div>
-
+            @if (sh.attachmentUrl) {
+              <div class="worksheet-attach-box">
+                <a [href]="getFileUrl(sh.attachmentUrl)" target="_blank" class="worksheet-link" [matTooltip]="sh.attachmentFileName || 'Download Assignment Material'">
+                  <mat-icon class="attach-lead-icon">download_for_offline</mat-icon>
+                  <div class="link-texts">
+                    <span class="link-label">Teacher's Worksheet / Questions:</span>
+                    <span class="filename">{{sh.attachmentFileName || 'Download Assignment Material'}}</span>
+                  </div>
+                  <mat-icon class="external-icon">open_in_new</mat-icon>
+                </a>
+              </div>
+            }
             <!-- Submission Details Card if submitted -->
-            <div class="submission-details-box" *ngIf="sh.isSubmitted && sh.mySubmission">
-              <div class="sub-header">
-                <span class="sub-label"><mat-icon>task</mat-icon> Your Submitted Solution:</span>
-                <span class="sub-date" [appIstDatetime]="sh.mySubmission.submissionDate"></span>
-              </div>
-              <div class="sub-file-row">
-                <a *ngIf="sh.mySubmission.submissionFileUrl" [href]="getFileUrl(sh.mySubmission.submissionFileUrl)" target="_blank" class="sub-file-link" [matTooltip]="sh.mySubmission.submissionFileName || 'View Solution Copy'">
-                  <mat-icon>description</mat-icon>
-                  <span class="sub-filename">{{sh.mySubmission.submissionFileName || 'View Solution Copy'}}</span>
-                  <mat-icon class="ext-sm">open_in_new</mat-icon>
-                </a>
-                <a *ngIf="!sh.mySubmission.submissionFileUrl" href="javascript:void(0)" (click)="openVerifiedInClassDetails(sh)" class="sub-file-link" [matTooltip]="isStudentOrParent ? 'Click to view verification details' : 'Click to open Daily Classwork & Homework Register'">
-                  <mat-icon>verified</mat-icon>
-                  <span class="sub-filename">{{sh.mySubmission.submissionFileName || 'Verified in Class'}}</span>
-                  <mat-icon class="ext-sm">{{isStudentOrParent ? 'info_outline' : 'arrow_forward'}}</mat-icon>
-                </a>
-              </div>
-              <div class="sub-remarks" *ngIf="sh.mySubmission.studentRemarks">
-                <strong>Your Notes:</strong> <span>{{sh.mySubmission.studentRemarks}}</span>
-              </div>
-
-              <!-- Teacher Review Feedback if graded -->
-              <div class="teacher-feedback-card" *ngIf="sh.mySubmission.status === 'Approved' || sh.mySubmission.status === 'NeedsCorrection' || sh.mySubmission.gradeOrMarks || sh.mySubmission.teacherRemarks">
-                <div class="feedback-title">
-                  <mat-icon>rate_review</mat-icon>
-                  <span>Teacher Review & Feedback</span>
-                  <span class="grade-badge" *ngIf="sh.mySubmission.gradeOrMarks">Grade: {{sh.mySubmission.gradeOrMarks}}</span>
+            @if (sh.isSubmitted && sh.mySubmission) {
+              <div class="submission-details-box">
+                <div class="sub-header">
+                  <span class="sub-label"><mat-icon>task</mat-icon> Your Submitted Solution:</span>
+                  <span class="sub-date" [appIstDatetime]="sh.mySubmission.submissionDate"></span>
                 </div>
-                <p class="feedback-text" *ngIf="sh.mySubmission.teacherRemarks">{{sh.mySubmission.teacherRemarks}}</p>
-                <small class="feedback-meta" *ngIf="sh.mySubmission.reviewedByTeacherName">
-                  Reviewed by {{sh.mySubmission.reviewedByTeacherName}}
-                </small>
+                <div class="sub-file-row">
+                  @if (sh.mySubmission.submissionFileUrl) {
+                    <a [href]="getFileUrl(sh.mySubmission.submissionFileUrl)" target="_blank" class="sub-file-link" [matTooltip]="sh.mySubmission.submissionFileName || 'View Solution Copy'">
+                      <mat-icon>description</mat-icon>
+                      <span class="sub-filename">{{sh.mySubmission.submissionFileName || 'View Solution Copy'}}</span>
+                      <mat-icon class="ext-sm">open_in_new</mat-icon>
+                    </a>
+                  }
+                  @if (!sh.mySubmission.submissionFileUrl) {
+                    <a href="javascript:void(0)" (click)="openVerifiedInClassDetails(sh)" class="sub-file-link" [matTooltip]="isStudentOrParent ? 'Click to view verification details' : 'Click to open Daily Classwork & Homework Register'">
+                      <mat-icon>verified</mat-icon>
+                      <span class="sub-filename">{{sh.mySubmission.submissionFileName || 'Verified in Class'}}</span>
+                      <mat-icon class="ext-sm">{{isStudentOrParent ? 'info_outline' : 'arrow_forward'}}</mat-icon>
+                    </a>
+                  }
+                </div>
+                @if (sh.mySubmission.studentRemarks) {
+                  <div class="sub-remarks">
+                    <strong>Your Notes:</strong> <span>{{sh.mySubmission.studentRemarks}}</span>
+                  </div>
+                }
+                <!-- Teacher Review Feedback if graded -->
+                @if (sh.mySubmission.status === 'Approved' || sh.mySubmission.status === 'NeedsCorrection' || sh.mySubmission.gradeOrMarks || sh.mySubmission.teacherRemarks) {
+                  <div class="teacher-feedback-card">
+                    <div class="feedback-title">
+                      <mat-icon>rate_review</mat-icon>
+                      <span>Teacher Review & Feedback</span>
+                      @if (sh.mySubmission.gradeOrMarks) {
+                        <span class="grade-badge">Grade: {{sh.mySubmission.gradeOrMarks}}</span>
+                      }
+                    </div>
+                    @if (sh.mySubmission.teacherRemarks) {
+                      <p class="feedback-text">{{sh.mySubmission.teacherRemarks}}</p>
+                    }
+                    @if (sh.mySubmission.reviewedByTeacherName) {
+                      <small class="feedback-meta">
+                        Reviewed by {{sh.mySubmission.reviewedByTeacherName}}
+                      </small>
+                    }
+                  </div>
+                }
               </div>
-            </div>
-
+            }
             <div class="student-card-footer">
               <div class="due-info" [class.due-alert]="!sh.isSubmitted && isDueSoon(sh.dueDate)">
                 <span class="due-lbl">Due Date:</span>
                 <span class="due-val" [appIstDatetime]="sh.dueDate"></span>
               </div>
-
               <div class="student-action">
                 <button mat-raised-button class="submit-solution-btn" (click)="openStudentSubmitDialog(sh)">
                   <mat-icon>{{sh.isSubmitted ? 'edit' : 'upload_file'}}</mat-icon>
@@ -1377,10 +1547,13 @@ export interface DailyDiaryReportHeader {
               </div>
             </div>
           </div>
-        </div>
-      </ng-container>
+        }
+      </div>
+    }
+    }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .hw-page-container { padding: 0 0 40px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; width: 100%; }
     .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: #fff; padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -5205,173 +5378,218 @@ export class HomeworkDiaryComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Form Body -->
       <div class="modal-body">
         <!-- Scope Switcher Pill Tabs -->
-        <div class="scope-nav-container" *ngIf="!isEdit">
-          <div class="scope-pills">
-            <button
-              type="button"
-              class="scope-pill-btn"
-              [class.active]="targetScope === 'school'"
-              (click)="targetScope = 'school'">
-              <mat-icon>school</mat-icon>
-              <span>School Class</span>
-            </button>
-            <button
-              type="button"
-              class="scope-pill-btn"
-              [class.active]="targetScope === 'coaching'"
-              (click)="targetScope = 'coaching'">
-              <mat-icon>groups</mat-icon>
-              <span>Coaching Batch</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="form-row" *ngIf="targetScope === 'school'">
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Class (कक्षा)</mat-label>
-            <mat-select [(ngModel)]="model.classId" (selectionChange)="onClassSelect()" [disabled]="isTeacher && !isAdmin">
-              <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
-            </mat-select>
-            <mat-hint *ngIf="isTeacher && !isAdmin" class="assigned-hint">
-              🔒 Assigned class for your teaching profile
-            </mat-hint>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field" *ngIf="dialogSections.length > 0">
-            <mat-label>Section (वर्ग)</mat-label>
-            <mat-select [(ngModel)]="model.sectionId" [disabled]="isTeacher && !isAdmin && hasAssignedSection">
-              <mat-option value="">All Sections</mat-option>
-              <mat-option *ngFor="let s of dialogSections" [value]="s.id">{{s.name}}</mat-option>
-            </mat-select>
-            <mat-hint *ngIf="isTeacher && !isAdmin && hasAssignedSection" class="assigned-hint">
-              🔒 Assigned section locked
-            </mat-hint>
-          </mat-form-field>
-        </div>
-
-        <div class="form-row" *ngIf="targetScope === 'coaching'">
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Academic Class (कक्षा)</mat-label>
-            <mat-select [(ngModel)]="dialogCoachingClassId" (selectionChange)="onDialogCoachingClassChange()">
-              <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-              <mat-option *ngFor="let c of data.classes" [value]="c.id">{{c.name}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Coaching Batch (बैच) *</mat-label>
-            <mat-select [(ngModel)]="model.batchId" required>
-              <mat-option *ngIf="filteredDialogBatches.length === 0" disabled value="">
-                No Batches Found for this Class
-              </mat-option>
-              <mat-option *ngFor="let b of filteredDialogBatches" [value]="b.id">
-                {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Subject (विषय) *</mat-label>
-            <mat-select [(ngModel)]="model.subjectName" (selectionChange)="onSubjectSelect($event.value)">
-              <mat-optgroup label="Class Curriculum Subjects" *ngIf="classSubjects.length > 0">
-                <mat-option *ngFor="let s of classSubjects" [value]="s.subjectName">
-                  ⭐ {{s.subjectName}} <span *ngIf="s.teacherName">({{s.teacherName}})</span>
-                </mat-option>
-              </mat-optgroup>
-              <mat-optgroup label="All School Subjects" *ngIf="allSubjects.length > 0">
-                <mat-option *ngFor="let s of allSubjects" [value]="s.name || s.subjectName">
-                  {{s.name || s.subjectName}} <span *ngIf="s.code">({{s.code}})</span>
-                </mat-option>
-              </mat-optgroup>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Teacher Incharge</mat-label>
-            <mat-select [(ngModel)]="model.teacherId" (selectionChange)="onTeacherSelect()" [disabled]="isTeacher && !isAdmin">
-              <mat-option value="">Select Teacher</mat-option>
-              <mat-option *ngFor="let t of data.teachers" [value]="t.id">{{t.fullName || t.name}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <mat-form-field appearance="outline" class="full-field">
-          <mat-label>Homework Title / Chapter (शीर्षक / अध्याय)</mat-label>
-          <input matInput [(ngModel)]="model.title" placeholder="e.g. Chapter 4: Quadratic Equations - Ex 4.2 Q1 to Q5" required />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-field">
-          <mat-label>Instructions & Work Details (निर्देश एवं विवरण)</mat-label>
-          <textarea matInput [(ngModel)]="model.description" rows="3" placeholder="Detail the questions to solve, textbook pages, diagrams or notes to prepare..." required></textarea>
-        </mat-form-field>
-
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Submission Due Date & Time (IST) *</mat-label>
-            <input matInput type="datetime-local" [(ngModel)]="dueDateStr" (ngModelChange)="onDueDateChange()" required />
-            <mat-hint class="ist-time-hint" *ngIf="dueDatePreviewIso">
-              <span class="ist-badge">
-                <mat-icon class="ist-ic">schedule</mat-icon>
-                IST: <strong [appIstDatetime]="dueDatePreviewIso" format="datetime"></strong>
-              </span>
-            </mat-hint>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Est. Duration (Minutes)</mat-label>
-            <input matInput type="number" [(ngModel)]="model.estimatedMinutes" placeholder="30" />
-          </mat-form-field>
-        </div>
-
-        <!-- File Upload Section for Worksheet / PDF / Docs -->
-        <div class="upload-section">
-          <div class="upload-header">
-            <mat-icon>cloud_upload</mat-icon>
-            <span class="upload-title">Attach Worksheet or Question Paper (PDF / Image / Word)</span>
-          </div>
-
-          <div class="upload-box" *ngIf="!model.attachmentUrl">
-            <input type="file" #fileInput (change)="onFileSelected($event)" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none" />
-            <button mat-stroked-button type="button" class="choose-file-btn" (click)="fileInput.click()" [disabled]="uploading">
-              <mat-icon>upload_file</mat-icon>
-              <span>{{uploading ? 'Uploading File...' : 'Choose Worksheet / File'}}</span>
-            </button>
-            <span class="upload-hint">Supported: PDF, JPG, PNG, DOCX (Max: 30 MB)</span>
-          </div>
-
-          <div class="attached-file-card" *ngIf="model.attachmentUrl">
-            <div class="file-icon-wrap"><mat-icon>task</mat-icon></div>
-            <div class="file-details">
-              <div class="file-name">{{model.attachmentFileName || 'Worksheet File Attached'}}</div>
-              <a [href]="getFileUrl(model.attachmentUrl)" target="_blank" class="preview-link">
-                Preview Attached File <mat-icon>open_in_new</mat-icon>
-              </a>
+        @if (!isEdit) {
+          <div class="scope-nav-container">
+            <div class="scope-pills">
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="targetScope === 'school'"
+                (click)="targetScope = 'school'">
+                <mat-icon>school</mat-icon>
+                <span>School Class</span>
+              </button>
+              <button
+                type="button"
+                class="scope-pill-btn"
+                [class.active]="targetScope === 'coaching'"
+                (click)="targetScope = 'coaching'">
+                <mat-icon>groups</mat-icon>
+                <span>Coaching Batch</span>
+              </button>
             </div>
-            <button mat-icon-button type="button" (click)="removeAttachment()" matTooltip="Remove File" class="remove-btn">
-              <mat-icon>delete_outline</mat-icon>
-            </button>
           </div>
-
-          <mat-progress-bar mode="indeterminate" *ngIf="uploading"></mat-progress-bar>
+        }
+    
+        @if (targetScope === 'school') {
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Class (कक्षा)</mat-label>
+              <mat-select [(ngModel)]="model.classId" (selectionChange)="onClassSelect()" [disabled]="isTeacher && !isAdmin">
+                @for (c of data.classes; track c) {
+                  <mat-option [value]="c.id">{{c.name}}</mat-option>
+                }
+              </mat-select>
+              @if (isTeacher && !isAdmin) {
+                <mat-hint class="assigned-hint">
+                  🔒 Assigned class for your teaching profile
+                </mat-hint>
+              }
+            </mat-form-field>
+            @if (dialogSections.length > 0) {
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>Section (वर्ग)</mat-label>
+                <mat-select [(ngModel)]="model.sectionId" [disabled]="isTeacher && !isAdmin && hasAssignedSection">
+                  <mat-option value="">All Sections</mat-option>
+                  @for (s of dialogSections; track s) {
+                    <mat-option [value]="s.id">{{s.name}}</mat-option>
+                  }
+                </mat-select>
+                @if (isTeacher && !isAdmin && hasAssignedSection) {
+                  <mat-hint class="assigned-hint">
+                    🔒 Assigned section locked
+                  </mat-hint>
+                }
+              </mat-form-field>
+            }
+          </div>
+        }
+    
+        @if (targetScope === 'coaching') {
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Academic Class (कक्षा)</mat-label>
+              <mat-select [(ngModel)]="dialogCoachingClassId" (selectionChange)="onDialogCoachingClassChange()">
+                <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
+                @for (c of data.classes; track c) {
+                  <mat-option [value]="c.id">{{c.name}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Coaching Batch (बैच) *</mat-label>
+              <mat-select [(ngModel)]="model.batchId" required>
+                @if (filteredDialogBatches.length === 0) {
+                  <mat-option disabled value="">
+                    No Batches Found for this Class
+                  </mat-option>
+                }
+                @for (b of filteredDialogBatches; track b) {
+                  <mat-option [value]="b.id">
+                    {{b.name}} @if (b.subject || b.courseName) {
+                    <span>({{b.subject || b.courseName}})</span>
+                  }
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         </div>
-      </div>
-
-      <!-- Footer -->
-      <div class="modal-footer">
-        <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
-        <button mat-raised-button class="save-btn" (click)="saveHomework()" [disabled]="saving || !model.title || !model.description || uploading">
-          <mat-icon>{{isEdit ? 'save' : 'send'}}</mat-icon>
-          <span>{{isEdit ? 'Save Changes' : 'Assign Homework'}}</span>
-        </button>
-      </div>
+      }
+    
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Subject (विषय) *</mat-label>
+          <mat-select [(ngModel)]="model.subjectName" (selectionChange)="onSubjectSelect($event.value)">
+            @if (classSubjects.length > 0) {
+              <mat-optgroup label="Class Curriculum Subjects">
+                @for (s of classSubjects; track s) {
+                  <mat-option [value]="s.subjectName">
+                    ⭐ {{s.subjectName}} @if (s.teacherName) {
+                    <span>({{s.teacherName}})</span>
+                  }
+                </mat-option>
+              }
+            </mat-optgroup>
+          }
+          @if (allSubjects.length > 0) {
+            <mat-optgroup label="All School Subjects">
+              @for (s of allSubjects; track s) {
+                <mat-option [value]="s.name || s.subjectName">
+                  {{s.name || s.subjectName}} @if (s.code) {
+                  <span>({{s.code}})</span>
+                }
+              </mat-option>
+            }
+          </mat-optgroup>
+        }
+      </mat-select>
+    </mat-form-field>
+    
+    <mat-form-field appearance="outline" class="form-field">
+      <mat-label>Teacher Incharge</mat-label>
+      <mat-select [(ngModel)]="model.teacherId" (selectionChange)="onTeacherSelect()" [disabled]="isTeacher && !isAdmin">
+        <mat-option value="">Select Teacher</mat-option>
+        @for (t of data.teachers; track t) {
+          <mat-option [value]="t.id">{{t.fullName || t.name}}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
     </div>
-  `,
+    
+    <mat-form-field appearance="outline" class="full-field">
+      <mat-label>Homework Title / Chapter (शीर्षक / अध्याय)</mat-label>
+      <input matInput [(ngModel)]="model.title" placeholder="e.g. Chapter 4: Quadratic Equations - Ex 4.2 Q1 to Q5" required />
+    </mat-form-field>
+    
+    <mat-form-field appearance="outline" class="full-field">
+      <mat-label>Instructions & Work Details (निर्देश एवं विवरण)</mat-label>
+      <textarea matInput [(ngModel)]="model.description" rows="3" placeholder="Detail the questions to solve, textbook pages, diagrams or notes to prepare..." required></textarea>
+    </mat-form-field>
+    
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Submission Due Date & Time (IST) *</mat-label>
+        <input matInput type="datetime-local" [(ngModel)]="dueDateStr" (ngModelChange)="onDueDateChange()" required />
+        @if (dueDatePreviewIso) {
+          <mat-hint class="ist-time-hint">
+            <span class="ist-badge">
+              <mat-icon class="ist-ic">schedule</mat-icon>
+              IST: <strong [appIstDatetime]="dueDatePreviewIso" format="datetime"></strong>
+            </span>
+          </mat-hint>
+        }
+      </mat-form-field>
+    
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Est. Duration (Minutes)</mat-label>
+        <input matInput type="number" [(ngModel)]="model.estimatedMinutes" placeholder="30" />
+      </mat-form-field>
+    </div>
+    
+    <!-- File Upload Section for Worksheet / PDF / Docs -->
+    <div class="upload-section">
+      <div class="upload-header">
+        <mat-icon>cloud_upload</mat-icon>
+        <span class="upload-title">Attach Worksheet or Question Paper (PDF / Image / Word)</span>
+      </div>
+    
+      @if (!model.attachmentUrl) {
+        <div class="upload-box">
+          <input type="file" #fileInput (change)="onFileSelected($event)" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none" />
+          <button mat-stroked-button type="button" class="choose-file-btn" (click)="fileInput.click()" [disabled]="uploading">
+            <mat-icon>upload_file</mat-icon>
+            <span>{{uploading ? 'Uploading File...' : 'Choose Worksheet / File'}}</span>
+          </button>
+          <span class="upload-hint">Supported: PDF, JPG, PNG, DOCX (Max: 30 MB)</span>
+        </div>
+      }
+    
+      @if (model.attachmentUrl) {
+        <div class="attached-file-card">
+          <div class="file-icon-wrap"><mat-icon>task</mat-icon></div>
+          <div class="file-details">
+            <div class="file-name">{{model.attachmentFileName || 'Worksheet File Attached'}}</div>
+            <a [href]="getFileUrl(model.attachmentUrl)" target="_blank" class="preview-link">
+              Preview Attached File <mat-icon>open_in_new</mat-icon>
+            </a>
+          </div>
+          <button mat-icon-button type="button" (click)="removeAttachment()" matTooltip="Remove File" class="remove-btn">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </div>
+      }
+    
+      @if (uploading) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
+      <button mat-raised-button class="save-btn" (click)="saveHomework()" [disabled]="saving || !model.title || !model.description || uploading">
+        <mat-icon>{{isEdit ? 'save' : 'send'}}</mat-icon>
+        <span>{{isEdit ? 'Save Changes' : 'Assign Homework'}}</span>
+      </button>
+    </div>
+    </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .hw-dialog-wrap { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; }
     /* Strict AGENTS.md Header */
@@ -5797,7 +6015,9 @@ export class HomeworkFormDialogComponent implements OnInit {
             <h2 class="modal-title">Student Submissions & Evaluation</h2>
             <p class="modal-subtitle">
               <strong style="color:#1e40af">{{homework.title}}</strong>
-              <span> &bull; {{homework.subjectName}} ({{homework.className || 'All'}}<span *ngIf="homework.sectionName"> - {{homework.sectionName}}</span>)</span>
+              <span> &bull; {{homework.subjectName}} ({{homework.className || 'All'}}@if (homework.sectionName) {
+                <span> - {{homework.sectionName}}</span>
+              })</span>
             </p>
           </div>
         </div>
@@ -5805,7 +6025,7 @@ export class HomeworkFormDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Quick Summary Stats -->
       <div class="sub-stats-bar">
         <div class="sub-stat-pill">
@@ -5824,7 +6044,7 @@ export class HomeworkFormDialogComponent implements OnInit {
           <span class="sub-stat-num">{{approvedCount}}</span>
           <span class="sub-stat-txt">Approved / Graded</span>
         </div>
-
+    
         <!-- Filter Toggle -->
         <div class="filter-toggle">
           <button class="toggle-btn" [class.active]="filterRoster==='all'" (click)="filterRoster='all'">All ({{roster.length}})</button>
@@ -5832,100 +6052,113 @@ export class HomeworkFormDialogComponent implements OnInit {
           <button class="toggle-btn" [class.active]="filterRoster==='pending'" (click)="filterRoster='pending'">Pending ({{roster.length - submittedCount}})</button>
         </div>
       </div>
-
+    
       <!-- Submissions List / Table -->
       <div class="modal-body">
-        <div class="empty-roster" *ngIf="!loading && filteredRoster.length === 0">
-          <mat-icon>inbox</mat-icon>
-          <p>No students match the selected filter.</p>
-        </div>
-
-        <div class="student-submission-item" *ngFor="let item of filteredRoster">
-          <div class="item-left">
-            <div class="student-avatar" [class.submitted]="item.hasSubmitted">
-              <mat-icon>{{item.hasSubmitted ? 'assignment_turned_in' : 'pending_actions'}}</mat-icon>
-            </div>
-            <div class="student-info">
-              <div class="student-name">
-                {{item.studentName}}
-                <span class="roll-badge" *ngIf="item.rollNumber">Roll: {{item.rollNumber}}</span>
-                <span class="adm-badge" *ngIf="item.admissionNumber">Adm: {{item.admissionNumber}}</span>
-              </div>
-
-              <div class="item-meta" *ngIf="item.hasSubmitted && item.submission">
-                <span class="submission-date">
-                  Submitted: <span [appIstDatetime]="item.submission.submissionDate"></span>
-                </span>
-                <span class="remarks-tag" *ngIf="item.submission.studentRemarks">
-                  <strong>Notes:</strong> {{item.submission.studentRemarks}}
-                </span>
-              </div>
-              <div class="item-meta pending-text" *ngIf="!item.hasSubmitted">
-                <mat-icon class="sm-ic">schedule</mat-icon> Not submitted yet
-              </div>
-            </div>
+        @if (!loading && filteredRoster.length === 0) {
+          <div class="empty-roster">
+            <mat-icon>inbox</mat-icon>
+            <p>No students match the selected filter.</p>
           </div>
-
-          <div class="item-right">
-            <!-- Download / View Solution File -->
-            <div *ngIf="item.hasSubmitted && item.submission">
-              <a [href]="getFileUrl(item.submission.submissionFileUrl)" target="_blank" class="solution-file-link" matTooltip="Click to open student's solution copy">
-                <mat-icon>description</mat-icon>
-                <span>{{item.submission.submissionFileName || 'View Copy'}}</span>
-                <mat-icon class="sm-ext">open_in_new</mat-icon>
-              </a>
+        }
+    
+        @for (item of filteredRoster; track item) {
+          <div class="student-submission-item">
+            <div class="item-left">
+              <div class="student-avatar" [class.submitted]="item.hasSubmitted">
+                <mat-icon>{{item.hasSubmitted ? 'assignment_turned_in' : 'pending_actions'}}</mat-icon>
+              </div>
+              <div class="student-info">
+                <div class="student-name">
+                  {{item.studentName}}
+                  @if (item.rollNumber) {
+                    <span class="roll-badge">Roll: {{item.rollNumber}}</span>
+                  }
+                  @if (item.admissionNumber) {
+                    <span class="adm-badge">Adm: {{item.admissionNumber}}</span>
+                  }
+                </div>
+                @if (item.hasSubmitted && item.submission) {
+                  <div class="item-meta">
+                    <span class="submission-date">
+                      Submitted: <span [appIstDatetime]="item.submission.submissionDate"></span>
+                    </span>
+                    @if (item.submission.studentRemarks) {
+                      <span class="remarks-tag">
+                        <strong>Notes:</strong> {{item.submission.studentRemarks}}
+                      </span>
+                    }
+                  </div>
+                }
+                @if (!item.hasSubmitted) {
+                  <div class="item-meta pending-text">
+                    <mat-icon class="sm-ic">schedule</mat-icon> Not submitted yet
+                  </div>
+                }
+              </div>
             </div>
-
-            <!-- Status Pill -->
-            <span class="status-badge" [ngClass]="item.hasSubmitted ? (item.submission?.status?.toLowerCase() || 'submitted') : 'pending'">
-              {{item.hasSubmitted ? (item.submission?.status || 'Submitted') : 'Pending'}}
-            </span>
-
-            <!-- Review / Grading Action Button -->
-            <div *ngIf="item.hasSubmitted && item.submission">
-              <button mat-stroked-button class="review-btn" (click)="toggleReviewForm(item)">
-                <mat-icon>rate_review</mat-icon>
-                <span>{{item.submission.reviewedAt ? 'Update Grade' : 'Grade & Review'}}</span>
-              </button>
+            <div class="item-right">
+              <!-- Download / View Solution File -->
+              @if (item.hasSubmitted && item.submission) {
+                <div>
+                  <a [href]="getFileUrl(item.submission.submissionFileUrl)" target="_blank" class="solution-file-link" matTooltip="Click to open student's solution copy">
+                    <mat-icon>description</mat-icon>
+                    <span>{{item.submission.submissionFileName || 'View Copy'}}</span>
+                    <mat-icon class="sm-ext">open_in_new</mat-icon>
+                  </a>
+                </div>
+              }
+              <!-- Status Pill -->
+              <span class="status-badge" [ngClass]="item.hasSubmitted ? (item.submission?.status?.toLowerCase() || 'submitted') : 'pending'">
+                {{item.hasSubmitted ? (item.submission?.status || 'Submitted') : 'Pending'}}
+              </span>
+              <!-- Review / Grading Action Button -->
+              @if (item.hasSubmitted && item.submission) {
+                <div>
+                  <button mat-stroked-button class="review-btn" (click)="toggleReviewForm(item)">
+                    <mat-icon>rate_review</mat-icon>
+                    <span>{{item.submission.reviewedAt ? 'Update Grade' : 'Grade & Review'}}</span>
+                  </button>
+                </div>
+              }
             </div>
+            <!-- Inline Review Form Drawer -->
+            @if (item.hasSubmitted && item.submission && isReviewing(item.studentId)) {
+              <div class="inline-review-card">
+                <div class="review-inputs-row">
+                  <mat-form-field appearance="outline" class="grade-field">
+                    <mat-label>Grade / Marks</mat-label>
+                    <input matInput [(ngModel)]="reviewModels[item.studentId].gradeOrMarks" placeholder="e.g. A+, 9/10" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="status-select-field">
+                    <mat-label>Review Status</mat-label>
+                    <mat-select [(ngModel)]="reviewModels[item.studentId].status">
+                      <mat-option value="Approved">Approved / Completed</mat-option>
+                      <mat-option value="NeedsCorrection">Needs Correction</mat-option>
+                      <mat-option value="Reviewed">Reviewed</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="feedback-field">
+                    <mat-label>Teacher Remarks / Feedback</mat-label>
+                    <input matInput [(ngModel)]="reviewModels[item.studentId].teacherRemarks" placeholder="e.g. Well done! Neat work, check question 3 formula." />
+                  </mat-form-field>
+                  <button mat-raised-button class="save-review-btn" (click)="submitReview(item)" [disabled]="reviewSaving">
+                    <mat-icon>check</mat-icon>
+                    <span>Save Grade</span>
+                  </button>
+                </div>
+              </div>
+            }
           </div>
-
-          <!-- Inline Review Form Drawer -->
-          <div class="inline-review-card" *ngIf="item.hasSubmitted && item.submission && isReviewing(item.studentId)">
-            <div class="review-inputs-row">
-              <mat-form-field appearance="outline" class="grade-field">
-                <mat-label>Grade / Marks</mat-label>
-                <input matInput [(ngModel)]="reviewModels[item.studentId].gradeOrMarks" placeholder="e.g. A+, 9/10" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="status-select-field">
-                <mat-label>Review Status</mat-label>
-                <mat-select [(ngModel)]="reviewModels[item.studentId].status">
-                  <mat-option value="Approved">Approved / Completed</mat-option>
-                  <mat-option value="NeedsCorrection">Needs Correction</mat-option>
-                  <mat-option value="Reviewed">Reviewed</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="feedback-field">
-                <mat-label>Teacher Remarks / Feedback</mat-label>
-                <input matInput [(ngModel)]="reviewModels[item.studentId].teacherRemarks" placeholder="e.g. Well done! Neat work, check question 3 formula." />
-              </mat-form-field>
-
-              <button mat-raised-button class="save-review-btn" (click)="submitReview(item)" [disabled]="reviewSaving">
-                <mat-icon>check</mat-icon>
-                <span>Save Grade</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        }
       </div>
-
+    
       <div class="modal-footer">
         <button mat-button (click)="dialogRef.close(false)" class="close-modal-btn">Done</button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .submissions-dialog-wrap { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; max-height: 90vh; }
     /* Strict AGENTS.md Header */
@@ -6125,7 +6358,7 @@ export class HomeworkSubmissionsDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="modal-body">
         <div class="instructions-card">
           <mat-icon>info</mat-icon>
@@ -6133,44 +6366,50 @@ export class HomeworkSubmissionsDialogComponent implements OnInit {
             <strong>Teacher's Assignment:</strong> {{homework.description}}
           </div>
         </div>
-
+    
         <!-- File Upload Section -->
         <div class="upload-box-container">
           <label class="field-label">Upload Solution Copy (PDF, Scanned Photo, or Document) *</label>
-
-          <div class="upload-dropzone" *ngIf="!submissionFileUrl">
-            <input type="file" #solFileInput (change)="onFileSelected($event)" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display:none" />
-            <mat-icon class="drop-icon">cloud_upload</mat-icon>
-            <div class="drop-title">Select or Take Photo of Your Completed Copy</div>
-            <div class="drop-sub">PDF, PNG, JPG, or DOC (Max: 30 MB)</div>
-            <button mat-raised-button type="button" class="choose-sol-btn" (click)="solFileInput.click()" [disabled]="uploading">
-              <mat-icon>attach_file</mat-icon>
-              <span>{{uploading ? 'Uploading Copy...' : 'Choose / Take Photo'}}</span>
-            </button>
-          </div>
-
-          <div class="uploaded-card" *ngIf="submissionFileUrl">
-            <div class="icon-wrap"><mat-icon>task</mat-icon></div>
-            <div class="sol-info">
-              <div class="sol-name">{{submissionFileName}}</div>
-              <a [href]="getFileUrl(submissionFileUrl)" target="_blank" class="preview-sol">
-                Verify Uploaded File <mat-icon>open_in_new</mat-icon>
-              </a>
+    
+          @if (!submissionFileUrl) {
+            <div class="upload-dropzone">
+              <input type="file" #solFileInput (change)="onFileSelected($event)" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display:none" />
+              <mat-icon class="drop-icon">cloud_upload</mat-icon>
+              <div class="drop-title">Select or Take Photo of Your Completed Copy</div>
+              <div class="drop-sub">PDF, PNG, JPG, or DOC (Max: 30 MB)</div>
+              <button mat-raised-button type="button" class="choose-sol-btn" (click)="solFileInput.click()" [disabled]="uploading">
+                <mat-icon>attach_file</mat-icon>
+                <span>{{uploading ? 'Uploading Copy...' : 'Choose / Take Photo'}}</span>
+              </button>
             </div>
-            <button mat-icon-button (click)="removeFile()" matTooltip="Change File" class="remove-btn">
-              <mat-icon>delete_outline</mat-icon>
-            </button>
-          </div>
-
-          <mat-progress-bar mode="indeterminate" *ngIf="uploading"></mat-progress-bar>
+          }
+    
+          @if (submissionFileUrl) {
+            <div class="uploaded-card">
+              <div class="icon-wrap"><mat-icon>task</mat-icon></div>
+              <div class="sol-info">
+                <div class="sol-name">{{submissionFileName}}</div>
+                <a [href]="getFileUrl(submissionFileUrl)" target="_blank" class="preview-sol">
+                  Verify Uploaded File <mat-icon>open_in_new</mat-icon>
+                </a>
+              </div>
+              <button mat-icon-button (click)="removeFile()" matTooltip="Change File" class="remove-btn">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          }
+    
+          @if (uploading) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          }
         </div>
-
+    
         <mat-form-field appearance="outline" class="full-field">
           <mat-label>Student Remarks / Notes for Teacher (Optional)</mat-label>
           <textarea matInput [(ngModel)]="studentRemarks" rows="3" placeholder="e.g. Completed all 5 questions on notebook page 24. Had doubt in Q3."></textarea>
         </mat-form-field>
       </div>
-
+    
       <div class="modal-footer">
         <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
         <button mat-raised-button class="submit-btn" (click)="submitHomework()" [disabled]="submitting || !submissionFileUrl || uploading">
@@ -6179,7 +6418,8 @@ export class HomeworkSubmissionsDialogComponent implements OnInit {
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .student-submit-dialog-wrap { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; }
     /* Strict AGENTS.md Header */
@@ -6330,10 +6570,14 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         <div class="header-main-row">
           <div class="header-left">
             <div class="header-logo-card" [class.has-logo]="logoUrl && !logoFailed">
-              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Institute Logo" class="header-logo-img" />
-              <div *ngIf="!logoUrl || logoFailed" class="fallback-icon-wrap">
-                <mat-icon>school</mat-icon>
-              </div>
+              @if (logoUrl && !logoFailed) {
+                <img [src]="logoUrl" (error)="logoFailed = true" alt="Institute Logo" class="header-logo-img" />
+              }
+              @if (!logoUrl || logoFailed) {
+                <div class="fallback-icon-wrap">
+                  <mat-icon>school</mat-icon>
+                </div>
+              }
             </div>
             <div class="header-title-box">
               <div class="title-with-badge">
@@ -6343,27 +6587,33 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
               <div class="dialog-quick-meta">
                 <span class="quick-meta-pill"><mat-icon>event</mat-icon> Date: <strong>{{formattedDate}}</strong></span>
                 <span class="quick-meta-pill"><mat-icon>domain</mat-icon> Class: <strong>{{reportHeader?.className || data.className}}</strong></span>
-                <span *ngIf="reportHeader?.sectionName || data.sectionName" class="quick-meta-pill sec-pill">Sec <strong>{{reportHeader?.sectionName || data.sectionName}}</strong></span>
+                @if (reportHeader?.sectionName || data.sectionName) {
+                  <span class="quick-meta-pill sec-pill">Sec <strong>{{reportHeader?.sectionName || data.sectionName}}</strong></span>
+                }
                 <span class="quick-meta-pill count-pill"><mat-icon>groups</mat-icon> <strong>{{rows.length}} Students</strong></span>
               </div>
             </div>
           </div>
-
+    
           <!-- Top-Right Primary Action Buttons -->
           <div class="header-primary-actions">
             <!-- 1-Click Automated Send to All Parents -->
             <button mat-flat-button class="auto-wa-parents-btn" (click)="sendAutomatedWhatsAppToAllParents()" [disabled]="sendingWhatsApp || rows.length === 0" matTooltip="Automatically dispatch personalized daily diary to all parents via WhatsApp">
-              <mat-icon *ngIf="!sendingWhatsApp">bolt</mat-icon>
-              <mat-icon *ngIf="sendingWhatsApp" class="spin">sync</mat-icon>
+              @if (!sendingWhatsApp) {
+                <mat-icon>bolt</mat-icon>
+              }
+              @if (sendingWhatsApp) {
+                <mat-icon class="spin">sync</mat-icon>
+              }
               <span>{{ sendingWhatsApp ? 'Sending...' : '⚡ Auto Send Parents' }}</span>
             </button>
-
+    
             <!-- 1-Click Direct WhatsApp Share to Class Group -->
             <button mat-flat-button class="group-wa-btn" (click)="shareToClassGroupWhatsApp()" matTooltip="Directly open WhatsApp to share summary with class group">
               <mat-icon>send</mat-icon>
               <span>📲 Send to Group</span>
             </button>
-
+    
             <!-- 1-Click Send to Individual Student via WhatsApp -->
             <button mat-flat-button class="individual-wa-header-btn" [matMenuTriggerFor]="individualStudentSendMenu" matTooltip="Open WhatsApp for individual student parent">
               <mat-icon>chat</mat-icon>
@@ -6372,266 +6622,326 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
             </button>
             <mat-menu #individualStudentSendMenu="matMenu" class="individual-wa-menu-panel">
               <div class="wa-menu-header-title">Select Student to Open WhatsApp:</div>
-              <button mat-menu-item *ngFor="let r of rows" (click)="sendIndividualStudentWhatsApp(r)">
-                <mat-icon class="text-success">chat</mat-icon>
-                <div class="st-wa-menu-item-row">
-                  <span class="st-name-txt"><strong>{{ r.studentName }}</strong> <small *ngIf="r.rollNumber">(Roll {{r.rollNumber}})</small></span>
-                  <span class="st-phone-pill" *ngIf="r.parentWhatsAppPhone">📱 {{ r.parentWhatsAppPhone }}</span>
-                  <span class="st-phone-pill warn" *ngIf="!r.parentWhatsAppPhone">⚠️ No Phone</span>
+              @for (r of rows; track r) {
+                <button mat-menu-item (click)="sendIndividualStudentWhatsApp(r)">
+                  <mat-icon class="text-success">chat</mat-icon>
+                  <div class="st-wa-menu-item-row">
+                    <span class="st-name-txt"><strong>{{ r.studentName }}</strong> @if (r.rollNumber) {
+                    <small>(Roll {{r.rollNumber}})</small>
+                  }</span>
+                  @if (r.parentWhatsAppPhone) {
+                    <span class="st-phone-pill">📱 {{ r.parentWhatsAppPhone }}</span>
+                  }
+                  @if (!r.parentWhatsAppPhone) {
+                    <span class="st-phone-pill warn">⚠️ No Phone</span>
+                  }
                 </div>
               </button>
-            </mat-menu>
-
-            <!-- Print Report A4 -->
-            <button mat-flat-button class="print-action-btn" (click)="printReport()" matTooltip="A4 Printable Landscape Sheet">
-              <mat-icon>print</mat-icon>
-              <span>Print (A4)</span>
-            </button>
-
-            <!-- Close Dialog -->
-            <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
+            }
+          </mat-menu>
+    
+          <!-- Print Report A4 -->
+          <button mat-flat-button class="print-action-btn" (click)="printReport()" matTooltip="A4 Printable Landscape Sheet">
+            <mat-icon>print</mat-icon>
+            <span>Print (A4)</span>
+          </button>
+    
+          <!-- Close Dialog -->
+          <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
-
-        <!-- Sub-Toolbar: Secondary Tools & Copy Actions -->
-        <div class="header-sub-toolbar">
-          <div class="sub-toolbar-left">
-            <!-- Previous H.W. Included Toggle Pill -->
+      </div>
+    
+      <!-- Sub-Toolbar: Secondary Tools & Copy Actions -->
+      <div class="header-sub-toolbar">
+        <div class="sub-toolbar-left">
+          <!-- Previous H.W. Included Toggle Pill -->
+          @if (reportHeader?.previousHw && reportHeader!.previousHw!.length > 0) {
             <button mat-stroked-button class="toggle-prev-hw-btn"
-                    *ngIf="reportHeader?.previousHw && reportHeader!.previousHw!.length > 0"
-                    [class.active]="includePreviousHw"
-                    (click)="includePreviousHw = !includePreviousHw"
-                    matTooltip="Click to include or exclude previous day homework verification from print and WhatsApp">
+              [class.active]="includePreviousHw"
+              (click)="includePreviousHw = !includePreviousHw"
+              matTooltip="Click to include or exclude previous day homework verification from print and WhatsApp">
               <mat-icon>{{ includePreviousHw ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
               <span>Previous H.W. ({{ includePreviousHw ? 'Included' : 'Excluded' }})</span>
             </button>
-
-            <span class="sub-toolbar-hint" *ngIf="!reportHeader?.previousHw || reportHeader!.previousHw!.length === 0">
+          }
+    
+          @if (!reportHeader?.previousHw || reportHeader!.previousHw!.length === 0) {
+            <span class="sub-toolbar-hint">
               <mat-icon class="hint-icon">verified</mat-icon> Complete C.W. &amp; H.W. Daily Report Overview
             </span>
-          </div>
-
-          <div class="sub-toolbar-right">
-            <span class="manual-copy-label">Manual Copy:</span>
-            <button mat-stroked-button class="copy-pill-btn" (click)="copyClassSummaryWhatsApp()" matTooltip="Copy compact Class Summary">
-              <mat-icon>forum</mat-icon>
-              <span>Copy Group</span>
-            </button>
-
-            <button mat-stroked-button class="copy-pill-btn" (click)="copyWhatsAppText()" matTooltip="Copy full student-by-student diary">
-              <mat-icon>format_list_numbered</mat-icon>
-              <span>Copy Student-wise</span>
-            </button>
-          </div>
+          }
+        </div>
+    
+        <div class="sub-toolbar-right">
+          <span class="manual-copy-label">Manual Copy:</span>
+          <button mat-stroked-button class="copy-pill-btn" (click)="copyClassSummaryWhatsApp()" matTooltip="Copy compact Class Summary">
+            <mat-icon>forum</mat-icon>
+            <span>Copy Group</span>
+          </button>
+    
+          <button mat-stroked-button class="copy-pill-btn" (click)="copyWhatsAppText()" matTooltip="Copy full student-by-student diary">
+            <mat-icon>format_list_numbered</mat-icon>
+            <span>Copy Student-wise</span>
+          </button>
         </div>
       </div>
-
-      <!-- Printable Report Body -->
-      <div class="modal-body-scroll">
-        <div class="print-paper-sheet" id="printableDiaryReport">
-          <!-- Institute Header -->
-          <div class="report-top-header">
-            <h1 class="school-title">{{ reportHeader?.tenantName || authService.getInstituteName() || 'Daily Diary Report' }}</h1>
-            <div class="school-address-text" *ngIf="reportHeader?.tenantAddress">{{ reportHeader?.tenantAddress }}</div>
+    </div>
+    
+    <!-- Printable Report Body -->
+    <div class="modal-body-scroll">
+      <div class="print-paper-sheet" id="printableDiaryReport">
+        <!-- Institute Header -->
+        <div class="report-top-header">
+          <h1 class="school-title">{{ reportHeader?.tenantName || authService.getInstituteName() || 'Daily Diary Report' }}</h1>
+          @if (reportHeader?.tenantAddress) {
+            <div class="school-address-text">{{ reportHeader?.tenantAddress }}</div>
+          }
+        </div>
+    
+        <!-- Main Navy Title Banner -->
+        <div class="navy-title-banner">
+          <span>STUDENT DAILY CLASS WORK &amp; HOME WORK REPORT</span>
+        </div>
+    
+        <!-- Meta Bar (Date & Class) -->
+        <div class="report-meta-bar">
+          <div class="meta-class">
+            <span class="lbl">Class:</span>
+            <span class="val">{{reportHeader?.className || data.className}}</span>
+            @if (reportHeader?.sectionName || data.sectionName) {
+              <span class="sec-val">({{reportHeader?.sectionName || data.sectionName}})</span>
+            }
           </div>
-
-          <!-- Main Navy Title Banner -->
-          <div class="navy-title-banner">
-            <span>STUDENT DAILY CLASS WORK &amp; HOME WORK REPORT</span>
+          <div class="meta-date-pill">
+            <span class="date-lbl">Date :</span>
+            <span class="date-val">{{formattedDate}}</span>
           </div>
-
-          <!-- Meta Bar (Date & Class) -->
-          <div class="report-meta-bar">
-            <div class="meta-class">
-              <span class="lbl">Class:</span>
-              <span class="val">{{reportHeader?.className || data.className}}</span>
-              <span class="sec-val" *ngIf="reportHeader?.sectionName || data.sectionName">({{reportHeader?.sectionName || data.sectionName}})</span>
-            </div>
-            <div class="meta-date-pill">
-              <span class="date-lbl">Date :</span>
-              <span class="date-val">{{formattedDate}}</span>
-            </div>
-          </div>
-
-          <!-- Grid Table -->
-          <table class="report-data-table">
-            <colgroup>
-              <col class="col-sno">
-              <col class="col-name">
-              <col class="col-class">
-              <col class="col-cw">
-              <col class="col-cw-rem">
-              <col class="col-hw">
-              <col class="col-hw-rem">
-            </colgroup>
-            <thead>
-              <tr>
-                <th class="col-sno">S. No.</th>
-                <th class="col-name">Student Name</th>
-                <th class="col-class">Class</th>
-                <th class="col-cw">CLASS WORK (C.W.)</th>
-                <th class="col-cw-rem">Remarks</th>
-                <th class="col-hw">HOME WORK (H.W.)</th>
-                <th class="col-hw-rem">Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let row of rows; let i = index" [class.absent-row]="row.isAbsent">
-                <td class="col-sno-data text-center">{{i + 1}}</td>
-                <td class="col-name-data">
-                  <div class="name-bold">{{row.studentName}}</div>
-                  <div class="name-meta-row">
-                    <span class="sub-roll" *ngIf="row.rollNumber">Roll: {{row.rollNumber}}</span>
-                    <button type="button" class="row-wa-badge-btn hide-on-print" (click)="sendIndividualStudentWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName">
-                      <mat-icon>chat</mat-icon>
-                      <span>WhatsApp</span>
-                    </button>
+        </div>
+    
+        <!-- Grid Table -->
+        <table class="report-data-table">
+          <colgroup>
+          <col class="col-sno">
+          <col class="col-name">
+          <col class="col-class">
+          <col class="col-cw">
+          <col class="col-cw-rem">
+          <col class="col-hw">
+          <col class="col-hw-rem">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="col-sno">S. No.</th>
+            <th class="col-name">Student Name</th>
+            <th class="col-class">Class</th>
+            <th class="col-cw">CLASS WORK (C.W.)</th>
+            <th class="col-cw-rem">Remarks</th>
+            <th class="col-hw">HOME WORK (H.W.)</th>
+            <th class="col-hw-rem">Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows; track row; let i = $index) {
+            <tr [class.absent-row]="row.isAbsent">
+              <td class="col-sno-data text-center">{{i + 1}}</td>
+              <td class="col-name-data">
+                <div class="name-bold">{{row.studentName}}</div>
+                <div class="name-meta-row">
+                  @if (row.rollNumber) {
+                    <span class="sub-roll">Roll: {{row.rollNumber}}</span>
+                  }
+                  <button type="button" class="row-wa-badge-btn hide-on-print" (click)="sendIndividualStudentWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName">
+                    <mat-icon>chat</mat-icon>
+                    <span>WhatsApp</span>
+                  </button>
+                </div>
+              </td>
+              <td class="col-class-data text-center">{{row.className || reportHeader?.className || data.className}}</td>
+              <!-- Absent / Unmarked Student: Subjects } Absent matching reference photo rows 7 & 8 -->
+              @if (isAbsentStudent(row)) {
+                <td class="col-bracket-cell text-center" colspan="2">
+                  <div class="absent-bracket-layout">
+                    <div class="absent-subjects-col">
+                      @for (s of getClassSubjects(); track s) {
+                        <span class="subject-pill" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
+                      }
+                    </div>
+                    <svg class="brace-svg" viewBox="0 0 14 56" preserveAspectRatio="none">
+                      <path d="M 2 2 C 8 8, 8 22, 13 28 C 8 34, 8 48, 2 54" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" />
+                    </svg>
+                    <span class="absent-text-red">Absent</span>
                   </div>
                 </td>
-                <td class="col-class-data text-center">{{row.className || reportHeader?.className || data.className}}</td>
-
-                <!-- Absent / Unmarked Student: Subjects } Absent matching reference photo rows 7 & 8 -->
-                <ng-container *ngIf="isAbsentStudent(row)">
-                  <td class="col-bracket-cell text-center" colspan="2">
-                    <div class="absent-bracket-layout">
-                      <div class="absent-subjects-col">
-                        <span class="subject-pill" *ngFor="let s of getClassSubjects()" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
-                      </div>
-                      <svg class="brace-svg" viewBox="0 0 14 56" preserveAspectRatio="none">
-                        <path d="M 2 2 C 8 8, 8 22, 13 28 C 8 34, 8 48, 2 54" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" />
-                      </svg>
-                      <span class="absent-text-red">Absent</span>
+                <td class="col-bracket-cell text-center" colspan="2">
+                  <div class="absent-bracket-layout">
+                    <div class="absent-subjects-col">
+                      @for (s of getClassSubjects(); track s) {
+                        <span class="subject-pill" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
+                      }
                     </div>
-                  </td>
-                  <td class="col-bracket-cell text-center" colspan="2">
-                    <div class="absent-bracket-layout">
-                      <div class="absent-subjects-col">
-                        <span class="subject-pill" *ngFor="let s of getClassSubjects()" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
-                      </div>
-                      <svg class="brace-svg" viewBox="0 0 14 56" preserveAspectRatio="none">
-                        <path d="M 2 2 C 8 8, 8 22, 13 28 C 8 34, 8 48, 2 54" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" />
-                      </svg>
-                      <span class="absent-text-red">Absent</span>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <!-- Attending Student (Present / Late / HalfDay) with active tasks -->
-                <ng-container *ngIf="!isAbsentStudent(row)">
-                  <td class="col-work-data">
-                    <div class="task-entry" *ngFor="let cw of getActiveTasks(row.classWork)">
+                    <svg class="brace-svg" viewBox="0 0 14 56" preserveAspectRatio="none">
+                      <path d="M 2 2 C 8 8, 8 22, 13 28 C 8 34, 8 48, 2 54" fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" />
+                    </svg>
+                    <span class="absent-text-red">Absent</span>
+                  </div>
+                </td>
+              }
+              <!-- Attending Student (Present / Late / HalfDay) with active tasks -->
+              @if (!isAbsentStudent(row)) {
+                <td class="col-work-data">
+                  @for (cw of getActiveTasks(row.classWork); track cw) {
+                    <div class="task-entry">
                       <span class="subject-pill" [ngClass]="getSubjectColorClass(cw.subject)">{{cw.subject}}</span>
                       <span class="task-arrow">&rarr;</span>
                       <span class="task-text">{{cw.task}}</span>
-                      <span class="task-teacher" *ngIf="cw.teacherName || reportHeader?.classTeacherName">({{cw.teacherName || reportHeader?.classTeacherName}})</span>
+                      @if (cw.teacherName || reportHeader?.classTeacherName) {
+                        <span class="task-teacher">({{cw.teacherName || reportHeader?.classTeacherName}})</span>
+                      }
                     </div>
-                  </td>
-                  <td class="col-rem-data text-center">
-                    <div class="rem-content" *ngIf="getCwRemarksList(row).length > 0">
-                      <div class="hw-rem-item" *ngFor="let cr of getCwRemarksList(row)" [ngClass]="cr.colorClass">
-                        <span class="rem-label">
-                          <strong *ngIf="cr.subject">[{{ cr.subject }}]: </strong>{{ cr.text }}
-                        </span>
+                  }
+                </td>
+                <td class="col-rem-data text-center">
+                  @if (getCwRemarksList(row).length > 0) {
+                    <div class="rem-content">
+                      @for (cr of getCwRemarksList(row); track cr) {
+                        <div class="hw-rem-item" [ngClass]="cr.colorClass">
+                          <span class="rem-label">
+                            @if (cr.subject) {
+                              <strong>[{{ cr.subject }}]: </strong>
+                              }{{ cr.text }}
+                            </span>
+                          </div>
+                        }
                       </div>
-                    </div>
-                    <span class="empty-dash" *ngIf="getCwRemarksList(row).length === 0">—</span>
+                    }
+                    @if (getCwRemarksList(row).length === 0) {
+                      <span class="empty-dash">—</span>
+                    }
                   </td>
                   <td class="col-work-data">
-                    <div class="task-entry" *ngFor="let hw of getActiveTasks(row.homeWork)">
-                      <span class="subject-pill" [ngClass]="getSubjectColorClass(hw.subject)">{{hw.subject}}</span>
-                      <span class="task-arrow">&rarr;</span>
-                      <span class="task-text">{{hw.task}}</span>
-                      <span class="task-teacher" *ngIf="hw.teacherName || reportHeader?.classTeacherName">({{hw.teacherName || reportHeader?.classTeacherName}})</span>
-                      <span class="hw-tick" [ngClass]="hwTickClass(hw)" [attr.title]="hwTickTitle(hw)">{{hwTickSymbol(hw)}}</span>
-                    </div>
-                    <div class="hw-summary" *ngIf="hwSummary(row) as sm">H.W. Done: {{sm}}</div>
+                    @for (hw of getActiveTasks(row.homeWork); track hw) {
+                      <div class="task-entry">
+                        <span class="subject-pill" [ngClass]="getSubjectColorClass(hw.subject)">{{hw.subject}}</span>
+                        <span class="task-arrow">&rarr;</span>
+                        <span class="task-text">{{hw.task}}</span>
+                        @if (hw.teacherName || reportHeader?.classTeacherName) {
+                          <span class="task-teacher">({{hw.teacherName || reportHeader?.classTeacherName}})</span>
+                        }
+                        <span class="hw-tick" [ngClass]="hwTickClass(hw)" [attr.title]="hwTickTitle(hw)">{{hwTickSymbol(hw)}}</span>
+                      </div>
+                    }
+                    @if (hwSummary(row); as sm) {
+                      <div class="hw-summary">H.W. Done: {{sm}}</div>
+                    }
                   </td>
                   <td class="col-rem-data text-center">
-                    <div class="rem-content" *ngIf="getHwRemarks(row).length > 0">
-                      <div class="hw-rem-item" *ngFor="let rem of getHwRemarks(row)" [ngClass]="'rem-' + rem.status.toLowerCase()">
-                        <span class="rem-tick">{{ rem.symbol }}</span>
-                        <span class="rem-label">{{ rem.text }}</span>
+                    @if (getHwRemarks(row).length > 0) {
+                      <div class="rem-content">
+                        @for (rem of getHwRemarks(row); track rem) {
+                          <div class="hw-rem-item" [ngClass]="'rem-' + rem.status.toLowerCase()">
+                            <span class="rem-tick">{{ rem.symbol }}</span>
+                            <span class="rem-label">{{ rem.text }}</span>
+                          </div>
+                        }
                       </div>
-                    </div>
-                    <span class="empty-dash" *ngIf="getHwRemarks(row).length === 0">—</span>
+                    }
+                    @if (getHwRemarks(row).length === 0) {
+                      <span class="empty-dash">—</span>
+                    }
                   </td>
-                </ng-container>
+                }
               </tr>
-            </tbody>
-          </table>
-
-          <!-- PREVIOUS DAY'S HOMEWORK VERIFICATION (if available for this class) -->
-          <div class="prev-hw-section" *ngIf="includePreviousHw && reportHeader?.previousHw && reportHeader!.previousHw!.length > 0">
+            }
+          </tbody>
+        </table>
+    
+        <!-- PREVIOUS DAY'S HOMEWORK VERIFICATION (if available for this class) -->
+        @if (includePreviousHw && reportHeader?.previousHw && reportHeader!.previousHw!.length > 0) {
+          <div class="prev-hw-section">
             <div class="prev-hw-banner">
               <mat-icon class="ph-icon">verified</mat-icon>
               <span>PREVIOUS HOMEWORK VERIFICATION (गत दिवस गृहकार्य जाँच - तारीख: {{ formattedPreviousHwDate }})</span>
             </div>
             <table class="report-data-table prev-hw-table">
               <colgroup>
-                <col style="width: 4%;">
-                <col style="width: 16%;">
-                <col style="width: 6%;">
-                <col style="width: 62%;">
-                <col style="width: 12%;">
-              </colgroup>
-              <thead>
+              <col style="width: 4%;">
+              <col style="width: 16%;">
+              <col style="width: 6%;">
+              <col style="width: 62%;">
+              <col style="width: 12%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="col-sno">S. No.</th>
+                <th class="col-name">Student Name</th>
+                <th class="col-class">Roll</th>
+                <th class="col-hw">PREVIOUS H.W. POINTS &amp; VERIFICATION STATUS</th>
+                <th style="width: 12%; text-align: center;">Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (prow of reportHeader!.previousHw; track prow; let pi = $index) {
                 <tr>
-                  <th class="col-sno">S. No.</th>
-                  <th class="col-name">Student Name</th>
-                  <th class="col-class">Roll</th>
-                  <th class="col-hw">PREVIOUS H.W. POINTS &amp; VERIFICATION STATUS</th>
-                  <th style="width: 12%; text-align: center;">Summary</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let prow of reportHeader!.previousHw; let pi = index">
                   <td class="col-sno-data text-center">{{ pi + 1 }}</td>
                   <td class="col-name-data">
                     <div class="name-bold">{{ prow.studentName }}</div>
                   </td>
                   <td class="col-class-data text-center">{{ prow.rollNumber }}</td>
                   <td class="col-work-data">
-                    <div class="task-entry" *ngFor="let phw of getActiveTasks(prow.homeWork)">
-                      <span class="subject-pill" [ngClass]="getSubjectColorClass(phw.subject)">{{ phw.subject }}</span>
-                      <span class="task-arrow">&rarr;</span>
-                      <span class="task-text">{{ phw.task }}</span>
-                      <span class="task-teacher" *ngIf="phw.teacherName || reportHeader?.classTeacherName">({{ phw.teacherName || reportHeader?.classTeacherName }})</span>
-                      <span class="hw-tick" [ngClass]="hwTickClass(phw)" [attr.title]="hwTickTitle(phw)">{{ hwTickSymbol(phw) }}</span>
-                    </div>
+                    @for (phw of getActiveTasks(prow.homeWork); track phw) {
+                      <div class="task-entry">
+                        <span class="subject-pill" [ngClass]="getSubjectColorClass(phw.subject)">{{ phw.subject }}</span>
+                        <span class="task-arrow">&rarr;</span>
+                        <span class="task-text">{{ phw.task }}</span>
+                        @if (phw.teacherName || reportHeader?.classTeacherName) {
+                          <span class="task-teacher">({{ phw.teacherName || reportHeader?.classTeacherName }})</span>
+                        }
+                        <span class="hw-tick" [ngClass]="hwTickClass(phw)" [attr.title]="hwTickTitle(phw)">{{ hwTickSymbol(phw) }}</span>
+                      </div>
+                    }
                   </td>
                   <td class="text-center">
-                    <span class="prev-score-chip" *ngIf="previousHwSummary(prow) as psm">{{ psm }}</span>
-                    <span class="absent-text-red" *ngIf="prow.isAbsent">Absent</span>
+                    @if (previousHwSummary(prow); as psm) {
+                      <span class="prev-score-chip">{{ psm }}</span>
+                    }
+                    @if (prow.isAbsent) {
+                      <span class="absent-text-red">Absent</span>
+                    }
                   </td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="report-legend">✔ Completed &nbsp;·&nbsp; ◐ Partial &nbsp;·&nbsp; ✘ Not Done &nbsp;·&nbsp; ⏳ Not checked yet</div>
-          <div class="sign-row">
-            <div class="teacher-sign-col">
-              <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
-              </div>
-              <div class="sign-label">Class Teacher: <strong>{{ reportHeader?.classTeacherName || '__________________' }}</strong></div>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    
+      <div class="report-legend">✔ Completed &nbsp;·&nbsp; ◐ Partial &nbsp;·&nbsp; ✘ Not Done &nbsp;·&nbsp; ⏳ Not checked yet</div>
+      <div class="sign-row">
+        <div class="teacher-sign-col">
+          @if (digitalSignatureUrl) {
+            <div class="digital-sign-wrapper">
+              <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
             </div>
-            <div class="parent-sign-col">
-              <div class="parent-sign-space"></div>
-              <div class="sign-label">Parent's Signature: __________________</div>
-            </div>
-          </div>
-
-          <!-- Bottom Navy Banner -->
-          <div class="navy-footer-banner">
-            <span>DISCIPLINE &nbsp; | &nbsp; GOOD HABITS &nbsp; | &nbsp; BRIGHT FUTURE</span>
-          </div>
+          }
+          <div class="sign-label">Class Teacher: <strong>{{ reportHeader?.classTeacherName || '__________________' }}</strong></div>
+        </div>
+        <div class="parent-sign-col">
+          <div class="parent-sign-space"></div>
+          <div class="sign-label">Parent's Signature: __________________</div>
         </div>
       </div>
+    
+      <!-- Bottom Navy Banner -->
+      <div class="navy-footer-banner">
+        <span>DISCIPLINE &nbsp; | &nbsp; GOOD HABITS &nbsp; | &nbsp; BRIGHT FUTURE</span>
+      </div>
     </div>
-  `,
+    </div>
+    </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .report-dialog-container {
       display: flex;
@@ -8436,8 +8746,12 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             <h2 class="dialog-title">Student Daily Remark</h2>
             <div class="dialog-subtitle">
               <span>👤 <strong>{{ data.studentName }}</strong></span>
-              <span *ngIf="data.rollNumber" class="meta-dot">&bull; Roll: <strong>{{ data.rollNumber }}</strong></span>
-              <span *ngIf="data.className" class="meta-dot">&bull; Class: <strong>{{ data.className }}</strong></span>
+              @if (data.rollNumber) {
+                <span class="meta-dot">&bull; Roll: <strong>{{ data.rollNumber }}</strong></span>
+              }
+              @if (data.className) {
+                <span class="meta-dot">&bull; Class: <strong>{{ data.className }}</strong></span>
+              }
             </div>
           </div>
         </div>
@@ -8445,17 +8759,19 @@ export class DailyDiaryReportDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <div class="dialog-body">
         <div class="preset-section">
           <span class="preset-title">⚡ Quick Presets:</span>
           <div class="preset-chips">
-            <button type="button" class="preset-chip" *ngFor="let p of quickPresets" (click)="applyPreset(p)">
-              {{ p }}
-            </button>
+            @for (p of quickPresets; track p) {
+              <button type="button" class="preset-chip" (click)="applyPreset(p)">
+                {{ p }}
+              </button>
+            }
           </div>
         </div>
-
+    
         <div class="remark-input-group">
           <label class="remark-lbl">Teacher's Note / Remark:</label>
           <textarea
@@ -8471,11 +8787,13 @@ export class DailyDiaryReportDialogComponent implements OnInit {
           </div>
         </div>
       </div>
-
+    
       <div class="dialog-actions">
-        <button mat-button class="clear-btn" *ngIf="remarkText" (click)="remarkText = ''">
-          <mat-icon>backspace</mat-icon> Clear Note
-        </button>
+        @if (remarkText) {
+          <button mat-button class="clear-btn" (click)="remarkText = ''">
+            <mat-icon>backspace</mat-icon> Clear Note
+          </button>
+        }
         <span class="spacer"></span>
         <button mat-stroked-button (click)="dialogRef.close()">Cancel</button>
         <button mat-raised-button class="save-btn" (click)="save()">
@@ -8483,7 +8801,8 @@ export class DailyDiaryReportDialogComponent implements OnInit {
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .remark-dialog-container {
       display: flex;

@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -69,7 +69,9 @@ export interface RollSequencerDialogData {
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading || applying" class="header-progress"></mat-progress-bar>
+  @if (loading || applying) {
+    <mat-progress-bar mode="indeterminate" class="header-progress"></mat-progress-bar>
+  }
 
   <div class="modal-body">
     <!-- Scope Switcher Pill Tabs -->
@@ -96,8 +98,12 @@ export interface RollSequencerDialogData {
 
       <div class="scope-meta-badge">
         <mat-icon>verified_user</mat-icon>
-        <span *ngIf="targetScope === 'coaching'">Target: <strong>Coaching Roll Number</strong> (बैच रोल नंबर)</span>
-        <span *ngIf="targetScope === 'school'">Target: <strong>School Roll Number</strong> (कक्षा रोल नंबर)</span>
+        @if (targetScope === 'coaching') {
+          <span>Target: <strong>Coaching Roll Number</strong> (बैच रोल नंबर)</span>
+        }
+        @if (targetScope === 'school') {
+          <span>Target: <strong>School Roll Number</strong> (कक्षा रोल नंबर)</span>
+        }
       </div>
     </div>
 
@@ -106,52 +112,60 @@ export interface RollSequencerDialogData {
       <!-- Target Selection Row -->
       <div class="config-row-primary" [class.coaching-grid]="targetScope === 'coaching'" [class.school-grid]="targetScope === 'school'">
         <!-- School Scope Controls -->
-        <ng-container *ngIf="targetScope === 'school'">
+        @if (targetScope === 'school') {
           <mat-form-field appearance="outline" class="form-item class-select-field">
             <mat-label>School Class *</mat-label>
             <mat-select [(ngModel)]="classId" (selectionChange)="onClassChange($event.value)">
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                {{ c.name }}
-              </mat-option>
+              @for (c of schoolClasses; track c) {
+                <mat-option [value]="c.id">
+                  {{ c.name }}
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
           <mat-form-field appearance="outline" class="form-item section-select-field">
             <mat-label>Section (Optional)</mat-label>
             <mat-select [(ngModel)]="sectionId" (selectionChange)="onSectionChange()">
               <mat-option value="">All Sections</mat-option>
-              <mat-option *ngFor="let s of availableSections" [value]="s.id">
-                Section {{ s.name }}
-              </mat-option>
+              @for (s of availableSections; track s) {
+                <mat-option [value]="s.id">
+                  Section {{ s.name }}
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-        </ng-container>
+        }
 
         <!-- Coaching Scope Controls -->
-        <ng-container *ngIf="targetScope === 'coaching'">
+        @if (targetScope === 'coaching') {
           <mat-form-field appearance="outline" class="form-item class-select-field">
             <mat-label>Target Class (कक्षा)</mat-label>
             <mat-select [(ngModel)]="coachingClassId" (selectionChange)="onCoachingClassChange($event.value)">
               <mat-option value="">All Classes (सभी कक्षाएं)</mat-option>
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                {{ c.name }}
-              </mat-option>
+              @for (c of schoolClasses; track c) {
+                <mat-option [value]="c.id">
+                  {{ c.name }}
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
           <mat-form-field appearance="outline" class="form-item batch-select-field">
             <mat-label>Coaching Batch * (कोचिंग बैच)</mat-label>
             <mat-select [(ngModel)]="batchId" (selectionChange)="onBatchChange($event.value)" [disabled]="filteredBatches.length === 0">
-              <mat-option *ngIf="filteredBatches.length === 0" [value]="''" disabled>
-                No batches found for this class
-              </mat-option>
-              <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
-                <strong>{{ b.name }}</strong>
-                <span class="batch-opt-meta">({{ b.className ? b.className + ' &bull; ' : '' }}{{ b.subject || 'All Subjects' }} &bull; {{ b.studentCount || 0 }} Students)</span>
-              </mat-option>
+              @if (filteredBatches.length === 0) {
+                <mat-option [value]="''" disabled>
+                  No batches found for this class
+                </mat-option>
+              }
+              @for (b of filteredBatches; track b) {
+                <mat-option [value]="b.id">
+                  <strong>{{ b.name }}</strong>
+                  <span class="batch-opt-meta">({{ b.className ? b.className + ' &bull; ' : '' }}{{ b.subject || 'All Subjects' }} &bull; {{ b.studentCount || 0 }} Students)</span>
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-        </ng-container>
+        }
 
         <!-- Start From -->
         <mat-form-field appearance="outline" class="form-item num-field">
@@ -182,31 +196,37 @@ export interface RollSequencerDialogData {
             [(ngModel)]="prefix"
             placeholder="e.g. {BATCH}- or B1- or NEET26-"
             (input)="clearPreview()" />
-          <button *ngIf="prefix" matSuffix mat-icon-button (click)="prefix = ''; clearPreview()" matTooltip="Clear Prefix">
-            <mat-icon>clear</mat-icon>
-          </button>
+          @if (prefix) {
+            <button matSuffix mat-icon-button (click)="prefix = ''; clearPreview()" matTooltip="Clear Prefix">
+              <mat-icon>clear</mat-icon>
+            </button>
+          }
         </mat-form-field>
 
         <!-- Dynamic Token Helper Chips: Vertically Centered -->
         <div class="token-helper-wrap">
           <span class="token-label">Dynamic Tokens:</span>
           <div class="token-chips-group">
-            <button
-              type="button"
-              class="token-chip-btn"
-              (click)="insertToken('{BATCH}')"
-              matTooltip="Inserts dynamic Batch Name/Code into Prefix"
-              *ngIf="targetScope === 'coaching'">
-              +&#123;BATCH&#125;
-            </button>
-            <button
-              type="button"
-              class="token-chip-btn"
-              (click)="insertToken('{CLASS}')"
-              matTooltip="Inserts dynamic Class Name into Prefix"
-              *ngIf="targetScope === 'school' || (targetScope === 'coaching' && coachingClassId)">
-              +&#123;CLASS&#125;
-            </button>
+            @if (targetScope === 'coaching') {
+              <button
+                type="button"
+                class="token-chip-btn"
+                (click)="insertToken('{BATCH}')"
+                matTooltip="Inserts dynamic Batch Name/Code into Prefix"
+                >
+                +&#123;BATCH&#125;
+              </button>
+            }
+            @if (targetScope === 'school' || (targetScope === 'coaching' && coachingClassId)) {
+              <button
+                type="button"
+                class="token-chip-btn"
+                (click)="insertToken('{CLASS}')"
+                matTooltip="Inserts dynamic Class Name into Prefix"
+                >
+                +&#123;CLASS&#125;
+              </button>
+            }
             <button
               type="button"
               class="token-chip-btn"
@@ -312,87 +332,97 @@ export interface RollSequencerDialogData {
     </div>
 
     <!-- Preview Results Area -->
-    <div class="preview-area" *ngIf="previewResult">
-      <div class="preview-header">
-        <div class="preview-title">
-          <mat-icon>checklist</mat-icon>
-          <span>
-            Roll Numbers Preview:
-            <strong>{{ previewResult.totalStudents }} Students Found</strong>
-            <span class="preview-scope-tag">({{ targetScope === 'coaching' ? 'Coaching Batch' : 'School Class' }})</span>
-          </span>
-        </div>
-        <div class="preview-header-right">
-          <span class="stats-pill" *ngIf="previewResult.students.length > 0">
-            <span class="changed-count">{{ getChangedCount() }} to update</span> &bull;
-            <span class="unchanged-count">{{ getUnchangedCount() }} unchanged</span>
-          </span>
-          <div class="preview-badge" *ngIf="hasAppliedChanges">
-            <mat-icon>verified</mat-icon> Saved to Database
+    @if (previewResult) {
+      <div class="preview-area">
+        <div class="preview-header">
+          <div class="preview-title">
+            <mat-icon>checklist</mat-icon>
+            <span>
+              Roll Numbers Preview:
+              <strong>{{ previewResult.totalStudents }} Students Found</strong>
+              <span class="preview-scope-tag">({{ targetScope === 'coaching' ? 'Coaching Batch' : 'School Class' }})</span>
+            </span>
+          </div>
+          <div class="preview-header-right">
+            @if (previewResult.students.length > 0) {
+              <span class="stats-pill">
+                <span class="changed-count">{{ getChangedCount() }} to update</span> &bull;
+                <span class="unchanged-count">{{ getUnchangedCount() }} unchanged</span>
+              </span>
+            }
+            @if (hasAppliedChanges) {
+              <div class="preview-badge">
+                <mat-icon>verified</mat-icon> Saved to Database
+              </div>
+            }
           </div>
         </div>
+        @if (previewResult.students.length > 0) {
+          <div class="table-responsive">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th style="width: 45px;">#</th>
+                  <th>Student Name</th>
+                  <th>Admission / SR No</th>
+                  <th>Gender</th>
+                  <th style="width: 140px; text-align: center;">Current Roll</th>
+                  <th style="width: 40px; text-align: center;">→</th>
+                  <th style="width: 150px; text-align: center;">New Roll Number</th>
+                  <th style="width: 110px; text-align: center;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of previewResult.students; track item; let idx = $index) {
+                  <tr
+                    [class.changed]="item.status === 'Updated' || (item.status === 'New Assigned')"
+                    [class.unchanged]="item.status === 'Unchanged'">
+                    <td class="col-idx">{{ idx + 1 }}</td>
+                    <td class="col-name">
+                      <strong>{{ item.studentName }}</strong>
+                    </td>
+                    <td class="col-adm">
+                      <span class="adm-chip">{{ item.admissionNumber || '—' }}</span>
+                    </td>
+                    <td class="col-gender">
+                      <span class="gender-chip" [class.female]="item.gender === 'Female' || item.gender === 'Girl'">
+                        {{ item.gender || '—' }}
+                      </span>
+                    </td>
+                    <td class="col-old-roll">
+                      <span class="old-roll-chip">{{ item.currentRollNumber || 'None' }}</span>
+                    </td>
+                    <td class="col-arrow">
+                      <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+                    </td>
+                    <td class="col-new-roll">
+                      <span class="new-roll-chip" [class.highlight]="item.status !== 'Unchanged'">
+                        {{ item.newRollNumber }}
+                      </span>
+                    </td>
+                    <td class="col-status">
+                      <span class="status-chip" [ngClass]="item.status?.toLowerCase()?.replace(' ', '-') || 'updated'">
+                        {{ item.status || 'Updated' }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        @if (previewResult.students.length === 0) {
+          <div class="empty-preview">
+            <mat-icon>info</mat-icon>
+            <p>No active students found in this {{ targetScope === 'coaching' ? 'coaching batch' : 'class/section' }} to sequence.</p>
+          </div>
+        }
       </div>
-
-      <div class="table-responsive" *ngIf="previewResult.students.length > 0">
-        <table class="preview-table">
-          <thead>
-            <tr>
-              <th style="width: 45px;">#</th>
-              <th>Student Name</th>
-              <th>Admission / SR No</th>
-              <th>Gender</th>
-              <th style="width: 140px; text-align: center;">Current Roll</th>
-              <th style="width: 40px; text-align: center;">→</th>
-              <th style="width: 150px; text-align: center;">New Roll Number</th>
-              <th style="width: 110px; text-align: center;">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              *ngFor="let item of previewResult.students; let idx = index"
-              [class.changed]="item.status === 'Updated' || (item.status === 'New Assigned')"
-              [class.unchanged]="item.status === 'Unchanged'">
-              <td class="col-idx">{{ idx + 1 }}</td>
-              <td class="col-name">
-                <strong>{{ item.studentName }}</strong>
-              </td>
-              <td class="col-adm">
-                <span class="adm-chip">{{ item.admissionNumber || '—' }}</span>
-              </td>
-              <td class="col-gender">
-                <span class="gender-chip" [class.female]="item.gender === 'Female' || item.gender === 'Girl'">
-                  {{ item.gender || '—' }}
-                </span>
-              </td>
-              <td class="col-old-roll">
-                <span class="old-roll-chip">{{ item.currentRollNumber || 'None' }}</span>
-              </td>
-              <td class="col-arrow">
-                <mat-icon class="arrow-icon">arrow_forward</mat-icon>
-              </td>
-              <td class="col-new-roll">
-                <span class="new-roll-chip" [class.highlight]="item.status !== 'Unchanged'">
-                  {{ item.newRollNumber }}
-                </span>
-              </td>
-              <td class="col-status">
-                <span class="status-chip" [ngClass]="item.status?.toLowerCase()?.replace(' ', '-') || 'updated'">
-                  {{ item.status || 'Updated' }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="empty-preview" *ngIf="previewResult.students.length === 0">
-        <mat-icon>info</mat-icon>
-        <p>No active students found in this {{ targetScope === 'coaching' ? 'coaching batch' : 'class/section' }} to sequence.</p>
-      </div>
-    </div>
+    }
   </div>
 </div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .sequencer-wrap {
       display: flex;

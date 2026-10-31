@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, Inject, OnInit, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -57,7 +57,7 @@ interface EditableInvoiceItem {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <mat-dialog-content class="dialog-content">
         <!-- Student Info Header -->
         <div class="student-banner">
@@ -67,34 +67,45 @@ interface EditableInvoiceItem {
               <span class="st-roll">({{ data.invoice.rollNumber }})</span>
             </div>
             <div class="st-meta-row">
-              <span *ngIf="data.invoice.className" class="badge-tag school">
-                🏫 {{ data.invoice.className }}<span *ngIf="data.invoice.sectionName"> ({{ data.invoice.sectionName }})</span>
+              @if (data.invoice.className) {
+                <span class="badge-tag school">
+                  🏫 {{ data.invoice.className }}@if (data.invoice.sectionName) {
+                  <span> ({{ data.invoice.sectionName }})</span>
+                }
               </span>
-              <span *ngIf="data.invoice.className && data.invoice.batchName" class="badge-sep">•</span>
-              <span *ngIf="data.invoice.batchName" class="badge-tag batch">
+            }
+            @if (data.invoice.className && data.invoice.batchName) {
+              <span class="badge-sep">•</span>
+            }
+            @if (data.invoice.batchName) {
+              <span class="badge-tag batch">
                 🎯 {{ data.invoice.batchName }}
               </span>
-            </div>
-          </div>
-          <div class="banner-right">
-            <span class="due-label">Total Fee Amount:</span>
-            <strong class="total-due-val">₹{{ totalComputedAmount | number:'1.2-2' }}</strong>
+            }
           </div>
         </div>
-
-        <!-- Current Line Items -->
-        <div class="section-title-row">
-          <div class="title-with-icon">
-            <mat-icon class="section-icon">format_list_bulleted</mat-icon>
-            <span class="section-title">Invoice Fee Heads ({{ items.length }})</span>
-          </div>
-          <span class="paid-badge" *ngIf="data.invoice.paidAmount > 0">
+        <div class="banner-right">
+          <span class="due-label">Total Fee Amount:</span>
+          <strong class="total-due-val">₹{{ totalComputedAmount | number:'1.2-2' }}</strong>
+        </div>
+      </div>
+    
+      <!-- Current Line Items -->
+      <div class="section-title-row">
+        <div class="title-with-icon">
+          <mat-icon class="section-icon">format_list_bulleted</mat-icon>
+          <span class="section-title">Invoice Fee Heads ({{ items.length }})</span>
+        </div>
+        @if (data.invoice.paidAmount > 0) {
+          <span class="paid-badge">
             Already Paid: ₹{{ data.invoice.paidAmount | number:'1.2-2' }}
           </span>
-        </div>
-
-        <div class="items-table-card">
-          <table class="items-table" *ngIf="items.length > 0">
+        }
+      </div>
+    
+      <div class="items-table-card">
+        @if (items.length > 0) {
+          <table class="items-table">
             <thead>
               <tr>
                 <th style="width: 40px;">#</th>
@@ -104,108 +115,123 @@ interface EditableInvoiceItem {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let it of items; let idx = index" [class.is-new-row]="it.isNew">
-                <td class="idx-col">{{ idx + 1 }}</td>
-                <td>
-                  <div class="head-particulars">
-                    <strong>{{ it.headName }}</strong>
-                    <span *ngIf="it.paidAmount > 0" class="mini-paid-tag">Paid: ₹{{ it.paidAmount | number:'1.2-2' }}</span>
-                    <span *ngIf="it.isNew" class="mini-new-tag">New</span>
-                  </div>
-                </td>
-                <td class="text-right">
-                  <input
-                    type="number"
-                    class="item-amount-input"
-                    [(ngModel)]="it.amount"
-                    (ngModelChange)="onAmountChange()"
-                    [disabled]="it.paidAmount > 0 || saving"
-                    min="1"
-                  />
-                </td>
-                <td class="text-center">
-                  <button
-                    mat-icon-button
-                    type="button"
-                    class="delete-item-btn"
-                    [disabled]="it.paidAmount > 0 || saving"
-                    (click)="removeItem(idx)"
-                    [matTooltip]="it.paidAmount > 0 ? 'Cannot remove already paid item' : 'Remove this fee head'"
-                  >
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
-                </td>
-              </tr>
+              @for (it of items; track it; let idx = $index) {
+                <tr [class.is-new-row]="it.isNew">
+                  <td class="idx-col">{{ idx + 1 }}</td>
+                  <td>
+                    <div class="head-particulars">
+                      <strong>{{ it.headName }}</strong>
+                      @if (it.paidAmount > 0) {
+                        <span class="mini-paid-tag">Paid: ₹{{ it.paidAmount | number:'1.2-2' }}</span>
+                      }
+                      @if (it.isNew) {
+                        <span class="mini-new-tag">New</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="text-right">
+                    <input
+                      type="number"
+                      class="item-amount-input"
+                      [(ngModel)]="it.amount"
+                      (ngModelChange)="onAmountChange()"
+                      [disabled]="it.paidAmount > 0 || saving"
+                      min="1"
+                      />
+                  </td>
+                  <td class="text-center">
+                    <button
+                      mat-icon-button
+                      type="button"
+                      class="delete-item-btn"
+                      [disabled]="it.paidAmount > 0 || saving"
+                      (click)="removeItem(idx)"
+                      [matTooltip]="it.paidAmount > 0 ? 'Cannot remove already paid item' : 'Remove this fee head'"
+                      >
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
-
-          <div *ngIf="items.length === 0" class="no-items-state">
+        }
+    
+        @if (items.length === 0) {
+          <div class="no-items-state">
             <mat-icon>receipt</mat-icon>
             <p>No fee heads on this invoice. Add at least one head below.</p>
           </div>
-        </div>
-
-        <!-- Add New Fee Head Form -->
-        <div class="add-head-section">
-          <div class="section-title-row">
-            <div class="title-with-icon">
-              <mat-icon class="section-icon add-icon">add_circle</mat-icon>
-              <span class="section-title">Add New Fee Head</span>
-            </div>
+        }
+      </div>
+    
+      <!-- Add New Fee Head Form -->
+      <div class="add-head-section">
+        <div class="section-title-row">
+          <div class="title-with-icon">
+            <mat-icon class="section-icon add-icon">add_circle</mat-icon>
+            <span class="section-title">Add New Fee Head</span>
           </div>
-
-          <form [formGroup]="addForm" (ngSubmit)="onAddHead()" class="add-head-form">
-            <mat-form-field appearance="outline" class="head-select-field">
-              <mat-label>Select Fee Head</mat-label>
-              <mat-select
-                formControlName="feeHeadId"
-                panelClass="wide-fee-head-select-panel"
-                (openedChange)="onFeeHeadDropdownOpened($event)"
-                (selectionChange)="onFeeHeadSelected($event.value)"
+        </div>
+    
+        <form [formGroup]="addForm" (ngSubmit)="onAddHead()" class="add-head-form">
+          <mat-form-field appearance="outline" class="head-select-field">
+            <mat-label>Select Fee Head</mat-label>
+            <mat-select
+              formControlName="feeHeadId"
+              panelClass="wide-fee-head-select-panel"
+              (openedChange)="onFeeHeadDropdownOpened($event)"
+              (selectionChange)="onFeeHeadSelected($event.value)"
               >
-                <!-- Display trigger for selected fee head -->
-                <mat-select-trigger>
-                  <span *ngIf="getSelectedFeeHeadName()" class="selected-head-trigger-text">
+              <!-- Display trigger for selected fee head -->
+              <mat-select-trigger>
+                @if (getSelectedFeeHeadName()) {
+                  <span class="selected-head-trigger-text">
                     {{ getSelectedFeeHeadName() }}
                   </span>
-                </mat-select-trigger>
-
-                <!-- Search Input Option (Sticky Header) -->
-                <mat-option disabled class="select-search-option">
-                  <div class="select-search-wrap" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                    <mat-icon class="search-box-icon">search</mat-icon>
-                    <input
-                      #feeHeadSearchInput
-                      type="text"
-                      class="select-search-input"
-                      placeholder="Search fee heads by name, code, category..."
-                      [value]="feeHeadSearchText"
-                      (input)="filterFeeHeads($event)"
-                      (click)="$event.stopPropagation()"
-                      (mousedown)="$event.stopPropagation()"
-                      (keydown)="$event.stopPropagation()"
-                      (keyup)="$event.stopPropagation()"
+                }
+              </mat-select-trigger>
+    
+              <!-- Search Input Option (Sticky Header) -->
+              <mat-option disabled class="select-search-option">
+                <div class="select-search-wrap" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                  <mat-icon class="search-box-icon">search</mat-icon>
+                  <input
+                    #feeHeadSearchInput
+                    type="text"
+                    class="select-search-input"
+                    placeholder="Search fee heads by name, code, category..."
+                    [value]="feeHeadSearchText"
+                    (input)="filterFeeHeads($event)"
+                    (click)="$event.stopPropagation()"
+                    (mousedown)="$event.stopPropagation()"
+                    (keydown)="$event.stopPropagation()"
+                    (keyup)="$event.stopPropagation()"
                     />
+                  @if (feeHeadSearchText) {
                     <button
                       mat-icon-button
                       type="button"
                       class="clear-search-btn"
-                      *ngIf="feeHeadSearchText"
                       (click)="clearFeeHeadSearch($event)"
                       (mousedown)="$event.stopPropagation()"
                       matTooltip="Clear search"
-                    >
+                      >
                       <mat-icon>close</mat-icon>
                     </button>
-                  </div>
-                </mat-option>
-
-                <!-- Filtered Fee Heads -->
-                <mat-option *ngFor="let fh of filteredFeeHeads" [value]="fh.id">
+                  }
+                </div>
+              </mat-option>
+    
+              <!-- Filtered Fee Heads -->
+              @for (fh of filteredFeeHeads; track fh) {
+                <mat-option [value]="fh.id">
                   <div class="fh-option-row">
                     <div class="fh-left-col">
                       <strong class="fh-main-name">{{ fh.name }}</strong>
-                      <span class="fh-code-chip" *ngIf="fh.code">{{ fh.code }}</span>
+                      @if (fh.code) {
+                        <span class="fh-code-chip">{{ fh.code }}</span>
+                      }
                     </div>
                     <div class="fh-chips">
                       <span class="fh-cat-chip">{{ fh.category }}</span>
@@ -213,61 +239,71 @@ interface EditableInvoiceItem {
                     </div>
                   </div>
                 </mat-option>
-
-                <!-- No Results State -->
-                <mat-option disabled *ngIf="filteredFeeHeads.length === 0" class="no-heads-option">
+              }
+    
+              <!-- No Results State -->
+              @if (filteredFeeHeads.length === 0) {
+                <mat-option disabled class="no-heads-option">
                   <div class="no-heads-wrap">
                     <mat-icon>search_off</mat-icon>
                     <span>No fee head matching "{{ feeHeadSearchText }}"</span>
                   </div>
                 </mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">tune</mat-icon>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="head-name-field" *ngIf="isCustomHead">
+              }
+            </mat-select>
+            <mat-icon matSuffix color="primary">tune</mat-icon>
+          </mat-form-field>
+    
+          @if (isCustomHead) {
+            <mat-form-field appearance="outline" class="head-name-field">
               <mat-label>Particulars Name</mat-label>
               <input matInput formControlName="customName" placeholder="e.g. Coaching Fee" />
             </mat-form-field>
-
-            <mat-form-field appearance="outline" class="amount-field">
-              <mat-label>Amount (₹)</mat-label>
-              <input matInput type="number" formControlName="amount" min="1" />
-              <span matPrefix class="currency-prefix">₹&nbsp;</span>
-            </mat-form-field>
-
-            <button
-              mat-raised-button
-              color="accent"
-              type="submit"
-              class="add-btn"
-              [disabled]="addForm.invalid || saving"
+          }
+    
+          <mat-form-field appearance="outline" class="amount-field">
+            <mat-label>Amount (₹)</mat-label>
+            <input matInput type="number" formControlName="amount" min="1" />
+            <span matPrefix class="currency-prefix">₹&nbsp;</span>
+          </mat-form-field>
+    
+          <button
+            mat-raised-button
+            color="accent"
+            type="submit"
+            class="add-btn"
+            [disabled]="addForm.invalid || saving"
             >
-              <mat-icon>add</mat-icon>
-              <span>Add Head</span>
-            </button>
-          </form>
-        </div>
-      </mat-dialog-content>
-
-      <!-- Actions -->
-      <mat-dialog-actions align="end" class="dialog-actions">
-        <button mat-button type="button" (click)="onClose()" [disabled]="saving">Cancel</button>
-        <button
-          mat-raised-button
-          color="primary"
-          type="button"
-          (click)="onSaveChanges()"
-          [disabled]="items.length === 0 || saving"
-          class="save-btn"
+            <mat-icon>add</mat-icon>
+            <span>Add Head</span>
+          </button>
+        </form>
+      </div>
+    </mat-dialog-content>
+    
+    <!-- Actions -->
+    <mat-dialog-actions align="end" class="dialog-actions">
+      <button mat-button type="button" (click)="onClose()" [disabled]="saving">Cancel</button>
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        (click)="onSaveChanges()"
+        [disabled]="items.length === 0 || saving"
+        class="save-btn"
         >
-          <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
-          <mat-icon *ngIf="!saving">check_circle</mat-icon>
-          <span>{{ saving ? 'Saving Changes...' : 'Save & Update Invoice' }}</span>
-        </button>
-      </mat-dialog-actions>
+        @if (saving) {
+          <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+        }
+        @if (!saving) {
+          <mat-icon>check_circle</mat-icon>
+        }
+        <span>{{ saving ? 'Saving Changes...' : 'Save & Update Invoice' }}</span>
+      </button>
+    </mat-dialog-actions>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .edit-dialog-wrapper {
       padding: 0;

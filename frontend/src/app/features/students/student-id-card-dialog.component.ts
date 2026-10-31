@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -43,130 +43,195 @@ export interface StudentIdCardDialogData {
       <div>
         <h2 class="modal-title">Student Identity Cards (छात्र पहचान पत्र)</h2>
         <p class="modal-subtitle">Official Printable ID Cards &bull; School ERP
-          <span *ngIf="cards.length>0" class="count-chip">{{cards.length}} cards</span></p>
-      </div>
-    </div>
-    <div class="header-controls">
-      <div class="side-selector">
-        <button mat-stroked-button [class.active-btn]="cardSide==='both'" (click)="cardSide='both'">Both</button>
-        <button mat-stroked-button [class.active-btn]="cardSide==='front'" (click)="cardSide='front'">Front</button>
-        <button mat-stroked-button [class.active-btn]="cardSide==='back'" (click)="cardSide='back'">Back</button>
-      </div>
-      <mat-form-field appearance="outline" class="class-filter no-print" *ngIf="!data?.studentId && (schoolClasses?.length ?? 0)>0">
-        <mat-label>Class</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadIdCards()">
-          <mat-option value="">All Classes</mat-option>
-          <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{c.name}}</mat-option>
-        </mat-select>
-      </mat-form-field>
-      <button mat-raised-button class="print-btn" (click)="printCards()" [disabled]="cards.length===0">
-        <mat-icon>print</mat-icon> Print {{cards.length}} Card{{cards.length!==1?'s':''}}
-      </button>
-      <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
-        <mat-icon>close</mat-icon>
-      </button>
-    </div>
-  </div>
-  <mat-progress-bar mode="indeterminate" *ngIf="loading" class="no-print"></mat-progress-bar>
-  <div class="empty-state no-print" *ngIf="!loading && cards.length===0">
-    <mat-icon>badge</mat-icon>
-    <h3>No Students Found</h3>
-    <p>No active school students. Try selecting a class.</p>
-  </div>
-  <div id="student-id-cards-print" class="cards-sheet print-area" *ngIf="!loading && cards.length>0">
-    <div class="cards-grid">
-      <div class="card-wrap" *ngFor="let c of cards">
-        <!-- FRONT -->
-        <div class="id-card id-card-front" *ngIf="cardSide==='both'||cardSide==='front'">
-          <div class="card-banner">
-            <div class="inst-icon" [class.has-img]="logoUrl && !logoFailed">
-              <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" class="inst-logo-img" alt="Logo">
-              <mat-icon *ngIf="!logoUrl || logoFailed">school</mat-icon>
-            </div>
-            <div class="inst-info">
-              <div class="inst-name" [title]="c.institutionName">{{c.institutionName}}</div>
-              <div class="inst-sub">STUDENT IDENTITY CARD</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="photo-wrap">
-              <img *ngIf="c.profilePhoto" [src]="getPhotoUrl(c.profilePhoto)" class="stu-photo" (error)="imgErr($event)">
-              <div *ngIf="!c.profilePhoto" class="photo-init">{{getInitials(c.studentName)}}</div>
-            </div>
-            <div class="stu-info">
-              <div class="stu-name">{{c.studentName}}</div>
-              <div class="adm-badge">{{c.admissionNumber||c.schoolRollNumber||c.rollNumber||'ID'}}</div>
-              <div class="stu-class">
-                <span *ngIf="c.className">{{c.className}}<span *ngIf="c.sectionName"> &bull; {{c.sectionName.startsWith('Sec') ? c.sectionName : 'Sec ' + c.sectionName}}</span></span>
-                <span *ngIf="!c.className && c.batchName">{{c.batchName}}</span>
-              </div>
-              <div class="acad-year" *ngIf="c.academicYear">{{c.academicYear}}</div>
-            </div>
-            <div class="meta-grid">
-              <div class="meta-row" *ngIf="c.dateOfBirth">
-                <span class="lbl">DOB:</span><span class="val">{{c.dateOfBirth|date:'dd-MMM-yy'}}</span>
-              </div>
-              <div class="meta-row">
-                <span class="lbl">Blood:</span><span class="val red">{{c.bloodGroup||'N/A'}}</span>
-              </div>
-              <div class="meta-row" *ngIf="c.parentName">
-                <span class="lbl">Father:</span><span class="val trunc">{{c.parentName}}</span>
-              </div>
-              <div class="meta-row" *ngIf="c.parentPhone">
-                <span class="lbl">Phone:</span><span class="val">{{c.parentPhone}}</span>
-              </div>
-            </div>
-          </div>
-          <div class="card-foot">
-            <div class="qr-box">
-              <img *ngIf="qrCodeUrls[c.id]" [src]="qrCodeUrls[c.id]" alt="QR Code" class="real-qr-img" />
-              <mat-icon *ngIf="!qrCodeUrls[c.id]" class="qr-ic">qr_code_2</mat-icon>
-              <span class="qr-lbl">{{c.admissionNumber||'STU-ID'}}</span>
-            </div>
-            <div class="sign-box">
-              <div class="id-digital-sign" *ngIf="digitalSignatureUrl">
-                <img [src]="digitalSignatureUrl" alt="Principal Signature" class="id-sign-img" />
-              </div>
-              <div class="sign-line" [class.has-sign]="digitalSignatureUrl"></div>
-              <span class="sign-lbl">Principal / Auth.</span>
-            </div>
-          </div>
-        </div>
-        <!-- BACK -->
-        <div class="id-card id-card-back" *ngIf="cardSide==='both'||cardSide==='back'">
-          <div class="back-hdr"><h4>{{c.institutionName}}</h4></div>
-          <div class="back-body">
-            <div class="back-inst-info">
-              <div *ngIf="c.branchName"><strong>Branch:</strong> {{c.branchName}}</div>
-              <div *ngIf="c.institutionAddress"><strong>Address:</strong> {{c.institutionAddress}}</div>
-              <div *ngIf="c.institutionPhone"><strong>Phone:</strong> {{c.institutionPhone}}</div>
-              <div *ngIf="c.affiliationCode"><strong>Aff. Code:</strong> {{c.affiliationCode}}</div>
-            </div>
-            <div class="stu-summary">
-              <div><strong>Name:</strong> {{c.studentName}}</div>
-              <div *ngIf="c.admissionNumber"><strong>Adm No:</strong> {{c.admissionNumber}}</div>
-              <div *ngIf="c.className"><strong>Class:</strong> {{c.className}}{{c.sectionName?' - '+c.sectionName:''}}</div>
-              <div *ngIf="c.gender"><strong>Gender:</strong> {{c.gender}}</div>
-              <div *ngIf="c.category"><strong>Category:</strong> {{c.category}}</div>
-            </div>
-            <div class="rules">
-              <div>&bull; This card is the property of the institution.</div>
-              <div>&bull; Carry at all times in school premises.</div>
-              <div>&bull; If found, return to the school office.</div>
-              <div>&bull; Non-transferable.</div>
-            </div>
-            <div class="emrg" *ngIf="c.parentPhone">
-              <span class="emrg-lbl">Emergency Contact</span>
-              <span class="emrg-num">{{c.parentPhone}}</span>
-            </div>
-          </div>
-          <div class="back-foot">{{c.academicYear||'Academic Year'}} &bull; {{c.affiliationCode||'STUDENT-ID'}}</div>
+          @if (cards.length>0) {
+            <span class="count-chip">{{cards.length}} cards</span>
+          }</p>
         </div>
       </div>
+      <div class="header-controls">
+        <div class="side-selector">
+          <button mat-stroked-button [class.active-btn]="cardSide==='both'" (click)="cardSide='both'">Both</button>
+          <button mat-stroked-button [class.active-btn]="cardSide==='front'" (click)="cardSide='front'">Front</button>
+          <button mat-stroked-button [class.active-btn]="cardSide==='back'" (click)="cardSide='back'">Back</button>
+        </div>
+        @if (!data?.studentId && (schoolClasses?.length ?? 0)>0) {
+          <mat-form-field appearance="outline" class="class-filter no-print">
+            <mat-label>Class</mat-label>
+            <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadIdCards()">
+              <mat-option value="">All Classes</mat-option>
+              @for (c of schoolClasses; track c) {
+                <mat-option [value]="c.id">{{c.name}}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+        <button mat-raised-button class="print-btn" (click)="printCards()" [disabled]="cards.length===0">
+          <mat-icon>print</mat-icon> Print {{cards.length}} Card{{cards.length!==1?'s':''}}
+        </button>
+        <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
     </div>
+    @if (loading) {
+      <mat-progress-bar mode="indeterminate" class="no-print"></mat-progress-bar>
+    }
+    @if (!loading && cards.length===0) {
+      <div class="empty-state no-print">
+        <mat-icon>badge</mat-icon>
+        <h3>No Students Found</h3>
+        <p>No active school students. Try selecting a class.</p>
+      </div>
+    }
+    @if (!loading && cards.length>0) {
+      <div id="student-id-cards-print" class="cards-sheet print-area">
+        <div class="cards-grid">
+          @for (c of cards; track c) {
+            <div class="card-wrap">
+              <!-- FRONT -->
+              @if (cardSide==='both'||cardSide==='front') {
+                <div class="id-card id-card-front">
+                  <div class="card-banner">
+                    <div class="inst-icon" [class.has-img]="logoUrl && !logoFailed">
+                      @if (logoUrl && !logoFailed) {
+                        <img [src]="logoUrl" (error)="logoFailed = true" class="inst-logo-img" alt="Logo">
+                      }
+                      @if (!logoUrl || logoFailed) {
+                        <mat-icon>school</mat-icon>
+                      }
+                    </div>
+                    <div class="inst-info">
+                      <div class="inst-name" [title]="c.institutionName">{{c.institutionName}}</div>
+                      <div class="inst-sub">STUDENT IDENTITY CARD</div>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <div class="photo-wrap">
+                      @if (c.profilePhoto) {
+                        <img [src]="getPhotoUrl(c.profilePhoto)" class="stu-photo" (error)="imgErr($event)">
+                      }
+                      @if (!c.profilePhoto) {
+                        <div class="photo-init">{{getInitials(c.studentName)}}</div>
+                      }
+                    </div>
+                    <div class="stu-info">
+                      <div class="stu-name">{{c.studentName}}</div>
+                      <div class="adm-badge">{{c.admissionNumber||c.schoolRollNumber||c.rollNumber||'ID'}}</div>
+                      <div class="stu-class">
+                        @if (c.className) {
+                          <span>{{c.className}}@if (c.sectionName) {
+                            <span> &bull; {{c.sectionName.startsWith('Sec') ? c.sectionName : 'Sec ' + c.sectionName}}</span>
+                          }</span>
+                        }
+                        @if (!c.className && c.batchName) {
+                          <span>{{c.batchName}}</span>
+                        }
+                      </div>
+                      @if (c.academicYear) {
+                        <div class="acad-year">{{c.academicYear}}</div>
+                      }
+                    </div>
+                    <div class="meta-grid">
+                      @if (c.dateOfBirth) {
+                        <div class="meta-row">
+                          <span class="lbl">DOB:</span><span class="val">{{c.dateOfBirth|date:'dd-MMM-yy'}}</span>
+                        </div>
+                      }
+                      <div class="meta-row">
+                        <span class="lbl">Blood:</span><span class="val red">{{c.bloodGroup||'N/A'}}</span>
+                      </div>
+                      @if (c.parentName) {
+                        <div class="meta-row">
+                          <span class="lbl">Father:</span><span class="val trunc">{{c.parentName}}</span>
+                        </div>
+                      }
+                      @if (c.parentPhone) {
+                        <div class="meta-row">
+                          <span class="lbl">Phone:</span><span class="val">{{c.parentPhone}}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                  <div class="card-foot">
+                    <div class="qr-box">
+                      @if (qrCodeUrls[c.id]) {
+                        <img [src]="qrCodeUrls[c.id]" alt="QR Code" class="real-qr-img" />
+                      }
+                      @if (!qrCodeUrls[c.id]) {
+                        <mat-icon class="qr-ic">qr_code_2</mat-icon>
+                      }
+                      <span class="qr-lbl">{{c.admissionNumber||'STU-ID'}}</span>
+                    </div>
+                    <div class="sign-box">
+                      @if (digitalSignatureUrl) {
+                        <div class="id-digital-sign">
+                          <img [src]="digitalSignatureUrl" alt="Principal Signature" class="id-sign-img" />
+                        </div>
+                      }
+                      <div class="sign-line" [class.has-sign]="digitalSignatureUrl"></div>
+                      <span class="sign-lbl">Principal / Auth.</span>
+                    </div>
+                  </div>
+                </div>
+              }
+              <!-- BACK -->
+              @if (cardSide==='both'||cardSide==='back') {
+                <div class="id-card id-card-back">
+                  <div class="back-hdr"><h4>{{c.institutionName}}</h4></div>
+                  <div class="back-body">
+                    <div class="back-inst-info">
+                      @if (c.branchName) {
+                        <div><strong>Branch:</strong> {{c.branchName}}</div>
+                      }
+                      @if (c.institutionAddress) {
+                        <div><strong>Address:</strong> {{c.institutionAddress}}</div>
+                      }
+                      @if (c.institutionPhone) {
+                        <div><strong>Phone:</strong> {{c.institutionPhone}}</div>
+                      }
+                      @if (c.affiliationCode) {
+                        <div><strong>Aff. Code:</strong> {{c.affiliationCode}}</div>
+                      }
+                    </div>
+                    <div class="stu-summary">
+                      <div><strong>Name:</strong> {{c.studentName}}</div>
+                      @if (c.admissionNumber) {
+                        <div><strong>Adm No:</strong> {{c.admissionNumber}}</div>
+                      }
+                      @if (c.className) {
+                        <div><strong>Class:</strong> {{c.className}}{{c.sectionName?' - '+c.sectionName:''}}</div>
+                      }
+                      @if (c.gender) {
+                        <div><strong>Gender:</strong> {{c.gender}}</div>
+                      }
+                      @if (c.category) {
+                        <div><strong>Category:</strong> {{c.category}}</div>
+                      }
+                    </div>
+                    <div class="rules">
+                      <div>&bull; This card is the property of the institution.</div>
+                      <div>&bull; Carry at all times in school premises.</div>
+                      <div>&bull; If found, return to the school office.</div>
+                      <div>&bull; Non-transferable.</div>
+                    </div>
+                    @if (c.parentPhone) {
+                      <div class="emrg">
+                        <span class="emrg-lbl">Emergency Contact</span>
+                        <span class="emrg-num">{{c.parentPhone}}</span>
+                      </div>
+                    }
+                  </div>
+                  <div class="back-foot">{{c.academicYear||'Academic Year'}} &bull; {{c.affiliationCode||'STUDENT-ID'}}</div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
   </div>
-</div>
-  `,
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .idcard-wrap{display:flex;flex-direction:column;max-height:90vh;background:#f1f5f9;overflow:hidden}
     .modal-header{background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border-bottom:1px solid #bfdbfe;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}

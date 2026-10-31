@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,7 +24,6 @@ export interface QuickBatchMentorDialogData {
   selector: 'app-quick-batch-mentor-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -33,7 +32,7 @@ export interface QuickBatchMentorDialogData {
     MatIconModule,
     MatProgressBarModule,
     MatTooltipModule
-  ],
+],
   template: `
     <div class="quick-mentor-wrapper">
       <!-- Strict Light-Blue Gradient Header (AGENTS.md Standard) -->
@@ -49,7 +48,9 @@ export interface QuickBatchMentorDialogData {
             </h2>
             <p class="modal-subtitle">
               Batch: <strong>{{ data.batchName }}</strong>
-              <span *ngIf="data.className">&bull; Class: <strong>{{ data.className }}</strong></span>
+              @if (data.className) {
+                <span>&bull; Class: <strong>{{ data.className }}</strong></span>
+              }
             </p>
           </div>
         </div>
@@ -57,9 +58,11 @@ export interface QuickBatchMentorDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar mode="indeterminate" *ngIf="loading || saving" class="header-progress"></mat-progress-bar>
-
+    
+      @if (loading || saving) {
+        <mat-progress-bar mode="indeterminate" class="header-progress"></mat-progress-bar>
+      }
+    
       <div class="modal-body">
         <!-- Explanatory Banner -->
         <div class="mentor-info-card">
@@ -68,7 +71,7 @@ export interface QuickBatchMentorDialogData {
             <strong>Role of Batch Mentor:</strong> The designated faculty member is directly responsible for daily lecture coordination, student attendance follow-ups, Daily Practice Problems (DPP), and parent communication for this coaching batch.
           </div>
         </div>
-
+    
         <form [formGroup]="mentorForm" (ngSubmit)="onSubmit()" class="mentor-form">
           <div class="field-container">
             <mat-form-field appearance="outline" class="full-width">
@@ -83,39 +86,50 @@ export interface QuickBatchMentorDialogData {
                     <span class="text-muted">None / Remove Mentor (कोई मेंटर नहीं)</span>
                   </div>
                 </mat-option>
-                <mat-option *ngFor="let t of teachers" [value]="t.id">
-                  <div class="teacher-option-row">
-                    <mat-icon color="primary" class="opt-icon">person</mat-icon>
-                    <span class="teacher-name">{{ t.fullName || t.name }}</span>
-                    <span class="subject-badge" *ngIf="t.specialization || t.department || t.designation || t.subject">{{ t.specialization || t.department || t.designation || t.subject }}</span>
-                    <span class="phone-badge" *ngIf="t.phoneNumber || t.phone">📞 {{ t.phoneNumber || t.phone }}</span>
-                  </div>
-                </mat-option>
+                @for (t of teachers; track t) {
+                  <mat-option [value]="t.id">
+                    <div class="teacher-option-row">
+                      <mat-icon color="primary" class="opt-icon">person</mat-icon>
+                      <span class="teacher-name">{{ t.fullName || t.name }}</span>
+                      @if (t.specialization || t.department || t.designation || t.subject) {
+                        <span class="subject-badge">{{ t.specialization || t.department || t.designation || t.subject }}</span>
+                      }
+                      @if (t.phoneNumber || t.phone) {
+                        <span class="phone-badge">📞 {{ t.phoneNumber || t.phone }}</span>
+                      }
+                    </div>
+                  </mat-option>
+                }
               </mat-select>
               <mat-icon matSuffix color="primary">assignment_ind</mat-icon>
             </mat-form-field>
           </div>
-
+    
           <!-- Current Assignment Card if any -->
-          <div class="current-mentor-banner" *ngIf="data.currentMentorTeacherName">
-            <div class="badge-label">CURRENT ASSIGNMENT:</div>
-            <div class="mentor-name-row">
-              <mat-icon>verified</mat-icon>
-              <span>{{ data.currentMentorTeacherName }}</span>
+          @if (data.currentMentorTeacherName) {
+            <div class="current-mentor-banner">
+              <div class="badge-label">CURRENT ASSIGNMENT:</div>
+              <div class="mentor-name-row">
+                <mat-icon>verified</mat-icon>
+                <span>{{ data.currentMentorTeacherName }}</span>
+              </div>
             </div>
-          </div>
-
+          }
+    
           <div class="modal-actions">
             <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
             <button mat-raised-button color="primary" type="submit" [disabled]="saving || loading" class="save-btn">
-              <mat-icon *ngIf="!saving">how_to_reg</mat-icon>
+              @if (!saving) {
+                <mat-icon>how_to_reg</mat-icon>
+              }
               <span>{{ saving ? 'Saving Assignment...' : 'Save Mentor Assignment' }}</span>
             </button>
           </div>
         </form>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .quick-mentor-wrapper {
       width: 100%;

@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -47,127 +47,134 @@ export interface ExamAdmitCardDialogData {
           <div class="title-text-group">
             <div class="title-row">
               <span class="main-title">Exam Admit Cards &amp; Hall Tickets</span>
-              <span class="exam-title-badge" *ngIf="data.testTitle">{{ data.testTitle }}</span>
+              @if (data.testTitle) {
+                <span class="exam-title-badge">{{ data.testTitle }}</span>
+              }
             </div>
             <span class="sub-title">परीक्षा प्रवेश पत्र &bull; Official Examination Controller</span>
           </div>
         </div>
-
+    
         <div class="btn-group">
           <!-- Policy Switch (Routine / General vs Strict Fee Policy) -->
-          <div class="sharp-toggle-chip" 
-               [class.chip-weekly]="allowAllStudents" 
-               [class.chip-strict]="!allowAllStudents"
-               (click)="allowAllStudents = !allowAllStudents"
-               [matTooltip]="allowAllStudents ? 'General Exam Mode: All students can appear in exam (Click for Strict Mode)' : 'Strict Mode: Dues pending flagged (Click for General Exam Mode)'">
+          <div class="sharp-toggle-chip"
+            [class.chip-weekly]="allowAllStudents"
+            [class.chip-strict]="!allowAllStudents"
+            (click)="allowAllStudents = !allowAllStudents"
+            [matTooltip]="allowAllStudents ? 'General Exam Mode: All students can appear in exam (Click for Strict Mode)' : 'Strict Mode: Dues pending flagged (Click for General Exam Mode)'">
             <span class="indicator-dot"></span>
             <span class="chip-text">{{ allowAllStudents ? 'General Exam (Allow All)' : 'Strict Fee Check' }}</span>
             <mat-icon class="toggle-icon">swap_horiz</mat-icon>
           </div>
-
+    
           <!-- Dues on Print Switch -->
-          <div class="sharp-toggle-chip" 
-               *ngIf="allowAllStudents"
-               [class.chip-due-on]="showDueNoticeOnPrint"
-               [class.chip-due-off]="!showDueNoticeOnPrint"
-               (click)="showDueNoticeOnPrint = !showDueNoticeOnPrint"
-               [matTooltip]="showDueNoticeOnPrint ? 'Fee due printed on card (Click to hide)' : 'Fee due hidden from card (Click to show)'">
-            <mat-icon class="chip-icon">{{ showDueNoticeOnPrint ? 'receipt_long' : 'visibility_off' }}</mat-icon>
-            <span class="chip-text">{{ showDueNoticeOnPrint ? 'Fee on Card: Show' : 'Fee on Card: Hide' }}</span>
-          </div>
-
+          @if (allowAllStudents) {
+            <div class="sharp-toggle-chip"
+              [class.chip-due-on]="showDueNoticeOnPrint"
+              [class.chip-due-off]="!showDueNoticeOnPrint"
+              (click)="showDueNoticeOnPrint = !showDueNoticeOnPrint"
+              [matTooltip]="showDueNoticeOnPrint ? 'Fee due printed on card (Click to hide)' : 'Fee due hidden from card (Click to show)'">
+              <mat-icon class="chip-icon">{{ showDueNoticeOnPrint ? 'receipt_long' : 'visibility_off' }}</mat-icon>
+              <span class="chip-text">{{ showDueNoticeOnPrint ? 'Fee on Card: Show' : 'Fee on Card: Hide' }}</span>
+            </div>
+          }
+    
           <div class="header-divider"></div>
-
+    
           <button mat-flat-button class="header-action-btn wa-btn" (click)="shareWhatsApp()" [disabled]="!activeStudent" matTooltip="Send Admit Card on Parent WhatsApp">
             <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
             </svg>
             <span>WhatsApp</span>
           </button>
-
+    
           <button mat-flat-button class="header-action-btn print-btn" (click)="printAdmitCard()" [disabled]="filteredStudents.length === 0" matTooltip="Print Hall Ticket">
             <mat-icon>print</mat-icon>
             <span>{{ printAllBatchMode ? 'Print All (' + filteredStudents.length + ')' : 'Print Current' }}</span>
           </button>
-
+    
           <button mat-icon-button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
             <mat-icon>close</mat-icon>
           </button>
         </div>
       </div>
-
+    
       <!-- Controls & Candidate Switcher Strip -->
-      <div class="controls-strip no-print" *ngIf="!loading && admitCardData">
-        <div class="strip-left">
-          <!-- Student Selector -->
-          <mat-form-field appearance="outline" class="student-select-field" subscriptSizing="dynamic">
-            <mat-label>Select Candidate</mat-label>
-            <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentSelect($event.value)">
-              <mat-option *ngFor="let s of filteredStudents" [value]="s.studentId">
-                {{ s.rollNumber }} &bull; {{ s.studentName }} {{ !s.isFeeCleared ? '(Due: ₹' + s.outstandingDue + ')' : '' }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <!-- Search Filter -->
-          <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
-            <mat-label>Quick Search...</mat-label>
-            <input matInput [(ngModel)]="searchQuery" (input)="applyFilter()" placeholder="Name / Roll No">
-            <mat-icon matPrefix>search</mat-icon>
-          </mat-form-field>
-        </div>
-
-        <div class="strip-right">
-          <!-- Fee Filter Pills -->
-          <div class="fee-filter-group">
-            <button class="filter-pill" [class.active]="feeFilter === 'ALL'" (click)="setFeeFilter('ALL')">
-              All ({{ admitCardData.students.length }})
-            </button>
-            <button class="filter-pill cleared" [class.active]="feeFilter === 'CLEARED'" (click)="setFeeFilter('CLEARED')">
-              Fee Cleared ({{ countCleared }})
-            </button>
-            <button class="filter-pill dues" [class.active]="feeFilter === 'DUES'" (click)="setFeeFilter('DUES')">
-              Dues Pending ({{ countDues }})
-            </button>
+      @if (!loading && admitCardData) {
+        <div class="controls-strip no-print">
+          <div class="strip-left">
+            <!-- Student Selector -->
+            <mat-form-field appearance="outline" class="student-select-field" subscriptSizing="dynamic">
+              <mat-label>Select Candidate</mat-label>
+              <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentSelect($event.value)">
+                @for (s of filteredStudents; track s) {
+                  <mat-option [value]="s.studentId">
+                    {{ s.rollNumber }} &bull; {{ s.studentName }} {{ !s.isFeeCleared ? '(Due: ₹' + s.outstandingDue + ')' : '' }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <!-- Search Filter -->
+            <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+              <mat-label>Quick Search...</mat-label>
+              <input matInput [(ngModel)]="searchQuery" (input)="applyFilter()" placeholder="Name / Roll No">
+              <mat-icon matPrefix>search</mat-icon>
+            </mat-form-field>
           </div>
-
-          <!-- Print Mode Selector -->
-          <button class="print-mode-btn" [class.active]="printAllBatchMode" (click)="togglePrintAllMode()" matTooltip="Switch between printing single student or all batch hall tickets">
-            <mat-icon>{{ printAllBatchMode ? 'layers' : 'person' }}</mat-icon>
-            <span>{{ printAllBatchMode ? 'Mode: All Batch' : 'Mode: Single' }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div class="empty-box no-print" *ngIf="!loading && filteredStudents.length === 0">
-        <mat-icon class="empty-icon">person_off</mat-icon>
-        <h4>No Candidates Found</h4>
-        <p>No active students match your selected search or fee status filter.</p>
-        <button mat-stroked-button color="primary" (click)="resetFilters()">Reset Filter</button>
-      </div>
-
-      <!-- Printable Area -->
-      <div class="admit-paper-scroll" id="admit-paper-container" *ngIf="!loading && admitCardData && filteredStudents.length > 0">
-
-        <!-- When in Single Mode: Render activeStudent -->
-        <ng-container *ngIf="!printAllBatchMode && activeStudent">
-          <div class="hall-ticket-paper" id="hall-ticket-paper">
-            <ng-container *ngTemplateOutlet="admitCardCardTpl; context: { student: activeStudent }"></ng-container>
-          </div>
-        </ng-container>
-
-        <!-- When in Batch Mode: Render all filtered students with page-break-after -->
-        <ng-container *ngIf="printAllBatchMode">
-          <div class="batch-print-wrapper" id="hall-ticket-paper">
-            <div *ngFor="let st of filteredStudents; let last = last" class="hall-ticket-paper" [class.page-break]="!last">
-              <ng-container *ngTemplateOutlet="admitCardCardTpl; context: { student: st }"></ng-container>
+          <div class="strip-right">
+            <!-- Fee Filter Pills -->
+            <div class="fee-filter-group">
+              <button class="filter-pill" [class.active]="feeFilter === 'ALL'" (click)="setFeeFilter('ALL')">
+                All ({{ admitCardData.students.length }})
+              </button>
+              <button class="filter-pill cleared" [class.active]="feeFilter === 'CLEARED'" (click)="setFeeFilter('CLEARED')">
+                Fee Cleared ({{ countCleared }})
+              </button>
+              <button class="filter-pill dues" [class.active]="feeFilter === 'DUES'" (click)="setFeeFilter('DUES')">
+                Dues Pending ({{ countDues }})
+              </button>
             </div>
+            <!-- Print Mode Selector -->
+            <button class="print-mode-btn" [class.active]="printAllBatchMode" (click)="togglePrintAllMode()" matTooltip="Switch between printing single student or all batch hall tickets">
+              <mat-icon>{{ printAllBatchMode ? 'layers' : 'person' }}</mat-icon>
+              <span>{{ printAllBatchMode ? 'Mode: All Batch' : 'Mode: Single' }}</span>
+            </button>
           </div>
-        </ng-container>
-
-      </div>
-
+        </div>
+      }
+    
+      <!-- Empty State -->
+      @if (!loading && filteredStudents.length === 0) {
+        <div class="empty-box no-print">
+          <mat-icon class="empty-icon">person_off</mat-icon>
+          <h4>No Candidates Found</h4>
+          <p>No active students match your selected search or fee status filter.</p>
+          <button mat-stroked-button color="primary" (click)="resetFilters()">Reset Filter</button>
+        </div>
+      }
+    
+      <!-- Printable Area -->
+      @if (!loading && admitCardData && filteredStudents.length > 0) {
+        <div class="admit-paper-scroll" id="admit-paper-container">
+          <!-- When in Single Mode: Render activeStudent -->
+          @if (!printAllBatchMode && activeStudent) {
+            <div class="hall-ticket-paper" id="hall-ticket-paper">
+              <ng-container *ngTemplateOutlet="admitCardCardTpl; context: { student: activeStudent }"></ng-container>
+            </div>
+          }
+          <!-- When in Batch Mode: Render all filtered students with page-break-after -->
+          @if (printAllBatchMode) {
+            <div class="batch-print-wrapper" id="hall-ticket-paper">
+              @for (st of filteredStudents; track st; let last = $last) {
+                <div class="hall-ticket-paper" [class.page-break]="!last">
+                  <ng-container *ngTemplateOutlet="admitCardCardTpl; context: { student: st }"></ng-container>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    
       <!-- Reusable Single Admit Card Template -->
       <ng-template #admitCardCardTpl let-student="student">
         <div class="ticket-border">
@@ -176,25 +183,31 @@ export interface ExamAdmitCardDialogData {
           <div class="ticket-header">
             <div class="inst-info">
               <div class="logo-mark transparent-logo-mark" [class.has-img]="logoUrl && !logoFailed">
-                <img *ngIf="logoUrl && !logoFailed" [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
-                <img *ngIf="!logoUrl || logoFailed" src="/assets/logo.png" alt="Logo" class="inst-logo-img">
+                @if (logoUrl && !logoFailed) {
+                  <img [src]="logoUrl" (error)="logoFailed = true" alt="Logo" class="inst-logo-img">
+                }
+                @if (!logoUrl || logoFailed) {
+                  <img src="/assets/logo.png" alt="Logo" class="inst-logo-img">
+                }
               </div>
               <div class="inst-details">
                 <h2 class="inst-name">{{ instituteName }}</h2>
                 <p class="inst-sub">Center for Academic Excellence & Competitive Coaching</p>
-                <p class="inst-branch" *ngIf="admitCardData?.branchName as branchName">
-                  Center / Campus: <strong>{{ branchName }}</strong> &bull; Examination Division
-                </p>
+                @if (admitCardData?.branchName; as branchName) {
+                  <p class="inst-branch">
+                    Center / Campus: <strong>{{ branchName }}</strong> &bull; Examination Division
+                  </p>
+                }
               </div>
             </div>
-
+    
             <div class="admit-badge-block">
               <span class="badge-title">EXAM ADMIT CARD</span>
               <span class="badge-sub">परीक्षा प्रवेश पत्र (हॉल टिकट)</span>
               <span class="copy-tag">STUDENT ORIGINAL COPY</span>
             </div>
           </div>
-
+    
           <!-- Exam Details Strip -->
           <div class="exam-strip">
             <div class="strip-item">
@@ -207,18 +220,18 @@ export interface ExamAdmitCardDialogData {
             </div>
             <div class="strip-item">
               <span class="lbl">Exam Date &amp; Time:</span>
-              <span class="val highlight">{{ formatToIST(admitCardData?.examDate) }}, {{ getExamTimeIST(admitCardData?.examDate) }}</span>
+              <span class="val highlight">{{ formatToIST($safeNavigationMigration(admitCardData?.examDate)) }}, {{ getExamTimeIST($safeNavigationMigration(admitCardData?.examDate)) }}</span>
             </div>
             <div class="strip-item">
               <span class="lbl">Reporting Time (IST):</span>
-              <span class="val text-danger">{{ getReportingTimeIST(admitCardData?.examDate, student.reportingTime) }} <small class="prior-hint">(15m prior)</small></span>
+              <span class="val text-danger">{{ getReportingTimeIST($safeNavigationMigration(admitCardData?.examDate), student.reportingTime) }} <small class="prior-hint">(15m prior)</small></span>
             </div>
             <div class="strip-item">
               <span class="lbl">Duration / Max:</span>
               <span class="val">{{ student.examDuration }} &bull; {{ admitCardData?.maxMarks }} Marks</span>
             </div>
           </div>
-
+    
           <!-- Candidate Details & Photo Area -->
           <div class="candidate-box">
             <div class="candidate-info-grid">
@@ -250,38 +263,50 @@ export interface ExamAdmitCardDialogData {
                 <span class="k">Exam Center:</span>
                 <span class="v">{{ student.centerName }}</span>
               </div>
-
+    
               <!-- Fee Clearance Notice -->
               <div class="info-row fee-status-row">
                 <span class="k">Fee Status:</span>
                 <span class="v">
-                  <span class="fee-pill cleared" *ngIf="student.isFeeCleared">
-                    <mat-icon>verified</mat-icon> CLEARED &bull; VERIFIED
-                  </span>
-                  <span class="fee-pill dues" *ngIf="!student.isFeeCleared && allowAllStudents && showDueNoticeOnPrint">
-                    <mat-icon>info</mat-icon> PROVISIONAL (Due: ₹{{ student.outstandingDue | number:'1.2-2' }} &bull; Clear before Result)
-                  </span>
-                  <span class="fee-pill cleared" *ngIf="!student.isFeeCleared && allowAllStudents && !showDueNoticeOnPrint">
-                    <mat-icon>verified</mat-icon> ELIGIBLE &bull; EXAM PASS
-                  </span>
-                  <span class="fee-pill dues-blocked" *ngIf="!student.isFeeCleared && !allowAllStudents">
-                    <mat-icon>warning</mat-icon> PROVISIONAL ENTRY (Due: ₹{{ student.outstandingDue | number:'1.2-2' }} &bull; Clear before Result)
-                  </span>
+                  @if (student.isFeeCleared) {
+                    <span class="fee-pill cleared">
+                      <mat-icon>verified</mat-icon> CLEARED &bull; VERIFIED
+                    </span>
+                  }
+                  @if (!student.isFeeCleared && allowAllStudents && showDueNoticeOnPrint) {
+                    <span class="fee-pill dues">
+                      <mat-icon>info</mat-icon> PROVISIONAL (Due: ₹{{ student.outstandingDue | number:'1.2-2' }} &bull; Clear before Result)
+                    </span>
+                  }
+                  @if (!student.isFeeCleared && allowAllStudents && !showDueNoticeOnPrint) {
+                    <span class="fee-pill cleared">
+                      <mat-icon>verified</mat-icon> ELIGIBLE &bull; EXAM PASS
+                    </span>
+                  }
+                  @if (!student.isFeeCleared && !allowAllStudents) {
+                    <span class="fee-pill dues-blocked">
+                      <mat-icon>warning</mat-icon> PROVISIONAL ENTRY (Due: ₹{{ student.outstandingDue | number:'1.2-2' }} &bull; Clear before Result)
+                    </span>
+                  }
                 </span>
               </div>
             </div>
-
+    
             <!-- Student Photo Frame -->
             <div class="photo-frame">
-              <img *ngIf="student.photoUrl" [src]="getPhotoUrl(student.photoUrl)" alt="Candidate Photo" class="photo-img">
-              <div *ngIf="!student.photoUrl" class="photo-placeholder">
-                <mat-icon>person</mat-icon>
-                <span>AFFIX PASSPORT<br>PHOTO HERE</span>
-              </div>
+              @if (student.photoUrl) {
+                <img [src]="getPhotoUrl(student.photoUrl)" alt="Candidate Photo" class="photo-img">
+              }
+              @if (!student.photoUrl) {
+                <div class="photo-placeholder">
+                  <mat-icon>person</mat-icon>
+                  <span>AFFIX PASSPORT<br>PHOTO HERE</span>
+                </div>
+              }
               <span class="photo-label">CANDIDATE</span>
             </div>
           </div>
-
+    
           <!-- Official Candidate Instructions -->
           <div class="instructions-box">
             <span class="inst-heading">Important Instructions for Candidates / महत्वपूर्ण निर्देश:</span>
@@ -292,7 +317,7 @@ export interface ExamAdmitCardDialogData {
               <li>Use of unfair means will result in immediate disqualification and disciplinary cancellation of registration.</li>
             </ol>
           </div>
-
+    
           <!-- Signatures & Verification Strip -->
           <div class="signatures-strip">
             <div class="sig-box">
@@ -300,26 +325,32 @@ export interface ExamAdmitCardDialogData {
               <span class="sig-title">Candidate's Signature</span>
               <small class="sig-sub">(परीक्षार्थी के हस्ताक्षर)</small>
             </div>
-
+    
             <div class="sig-box center-seal">
-              <img *ngIf="officialSealUrl" [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
-              <div *ngIf="!officialSealUrl" class="seal-stamp">
-                <mat-icon>verified</mat-icon>
-                <span>{{ instituteName | uppercase }}</span>
-                <small>AUTHORIZED &bull; VERIFIED</small>
-              </div>
+              @if (officialSealUrl) {
+                <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              }
+              @if (!officialSealUrl) {
+                <div class="seal-stamp">
+                  <mat-icon>verified</mat-icon>
+                  <span>{{ instituteName | uppercase }}</span>
+                  <small>AUTHORIZED &bull; VERIFIED</small>
+                </div>
+              }
             </div>
-
+    
             <div class="sig-box">
-              <div class="digital-sign-wrapper" *ngIf="digitalSignatureUrl">
-                <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
-              </div>
+              @if (digitalSignatureUrl) {
+                <div class="digital-sign-wrapper">
+                  <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
+                </div>
+              }
               <div class="sig-line"></div>
               <span class="sig-title">Principal / Center Superintendent</span>
               <small class="sig-sub">Signature &amp; Official Stamp</small>
             </div>
           </div>
-
+    
           <!-- Ticket Footer -->
           <div class="ticket-footer">
             <span>Computer-generated examination hall ticket issued via IMSERP Enterprise Coaching Management System.</span>
@@ -327,7 +358,8 @@ export interface ExamAdmitCardDialogData {
         </div>
       </ng-template>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

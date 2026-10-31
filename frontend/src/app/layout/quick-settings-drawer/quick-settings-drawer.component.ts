@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, inject } from '@angular/core';
+import { Component, HostListener, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,6 +22,7 @@ import { RolesService, UserPermissionSummary } from '../../core/services/roles.s
     MatTooltipModule
   ],
   templateUrl: './quick-settings-drawer.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./quick-settings-drawer.component.scss']
 })
 export class QuickSettingsDrawerComponent implements OnInit {

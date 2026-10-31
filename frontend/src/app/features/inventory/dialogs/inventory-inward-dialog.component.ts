@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -59,7 +59,7 @@ export interface InventoryInwardDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-body">
           <!-- Top Vendor & Invoice Details -->
@@ -67,18 +67,20 @@ export interface InventoryInwardDialogData {
             <mat-icon>receipt_long</mat-icon>
             <span>Vendor & Invoice Details</span>
           </div>
-
+    
           <div class="form-grid top-grid">
             <mat-form-field appearance="outline">
               <mat-label>Supplier / Vendor</mat-label>
               <mat-select formControlName="vendorId">
                 <mat-option [value]="null">-- Direct Market Purchase --</mat-option>
-                <mat-option *ngFor="let v of data.vendors" [value]="v.id">
-                  {{ v.vendorName }} {{ v.phone ? '(' + v.phone + ')' : '' }}
-                </mat-option>
+                @for (v of data.vendors; track v) {
+                  <mat-option [value]="v.id">
+                    {{ v.vendorName }} {{ v.phone ? '(' + v.phone + ')' : '' }}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="bill-input-field">
               <mat-label>Vendor Invoice / Bill No.</mat-label>
               <input
@@ -95,12 +97,12 @@ export interface InventoryInwardDialogData {
                 <mat-icon class="icon-sm">settings</mat-icon>
               </button>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Inward Date</mat-label>
               <input matInput type="date" formControlName="inwardDate" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Payment Status</mat-label>
               <mat-select formControlName="paymentStatus">
@@ -109,7 +111,7 @@ export interface InventoryInwardDialogData {
                 <mat-option value="Partial">Partial Paid</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Payment Mode</mat-label>
               <mat-select formControlName="paymentMode">
@@ -120,16 +122,18 @@ export interface InventoryInwardDialogData {
               </mat-select>
             </mat-form-field>
           </div>
-
+    
           <!-- Existing Credit Note Auto-Adjustment Notice -->
-          <div *ngIf="selectedVendorAdvanceCredit > 0" class="credit-banner">
-            <mat-icon class="credit-banner-icon">info</mat-icon>
-            <div class="credit-banner-content">
-              <strong>Existing Supplier Credit Balance: ₹{{ selectedVendorAdvanceCredit | number:'1.2-2' }}</strong>
-              <p>This supplier has an advance credit from previous purchase returns (Debit Notes). It will be automatically adjusted against this invoice in the vendor ledger.</p>
+          @if (selectedVendorAdvanceCredit > 0) {
+            <div class="credit-banner">
+              <mat-icon class="credit-banner-icon">info</mat-icon>
+              <div class="credit-banner-content">
+                <strong>Existing Supplier Credit Balance: ₹{{ selectedVendorAdvanceCredit | number:'1.2-2' }}</strong>
+                <p>This supplier has an advance credit from previous purchase returns (Debit Notes). It will be automatically adjusted against this invoice in the vendor ledger.</p>
+              </div>
             </div>
-          </div>
-
+          }
+    
           <!-- Dynamic Item Rows Section -->
           <div class="items-header-row">
             <div class="section-title">
@@ -141,70 +145,69 @@ export interface InventoryInwardDialogData {
               <span>Add Item Row</span>
             </button>
           </div>
-
+    
           <div formArrayName="items" class="items-table-wrapper">
-            <div class="item-line-card" *ngFor="let line of itemRows.controls; let i = index" [formGroupName]="i">
-              <div class="line-index-badge">#{{ i + 1 }}</div>
-
-              <!-- Item selection -->
-              <mat-form-field appearance="outline" class="item-select-field">
-                <mat-label>Select Item</mat-label>
-                <mat-select formControlName="itemId" (selectionChange)="onItemSelect(i, $event.value)">
-                  <mat-select-trigger>
-                    <span *ngIf="getSelectedItem(i) as sel" class="trigger-item-wrap">
-                      <span class="trigger-name">{{ sel.itemName }}</span>
-                      <span class="trigger-code">({{ sel.itemCode }})</span>
-                      <span class="stock-pill" [ngClass]="getStockBadgeClass(sel)">
-                        Current: {{ sel.currentStock }} {{ sel.unitOfMeasurement }}
-                      </span>
-                    </span>
-                  </mat-select-trigger>
-
-                  <mat-option *ngFor="let itm of data.items" [value]="itm.id">
-                    <div class="option-item-row">
-                      <div class="option-name-code">
-                        <strong>{{ itm.itemName }}</strong>
-                        <span class="option-code">({{ itm.itemCode }})</span>
-                      </div>
-                      <span class="stock-pill" [ngClass]="getStockBadgeClass(itm)">
-                        Current: {{ itm.currentStock }} {{ itm.unitOfMeasurement }}
-                      </span>
-                    </div>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <!-- Quantity -->
-              <mat-form-field appearance="outline" class="qty-field">
-                <mat-label>Qty</mat-label>
-                <input matInput type="number" formControlName="quantity" min="1" (input)="computeTotals()" />
-              </mat-form-field>
-
-              <!-- Unit Purchase Price -->
-              <mat-form-field appearance="outline" class="rate-field">
-                <mat-label>Unit Price (₹)</mat-label>
-                <input matInput type="number" formControlName="unitPrice" min="0" step="0.5" (input)="computeTotals()" />
-              </mat-form-field>
-
-              <!-- Batch / Serial -->
-              <mat-form-field appearance="outline" class="batch-field">
-                <mat-label>Batch / Serial No.</mat-label>
-                <input matInput formControlName="batchOrSerialNo" placeholder="Optional" />
-              </mat-form-field>
-
-              <!-- Line Total Computed -->
-              <div class="line-total-box">
-                <span class="sub-label">Total</span>
-                <span class="val">₹{{ getLineTotal(i) | number:'1.2-2' }}</span>
+            @for (line of itemRows.controls; track line; let i = $index) {
+              <div class="item-line-card" [formGroupName]="i">
+                <div class="line-index-badge">#{{ i + 1 }}</div>
+                <!-- Item selection -->
+                <mat-form-field appearance="outline" class="item-select-field">
+                  <mat-label>Select Item</mat-label>
+                  <mat-select formControlName="itemId" (selectionChange)="onItemSelect(i, $event.value)">
+                    <mat-select-trigger>
+                      @if (getSelectedItem(i); as sel) {
+                        <span class="trigger-item-wrap">
+                          <span class="trigger-name">{{ sel.itemName }}</span>
+                          <span class="trigger-code">({{ sel.itemCode }})</span>
+                          <span class="stock-pill" [ngClass]="getStockBadgeClass(sel)">
+                            Current: {{ sel.currentStock }} {{ sel.unitOfMeasurement }}
+                          </span>
+                        </span>
+                      }
+                    </mat-select-trigger>
+                    @for (itm of data.items; track itm) {
+                      <mat-option [value]="itm.id">
+                        <div class="option-item-row">
+                          <div class="option-name-code">
+                            <strong>{{ itm.itemName }}</strong>
+                            <span class="option-code">({{ itm.itemCode }})</span>
+                          </div>
+                          <span class="stock-pill" [ngClass]="getStockBadgeClass(itm)">
+                            Current: {{ itm.currentStock }} {{ itm.unitOfMeasurement }}
+                          </span>
+                        </div>
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <!-- Quantity -->
+                <mat-form-field appearance="outline" class="qty-field">
+                  <mat-label>Qty</mat-label>
+                  <input matInput type="number" formControlName="quantity" min="1" (input)="computeTotals()" />
+                </mat-form-field>
+                <!-- Unit Purchase Price -->
+                <mat-form-field appearance="outline" class="rate-field">
+                  <mat-label>Unit Price (₹)</mat-label>
+                  <input matInput type="number" formControlName="unitPrice" min="0" step="0.5" (input)="computeTotals()" />
+                </mat-form-field>
+                <!-- Batch / Serial -->
+                <mat-form-field appearance="outline" class="batch-field">
+                  <mat-label>Batch / Serial No.</mat-label>
+                  <input matInput formControlName="batchOrSerialNo" placeholder="Optional" />
+                </mat-form-field>
+                <!-- Line Total Computed -->
+                <div class="line-total-box">
+                  <span class="sub-label">Total</span>
+                  <span class="val">₹{{ getLineTotal(i) | number:'1.2-2' }}</span>
+                </div>
+                <!-- Remove button -->
+                <button mat-icon-button color="warn" type="button" (click)="removeItemRow(i)" [disabled]="itemRows.length === 1" matTooltip="Remove Line">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
               </div>
-
-              <!-- Remove button -->
-              <button mat-icon-button color="warn" type="button" (click)="removeItemRow(i)" [disabled]="itemRows.length === 1" matTooltip="Remove Line">
-                <mat-icon>delete_outline</mat-icon>
-              </button>
-            </div>
+            }
           </div>
-
+    
           <!-- Bottom Summary & Amounts -->
           <div class="summary-section">
             <div class="remarks-wrap">
@@ -213,7 +216,7 @@ export interface InventoryInwardDialogData {
                 <textarea matInput formControlName="remarks" rows="3" placeholder="e.g. Auto-reorder for low stock threshold, batch notes, or delivery remarks"></textarea>
               </mat-form-field>
             </div>
-
+    
             <div class="totals-card">
               <div class="total-row">
                 <span>Sub-Total Items:</span>
@@ -231,30 +234,37 @@ export interface InventoryInwardDialogData {
                 <span>Inward Bill Total:</span>
                 <strong class="net-val">₹{{ netTotal | number:'1.2-2' }}</strong>
               </div>
-              <div class="total-row credit-adj-row" *ngIf="selectedVendorAdvanceCredit > 0">
-                <span>Less Credit Note Adj:</span>
-                <strong class="text-emerald">-₹{{ Math.min(selectedVendorAdvanceCredit, netTotal) | number:'1.2-2' }}</strong>
-              </div>
-              <div class="total-row final-payable-row" *ngIf="selectedVendorAdvanceCredit > 0">
-                <span>Net Cash/Bank Payable:</span>
-                <strong class="final-payable-val">₹{{ Math.max(0, netTotal - selectedVendorAdvanceCredit) | number:'1.2-2' }}</strong>
-              </div>
+              @if (selectedVendorAdvanceCredit > 0) {
+                <div class="total-row credit-adj-row">
+                  <span>Less Credit Note Adj:</span>
+                  <strong class="text-emerald">-₹{{ Math.min(selectedVendorAdvanceCredit, netTotal) | number:'1.2-2' }}</strong>
+                </div>
+              }
+              @if (selectedVendorAdvanceCredit > 0) {
+                <div class="total-row final-payable-row">
+                  <span>Net Cash/Bank Payable:</span>
+                  <strong class="final-payable-val">₹{{ Math.max(0, netTotal - selectedVendorAdvanceCredit) | number:'1.2-2' }}</strong>
+                </div>
+              }
             </div>
           </div>
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
             Cancel
           </button>
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting || itemRows.length === 0">
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner-btn"></mat-spinner>
+            @if (submitting) {
+              <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
+            }
             <span>Confirm & Receive Stock</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

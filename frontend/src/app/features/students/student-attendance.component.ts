@@ -1,4 +1,4 @@
-import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -121,20 +121,26 @@ interface CalendarDay {
   template: `
 <div class="page-container">
   <!-- Top Global Page Loading Indicator -->
-  <mat-progress-bar mode="indeterminate" class="global-page-loader" *ngIf="isAnyLoading"></mat-progress-bar>
+  @if (isAnyLoading) {
+    <mat-progress-bar mode="indeterminate" class="global-page-loader"></mat-progress-bar>
+  }
   <div class="page-header">
     <div class="header-top-row">
       <h1 class="page-title"><mat-icon>event_available</mat-icon> Student Attendance Management</h1>
       <div class="header-actions">
-        <button mat-stroked-button class="header-action-btn settings-btn" *ngIf="attendancePermissions.canChangeMode" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Students and Faculty">
-          <mat-icon>settings</mat-icon> <span>Shift &amp; Policy Settings</span>
-        </button>
+        @if (attendancePermissions.canChangeMode) {
+          <button mat-stroked-button class="header-action-btn settings-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Students and Faculty">
+            <mat-icon>settings</mat-icon> <span>Shift &amp; Policy Settings</span>
+          </button>
+        }
         <a mat-stroked-button class="header-action-btn report-btn" routerLink="/attendance/reports">
           <mat-icon>summarize</mat-icon> <span>Attendance Reports</span>
         </a>
-        <a *ngIf="!isTeacher" mat-stroked-button class="header-action-btn directory-btn" routerLink="/students">
-          <mat-icon>people</mat-icon> <span>Student Directory</span>
-        </a>
+        @if (!isTeacher) {
+          <a mat-stroked-button class="header-action-btn directory-btn" routerLink="/students">
+            <mat-icon>people</mat-icon> <span>Student Directory</span>
+          </a>
+        }
       </div>
     </div>
     <p class="page-subtitle">{{ hasSchool && hasCoaching ? 'Mark daily roll call for School Classes or Coaching Batches, or view individual student monthly registers.' : (hasSchool ? 'Mark daily roll call for School Classes and Sections, or view individual student monthly registers.' : 'Mark daily roll call for Coaching Batches, or view individual student monthly registers.') }}</p>
@@ -162,160 +168,170 @@ interface CalendarDay {
         <strong>{{ isTeacher ? 'Regularization Approvals' : 'Attendance Regularization' }}</strong>
         <small>{{ isTeacher ? 'Review & approve student OD / leave requests' : 'Student corrections & OD requests' }}</small>
       </div>
-      <span class="tab-pending-badge" *ngIf="regularizationStats.pendingRequests > 0">
-        {{ regularizationStats.pendingRequests }} Pending
-      </span>
+      @if (regularizationStats.pendingRequests > 0) {
+        <span class="tab-pending-badge">
+          {{ regularizationStats.pendingRequests }} Pending
+        </span>
+      }
     </button>
   </div>
 
   <!-- ================= TAB 1: ROLL CALL (BULK) ================= -->
-  <div *ngIf="activeTab === 'batch'" class="batch-view">
-
-    <!-- Scope Selector: School Class vs Coaching Batch (Only shown if both modules are active) -->
-    <div class="roll-call-scope-bar" *ngIf="hasSchool && hasCoaching">
-      <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'school'" (click)="setRollCallScope('school')">
-        <mat-icon>school</mat-icon>
-        <div class="scope-btn-text">
-          <strong>School Class Roll Call</strong>
-          <small>Class & Section daily attendance</small>
-        </div>
-      </button>
-      <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'coaching'" (click)="setRollCallScope('coaching')">
-        <mat-icon>menu_book</mat-icon>
-        <div class="scope-btn-text">
-          <strong>Coaching Batch Roll Call</strong>
-          <small>Batch & Subject attendance</small>
-        </div>
-      </button>
-    </div>
-
-    <!-- Controls Card -->
-    <mat-card class="batch-controls-card mat-elevation-z1">
-      <div class="controls-row">
-        
-        <!-- School Class & Section Selectors -->
-        <ng-container *ngIf="rollCallScope === 'school'">
-          <!-- Locked view for class teachers -->
-          <ng-container *ngIf="isTeacher && teacherClassSection?.isClassTeacher; else classDropdowns">
-            <div class="teacher-class-locked-badge">
-              <mat-icon>lock</mat-icon>
-              <div>
-                <strong>{{ teacherClassSection?.className }}</strong>
-                <small *ngIf="teacherClassSection?.sectionName">
-                  {{ (teacherClassSection?.sectionName || '').startsWith('Section') ? teacherClassSection?.sectionName : 'Section ' + teacherClassSection?.sectionName }}
-                </small>
-              </div>
+  @if (activeTab === 'batch') {
+    <div class="batch-view">
+      <!-- Scope Selector: School Class vs Coaching Batch (Only shown if both modules are active) -->
+      @if (hasSchool && hasCoaching) {
+        <div class="roll-call-scope-bar">
+          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'school'" (click)="setRollCallScope('school')">
+            <mat-icon>school</mat-icon>
+            <div class="scope-btn-text">
+              <strong>School Class Roll Call</strong>
+              <small>Class & Section daily attendance</small>
             </div>
-          </ng-container>
-          <ng-template #classDropdowns>
-            <mat-form-field appearance="outline" class="class-select" subscriptSizing="dynamic">
-              <mat-label>Select School Class</mat-label>
-              <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChanged()" [disabled]="isTeacher">
-                <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                  {{ c.name }} <span *ngIf="c.code">({{ c.code }})</span>
-                </mat-option>
+          </button>
+          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'coaching'" (click)="setRollCallScope('coaching')">
+            <mat-icon>menu_book</mat-icon>
+            <div class="scope-btn-text">
+              <strong>Coaching Batch Roll Call</strong>
+              <small>Batch & Subject attendance</small>
+            </div>
+          </button>
+        </div>
+      }
+      <!-- Controls Card -->
+      <mat-card class="batch-controls-card mat-elevation-z1">
+        <div class="controls-row">
+          <!-- School Class & Section Selectors -->
+          @if (rollCallScope === 'school') {
+            <!-- Locked view for class teachers -->
+            @if (isTeacher && teacherClassSection?.isClassTeacher) {
+              <div class="teacher-class-locked-badge">
+                <mat-icon>lock</mat-icon>
+                <div>
+                  <strong>{{ teacherClassSection?.className }}</strong>
+                  @if (teacherClassSection?.sectionName) {
+                    <small>
+                      {{ (teacherClassSection?.sectionName || '').startsWith('Section') ? teacherClassSection?.sectionName : 'Section ' + teacherClassSection?.sectionName }}
+                    </small>
+                  }
+                </div>
+              </div>
+            } @else {
+              <mat-form-field appearance="outline" class="class-select" subscriptSizing="dynamic">
+                <mat-label>Select School Class</mat-label>
+                <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChanged()" [disabled]="isTeacher">
+                  @for (c of schoolClasses; track c) {
+                    <mat-option [value]="c.id">
+                      {{ c.name }} @if (c.code) {
+                      <span>({{ c.code }})</span>
+                    }
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="section-select" subscriptSizing="dynamic">
               <mat-label>Select Section</mat-label>
               <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChanged()">
                 <mat-option value="">All Sections</mat-option>
-                <mat-option *ngFor="let sec of classSections" [value]="sec.id">
-                  Section {{ sec.name }}
-                </mat-option>
+                @for (sec of classSections; track sec) {
+                  <mat-option [value]="sec.id">
+                    Section {{ sec.name }}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-          </ng-template>
-        </ng-container>
-
+          }
+        }
         <!-- Coaching Batch Selector with Class Filter -->
-        <ng-container *ngIf="rollCallScope === 'coaching'">
-          <mat-form-field appearance="outline" class="class-select" subscriptSizing="dynamic" *ngIf="hasSchool">
-            <mat-label>Filter Academic Class</mat-label>
-            <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassFilterChanged()">
-              <mat-option value="">✨ All Academic Classes</mat-option>
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                🏫 {{ c.name }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
+        @if (rollCallScope === 'coaching') {
+          @if (hasSchool) {
+            <mat-form-field appearance="outline" class="class-select" subscriptSizing="dynamic">
+              <mat-label>Filter Academic Class</mat-label>
+              <mat-select [(ngModel)]="selectedCoachingClassId" (selectionChange)="onCoachingClassFilterChanged()">
+                <mat-option value="">✨ All Academic Classes</mat-option>
+                @for (c of schoolClasses; track c) {
+                  <mat-option [value]="c.id">
+                    🏫 {{ c.name }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
           <mat-form-field appearance="outline" class="batch-select" subscriptSizing="dynamic">
             <mat-label>Select Coaching Batch</mat-label>
             <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="onBatchChanged()">
-              <mat-option *ngFor="let b of filteredCoachingBatches" [value]="b.id">
-                🎯 {{ b.name }} ({{ b.subject || b.academicYear || 'General' }}) <span *ngIf="b.className">• {{ b.className }}</span>
+              @for (b of filteredCoachingBatches; track b) {
+                <mat-option [value]="b.id">
+                  🎯 {{ b.name }} ({{ b.subject || b.academicYear || 'General' }}) @if (b.className) {
+                  <span>• {{ b.className }}</span>
+                }
               </mat-option>
-            </mat-select>
-          </mat-form-field>
-        </ng-container>
-
-        <!-- Date Controls (Shared) -->
-        <div class="date-controls">
-          <button mat-icon-button (click)="prevDay()" [disabled]="isBatchPastLocked" [matTooltip]="isBatchPastLocked ? 'Past attendance locked (Admin permission required)' : 'Previous Day'">
-            <mat-icon>chevron_left</mat-icon>
-          </button>
-          <mat-form-field appearance="outline" class="date-input" subscriptSizing="dynamic">
-            <mat-label>Attendance Date</mat-label>
-            <input matInput type="date" [(ngModel)]="selectedBatchDate" [max]="todayStr" [min]="minAttendanceDate" (change)="onBatchDateChanged()">
-          </mat-form-field>
-          <button mat-icon-button (click)="nextDay()" [disabled]="selectedBatchDate >= todayStr" matTooltip="Next Day">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
-          <button mat-stroked-button class="today-btn" (click)="setToday()">Today</button>
-        </div>
-
-        <!-- Search in roll call -->
-        <mat-form-field appearance="outline" class="search-input" subscriptSizing="dynamic">
-          <mat-label>{{ rollCallScope === 'school' ? 'Search student, roll, adm' : 'Search student, roll' }}</mat-label>
-          <input matInput [(ngModel)]="batchSearchQuery" placeholder="Filter by name / roll...">
-          <mat-icon matPrefix>search</mat-icon>
+            }
+          </mat-select>
         </mat-form-field>
+      }
+      <!-- Date Controls (Shared) -->
+      <div class="date-controls">
+        <button mat-icon-button (click)="prevDay()" [disabled]="isBatchPastLocked" [matTooltip]="isBatchPastLocked ? 'Past attendance locked (Admin permission required)' : 'Previous Day'">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <mat-form-field appearance="outline" class="date-input" subscriptSizing="dynamic">
+          <mat-label>Attendance Date</mat-label>
+          <input matInput type="date" [(ngModel)]="selectedBatchDate" [max]="todayStr" [min]="minAttendanceDate" (change)="onBatchDateChanged()">
+        </mat-form-field>
+        <button mat-icon-button (click)="nextDay()" [disabled]="selectedBatchDate >= todayStr" matTooltip="Next Day">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+        <button mat-stroked-button class="today-btn" (click)="setToday()">Today</button>
       </div>
-
-      <!-- Live Counters & Bulk Actions -->
-      <div class="stats-and-actions">
-        <div class="stats-counters">
-          <span class="stat-pill total">Total: <strong>{{ totalActiveStudents }}</strong></span>
-          <span class="stat-pill present">Present: <strong>{{ presentActiveCount }}</strong></span>
-          <span class="stat-pill absent">Absent: <strong>{{ absentActiveCount }}</strong></span>
-          <span class="stat-pill late">Late: <strong>{{ lateActiveCount }}</strong></span>
-          <span class="stat-pill halfday">Half-Day: <strong>{{ halfDayActiveCount }}</strong></span>
-        </div>
-
-        <div class="fast-actions">
-          <button mat-stroked-button class="btn-bulk-present" (click)="markAllActiveStatus('Present')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Present">
-            <mat-icon>done_all</mat-icon> Mark All Present
-          </button>
-          <button mat-stroked-button class="btn-bulk-absent" (click)="markAllActiveStatus('Absent')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Absent">
-            <mat-icon>highlight_off</mat-icon> Mark All Absent
-          </button>
-        </div>
+      <!-- Search in roll call -->
+      <mat-form-field appearance="outline" class="search-input" subscriptSizing="dynamic">
+        <mat-label>{{ rollCallScope === 'school' ? 'Search student, roll, adm' : 'Search student, roll' }}</mat-label>
+        <input matInput [(ngModel)]="batchSearchQuery" placeholder="Filter by name / roll...">
+        <mat-icon matPrefix>search</mat-icon>
+      </mat-form-field>
+    </div>
+    <!-- Live Counters & Bulk Actions -->
+    <div class="stats-and-actions">
+      <div class="stats-counters">
+        <span class="stat-pill total">Total: <strong>{{ totalActiveStudents }}</strong></span>
+        <span class="stat-pill present">Present: <strong>{{ presentActiveCount }}</strong></span>
+        <span class="stat-pill absent">Absent: <strong>{{ absentActiveCount }}</strong></span>
+        <span class="stat-pill late">Late: <strong>{{ lateActiveCount }}</strong></span>
+        <span class="stat-pill halfday">Half-Day: <strong>{{ halfDayActiveCount }}</strong></span>
       </div>
-
-      <!-- Quick Default Timings Strip -->
-      <div class="roll-call-timings-bar" *ngIf="isScopeSelected">
+      <div class="fast-actions">
+        <button mat-stroked-button class="btn-bulk-present" (click)="markAllActiveStatus('Present')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Present">
+          <mat-icon>done_all</mat-icon> Mark All Present
+        </button>
+        <button mat-stroked-button class="btn-bulk-absent" (click)="markAllActiveStatus('Absent')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Absent">
+          <mat-icon>highlight_off</mat-icon> Mark All Absent
+        </button>
+      </div>
+    </div>
+    <!-- Quick Default Timings Strip -->
+    @if (isScopeSelected) {
+      <div class="roll-call-timings-bar">
         <div class="rct-left-group">
           <div class="rct-label">
             <mat-icon>schedule</mat-icon>
             <span>Default {{ rollCallScope === 'school' ? 'Class' : 'Batch' }} Timings:</span>
           </div>
-
           <!-- Coaching Shift Switcher Pills (Morning vs Afternoon vs Evening) -->
-          <div class="rct-shift-switcher" *ngIf="rollCallScope === 'coaching'">
-            <button type="button" class="shift-pill morning" [class.active]="coachingActiveShift === 'morning'" (click)="setCoachingShift('morning')" matTooltip="Select Morning Coaching Shift">
-              <span>🌅 Morning Shift</span>
-            </button>
-            <button type="button" class="shift-pill afternoon" [class.active]="coachingActiveShift === 'afternoon'" (click)="setCoachingShift('afternoon')" matTooltip="Select Afternoon Coaching Shift">
-              <span>🕒 Afternoon Shift</span>
-            </button>
-            <button type="button" class="shift-pill evening" [class.active]="coachingActiveShift === 'evening'" (click)="setCoachingShift('evening')" matTooltip="Select Evening Coaching Shift">
-              <span>🌆 Evening Shift</span>
-            </button>
-          </div>
+          @if (rollCallScope === 'coaching') {
+            <div class="rct-shift-switcher">
+              <button type="button" class="shift-pill morning" [class.active]="coachingActiveShift === 'morning'" (click)="setCoachingShift('morning')" matTooltip="Select Morning Coaching Shift">
+                <span>🌅 Morning Shift</span>
+              </button>
+              <button type="button" class="shift-pill afternoon" [class.active]="coachingActiveShift === 'afternoon'" (click)="setCoachingShift('afternoon')" matTooltip="Select Afternoon Coaching Shift">
+                <span>🕒 Afternoon Shift</span>
+              </button>
+              <button type="button" class="shift-pill evening" [class.active]="coachingActiveShift === 'evening'" (click)="setCoachingShift('evening')" matTooltip="Select Evening Coaching Shift">
+                <span>🌆 Evening Shift</span>
+              </button>
+            </div>
+          }
         </div>
-
         <div class="rct-fields">
           <div class="rct-input-wrap">
             <label>In</label>
@@ -328,53 +344,65 @@ interface CalendarDay {
           <button type="button" class="rct-apply-btn" (click)="applyBulkTimingsToPresent()" [disabled]="isBatchPastLocked" matTooltip="Apply these timings to all Present students">
             <mat-icon>sync</mat-icon> Apply to Present
           </button>
-          <span class="rct-dur-badge" *ngIf="calculateDuration(bulkCheckInTime, bulkCheckOutTime)">
-            {{ calculateDuration(bulkCheckInTime, bulkCheckOutTime) }}
-          </span>
+          @if (calculateDuration(bulkCheckInTime, bulkCheckOutTime)) {
+            <span class="rct-dur-badge">
+              {{ calculateDuration(bulkCheckInTime, bulkCheckOutTime) }}
+            </span>
+          }
         </div>
       </div>
-    </mat-card>
-
-    <!-- Success Message Banner -->
-    <div *ngIf="activeSuccessMsg" class="success-banner">
+    }
+  </mat-card>
+  <!-- Success Message Banner -->
+  @if (activeSuccessMsg) {
+    <div class="success-banner">
       <mat-icon>check_circle</mat-icon>
       <span>{{ activeSuccessMsg }}</span>
       <button mat-icon-button (click)="activeSuccessMsg = ''"><mat-icon>close</mat-icon></button>
     </div>
-
-    <!-- Empty State: Not Selected -->
-    <mat-card class="mat-elevation-z1 empty-card" *ngIf="rollCallScope === 'school' && !selectedClassId">
+  }
+  <!-- Empty State: Not Selected -->
+  @if (rollCallScope === 'school' && !selectedClassId) {
+    <mat-card class="mat-elevation-z1 empty-card">
       <mat-icon class="empty-icon">school</mat-icon>
       <h3>No School Class Selected</h3>
       <p>Please select a school class from the dropdown above to mark attendance.</p>
     </mat-card>
-
-    <mat-card class="mat-elevation-z1 empty-card" *ngIf="rollCallScope === 'coaching' && !selectedBatchId">
+  }
+  @if (rollCallScope === 'coaching' && !selectedBatchId) {
+    <mat-card class="mat-elevation-z1 empty-card">
       <mat-icon class="empty-icon">groups</mat-icon>
       <h3>No Batch Selected</h3>
       <p>Please select a batch from the dropdown above to mark attendance.</p>
     </mat-card>
-
-
-    <!-- Empty State: Zero Students -->
-    <mat-card class="mat-elevation-z1 empty-card" *ngIf="isScopeSelected && !isScopeLoading && filteredActiveStudents.length === 0">
+  }
+  <!-- Empty State: Zero Students -->
+  @if (isScopeSelected && !isScopeLoading && filteredActiveStudents.length === 0) {
+    <mat-card class="mat-elevation-z1 empty-card">
       <mat-icon class="empty-icon">person_off</mat-icon>
       <h3>No Students Found</h3>
-      <p *ngIf="totalActiveStudents === 0">
-        {{ rollCallScope === 'school' ? 'No active students enrolled in this class/section.' : 'No active students are enrolled in this batch.' }}
-      </p>
-      <p *ngIf="totalActiveStudents > 0">No students match your search filter "{{ batchSearchQuery }}".</p>
+      @if (totalActiveStudents === 0) {
+        <p>
+          {{ rollCallScope === 'school' ? 'No active students enrolled in this class/section.' : 'No active students are enrolled in this batch.' }}
+        </p>
+      }
+      @if (totalActiveStudents > 0) {
+        <p>No students match your search filter "{{ batchSearchQuery }}".</p>
+      }
     </mat-card>
-
-    <!-- Students Roll Call Table Card -->
-    <mat-card class="roll-call-card mat-elevation-z1" *ngIf="filteredActiveStudents.length > 0">
+  }
+  <!-- Students Roll Call Table Card -->
+  @if (filteredActiveStudents.length > 0) {
+    <mat-card class="roll-call-card mat-elevation-z1">
       <div class="table-responsive">
         <table class="roll-call-table">
           <thead>
             <tr>
               <th style="width: 44px; text-align: center;">#</th>
               <th style="min-width: 185px;">Student Details</th>
-              <th *ngIf="rollCallScope === 'school'" style="width: 130px;">Class & Section</th>
+              @if (rollCallScope === 'school') {
+                <th style="width: 130px;">Class & Section</th>
+              }
               <th style="width: 140px;">{{ rollCallScope === 'school' ? 'School Roll / Adm' : 'Roll Number' }}</th>
               <th style="width: 135px;">Parent WhatsApp</th>
               <th style="width: 250px; text-align: center;">Attendance Status</th>
@@ -383,51 +411,76 @@ interface CalendarDay {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let s of filteredActiveStudents; let i = index" [class.row-absent]="s.status === 'Absent'" [class.row-present]="s.status === 'Present'">
-              <td class="index-cell">{{ i + 1 }}</td>
-              <td class="student-cell">
-                <div class="avatar-box" [style.background]="!s.profilePhoto ? getAvatarColor(s.studentName) : 'transparent'">
-                  <img *ngIf="s.profilePhoto" [src]="getPhotoUrl(s.profilePhoto)" [alt]="s.studentName" class="avatar-photo" (error)="s.profilePhoto = null" />
-                  <span *ngIf="!s.profilePhoto">{{ getInitials(s.studentName) }}</span>
-                </div>
-                <div class="student-meta">
-                  <span class="name">{{ s.studentName }}</span>
-                  <span class="adm-pill" *ngIf="s.admissionNumber && rollCallScope === 'coaching'">ADM: {{ s.admissionNumber }}</span>
-                  
-                  <ng-container *ngIf="s.attendanceId">
-                    <!-- Biometric Machine Punch Source -->
-                    <span class="sub bio-sub" *ngIf="isBiometricAttendance(s)" [matTooltip]="'Biometric machine punch captured at ' + formatCapturedTime(s.capturedAt) + ' IST'">
-                      <mat-icon class="bio-dot">fingerprint</mat-icon>
-                      <span class="sub-text">Punch {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : formatCapturedTime(s.capturedAt) }}</span>
-                    </span>
-
-                    <!-- Manual Roll Call Source (Single clean tooltip, no double tooltip) -->
-                    <span class="sub manual-sub" *ngIf="!isBiometricAttendance(s)" [matTooltip]="'Manual roll-call entry (Saved in database at ' + formatCapturedTime(s.capturedAt) + ' IST)'">
-                      <mat-icon class="saved-dot">check_circle</mat-icon>
-                      <span class="sub-text">In: {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : 'Shift Time' }}</span>
-                      <span class="log-pill" *ngIf="s.capturedAt">Logged</span>
-                    </span>
-                  </ng-container>
-                </div>
-              </td>
-              <td *ngIf="rollCallScope === 'school'">
-                <span class="class-pill">
-                  {{ s.className || 'Class' }} <strong *ngIf="s.sectionName">({{ s.sectionName }})</strong>
-                </span>
-              </td>
+            @for (s of filteredActiveStudents; track s; let i = $index) {
+              <tr [class.row-absent]="s.status === 'Absent'" [class.row-present]="s.status === 'Present'">
+                <td class="index-cell">{{ i + 1 }}</td>
+                <td class="student-cell">
+                  <div class="avatar-box" [style.background]="!s.profilePhoto ? getAvatarColor(s.studentName) : 'transparent'">
+                    @if (s.profilePhoto) {
+                      <img [src]="getPhotoUrl(s.profilePhoto)" [alt]="s.studentName" class="avatar-photo" (error)="s.profilePhoto = null" />
+                    }
+                    @if (!s.profilePhoto) {
+                      <span>{{ getInitials(s.studentName) }}</span>
+                    }
+                  </div>
+                  <div class="student-meta">
+                    <span class="name">{{ s.studentName }}</span>
+                    @if (s.admissionNumber && rollCallScope === 'coaching') {
+                      <span class="adm-pill">ADM: {{ s.admissionNumber }}</span>
+                    }
+                    @if (s.attendanceId) {
+                      <!-- Biometric Machine Punch Source -->
+                      @if (isBiometricAttendance(s)) {
+                        <span class="sub bio-sub" [matTooltip]="'Biometric machine punch captured at ' + formatCapturedTime(s.capturedAt) + ' IST'">
+                          <mat-icon class="bio-dot">fingerprint</mat-icon>
+                          <span class="sub-text">Punch {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : formatCapturedTime(s.capturedAt) }}</span>
+                        </span>
+                      }
+                      <!-- Manual Roll Call Source (Single clean tooltip, no double tooltip) -->
+                      @if (!isBiometricAttendance(s)) {
+                        <span class="sub manual-sub" [matTooltip]="'Manual roll-call entry (Saved in database at ' + formatCapturedTime(s.capturedAt) + ' IST)'">
+                          <mat-icon class="saved-dot">check_circle</mat-icon>
+                          <span class="sub-text">In: {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : 'Shift Time' }}</span>
+                          @if (s.capturedAt) {
+                            <span class="log-pill">Logged</span>
+                          }
+                        </span>
+                      }
+                    }
+                  </div>
+                </td>
+                @if (rollCallScope === 'school') {
+                  <td>
+                    <span class="class-pill">
+                      {{ s.className || 'Class' }} @if (s.sectionName) {
+                      <strong>({{ s.sectionName }})</strong>
+                    }
+                  </span>
+                </td>
+              }
               <td class="roll-adm-col">
                 <div class="roll-adm-stack">
-                  <span class="roll-pill" *ngIf="rollCallScope === 'school'" [matTooltip]="'School Roll No: ' + (s.schoolRollNumber || s.rollNumber || '—')">{{ s.schoolRollNumber || s.rollNumber || '—' }}</span>
-                  <span class="roll-pill" *ngIf="rollCallScope === 'coaching'" [matTooltip]="'Coaching Roll No: ' + (s.rollNumber || '—')">{{ s.rollNumber || '—' }}</span>
-                  <span class="adm-pill" *ngIf="s.admissionNumber" matTooltip="Admission Number">{{ s.admissionNumber }}</span>
+                  @if (rollCallScope === 'school') {
+                    <span class="roll-pill" [matTooltip]="'School Roll No: ' + (s.schoolRollNumber || s.rollNumber || '—')">{{ s.schoolRollNumber || s.rollNumber || '—' }}</span>
+                  }
+                  @if (rollCallScope === 'coaching') {
+                    <span class="roll-pill" [matTooltip]="'Coaching Roll No: ' + (s.rollNumber || '—')">{{ s.rollNumber || '—' }}</span>
+                  }
+                  @if (s.admissionNumber) {
+                    <span class="adm-pill" matTooltip="Admission Number">{{ s.admissionNumber }}</span>
+                  }
                 </div>
               </td>
               <td class="whatsapp-cell">
-                <a *ngIf="s.parentWhatsAppPhone" [href]="'https://wa.me/' + cleanPhone(s.parentWhatsAppPhone)" target="_blank" class="wa-link" matTooltip="Chat on WhatsApp">
-                  <mat-icon>chat</mat-icon>
-                  <span>{{ s.parentWhatsAppPhone }}</span>
-                </a>
-                <span *ngIf="!s.parentWhatsAppPhone" class="text-muted">—</span>
+                @if (s.parentWhatsAppPhone) {
+                  <a [href]="'https://wa.me/' + cleanPhone(s.parentWhatsAppPhone)" target="_blank" class="wa-link" matTooltip="Chat on WhatsApp">
+                    <mat-icon>chat</mat-icon>
+                    <span>{{ s.parentWhatsAppPhone }}</span>
+                  </a>
+                }
+                @if (!s.parentWhatsAppPhone) {
+                  <span class="text-muted">—</span>
+                }
               </td>
               <td class="status-cell">
                 <div class="status-btn-group">
@@ -450,101 +503,127 @@ interface CalendarDay {
                 </div>
               </td>
               <td class="timings-cell">
-                <div class="row-timings" *ngIf="s.status !== 'Absent'">
-                  <div class="time-field" [matTooltip]="isBiometricAttendance(s) ? 'Biometric Check-In Punch' : 'Session In Time (Policy Shift Default - Editable)'">
-                    <span class="t-badge" [class.bio-badge]="isBiometricAttendance(s)">In</span>
-                    <input type="time" [(ngModel)]="s.checkInTime" (ngModelChange)="onStudentRowTimeChanged(s)" [disabled]="isBatchPastLocked" class="table-time-input">
+                @if (s.status !== 'Absent') {
+                  <div class="row-timings">
+                    <div class="time-field" [matTooltip]="isBiometricAttendance(s) ? 'Biometric Check-In Punch' : 'Session In Time (Policy Shift Default - Editable)'">
+                      <span class="t-badge" [class.bio-badge]="isBiometricAttendance(s)">In</span>
+                      <input type="time" [(ngModel)]="s.checkInTime" (ngModelChange)="onStudentRowTimeChanged(s)" [disabled]="isBatchPastLocked" class="table-time-input">
+                    </div>
+                    <div class="time-field" [matTooltip]="isBiometricAttendance(s) ? 'Biometric Check-Out Punch' : 'Session Out Time (Policy Shift Default - Editable)'">
+                      <span class="t-badge" [class.bio-badge]="isBiometricAttendance(s)">Out</span>
+                      <input type="time" [(ngModel)]="s.checkOutTime" (ngModelChange)="onStudentRowTimeChanged(s)" [disabled]="isBatchPastLocked" class="table-time-input">
+                    </div>
                   </div>
-                  <div class="time-field" [matTooltip]="isBiometricAttendance(s) ? 'Biometric Check-Out Punch' : 'Session Out Time (Policy Shift Default - Editable)'">
-                    <span class="t-badge" [class.bio-badge]="isBiometricAttendance(s)">Out</span>
-                    <input type="time" [(ngModel)]="s.checkOutTime" (ngModelChange)="onStudentRowTimeChanged(s)" [disabled]="isBatchPastLocked" class="table-time-input">
-                  </div>
-                </div>
-                <span *ngIf="s.status === 'Absent'" class="absent-timings-dash">—</span>
+                }
+                @if (s.status === 'Absent') {
+                  <span class="absent-timings-dash">—</span>
+                }
               </td>
               <td class="remarks-cell">
                 <input type="text" [(ngModel)]="s.remarks" [disabled]="isBatchPastLocked" placeholder="Add note..." class="remarks-input" />
               </td>
             </tr>
-          </tbody>
-        </table>
+          }
+        </tbody>
+      </table>
+    </div>
+    <!-- Bottom Save Action Bar -->
+    <div class="save-bar">
+      <div class="whatsapp-alert-toggle">
+        <mat-checkbox [(ngModel)]="sendWhatsAppAlerts" color="primary" [disabled]="isBatchPastLocked">
+          <span class="wa-checkbox-label">
+            Send WhatsApp attendance SMS / alert to absent students' parents
+            @if (absentActiveCount > 0) {
+              <strong class="wa-badge">({{ absentActiveCount }} Absent)</strong>
+            }
+          </span>
+        </mat-checkbox>
       </div>
-
-      <!-- Bottom Save Action Bar -->
-      <div class="save-bar">
-        <div class="whatsapp-alert-toggle">
-          <mat-checkbox [(ngModel)]="sendWhatsAppAlerts" color="primary" [disabled]="isBatchPastLocked">
-            <span class="wa-checkbox-label">
-              Send WhatsApp attendance SMS / alert to absent students' parents
-              <strong *ngIf="absentActiveCount > 0" class="wa-badge">({{ absentActiveCount }} Absent)</strong>
-            </span>
-          </mat-checkbox>
-        </div>
-
-        <div class="save-actions">
-          <div *ngIf="isBatchPastLocked" class="batch-locked-badge">
+      <div class="save-actions">
+        @if (isBatchPastLocked) {
+          <div class="batch-locked-badge">
             <mat-icon>lock</mat-icon>
             <span>Past Attendance Locked (Admin Permission Required)</span>
           </div>
-          <button mat-raised-button color="primary" class="btn-save-batch" (click)="saveActiveAttendance()" [disabled]="isScopeSaving || isScopeLoading || isBatchPastLocked">
-            <mat-icon>{{ isBatchPastLocked ? 'lock' : 'save' }}</mat-icon>
-            <span>{{ isBatchPastLocked ? 'Locked (Past Date)' : (isScopeSaving ? 'Saving Attendance...' : 'Save ' + (rollCallScope === 'school' ? 'Class' : 'Batch') + ' Attendance (' + totalActiveStudents + ' Students)') }}</span>
-          </button>
-        </div>
+        }
+        <button mat-raised-button color="primary" class="btn-save-batch" (click)="saveActiveAttendance()" [disabled]="isScopeSaving || isScopeLoading || isBatchPastLocked">
+          <mat-icon>{{ isBatchPastLocked ? 'lock' : 'save' }}</mat-icon>
+          <span>{{ isBatchPastLocked ? 'Locked (Past Date)' : (isScopeSaving ? 'Saving Attendance...' : 'Save ' + (rollCallScope === 'school' ? 'Class' : 'Batch') + ' Attendance (' + totalActiveStudents + ' Students)') }}</span>
+        </button>
       </div>
-    </mat-card>
-  </div>
+    </div>
+  </mat-card>
+}
+</div>
+}
 
-  <!-- ================= TAB 2: INDIVIDUAL STUDENT REGISTER ================= -->
-  <div *ngIf="activeTab === 'single'" class="single-view">
+<!-- ================= TAB 2: INDIVIDUAL STUDENT REGISTER ================= -->
+@if (activeTab === 'single') {
+  <div class="single-view">
     <mat-card class="selector-card mat-elevation-z1">
       <mat-icon color="primary" class="selector-icon">person_search</mat-icon>
-
       <!-- Stream Filter Toggle (Only shown when both School & Coaching modules are active) -->
-      <div class="stream-pill-toggle" *ngIf="hasSchool && hasCoaching">
-        <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'all'" (click)="setSingleStreamFilter('all')">All</button>
-        <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'school'" (click)="setSingleStreamFilter('school')">🏫 School</button>
-        <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'coaching'" (click)="setSingleStreamFilter('coaching')">📚 Coaching</button>
-      </div>
-
+      @if (hasSchool && hasCoaching) {
+        <div class="stream-pill-toggle">
+          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'all'" (click)="setSingleStreamFilter('all')">All</button>
+          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'school'" (click)="setSingleStreamFilter('school')">🏫 School</button>
+          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'coaching'" (click)="setSingleStreamFilter('coaching')">📚 Coaching</button>
+        </div>
+      }
       <!-- School Class & Section Filter -->
-      <ng-container *ngIf="singleStreamFilter === 'school'">
+      @if (singleStreamFilter === 'school') {
         <mat-form-field appearance="outline" class="single-class-select" subscriptSizing="dynamic" [matTooltip]="isTeacherClassLocked ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
-          <mat-label>Select Class <span *ngIf="isTeacherClassLocked">🔒</span></mat-label>
+          <mat-label>Select Class @if (isTeacherClassLocked) {
+            <span>🔒</span>
+          }</mat-label>
           <mat-select [(ngModel)]="singleSelectedClassId" (selectionChange)="onSingleClassChanged()" [disabled]="isTeacherClassLocked">
-            <mat-option value="" *ngIf="!isTeacherClassLocked">All Classes</mat-option>
-            <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
+            @if (!isTeacherClassLocked) {
+              <mat-option value="">All Classes</mat-option>
+            }
+            @for (c of schoolClasses; track c) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
-        <mat-form-field appearance="outline" class="single-section-select" subscriptSizing="dynamic" *ngIf="singleSelectedClassId && singleClassSections.length > 0" [matTooltip]="isTeacherSectionLocked ? '🔒 Assigned section locked' : ''">
-          <mat-label>Section <span *ngIf="isTeacherSectionLocked">🔒</span></mat-label>
-          <mat-select [(ngModel)]="singleSelectedSectionId" (selectionChange)="onSingleSectionChanged()" [disabled]="isTeacherSectionLocked">
-            <mat-option value="" *ngIf="!isTeacherSectionLocked">All Sections</mat-option>
-            <mat-option *ngFor="let sec of singleClassSections" [value]="sec.id">Section {{ sec.name }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-      </ng-container>
-
+        @if (singleSelectedClassId && singleClassSections.length > 0) {
+          <mat-form-field appearance="outline" class="single-section-select" subscriptSizing="dynamic" [matTooltip]="isTeacherSectionLocked ? '🔒 Assigned section locked' : ''">
+            <mat-label>Section @if (isTeacherSectionLocked) {
+              <span>🔒</span>
+            }</mat-label>
+            <mat-select [(ngModel)]="singleSelectedSectionId" (selectionChange)="onSingleSectionChanged()" [disabled]="isTeacherSectionLocked">
+              @if (!isTeacherSectionLocked) {
+                <mat-option value="">All Sections</mat-option>
+              }
+              @for (sec of singleClassSections; track sec) {
+                <mat-option [value]="sec.id">Section {{ sec.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+      }
       <!-- Coaching Batch Filter with Academic Class Cascade -->
-      <ng-container *ngIf="singleStreamFilter === 'coaching'">
-        <mat-form-field appearance="outline" class="single-class-select" subscriptSizing="dynamic" *ngIf="hasSchool">
-          <mat-label>Academic Class</mat-label>
-          <mat-select [(ngModel)]="singleSelectedCoachingClassId" (selectionChange)="onSingleCoachingClassChanged()">
-            <mat-option value="">All Academic Classes</mat-option>
-            <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-
+      @if (singleStreamFilter === 'coaching') {
+        @if (hasSchool) {
+          <mat-form-field appearance="outline" class="single-class-select" subscriptSizing="dynamic">
+            <mat-label>Academic Class</mat-label>
+            <mat-select [(ngModel)]="singleSelectedCoachingClassId" (selectionChange)="onSingleCoachingClassChanged()">
+              <mat-option value="">All Academic Classes</mat-option>
+              @for (c of schoolClasses; track c) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
         <mat-form-field appearance="outline" class="single-batch-select" subscriptSizing="dynamic">
           <mat-label>Select Batch</mat-label>
           <mat-select [(ngModel)]="singleSelectedBatchId" (selectionChange)="onSingleBatchChanged()">
             <mat-option value="">All Batches</mat-option>
-            <mat-option *ngFor="let b of filteredSingleCoachingBatches" [value]="b.id">{{ b.name }}</mat-option>
+            @for (b of filteredSingleCoachingBatches; track b) {
+              <mat-option [value]="b.id">{{ b.name }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
-      </ng-container>
-
+      }
       <!-- Student Selector Dropdown with in-dropdown search -->
       <mat-form-field appearance="outline" class="student-select" subscriptSizing="dynamic">
         <mat-label>Select Student ({{ singleStudentSearchQuery ? (searchedSingleStudents.length + ' / ' + filteredSingleStudents.length) : filteredSingleStudents.length }})</mat-label>
@@ -554,7 +633,7 @@ interface CalendarDay {
           panelClass="single-student-select-panel"
           (opened)="focusStudentSearch()"
           (closed)="singleStudentSearchQuery = ''"
-        >
+          >
           <!-- Sticky Search Box inside dropdown -->
           <div class="dropdown-header-container" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
             <div class="dropdown-search-box">
@@ -570,58 +649,70 @@ interface CalendarDay {
                 (mousedown)="$event.stopPropagation()"
                 (keydown)="$event.stopPropagation()"
                 (input)="$event.stopPropagation()"
-              />
-              <button
-                type="button"
-                class="clear-mini-btn"
-                *ngIf="singleStudentSearchQuery"
-                (click)="singleStudentSearchQuery = ''; $event.stopPropagation()"
-                (mousedown)="$event.stopPropagation()"
-              >
-                <mat-icon>close</mat-icon>
-              </button>
+                />
+              @if (singleStudentSearchQuery) {
+                <button
+                  type="button"
+                  class="clear-mini-btn"
+                  (click)="singleStudentSearchQuery = ''; $event.stopPropagation()"
+                  (mousedown)="$event.stopPropagation()"
+                  >
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
             </div>
           </div>
-
-          <mat-option disabled *ngIf="searchedSingleStudents.length === 0 && singleStudentSearchQuery" class="no-results-option">
-            No student matches "{{ singleStudentSearchQuery }}"
-          </mat-option>
-
-          <mat-option *ngFor="let student of searchedSingleStudents" [value]="student.id">
-            {{ getStudentDisplayRoll(student) }} - {{ student.studentName }} {{ getStudentDisplayGroup(student) }}
-          </mat-option>
+          @if (searchedSingleStudents.length === 0 && singleStudentSearchQuery) {
+            <mat-option disabled class="no-results-option">
+              No student matches "{{ singleStudentSearchQuery }}"
+            </mat-option>
+          }
+          @for (student of searchedSingleStudents; track student) {
+            <mat-option [value]="student.id">
+              {{ getStudentDisplayRoll(student) }} - {{ student.studentName }} {{ getStudentDisplayGroup(student) }}
+            </mat-option>
+          }
         </mat-select>
       </mat-form-field>
     </mat-card>
-
-
-    <div *ngIf="selectedStudent" class="attendance-wrapper">
-      <mat-card class="period-card mat-elevation-z1">
-        <div class="period-student">
-          <mat-icon>account_circle</mat-icon>
-          <div>
-            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
-              <strong>{{ selectedStudent.studentName }}</strong>
-              <span class="student-type-pill combined" *ngIf="isSingleStudentCombined" matTooltip="Dual-Enrolled: Attends both School & Coaching">
-                <mat-icon>hub</mat-icon> Combined (School + Coaching)
-              </span>
-              <span class="student-type-pill coaching" *ngIf="isSingleStudentCoachingOnly" matTooltip="Coaching Student">
-                <mat-icon>menu_book</mat-icon> Coaching Student
-              </span>
-              <span class="student-type-pill school" *ngIf="isSingleStudentSchoolOnly" matTooltip="School Student">
-                <mat-icon>school</mat-icon> School Student
-              </span>
+    @if (selectedStudent) {
+      <div class="attendance-wrapper">
+        <mat-card class="period-card mat-elevation-z1">
+          <div class="period-student">
+            <mat-icon>account_circle</mat-icon>
+            <div>
+              <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+                <strong>{{ selectedStudent.studentName }}</strong>
+                @if (isSingleStudentCombined) {
+                  <span class="student-type-pill combined" matTooltip="Dual-Enrolled: Attends both School & Coaching">
+                    <mat-icon>hub</mat-icon> Combined (School + Coaching)
+                  </span>
+                }
+                @if (isSingleStudentCoachingOnly) {
+                  <span class="student-type-pill coaching" matTooltip="Coaching Student">
+                    <mat-icon>menu_book</mat-icon> Coaching Student
+                  </span>
+                }
+                @if (isSingleStudentSchoolOnly) {
+                  <span class="student-type-pill school" matTooltip="School Student">
+                    <mat-icon>school</mat-icon> School Student
+                  </span>
+                }
+              </div>
+              <small>{{ getStudentDisplayRoll(selectedStudent) }} {{ getStudentDisplayGroup(selectedStudent) }}</small>
             </div>
-            <small>{{ getStudentDisplayRoll(selectedStudent) }} {{ getStudentDisplayGroup(selectedStudent) }}</small>
           </div>
-        </div>
-        <div class="period-selectors">
-          <mat-form-field appearance="outline"><mat-label>Month</mat-label><mat-select [(ngModel)]="attMonth" (selectionChange)="loadAttendance()"><mat-option *ngFor="let month of months; let i = index" [value]="i + 1">{{ month }}</mat-option></mat-select></mat-form-field>
-          <mat-form-field appearance="outline"><mat-label>Year</mat-label><mat-select [(ngModel)]="attYear" (selectionChange)="loadAttendance()"><mat-option *ngFor="let year of years" [value]="year">{{ year }}</mat-option></mat-select></mat-form-field>
-        </div>
-      </mat-card>
-
-      <div class="summary-grid" *ngIf="effectiveSummary as sum">
+          <div class="period-selectors">
+            <mat-form-field appearance="outline"><mat-label>Month</mat-label><mat-select [(ngModel)]="attMonth" (selectionChange)="loadAttendance()">@for (month of months; track month; let i = $index) {
+            <mat-option [value]="i + 1">{{ month }}</mat-option>
+          }</mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Year</mat-label><mat-select [(ngModel)]="attYear" (selectionChange)="loadAttendance()">@for (year of years; track year) {
+          <mat-option [value]="year">{{ year }}</mat-option>
+        }</mat-select></mat-form-field>
+      </div>
+    </mat-card>
+    @if (effectiveSummary; as sum) {
+      <div class="summary-grid">
         <div class="summary-card present"><mat-icon>check_circle</mat-icon><strong>{{ sum.presentDays }}</strong><small>Present Days</small></div>
         <div class="summary-card absent"><mat-icon>cancel</mat-icon><strong>{{ sum.absentDays }}</strong><small>Absent Days</small></div>
         <div class="summary-card late"><mat-icon>schedule</mat-icon><strong>{{ sum.lateDays }}</strong><small>Late Marks</small></div>
@@ -630,31 +721,39 @@ interface CalendarDay {
         <div class="summary-card compliance" [matTooltip]="(sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays) ? (sum.presentDays + sum.lateDays + (sum.halfDays * 0.5)) + ' days attended out of ' + sum.elapsedWorkingDays + ' elapsed working days held so far (' + sum.totalWorkingDays + ' total working days in month)' : ''">
           <mat-icon>analytics</mat-icon>
           <strong>{{ sum.attendancePercentage }}%</strong>
-          <small *ngIf="sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays">Compliance ({{ sum.elapsedWorkingDays }} Held)</small>
-          <small *ngIf="!sum.elapsedWorkingDays || sum.elapsedWorkingDays >= sum.totalWorkingDays">Compliance</small>
+          @if (sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays) {
+            <small>Compliance ({{ sum.elapsedWorkingDays }} Held)</small>
+          }
+          @if (!sum.elapsedWorkingDays || sum.elapsedWorkingDays >= sum.totalWorkingDays) {
+            <small>Compliance</small>
+          }
         </div>
         <div class="summary-card working" [matTooltip]="(sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays) ? sum.elapsedWorkingDays + ' days held to date out of ' + sum.totalWorkingDays + ' total working days this month' : ''">
           <mat-icon>calendar_today</mat-icon>
           <strong>{{ (sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays) ? (sum.elapsedWorkingDays + ' / ' + sum.totalWorkingDays) : sum.totalWorkingDays }}</strong>
-          <small *ngIf="sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays">Working Days (Held / Total)</small>
-          <small *ngIf="!sum.elapsedWorkingDays || sum.elapsedWorkingDays >= sum.totalWorkingDays">Working Days</small>
+          @if (sum.elapsedWorkingDays && sum.elapsedWorkingDays < sum.totalWorkingDays) {
+            <small>Working Days (Held / Total)</small>
+          }
+          @if (!sum.elapsedWorkingDays || sum.elapsedWorkingDays >= sum.totalWorkingDays) {
+            <small>Working Days</small>
+          }
         </div>
       </div>
-
-      <mat-card class="calendar-card mat-elevation-z1">
-        <div class="calendar-heading">
-          <strong><mat-icon>calendar_month</mat-icon> {{ months[attMonth - 1] }} {{ attYear }} Attendance Matrix</strong>
-          <div class="legend">
-            <span class="present-dot">● Present</span>
-            <span class="absent-dot">● Absent</span>
-            <span class="holiday-dot">● Holiday</span>
-            <span class="sunday-dot">● Sunday</span>
-            <span class="saturday-dot">● Saturday</span>
-          </div>
+    }
+    <mat-card class="calendar-card mat-elevation-z1">
+      <div class="calendar-heading">
+        <strong><mat-icon>calendar_month</mat-icon> {{ months[attMonth - 1] }} {{ attYear }} Attendance Matrix</strong>
+        <div class="legend">
+          <span class="present-dot">● Present</span>
+          <span class="absent-dot">● Absent</span>
+          <span class="holiday-dot">● Holiday</span>
+          <span class="sunday-dot">● Sunday</span>
+          <span class="saturday-dot">● Saturday</span>
         </div>
-
-        <!-- Quick Action Toolbar -->
-        <div class="multi-select-toolbar" *ngIf="attendancePermissions.canManualMark && attendanceMode !== 'Biometric'">
+      </div>
+      <!-- Quick Action Toolbar -->
+      @if (attendancePermissions.canManualMark && attendanceMode !== 'Biometric') {
+        <div class="multi-select-toolbar">
           <div class="mst-left">
             <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
             <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month">
@@ -667,55 +766,72 @@ interface CalendarDay {
               <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save_as' }}</mat-icon>
               <span>{{ batchSavingDates ? 'Saving...' : 'Auto-Fill Full Month Register' }}</span>
             </button>
-            <button type="button" class="mst-btn clear" *ngIf="selectedMatrixDates.size > 0" (click)="clearDateSelection()">
-              <mat-icon>clear_all</mat-icon> Clear Selection ({{ selectedMatrixDates.size }})
-            </button>
+            @if (selectedMatrixDates.size > 0) {
+              <button type="button" class="mst-btn clear" (click)="clearDateSelection()">
+                <mat-icon>clear_all</mat-icon> Clear Selection ({{ selectedMatrixDates.size }})
+              </button>
+            }
           </div>
-          <div class="mst-right" *ngIf="selectedMatrixDates.size > 0">
-            <span class="mst-counter-badge">{{ selectedMatrixDates.size === 1 ? '1 Day Selected' : selectedMatrixDates.size + ' Days Selected' }}</span>
-          </div>
+          @if (selectedMatrixDates.size > 0) {
+            <div class="mst-right">
+              <span class="mst-counter-badge">{{ selectedMatrixDates.size === 1 ? '1 Day Selected' : selectedMatrixDates.size + ' Days Selected' }}</span>
+            </div>
+          }
         </div>
-
-        <div class="calendar-grid">
-          <div *ngFor="let day of calendarDays"
+      }
+      <div class="calendar-grid">
+        @for (day of calendarDays; track day) {
+          <div
             class="day-cell"
             [class.selected-for-batch]="selectedMatrixDates.has(day.dateStr)"
             [ngClass]="[day.status.toLowerCase(), (day.isSunday || day.isWeeklyOffDay) ? 'sunday' : '', day.isSaturday ? 'saturday' : '', day.isToday ? 'today' : '', day.isFuture ? 'future' : '', (!day.isToday && !day.isFuture && !attendancePermissions.canCorrectAttendance) ? 'locked-past' : '']"
             [matTooltip]="getDayTooltip(day)"
             (click)="onDayCellClick(day, $event)">
-
             <!-- Smart Checkbox on selectable days -->
-            <div class="cell-check-wrap" *ngIf="isDateSelectable(day)" (click)="$event.stopPropagation()">
-              <input type="checkbox"
-                class="cell-check-input"
-                [checked]="selectedMatrixDates.has(day.dateStr)"
-                (change)="toggleDateSelect(day)">
-            </div>
-
+            @if (isDateSelectable(day)) {
+              <div class="cell-check-wrap" (click)="$event.stopPropagation()">
+                <input type="checkbox"
+                  class="cell-check-input"
+                  [checked]="selectedMatrixDates.has(day.dateStr)"
+                  (change)="toggleDateSelect(day)">
+              </div>
+            }
             <span class="day-num">{{ day.dayNumber }}</span>
             <span class="day-name">{{ day.dayOfWeek }}</span>
-            <span class="day-tag" *ngIf="day.status">{{ day.status === 'PriorAdmission' ? 'Unenrolled' : (day.status === 'HalfDay' ? 'Half' : day.status) }}</span>
-
+            @if (day.status) {
+              <span class="day-tag">{{ day.status === 'PriorAdmission' ? 'Unenrolled' : (day.status === 'HalfDay' ? 'Half' : day.status) }}</span>
+            }
             <!-- Rich Punch Timings & Duration Display -->
-            <div class="day-times-wrap" *ngIf="day.checkInTime || day.checkOutTime || day.capturedTime">
-              <span class="day-punch punch-in" *ngIf="day.checkInTime">
-                <mat-icon>login</mat-icon> In {{ formatDisplayTime(day.checkInTime) }}
-              </span>
-              <span class="day-punch punch-out" *ngIf="day.checkOutTime">
-                <mat-icon>logout</mat-icon> Out {{ formatDisplayTime(day.checkOutTime) }}
-              </span>
-              <span class="day-punch punch-captured" *ngIf="!day.checkInTime && !day.checkOutTime && day.capturedTime">
-                {{ day.capturedTime }}
-              </span>
-              <span class="day-punch-dur" *ngIf="day.workDuration">
-                <mat-icon>timelapse</mat-icon> {{ day.workDuration }}
-              </span>
-            </div>
+            @if (day.checkInTime || day.checkOutTime || day.capturedTime) {
+              <div class="day-times-wrap">
+                @if (day.checkInTime) {
+                  <span class="day-punch punch-in">
+                    <mat-icon>login</mat-icon> In {{ formatDisplayTime(day.checkInTime) }}
+                  </span>
+                }
+                @if (day.checkOutTime) {
+                  <span class="day-punch punch-out">
+                    <mat-icon>logout</mat-icon> Out {{ formatDisplayTime(day.checkOutTime) }}
+                  </span>
+                }
+                @if (!day.checkInTime && !day.checkOutTime && day.capturedTime) {
+                  <span class="day-punch punch-captured">
+                    {{ day.capturedTime }}
+                  </span>
+                }
+                @if (day.workDuration) {
+                  <span class="day-punch-dur">
+                    <mat-icon>timelapse</mat-icon> {{ day.workDuration }}
+                  </span>
+                }
+              </div>
+            }
           </div>
-        </div>
-
-        <!-- Floating Action Bar (Unified Single & Multi-Day) -->
-        <div class="matrix-floating-bar" *ngIf="selectedMatrixDates.size > 0">
+        }
+      </div>
+      <!-- Floating Action Bar (Unified Single & Multi-Day) -->
+      @if (selectedMatrixDates.size > 0) {
+        <div class="matrix-floating-bar">
           <div class="mfb-left">
             <div class="mfb-badge">{{ selectedMatrixDates.size }}</div>
             <div class="mfb-text">
@@ -739,43 +855,59 @@ interface CalendarDay {
             <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'">
               <mat-icon>event_busy</mat-icon> Leave
             </button>
-
             <!-- Shift Selector Pills for Single/Combined Student -->
-            <div class="mfb-shift-group" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
-              <button type="button" class="mfb-shift-pill morning" *ngIf="showSingleMorningShift" [class.active]="singleActiveShift === 'morning'" (click)="setSingleShift('morning')" matTooltip="Apply Coaching Morning Timings">
-                <span>🌅 Morning</span>
-              </button>
-              <button type="button" class="mfb-shift-pill afternoon" *ngIf="showSingleAfternoonShift" [class.active]="singleActiveShift === 'afternoon'" (click)="setSingleShift('afternoon')" matTooltip="Apply Coaching Afternoon Timings">
-                <span>🕒 Afternoon</span>
-              </button>
-              <button type="button" class="mfb-shift-pill school" *ngIf="showSingleSchoolShift" [class.active]="singleActiveShift === 'school'" (click)="setSingleShift('school')" matTooltip="Apply School Day Timings">
-                <span>🏫 School</span>
-              </button>
-              <button type="button" class="mfb-shift-pill evening" *ngIf="showSingleEveningShift" [class.active]="singleActiveShift === 'evening'" (click)="setSingleShift('evening')" matTooltip="Apply Coaching Evening Timings">
-                <span>🌆 Evening</span>
-              </button>
-            </div>
-
+            @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
+              <div class="mfb-shift-group">
+                @if (showSingleMorningShift) {
+                  <button type="button" class="mfb-shift-pill morning" [class.active]="singleActiveShift === 'morning'" (click)="setSingleShift('morning')" matTooltip="Apply Coaching Morning Timings">
+                    <span>🌅 Morning</span>
+                  </button>
+                }
+                @if (showSingleAfternoonShift) {
+                  <button type="button" class="mfb-shift-pill afternoon" [class.active]="singleActiveShift === 'afternoon'" (click)="setSingleShift('afternoon')" matTooltip="Apply Coaching Afternoon Timings">
+                    <span>🕒 Afternoon</span>
+                  </button>
+                }
+                @if (showSingleSchoolShift) {
+                  <button type="button" class="mfb-shift-pill school" [class.active]="singleActiveShift === 'school'" (click)="setSingleShift('school')" matTooltip="Apply School Day Timings">
+                    <span>🏫 School</span>
+                  </button>
+                }
+                @if (showSingleEveningShift) {
+                  <button type="button" class="mfb-shift-pill evening" [class.active]="singleActiveShift === 'evening'" (click)="setSingleShift('evening')" matTooltip="Apply Coaching Evening Timings">
+                    <span>🌆 Evening</span>
+                  </button>
+                }
+              </div>
+            }
             <!-- Timings Inputs -->
-            <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
-              <label>In:</label>
-              <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
-            </div>
-            <div class="mfb-time-wrap" *ngIf="batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
-              <label>Out:</label>
-              <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
-            </div>
-
-            <span class="mfb-dur-badge" *ngIf="calculateDuration(batchTargetCheckIn, batchTargetCheckOut) && batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave'">
-              {{ calculateDuration(batchTargetCheckIn, batchTargetCheckOut) }}
-            </span>
-
+            @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
+              <div class="mfb-time-wrap">
+                <label>In:</label>
+                <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
+              </div>
+            }
+            @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
+              <div class="mfb-time-wrap">
+                <label>Out:</label>
+                <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
+              </div>
+            }
+            @if (calculateDuration(batchTargetCheckIn, batchTargetCheckOut) && batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
+              <span class="mfb-dur-badge">
+                {{ calculateDuration(batchTargetCheckIn, batchTargetCheckOut) }}
+              </span>
+            }
             <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
           </div>
           <div class="mfb-right">
             <button type="button" class="mfb-save-btn" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()">
-              <mat-icon *ngIf="!batchSavingDates">save</mat-icon>
-              <mat-icon class="spin" *ngIf="batchSavingDates">refresh</mat-icon>
+              @if (!batchSavingDates) {
+                <mat-icon>save</mat-icon>
+              }
+              @if (batchSavingDates) {
+                <mat-icon class="spin">refresh</mat-icon>
+              }
               <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
             </button>
             <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection">
@@ -783,10 +915,11 @@ interface CalendarDay {
             </button>
           </div>
         </div>
-      </mat-card>
-
-      <!-- Detailed Attendance Register Table -->
-      <mat-card class="table-card mat-elevation-z1" *ngIf="records.length > 0">
+      }
+    </mat-card>
+    <!-- Detailed Attendance Register Table -->
+    @if (records.length > 0) {
+      <mat-card class="table-card mat-elevation-z1">
         <div class="table-card-header">
           <div class="table-title-group">
             <strong><mat-icon style="vertical-align:middle;margin-right:6px;font-size:1.15rem;width:1.15rem;height:1.15rem;color:#2563eb;">event_note</mat-icon>Detailed Attendance Register ({{ records.length }} Records)</strong>
@@ -809,71 +942,86 @@ interface CalendarDay {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let record of records">
-                <td><strong>{{ record.attendanceDate | date:'dd MMM yyyy' }}</strong></td>
-                <td><span class="day-label">{{ record.attendanceDate | date:'EEEE' }}</span></td>
-                <td>
-                  <span class="status-badge" [ngClass]="record.status.toLowerCase()">
-                    {{ record.status === 'HalfDay' ? 'Half Day' : record.status }}
-                  </span>
-                </td>
-                <td>
-                  <span class="time-main">{{ record.checkInTime || record.CheckInTime || '—' }}</span>
-                  <small class="time-sub" *ngIf="(record.checkInTime || record.CheckInTime) && formatDisplayTime(record.checkInTime || record.CheckInTime) !== (record.checkInTime || record.CheckInTime)">
-                    ({{ formatDisplayTime(record.checkInTime || record.CheckInTime) }})
-                  </small>
-                </td>
-                <td>
-                  <span class="time-main">{{ record.checkOutTime || record.CheckOutTime || '—' }}</span>
-                  <small class="time-sub" *ngIf="(record.checkOutTime || record.CheckOutTime) && formatDisplayTime(record.checkOutTime || record.CheckOutTime) !== (record.checkOutTime || record.CheckOutTime)">
-                    ({{ formatDisplayTime(record.checkOutTime || record.CheckOutTime) }})
-                  </small>
-                </td>
-                <td>
-                  <span class="work-duration" *ngIf="calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime)">
-                    {{ calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime) }}
-                  </span>
-                  <span *ngIf="!calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime)" class="no-dur">—</span>
-                </td>
-                <td>
-                  <span class="source-tag" [matTooltip]="getRecordCapturedTime(record) ? ('Logged at: ' + getRecordCapturedTime(record) + ' IST') : 'Logged manually'">
-                    {{ record.captureSource || 'Manual' }}
-                  </span>
-                </td>
-                <td class="remarks-cell">{{ record.remarks || '—' }}</td>
-                <td class="actions-col">
-                  <button mat-icon-button color="accent" (click)="openApplyRegularization(selectedStudent, record.attendanceDate)" matTooltip="Request Regularization for this date"><mat-icon>edit_calendar</mat-icon></button>
-                  <button mat-icon-button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record"><mat-icon>edit</mat-icon></button>
-                  <button mat-icon-button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record"><mat-icon>delete_outline</mat-icon></button>
-                </td>
-              </tr>
+              @for (record of records; track record) {
+                <tr>
+                  <td><strong>{{ record.attendanceDate | date:'dd MMM yyyy' }}</strong></td>
+                  <td><span class="day-label">{{ record.attendanceDate | date:'EEEE' }}</span></td>
+                  <td>
+                    <span class="status-badge" [ngClass]="record.status.toLowerCase()">
+                      {{ record.status === 'HalfDay' ? 'Half Day' : record.status }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="time-main">{{ record.checkInTime || record.CheckInTime || '—' }}</span>
+                    @if ((record.checkInTime || record.CheckInTime) && formatDisplayTime(record.checkInTime || record.CheckInTime) !== (record.checkInTime || record.CheckInTime)) {
+                      <small class="time-sub">
+                        ({{ formatDisplayTime(record.checkInTime || record.CheckInTime) }})
+                      </small>
+                    }
+                  </td>
+                  <td>
+                    <span class="time-main">{{ record.checkOutTime || record.CheckOutTime || '—' }}</span>
+                    @if ((record.checkOutTime || record.CheckOutTime) && formatDisplayTime(record.checkOutTime || record.CheckOutTime) !== (record.checkOutTime || record.CheckOutTime)) {
+                      <small class="time-sub">
+                        ({{ formatDisplayTime(record.checkOutTime || record.CheckOutTime) }})
+                      </small>
+                    }
+                  </td>
+                  <td>
+                    @if (calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime)) {
+                      <span class="work-duration">
+                        {{ calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime) }}
+                      </span>
+                    }
+                    @if (!calculateDuration(record.checkInTime || record.CheckInTime, record.checkOutTime || record.CheckOutTime)) {
+                      <span class="no-dur">—</span>
+                    }
+                  </td>
+                  <td>
+                    <span class="source-tag" [matTooltip]="getRecordCapturedTime(record) ? ('Logged at: ' + getRecordCapturedTime(record) + ' IST') : 'Logged manually'">
+                      {{ record.captureSource || 'Manual' }}
+                    </span>
+                  </td>
+                  <td class="remarks-cell">{{ record.remarks || '—' }}</td>
+                  <td class="actions-col">
+                    <button mat-icon-button color="accent" (click)="openApplyRegularization(selectedStudent, record.attendanceDate)" matTooltip="Request Regularization for this date"><mat-icon>edit_calendar</mat-icon></button>
+                    <button mat-icon-button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record"><mat-icon>edit</mat-icon></button>
+                    <button mat-icon-button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record"><mat-icon>delete_outline</mat-icon></button>
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
       </mat-card>
-
-      <div class="empty-state" *ngIf="records.length === 0 && !loading">
+    }
+    @if (records.length === 0 && !loading) {
+      <div class="empty-state">
         <mat-icon>event_busy</mat-icon>
         <h3>No Attendance Records Found</h3>
         <p>No records found for {{ months[attMonth - 1] }} {{ attYear }}. Select dates on the calendar matrix above to begin logging attendance.</p>
       </div>
-    </div>
+    }
   </div>
+}
+</div>
+}
 
-  <!-- ================= TAB 3: ATTENDANCE REGULARIZATION & OD REQUESTS ================= -->
-  <div *ngIf="activeTab === 'regularization'" class="regularization-view">
-
+<!-- ================= TAB 3: ATTENDANCE REGULARIZATION & OD REQUESTS ================= -->
+@if (activeTab === 'regularization') {
+  <div class="regularization-view">
     <!-- Approver Header Banner for Class Teacher -->
-    <div class="teacher-approval-banner" *ngIf="isTeacher">
-      <div class="tab-badge-icon">
-        <mat-icon>fact_check</mat-icon>
+    @if (isTeacher) {
+      <div class="teacher-approval-banner">
+        <div class="tab-badge-icon">
+          <mat-icon>fact_check</mat-icon>
+        </div>
+        <div class="tab-badge-text">
+          <strong>Class Teacher Review Desk • {{ teacherClassSection?.className || 'Assigned Class' }} {{ teacherClassSection?.sectionName ? '(' + ((teacherClassSection?.sectionName || '').startsWith('Section') ? teacherClassSection?.sectionName : 'Section ' + teacherClassSection?.sectionName) + ')' : '' }}</strong>
+          <p>Review and approve / reject attendance regularization and OD requests submitted by students or parents of your assigned class.</p>
+        </div>
       </div>
-      <div class="tab-badge-text">
-        <strong>Class Teacher Review Desk • {{ teacherClassSection?.className || 'Assigned Class' }} {{ teacherClassSection?.sectionName ? '(' + ((teacherClassSection?.sectionName || '').startsWith('Section') ? teacherClassSection?.sectionName : 'Section ' + teacherClassSection?.sectionName) + ')' : '' }}</strong>
-        <p>Review and approve / reject attendance regularization and OD requests submitted by students or parents of your assigned class.</p>
-      </div>
-    </div>
-
+    }
     <!-- KPI Summary Cards -->
     <div class="reg-kpi-grid">
       <div class="reg-kpi-card total">
@@ -889,7 +1037,9 @@ interface CalendarDay {
           <span class="kpi-num">{{ regularizationStats.pendingRequests }}</span>
           <span class="kpi-lbl">Pending Review</span>
         </div>
-        <span class="pulse-indicator" *ngIf="regularizationStats.pendingRequests > 0">Action Required</span>
+        @if (regularizationStats.pendingRequests > 0) {
+          <span class="pulse-indicator">Action Required</span>
+        }
       </div>
       <div class="reg-kpi-card approved">
         <div class="kpi-icon"><mat-icon>check_circle</mat-icon></div>
@@ -906,62 +1056,67 @@ interface CalendarDay {
         </div>
       </div>
     </div>
-
     <!-- Controls & Filter Bar -->
     <mat-card class="reg-controls-card mat-elevation-z1">
       <div class="reg-controls-row">
         <!-- Status Filter Pills -->
         <div class="status-filter-pills">
           <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Pending'" (click)="setRegStatusFilter('Pending')">
-            Pending <span class="badge" *ngIf="regularizationStats.pendingRequests > 0">{{ regularizationStats.pendingRequests }}</span>
-          </button>
-          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Approved'" (click)="setRegStatusFilter('Approved')">
-            Approved
-          </button>
-          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Rejected'" (click)="setRegStatusFilter('Rejected')">
-            Rejected
-          </button>
-          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'All'" (click)="setRegStatusFilter('All')">
-            All
-          </button>
-        </div>
-
-        <!-- Search Input -->
-        <mat-form-field appearance="outline" class="reg-search-field">
-          <mat-label>Search student, roll no, reason...</mat-label>
-          <input matInput [(ngModel)]="regSearchQuery" (keyup.enter)="loadRegularizations()" placeholder="Type & press Enter...">
-          <mat-icon matPrefix>search</mat-icon>
-          <button mat-icon-button matSuffix *ngIf="regSearchQuery" (click)="regSearchQuery = ''; loadRegularizations()">
+            Pending @if (regularizationStats.pendingRequests > 0) {
+            <span class="badge">{{ regularizationStats.pendingRequests }}</span>
+          }
+        </button>
+        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Approved'" (click)="setRegStatusFilter('Approved')">
+          Approved
+        </button>
+        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Rejected'" (click)="setRegStatusFilter('Rejected')">
+          Rejected
+        </button>
+        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'All'" (click)="setRegStatusFilter('All')">
+          All
+        </button>
+      </div>
+      <!-- Search Input -->
+      <mat-form-field appearance="outline" class="reg-search-field">
+        <mat-label>Search student, roll no, reason...</mat-label>
+        <input matInput [(ngModel)]="regSearchQuery" (keyup.enter)="loadRegularizations()" placeholder="Type & press Enter...">
+        <mat-icon matPrefix>search</mat-icon>
+        @if (regSearchQuery) {
+          <button mat-icon-button matSuffix (click)="regSearchQuery = ''; loadRegularizations()">
             <mat-icon>close</mat-icon>
           </button>
-        </mat-form-field>
-
-        <div class="reg-action-btns">
-          <button mat-stroked-button class="reg-refresh-btn" (click)="loadRegularizations()" [disabled]="regularizationLoading" matTooltip="Refresh Requests">
-            <mat-icon [class.spin]="regularizationLoading">refresh</mat-icon>
-            <span>Refresh</span>
-          </button>
-          <button mat-stroked-button class="reg-apply-btn secondary" *ngIf="!isTeacher" (click)="openApplyRegularization()" matTooltip="Submit Attendance Regularization">
+        }
+      </mat-form-field>
+      <div class="reg-action-btns">
+        <button mat-stroked-button class="reg-refresh-btn" (click)="loadRegularizations()" [disabled]="regularizationLoading" matTooltip="Refresh Requests">
+          <mat-icon [class.spin]="regularizationLoading">refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+        @if (!isTeacher) {
+          <button mat-stroked-button class="reg-apply-btn secondary" (click)="openApplyRegularization()" matTooltip="Submit Attendance Regularization">
             <mat-icon>add_circle_outline</mat-icon>
             <span>Apply Regularization</span>
           </button>
-        </div>
+        }
       </div>
-    </mat-card>
-
-    <!-- Requests Data Table / List -->
-    <mat-card class="reg-table-card mat-elevation-z1">
-
-      <div *ngIf="!regularizationLoading && regularizations.length === 0" class="reg-empty-box">
+    </div>
+  </mat-card>
+  <!-- Requests Data Table / List -->
+  <mat-card class="reg-table-card mat-elevation-z1">
+    @if (!regularizationLoading && regularizations.length === 0) {
+      <div class="reg-empty-box">
         <mat-icon>task_alt</mat-icon>
         <h4>{{ isTeacher ? 'No Pending Student Requests to Review' : ('No ' + (regFilterStatus === 'All' ? '' : regFilterStatus) + ' Regularization Requests') }}</h4>
         <p>{{ isTeacher ? 'All student attendance regularization requests for your assigned class have been reviewed. New requests from students or parents will appear here.' : (regFilterStatus === 'Pending' ? 'All student attendance regularization requests have been reviewed.' : 'No records match the current filter criteria.') }}</p>
-        <button mat-stroked-button color="primary" *ngIf="!isTeacher" (click)="openApplyRegularization()">
-          <mat-icon>add</mat-icon> Submit New Request
-        </button>
+        @if (!isTeacher) {
+          <button mat-stroked-button color="primary" (click)="openApplyRegularization()">
+            <mat-icon>add</mat-icon> Submit New Request
+          </button>
+        }
       </div>
-
-      <div class="reg-table-container" *ngIf="!regularizationLoading && regularizations.length > 0">
+    }
+    @if (!regularizationLoading && regularizations.length > 0) {
+      <div class="reg-table-container">
         <table class="reg-table">
           <thead>
             <tr>
@@ -977,88 +1132,112 @@ interface CalendarDay {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let reg of regularizations" [class.pending-row]="reg.status === 'Pending'">
-              <td>
-                <div class="student-cell">
-                  <div class="student-avatar">{{ getInitials(reg.studentName) }}</div>
-                  <div class="student-meta">
-                    <strong>{{ reg.studentName }}</strong>
-                    <small>Roll: {{ reg.rollNumber }}</small>
+            @for (reg of regularizations; track reg) {
+              <tr [class.pending-row]="reg.status === 'Pending'">
+                <td>
+                  <div class="student-cell">
+                    <div class="student-avatar">{{ getInitials(reg.studentName) }}</div>
+                    <div class="student-meta">
+                      <strong>{{ reg.studentName }}</strong>
+                      <small>Roll: {{ reg.rollNumber }}</small>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td>
-                <div class="class-cell">
-                  <span>{{ reg.className || 'General' }}</span>
-                  <small *ngIf="reg.sectionName">Sec {{ reg.sectionName }}</small>
-                </div>
-              </td>
-              <td>
-                <div class="date-cell">
-                  <strong>{{ reg.attendanceDate | date:'dd MMM yyyy' }}</strong>
-                  <small>{{ reg.attendanceDate | date:'EEEE' }}</small>
-                </div>
-              </td>
-              <td>
-                <div class="status-cat-cell">
-                  <span class="cat-tag" [ngClass]="reg.reasonCategory.toLowerCase()">
-                    {{ getRegCategoryLabel(reg.reasonCategory) }}
+                </td>
+                <td>
+                  <div class="class-cell">
+                    <span>{{ reg.className || 'General' }}</span>
+                    @if (reg.sectionName) {
+                      <small>Sec {{ reg.sectionName }}</small>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <div class="date-cell">
+                    <strong>{{ reg.attendanceDate | date:'dd MMM yyyy' }}</strong>
+                    <small>{{ reg.attendanceDate | date:'EEEE' }}</small>
+                  </div>
+                </td>
+                <td>
+                  <div class="status-cat-cell">
+                    <span class="cat-tag" [ngClass]="reg.reasonCategory.toLowerCase()">
+                      {{ getRegCategoryLabel(reg.reasonCategory) }}
+                    </span>
+                    <span class="req-status-tag">{{ reg.requestedStatus }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="reason-cell" [matTooltip]="reg.reason">
+                    <p class="reason-text">{{ reg.reason }}</p>
+                    @if (reg.reviewRemarks) {
+                      <small class="reviewed-note">
+                        <strong>Note:</strong> {{ reg.reviewRemarks }} (by {{ reg.reviewedBy }})
+                      </small>
+                    }
+                  </div>
+                </td>
+                <td>
+                  @if (reg.attachmentUrl) {
+                    <a [href]="reg.attachmentUrl" target="_blank" class="doc-link-btn" matTooltip="Open Attachment">
+                      <mat-icon>attachment</mat-icon> Proof
+                    </a>
+                  }
+                  @if (!reg.attachmentUrl) {
+                    <span class="no-doc">—</span>
+                  }
+                </td>
+                <td>
+                  <span class="status-badge-chip" [ngClass]="reg.status.toLowerCase()">
+                    @if (reg.status === 'Approved') {
+                      <mat-icon>check</mat-icon>
+                    }
+                    @if (reg.status === 'Pending') {
+                      <mat-icon>hourglass_empty</mat-icon>
+                    }
+                    @if (reg.status === 'Rejected') {
+                      <mat-icon>close</mat-icon>
+                    }
+                    {{ reg.status }}
                   </span>
-                  <span class="req-status-tag">{{ reg.requestedStatus }}</span>
-                </div>
-              </td>
-              <td>
-                <div class="reason-cell" [matTooltip]="reg.reason">
-                  <p class="reason-text">{{ reg.reason }}</p>
-                  <small class="reviewed-note" *ngIf="reg.reviewRemarks">
-                    <strong>Note:</strong> {{ reg.reviewRemarks }} (by {{ reg.reviewedBy }})
-                  </small>
-                </div>
-              </td>
-              <td>
-                <a *ngIf="reg.attachmentUrl" [href]="reg.attachmentUrl" target="_blank" class="doc-link-btn" matTooltip="Open Attachment">
-                  <mat-icon>attachment</mat-icon> Proof
-                </a>
-                <span *ngIf="!reg.attachmentUrl" class="no-doc">—</span>
-              </td>
-              <td>
-                <span class="status-badge-chip" [ngClass]="reg.status.toLowerCase()">
-                  <mat-icon *ngIf="reg.status === 'Approved'">check</mat-icon>
-                  <mat-icon *ngIf="reg.status === 'Pending'">hourglass_empty</mat-icon>
-                  <mat-icon *ngIf="reg.status === 'Rejected'">close</mat-icon>
-                  {{ reg.status }}
-                </span>
-              </td>
-              <td>
-                <div class="applied-cell">
-                  <span class="applied-badge">{{ reg.appliedBy }}</span>
-                  <small [appIstDatetime]="reg.createdAt"></small>
-                </div>
-              </td>
-              <td style="text-align: right;">
-                <div class="action-cell">
-                  <!-- Class Teacher or Admin can Review if Pending -->
-                  <button mat-raised-button color="primary" class="review-btn" *ngIf="reg.status === 'Pending'" (click)="openReviewRegularization(reg)" matTooltip="Review and Approve/Reject">
-                    <mat-icon>fact_check</mat-icon> Review
-                  </button>
-                  <!-- Cancel button -->
-                  <button mat-icon-button color="warn" *ngIf="reg.status === 'Pending'" (click)="deleteRegularization(reg)" matTooltip="Cancel Request">
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
-                  <span *ngIf="reg.status !== 'Pending'" class="reviewed-done-txt">
-                    <mat-icon>done_all</mat-icon>
-                  </span>
-                </div>
-              </td>
-            </tr>
+                </td>
+                <td>
+                  <div class="applied-cell">
+                    <span class="applied-badge">{{ reg.appliedBy }}</span>
+                    <small [appIstDatetime]="reg.createdAt"></small>
+                  </div>
+                </td>
+                <td style="text-align: right;">
+                  <div class="action-cell">
+                    <!-- Class Teacher or Admin can Review if Pending -->
+                    @if (reg.status === 'Pending') {
+                      <button mat-raised-button color="primary" class="review-btn" (click)="openReviewRegularization(reg)" matTooltip="Review and Approve/Reject">
+                        <mat-icon>fact_check</mat-icon> Review
+                      </button>
+                    }
+                    <!-- Cancel button -->
+                    @if (reg.status === 'Pending') {
+                      <button mat-icon-button color="warn" (click)="deleteRegularization(reg)" matTooltip="Cancel Request">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    }
+                    @if (reg.status !== 'Pending') {
+                      <span class="reviewed-done-txt">
+                        <mat-icon>done_all</mat-icon>
+                      </span>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
-    </mat-card>
-
-  </div>
+    }
+  </mat-card>
 </div>
-  `,
+}
+</div>
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display: flex; flex-direction: column; gap: 16px; position: relative; }
     .global-page-loader {

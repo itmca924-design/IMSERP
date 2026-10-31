@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
@@ -19,7 +19,6 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
-import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog.component';
 import {
   HostelService,
   HostelDto,
@@ -34,6 +33,7 @@ import {
   GatePassPagedResultDto
 } from '../../core/services/hostel.service';
 import { CoachingService } from '../../core/services/coaching.service';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog.component';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiBaseUrl;
@@ -60,8 +60,7 @@ const API_BASE = environment.apiBaseUrl;
     MatDialogModule,
     MatTableModule,
     MatPaginatorModule,
-    MatSortModule,
-    ConfirmDialogComponent
+    MatSortModule
   ],
   template: `
     <div class="hostel-page-wrapper">
@@ -82,7 +81,7 @@ const API_BASE = environment.apiBaseUrl;
             </p>
           </div>
         </div>
-
+    
         <div class="header-right-actions">
           <button mat-flat-button color="primary" class="action-btn" (click)="openAddHostelModal()">
             <mat-icon>add_business</mat-icon> Add Hostel Block
@@ -95,70 +94,67 @@ const API_BASE = environment.apiBaseUrl;
           </button>
         </div>
       </mat-card>
-
+    
       <!-- KPI Summary Cards (Guaranteed 1 Single Line) -->
-      <div class="kpi-grid-container" *ngIf="overview">
-        <mat-card class="kpi-card hostel-kpi mat-elevation-z1">
-          <mat-card-content class="kpi-inner">
-            <div class="kpi-icon-wrap"><mat-icon>domain</mat-icon></div>
-            <div class="kpi-content">
-              <span class="kpi-num">{{ overview.totalHostels }}</span>
-              <span class="kpi-label">Hostel Blocks</span>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card class="kpi-card room-kpi mat-elevation-z1">
-          <mat-card-content class="kpi-inner">
-            <div class="kpi-icon-wrap"><mat-icon>hotel</mat-icon></div>
-            <div class="kpi-content">
-              <span class="kpi-num">{{ overview.totalRooms }}</span>
-              <span class="kpi-label">Total Rooms</span>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card class="kpi-card capacity-kpi mat-elevation-z1">
-          <mat-card-content class="kpi-inner">
-            <div class="kpi-icon-wrap"><mat-icon>bed</mat-icon></div>
-            <div class="kpi-content">
-              <span class="kpi-num">{{ overview.totalBeds }}</span>
-              <span class="kpi-label">Total Beds</span>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card class="kpi-card occupied-kpi mat-elevation-z1">
-          <mat-card-content class="kpi-inner">
-            <div class="kpi-icon-wrap"><mat-icon>groups</mat-icon></div>
-            <div class="kpi-content">
-              <span class="kpi-num">{{ overview.occupiedBeds }} <small class="pct-badge">{{ overview.occupancyRate }}%</small></span>
-              <span class="kpi-label">Occupied Beds</span>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card class="kpi-card vacant-kpi mat-elevation-z1">
-          <mat-card-content class="kpi-inner">
-            <div class="kpi-icon-wrap"><mat-icon>check_circle</mat-icon></div>
-            <div class="kpi-content">
-              <span class="kpi-num">{{ overview.availableBeds }}</span>
-              <span class="kpi-label">Vacant Beds</span>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card class="kpi-card gatepass-kpi mat-elevation-z1">
-          <mat-card-content class="kpi-inner">
-            <div class="kpi-icon-wrap"><mat-icon>commute</mat-icon></div>
-            <div class="kpi-content">
-              <span class="kpi-num">{{ overview.activeGatePasses }}</span>
-              <span class="kpi-label">On Gate Pass</span>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-
+      @if (overview) {
+        <div class="kpi-grid-container">
+          <mat-card class="kpi-card hostel-kpi mat-elevation-z1">
+            <mat-card-content class="kpi-inner">
+              <div class="kpi-icon-wrap"><mat-icon>domain</mat-icon></div>
+              <div class="kpi-content">
+                <span class="kpi-num">{{ overview.totalHostels }}</span>
+                <span class="kpi-label">Hostel Blocks</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="kpi-card room-kpi mat-elevation-z1">
+            <mat-card-content class="kpi-inner">
+              <div class="kpi-icon-wrap"><mat-icon>hotel</mat-icon></div>
+              <div class="kpi-content">
+                <span class="kpi-num">{{ overview.totalRooms }}</span>
+                <span class="kpi-label">Total Rooms</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="kpi-card capacity-kpi mat-elevation-z1">
+            <mat-card-content class="kpi-inner">
+              <div class="kpi-icon-wrap"><mat-icon>bed</mat-icon></div>
+              <div class="kpi-content">
+                <span class="kpi-num">{{ overview.totalBeds }}</span>
+                <span class="kpi-label">Total Beds</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="kpi-card occupied-kpi mat-elevation-z1">
+            <mat-card-content class="kpi-inner">
+              <div class="kpi-icon-wrap"><mat-icon>groups</mat-icon></div>
+              <div class="kpi-content">
+                <span class="kpi-num">{{ overview.occupiedBeds }} <small class="pct-badge">{{ overview.occupancyRate }}%</small></span>
+                <span class="kpi-label">Occupied Beds</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="kpi-card vacant-kpi mat-elevation-z1">
+            <mat-card-content class="kpi-inner">
+              <div class="kpi-icon-wrap"><mat-icon>check_circle</mat-icon></div>
+              <div class="kpi-content">
+                <span class="kpi-num">{{ overview.availableBeds }}</span>
+                <span class="kpi-label">Vacant Beds</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="kpi-card gatepass-kpi mat-elevation-z1">
+            <mat-card-content class="kpi-inner">
+              <div class="kpi-icon-wrap"><mat-icon>commute</mat-icon></div>
+              <div class="kpi-content">
+                <span class="kpi-num">{{ overview.activeGatePasses }}</span>
+                <span class="kpi-label">On Gate Pass</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      }
+    
       <!-- Main Navigation Tabs -->
       <mat-card class="main-content-card">
         <div class="tabs-nav-bar">
@@ -183,1318 +179,1434 @@ const API_BASE = environment.apiBaseUrl;
             <span>Night Roll Call</span>
           </button>
         </div>
-
+    
         <!-- TAB 1: VISUAL BED MATRIX -->
-        <div class="tab-pane" *ngIf="activeTab === 'matrix'">
-          <div class="matrix-filter-card mat-elevation-z1">
-            <div class="matrix-filter-row">
-              <mat-form-field appearance="outline" class="dense-field hostel-filter-field">
-                <mat-label>Hostel Block</mat-label>
-                <mat-icon matPrefix>apartment</mat-icon>
-                <mat-select [(ngModel)]="selectedHostelFilter" (selectionChange)="loadBedMatrix()" panelClass="hostel-block-dropdown-panel">
-                  <mat-option value="">All Hostel Blocks</mat-option>
-                  <mat-option *ngFor="let h of hostels" [value]="h.id">{{ h.name }} ({{ h.hostelType }})</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="dense-field bed-status-filter-field">
-                <mat-label>Bed Status</mat-label>
-                <mat-icon matPrefix>hotel</mat-icon>
-                <mat-select [(ngModel)]="selectedBedStatusFilter" (selectionChange)="applyMatrixFilter()">
-                  <mat-option value="all">All Beds (Vacant + Occupied)</mat-option>
-                  <mat-option value="Available">🟢 Vacant / Available Only</mat-option>
-                  <mat-option value="Occupied">🟣 Occupied Beds Only</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <!-- Resident Category Filter (Students vs Faculty) -->
-              <mat-form-field appearance="outline" class="dense-field category-filter-field">
-                <mat-label>Resident Category</mat-label>
-                <mat-icon matPrefix>groups</mat-icon>
-                <mat-select [(ngModel)]="selectedResidentCategoryFilter" (selectionChange)="applyMatrixFilter()">
-                  <mat-option value="all">All Residents (Students &amp; Faculty)</mat-option>
-                  <mat-option value="Student">🎓 Students Only</mat-option>
-                  <mat-option value="Teacher">👨‍🏫 Faculty / Staff Quarters Only</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <button mat-stroked-button class="reset-filter-btn" *ngIf="isMatrixFilterActive" (click)="resetMatrixFilters()" matTooltip="Reset all filters to view all beds">
-                <mat-icon>refresh</mat-icon> Clear Filters
-              </button>
-            </div>
-
-            <!-- Sub Bar: Live Stats & Legend Chips -->
-            <div class="matrix-meta-strip">
-              <div class="strip-left-counts">
-                <span class="meta-chip chip-total">
-                  <mat-icon class="chip-icon">grid_view</mat-icon> <strong>{{ matrixTotalBeds }}</strong> Total Beds
-                </span>
-                <span class="meta-chip chip-available">
-                  <span class="dot available"></span> <strong>{{ matrixAvailableBeds }}</strong> Vacant Available
-                </span>
-                <span class="meta-chip chip-student">
-                  <span class="dot occupied-student"></span> <strong>{{ matrixStudentBeds }}</strong> Students
-                </span>
-                <span class="meta-chip chip-faculty">
-                  <span class="dot occupied-faculty"></span> <strong>{{ matrixFacultyBeds }}</strong> Staff Quarters
-                </span>
+        @if (activeTab === 'matrix') {
+          <div class="tab-pane">
+            <div class="matrix-filter-card mat-elevation-z1">
+              <div class="matrix-filter-row">
+                <mat-form-field appearance="outline" class="dense-field hostel-filter-field">
+                  <mat-label>Hostel Block</mat-label>
+                  <mat-icon matPrefix>apartment</mat-icon>
+                  <mat-select [(ngModel)]="selectedHostelFilter" (selectionChange)="loadBedMatrix()" panelClass="hostel-block-dropdown-panel">
+                    <mat-option value="">All Hostel Blocks</mat-option>
+                    @for (h of hostels; track h) {
+                      <mat-option [value]="h.id">{{ h.name }} ({{ h.hostelType }})</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="dense-field bed-status-filter-field">
+                  <mat-label>Bed Status</mat-label>
+                  <mat-icon matPrefix>hotel</mat-icon>
+                  <mat-select [(ngModel)]="selectedBedStatusFilter" (selectionChange)="applyMatrixFilter()">
+                    <mat-option value="all">All Beds (Vacant + Occupied)</mat-option>
+                    <mat-option value="Available">🟢 Vacant / Available Only</mat-option>
+                    <mat-option value="Occupied">🟣 Occupied Beds Only</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <!-- Resident Category Filter (Students vs Faculty) -->
+                <mat-form-field appearance="outline" class="dense-field category-filter-field">
+                  <mat-label>Resident Category</mat-label>
+                  <mat-icon matPrefix>groups</mat-icon>
+                  <mat-select [(ngModel)]="selectedResidentCategoryFilter" (selectionChange)="applyMatrixFilter()">
+                    <mat-option value="all">All Residents (Students &amp; Faculty)</mat-option>
+                    <mat-option value="Student">🎓 Students Only</mat-option>
+                    <mat-option value="Teacher">👨‍🏫 Faculty / Staff Quarters Only</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                @if (isMatrixFilterActive) {
+                  <button mat-stroked-button class="reset-filter-btn" (click)="resetMatrixFilters()" matTooltip="Reset all filters to view all beds">
+                    <mat-icon>refresh</mat-icon> Clear Filters
+                  </button>
+                }
               </div>
-
-              <div class="strip-right-hint">
-                <span class="quick-hint">💡 <em>Click <strong>"+ Allocate"</strong> on any green vacant bed to assign resident.</em></span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Room Cards Grid -->
-          <div class="rooms-grid" *ngIf="filteredMatrixRooms.length > 0; else noRoomsTemplate">
-            <div class="room-card" *ngFor="let room of filteredMatrixRooms">
-              <div class="room-card-header">
-                <div class="room-badge">
-                  <mat-icon>meeting_room</mat-icon>
-                  <span class="room-num">Room {{ room.roomNumber }}</span>
+              <!-- Sub Bar: Live Stats & Legend Chips -->
+              <div class="matrix-meta-strip">
+                <div class="strip-left-counts">
+                  <span class="meta-chip chip-total">
+                    <mat-icon class="chip-icon">grid_view</mat-icon> <strong>{{ matrixTotalBeds }}</strong> Total Beds
+                  </span>
+                  <span class="meta-chip chip-available">
+                    <span class="dot available"></span> <strong>{{ matrixAvailableBeds }}</strong> Vacant Available
+                  </span>
+                  <span class="meta-chip chip-student">
+                    <span class="dot occupied-student"></span> <strong>{{ matrixStudentBeds }}</strong> Students
+                  </span>
+                  <span class="meta-chip chip-faculty">
+                    <span class="dot occupied-faculty"></span> <strong>{{ matrixFacultyBeds }}</strong> Staff Quarters
+                  </span>
                 </div>
-                <div class="room-tags">
-                  <span class="tag-pill ac" *ngIf="room.hasAC">AC</span>
-                  <span class="tag-pill nonac" *ngIf="!room.hasAC">Non-AC</span>
-                  <span class="tag-pill type">{{ room.roomType }}</span>
-                  <span class="tag-pill floor">{{ room.floor }}</span>
+                <div class="strip-right-hint">
+                  <span class="quick-hint">💡 <em>Click <strong>"+ Allocate"</strong> on any green vacant bed to assign resident.</em></span>
                 </div>
               </div>
-
-              <div class="room-meta">
-                <span class="hostel-name-label">{{ room.hostelName }}</span>
-                <span class="room-rent-label">₹{{ room.monthlyRent | number }}/mo</span>
-              </div>
-
-              <!-- Beds in Room -->
-              <div class="beds-list">
-                <div
-                  class="bed-card"
-                  *ngFor="let bed of room.beds"
+            </div>
+            <!-- Room Cards Grid -->
+            @if (filteredMatrixRooms.length > 0) {
+              <div class="rooms-grid">
+                @for (room of filteredMatrixRooms; track room) {
+                  <div class="room-card">
+                    <div class="room-card-header">
+                      <div class="room-badge">
+                        <mat-icon>meeting_room</mat-icon>
+                        <span class="room-num">Room {{ room.roomNumber }}</span>
+                      </div>
+                      <div class="room-tags">
+                        @if (room.hasAC) {
+                          <span class="tag-pill ac">AC</span>
+                        }
+                        @if (!room.hasAC) {
+                          <span class="tag-pill nonac">Non-AC</span>
+                        }
+                        <span class="tag-pill type">{{ room.roomType }}</span>
+                        <span class="tag-pill floor">{{ room.floor }}</span>
+                      </div>
+                    </div>
+                    <div class="room-meta">
+                      <span class="hostel-name-label">{{ room.hostelName }}</span>
+                      <span class="room-rent-label">₹{{ room.monthlyRent | number }}/mo</span>
+                    </div>
+                    <!-- Beds in Room -->
+                    <div class="beds-list">
+                      @for (bed of room.beds; track bed) {
+                        <div
+                          class="bed-card"
                   [ngClass]="{
                     'available-bed': bed.status === 'Available',
                     'occupied-bed': bed.status === 'Occupied',
                     'occupied-student-bed': bed.status === 'Occupied' && bed.memberType !== 'Teacher',
                     'occupied-faculty-bed': bed.status === 'Occupied' && bed.memberType === 'Teacher'
                   }"
-                >
-                  <div class="bed-header">
-                    <span class="bed-code-badge" [class.faculty-code]="bed.memberType === 'Teacher'">
-                      <mat-icon>{{ bed.memberType === 'Teacher' ? 'night_shelter' : 'bed' }}</mat-icon> {{ bed.bedCode }}
-                    </span>
-                    <span
-                      class="bed-status-pill"
-                      [class.vacant]="bed.status === 'Available'"
-                      [class.student-pill]="bed.status === 'Occupied' && bed.memberType !== 'Teacher'"
-                      [class.faculty-pill]="bed.status === 'Occupied' && bed.memberType === 'Teacher'"
-                    >
-                      <mat-icon *ngIf="bed.status === 'Occupied' && bed.memberType === 'Teacher'" style="font-size:12px;width:12px;height:12px;vertical-align:middle;margin-right:2px">co_present</mat-icon>
-                      {{ bed.status === 'Available' ? 'Available' : (bed.memberType === 'Teacher' ? 'Staff Quarter' : 'Student') }}
-                    </span>
-                  </div>
-
-                  <!-- Available Bed Info -->
-                  <div class="bed-body available-body" *ngIf="bed.status === 'Available'">
-                    <span class="rent-tag">₹{{ bed.monthlyRent | number }}/mo</span>
-                    <button mat-stroked-button color="primary" class="allocate-btn" (click)="openQuickAllocateModal(room, bed)">
-                      <mat-icon>add</mat-icon> Allocate
-                    </button>
-                  </div>
-
-                  <!-- Occupied Bed Info -->
-                  <div class="bed-body occupied-body" *ngIf="bed.status === 'Occupied'">
-                    <div class="student-avatar-row">
-                      <div class="student-avatar" [style.background]="bed.memberType === 'Teacher' ? '#ede9fe' : '#dbeafe'">
-                        <img *ngIf="bed.profilePhoto" [src]="getPhotoUrl(bed.profilePhoto)" alt="" />
-                        <mat-icon *ngIf="!bed.profilePhoto" [style.color]="bed.memberType === 'Teacher' ? '#7c3aed' : '#2563eb'">
-                          {{ bed.memberType === 'Teacher' ? 'co_present' : 'person' }}
-                        </mat-icon>
-                      </div>
-                      <div class="student-meta">
-                        <div style="display:flex;align-items:center;gap:6px">
-                          <strong class="student-name-text">{{ bed.studentName || bed.teacherName || 'Occupied' }}</strong>
-                          <span *ngIf="bed.memberType === 'Teacher'" style="background: #faf5ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;">Faculty</span>
-                          <span *ngIf="bed.memberType !== 'Teacher' && bed.studentName" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;">Student</span>
+                          >
+                          <div class="bed-header">
+                            <span class="bed-code-badge" [class.faculty-code]="bed.memberType === 'Teacher'">
+                              <mat-icon>{{ bed.memberType === 'Teacher' ? 'night_shelter' : 'bed' }}</mat-icon> {{ bed.bedCode }}
+                            </span>
+                            <span
+                              class="bed-status-pill"
+                              [class.vacant]="bed.status === 'Available'"
+                              [class.student-pill]="bed.status === 'Occupied' && bed.memberType !== 'Teacher'"
+                              [class.faculty-pill]="bed.status === 'Occupied' && bed.memberType === 'Teacher'"
+                              >
+                              @if (bed.status === 'Occupied' && bed.memberType === 'Teacher') {
+                                <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle;margin-right:2px">co_present</mat-icon>
+                              }
+                              {{ bed.status === 'Available' ? 'Available' : (bed.memberType === 'Teacher' ? 'Staff Quarter' : 'Student') }}
+                            </span>
+                          </div>
+                          <!-- Available Bed Info -->
+                          @if (bed.status === 'Available') {
+                            <div class="bed-body available-body">
+                              <span class="rent-tag">₹{{ bed.monthlyRent | number }}/mo</span>
+                              <button mat-stroked-button color="primary" class="allocate-btn" (click)="openQuickAllocateModal(room, bed)">
+                                <mat-icon>add</mat-icon> Allocate
+                              </button>
+                            </div>
+                          }
+                          <!-- Occupied Bed Info -->
+                          @if (bed.status === 'Occupied') {
+                            <div class="bed-body occupied-body">
+                              <div class="student-avatar-row">
+                                <div class="student-avatar" [style.background]="bed.memberType === 'Teacher' ? '#ede9fe' : '#dbeafe'">
+                                  @if (bed.profilePhoto) {
+                                    <img [src]="getPhotoUrl(bed.profilePhoto)" alt="" />
+                                  }
+                                  @if (!bed.profilePhoto) {
+                                    <mat-icon [style.color]="bed.memberType === 'Teacher' ? '#7c3aed' : '#2563eb'">
+                                      {{ bed.memberType === 'Teacher' ? 'co_present' : 'person' }}
+                                    </mat-icon>
+                                  }
+                                </div>
+                                <div class="student-meta">
+                                  <div style="display:flex;align-items:center;gap:6px">
+                                    <strong class="student-name-text">{{ bed.studentName || bed.teacherName || 'Occupied' }}</strong>
+                                    @if (bed.memberType === 'Teacher') {
+                                      <span style="background: #faf5ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;">Faculty</span>
+                                    }
+                                    @if (bed.memberType !== 'Teacher' && bed.studentName) {
+                                      <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;">Student</span>
+                                    }
+                                  </div>
+                                  @if (bed.memberType === 'Teacher') {
+                                    <span class="roll-text" style="color: #7c3aed; font-weight: 700;">
+                                      Staff Quarter &bull; {{ bed.employeeCode || 'FACULTY' }}
+                                    </span>
+                                  }
+                                  @if (bed.memberType !== 'Teacher') {
+                                    <span class="roll-text">Roll: {{ bed.rollNumber || 'N/A' }}</span>
+                                  }
+                                  @if (bed.memberType === 'Teacher') {
+                                    <span class="stream-text">{{ bed.specialization || 'Faculty / Staff Member' }}</span>
+                                  }
+                                  @if (bed.memberType !== 'Teacher') {
+                                    <span class="stream-text">{{ bed.classOrBatch }}</span>
+                                  }
+                                </div>
+                              </div>
+                              <div class="bed-actions">
+                                <button mat-icon-button color="warn" [matTooltip]="bed.memberType === 'Teacher' ? 'Vacate Staff Quarter' : 'Vacate Bed'" (click)="vacateStudentBed(bed)">
+                                  <mat-icon>logout</mat-icon>
+                                </button>
+                                @if (bed.memberType !== 'Teacher') {
+                                  <button mat-icon-button color="primary" matTooltip="Issue Gate Pass" (click)="openGatePassForStudent(bed)">
+                                    <mat-icon>badge</mat-icon>
+                                  </button>
+                                }
+                              </div>
+                            </div>
+                          }
                         </div>
-                        <span class="roll-text" *ngIf="bed.memberType === 'Teacher'" style="color: #7c3aed; font-weight: 700;">
-                          Staff Quarter &bull; {{ bed.employeeCode || 'FACULTY' }}
-                        </span>
-                        <span class="roll-text" *ngIf="bed.memberType !== 'Teacher'">Roll: {{ bed.rollNumber || 'N/A' }}</span>
-                        <span class="stream-text" *ngIf="bed.memberType === 'Teacher'">{{ bed.specialization || 'Faculty / Staff Member' }}</span>
-                        <span class="stream-text" *ngIf="bed.memberType !== 'Teacher'">{{ bed.classOrBatch }}</span>
-                      </div>
-                    </div>
-
-                    <div class="bed-actions">
-                      <button mat-icon-button color="warn" [matTooltip]="bed.memberType === 'Teacher' ? 'Vacate Staff Quarter' : 'Vacate Bed'" (click)="vacateStudentBed(bed)">
-                        <mat-icon>logout</mat-icon>
-                      </button>
-                      <button *ngIf="bed.memberType !== 'Teacher'" mat-icon-button color="primary" matTooltip="Issue Gate Pass" (click)="openGatePassForStudent(bed)">
-                        <mat-icon>badge</mat-icon>
-                      </button>
+                      }
                     </div>
                   </div>
-                </div>
+                }
               </div>
-            </div>
+            } @else {
+              @if (isMatrixFilterActive) {
+                <div class="empty-state-box" style="background: white; border-radius: 12px; padding: 40px 24px; border: 1px dashed #cbd5e1; text-align: center;">
+                  <mat-icon class="empty-icon" style="color: #6366f1; font-size: 48px; width: 48px; height: 48px;">filter_list_off</mat-icon>
+                  <h3 style="font-size: 18px; font-weight: 700; color: #1e293b; margin: 12px 0 6px 0;">No Beds Match Current Filters</h3>
+                  <p style="color: #64748b; max-width: 520px; margin: 0 auto 16px auto; font-size: 13.5px;">
+                    No beds match your filter criteria (<strong>{{ getActiveFilterSummary() }}</strong>).
+                    Reset your filters to view all rooms and beds.
+                  </p>
+                  <button mat-raised-button color="primary" (click)="resetMatrixFilters()">
+                    <mat-icon>refresh</mat-icon> Clear All Filters &amp; View All Beds
+                  </button>
+                </div>
+              }
+              @if (!isMatrixFilterActive) {
+                <div class="empty-state-box">
+                  <mat-icon class="empty-icon">hotel</mat-icon>
+                  <h3>No Rooms or Beds Found</h3>
+                  <p>Configure your hostel buildings and rooms to start allocating beds to boarding students.</p>
+                  <button mat-raised-button color="primary" (click)="openAddRoomModal()">
+                    <mat-icon>add</mat-icon> Add First Room
+                  </button>
+                </div>
+              }
+            }
           </div>
-
-          <ng-template #noRoomsTemplate>
-            <div class="empty-state-box" *ngIf="isMatrixFilterActive" style="background: white; border-radius: 12px; padding: 40px 24px; border: 1px dashed #cbd5e1; text-align: center;">
-              <mat-icon class="empty-icon" style="color: #6366f1; font-size: 48px; width: 48px; height: 48px;">filter_list_off</mat-icon>
-              <h3 style="font-size: 18px; font-weight: 700; color: #1e293b; margin: 12px 0 6px 0;">No Beds Match Current Filters</h3>
-              <p style="color: #64748b; max-width: 520px; margin: 0 auto 16px auto; font-size: 13.5px;">
-                No beds match your filter criteria (<strong>{{ getActiveFilterSummary() }}</strong>).
-                Reset your filters to view all rooms and beds.
-              </p>
-              <button mat-raised-button color="primary" (click)="resetMatrixFilters()">
-                <mat-icon>refresh</mat-icon> Clear All Filters &amp; View All Beds
-              </button>
-            </div>
-
-            <div class="empty-state-box" *ngIf="!isMatrixFilterActive">
-              <mat-icon class="empty-icon">hotel</mat-icon>
-              <h3>No Rooms or Beds Found</h3>
-              <p>Configure your hostel buildings and rooms to start allocating beds to boarding students.</p>
-              <button mat-raised-button color="primary" (click)="openAddRoomModal()">
-                <mat-icon>add</mat-icon> Add First Room
-              </button>
-            </div>
-          </ng-template>
-        </div>
-
+        }
+    
         <!-- TAB 2: HOSTELS & ROOMS MASTER -->
-        <div class="tab-pane" *ngIf="activeTab === 'hostels'">
-          <div class="hostels-master-grid">
-            <div class="hostel-block-card" *ngFor="let h of hostels">
-              <div class="block-card-header">
-                <div class="block-title-box">
-                  <div class="block-icon" [ngClass]="h.hostelType.toLowerCase()">
-                    <mat-icon>{{ h.hostelType === 'Girls' ? 'female' : 'male' }}</mat-icon>
+        @if (activeTab === 'hostels') {
+          <div class="tab-pane">
+            <div class="hostels-master-grid">
+              @for (h of hostels; track h) {
+                <div class="hostel-block-card">
+                  <div class="block-card-header">
+                    <div class="block-title-box">
+                      <div class="block-icon" [ngClass]="h.hostelType.toLowerCase()">
+                        <mat-icon>{{ h.hostelType === 'Girls' ? 'female' : 'male' }}</mat-icon>
+                      </div>
+                      <div>
+                        <h3>{{ h.name }}</h3>
+                        <span class="type-pill">{{ h.hostelType }} Hostel</span>
+                      </div>
+                    </div>
+                    <div class="block-quick-stats">
+                      <span class="stat-bubble"><strong>{{ h.totalRooms }}</strong> Rooms</span>
+                      <span class="stat-bubble"><strong>{{ h.occupiedBeds }}/{{ h.totalBeds }}</strong> Beds Occupied</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3>{{ h.name }}</h3>
-                    <span class="type-pill">{{ h.hostelType }} Hostel</span>
+                  <div class="block-details">
+                    <div class="detail-row">
+                      <mat-icon>badge</mat-icon>
+                      <span>Warden: <strong>{{ h.wardenName || 'Not Assigned' }}</strong> ({{ h.wardenPhone || 'No Phone' }})</span>
+                    </div>
+                    @if (h.address) {
+                      <div class="detail-row">
+                        <mat-icon>place</mat-icon>
+                        <span>{{ h.address }}</span>
+                      </div>
+                    }
+                    <div class="detail-row">
+                      <mat-icon>stairs</mat-icon>
+                      <span>Floors: {{ h.totalFloors }}</span>
+                    </div>
+                  </div>
+                  <div class="block-card-footer">
+                    <button mat-stroked-button color="primary" (click)="openAddRoomForHostel(h)">
+                      <mat-icon>add</mat-icon> Add Room to Block
+                    </button>
                   </div>
                 </div>
-                <div class="block-quick-stats">
-                  <span class="stat-bubble"><strong>{{ h.totalRooms }}</strong> Rooms</span>
-                  <span class="stat-bubble"><strong>{{ h.occupiedBeds }}/{{ h.totalBeds }}</strong> Beds Occupied</span>
-                </div>
-              </div>
-
-              <div class="block-details">
-                <div class="detail-row">
-                  <mat-icon>badge</mat-icon>
-                  <span>Warden: <strong>{{ h.wardenName || 'Not Assigned' }}</strong> ({{ h.wardenPhone || 'No Phone' }})</span>
-                </div>
-                <div class="detail-row" *ngIf="h.address">
-                  <mat-icon>place</mat-icon>
-                  <span>{{ h.address }}</span>
-                </div>
-                <div class="detail-row">
-                  <mat-icon>stairs</mat-icon>
-                  <span>Floors: {{ h.totalFloors }}</span>
-                </div>
-              </div>
-
-              <div class="block-card-footer">
-                <button mat-stroked-button color="primary" (click)="openAddRoomForHostel(h)">
-                  <mat-icon>add</mat-icon> Add Room to Block
-                </button>
-              </div>
+              }
             </div>
           </div>
-        </div>
-
+        }
+    
         <!-- TAB 3: RESIDENTS & ALLOCATIONS -->
-        <div class="tab-pane" *ngIf="activeTab === 'residents'">
-          <div class="residents-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
-            <div style="display: flex; gap: 8px;">
-              <button type="button" [style.background]="residentMemberTypeFilter === 'All' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'All' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'All'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">All Residents</button>
-              <button type="button" [style.background]="residentMemberTypeFilter === 'Student' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Student' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Student'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Students</button>
-              <button type="button" [style.background]="residentMemberTypeFilter === 'Teacher' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Teacher' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Teacher'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Faculty / Staff Quarters</button>
+        @if (activeTab === 'residents') {
+          <div class="tab-pane">
+            <div class="residents-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+              <div style="display: flex; gap: 8px;">
+                <button type="button" [style.background]="residentMemberTypeFilter === 'All' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'All' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'All'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">All Residents</button>
+                <button type="button" [style.background]="residentMemberTypeFilter === 'Student' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Student' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Student'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Students</button>
+                <button type="button" [style.background]="residentMemberTypeFilter === 'Teacher' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Teacher' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Teacher'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Faculty / Staff Quarters</button>
+              </div>
+              <mat-form-field appearance="outline" class="search-field" style="margin-bottom: -16px;">
+                <mat-label>Search Residents...</mat-label>
+                <input matInput [(ngModel)]="residentSearch" placeholder="Name, roll/emp no, room..." />
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
             </div>
-            <mat-form-field appearance="outline" class="search-field" style="margin-bottom: -16px;">
-              <mat-label>Search Residents...</mat-label>
-              <input matInput [(ngModel)]="residentSearch" placeholder="Name, roll/emp no, room..." />
-              <mat-icon matSuffix>search</mat-icon>
-            </mat-form-field>
+            @if (filteredAllocations.length > 0) {
+              <div class="residents-table-wrap">
+                <table class="custom-data-table">
+                  <thead>
+                    <tr>
+                      <th>Resident (Student / Faculty)</th>
+                      <th>Roll / Emp Code</th>
+                      <th>Hostel Block</th>
+                      <th>Room &amp; Bed</th>
+                      <th>Monthly Rent</th>
+                      <th>Mess Plan</th>
+                      <th>Allotted Date</th>
+                      <th>Status</th>
+                      <th class="action-cell">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (a of filteredAllocations; track a) {
+                      <tr>
+                        <td>
+                          <div class="student-cell">
+                            <span class="name">
+                              {{ a.studentName || a.teacherName }}
+                              @if (a.memberType === 'Teacher') {
+                                <span style="background: #faf5ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 6px;">Staff Quarter</span>
+                              }
+                            </span>
+                            <small class="class-info">{{ a.classOrBatch || (a.memberType === 'Teacher' ? 'Faculty Member' : '') }}</small>
+                          </div>
+                        </td>
+                        <td><strong>{{ a.rollNumber || (a.memberType === 'Teacher' ? 'FACULTY' : 'N/A') }}</strong></td>
+                        <td>{{ a.hostelName }}</td>
+                        <td>
+                          <span class="bed-pill">Rm {{ a.roomNumber }} - {{ a.bedCode }}</span>
+                        </td>
+                        <td><strong>₹{{ a.monthlyRent | number }}</strong></td>
+                        <td>
+                          <span class="mess-pill" [class.included]="a.isMessIncluded">
+                            {{ a.isMessIncluded ? a.messPlan : 'No Mess' }}
+                          </span>
+                        </td>
+                        <td>{{ a.allocatedDate | date:'dd MMM yyyy' }}</td>
+                        <td>
+                          <span class="status-badge" [class.active]="a.status === 'Active'">
+                            {{ a.status }}
+                          </span>
+                        </td>
+                        <td class="action-cell">
+                          @if (a.status === 'Active') {
+                            <button
+                              mat-stroked-button
+                              color="warn"
+                              class="sm-btn"
+                              (click)="vacateAllocation(a)"
+                              >
+                              <mat-icon>logout</mat-icon> Vacate
+                            </button>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <div class="empty-state-box">
+                <mat-icon class="empty-icon">people_outline</mat-icon>
+                <h3>No Resident Students Found</h3>
+                <p>Allocate vacant beds to students from the Visual Bed Matrix tab or Student Admission form.</p>
+              </div>
+            }
           </div>
-
-          <div class="residents-table-wrap" *ngIf="filteredAllocations.length > 0; else noResidents">
-            <table class="custom-data-table">
-              <thead>
-                <tr>
-                  <th>Resident (Student / Faculty)</th>
-                  <th>Roll / Emp Code</th>
-                  <th>Hostel Block</th>
-                  <th>Room &amp; Bed</th>
-                  <th>Monthly Rent</th>
-                  <th>Mess Plan</th>
-                  <th>Allotted Date</th>
-                  <th>Status</th>
-                  <th class="action-cell">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let a of filteredAllocations">
-                  <td>
-                    <div class="student-cell">
-                      <span class="name">
-                        {{ a.studentName || a.teacherName }}
-                        <span *ngIf="a.memberType === 'Teacher'" style="background: #faf5ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 6px;">Staff Quarter</span>
-                      </span>
-                      <small class="class-info">{{ a.classOrBatch || (a.memberType === 'Teacher' ? 'Faculty Member' : '') }}</small>
-                    </div>
-                  </td>
-                  <td><strong>{{ a.rollNumber || (a.memberType === 'Teacher' ? 'FACULTY' : 'N/A') }}</strong></td>
-                  <td>{{ a.hostelName }}</td>
-                  <td>
-                    <span class="bed-pill">Rm {{ a.roomNumber }} - {{ a.bedCode }}</span>
-                  </td>
-                  <td><strong>₹{{ a.monthlyRent | number }}</strong></td>
-                  <td>
-                    <span class="mess-pill" [class.included]="a.isMessIncluded">
-                      {{ a.isMessIncluded ? a.messPlan : 'No Mess' }}
-                    </span>
-                  </td>
-                  <td>{{ a.allocatedDate | date:'dd MMM yyyy' }}</td>
-                  <td>
-                    <span class="status-badge" [class.active]="a.status === 'Active'">
-                      {{ a.status }}
-                    </span>
-                  </td>
-                  <td class="action-cell">
-                    <button
-                      *ngIf="a.status === 'Active'"
-                      mat-stroked-button
-                      color="warn"
-                      class="sm-btn"
-                      (click)="vacateAllocation(a)"
-                    >
-                      <mat-icon>logout</mat-icon> Vacate
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <ng-template #noResidents>
-            <div class="empty-state-box">
-              <mat-icon class="empty-icon">people_outline</mat-icon>
-              <h3>No Resident Students Found</h3>
-              <p>Allocate vacant beds to students from the Visual Bed Matrix tab or Student Admission form.</p>
-            </div>
-          </ng-template>
-        </div>
-
+        }
+    
         <!-- TAB 4: GATE PASSES & OUTINGS (Angular Material Smart Grid) -->
-        <div class="tab-pane" *ngIf="activeTab === 'gatepass'">
-          <!-- Top Control Header: Action Button + Filter Pills + Search Input -->
-          <div class="gp-control-card mat-elevation-z1">
-            <div class="gp-top-row">
-              <div class="gp-heading-area">
-                <div class="gp-icon-badge"><mat-icon>badge</mat-icon></div>
-                <div>
-                  <h3 class="gp-title">Student Outing &amp; Gate Passes</h3>
-                  <p class="gp-subtitle">Track real-time campus entry/exit, safety return timestamps, and parent consent verification.</p>
-                </div>
-              </div>
-
-              <div class="gp-actions">
-                <button mat-flat-button color="primary" class="issue-gp-btn" (click)="openGatePassModal()">
-                  <mat-icon>add_circle</mat-icon> Issue New Gate Pass
-                </button>
-              </div>
-            </div>
-
-            <!-- Filter Pills Bar & Search -->
-            <div class="gp-filter-row">
-              <div class="gp-status-pills">
-                <button type="button" class="gp-pill" [class.active]="gatePassStatusFilter === 'all'" (click)="setGatePassStatusFilter('all')">
-                  All Passes <span class="pill-count">{{ gatePassTotalCount }}</span>
-                </button>
-                <button type="button" class="gp-pill pill-out" [class.active]="gatePassStatusFilter === 'out'" (click)="setGatePassStatusFilter('out')">
-                  <span class="live-dot"></span> Currently Out <span class="pill-count">{{ gatePassActiveOutCount }}</span>
-                </button>
-                <button type="button" class="gp-pill pill-returned" [class.active]="gatePassStatusFilter === 'returned'" (click)="setGatePassStatusFilter('returned')">
-                  <mat-icon class="pill-icon">task_alt</mat-icon> Safely Returned <span class="pill-count">{{ gatePassCompletedCount }}</span>
-                </button>
-                <button type="button" class="gp-pill pill-overdue" [class.active]="gatePassStatusFilter === 'overdue'" (click)="setGatePassStatusFilter('overdue')">
-                  <mat-icon class="pill-icon">warning</mat-icon> Overdue / Late <span class="pill-count" [class.warn-alert]="gatePassOverdueCount > 0">{{ gatePassOverdueCount }}</span>
-                </button>
-              </div>
-
-              <!-- Search Box -->
-              <div class="gp-search-wrapper">
-                <mat-form-field appearance="outline" class="gp-search-field">
-                  <mat-label>Search Gate Passes...</mat-label>
-                  <input matInput [(ngModel)]="gatePassSearchQuery" [ngModelOptions]="{standalone: true}" (ngModelChange)="onGatePassSearchChanged($event)" placeholder="Search student, roll, pass #, purpose, room, phone..." autocomplete="off" />
-                  <mat-icon matPrefix>search</mat-icon>
-                  <button mat-icon-button matSuffix *ngIf="gatePassSearchQuery" (click)="clearGatePassSearch()" type="button" matTooltip="Clear search">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </mat-form-field>
-              </div>
-            </div>
-          </div>
-
-          <!-- Angular Material Smart Grid -->
-          <div class="gp-table-card mat-elevation-z1">
-            <div class="table-responsive-container">
-              <table mat-table [dataSource]="gatePasses" matSort (matSortChange)="onGatePassSortChange($event)" class="gp-mat-table">
-
-                <!-- Pass Number Column -->
-                <ng-container matColumnDef="passNumber">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header="passNumber" class="col-pass">Pass No</th>
-                  <td mat-cell *matCellDef="let g" class="col-pass">
-                    <div class="pass-chip-box">
-                      <span class="pass-number-text">{{ g.passNumber }}</span>
-                      <small class="pass-date-sub">{{ g.createdAt | date:'dd MMM yyyy' }}</small>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <!-- Student Column -->
-                <ng-container matColumnDef="student">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header="student" class="col-student">Student Name</th>
-                  <td mat-cell *matCellDef="let g" class="col-student">
-                    <div class="student-profile-cell">
-                      <div class="student-avatar-badge">
-                        {{ g.studentName ? g.studentName[0].toUpperCase() : 'S' }}
-                      </div>
-                      <div class="student-details-box">
-                        <span class="student-name-bold">{{ g.studentName }}</span>
-                        <div class="student-sub-info">
-                          <span class="student-class-chip" *ngIf="g.classOrBatch">{{ g.classOrBatch }}</span>
-                          <span class="student-roll-chip" *ngIf="g.rollNumber">Roll: {{ g.rollNumber }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <!-- Room & Bed Column -->
-                <ng-container matColumnDef="roomAndBed">
-                  <th mat-header-cell *matHeaderCellDef class="col-room">Hostel &amp; Bed</th>
-                  <td mat-cell *matCellDef="let g" class="col-room">
-                    <div class="room-bed-badge">
-                      <mat-icon class="bed-icon">hotel</mat-icon>
-                      <span>{{ g.roomAndBed || 'Resident' }}</span>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <!-- Out Date & Time Column -->
-                <ng-container matColumnDef="outDate">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header="outDate" class="col-out-date">Exit Out Date</th>
-                  <td mat-cell *matCellDef="let g" class="col-out-date">
-                    <div class="date-display-box">
-                      <span class="date-main">{{ g.outDate | date:'dd MMM yyyy' }}</span>
-                      <span class="time-sub"><mat-icon class="clock-icon">schedule</mat-icon> {{ g.outDate | date:'hh:mm a' }}</span>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <!-- Expected Return Column -->
-                <ng-container matColumnDef="expectedReturn">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header="expectedReturn" class="col-return-date">Expected Return</th>
-                  <td mat-cell *matCellDef="let g" class="col-return-date">
-                    <div class="date-display-box">
-                      <span class="date-main">{{ g.expectedReturnDate | date:'dd MMM yyyy' }}</span>
-                      <span class="time-sub"><mat-icon class="clock-icon">event_available</mat-icon> {{ g.expectedReturnDate | date:'hh:mm a' }}</span>
-                      <!-- Overdue Warning Pill -->
-                      <span class="overdue-chip" *ngIf="isGatePassOverdue(g)">
-                        <mat-icon>warning</mat-icon> Late / Overdue
-                      </span>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <!-- Purpose Column -->
-                <ng-container matColumnDef="purpose">
-                  <th mat-header-cell *matHeaderCellDef class="col-purpose">Purpose</th>
-                  <td mat-cell *matCellDef="let g" class="col-purpose">
-                    <div class="purpose-cell">
-                      <span class="purpose-title">{{ g.purpose }}</span>
-                      <small class="remarks-sub" *ngIf="g.remarks">{{ g.remarks }}</small>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <!-- Parent Consent Column -->
-                <ng-container matColumnDef="parentConsent">
-                  <th mat-header-cell *matHeaderCellDef class="col-consent">Parent Consent</th>
-                  <td mat-cell *matCellDef="let g" class="col-consent">
-                    <div class="consent-cell-box" *ngIf="g.parentConsentGiven">
-                      <span class="verified-tag"><mat-icon>verified</mat-icon> Verified</span>
-                      <a *ngIf="g.parentContactNumber" [href]="'tel:' + g.parentContactNumber" class="parent-phone-link" matTooltip="Click to call parent">
-                        📞 {{ g.parentContactNumber }}
-                      </a>
-                    </div>
-                    <span class="consent-self-tag" *ngIf="!g.parentConsentGiven">Self Authorized</span>
-                  </td>
-                </ng-container>
-
-                <!-- Status Column -->
-                <ng-container matColumnDef="status">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header="status" class="col-status">Status</th>
-                  <td mat-cell *matCellDef="let g" class="col-status">
-                    <span class="smart-status-pill status-overdue" *ngIf="isGatePassOverdue(g)">
-                      <mat-icon>priority_high</mat-icon> OVERDUE
-                    </span>
-                    <span class="smart-status-pill status-out" *ngIf="!isGatePassOverdue(g) && g.wardenApprovalStatus !== 'Completed'">
-                      <span class="pulse-indicator"></span> OUTING ACTIVE
-                    </span>
-                    <span class="smart-status-pill status-completed" *ngIf="g.wardenApprovalStatus === 'Completed'">
-                      <mat-icon>done_all</mat-icon> RETURNED
-                    </span>
-                  </td>
-                </ng-container>
-
-                <!-- Action Column -->
-                <ng-container matColumnDef="action">
-                  <th mat-header-cell *matHeaderCellDef class="col-action text-right">Action</th>
-                  <td mat-cell *matCellDef="let g" class="col-action text-right">
-                    <button
-                      *ngIf="g.wardenApprovalStatus !== 'Completed'"
-                      mat-flat-button
-                      color="primary"
-                      class="smart-return-btn"
-                      (click)="markGatePassReturned(g)"
-                      matTooltip="Confirm student returned to hostel campus"
-                    >
-                      <mat-icon>login</mat-icon> Mark Return
-                    </button>
-                    <div *ngIf="g.wardenApprovalStatus === 'Completed'" class="returned-safe-info">
-                      <mat-icon class="safe-icon">check_circle</mat-icon>
-                      <span class="safe-time">Returned {{ g.actualReturnDate | date:'hh:mm a' }}</span>
-                    </div>
-                  </td>
-                </ng-container>
-
-                <tr mat-header-row *matHeaderRowDef="displayedGatePassColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: displayedGatePassColumns;" class="gp-table-row" [class.row-overdue]="isGatePassOverdue(row)"></tr>
-
-                <!-- No Data Row -->
-                <tr class="mat-row empty-row" *matNoDataRow>
-                  <td class="mat-cell empty-table-cell" [attr.colspan]="displayedGatePassColumns.length">
-                    <div class="empty-state-box">
-                      <mat-icon class="empty-icon">assignment_late</mat-icon>
-                      <h3>No Gate Passes Found</h3>
-                      <p *ngIf="gatePassSearchQuery || gatePassStatusFilter !== 'all'">
-                        No records match the selected filter/search criteria.
-                      </p>
-                      <p *ngIf="!gatePassSearchQuery && gatePassStatusFilter === 'all'">
-                        No gate passes have been issued yet. Click "Issue New Gate Pass" to record an outing.
-                      </p>
-                      <button *ngIf="gatePassSearchQuery || gatePassStatusFilter !== 'all'" mat-stroked-button color="primary" (click)="clearGatePassSearch(); setGatePassStatusFilter('all')">
-                        Reset All Filters
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </div>
-
-            <!-- Material Server-Side Paginator -->
-            <mat-paginator
-              [length]="gatePassTotalCount"
-              [pageSize]="gatePassPageSize"
-              [pageIndex]="gatePassPageIndex - 1"
-              [pageSizeOptions]="[5, 10, 25, 50]"
-              (page)="onGatePassPageChange($event)"
-              showFirstLastButtons
-              aria-label="Select page of gate passes"
-              class="gp-paginator"
-            >
-            </mat-paginator>
-          </div>
-        </div>
-
-        <!-- TAB 5: NIGHT ROLL CALL & BIOMETRIC ATTENDANCE -->
-        <div class="tab-pane" *ngIf="activeTab === 'rollcall'">
-          <!-- Top Control Header Bar -->
-          <div class="rollcall-header-bar">
-            <div class="rollcall-inputs">
-              <mat-form-field appearance="outline" class="dense-field hostel-select-field">
-                <mat-label>Hostel Block</mat-label>
-                <mat-select [(ngModel)]="rollCallHostelId" (selectionChange)="loadRollCall()">
-                  <mat-option *ngFor="let h of hostels" [value]="h.id">{{ h.name }}</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="dense-field date-field">
-                <mat-label>Attendance Date</mat-label>
-                <input matInput type="date" [(ngModel)]="rollCallDate" (change)="loadRollCall()" />
-              </mat-form-field>
-
-              <!-- Attendance Mode Selector (Manual / Biometric / Both) -->
-              <mat-form-field appearance="outline" class="dense-field mode-field">
-                <mat-label>Hostel Attendance Mode</mat-label>
-                <mat-select [(ngModel)]="hostelAttendanceMode" (selectionChange)="onHostelModeChange($event.value)">
-                  <mat-option value="Both">Manual + Biometric (Hybrid)</mat-option>
-                  <mat-option value="Manual">Manual Only</mat-option>
-                  <mat-option value="Biometric">Biometric Only (Automated)</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <span class="mode-pill hybrid" *ngIf="hostelAttendanceMode === 'Both'">
-                <mat-icon>devices</mat-icon> Hybrid Mode
-              </span>
-              <span class="mode-pill manual" *ngIf="hostelAttendanceMode === 'Manual'">
-                <mat-icon>edit_note</mat-icon> Manual Only
-              </span>
-              <span class="mode-pill biometric" *ngIf="hostelAttendanceMode === 'Biometric'">
-                <mat-icon>fingerprint</mat-icon> Biometric Automated
-              </span>
-            </div>
-
-            <div class="rollcall-actions-right">
-              <button
-                mat-stroked-button
-                color="accent"
-                class="action-btn"
-                (click)="openBiometricSimulator()"
-                [disabled]="hostelAttendanceMode === 'Manual'"
-                matTooltip="Simulate turnstile biometric punch for a student"
-              >
-                <mat-icon>fingerprint</mat-icon> Simulate Biometric Punch
-              </button>
-
-              <button
-                mat-stroked-button
-                class="action-btn"
-                (click)="openBiometricMappings()"
-                matTooltip="View and update Biometric User IDs for residents"
-              >
-                <mat-icon>badge</mat-icon> Biometric IDs
-              </button>
-
-              <button
-                mat-stroked-button
-                color="primary"
-                class="action-btn"
-                (click)="markAllPresent()"
-                [disabled]="hostelAttendanceMode === 'Biometric'"
-                matTooltip="Mark all active residents as Present"
-              >
-                <mat-icon>done_all</mat-icon> All Present
-              </button>
-
-              <button
-                mat-raised-button
-                color="primary"
-                class="action-btn"
-                (click)="saveRollCall()"
-                [disabled]="hostelAttendanceMode === 'Biometric' || rollCallStudents.length === 0"
-                matTooltip="Save manual roll call records"
-              >
-                <mat-icon>save</mat-icon> Save Roll Call
-              </button>
-            </div>
-          </div>
-
-          <!-- Alert banner when in Biometric Only Mode -->
-          <div class="biometric-locked-alert" *ngIf="hostelAttendanceMode === 'Biometric'">
-            <mat-icon>verified_user</mat-icon>
-            <div>
-              <strong>Biometric Only Mode Active:</strong> Night roll call is automatically populated via physical turnstiles &amp; biometric devices at the hostel gates. Manual modifications are locked. Click "Simulate Biometric Punch" to test turnstile event logs.
-            </div>
-          </div>
-
-          <!-- Roll Call Students List -->
-          <div class="rollcall-list" *ngIf="rollCallStudents.length > 0; else noRollCallStudents">
-            <div class="rollcall-item" *ngFor="let s of rollCallStudents">
-              <div class="student-info-col">
-                <div class="avatar-small">
-                  <img *ngIf="s.profilePhoto" [src]="getPhotoUrl(s.profilePhoto)" alt="" />
-                  <mat-icon *ngIf="!s.profilePhoto">person</mat-icon>
-                </div>
-                <div class="student-details-wrap">
-                  <div class="name-row">
-                    <strong class="name">{{ s.studentName }}</strong>
-                    <span class="roll-tag" *ngIf="s.rollNumber">({{ s.rollNumber }})</span>
-
-                    <!-- Biometric ID badge with click to edit -->
-                    <span
-                      class="bio-id-pill"
-                      [class.unmapped]="!s.biometricUserId"
-                      (click)="openQuickMapBio(s)"
-                      matTooltip="Click to map/edit Biometric User ID"
-                    >
-                      <mat-icon>fingerprint</mat-icon>
-                      {{ s.biometricUserId ? 'Bio ID: ' + s.biometricUserId : '+ Map Bio ID' }}
-                    </span>
-
-                    <!-- Capture Source Pill -->
-                    <span class="source-pill bio" *ngIf="s.captureSource === 'Biometric'">
-                      <mat-icon>fingerprint</mat-icon> Biometric {{ s.punchTime ? '@ ' + s.punchTime : '' }}
-                    </span>
-                    <span class="source-pill manual" *ngIf="s.captureSource === 'Manual'">
-                      <mat-icon>edit_note</mat-icon> Manual
-                    </span>
-
-                    <!-- Gate Pass Outing Alert Tag -->
-                    <span class="gatepass-pill" *ngIf="s.hasActiveGatePass" [matTooltip]="s.gatePassDetails">
-                      <mat-icon>transfer_within_a_station</mat-icon> On Gate Pass Outing
-                    </span>
-                  </div>
-
-                  <div class="sub-line">
-                    <span class="room-tag">Rm {{ s.roomNumber }} - Bed {{ s.bedCode }}</span>
-                    <span class="phone-tag" *ngIf="s.parentPhone">📞 Parent: {{ s.parentPhone }}</span>
-                    <span class="class-tag" *ngIf="s.classOrBatch">{{ s.classOrBatch }}</span>
+        @if (activeTab === 'gatepass') {
+          <div class="tab-pane">
+            <!-- Top Control Header: Action Button + Filter Pills + Search Input -->
+            <div class="gp-control-card mat-elevation-z1">
+              <div class="gp-top-row">
+                <div class="gp-heading-area">
+                  <div class="gp-icon-badge"><mat-icon>badge</mat-icon></div>
+                  <div>
+                    <h3 class="gp-title">Student Outing &amp; Gate Passes</h3>
+                    <p class="gp-subtitle">Track real-time campus entry/exit, safety return timestamps, and parent consent verification.</p>
                   </div>
                 </div>
-              </div>
-
-              <!-- Right Actions: Quick Punch + Status Toggles -->
-              <div class="rollcall-controls-wrap">
-                <!-- 1-Click Biometric Punch Button -->
-                <button
-                  type="button"
-                  mat-stroked-button
-                  color="accent"
-                  class="quick-punch-btn"
-                  *ngIf="hostelAttendanceMode !== 'Manual'"
-                  (click)="quickPunchResident(s)"
-                  matTooltip="Test 1-click Biometric Punch for {{ s.studentName }}"
-                >
-                  <mat-icon>fingerprint</mat-icon> Punch Now
-                </button>
-
-                <!-- Status Buttons -->
-                <div class="rollcall-status-toggles" [class.locked]="hostelAttendanceMode === 'Biometric'">
-                  <button
-                    type="button"
-                    class="status-toggle-btn present"
-                    [class.active]="s.status === 'Present'"
-                    (click)="setStudentStatus(s, 'Present')"
-                    [disabled]="hostelAttendanceMode === 'Biometric'"
-                  >
-                    Present
-                  </button>
-                  <button
-                    type="button"
-                    class="status-toggle-btn absent"
-                    [class.active]="s.status === 'Absent'"
-                    (click)="setStudentStatus(s, 'Absent')"
-                    [disabled]="hostelAttendanceMode === 'Biometric'"
-                  >
-                    Absent
-                  </button>
-                  <button
-                    type="button"
-                    class="status-toggle-btn leave"
-                    [class.active]="s.status === 'OnLeave'"
-                    (click)="setStudentStatus(s, 'OnLeave')"
-                    [disabled]="hostelAttendanceMode === 'Biometric'"
-                  >
-                    On Leave
-                  </button>
-                  <button
-                    type="button"
-                    class="status-toggle-btn gatepass"
-                    [class.active]="s.status === 'GatePass'"
-                    (click)="setStudentStatus(s, 'GatePass')"
-                    [disabled]="hostelAttendanceMode === 'Biometric'"
-                  >
-                    Gate Pass
-                  </button>
-                  <button
-                    type="button"
-                    class="status-toggle-btn late"
-                    [class.active]="s.status === 'Late'"
-                    (click)="setStudentStatus(s, 'Late')"
-                    [disabled]="hostelAttendanceMode === 'Biometric'"
-                  >
-                    Late
+                <div class="gp-actions">
+                  <button mat-flat-button color="primary" class="issue-gp-btn" (click)="openGatePassModal()">
+                    <mat-icon>add_circle</mat-icon> Issue New Gate Pass
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <ng-template #noRollCallStudents>
-            <div class="empty-state-box">
-              <mat-icon class="empty-icon">nightlight</mat-icon>
-              <h3>No Resident Students in this Hostel</h3>
-              <p>Allocate vacant beds to students in this hostel block to take roll call or track biometric gate attendance.</p>
-            </div>
-          </ng-template>
-        </div>
-      </mat-card>
-
-      <!-- ================= MODALS ================= -->
-
-      <!-- Add Hostel Modal -->
-      <div class="modal-backdrop" *ngIf="showAddHostelModal">
-        <div class="modal-dialog-card">
-          <div class="modal-header">
-            <div class="modal-header-icon-box">
-              <mat-icon>domain</mat-icon>
-            </div>
-            <div class="modal-title-wrap">
-              <h3>Add New Hostel Block</h3>
-              <span class="modal-sub">Create residential wing &amp; block details</span>
-            </div>
-            <button mat-icon-button class="modal-close-btn" (click)="showAddHostelModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
-          </div>
-          <form [formGroup]="hostelForm" (ngSubmit)="submitAddHostel()">
-            <div class="modal-body-form">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Hostel Block Name</mat-label>
-                <input matInput formControlName="name" placeholder="e.g. Ramanujan Boys Hostel (Block C)" />
-              </mat-form-field>
-
-              <div class="form-row-2">
-                <mat-form-field appearance="outline">
-                  <mat-label>Hostel Type</mat-label>
-                  <mat-select formControlName="hostelType">
-                    <mat-option value="Boys">Boys Hostel</mat-option>
-                    <mat-option value="Girls">Girls Hostel</mat-option>
-                    <mat-option value="Staff">Staff / Faculty Quarters</mat-option>
-                    <mat-option value="Co-ed">Co-ed</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Total Floors</mat-label>
-                  <input matInput type="number" formControlName="totalFloors" min="1" max="20" />
-                </mat-form-field>
-              </div>
-
-              <div class="form-row-2">
-                <mat-form-field appearance="outline">
-                  <mat-label>Warden Name</mat-label>
-                  <input matInput formControlName="wardenName" placeholder="e.g. Ramesh Chandra" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Warden Contact Phone</mat-label>
-                  <input matInput formControlName="wardenPhone" placeholder="10-digit mobile" />
-                </mat-form-field>
-              </div>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Campus Location / Address</mat-label>
-                <input matInput formControlName="address" placeholder="e.g. North Wing, Behind Main Academic Block" />
-              </mat-form-field>
-            </div>
-            <div class="modal-footer">
-              <button mat-button type="button" (click)="showAddHostelModal = false">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="hostelForm.invalid">
-                Save Hostel Block
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Add Room Modal -->
-      <div class="modal-backdrop" *ngIf="showAddRoomModal">
-        <div class="modal-dialog-card">
-          <div class="modal-header">
-            <div class="modal-header-icon-box">
-              <mat-icon>meeting_room</mat-icon>
-            </div>
-            <div class="modal-title-wrap">
-              <h3>Add New Room &amp; Beds</h3>
-              <span class="modal-sub">Configure room type, capacity &amp; auto-generated bed codes</span>
-            </div>
-            <button mat-icon-button class="modal-close-btn" (click)="showAddRoomModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
-          </div>
-          <form [formGroup]="roomForm" (ngSubmit)="submitAddRoom()">
-            <div class="modal-body-form">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Hostel Block</mat-label>
-                <mat-select formControlName="hostelId">
-                  <mat-option *ngFor="let h of hostels" [value]="h.id">{{ h.name }}</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <div class="form-row-2">
-                <mat-form-field appearance="outline">
-                  <mat-label>Room Number</mat-label>
-                  <input matInput formControlName="roomNumber" placeholder="e.g. 101, 204, G-02" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Floor</mat-label>
-                  <mat-select formControlName="floor">
-                    <mat-option value="Ground">Ground Floor</mat-option>
-                    <mat-option value="1st Floor">1st Floor</mat-option>
-                    <mat-option value="2nd Floor">2nd Floor</mat-option>
-                    <mat-option value="3rd Floor">3rd Floor</mat-option>
-                    <mat-option value="4th Floor">4th Floor</mat-option>
-                  </mat-select>
-                </mat-form-field>
-              </div>
-
-              <div class="form-row-2">
-                <mat-form-field appearance="outline">
-                  <mat-label>Room Sharing Type</mat-label>
-                  <mat-select formControlName="roomType" (selectionChange)="onRoomTypeChange($event.value)">
-                    <mat-option value="Single">Single Room (1 Bed)</mat-option>
-                    <mat-option value="Double">Double Sharing (2 Beds)</mat-option>
-                    <mat-option value="Triple">Triple Sharing (3 Beds)</mat-option>
-                    <mat-option value="4-Bed">4-Bed Sharing (4 Beds)</mat-option>
-                    <mat-option value="Dormitory">Dormitory (6 Beds)</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Capacity (Beds)</mat-label>
-                  <input matInput type="number" formControlName="capacity" min="1" max="12" />
-                </mat-form-field>
-              </div>
-
-              <div class="form-row-2">
-                <mat-form-field appearance="outline">
-                  <mat-label>Monthly Rent / Bed (₹)</mat-label>
-                  <input matInput type="number" formControlName="monthlyRent" placeholder="e.g. 8500" />
-                </mat-form-field>
-
-                <div class="checkbox-pair">
-                  <mat-checkbox formControlName="hasAC">Air Conditioned (AC)</mat-checkbox>
-                  <mat-checkbox formControlName="hasAttachedBath">Attached Bath</mat-checkbox>
-                </div>
-              </div>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Amenities (Optional)</mat-label>
-                <input matInput formControlName="amenities" placeholder="e.g. Study Table, Wardrobe, Balcony, Geyser" />
-              </mat-form-field>
-
-              <div class="auto-beds-hint">
-                <mat-checkbox formControlName="autoGenerateBeds" color="primary">
-                  Auto-create individual Bed Codes (e.g. {{ roomForm.value.roomNumber || '101' }}-A, {{ roomForm.value.roomNumber || '101' }}-B)
-                </mat-checkbox>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button mat-button type="button" (click)="showAddRoomModal = false">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="roomForm.invalid">
-                Create Room &amp; Beds
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Quick Bed Allocate Modal -->
-      <div class="modal-backdrop" *ngIf="showAllocateModal">
-        <div class="modal-dialog-card allocate-dialog">
-          <div class="modal-header">
-            <div class="modal-header-icon-box">
-              <mat-icon>{{ allocateMemberType === 'Teacher' ? 'night_shelter' : 'hotel' }}</mat-icon>
-            </div>
-            <div class="modal-title-wrap">
-              <h3>Allocate Bed: {{ allocatingBed?.bedCode }}</h3>
-              <span class="modal-sub">Room <strong>{{ allocatingRoom?.roomNumber }}</strong> &bull; <strong>{{ allocatingRoom?.hostelName }}</strong> (Floor {{ allocatingRoom?.floor }})</span>
-            </div>
-            <button mat-icon-button class="modal-close-btn" (click)="closeAllocateModal()" matTooltip="Close"><mat-icon>close</mat-icon></button>
-          </div>
-          <form [formGroup]="allocateForm" (ngSubmit)="submitAllocateBed()">
-            <div class="modal-body-form">
-
-              <!-- Resident Type Switcher: Student vs Faculty / Staff -->
-              <div class="member-type-toggle-bar">
-                <span class="mtt-label"><mat-icon>how_to_reg</mat-icon> Resident Category:</span>
-                <div class="mtt-pills">
-                  <button type="button" class="mtt-pill" [class.active]="allocateMemberType === 'Student'" (click)="setAllocateMemberType('Student')">
-                    <mat-icon>school</mat-icon> Student Resident
+              <!-- Filter Pills Bar & Search -->
+              <div class="gp-filter-row">
+                <div class="gp-status-pills">
+                  <button type="button" class="gp-pill" [class.active]="gatePassStatusFilter === 'all'" (click)="setGatePassStatusFilter('all')">
+                    All Passes <span class="pill-count">{{ gatePassTotalCount }}</span>
                   </button>
-                  <button type="button" class="mtt-pill pill-faculty" [class.active]="allocateMemberType === 'Teacher'" (click)="setAllocateMemberType('Teacher')">
-                    <mat-icon>co_present</mat-icon> Faculty / Staff Quarters
+                  <button type="button" class="gp-pill pill-out" [class.active]="gatePassStatusFilter === 'out'" (click)="setGatePassStatusFilter('out')">
+                    <span class="live-dot"></span> Currently Out <span class="pill-count">{{ gatePassActiveOutCount }}</span>
+                  </button>
+                  <button type="button" class="gp-pill pill-returned" [class.active]="gatePassStatusFilter === 'returned'" (click)="setGatePassStatusFilter('returned')">
+                    <mat-icon class="pill-icon">task_alt</mat-icon> Safely Returned <span class="pill-count">{{ gatePassCompletedCount }}</span>
+                  </button>
+                  <button type="button" class="gp-pill pill-overdue" [class.active]="gatePassStatusFilter === 'overdue'" (click)="setGatePassStatusFilter('overdue')">
+                    <mat-icon class="pill-icon">warning</mat-icon> Overdue / Late <span class="pill-count" [class.warn-alert]="gatePassOverdueCount > 0">{{ gatePassOverdueCount }}</span>
                   </button>
                 </div>
-              </div>
-
-              <!-- ================= 1. STUDENT ALLOCATION FLOW ================= -->
-              <ng-container *ngIf="allocateMemberType === 'Student'">
-                <!-- Filter Pills: All / School Only (Class-wise) / Coaching Only (Batch-wise) -->
-                <div class="student-search-header">
-                  <div class="filter-pills-container">
-                    <span class="filter-title"><mat-icon>filter_list</mat-icon> Student Source:</span>
-                    <div class="filter-pills-list">
-                      <button type="button" class="type-pill" [class.active]="studentFilterType === 'all'" (click)="setStudentFilterType('all')">
-                        <mat-icon>groups</mat-icon> All Students
-                      </button>
-                      <button type="button" class="type-pill pill-school" [class.active]="studentFilterType === 'school'" (click)="setStudentFilterType('school')">
-                        <mat-icon>school</mat-icon> School Only (Class-wise)
-                      </button>
-                      <button type="button" class="type-pill pill-coaching" [class.active]="studentFilterType === 'coaching'" (click)="setStudentFilterType('coaching')">
-                        <mat-icon>menu_book</mat-icon> Coaching Only (Batch-wise)
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Server-Side Live Search Input -->
-                  <div class="search-input-wrapper">
-                    <mat-form-field appearance="outline" class="full-width search-input-field">
-                      <mat-label>Search Student (Name, Roll No, Admission No, Phone, Class, Batch)</mat-label>
-                      <input matInput [(ngModel)]="studentSearchQuery" [ngModelOptions]="{standalone: true}" (ngModelChange)="onStudentSearchChanged($event)" placeholder="Type name, roll, class (e.g. 10th A) or coaching batch..." autocomplete="off" />
-                      <mat-icon matPrefix>search</mat-icon>
-                      <button mat-icon-button matSuffix *ngIf="studentSearchQuery" (click)="clearStudentSearch()" type="button" matTooltip="Clear search">
+                <!-- Search Box -->
+                <div class="gp-search-wrapper">
+                  <mat-form-field appearance="outline" class="gp-search-field">
+                    <mat-label>Search Gate Passes...</mat-label>
+                    <input matInput [(ngModel)]="gatePassSearchQuery" [ngModelOptions]="{standalone: true}" (ngModelChange)="onGatePassSearchChanged($event)" placeholder="Search student, roll, pass #, purpose, room, phone..." autocomplete="off" />
+                    <mat-icon matPrefix>search</mat-icon>
+                    @if (gatePassSearchQuery) {
+                      <button mat-icon-button matSuffix (click)="clearGatePassSearch()" type="button" matTooltip="Clear search">
                         <mat-icon>close</mat-icon>
                       </button>
-                    </mat-form-field>
-                  </div>
+                    }
+                  </mat-form-field>
                 </div>
-
-                <!-- Group-Wise Student Selection Dropdown -->
-                <mat-form-field appearance="outline" class="full-width student-dropdown-field">
-                  <mat-label>Select Student to Allocate Bed</mat-label>
-                  <mat-select formControlName="studentId" (selectionChange)="onStudentSelected($event.value)" panelClass="student-search-dropdown-panel">
-                    <mat-select-trigger *ngIf="selectedStudentDetails">
-                      <div class="selected-trigger-display">
-                        <strong>{{ selectedStudentDetails.studentName }}</strong>
-                        <span class="trigger-roll" *ngIf="selectedStudentDetails.rollNumber"> &bull; Roll: {{ selectedStudentDetails.rollNumber }}</span>
-                        <span class="trigger-badge" [class.school]="selectedStudentDetails.isSchoolStudent" [class.coaching]="selectedStudentDetails.isCoachingStudent && !selectedStudentDetails.isSchoolStudent">
-                          {{ selectedStudentDetails.groupName }}
-                        </span>
+              </div>
+            </div>
+            <!-- Angular Material Smart Grid -->
+            <div class="gp-table-card mat-elevation-z1">
+              <div class="table-responsive-container">
+                <table mat-table [dataSource]="gatePasses" matSort (matSortChange)="onGatePassSortChange($event)" class="gp-mat-table">
+                  <!-- Pass Number Column -->
+                  <ng-container matColumnDef="passNumber">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header="passNumber" class="col-pass">Pass No</th>
+                    <td mat-cell *matCellDef="let g" class="col-pass">
+                      <div class="pass-chip-box">
+                        <span class="pass-number-text">{{ g.passNumber }}</span>
+                        <small class="pass-date-sub">{{ g.createdAt | date:'dd MMM yyyy' }}</small>
                       </div>
-                    </mat-select-trigger>
-
-                    <mat-optgroup *ngFor="let grp of studentGroups" [label]="grp.groupName">
-                      <mat-option *ngFor="let s of grp.students" [value]="s.id" [disabled]="s.isAlreadyAllocated" class="student-opt-item">
-                        <div class="opt-student-container">
-                          <div class="opt-left">
-                            <span class="opt-name">{{ s.studentName }}</span>
-                            <span class="opt-roll" *ngIf="s.rollNumber">Roll: {{ s.rollNumber }}</span>
-                            <span class="opt-phone" *ngIf="s.parentPhone">&bull; 📞 {{ s.parentPhone }}</span>
-                          </div>
-                          <div class="opt-right-badges">
-                            <span class="badge-school" *ngIf="s.isSchoolStudent">
-                              <mat-icon>school</mat-icon> {{ s.className || 'Class' }}{{ s.sectionName ? ' (' + s.sectionName + ')' : '' }}
-                            </span>
-                            <span class="badge-coaching" *ngIf="s.isCoachingStudent">
-                              <mat-icon>menu_book</mat-icon> {{ s.batchName || 'Coaching' }}
-                            </span>
-                            <span class="badge-gender" *ngIf="s.gender">{{ s.gender }}</span>
-                            <span class="badge-allocated" *ngIf="s.isAlreadyAllocated">
-                              <mat-icon>block</mat-icon> Occupied ({{ s.currentBedInfo }})
-                            </span>
+                    </td>
+                  </ng-container>
+                  <!-- Student Column -->
+                  <ng-container matColumnDef="student">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header="student" class="col-student">Student Name</th>
+                    <td mat-cell *matCellDef="let g" class="col-student">
+                      <div class="student-profile-cell">
+                        <div class="student-avatar-badge">
+                          {{ g.studentName ? g.studentName[0].toUpperCase() : 'S' }}
+                        </div>
+                        <div class="student-details-box">
+                          <span class="student-name-bold">{{ g.studentName }}</span>
+                          <div class="student-sub-info">
+                            @if (g.classOrBatch) {
+                              <span class="student-class-chip">{{ g.classOrBatch }}</span>
+                            }
+                            @if (g.rollNumber) {
+                              <span class="student-roll-chip">Roll: {{ g.rollNumber }}</span>
+                            }
                           </div>
                         </div>
-                      </mat-option>
-                    </mat-optgroup>
-
-                    <mat-option *ngIf="!isSearchingStudents && studentGroups.length === 0" disabled>
-                      No students found for this search/filter.
-                    </mat-option>
+                      </div>
+                    </td>
+                  </ng-container>
+                  <!-- Room & Bed Column -->
+                  <ng-container matColumnDef="roomAndBed">
+                    <th mat-header-cell *matHeaderCellDef class="col-room">Hostel &amp; Bed</th>
+                    <td mat-cell *matCellDef="let g" class="col-room">
+                      <div class="room-bed-badge">
+                        <mat-icon class="bed-icon">hotel</mat-icon>
+                        <span>{{ g.roomAndBed || 'Resident' }}</span>
+                      </div>
+                    </td>
+                  </ng-container>
+                  <!-- Out Date & Time Column -->
+                  <ng-container matColumnDef="outDate">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header="outDate" class="col-out-date">Exit Out Date</th>
+                    <td mat-cell *matCellDef="let g" class="col-out-date">
+                      <div class="date-display-box">
+                        <span class="date-main">{{ g.outDate | date:'dd MMM yyyy' }}</span>
+                        <span class="time-sub"><mat-icon class="clock-icon">schedule</mat-icon> {{ g.outDate | date:'hh:mm a' }}</span>
+                      </div>
+                    </td>
+                  </ng-container>
+                  <!-- Expected Return Column -->
+                  <ng-container matColumnDef="expectedReturn">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header="expectedReturn" class="col-return-date">Expected Return</th>
+                    <td mat-cell *matCellDef="let g" class="col-return-date">
+                      <div class="date-display-box">
+                        <span class="date-main">{{ g.expectedReturnDate | date:'dd MMM yyyy' }}</span>
+                        <span class="time-sub"><mat-icon class="clock-icon">event_available</mat-icon> {{ g.expectedReturnDate | date:'hh:mm a' }}</span>
+                        <!-- Overdue Warning Pill -->
+                        @if (isGatePassOverdue(g)) {
+                          <span class="overdue-chip">
+                            <mat-icon>warning</mat-icon> Late / Overdue
+                          </span>
+                        }
+                      </div>
+                    </td>
+                  </ng-container>
+                  <!-- Purpose Column -->
+                  <ng-container matColumnDef="purpose">
+                    <th mat-header-cell *matHeaderCellDef class="col-purpose">Purpose</th>
+                    <td mat-cell *matCellDef="let g" class="col-purpose">
+                      <div class="purpose-cell">
+                        <span class="purpose-title">{{ g.purpose }}</span>
+                        @if (g.remarks) {
+                          <small class="remarks-sub">{{ g.remarks }}</small>
+                        }
+                      </div>
+                    </td>
+                  </ng-container>
+                  <!-- Parent Consent Column -->
+                  <ng-container matColumnDef="parentConsent">
+                    <th mat-header-cell *matHeaderCellDef class="col-consent">Parent Consent</th>
+                    <td mat-cell *matCellDef="let g" class="col-consent">
+                      @if (g.parentConsentGiven) {
+                        <div class="consent-cell-box">
+                          <span class="verified-tag"><mat-icon>verified</mat-icon> Verified</span>
+                          @if (g.parentContactNumber) {
+                            <a [href]="'tel:' + g.parentContactNumber" class="parent-phone-link" matTooltip="Click to call parent">
+                              📞 {{ g.parentContactNumber }}
+                            </a>
+                          }
+                        </div>
+                      }
+                      @if (!g.parentConsentGiven) {
+                        <span class="consent-self-tag">Self Authorized</span>
+                      }
+                    </td>
+                  </ng-container>
+                  <!-- Status Column -->
+                  <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header="status" class="col-status">Status</th>
+                    <td mat-cell *matCellDef="let g" class="col-status">
+                      @if (isGatePassOverdue(g)) {
+                        <span class="smart-status-pill status-overdue">
+                          <mat-icon>priority_high</mat-icon> OVERDUE
+                        </span>
+                      }
+                      @if (!isGatePassOverdue(g) && g.wardenApprovalStatus !== 'Completed') {
+                        <span class="smart-status-pill status-out">
+                          <span class="pulse-indicator"></span> OUTING ACTIVE
+                        </span>
+                      }
+                      @if (g.wardenApprovalStatus === 'Completed') {
+                        <span class="smart-status-pill status-completed">
+                          <mat-icon>done_all</mat-icon> RETURNED
+                        </span>
+                      }
+                    </td>
+                  </ng-container>
+                  <!-- Action Column -->
+                  <ng-container matColumnDef="action">
+                    <th mat-header-cell *matHeaderCellDef class="col-action text-right">Action</th>
+                    <td mat-cell *matCellDef="let g" class="col-action text-right">
+                      @if (g.wardenApprovalStatus !== 'Completed') {
+                        <button
+                          mat-flat-button
+                          color="primary"
+                          class="smart-return-btn"
+                          (click)="markGatePassReturned(g)"
+                          matTooltip="Confirm student returned to hostel campus"
+                          >
+                          <mat-icon>login</mat-icon> Mark Return
+                        </button>
+                      }
+                      @if (g.wardenApprovalStatus === 'Completed') {
+                        <div class="returned-safe-info">
+                          <mat-icon class="safe-icon">check_circle</mat-icon>
+                          <span class="safe-time">Returned {{ g.actualReturnDate | date:'hh:mm a' }}</span>
+                        </div>
+                      }
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="displayedGatePassColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: displayedGatePassColumns;" class="gp-table-row" [class.row-overdue]="isGatePassOverdue(row)"></tr>
+                  <!-- No Data Row -->
+                  <tr class="mat-row empty-row" *matNoDataRow>
+                    <td class="mat-cell empty-table-cell" [attr.colspan]="displayedGatePassColumns.length">
+                      <div class="empty-state-box">
+                        <mat-icon class="empty-icon">assignment_late</mat-icon>
+                        <h3>No Gate Passes Found</h3>
+                        @if (gatePassSearchQuery || gatePassStatusFilter !== 'all') {
+                          <p>
+                            No records match the selected filter/search criteria.
+                          </p>
+                        }
+                        @if (!gatePassSearchQuery && gatePassStatusFilter === 'all') {
+                          <p>
+                            No gate passes have been issued yet. Click "Issue New Gate Pass" to record an outing.
+                          </p>
+                        }
+                        @if (gatePassSearchQuery || gatePassStatusFilter !== 'all') {
+                          <button mat-stroked-button color="primary" (click)="clearGatePassSearch(); setGatePassStatusFilter('all')">
+                            Reset All Filters
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+              <!-- Material Server-Side Paginator -->
+              <mat-paginator
+                [length]="gatePassTotalCount"
+                [pageSize]="gatePassPageSize"
+                [pageIndex]="gatePassPageIndex - 1"
+                [pageSizeOptions]="[5, 10, 25, 50]"
+                (page)="onGatePassPageChange($event)"
+                showFirstLastButtons
+                aria-label="Select page of gate passes"
+                class="gp-paginator"
+                >
+              </mat-paginator>
+            </div>
+          </div>
+        }
+    
+        <!-- TAB 5: NIGHT ROLL CALL & BIOMETRIC ATTENDANCE -->
+        @if (activeTab === 'rollcall') {
+          <div class="tab-pane">
+            <!-- Top Control Header Bar -->
+            <div class="rollcall-header-bar">
+              <div class="rollcall-inputs">
+                <mat-form-field appearance="outline" class="dense-field hostel-select-field">
+                  <mat-label>Hostel Block</mat-label>
+                  <mat-select [(ngModel)]="rollCallHostelId" (selectionChange)="loadRollCall()">
+                    @for (h of hostels; track h) {
+                      <mat-option [value]="h.id">{{ h.name }}</mat-option>
+                    }
                   </mat-select>
                 </mat-form-field>
-
-                <!-- Selected Student Overview Summary Card -->
-                <div class="selected-student-card" *ngIf="selectedStudentDetails">
-                  <div class="student-avatar-circle">
-                    <mat-icon>person</mat-icon>
+                <mat-form-field appearance="outline" class="dense-field date-field">
+                  <mat-label>Attendance Date</mat-label>
+                  <input matInput type="date" [(ngModel)]="rollCallDate" (change)="loadRollCall()" />
+                </mat-form-field>
+                <!-- Attendance Mode Selector (Manual / Biometric / Both) -->
+                <mat-form-field appearance="outline" class="dense-field mode-field">
+                  <mat-label>Hostel Attendance Mode</mat-label>
+                  <mat-select [(ngModel)]="hostelAttendanceMode" (selectionChange)="onHostelModeChange($event.value)">
+                    <mat-option value="Both">Manual + Biometric (Hybrid)</mat-option>
+                    <mat-option value="Manual">Manual Only</mat-option>
+                    <mat-option value="Biometric">Biometric Only (Automated)</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                @if (hostelAttendanceMode === 'Both') {
+                  <span class="mode-pill hybrid">
+                    <mat-icon>devices</mat-icon> Hybrid Mode
+                  </span>
+                }
+                @if (hostelAttendanceMode === 'Manual') {
+                  <span class="mode-pill manual">
+                    <mat-icon>edit_note</mat-icon> Manual Only
+                  </span>
+                }
+                @if (hostelAttendanceMode === 'Biometric') {
+                  <span class="mode-pill biometric">
+                    <mat-icon>fingerprint</mat-icon> Biometric Automated
+                  </span>
+                }
+              </div>
+              <div class="rollcall-actions-right">
+                <button
+                  mat-stroked-button
+                  color="accent"
+                  class="action-btn"
+                  (click)="openBiometricSimulator()"
+                  [disabled]="hostelAttendanceMode === 'Manual'"
+                  matTooltip="Simulate turnstile biometric punch for a student"
+                  >
+                  <mat-icon>fingerprint</mat-icon> Simulate Biometric Punch
+                </button>
+                <button
+                  mat-stroked-button
+                  class="action-btn"
+                  (click)="openBiometricMappings()"
+                  matTooltip="View and update Biometric User IDs for residents"
+                  >
+                  <mat-icon>badge</mat-icon> Biometric IDs
+                </button>
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  class="action-btn"
+                  (click)="markAllPresent()"
+                  [disabled]="hostelAttendanceMode === 'Biometric'"
+                  matTooltip="Mark all active residents as Present"
+                  >
+                  <mat-icon>done_all</mat-icon> All Present
+                </button>
+                <button
+                  mat-raised-button
+                  color="primary"
+                  class="action-btn"
+                  (click)="saveRollCall()"
+                  [disabled]="hostelAttendanceMode === 'Biometric' || rollCallStudents.length === 0"
+                  matTooltip="Save manual roll call records"
+                  >
+                  <mat-icon>save</mat-icon> Save Roll Call
+                </button>
+              </div>
+            </div>
+            <!-- Alert banner when in Biometric Only Mode -->
+            @if (hostelAttendanceMode === 'Biometric') {
+              <div class="biometric-locked-alert">
+                <mat-icon>verified_user</mat-icon>
+                <div>
+                  <strong>Biometric Only Mode Active:</strong> Night roll call is automatically populated via physical turnstiles &amp; biometric devices at the hostel gates. Manual modifications are locked. Click "Simulate Biometric Punch" to test turnstile event logs.
+                </div>
+              </div>
+            }
+            <!-- Roll Call Students List -->
+            @if (rollCallStudents.length > 0) {
+              <div class="rollcall-list">
+                @for (s of rollCallStudents; track s) {
+                  <div class="rollcall-item">
+                    <div class="student-info-col">
+                      <div class="avatar-small">
+                        @if (s.profilePhoto) {
+                          <img [src]="getPhotoUrl(s.profilePhoto)" alt="" />
+                        }
+                        @if (!s.profilePhoto) {
+                          <mat-icon>person</mat-icon>
+                        }
+                      </div>
+                      <div class="student-details-wrap">
+                        <div class="name-row">
+                          <strong class="name">{{ s.studentName }}</strong>
+                          @if (s.rollNumber) {
+                            <span class="roll-tag">({{ s.rollNumber }})</span>
+                          }
+                          <!-- Biometric ID badge with click to edit -->
+                          <span
+                            class="bio-id-pill"
+                            [class.unmapped]="!s.biometricUserId"
+                            (click)="openQuickMapBio(s)"
+                            matTooltip="Click to map/edit Biometric User ID"
+                            >
+                            <mat-icon>fingerprint</mat-icon>
+                            {{ s.biometricUserId ? 'Bio ID: ' + s.biometricUserId : '+ Map Bio ID' }}
+                          </span>
+                          <!-- Capture Source Pill -->
+                          @if (s.captureSource === 'Biometric') {
+                            <span class="source-pill bio">
+                              <mat-icon>fingerprint</mat-icon> Biometric {{ s.punchTime ? '@ ' + s.punchTime : '' }}
+                            </span>
+                          }
+                          @if (s.captureSource === 'Manual') {
+                            <span class="source-pill manual">
+                              <mat-icon>edit_note</mat-icon> Manual
+                            </span>
+                          }
+                          <!-- Gate Pass Outing Alert Tag -->
+                          @if (s.hasActiveGatePass) {
+                            <span class="gatepass-pill" [matTooltip]="s.gatePassDetails">
+                              <mat-icon>transfer_within_a_station</mat-icon> On Gate Pass Outing
+                            </span>
+                          }
+                        </div>
+                        <div class="sub-line">
+                          <span class="room-tag">Rm {{ s.roomNumber }} - Bed {{ s.bedCode }}</span>
+                          @if (s.parentPhone) {
+                            <span class="phone-tag">📞 Parent: {{ s.parentPhone }}</span>
+                          }
+                          @if (s.classOrBatch) {
+                            <span class="class-tag">{{ s.classOrBatch }}</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Right Actions: Quick Punch + Status Toggles -->
+                    <div class="rollcall-controls-wrap">
+                      <!-- 1-Click Biometric Punch Button -->
+                      @if (hostelAttendanceMode !== 'Manual') {
+                        <button
+                          type="button"
+                          mat-stroked-button
+                          color="accent"
+                          class="quick-punch-btn"
+                          (click)="quickPunchResident(s)"
+                          matTooltip="Test 1-click Biometric Punch for {{ s.studentName }}"
+                          >
+                          <mat-icon>fingerprint</mat-icon> Punch Now
+                        </button>
+                      }
+                      <!-- Status Buttons -->
+                      <div class="rollcall-status-toggles" [class.locked]="hostelAttendanceMode === 'Biometric'">
+                        <button
+                          type="button"
+                          class="status-toggle-btn present"
+                          [class.active]="s.status === 'Present'"
+                          (click)="setStudentStatus(s, 'Present')"
+                          [disabled]="hostelAttendanceMode === 'Biometric'"
+                          >
+                          Present
+                        </button>
+                        <button
+                          type="button"
+                          class="status-toggle-btn absent"
+                          [class.active]="s.status === 'Absent'"
+                          (click)="setStudentStatus(s, 'Absent')"
+                          [disabled]="hostelAttendanceMode === 'Biometric'"
+                          >
+                          Absent
+                        </button>
+                        <button
+                          type="button"
+                          class="status-toggle-btn leave"
+                          [class.active]="s.status === 'OnLeave'"
+                          (click)="setStudentStatus(s, 'OnLeave')"
+                          [disabled]="hostelAttendanceMode === 'Biometric'"
+                          >
+                          On Leave
+                        </button>
+                        <button
+                          type="button"
+                          class="status-toggle-btn gatepass"
+                          [class.active]="s.status === 'GatePass'"
+                          (click)="setStudentStatus(s, 'GatePass')"
+                          [disabled]="hostelAttendanceMode === 'Biometric'"
+                          >
+                          Gate Pass
+                        </button>
+                        <button
+                          type="button"
+                          class="status-toggle-btn late"
+                          [class.active]="s.status === 'Late'"
+                          (click)="setStudentStatus(s, 'Late')"
+                          [disabled]="hostelAttendanceMode === 'Biometric'"
+                          >
+                          Late
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div class="student-meta-details">
-                    <div class="meta-row-top">
-                      <span class="student-fullname">{{ selectedStudentDetails.studentName }}</span>
-                      <span class="student-tag tag-school" *ngIf="selectedStudentDetails.isSchoolStudent">
-                        School: {{ selectedStudentDetails.className || 'Class' }}{{ selectedStudentDetails.sectionName ? ' - ' + selectedStudentDetails.sectionName : '' }}
-                      </span>
-                      <span class="student-tag tag-coaching" *ngIf="selectedStudentDetails.isCoachingStudent">
-                        Coaching: {{ selectedStudentDetails.batchName || 'Coaching Batch' }}
-                      </span>
-                      <span class="student-tag tag-gender" *ngIf="selectedStudentDetails.gender">{{ selectedStudentDetails.gender }}</span>
-                    </div>
-                    <div class="meta-row-bottom">
-                      <span *ngIf="selectedStudentDetails.rollNumber"><strong>Roll No:</strong> {{ selectedStudentDetails.rollNumber }}</span>
-                      <span *ngIf="selectedStudentDetails.parentName"><strong>Parent:</strong> {{ selectedStudentDetails.parentName }}</span>
-                      <span *ngIf="selectedStudentDetails.parentPhone"><strong>WhatsApp/Phone:</strong> {{ selectedStudentDetails.parentPhone }}</span>
-                    </div>
+                }
+              </div>
+            } @else {
+              <div class="empty-state-box">
+                <mat-icon class="empty-icon">nightlight</mat-icon>
+                <h3>No Resident Students in this Hostel</h3>
+                <p>Allocate vacant beds to students in this hostel block to take roll call or track biometric gate attendance.</p>
+              </div>
+            }
+          </div>
+        }
+      </mat-card>
+    
+      <!-- ================= MODALS ================= -->
+    
+      <!-- Add Hostel Modal -->
+      @if (showAddHostelModal) {
+        <div class="modal-backdrop">
+          <div class="modal-dialog-card">
+            <div class="modal-header">
+              <div class="modal-header-icon-box">
+                <mat-icon>domain</mat-icon>
+              </div>
+              <div class="modal-title-wrap">
+                <h3>Add New Hostel Block</h3>
+                <span class="modal-sub">Create residential wing &amp; block details</span>
+              </div>
+              <button mat-icon-button class="modal-close-btn" (click)="showAddHostelModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+            </div>
+            <form [formGroup]="hostelForm" (ngSubmit)="submitAddHostel()">
+              <div class="modal-body-form">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Hostel Block Name</mat-label>
+                  <input matInput formControlName="name" placeholder="e.g. Ramanujan Boys Hostel (Block C)" />
+                </mat-form-field>
+                <div class="form-row-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Hostel Type</mat-label>
+                    <mat-select formControlName="hostelType">
+                      <mat-option value="Boys">Boys Hostel</mat-option>
+                      <mat-option value="Girls">Girls Hostel</mat-option>
+                      <mat-option value="Staff">Staff / Faculty Quarters</mat-option>
+                      <mat-option value="Co-ed">Co-ed</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Total Floors</mat-label>
+                    <input matInput type="number" formControlName="totalFloors" min="1" max="20" />
+                  </mat-form-field>
+                </div>
+                <div class="form-row-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Warden Name</mat-label>
+                    <input matInput formControlName="wardenName" placeholder="e.g. Ramesh Chandra" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Warden Contact Phone</mat-label>
+                    <input matInput formControlName="wardenPhone" placeholder="10-digit mobile" />
+                  </mat-form-field>
+                </div>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Campus Location / Address</mat-label>
+                  <input matInput formControlName="address" placeholder="e.g. North Wing, Behind Main Academic Block" />
+                </mat-form-field>
+              </div>
+              <div class="modal-footer">
+                <button mat-button type="button" (click)="showAddHostelModal = false">Cancel</button>
+                <button mat-raised-button color="primary" type="submit" [disabled]="hostelForm.invalid">
+                  Save Hostel Block
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+    
+      <!-- Add Room Modal -->
+      @if (showAddRoomModal) {
+        <div class="modal-backdrop">
+          <div class="modal-dialog-card">
+            <div class="modal-header">
+              <div class="modal-header-icon-box">
+                <mat-icon>meeting_room</mat-icon>
+              </div>
+              <div class="modal-title-wrap">
+                <h3>Add New Room &amp; Beds</h3>
+                <span class="modal-sub">Configure room type, capacity &amp; auto-generated bed codes</span>
+              </div>
+              <button mat-icon-button class="modal-close-btn" (click)="showAddRoomModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+            </div>
+            <form [formGroup]="roomForm" (ngSubmit)="submitAddRoom()">
+              <div class="modal-body-form">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Hostel Block</mat-label>
+                  <mat-select formControlName="hostelId">
+                    @for (h of hostels; track h) {
+                      <mat-option [value]="h.id">{{ h.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <div class="form-row-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Room Number</mat-label>
+                    <input matInput formControlName="roomNumber" placeholder="e.g. 101, 204, G-02" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Floor</mat-label>
+                    <mat-select formControlName="floor">
+                      <mat-option value="Ground">Ground Floor</mat-option>
+                      <mat-option value="1st Floor">1st Floor</mat-option>
+                      <mat-option value="2nd Floor">2nd Floor</mat-option>
+                      <mat-option value="3rd Floor">3rd Floor</mat-option>
+                      <mat-option value="4th Floor">4th Floor</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+                <div class="form-row-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Room Sharing Type</mat-label>
+                    <mat-select formControlName="roomType" (selectionChange)="onRoomTypeChange($event.value)">
+                      <mat-option value="Single">Single Room (1 Bed)</mat-option>
+                      <mat-option value="Double">Double Sharing (2 Beds)</mat-option>
+                      <mat-option value="Triple">Triple Sharing (3 Beds)</mat-option>
+                      <mat-option value="4-Bed">4-Bed Sharing (4 Beds)</mat-option>
+                      <mat-option value="Dormitory">Dormitory (6 Beds)</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Capacity (Beds)</mat-label>
+                    <input matInput type="number" formControlName="capacity" min="1" max="12" />
+                  </mat-form-field>
+                </div>
+                <div class="form-row-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Monthly Rent / Bed (₹)</mat-label>
+                    <input matInput type="number" formControlName="monthlyRent" placeholder="e.g. 8500" />
+                  </mat-form-field>
+                  <div class="checkbox-pair">
+                    <mat-checkbox formControlName="hasAC">Air Conditioned (AC)</mat-checkbox>
+                    <mat-checkbox formControlName="hasAttachedBath">Attached Bath</mat-checkbox>
                   </div>
                 </div>
-              </ng-container>
-
-              <!-- ================= 2. FACULTY / TEACHER ALLOCATION FLOW ================= -->
-              <ng-container *ngIf="allocateMemberType === 'Teacher'">
-                <div class="teacher-allocate-box">
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Select Faculty / Staff Member</mat-label>
-                    <mat-select formControlName="teacherId" (selectionChange)="onTeacherSelected($event.value)" panelClass="student-search-dropdown-panel">
-                      <mat-option *ngFor="let t of teachersList" [value]="t.id">
-                        <div class="opt-teacher-layout">
-                          <span class="opt-teacher-name">{{ t.fullName }}</span>
-                          <span class="opt-teacher-code">Emp Code: {{ t.employeeCode }}</span>
-                          <span class="opt-teacher-spec" *ngIf="t.specialization">&bull; {{ t.specialization }}</span>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Amenities (Optional)</mat-label>
+                  <input matInput formControlName="amenities" placeholder="e.g. Study Table, Wardrobe, Balcony, Geyser" />
+                </mat-form-field>
+                <div class="auto-beds-hint">
+                  <mat-checkbox formControlName="autoGenerateBeds" color="primary">
+                    Auto-create individual Bed Codes (e.g. {{ roomForm.value.roomNumber || '101' }}-A, {{ roomForm.value.roomNumber || '101' }}-B)
+                  </mat-checkbox>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button mat-button type="button" (click)="showAddRoomModal = false">Cancel</button>
+                <button mat-raised-button color="primary" type="submit" [disabled]="roomForm.invalid">
+                  Create Room &amp; Beds
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+    
+      <!-- Quick Bed Allocate Modal -->
+      @if (showAllocateModal) {
+        <div class="modal-backdrop">
+          <div class="modal-dialog-card allocate-dialog">
+            <div class="modal-header">
+              <div class="modal-header-icon-box">
+                <mat-icon>{{ allocateMemberType === 'Teacher' ? 'night_shelter' : 'hotel' }}</mat-icon>
+              </div>
+              <div class="modal-title-wrap">
+                <h3>Allocate Bed: {{ allocatingBed?.bedCode }}</h3>
+                <span class="modal-sub">Room <strong>{{ allocatingRoom?.roomNumber }}</strong> &bull; <strong>{{ allocatingRoom?.hostelName }}</strong> (Floor {{ allocatingRoom?.floor }})</span>
+              </div>
+              <button mat-icon-button class="modal-close-btn" (click)="closeAllocateModal()" matTooltip="Close"><mat-icon>close</mat-icon></button>
+            </div>
+            <form [formGroup]="allocateForm" (ngSubmit)="submitAllocateBed()">
+              <div class="modal-body-form">
+                <!-- Resident Type Switcher: Student vs Faculty / Staff -->
+                <div class="member-type-toggle-bar">
+                  <span class="mtt-label"><mat-icon>how_to_reg</mat-icon> Resident Category:</span>
+                  <div class="mtt-pills">
+                    <button type="button" class="mtt-pill" [class.active]="allocateMemberType === 'Student'" (click)="setAllocateMemberType('Student')">
+                      <mat-icon>school</mat-icon> Student Resident
+                    </button>
+                    <button type="button" class="mtt-pill pill-faculty" [class.active]="allocateMemberType === 'Teacher'" (click)="setAllocateMemberType('Teacher')">
+                      <mat-icon>co_present</mat-icon> Faculty / Staff Quarters
+                    </button>
+                  </div>
+                </div>
+                <!-- ================= 1. STUDENT ALLOCATION FLOW ================= -->
+                @if (allocateMemberType === 'Student') {
+                  <!-- Filter Pills: All / School Only (Class-wise) / Coaching Only (Batch-wise) -->
+                  <div class="student-search-header">
+                    <div class="filter-pills-container">
+                      <span class="filter-title"><mat-icon>filter_list</mat-icon> Student Source:</span>
+                      <div class="filter-pills-list">
+                        <button type="button" class="type-pill" [class.active]="studentFilterType === 'all'" (click)="setStudentFilterType('all')">
+                          <mat-icon>groups</mat-icon> All Students
+                        </button>
+                        <button type="button" class="type-pill pill-school" [class.active]="studentFilterType === 'school'" (click)="setStudentFilterType('school')">
+                          <mat-icon>school</mat-icon> School Only (Class-wise)
+                        </button>
+                        <button type="button" class="type-pill pill-coaching" [class.active]="studentFilterType === 'coaching'" (click)="setStudentFilterType('coaching')">
+                          <mat-icon>menu_book</mat-icon> Coaching Only (Batch-wise)
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Server-Side Live Search Input -->
+                    <div class="search-input-wrapper">
+                      <mat-form-field appearance="outline" class="full-width search-input-field">
+                        <mat-label>Search Student (Name, Roll No, Admission No, Phone, Class, Batch)</mat-label>
+                        <input matInput [(ngModel)]="studentSearchQuery" [ngModelOptions]="{standalone: true}" (ngModelChange)="onStudentSearchChanged($event)" placeholder="Type name, roll, class (e.g. 10th A) or coaching batch..." autocomplete="off" />
+                        <mat-icon matPrefix>search</mat-icon>
+                        @if (studentSearchQuery) {
+                          <button mat-icon-button matSuffix (click)="clearStudentSearch()" type="button" matTooltip="Clear search">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                      </mat-form-field>
+                    </div>
+                  </div>
+                  <!-- Group-Wise Student Selection Dropdown -->
+                  <mat-form-field appearance="outline" class="full-width student-dropdown-field">
+                    <mat-label>Select Student to Allocate Bed</mat-label>
+                    <mat-select formControlName="studentId" (selectionChange)="onStudentSelected($event.value)" panelClass="student-search-dropdown-panel">
+                      @if (selectedStudentDetails) {
+                        <mat-select-trigger>
+                          <div class="selected-trigger-display">
+                            <strong>{{ selectedStudentDetails.studentName }}</strong>
+                            @if (selectedStudentDetails.rollNumber) {
+                              <span class="trigger-roll"> &bull; Roll: {{ selectedStudentDetails.rollNumber }}</span>
+                            }
+                            <span class="trigger-badge" [class.school]="selectedStudentDetails.isSchoolStudent" [class.coaching]="selectedStudentDetails.isCoachingStudent && !selectedStudentDetails.isSchoolStudent">
+                              {{ selectedStudentDetails.groupName }}
+                            </span>
+                          </div>
+                        </mat-select-trigger>
+                      }
+                      @for (grp of studentGroups; track grp) {
+                        <mat-optgroup [label]="grp.groupName">
+                          @for (s of grp.students; track s) {
+                            <mat-option [value]="s.id" [disabled]="s.isAlreadyAllocated" class="student-opt-item">
+                              <div class="opt-student-container">
+                                <div class="opt-left">
+                                  <span class="opt-name">{{ s.studentName }}</span>
+                                  @if (s.rollNumber) {
+                                    <span class="opt-roll">Roll: {{ s.rollNumber }}</span>
+                                  }
+                                  @if (s.parentPhone) {
+                                    <span class="opt-phone">&bull; 📞 {{ s.parentPhone }}</span>
+                                  }
+                                </div>
+                                <div class="opt-right-badges">
+                                  @if (s.isSchoolStudent) {
+                                    <span class="badge-school">
+                                      <mat-icon>school</mat-icon> {{ s.className || 'Class' }}{{ s.sectionName ? ' (' + s.sectionName + ')' : '' }}
+                                    </span>
+                                  }
+                                  @if (s.isCoachingStudent) {
+                                    <span class="badge-coaching">
+                                      <mat-icon>menu_book</mat-icon> {{ s.batchName || 'Coaching' }}
+                                    </span>
+                                  }
+                                  @if (s.gender) {
+                                    <span class="badge-gender">{{ s.gender }}</span>
+                                  }
+                                  @if (s.isAlreadyAllocated) {
+                                    <span class="badge-allocated">
+                                      <mat-icon>block</mat-icon> Occupied ({{ s.currentBedInfo }})
+                                    </span>
+                                  }
+                                </div>
+                              </div>
+                            </mat-option>
+                          }
+                        </mat-optgroup>
+                      }
+                      @if (!isSearchingStudents && studentGroups.length === 0) {
+                        <mat-option disabled>
+                          No students found for this search/filter.
+                        </mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <!-- Selected Student Overview Summary Card -->
+                  @if (selectedStudentDetails) {
+                    <div class="selected-student-card">
+                      <div class="student-avatar-circle">
+                        <mat-icon>person</mat-icon>
+                      </div>
+                      <div class="student-meta-details">
+                        <div class="meta-row-top">
+                          <span class="student-fullname">{{ selectedStudentDetails.studentName }}</span>
+                          @if (selectedStudentDetails.isSchoolStudent) {
+                            <span class="student-tag tag-school">
+                              School: {{ selectedStudentDetails.className || 'Class' }}{{ selectedStudentDetails.sectionName ? ' - ' + selectedStudentDetails.sectionName : '' }}
+                            </span>
+                          }
+                          @if (selectedStudentDetails.isCoachingStudent) {
+                            <span class="student-tag tag-coaching">
+                              Coaching: {{ selectedStudentDetails.batchName || 'Coaching Batch' }}
+                            </span>
+                          }
+                          @if (selectedStudentDetails.gender) {
+                            <span class="student-tag tag-gender">{{ selectedStudentDetails.gender }}</span>
+                          }
+                        </div>
+                        <div class="meta-row-bottom">
+                          @if (selectedStudentDetails.rollNumber) {
+                            <span><strong>Roll No:</strong> {{ selectedStudentDetails.rollNumber }}</span>
+                          }
+                          @if (selectedStudentDetails.parentName) {
+                            <span><strong>Parent:</strong> {{ selectedStudentDetails.parentName }}</span>
+                          }
+                          @if (selectedStudentDetails.parentPhone) {
+                            <span><strong>WhatsApp/Phone:</strong> {{ selectedStudentDetails.parentPhone }}</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  }
+                }
+                <!-- ================= 2. FACULTY / TEACHER ALLOCATION FLOW ================= -->
+                @if (allocateMemberType === 'Teacher') {
+                  <div class="teacher-allocate-box">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Select Faculty / Staff Member</mat-label>
+                      <mat-select formControlName="teacherId" (selectionChange)="onTeacherSelected($event.value)" panelClass="student-search-dropdown-panel">
+                        @for (t of teachersList; track t) {
+                          <mat-option [value]="t.id">
+                            <div class="opt-teacher-layout">
+                              <span class="opt-teacher-name">{{ t.fullName }}</span>
+                              <span class="opt-teacher-code">Emp Code: {{ t.employeeCode }}</span>
+                              @if (t.specialization) {
+                                <span class="opt-teacher-spec">&bull; {{ t.specialization }}</span>
+                              }
+                            </div>
+                          </mat-option>
+                        }
+                        @if (teachersList.length === 0) {
+                          <mat-option disabled>
+                            {{ isLoadingTeachers ? 'Loading faculty list...' : 'No active teachers found.' }}
+                          </mat-option>
+                        }
+                      </mat-select>
+                      <mat-hint>Choose faculty member to assign this staff quarter / bed</mat-hint>
+                    </mat-form-field>
+                    <!-- Selected Teacher Preview Card -->
+                    @if (selectedTeacherDetails) {
+                      <div class="selected-teacher-card">
+                        <div class="teacher-avatar-circle">
+                          <mat-icon>co_present</mat-icon>
+                        </div>
+                        <div class="teacher-meta-details">
+                          <div class="meta-row-top">
+                            <span class="teacher-fullname">{{ selectedTeacherDetails.fullName }}</span>
+                            <span class="teacher-badge-code">EMP: {{ selectedTeacherDetails.employeeCode }}</span>
+                            @if (selectedTeacherDetails.specialization) {
+                              <span class="teacher-badge-spec">{{ selectedTeacherDetails.specialization }}</span>
+                            }
+                          </div>
+                          <div class="meta-row-bottom">
+                            @if (selectedTeacherDetails.phoneNumber) {
+                              <span><strong>📞 Phone:</strong> {{ selectedTeacherDetails.phoneNumber }}</span>
+                            }
+                            @if (selectedTeacherDetails.email) {
+                              <span><strong>✉️ Email:</strong> {{ selectedTeacherDetails.email }}</span>
+                            }
+                            @if (selectedTeacherDetails.qualification) {
+                              <span><strong>🎓 Qual:</strong> {{ selectedTeacherDetails.qualification }}</span>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+                <!-- Rent & Mess Plan in a clean, spacious 2-column row -->
+                <div class="form-row-allocate">
+                  <mat-form-field appearance="outline" class="rent-field">
+                    <mat-label>Monthly Bed Rent (₹)</mat-label>
+                    <input matInput type="number" formControlName="monthlyRent" />
+                    <span matPrefix class="currency-prefix">₹&nbsp;</span>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="mess-plan-field">
+                    <mat-label>Mess / Food Facility Plan</mat-label>
+                    <mat-select formControlName="messPlan" panelClass="mess-plan-dropdown-panel">
+                      <mat-option value="Full Board">
+                        <div class="plan-item-layout">
+                          <strong>Full Board</strong>
+                          <span class="plan-sub">All Meals Included (Breakfast + Lunch + Evening Snacks + Dinner)</span>
                         </div>
                       </mat-option>
-                      <mat-option *ngIf="teachersList.length === 0" disabled>
-                        {{ isLoadingTeachers ? 'Loading faculty list...' : 'No active teachers found.' }}
+                      <mat-option value="Lunch & Dinner">
+                        <div class="plan-item-layout">
+                          <strong>Lunch &amp; Dinner</strong>
+                          <span class="plan-sub">Mid-day School/Coaching Meal + Night Dinner</span>
+                        </div>
+                      </mat-option>
+                      <mat-option value="Breakfast & Dinner">
+                        <div class="plan-item-layout">
+                          <strong>Breakfast &amp; Dinner</strong>
+                          <span class="plan-sub">Morning Breakfast + Night Dinner</span>
+                        </div>
+                      </mat-option>
+                      <mat-option value="None">
+                        <div class="plan-item-layout">
+                          <strong>Self / No Mess Plan</strong>
+                          <span class="plan-sub">Room accommodation only &bull; Mess fee excluded</span>
+                        </div>
                       </mat-option>
                     </mat-select>
-                    <mat-hint>Choose faculty member to assign this staff quarter / bed</mat-hint>
                   </mat-form-field>
-
-                  <!-- Selected Teacher Preview Card -->
-                  <div class="selected-teacher-card" *ngIf="selectedTeacherDetails">
-                    <div class="teacher-avatar-circle">
-                      <mat-icon>co_present</mat-icon>
-                    </div>
-                    <div class="teacher-meta-details">
-                      <div class="meta-row-top">
-                        <span class="teacher-fullname">{{ selectedTeacherDetails.fullName }}</span>
-                        <span class="teacher-badge-code">EMP: {{ selectedTeacherDetails.employeeCode }}</span>
-                        <span class="teacher-badge-spec" *ngIf="selectedTeacherDetails.specialization">{{ selectedTeacherDetails.specialization }}</span>
-                      </div>
-                      <div class="meta-row-bottom">
-                        <span *ngIf="selectedTeacherDetails.phoneNumber"><strong>📞 Phone:</strong> {{ selectedTeacherDetails.phoneNumber }}</span>
-                        <span *ngIf="selectedTeacherDetails.email"><strong>✉️ Email:</strong> {{ selectedTeacherDetails.email }}</span>
-                        <span *ngIf="selectedTeacherDetails.qualification"><strong>🎓 Qual:</strong> {{ selectedTeacherDetails.qualification }}</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
-              </ng-container>
-
-              <!-- Rent & Mess Plan in a clean, spacious 2-column row -->
-              <div class="form-row-allocate">
-                <mat-form-field appearance="outline" class="rent-field">
-                  <mat-label>Monthly Bed Rent (₹)</mat-label>
-                  <input matInput type="number" formControlName="monthlyRent" />
-                  <span matPrefix class="currency-prefix">₹&nbsp;</span>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="mess-plan-field">
-                  <mat-label>Mess / Food Facility Plan</mat-label>
-                  <mat-select formControlName="messPlan" panelClass="mess-plan-dropdown-panel">
-                    <mat-option value="Full Board">
-                      <div class="plan-item-layout">
-                        <strong>Full Board</strong>
-                        <span class="plan-sub">All Meals Included (Breakfast + Lunch + Evening Snacks + Dinner)</span>
-                      </div>
-                    </mat-option>
-                    <mat-option value="Lunch & Dinner">
-                      <div class="plan-item-layout">
-                        <strong>Lunch &amp; Dinner</strong>
-                        <span class="plan-sub">Mid-day School/Coaching Meal + Night Dinner</span>
-                      </div>
-                    </mat-option>
-                    <mat-option value="Breakfast & Dinner">
-                      <div class="plan-item-layout">
-                        <strong>Breakfast &amp; Dinner</strong>
-                        <span class="plan-sub">Morning Breakfast + Night Dinner</span>
-                      </div>
-                    </mat-option>
-                    <mat-option value="None">
-                      <div class="plan-item-layout">
-                        <strong>Self / No Mess Plan</strong>
-                        <span class="plan-sub">Room accommodation only &bull; Mess fee excluded</span>
-                      </div>
-                    </mat-option>
-                  </mat-select>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Allocation Remarks (Optional)</mat-label>
+                  <input matInput formControlName="remarks" placeholder="e.g. Mattress issued, special dietary preferences, guardian authorized" />
                 </mat-form-field>
               </div>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Allocation Remarks (Optional)</mat-label>
-                <input matInput formControlName="remarks" placeholder="e.g. Mattress issued, special dietary preferences, guardian authorized" />
-              </mat-form-field>
-            </div>
-
-            <div class="modal-footer">
-              <button mat-button type="button" (click)="closeAllocateModal()">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="allocateForm.invalid || loading">
-                <mat-icon>check_circle</mat-icon> Confirm Bed Allocation
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Issue Gate Pass Modal -->
-      <div class="modal-backdrop" *ngIf="showGatePassModal">
-        <div class="modal-dialog-card gatepass-dialog">
-          <div class="modal-header">
-            <div class="modal-header-icon-box">
-              <mat-icon>exit_to_app</mat-icon>
-            </div>
-            <div class="modal-title-wrap">
-              <h3>Issue Hostel Gate Pass / Outing</h3>
-              <span class="modal-sub">Authorize residential student early exit / day-out</span>
-            </div>
-            <button mat-icon-button class="modal-close-btn" (click)="showGatePassModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+              <div class="modal-footer">
+                <button mat-button type="button" (click)="closeAllocateModal()">Cancel</button>
+                <button mat-raised-button color="primary" type="submit" [disabled]="allocateForm.invalid || loading">
+                  <mat-icon>check_circle</mat-icon> Confirm Bed Allocation
+                </button>
+              </div>
+            </form>
           </div>
-          <form [formGroup]="gatePassForm" (ngSubmit)="submitGatePass()">
+        </div>
+      }
+    
+      <!-- Issue Gate Pass Modal -->
+      @if (showGatePassModal) {
+        <div class="modal-backdrop">
+          <div class="modal-dialog-card gatepass-dialog">
+            <div class="modal-header">
+              <div class="modal-header-icon-box">
+                <mat-icon>exit_to_app</mat-icon>
+              </div>
+              <div class="modal-title-wrap">
+                <h3>Issue Hostel Gate Pass / Outing</h3>
+                <span class="modal-sub">Authorize residential student early exit / day-out</span>
+              </div>
+              <button mat-icon-button class="modal-close-btn" (click)="showGatePassModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+            </div>
+            <form [formGroup]="gatePassForm" (ngSubmit)="submitGatePass()">
+              <div class="modal-body-form">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Select Resident Student</mat-label>
+                  <mat-select formControlName="studentId">
+                    @for (s of residentStudentsList; track s) {
+                      <mat-option [value]="s.studentId">
+                        {{ s.studentName }} (Rm {{ s.roomNumber }} - {{ s.bedCode }})
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <div class="form-row-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Departure Date &amp; Time (IST)</mat-label>
+                    <input matInput type="datetime-local" formControlName="outDate" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Expected Return Date &amp; Time (IST)</mat-label>
+                    <input matInput type="datetime-local" formControlName="expectedReturnDate" />
+                  </mat-form-field>
+                </div>
+                <div class="form-row-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Purpose of Leaving Campus</mat-label>
+                    <mat-select formControlName="purpose" panelClass="purpose-dropdown-panel">
+                      <mat-option value="Home Visit (Weekend)">Home Visit (Weekend)</mat-option>
+                      <mat-option value="Medical Emergency / Doctor">Medical Emergency / Doctor</mat-option>
+                      <mat-option value="Coaching Extra Class / Test">Coaching Extra Class / Test</mat-option>
+                      <mat-option value="Local Market / Supplies (2 hrs)">Local Market / Supplies (2 hrs)</mat-option>
+                      <mat-option value="Other">Other</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Parent Contact Phone</mat-label>
+                    <input matInput formControlName="parentContactNumber" placeholder="Parent phone e.g. 9876543210" />
+                  </mat-form-field>
+                </div>
+                <div class="consent-check-wrap">
+                  <mat-checkbox formControlName="parentConsentGiven" color="primary">
+                    Parent / Guardian telephonic / WhatsApp permission verified
+                  </mat-checkbox>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button mat-button type="button" (click)="showGatePassModal = false">Cancel</button>
+                <button mat-raised-button color="primary" type="submit" [disabled]="gatePassForm.invalid">
+                  Print &amp; Issue Gate Pass
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+    
+      <!-- Biometric Turnstile Simulator Modal -->
+      @if (showBiometricSimulatorModal) {
+        <div class="modal-backdrop">
+          <div class="modal-dialog-card">
+            <div class="modal-header">
+              <div class="modal-header-icon-box">
+                <mat-icon>fingerprint</mat-icon>
+              </div>
+              <div class="modal-title-wrap">
+                <h3>Simulate Biometric Turnstile Punch</h3>
+                <span class="modal-sub">Test hardware turnstile machine live entry / exit event</span>
+              </div>
+              <button mat-icon-button class="modal-close-btn" (click)="showBiometricSimulatorModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+            </div>
             <div class="modal-body-form">
+              <p class="auto-beds-hint">
+                This simulator triggers a live biometric turnstile hardware event (turnstile gate / facial scanner / fingerprint) to instantly record automated attendance.
+              </p>
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Select Resident Student</mat-label>
-                <mat-select formControlName="studentId">
-                  <mat-option *ngFor="let s of residentStudentsList" [value]="s.studentId">
-                    {{ s.studentName }} (Rm {{ s.roomNumber }} - {{ s.bedCode }})
-                  </mat-option>
+                <mat-select [(ngModel)]="simulatingStudentId">
+                  @for (s of rollCallStudents; track s) {
+                    <mat-option [value]="s.studentId">
+                      {{ s.studentName }} (Rm {{ s.roomNumber }} - Bed {{ s.bedCode }})
+                      @if (s.biometricUserId) {
+                        <span> [Bio: {{ s.biometricUserId }}]</span>
+                      }
+                    </mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
-
               <div class="form-row-2">
                 <mat-form-field appearance="outline">
-                  <mat-label>Departure Date &amp; Time (IST)</mat-label>
-                  <input matInput type="datetime-local" formControlName="outDate" />
+                  <mat-label>Turnstile Device ID</mat-label>
+                  <input matInput [(ngModel)]="simulatingDeviceId" placeholder="e.g. GATE-TURNSTILE-01" />
                 </mat-form-field>
-
                 <mat-form-field appearance="outline">
-                  <mat-label>Expected Return Date &amp; Time (IST)</mat-label>
-                  <input matInput type="datetime-local" formControlName="expectedReturnDate" />
+                  <mat-label>Punch Timestamp</mat-label>
+                  <input matInput [(ngModel)]="simulatingPunchTime" placeholder="Now (Real-time)" />
                 </mat-form-field>
-              </div>
-
-              <div class="form-row-2">
-                <mat-form-field appearance="outline">
-                  <mat-label>Purpose of Leaving Campus</mat-label>
-                  <mat-select formControlName="purpose" panelClass="purpose-dropdown-panel">
-                    <mat-option value="Home Visit (Weekend)">Home Visit (Weekend)</mat-option>
-                    <mat-option value="Medical Emergency / Doctor">Medical Emergency / Doctor</mat-option>
-                    <mat-option value="Coaching Extra Class / Test">Coaching Extra Class / Test</mat-option>
-                    <mat-option value="Local Market / Supplies (2 hrs)">Local Market / Supplies (2 hrs)</mat-option>
-                    <mat-option value="Other">Other</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Parent Contact Phone</mat-label>
-                  <input matInput formControlName="parentContactNumber" placeholder="Parent phone e.g. 9876543210" />
-                </mat-form-field>
-              </div>
-
-              <div class="consent-check-wrap">
-                <mat-checkbox formControlName="parentConsentGiven" color="primary">
-                  Parent / Guardian telephonic / WhatsApp permission verified
-                </mat-checkbox>
               </div>
             </div>
             <div class="modal-footer">
-              <button mat-button type="button" (click)="showGatePassModal = false">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="gatePassForm.invalid">
-                Print &amp; Issue Gate Pass
+              <button mat-button type="button" (click)="showBiometricSimulatorModal = false">Cancel</button>
+              <button mat-raised-button color="accent" type="button" (click)="executeBiometricPunch()" [disabled]="!simulatingStudentId">
+                <mat-icon>fingerprint</mat-icon> Trigger Punch
               </button>
             </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Biometric Turnstile Simulator Modal -->
-      <div class="modal-backdrop" *ngIf="showBiometricSimulatorModal">
-        <div class="modal-dialog-card">
-          <div class="modal-header">
-            <div class="modal-header-icon-box">
-              <mat-icon>fingerprint</mat-icon>
-            </div>
-            <div class="modal-title-wrap">
-              <h3>Simulate Biometric Turnstile Punch</h3>
-              <span class="modal-sub">Test hardware turnstile machine live entry / exit event</span>
-            </div>
-            <button mat-icon-button class="modal-close-btn" (click)="showBiometricSimulatorModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
-          </div>
-          <div class="modal-body-form">
-            <p class="auto-beds-hint">
-              This simulator triggers a live biometric turnstile hardware event (turnstile gate / facial scanner / fingerprint) to instantly record automated attendance.
-            </p>
-
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Select Resident Student</mat-label>
-              <mat-select [(ngModel)]="simulatingStudentId">
-                <mat-option *ngFor="let s of rollCallStudents" [value]="s.studentId">
-                  {{ s.studentName }} (Rm {{ s.roomNumber }} - Bed {{ s.bedCode }})
-                  <span *ngIf="s.biometricUserId"> [Bio: {{ s.biometricUserId }}]</span>
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <div class="form-row-2">
-              <mat-form-field appearance="outline">
-                <mat-label>Turnstile Device ID</mat-label>
-                <input matInput [(ngModel)]="simulatingDeviceId" placeholder="e.g. GATE-TURNSTILE-01" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Punch Timestamp</mat-label>
-                <input matInput [(ngModel)]="simulatingPunchTime" placeholder="Now (Real-time)" />
-              </mat-form-field>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button mat-button type="button" (click)="showBiometricSimulatorModal = false">Cancel</button>
-            <button mat-raised-button color="accent" type="button" (click)="executeBiometricPunch()" [disabled]="!simulatingStudentId">
-              <mat-icon>fingerprint</mat-icon> Trigger Punch
-            </button>
           </div>
         </div>
-      </div>
-
+      }
+    
       <!-- Resident Biometric IDs Mapping Modal -->
-      <div class="modal-backdrop" *ngIf="showBiometricMappingModal">
-        <div class="modal-dialog-card wide-dialog">
-          <div class="modal-header">
-            <div class="modal-header-icon-box">
-              <mat-icon>badge</mat-icon>
+      @if (showBiometricMappingModal) {
+        <div class="modal-backdrop">
+          <div class="modal-dialog-card wide-dialog">
+            <div class="modal-header">
+              <div class="modal-header-icon-box">
+                <mat-icon>badge</mat-icon>
+              </div>
+              <div class="modal-title-wrap">
+                <h3>Hostel Residents Biometric ID Mappings</h3>
+                <span class="modal-sub">Enroll and configure turnstile device IDs for residents</span>
+              </div>
+              <button mat-icon-button class="modal-close-btn" (click)="showBiometricMappingModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
             </div>
-            <div class="modal-title-wrap">
-              <h3>Hostel Residents Biometric ID Mappings</h3>
-              <span class="modal-sub">Enroll and configure turnstile device IDs for residents</span>
+            <div class="modal-body-form mappings-table-container">
+              <p class="auto-beds-hint">
+                Enroll and configure device Biometric User IDs (e.g. machine punch user ID, card number, or facial template ID) for each hostel resident.
+              </p>
+              <table class="custom-data-table mapping-table">
+                <thead>
+                  <tr>
+                    <th>Resident</th>
+                    <th>Block &amp; Bed</th>
+                    <th>Biometric User ID</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (m of biometricMappingsList; track m) {
+                    <tr>
+                      <td>
+                        <strong>{{ m.studentName }}</strong>
+                        @if (m.rollNumber) {
+                          <small style="display:block;color:#64748b;">Roll: {{ m.rollNumber }}</small>
+                        }
+                      </td>
+                      <td>{{ m.hostelName }} - Rm {{ m.roomNumber }} ({{ m.bedCode }})</td>
+                      <td>
+                        <input
+                          type="text"
+                          class="bio-input"
+                          [(ngModel)]="m.biometricUserId"
+                          placeholder="e.g. BIO-101"
+                          />
+                      </td>
+                      <td>
+                        <button
+                          mat-flat-button
+                          color="primary"
+                          class="sm-btn"
+                          (click)="saveBiometricMapping(m)"
+                          [disabled]="!m.biometricUserId"
+                          >
+                          Save ID
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
             </div>
-            <button mat-icon-button class="modal-close-btn" (click)="showBiometricMappingModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
-          </div>
-          <div class="modal-body-form mappings-table-container">
-            <p class="auto-beds-hint">
-              Enroll and configure device Biometric User IDs (e.g. machine punch user ID, card number, or facial template ID) for each hostel resident.
-            </p>
-
-            <table class="custom-data-table mapping-table">
-              <thead>
-                <tr>
-                  <th>Resident</th>
-                  <th>Block &amp; Bed</th>
-                  <th>Biometric User ID</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let m of biometricMappingsList">
-                  <td>
-                    <strong>{{ m.studentName }}</strong>
-                    <small *ngIf="m.rollNumber" style="display:block;color:#64748b;">Roll: {{ m.rollNumber }}</small>
-                  </td>
-                  <td>{{ m.hostelName }} - Rm {{ m.roomNumber }} ({{ m.bedCode }})</td>
-                  <td>
-                    <input
-                      type="text"
-                      class="bio-input"
-                      [(ngModel)]="m.biometricUserId"
-                      placeholder="e.g. BIO-101"
-                    />
-                  </td>
-                  <td>
-                    <button
-                      mat-flat-button
-                      color="primary"
-                      class="sm-btn"
-                      (click)="saveBiometricMapping(m)"
-                      [disabled]="!m.biometricUserId"
-                    >
-                      Save ID
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="modal-footer">
-            <button mat-button type="button" (click)="showBiometricMappingModal = false">Close</button>
+            <div class="modal-footer">
+              <button mat-button type="button" (click)="showBiometricMappingModal = false">Close</button>
+            </div>
           </div>
         </div>
-      </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .hostel-page-wrapper {
       padding: 0 0 40px;

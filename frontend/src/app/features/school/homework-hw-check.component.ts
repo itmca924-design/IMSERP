@@ -1,5 +1,6 @@
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Subscription } from 'rxjs';
@@ -115,9 +116,16 @@ function sectionsOf(classes: any[], classId: string): any[] {
   selector: 'app-hw-check-panel',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatTooltipModule, MatProgressBarModule, IstDatetimeDirective
-  ],
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    IstDatetimeDirective
+],
   template: `
     <div class="hwc-wrap">
       <div class="hwc-info">
@@ -125,160 +133,198 @@ function sectionsOf(classes: any[], classId: string): any[] {
         <div>
           <strong>Check H.W.</strong>
           <span>Select the date on which homework was given, then tick each point as Completed / Partial / Not Done.
-            Works for same-day or next-day checking. Absent students are skipped.</span>
+          Works for same-day or next-day checking. Absent students are skipped.</span>
         </div>
       </div>
-
+    
       <form [formGroup]="form" class="hwc-filters">
         <mat-form-field appearance="outline" class="hwc-field" [class.field-locked]="isClassTeacherLocked">
           <mat-label>Class</mat-label>
           <mat-select formControlName="classId" [disabled]="isClassTeacherLocked">
-            <mat-option *ngFor="let c of classes" [value]="c.id" [class.ct-highlight-opt]="isClassTeacherLocked && c.id === form.getRawValue().classId">
-              {{ c.name }}
-              <span class="ct-pill-badge" *ngIf="isClassTeacherLocked && c.id === form.getRawValue().classId">⭐ Class Teacher</span>
-            </mat-option>
+            @for (c of classes; track c) {
+              <mat-option [value]="c.id" [class.ct-highlight-opt]="isClassTeacherLocked && c.id === form.getRawValue().classId">
+                {{ c.name }}
+                @if (isClassTeacherLocked && c.id === form.getRawValue().classId) {
+                  <span class="ct-pill-badge">⭐ Class Teacher</span>
+                }
+              </mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
+    
         <mat-form-field appearance="outline" class="hwc-field" [class.field-locked]="isClassTeacherLocked && !!teacherAssignedSectionId">
           <mat-label>Section</mat-label>
           <mat-select formControlName="sectionId" [disabled]="isClassTeacherLocked && !!teacherAssignedSectionId">
             <mat-option value="">All Sections</mat-option>
-            <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
+            @for (s of sections; track s) {
+              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
+    
         <mat-form-field appearance="outline" class="hwc-field">
           <mat-label>H.W. Given On (तारीख)</mat-label>
           <input matInput type="date" formControlName="date">
         </mat-form-field>
-
+    
         <mat-form-field appearance="outline" class="hwc-field hwc-search">
           <mat-label>Search student</mat-label>
           <mat-icon matPrefix>search</mat-icon>
           <input matInput formControlName="search" placeholder="Name or roll no.">
         </mat-form-field>
-
+    
         <label class="hwc-toggle">
           <input type="checkbox" formControlName="onlyPending">
           <span>Show only unchecked</span>
         </label>
       </form>
-
-      <div class="hwc-dates" *ngIf="dates.length > 0">
-        <span class="hwc-dates-label">Recent H.W. dates:</span>
-        <button type="button" class="hwc-date-chip"
-                *ngFor="let d of dates"
-                [class.active]="isSelectedDate(d.date)"
-                [class.has-pending]="d.pendingPoints > 0"
-                (click)="selectDate(d.date)">
-          <span class="dc-day">{{ weekdayOf(d.date) }} {{ formatDate(d.date) }}</span>
-          <span class="dc-count">{{ d.checkedPoints }}/{{ d.totalPoints }} checked</span>
-        </button>
-      </div>
-
+    
+      @if (dates.length > 0) {
+        <div class="hwc-dates">
+          <span class="hwc-dates-label">Recent H.W. dates:</span>
+          @for (d of dates; track d) {
+            <button type="button" class="hwc-date-chip"
+              [class.active]="isSelectedDate(d.date)"
+              [class.has-pending]="d.pendingPoints > 0"
+              (click)="selectDate(d.date)">
+              <span class="dc-day">{{ weekdayOf(d.date) }} {{ formatDate(d.date) }}</span>
+              <span class="dc-count">{{ d.checkedPoints }}/{{ d.totalPoints }} checked</span>
+            </button>
+          }
+        </div>
+      }
+    
       <!-- Pending Work Notice Banner if current date is 100% checked but earlier dates have pending checks -->
-      <div class="pending-notice-banner" *ngIf="otherPendingDate as op">
-        <div class="pnb-left">
-          <mat-icon>notification_important</mat-icon>
-          <div>
-            <strong>{{ formatDate(selectedDate) }} is already 100% checked!</strong>
-            <span>Looking for unchecked H.W.? Earlier date <strong>{{ weekdayOf(op.date) }} {{ formatDate(op.date) }}</strong> has <strong>{{ op.pendingPoints }} unchecked points</strong> (Hindi, Mathematics, etc.).</span>
+      @if (otherPendingDate; as op) {
+        <div class="pending-notice-banner">
+          <div class="pnb-left">
+            <mat-icon>notification_important</mat-icon>
+            <div>
+              <strong>{{ formatDate(selectedDate) }} is already 100% checked!</strong>
+              <span>Looking for unchecked H.W.? Earlier date <strong>{{ weekdayOf(op.date) }} {{ formatDate(op.date) }}</strong> has <strong>{{ op.pendingPoints }} unchecked points</strong> (Hindi, Mathematics, etc.).</span>
+            </div>
           </div>
+          <button mat-raised-button class="pnb-btn" type="button" (click)="selectDate(op.date)">
+            <mat-icon>arrow_forward</mat-icon> Open {{ formatDate(op.date) }} ({{ op.pendingPoints }} Unchecked)
+          </button>
         </div>
-        <button mat-raised-button class="pnb-btn" type="button" (click)="selectDate(op.date)">
-          <mat-icon>arrow_forward</mat-icon> Open {{ formatDate(op.date) }} ({{ op.pendingPoints }} Unchecked)
-        </button>
-      </div>
-
-      <div class="hwc-kpis" *ngIf="students.length > 0">
-        <div class="kpi"><span class="k-val">{{ totalPoints }}</span><span class="k-lbl">H.W. Points</span></div>
-        <div class="kpi ok"><span class="k-val">{{ countBy('Completed') }}</span><span class="k-lbl">✔ Completed</span></div>
-        <div class="kpi mid"><span class="k-val">{{ countBy('Partial') }}</span><span class="k-lbl">◐ Partial</span></div>
-        <div class="kpi bad"><span class="k-val">{{ countBy('NotDone') }}</span><span class="k-lbl">✘ Not Done</span></div>
-        <div class="kpi pend"><span class="k-val">{{ countBy('Pending') }}</span><span class="k-lbl">⏳ Unchecked</span></div>
-      </div>
-
-      <div class="hwc-actions" *ngIf="students.length > 0">
-        <button mat-stroked-button type="button" (click)="markAll('Completed')">
-          <mat-icon>done_all</mat-icon> Mark All Present Students ✔
-        </button>
-        <button mat-stroked-button type="button" (click)="markAllPendingAs('Completed')" matTooltip="Marks only the unchecked points as Completed">
-          <mat-icon>playlist_add_check</mat-icon> Unchecked → ✔
-        </button>
-        <button mat-stroked-button type="button" (click)="resetChanges()" [disabled]="changedCount === 0">
-          <mat-icon>undo</mat-icon> Undo Changes
-        </button>
-        <span class="spacer"></span>
-        <span class="hwc-dirty" *ngIf="changedCount > 0">{{ changedCount }} unsaved change(s)</span>
-        <button mat-stroked-button class="hwc-print" type="button" (click)="openReportDialog()" matTooltip="Print or WhatsApp Share Report (with ticks & verification)">
-          <mat-icon>print</mat-icon>
-          <span>Print / WhatsApp Report</span>
-        </button>
-        <button mat-raised-button class="hwc-save" type="button" (click)="save()" [disabled]="saving || changedCount === 0">
-          <mat-icon>save</mat-icon> {{ saving ? 'Saving...' : 'Save H.W. Status' }}
-        </button>
-      </div>
-
-      <div class="hwc-empty" *ngIf="!loading && students.length === 0">
-        <mat-icon>inbox</mat-icon>
-        <p>{{ emptyMessage }}</p>
-      </div>
-
+      }
+    
+      @if (students.length > 0) {
+        <div class="hwc-kpis">
+          <div class="kpi"><span class="k-val">{{ totalPoints }}</span><span class="k-lbl">H.W. Points</span></div>
+          <div class="kpi ok"><span class="k-val">{{ countBy('Completed') }}</span><span class="k-lbl">✔ Completed</span></div>
+          <div class="kpi mid"><span class="k-val">{{ countBy('Partial') }}</span><span class="k-lbl">◐ Partial</span></div>
+          <div class="kpi bad"><span class="k-val">{{ countBy('NotDone') }}</span><span class="k-lbl">✘ Not Done</span></div>
+          <div class="kpi pend"><span class="k-val">{{ countBy('Pending') }}</span><span class="k-lbl">⏳ Unchecked</span></div>
+        </div>
+      }
+    
+      @if (students.length > 0) {
+        <div class="hwc-actions">
+          <button mat-stroked-button type="button" (click)="markAll('Completed')">
+            <mat-icon>done_all</mat-icon> Mark All Present Students ✔
+          </button>
+          <button mat-stroked-button type="button" (click)="markAllPendingAs('Completed')" matTooltip="Marks only the unchecked points as Completed">
+            <mat-icon>playlist_add_check</mat-icon> Unchecked → ✔
+          </button>
+          <button mat-stroked-button type="button" (click)="resetChanges()" [disabled]="changedCount === 0">
+            <mat-icon>undo</mat-icon> Undo Changes
+          </button>
+          <span class="spacer"></span>
+          @if (changedCount > 0) {
+            <span class="hwc-dirty">{{ changedCount }} unsaved change(s)</span>
+          }
+          <button mat-stroked-button class="hwc-print" type="button" (click)="openReportDialog()" matTooltip="Print or WhatsApp Share Report (with ticks & verification)">
+            <mat-icon>print</mat-icon>
+            <span>Print / WhatsApp Report</span>
+          </button>
+          <button mat-raised-button class="hwc-save" type="button" (click)="save()" [disabled]="saving || changedCount === 0">
+            <mat-icon>save</mat-icon> {{ saving ? 'Saving...' : 'Save H.W. Status' }}
+          </button>
+        </div>
+      }
+    
+      @if (!loading && students.length === 0) {
+        <div class="hwc-empty">
+          <mat-icon>inbox</mat-icon>
+          <p>{{ emptyMessage }}</p>
+        </div>
+      }
+    
       <div class="hwc-student-list">
-        <div class="hwc-student" *ngFor="let s of visibleStudents" [class.absent]="s.isAbsent">
-          <div class="hs-head">
-            <div class="hs-id">
-              <span class="hs-roll" *ngIf="s.rollNumber">{{ s.rollNumber }}</span>
-              <span class="hs-name">{{ s.studentName }}</span>
-              <span class="hs-badge absent" *ngIf="s.isAbsent">Absent – skipped</span>
-              <span class="hs-badge done" *ngIf="!s.isAbsent && studentScore(s) as sc">{{ sc }}</span>
-            </div>
-            <div class="hs-quick" *ngIf="!s.isAbsent">
-              <button type="button" class="q-btn ok" (click)="setStudent(s, 'Completed')" matTooltip="All points Completed">✔ All</button>
-              <button type="button" class="q-btn bad" (click)="setStudent(s, 'NotDone')" matTooltip="All points Not Done">✘ All</button>
-            </div>
-          </div>
-
-          <div class="hs-point" *ngFor="let p of s.points" [class.changed]="p.status !== p.original">
-            <div class="hp-text">
-              <span class="hp-subject">{{ p.subject || 'General' }}</span>
-              <span class="hp-task">{{ p.task }}</span>
-              <span class="hp-meta" *ngIf="p.teacherName">Assigned by {{ p.teacherName }}</span>
-              <span class="hp-meta" *ngIf="p.checkedByName && p.status !== 'Pending'">
-                • Checked by {{ p.checkedByName }}
-                <span [appIstDatetime]="p.checkedAt || ''" format="shortDatetime"></span>
-              </span>
-            </div>
-            <div class="hp-controls">
-              <button type="button" class="st-btn ok" [class.on]="p.status === 'Completed'" [disabled]="s.isAbsent"
-                      (click)="toggle(p, 'Completed')" matTooltip="Completed">✔</button>
-              <button type="button" class="st-btn mid" [class.on]="p.status === 'Partial'" [disabled]="s.isAbsent"
-                      (click)="toggle(p, 'Partial')" matTooltip="Partial">◐</button>
-              <button type="button" class="st-btn bad" [class.on]="p.status === 'NotDone'" [disabled]="s.isAbsent"
-                      (click)="toggle(p, 'NotDone')" matTooltip="Not Done">✘</button>
-              <div class="hp-remark-group" *ngIf="p.status === 'Partial' || p.status === 'NotDone'">
-                <div class="hw-badges-wrap">
-                  <button type="button"
-                          *ngFor="let b of getBadgesForState(p.status)"
-                          class="hw-badge-chip"
-                          [class.active-bad]="p.status === 'NotDone' && isBadgeActive(p, b.label)"
-                          [class.active-mid]="p.status === 'Partial' && isBadgeActive(p, b.label)"
-                          (click)="selectBadgeRemark(p, b.label)">
-                    <span class="b-icon">{{ b.icon }}</span>
-                    <span class="b-text">{{ b.label }}</span>
-                  </button>
-                </div>
-                <input class="hp-custom-remark" type="text" maxlength="150" placeholder="Other note..."
-                       [value]="p.remark" (input)="p.remark = $any($event.target).value"
-                       matTooltip="Optional custom note">
+        @for (s of visibleStudents; track s) {
+          <div class="hwc-student" [class.absent]="s.isAbsent">
+            <div class="hs-head">
+              <div class="hs-id">
+                @if (s.rollNumber) {
+                  <span class="hs-roll">{{ s.rollNumber }}</span>
+                }
+                <span class="hs-name">{{ s.studentName }}</span>
+                @if (s.isAbsent) {
+                  <span class="hs-badge absent">Absent – skipped</span>
+                }
+                @if (!s.isAbsent && studentScore(s); as sc) {
+                  <span class="hs-badge done">{{ sc }}</span>
+                }
               </div>
+              @if (!s.isAbsent) {
+                <div class="hs-quick">
+                  <button type="button" class="q-btn ok" (click)="setStudent(s, 'Completed')" matTooltip="All points Completed">✔ All</button>
+                  <button type="button" class="q-btn bad" (click)="setStudent(s, 'NotDone')" matTooltip="All points Not Done">✘ All</button>
+                </div>
+              }
             </div>
+            @for (p of s.points; track p) {
+              <div class="hs-point" [class.changed]="p.status !== p.original">
+                <div class="hp-text">
+                  <span class="hp-subject">{{ p.subject || 'General' }}</span>
+                  <span class="hp-task">{{ p.task }}</span>
+                  @if (p.teacherName) {
+                    <span class="hp-meta">Assigned by {{ p.teacherName }}</span>
+                  }
+                  @if (p.checkedByName && p.status !== 'Pending') {
+                    <span class="hp-meta">
+                      • Checked by {{ p.checkedByName }}
+                      <span [appIstDatetime]="p.checkedAt || ''" format="shortDatetime"></span>
+                    </span>
+                  }
+                </div>
+                <div class="hp-controls">
+                  <button type="button" class="st-btn ok" [class.on]="p.status === 'Completed'" [disabled]="s.isAbsent"
+                  (click)="toggle(p, 'Completed')" matTooltip="Completed">✔</button>
+                  <button type="button" class="st-btn mid" [class.on]="p.status === 'Partial'" [disabled]="s.isAbsent"
+                  (click)="toggle(p, 'Partial')" matTooltip="Partial">◐</button>
+                  <button type="button" class="st-btn bad" [class.on]="p.status === 'NotDone'" [disabled]="s.isAbsent"
+                  (click)="toggle(p, 'NotDone')" matTooltip="Not Done">✘</button>
+                  @if (p.status === 'Partial' || p.status === 'NotDone') {
+                    <div class="hp-remark-group">
+                      <div class="hw-badges-wrap">
+                        @for (b of getBadgesForState(p.status); track b) {
+                          <button type="button"
+                            class="hw-badge-chip"
+                            [class.active-bad]="p.status === 'NotDone' && isBadgeActive(p, b.label)"
+                            [class.active-mid]="p.status === 'Partial' && isBadgeActive(p, b.label)"
+                            (click)="selectBadgeRemark(p, b.label)">
+                            <span class="b-icon">{{ b.icon }}</span>
+                            <span class="b-text">{{ b.label }}</span>
+                          </button>
+                        }
+                      </div>
+                      <input class="hp-custom-remark" type="text" maxlength="150" placeholder="Other note..."
+                        [value]="p.remark" (input)="p.remark = $any($event.target).value"
+                        matTooltip="Optional custom note">
+                    </div>
+                  }
+                </div>
+              </div>
+            }
           </div>
-        </div>
+        }
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host { display: block; width: 100%; }
     .hwc-wrap { display: flex; flex-direction: column; gap: 14px; }
@@ -839,9 +885,16 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
   selector: 'app-hw-analytics-panel',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatTooltipModule, MatProgressBarModule
-  ],
+    CommonModule,
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatTooltipModule,
+    MatProgressBarModule
+],
   template: `
     <div class="hwa-wrap">
       <div class="hwa-info">
@@ -851,22 +904,28 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
           <span>Ratings are calculated on verified homework completion: ⭐ 5.0 (90-100% Outstanding) • ⭐ 4.0 (75-89% Very Good) • ⭐ 3.0 (60-74% Good) • ⭐ 2.0 (40-59% Average) • ⭐ 1.0 (&lt;40% Defaulter). Absent days are excused.</span>
         </div>
       </div>
-
+    
       <form [formGroup]="form" class="hwa-filters">
         <mat-form-field appearance="outline" class="hwa-field" [class.field-locked]="isClassTeacherLocked">
           <mat-label>Class</mat-label>
           <mat-select formControlName="classId" [disabled]="isClassTeacherLocked">
-            <mat-option *ngFor="let c of classes" [value]="c.id" [class.ct-highlight-opt]="isClassTeacherLocked && c.id === form.getRawValue().classId">
-              {{ c.name }}
-              <span class="ct-pill-badge" *ngIf="isClassTeacherLocked && c.id === form.getRawValue().classId">⭐ Class Teacher</span>
-            </mat-option>
+            @for (c of classes; track c) {
+              <mat-option [value]="c.id" [class.ct-highlight-opt]="isClassTeacherLocked && c.id === form.getRawValue().classId">
+                {{ c.name }}
+                @if (isClassTeacherLocked && c.id === form.getRawValue().classId) {
+                  <span class="ct-pill-badge">⭐ Class Teacher</span>
+                }
+              </mat-option>
+            }
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline" class="hwa-field" [class.field-locked]="isClassTeacherLocked && !!teacherAssignedSectionId">
           <mat-label>Section</mat-label>
           <mat-select formControlName="sectionId" [disabled]="isClassTeacherLocked && !!teacherAssignedSectionId">
             <mat-option value="">All Sections</mat-option>
-            <mat-option *ngFor="let s of sections" [value]="s.id">{{ s.name }}</mat-option>
+            @for (s of sections; track s) {
+              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline" class="hwa-field">
@@ -886,7 +945,7 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
           </mat-select>
         </mat-form-field>
       </form>
-
+    
       <div class="hwa-presets">
         <button mat-stroked-button type="button" (click)="preset(7)">Last 7 days</button>
         <button mat-stroked-button type="button" (click)="preset(30)">Last 30 days</button>
@@ -896,8 +955,8 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
           <mat-icon>download</mat-icon> Export CSV
         </button>
       </div>
-
-      <ng-container *ngIf="data as d">
+    
+      @if (data; as d) {
         <div class="hwa-kpis">
           <div class="kpi"><span class="k-val">{{ d.summary.totalPoints }}</span><span class="k-lbl">Points Assigned</span></div>
           <div class="kpi ok"><span class="k-val">{{ d.summary.completed }}</span><span class="k-lbl">✔ Completed</span></div>
@@ -907,69 +966,82 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
           <div class="kpi blue"><span class="k-val">{{ d.summary.completionPercent }}%</span><span class="k-lbl">Completion Rate</span></div>
           <div class="kpi blue"><span class="k-val">{{ d.summary.checkedPercent }}%</span><span class="k-lbl">Checked Rate</span></div>
         </div>
-
-        <div class="hwa-card" *ngIf="d.subjects.length > 0">
-          <div class="hwa-card-title"><mat-icon>menu_book</mat-icon> Subject-wise</div>
-          <div class="table-responsive">
-            <table class="hwa-table">
-              <thead><tr>
-                <th>Subject</th>
-                <th class="text-center">Assigned</th>
-                <th class="th-stat ok" matTooltip="Completed: Checked and fully done">✔ Done</th>
-                <th class="th-stat mid" matTooltip="Partial: Checked but incomplete/half done">◐ Partial</th>
-                <th class="th-stat bad" matTooltip="Not Done: Checked but not attempted">✘ Not Done</th>
-                <th class="th-stat pend" matTooltip="Unchecked: Waiting for teacher verification">⏳ Unchecked</th>
-                <th style="min-width:180px">Completion</th>
-                <th style="min-width:160px">Rating &amp; Quality</th>
-              </tr></thead>
-              <tbody>
-                <tr *ngFor="let s of d.subjects">
-                  <td class="strong">{{ s.subject }}</td>
-                  <td class="text-center font-bold">{{ s.assigned }}</td>
-                  <td class="td-num ok">{{ s.completed }}</td>
-                  <td class="td-num mid">{{ s.partial }}</td>
-                  <td class="td-num bad">{{ s.notDone }}</td>
-                  <td class="td-num pend">{{ s.pending }}</td>
-                  <td>
-                    <div class="bar"><div class="fill" [style.width.%]="s.completionPercent" [ngClass]="band(s.completionPercent)"></div></div>
-                    <span class="pct">{{ s.completionPercent }}%</span>
-                  </td>
-                  <td>
-                    <div class="rate-cluster" *ngIf="getRating(s) as r" [matTooltip]="r.isPending ? 'Teacher verification pending' : (r.score + ' / 5.0 Rating (' + r.label + ') • Based on ' + s.completionPercent + '% checked completion')">
-                      <div class="stars-gold" *ngIf="!r.isPending">
-                        <span class="star-icon" *ngFor="let _ of [1,2,3,4,5]; let idx = index" [class.active]="idx < r.starsCount">★</span>
-                      </div>
-                      <span class="rate-score" *ngIf="!r.isPending">{{ r.score.toFixed(1) }}</span>
-                      <span class="rate-pill-badge" [ngClass]="r.badgeClass">{{ r.label }}</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        @if (d.subjects.length > 0) {
+          <div class="hwa-card">
+            <div class="hwa-card-title"><mat-icon>menu_book</mat-icon> Subject-wise</div>
+            <div class="table-responsive">
+              <table class="hwa-table">
+                <thead><tr>
+                  <th>Subject</th>
+                  <th class="text-center">Assigned</th>
+                  <th class="th-stat ok" matTooltip="Completed: Checked and fully done">✔ Done</th>
+                  <th class="th-stat mid" matTooltip="Partial: Checked but incomplete/half done">◐ Partial</th>
+                  <th class="th-stat bad" matTooltip="Not Done: Checked but not attempted">✘ Not Done</th>
+                  <th class="th-stat pend" matTooltip="Unchecked: Waiting for teacher verification">⏳ Unchecked</th>
+                  <th style="min-width:180px">Completion</th>
+                  <th style="min-width:160px">Rating &amp; Quality</th>
+                </tr></thead>
+                <tbody>
+                  @for (s of d.subjects; track s) {
+                    <tr>
+                      <td class="strong">{{ s.subject }}</td>
+                      <td class="text-center font-bold">{{ s.assigned }}</td>
+                      <td class="td-num ok">{{ s.completed }}</td>
+                      <td class="td-num mid">{{ s.partial }}</td>
+                      <td class="td-num bad">{{ s.notDone }}</td>
+                      <td class="td-num pend">{{ s.pending }}</td>
+                      <td>
+                        <div class="bar"><div class="fill" [style.width.%]="s.completionPercent" [ngClass]="band(s.completionPercent)"></div></div>
+                        <span class="pct">{{ s.completionPercent }}%</span>
+                      </td>
+                      <td>
+                        @if (getRating(s); as r) {
+                          <div class="rate-cluster" [matTooltip]="r.isPending ? 'Teacher verification pending' : (r.score + ' / 5.0 Rating (' + r.label + ') • Based on ' + s.completionPercent + '% checked completion')">
+                            @if (!r.isPending) {
+                              <div class="stars-gold">
+                                @for (_ of [1,2,3,4,5]; track _; let idx = $index) {
+                                  <span class="star-icon" [class.active]="idx < r.starsCount">★</span>
+                                }
+                              </div>
+                            }
+                            @if (!r.isPending) {
+                              <span class="rate-score">{{ r.score.toFixed(1) }}</span>
+                            }
+                            <span class="rate-pill-badge" [ngClass]="r.badgeClass">{{ r.label }}</span>
+                          </div>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-
+        }
         <div class="hwa-card">
           <div class="hwa-card-title"><mat-icon>groups</mat-icon> Student-wise
-            <span class="hwa-chip warn" *ngIf="defaulterCount > 0">{{ defaulterCount }} need attention (&lt; 50%)</span>
-          </div>
-          <div class="table-responsive">
-            <table class="hwa-table">
-              <thead><tr>
-                <th style="width: 40px" class="text-center">#</th>
-                <th style="width: 60px" class="text-center">Roll</th>
-                <th>Student Details</th>
-                <th class="text-center">Assigned</th>
-                <th class="th-stat ok" matTooltip="Completed: Checked and fully done">✔ Done</th>
-                <th class="th-stat mid" matTooltip="Partial: Checked but incomplete/half done">◐ Partial</th>
-                <th class="th-stat bad" matTooltip="Not Done: Checked but not attempted">✘ Not Done</th>
-                <th class="th-stat pend" matTooltip="Unchecked: Waiting for teacher verification">⏳ Unchecked</th>
-                <th class="text-center" matTooltip="Excused: Marked absent in daily attendance">Absent</th>
-                <th style="min-width:190px">Completion</th>
-                <th style="min-width:160px">Rating &amp; Quality</th>
-              </tr></thead>
-              <tbody>
-                <tr *ngFor="let s of sortedStudents; let i = index" [class.alert-row]="isDefaulter(s)">
+          @if (defaulterCount > 0) {
+            <span class="hwa-chip warn">{{ defaulterCount }} need attention (&lt; 50%)</span>
+          }
+        </div>
+        <div class="table-responsive">
+          <table class="hwa-table">
+            <thead><tr>
+              <th style="width: 40px" class="text-center">#</th>
+              <th style="width: 60px" class="text-center">Roll</th>
+              <th>Student Details</th>
+              <th class="text-center">Assigned</th>
+              <th class="th-stat ok" matTooltip="Completed: Checked and fully done">✔ Done</th>
+              <th class="th-stat mid" matTooltip="Partial: Checked but incomplete/half done">◐ Partial</th>
+              <th class="th-stat bad" matTooltip="Not Done: Checked but not attempted">✘ Not Done</th>
+              <th class="th-stat pend" matTooltip="Unchecked: Waiting for teacher verification">⏳ Unchecked</th>
+              <th class="text-center" matTooltip="Excused: Marked absent in daily attendance">Absent</th>
+              <th style="min-width:190px">Completion</th>
+              <th style="min-width:160px">Rating &amp; Quality</th>
+            </tr></thead>
+            <tbody>
+              @for (s of sortedStudents; track s; let i = $index) {
+                <tr [class.alert-row]="isDefaulter(s)">
                   <td class="text-center">{{ i + 1 }}</td>
                   <td class="text-center font-bold">{{ s.rollNumber }}</td>
                   <td class="strong">{{ s.studentName }}</td>
@@ -984,23 +1056,35 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
                     <span class="pct">{{ s.completionPercent }}%</span>
                   </td>
                   <td>
-                    <div class="rate-cluster" *ngIf="getRating(s) as r" [matTooltip]="r.isPending ? 'All points pending check' : (r.score + ' / 5.0 Rating (' + r.label + ') • Based on ' + s.completionPercent + '% completion')">
-                      <div class="stars-gold" *ngIf="!r.isPending">
-                        <span class="star-icon" *ngFor="let _ of [1,2,3,4,5]; let idx = index" [class.active]="idx < r.starsCount">★</span>
+                    @if (getRating(s); as r) {
+                      <div class="rate-cluster" [matTooltip]="r.isPending ? 'All points pending check' : (r.score + ' / 5.0 Rating (' + r.label + ') • Based on ' + s.completionPercent + '% completion')">
+                        @if (!r.isPending) {
+                          <div class="stars-gold">
+                            @for (_ of [1,2,3,4,5]; track _; let idx = $index) {
+                              <span class="star-icon" [class.active]="idx < r.starsCount">★</span>
+                            }
+                          </div>
+                        }
+                        @if (!r.isPending) {
+                          <span class="rate-score">{{ r.score.toFixed(1) }}</span>
+                        }
+                        <span class="rate-pill-badge" [ngClass]="r.badgeClass">{{ r.label }}</span>
                       </div>
-                      <span class="rate-score" *ngIf="!r.isPending">{{ r.score.toFixed(1) }}</span>
-                      <span class="rate-pill-badge" [ngClass]="r.badgeClass">{{ r.label }}</span>
-                    </div>
+                    }
                   </td>
                 </tr>
-                <tr *ngIf="d.students.length === 0"><td colspan="11" class="empty-cell">No homework found for the selected period.</td></tr>
-              </tbody>
-            </table>
-          </div>
+              }
+              @if (d.students.length === 0) {
+                <tr><td colspan="11" class="empty-cell">No homework found for the selected period.</td></tr>
+              }
+            </tbody>
+          </table>
         </div>
-      </ng-container>
+      </div>
+    }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host { display: block; width: 100%; }
     .hwa-wrap { display: flex; flex-direction: column; gap: 14px; }

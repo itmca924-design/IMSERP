@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Inject, inject, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, inject, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -68,10 +68,12 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </button>
         </div>
       </div>
-
+    
       <!-- Single Global Loader -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="module-loader"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="module-loader"></mat-progress-bar>
+      }
+    
       <!-- KPI Metrics Ribbon (Responsive 4 -> 2 -> 1) -->
       <div class="kpi-grid">
         <mat-card class="kpi-card card-blue">
@@ -86,7 +88,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
           <div class="kpi-footer">Active OPD checkups today</div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-amber">
           <div class="kpi-content">
             <div class="kpi-text">
@@ -99,7 +101,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
           <div class="kpi-footer">Currently resting in sick bay</div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-rose">
           <div class="kpi-content">
             <div class="kpi-text">
@@ -112,7 +114,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
           <div class="kpi-footer">Hospital referred or critical cases</div>
         </mat-card>
-
+    
         <mat-card class="kpi-card card-emerald">
           <div class="kpi-content">
             <div class="kpi-text">
@@ -126,7 +128,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <div class="kpi-footer">Deducted from Store Inventory</div>
         </mat-card>
       </div>
-
+    
       <!-- Reactive Filter Deck (Pure Angular Material Reactive Forms) -->
       <mat-card class="filter-card">
         <form [formGroup]="filterForm" class="filter-deck">
@@ -138,7 +140,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-option value="Staff">Faculty / Staff</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Severity</mat-label>
             <mat-select formControlName="severity">
@@ -148,7 +150,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-option value="Severe">Severe</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Current Status</mat-label>
             <mat-select formControlName="status">
@@ -160,19 +162,19 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <mat-option value="Referred">Referred to Hospital</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field search-field">
             <mat-label>Search Patient, Visit #, Symptoms</mat-label>
             <input matInput formControlName="searchTerm" placeholder="Type patient name, complaints..." />
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
-
+    
           <button mat-stroked-button color="warn" type="button" class="reset-btn" (click)="resetFilters()">
             <mat-icon>restart_alt</mat-icon> Reset
           </button>
         </form>
       </mat-card>
-
+    
       <!-- Medical Visits Responsive Data Table -->
       <mat-card class="table-card">
         <div class="table-responsive">
@@ -191,95 +193,111 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let v of visits">
-                <!-- Visit Number -->
-                <td>
-                  <span class="visit-code">{{ v.visitNumber }}</span>
-                  <div class="patient-type-pill" [class.type-student]="v.patientType === 'Student'" [class.type-staff]="v.patientType === 'Staff'">
-                    {{ v.patientType }}
-                  </div>
-                </td>
-
-                <!-- Patient Particulars -->
-                <td>
-                  <div class="patient-name">{{ v.patientName }}</div>
-                  <div class="patient-sub">{{ v.classOrDesignation || '—' }}</div>
-                  <div class="patient-phone" *ngIf="v.contactPhone">
-                    <mat-icon class="phone-ic">call</mat-icon> {{ v.contactPhone }}
-                  </div>
-                </td>
-
-                <!-- Visit Time (IST Asia/Kolkata) -->
-                <td>
-                  <div class="time-primary">{{ v.visitDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</div>
-                  <div class="time-sub">{{ v.visitDate | date:'hh:mm a':'Asia/Kolkata' }}</div>
-                </td>
-
-                <!-- Symptoms & Vitals -->
-                <td>
-                  <div class="complaints-text">{{ v.chiefComplaints }}</div>
-                  <div class="vitals-row" *ngIf="v.temperatureF || v.pulseBpm || v.bloodPressure">
-                    <span class="vital-pill" *ngIf="v.temperatureF" [class.vital-hot]="v.temperatureF >= 99.5">
-                      🌡️ {{ v.temperatureF }}°F
-                    </span>
-                    <span class="vital-pill" *ngIf="v.pulseBpm">
-                      ❤️ {{ v.pulseBpm }} bpm
-                    </span>
-                    <span class="vital-pill" *ngIf="v.bloodPressure">
-                      BP: {{ v.bloodPressure }}
-                    </span>
-                  </div>
-                </td>
-
-                <!-- Sick Bay Bed Rest -->
-                <td>
-                  <div *ngIf="v.bedRestRequired; else noBedRest">
-                    <span class="bed-pill" [class.bed-occupied]="v.bedStatus === 'Occupied'" [class.bed-discharged]="v.bedStatus === 'Discharged'">
-                      🛏️ {{ v.bedNumber || 'Bed Assigned' }}
-                    </span>
-                    <div class="bed-meta" *ngIf="v.bedStatus === 'Occupied'">
-                      In since {{ v.admittedAt | date:'hh:mm a':'Asia/Kolkata' }}
+              @for (v of visits; track v) {
+                <tr>
+                  <!-- Visit Number -->
+                  <td>
+                    <span class="visit-code">{{ v.visitNumber }}</span>
+                    <div class="patient-type-pill" [class.type-student]="v.patientType === 'Student'" [class.type-staff]="v.patientType === 'Staff'">
+                      {{ v.patientType }}
                     </div>
-                    <div class="bed-meta" *ngIf="v.bedStatus === 'Discharged' && v.dischargedAt">
-                      Discharged {{ v.dischargedAt | date:'hh:mm a':'Asia/Kolkata' }}
-                    </div>
-                  </div>
-                  <ng-template #noBedRest>
-                    <span class="text-muted">OPD Consultation</span>
-                  </ng-template>
-                </td>
-
-                <!-- Dispensed Medicines from Inventory -->
-                <td>
-                  <div class="medicines-wrap" *ngIf="v.medicinesDispensed && v.medicinesDispensed.length > 0; else noMeds">
-                    <span class="med-tag" *ngFor="let m of v.medicinesDispensed" [matTooltip]="m.dosage || 'Dispensed from Inventory'">
-                      💊 {{ m.itemName }} ({{ m.quantity }} {{ m.unit || 'unit' }})
-                    </span>
-                  </div>
-                  <ng-template #noMeds>
-                    <span class="text-muted">First-aid / Dressing only</span>
-                  </ng-template>
-                </td>
-
-                <!-- Severity & Parent Alert -->
-                <td>
+                  </td>
+                  <!-- Patient Particulars -->
+                  <td>
+                    <div class="patient-name">{{ v.patientName }}</div>
+                    <div class="patient-sub">{{ v.classOrDesignation || '—' }}</div>
+                    @if (v.contactPhone) {
+                      <div class="patient-phone">
+                        <mat-icon class="phone-ic">call</mat-icon> {{ v.contactPhone }}
+                      </div>
+                    }
+                  </td>
+                  <!-- Visit Time (IST Asia/Kolkata) -->
+                  <td>
+                    <div class="time-primary">{{ v.visitDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</div>
+                    <div class="time-sub">{{ v.visitDate | date:'hh:mm a':'Asia/Kolkata' }}</div>
+                  </td>
+                  <!-- Symptoms & Vitals -->
+                  <td>
+                    <div class="complaints-text">{{ v.chiefComplaints }}</div>
+                    @if (v.temperatureF || v.pulseBpm || v.bloodPressure) {
+                      <div class="vitals-row">
+                        @if (v.temperatureF) {
+                          <span class="vital-pill" [class.vital-hot]="v.temperatureF >= 99.5">
+                            🌡️ {{ v.temperatureF }}°F
+                          </span>
+                        }
+                        @if (v.pulseBpm) {
+                          <span class="vital-pill">
+                            ❤️ {{ v.pulseBpm }} bpm
+                          </span>
+                        }
+                        @if (v.bloodPressure) {
+                          <span class="vital-pill">
+                            BP: {{ v.bloodPressure }}
+                          </span>
+                        }
+                      </div>
+                    }
+                  </td>
+                  <!-- Sick Bay Bed Rest -->
+                  <td>
+                    @if (v.bedRestRequired) {
+                      <div>
+                        <span class="bed-pill" [class.bed-occupied]="v.bedStatus === 'Occupied'" [class.bed-discharged]="v.bedStatus === 'Discharged'">
+                          🛏️ {{ v.bedNumber || 'Bed Assigned' }}
+                        </span>
+                        @if (v.bedStatus === 'Occupied') {
+                          <div class="bed-meta">
+                            In since {{ v.admittedAt | date:'hh:mm a':'Asia/Kolkata' }}
+                          </div>
+                        }
+                        @if (v.bedStatus === 'Discharged' && v.dischargedAt) {
+                          <div class="bed-meta">
+                            Discharged {{ v.dischargedAt | date:'hh:mm a':'Asia/Kolkata' }}
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <span class="text-muted">OPD Consultation</span>
+                    }
+                  </td>
+                  <!-- Dispensed Medicines from Inventory -->
+                  <td>
+                    @if (v.medicinesDispensed && v.medicinesDispensed.length > 0) {
+                      <div class="medicines-wrap">
+                        @for (m of v.medicinesDispensed; track m) {
+                          <span class="med-tag" [matTooltip]="m.dosage || 'Dispensed from Inventory'">
+                            💊 {{ m.itemName }} ({{ m.quantity }} {{ m.unit || 'unit' }})
+                          </span>
+                        }
+                      </div>
+                    } @else {
+                      <span class="text-muted">First-aid / Dressing only</span>
+                    }
+                  </td>
+                  <!-- Severity & Parent Alert -->
+                  <td>
                   <span class="severity-pill" [ngClass]="{
                     'sev-mild': v.severity === 'Mild',
                     'sev-moderate': v.severity === 'Moderate',
                     'sev-severe': v.severity === 'Severe'
                   }">
-                    {{ v.severity }}
-                  </span>
-                  <div class="parent-notified" *ngIf="v.parentContacted">
-                    <mat-icon class="alert-ic">check_circle</mat-icon> Parent Alerted
-                  </div>
-                  <div class="hospital-ref" *ngIf="v.referredToHospital">
-                    <mat-icon class="alert-ic">local_hospital</mat-icon> Hospital Ref
-                  </div>
-                </td>
-
-                <!-- Status -->
-                <td>
+                      {{ v.severity }}
+                    </span>
+                    @if (v.parentContacted) {
+                      <div class="parent-notified">
+                        <mat-icon class="alert-ic">check_circle</mat-icon> Parent Alerted
+                      </div>
+                    }
+                    @if (v.referredToHospital) {
+                      <div class="hospital-ref">
+                        <mat-icon class="alert-ic">local_hospital</mat-icon> Hospital Ref
+                      </div>
+                    }
+                  </td>
+                  <!-- Status -->
+                  <td>
                   <span class="status-pill" [ngClass]="{
                     'stat-obs': v.status === 'UnderObservation',
                     'stat-rec': v.status === 'Recovered',
@@ -287,41 +305,46 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     'stat-ref': v.status === 'Referred',
                     'stat-home': v.status === 'SentHome'
                   }">
-                    {{ v.status }}
-                  </span>
-                </td>
-
-                <!-- Actions -->
-                <td style="text-align: center;">
-                  <div class="action-buttons">
-                    <button mat-icon-button color="primary" (click)="viewSlip(v)" matTooltip="View / Print Clinic Slip">
-                      <mat-icon>receipt_long</mat-icon>
-                    </button>
-                    <button mat-icon-button color="accent" *ngIf="v.bedRestRequired && v.bedStatus === 'Occupied'" (click)="dischargePatient(v)" matTooltip="Discharge from Sick Bay">
-                      <mat-icon>exit_to_app</mat-icon>
-                    </button>
-                    <button mat-icon-button color="warn" (click)="deleteVisit(v)" matTooltip="Delete Record">
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr *ngIf="!loading && visits.length === 0">
-                <td colspan="9" class="no-records">
-                  <div class="empty-state">
-                    <mat-icon class="empty-icon">healing</mat-icon>
-                    <h3>No Infirmary visits recorded for selected filters</h3>
-                    <p>Click "Log Clinic Visit" above to record a new medical visit or first-aid treatment.</p>
-                  </div>
-                </td>
-              </tr>
+                      {{ v.status }}
+                    </span>
+                  </td>
+                  <!-- Actions -->
+                  <td style="text-align: center;">
+                    <div class="action-buttons">
+                      <button mat-icon-button color="primary" (click)="viewSlip(v)" matTooltip="View / Print Clinic Slip">
+                        <mat-icon>receipt_long</mat-icon>
+                      </button>
+                      @if (v.bedRestRequired && v.bedStatus === 'Occupied') {
+                        <button mat-icon-button color="accent" (click)="dischargePatient(v)" matTooltip="Discharge from Sick Bay">
+                          <mat-icon>exit_to_app</mat-icon>
+                        </button>
+                      }
+                      <button mat-icon-button color="warn" (click)="deleteVisit(v)" matTooltip="Delete Record">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+    
+              @if (!loading && visits.length === 0) {
+                <tr>
+                  <td colspan="9" class="no-records">
+                    <div class="empty-state">
+                      <mat-icon class="empty-icon">healing</mat-icon>
+                      <h3>No Infirmary visits recorded for selected filters</h3>
+                      <p>Click "Log Clinic Visit" above to record a new medical visit or first-aid treatment.</p>
+                    </div>
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;
@@ -948,11 +971,13 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
-      <mat-progress-bar *ngIf="saving" mode="indeterminate"></mat-progress-bar>
-
+    
+      @if (saving) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    
       <form [formGroup]="visitForm" (ngSubmit)="onSubmit()" class="modal-body">
-        
+    
         <!-- ROW 1: Patient Type & Live Search -->
         <div class="form-row">
           <mat-form-field appearance="outline" class="col-field" style="max-width: 180px;">
@@ -962,37 +987,47 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
               <mat-option value="Staff">Faculty / Staff</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="col-field flex-2">
             <mat-label>Search & Select Student <span class="req">*</span></mat-label>
             <input matInput [matAutocomplete]="autoStudent" [formControl]="studentSearchControl" placeholder="Type student name or roll #..." />
             <mat-icon matSuffix>search</mat-icon>
             <mat-autocomplete #autoStudent="matAutocomplete" (optionSelected)="onStudentSelected($event.option.value)">
-              <mat-option *ngFor="let s of candidateStudents" [value]="s">
-                <strong>{{ s.studentName }}</strong> (Roll: {{ s.rollNumber || '—' }}) • {{ s.className || s.batchName }}
-              </mat-option>
+              @for (s of candidateStudents; track s) {
+                <mat-option [value]="s">
+                  <strong>{{ s.studentName }}</strong> (Roll: {{ s.rollNumber || '—' }}) • {{ s.className || s.batchName }}
+                </mat-option>
+              }
             </mat-autocomplete>
           </mat-form-field>
         </div>
-
+    
         <!-- Selected Patient Preview Pill -->
-        <div class="patient-preview" *ngIf="visitForm.get('patientName')?.value">
-          <mat-icon class="prev-ic">person</mat-icon>
-          <div>
-            <strong>{{ visitForm.get('patientName')?.value }}</strong>
-            <span class="prev-meta" *ngIf="visitForm.get('classOrDesignation')?.value"> • {{ visitForm.get('classOrDesignation')?.value }}</span>
-            <span class="prev-meta" *ngIf="visitForm.get('contactPhone')?.value"> • Phone: {{ visitForm.get('contactPhone')?.value }}</span>
+        @if (visitForm.get('patientName')?.value) {
+          <div class="patient-preview">
+            <mat-icon class="prev-ic">person</mat-icon>
+            <div>
+              <strong>{{ visitForm.get('patientName')?.value }}</strong>
+              @if (visitForm.get('classOrDesignation')?.value) {
+                <span class="prev-meta"> • {{ visitForm.get('classOrDesignation')?.value }}</span>
+              }
+              @if (visitForm.get('contactPhone')?.value) {
+                <span class="prev-meta"> • Phone: {{ visitForm.get('contactPhone')?.value }}</span>
+              }
+            </div>
           </div>
-        </div>
-
+        }
+    
         <!-- ROW 2: Chief Complaints & Symptoms -->
         <div class="form-row">
           <mat-form-field appearance="outline" class="col-field flex-2">
             <mat-label>Chief Complaints / Symptoms <span class="req">*</span></mat-label>
             <input matInput formControlName="chiefComplaints" placeholder="e.g. High fever with headache, nausea, minor knee scrape" />
-            <mat-error *ngIf="visitForm.get('chiefComplaints')?.hasError('required')">Complaints required</mat-error>
+            @if (visitForm.get('chiefComplaints')?.hasError('required')) {
+              <mat-error>Complaints required</mat-error>
+            }
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="col-field" style="max-width: 170px;">
             <mat-label>Severity <span class="req">*</span></mat-label>
             <mat-select formControlName="severity">
@@ -1002,7 +1037,7 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
             </mat-select>
           </mat-form-field>
         </div>
-
+    
         <!-- ROW 3: Vitals signs -->
         <div class="vitals-panel">
           <span class="vitals-title">🩺 Clinical Vital Signs:</span>
@@ -1011,42 +1046,44 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
               <mat-label>Body Temp (°F)</mat-label>
               <input matInput type="number" step="0.1" formControlName="temperatureF" placeholder="98.6" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="vital-input">
               <mat-label>Pulse (bpm)</mat-label>
               <input matInput type="number" formControlName="pulseBpm" placeholder="72" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="vital-input">
               <mat-label>Blood Pressure</mat-label>
               <input matInput formControlName="bloodPressure" placeholder="120/80" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="vital-input">
               <mat-label>SpO2 (%)</mat-label>
               <input matInput type="number" formControlName="spO2" placeholder="98" />
             </mat-form-field>
           </div>
         </div>
-
+    
         <!-- ROW 4: Sick Bay Bed Occupancy -->
         <div class="bed-panel">
           <mat-checkbox formControlName="bedRestRequired" color="primary">
             <strong>🛏️ Sick Bay Bed Rest Required</strong>
           </mat-checkbox>
-
-          <mat-form-field appearance="outline" class="bed-field" *ngIf="visitForm.get('bedRestRequired')?.value">
-            <mat-label>Assigned Bed Number</mat-label>
-            <mat-select formControlName="bedNumber">
-              <mat-option value="Bed 1">Bed 1</mat-option>
-              <mat-option value="Bed 2">Bed 2</mat-option>
-              <mat-option value="Bed 3">Bed 3</mat-option>
-              <mat-option value="Bed 4">Bed 4</mat-option>
-              <mat-option value="Isolation Bay">Isolation Bay</mat-option>
-            </mat-select>
-          </mat-form-field>
+    
+          @if (visitForm.get('bedRestRequired')?.value) {
+            <mat-form-field appearance="outline" class="bed-field">
+              <mat-label>Assigned Bed Number</mat-label>
+              <mat-select formControlName="bedNumber">
+                <mat-option value="Bed 1">Bed 1</mat-option>
+                <mat-option value="Bed 2">Bed 2</mat-option>
+                <mat-option value="Bed 3">Bed 3</mat-option>
+                <mat-option value="Bed 4">Bed 4</mat-option>
+                <mat-option value="Isolation Bay">Isolation Bay</mat-option>
+              </mat-select>
+            </mat-form-field>
+          }
         </div>
-
+    
         <!-- ROW 5: Inventory Medicine Dispensation Picker -->
         <div class="medicine-dispense-panel">
           <div class="panel-header">
@@ -1055,58 +1092,64 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
               <p class="panel-sub">Selected medicines will be automatically deducted from store stock</p>
             </div>
           </div>
-
+    
           <div class="med-picker-row">
             <mat-form-field appearance="outline" class="med-item-select">
               <mat-label>Choose Medicine / Item</mat-label>
               <mat-select [formControl]="selectedMedItemControl">
-                <mat-option *ngFor="let it of availableMedicines" [value]="it.id" [disabled]="it.currentStock <= 0">
-                  {{ it.itemName }} — Stock: {{ it.currentStock }} {{ it.unitOfMeasurement }}
-                </mat-option>
+                @for (it of availableMedicines; track it) {
+                  <mat-option [value]="it.id" [disabled]="it.currentStock <= 0">
+                    {{ it.itemName }} — Stock: {{ it.currentStock }} {{ it.unitOfMeasurement }}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="med-qty-input">
               <mat-label>Qty</mat-label>
               <input matInput type="number" min="1" [formControl]="medQtyControl" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="med-dosage-input">
               <mat-label>Dosage</mat-label>
               <input matInput [formControl]="medDosageControl" placeholder="e.g. 1 Tab SOS after meal" />
             </mat-form-field>
-
+    
             <button mat-raised-button color="primary" type="button" class="add-med-btn" (click)="addMedicineItem()" [disabled]="!selectedMedItemControl.value">
               <mat-icon>add</mat-icon> Add
             </button>
           </div>
-
+    
           <!-- Dispensed list table -->
-          <div class="dispensed-list" *ngIf="dispensedMedicines.length > 0">
-            <div class="dispensed-item" *ngFor="let d of dispensedMedicines; let i = index">
-              <span class="d-name">💊 {{ d.itemName }}</span>
-              <span class="d-qty">Qty: <strong>{{ d.quantity }} {{ d.unit }}</strong></span>
-              <span class="d-dosage">{{ d.dosage }}</span>
-              <button mat-icon-button color="warn" (click)="removeMedicineItem(i)">
-                <mat-icon>close</mat-icon>
-              </button>
+          @if (dispensedMedicines.length > 0) {
+            <div class="dispensed-list">
+              @for (d of dispensedMedicines; track d; let i = $index) {
+                <div class="dispensed-item">
+                  <span class="d-name">💊 {{ d.itemName }}</span>
+                  <span class="d-qty">Qty: <strong>{{ d.quantity }} {{ d.unit }}</strong></span>
+                  <span class="d-dosage">{{ d.dosage }}</span>
+                  <button mat-icon-button color="warn" (click)="removeMedicineItem(i)">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              }
             </div>
-          </div>
+          }
         </div>
-
+    
         <!-- ROW 6: Treatment Given & Parent Alert -->
         <div class="form-row">
           <mat-form-field appearance="outline" class="col-field flex-2">
             <mat-label>Treatment / First-Aid Given</mat-label>
             <input matInput formControlName="treatmentGiven" placeholder="e.g. Cold sponging, wound dressed with betadine, glucose water given" />
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="col-field flex-1">
             <mat-label>Attending Nurse / Staff</mat-label>
             <input matInput formControlName="attendingStaffName" placeholder="Staff Name" />
           </mat-form-field>
         </div>
-
+    
         <div class="parent-alert-row">
           <mat-checkbox formControlName="parentContacted" color="primary">
             📞 Parent / Guardian Contacted via Phone / WhatsApp
@@ -1118,7 +1161,7 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
             🚑 Emergency Hospital Referral
           </mat-checkbox>
         </div>
-
+    
         <div class="modal-footer">
           <button mat-button type="button" (click)="dialogRef.close(false)">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="saving || visitForm.invalid">
@@ -1127,7 +1170,8 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; }
     .modal-header { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-bottom: 1px solid #bfdbfe; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -1408,6 +1452,7 @@ export class LogInfirmaryVisitDialogComponent implements OnInit {
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; }
     .modal-header { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-bottom: 1px solid #bfdbfe; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -1464,13 +1509,13 @@ export class DischargePatientDialogComponent {
           <button mat-icon-button (click)="dialogRef.close()"><mat-icon>close</mat-icon></button>
         </div>
       </div>
-
+    
       <div class="slip-content print-area">
         <div class="slip-title-bar">
           <h3>CAMPUS INFIRMARY & HEALTH BAY</h3>
           <p class="slip-meta">CLINICAL VISIT & PRESCRIPTION SLIP</p>
         </div>
-
+    
         <div class="slip-grid">
           <div><strong>Visit #:</strong> {{ data.visit.visitNumber }}</div>
           <div><strong>Date & Time (IST):</strong> {{ data.visit.visitDate | date:'dd MMM yyyy, hh:mm a':'Asia/Kolkata' }}</div>
@@ -1479,39 +1524,57 @@ export class DischargePatientDialogComponent {
           <div><strong>Contact:</strong> {{ data.visit.contactPhone || '—' }}</div>
           <div><strong>Severity:</strong> {{ data.visit.severity }}</div>
         </div>
-
+    
         <mat-divider style="margin: 14px 0;"></mat-divider>
-
+    
         <div class="slip-section">
           <strong>Chief Complaints:</strong>
           <p>{{ data.visit.chiefComplaints }}</p>
         </div>
-
-        <div class="slip-vitals" *ngIf="data.visit.temperatureF || data.visit.pulseBpm || data.visit.bloodPressure">
-          <span *ngIf="data.visit.temperatureF">Temp: <strong>{{ data.visit.temperatureF }}°F</strong></span>
-          <span *ngIf="data.visit.pulseBpm">Pulse: <strong>{{ data.visit.pulseBpm }} bpm</strong></span>
-          <span *ngIf="data.visit.bloodPressure">BP: <strong>{{ data.visit.bloodPressure }}</strong></span>
-          <span *ngIf="data.visit.spO2">SpO2: <strong>{{ data.visit.spO2 }}%</strong></span>
-        </div>
-
-        <div class="slip-section" *ngIf="data.visit.treatmentGiven">
-          <strong>Treatment Provided:</strong>
-          <p>{{ data.visit.treatmentGiven }}</p>
-        </div>
-
-        <div class="slip-section" *ngIf="data.visit.medicinesDispensed && data.visit.medicinesDispensed.length > 0">
-          <strong>Medicines Dispensed (Store Stock):</strong>
-          <ul class="med-list">
-            <li *ngFor="let m of data.visit.medicinesDispensed">
-              <strong>{{ m.itemName }}</strong> — Qty: {{ m.quantity }} {{ m.unit }} ({{ m.dosage }})
-            </li>
-          </ul>
-        </div>
-
-        <div class="slip-section" *ngIf="data.visit.bedRestRequired">
-          <strong>Sick Bay Rest:</strong> {{ data.visit.bedNumber }} • Status: {{ data.visit.bedStatus }}
-        </div>
-
+    
+        @if (data.visit.temperatureF || data.visit.pulseBpm || data.visit.bloodPressure) {
+          <div class="slip-vitals">
+            @if (data.visit.temperatureF) {
+              <span>Temp: <strong>{{ data.visit.temperatureF }}°F</strong></span>
+            }
+            @if (data.visit.pulseBpm) {
+              <span>Pulse: <strong>{{ data.visit.pulseBpm }} bpm</strong></span>
+            }
+            @if (data.visit.bloodPressure) {
+              <span>BP: <strong>{{ data.visit.bloodPressure }}</strong></span>
+            }
+            @if (data.visit.spO2) {
+              <span>SpO2: <strong>{{ data.visit.spO2 }}%</strong></span>
+            }
+          </div>
+        }
+    
+        @if (data.visit.treatmentGiven) {
+          <div class="slip-section">
+            <strong>Treatment Provided:</strong>
+            <p>{{ data.visit.treatmentGiven }}</p>
+          </div>
+        }
+    
+        @if (data.visit.medicinesDispensed && data.visit.medicinesDispensed.length > 0) {
+          <div class="slip-section">
+            <strong>Medicines Dispensed (Store Stock):</strong>
+            <ul class="med-list">
+              @for (m of data.visit.medicinesDispensed; track m) {
+                <li>
+                  <strong>{{ m.itemName }}</strong> — Qty: {{ m.quantity }} {{ m.unit }} ({{ m.dosage }})
+                </li>
+              }
+            </ul>
+          </div>
+        }
+    
+        @if (data.visit.bedRestRequired) {
+          <div class="slip-section">
+            <strong>Sick Bay Rest:</strong> {{ data.visit.bedNumber }} • Status: {{ data.visit.bedStatus }}
+          </div>
+        }
+    
         <div class="slip-footer">
           <div>
             <span>Attending Nurse / Attendant:</span>
@@ -1522,12 +1585,13 @@ export class DischargePatientDialogComponent {
           </div>
         </div>
       </div>
-
+    
       <div class="modal-footer no-print">
         <button mat-raised-button color="primary" (click)="printSlip()"><mat-icon>print</mat-icon> Print Slip</button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; }
     .modal-header { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-bottom: 1px solid #bfdbfe; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }

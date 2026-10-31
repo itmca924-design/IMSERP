@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, inject } from '@angular/core';
+import { Component, Inject, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -56,7 +56,7 @@ export interface StudyMaterialDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <mat-dialog-content class="dialog-content">
         <!-- 1. Target Scope Selector -->
         <div class="form-section-card">
@@ -64,247 +64,294 @@ export interface StudyMaterialDialogData {
             <mat-icon>hub</mat-icon>
             <span>Target Audience &amp; Scope (Who can access this material?)</span>
           </div>
-
+    
           <div class="scope-toggle-row">
-            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Both'" (click)="setScope('Both')" *ngIf="!data.isTeacher || (hasClasses && hasBatches)">
-              <mat-icon>public</mat-icon>
-              <div class="chip-text">
-                <strong>🌐 Open to All</strong>
-                <small>School + Coaching Students</small>
-              </div>
-            </button>
-            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'School'" (click)="setScope('School')" *ngIf="!data.isTeacher || hasClasses">
-              <mat-icon>school</mat-icon>
-              <div class="chip-text">
-                <strong>🏫 School Classes</strong>
-                <small>Class 1st to 12th Syllabus</small>
-              </div>
-            </button>
-            <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Coaching'" (click)="setScope('Coaching')" *ngIf="!data.isTeacher || hasBatches">
-              <mat-icon>psychology</mat-icon>
-              <div class="chip-text">
-                <strong>🎯 Coaching Batches</strong>
-                <small>JEE, NEET, Foundation &amp; Droppers</small>
-              </div>
-            </button>
+            @if (!data.isTeacher || (hasClasses && hasBatches)) {
+              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Both'" (click)="setScope('Both')">
+                <mat-icon>public</mat-icon>
+                <div class="chip-text">
+                  <strong>🌐 Open to All</strong>
+                  <small>School + Coaching Students</small>
+                </div>
+              </button>
+            }
+            @if (!data.isTeacher || hasClasses) {
+              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'School'" (click)="setScope('School')">
+                <mat-icon>school</mat-icon>
+                <div class="chip-text">
+                  <strong>🏫 School Classes</strong>
+                  <small>Class 1st to 12th Syllabus</small>
+                </div>
+              </button>
+            }
+            @if (!data.isTeacher || hasBatches) {
+              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Coaching'" (click)="setScope('Coaching')">
+                <mat-icon>psychology</mat-icon>
+                <div class="chip-text">
+                  <strong>🎯 Coaching Batches</strong>
+                  <small>JEE, NEET, Foundation &amp; Droppers</small>
+                </div>
+              </button>
+            }
           </div>
-
+    
           <!-- Scope Dynamic Filters (Class / Batch / Subject / Type) -->
           <div class="grid-2-cols" style="margin-top: 14px;">
             <!-- School / Academic Class (if School, Coaching, or Both) -->
-            <mat-form-field appearance="outline" *ngIf="!data.isTeacher || hasClasses">
-              <mat-label>{{ data.isTeacher ? 'Assigned Class' : (form.targetScope === 'Coaching' ? 'Academic Class (Optional)' : 'School Class (Optional)') }}</mat-label>
-              <mat-select [(ngModel)]="form.classId" (selectionChange)="onClassSelected()">
-                <mat-option [value]="null" *ngIf="!data.isTeacher">-- All Classes (General / Open) --</mat-option>
-                <mat-option *ngFor="let c of data.classes" [value]="c.id">
-                  {{ c.name }} <span class="opt-sub" *ngIf="c.code">({{ c.code }})</span>
-                </mat-option>
+            @if (!data.isTeacher || hasClasses) {
+              <mat-form-field appearance="outline">
+                <mat-label>{{ data.isTeacher ? 'Assigned Class' : (form.targetScope === 'Coaching' ? 'Academic Class (Optional)' : 'School Class (Optional)') }}</mat-label>
+                <mat-select [(ngModel)]="form.classId" (selectionChange)="onClassSelected()">
+                  @if (!data.isTeacher) {
+                    <mat-option [value]="null">-- All Classes (General / Open) --</mat-option>
+                  }
+                  @for (c of data.classes; track c) {
+                    <mat-option [value]="c.id">
+                      {{ c.name }} @if (c.code) {
+                      <span class="opt-sub">({{ c.code }})</span>
+                    }
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
-            <!-- Coaching Batch (if Coaching or Both) -->
-            <mat-form-field appearance="outline" *ngIf="form.targetScope !== 'School' && (!data.isTeacher || hasBatches)">
+          }
+    
+          <!-- Coaching Batch (if Coaching or Both) -->
+          @if (form.targetScope !== 'School' && (!data.isTeacher || hasBatches)) {
+            <mat-form-field appearance="outline">
               <mat-label>{{ data.isTeacher ? 'Assigned Coaching Batch' : 'Coaching Batch (Optional)' }}</mat-label>
               <mat-select [(ngModel)]="form.batchId">
-                <mat-option [value]="null" *ngIf="!data.isTeacher">-- All Batches (Open Competitive) --</mat-option>
-                <mat-option *ngFor="let b of filteredBatches" [value]="b.id">
-                  {{ b.name }} <span class="opt-sub" *ngIf="b.subject">({{ b.subject }})</span>{{ b.className ? ' [' + b.className + ']' : '' }}
-                </mat-option>
+                @if (!data.isTeacher) {
+                  <mat-option [value]="null">-- All Batches (Open Competitive) --</mat-option>
+                }
+                @for (b of filteredBatches; track b) {
+                  <mat-option [value]="b.id">
+                    {{ b.name }} @if (b.subject) {
+                    <span class="opt-sub">({{ b.subject }})</span>
+                    }{{ b.className ? ' [' + b.className + ']' : '' }}
+                  </mat-option>
+                }
               </mat-select>
             </mat-form-field>
-
-            <!-- Subject -->
-            <mat-form-field appearance="outline" [class.col-span-2]="form.targetScope === 'Both'">
-              <mat-label>Teaching Subject *</mat-label>
-              <mat-select [(ngModel)]="form.subject" required>
-                <mat-option *ngFor="let s of (classSubjects.length > 0 ? classSubjects : data.subjects)" [value]="s.name">
-                  {{ s.name }} <span class="opt-sub" *ngIf="s.code">[{{ s.code }}]</span>
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <!-- Material Type (Full Width across the card) -->
-            <mat-form-field appearance="outline" class="col-span-2">
-              <mat-label>Material Type *</mat-label>
-              <mat-select [(ngModel)]="form.materialType" required>
-                <mat-option value="Notes">📝 Theory &amp; Concept Notes</mat-option>
-                <mat-option value="PYQ">🎯 Previous Year Questions (PYQ Archive)</mat-option>
-                <mat-option value="QuestionBank">📚 Question Bank / DPPs</mat-option>
-                <mat-option value="FormulaSheet">⚡ Formula Sheet &amp; Mindmaps</mat-option>
-                <mat-option value="SamplePaper">📄 Sample &amp; Model Papers</mat-option>
-                <mat-option value="Syllabus">📌 Syllabus &amp; Blueprint</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-        </div>
-
-        <!-- 2. Content Details -->
-        <div class="form-section-card">
-          <div class="section-heading">
-            <mat-icon>article</mat-icon>
-            <span>Content Information &amp; Academic Tagging</span>
-          </div>
-
-          <mat-form-field appearance="outline" class="w-full">
-            <mat-label>Document / Notes Title *</mat-label>
-            <input matInput [(ngModel)]="form.title" placeholder="e.g. Class 10th Physics - Light Reflection Notes &amp; Formulas" required />
+          }
+    
+          <!-- Subject -->
+          <mat-form-field appearance="outline" [class.col-span-2]="form.targetScope === 'Both'">
+            <mat-label>Teaching Subject *</mat-label>
+            <mat-select [(ngModel)]="form.subject" required>
+              @for (s of (classSubjects.length > 0 ? classSubjects : data.subjects); track s) {
+                <mat-option [value]="s.name">
+                  {{ s.name }} @if (s.code) {
+                  <span class="opt-sub">[{{ s.code }}]</span>
+                }
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+    
+        <!-- Material Type (Full Width across the card) -->
+        <mat-form-field appearance="outline" class="col-span-2">
+          <mat-label>Material Type *</mat-label>
+          <mat-select [(ngModel)]="form.materialType" required>
+            <mat-option value="Notes">📝 Theory &amp; Concept Notes</mat-option>
+            <mat-option value="PYQ">🎯 Previous Year Questions (PYQ Archive)</mat-option>
+            <mat-option value="QuestionBank">📚 Question Bank / DPPs</mat-option>
+            <mat-option value="FormulaSheet">⚡ Formula Sheet &amp; Mindmaps</mat-option>
+            <mat-option value="SamplePaper">📄 Sample &amp; Model Papers</mat-option>
+            <mat-option value="Syllabus">📌 Syllabus &amp; Blueprint</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </div>
+    
+    <!-- 2. Content Details -->
+    <div class="form-section-card">
+      <div class="section-heading">
+        <mat-icon>article</mat-icon>
+        <span>Content Information &amp; Academic Tagging</span>
+      </div>
+    
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Document / Notes Title *</mat-label>
+        <input matInput [(ngModel)]="form.title" placeholder="e.g. Class 10th Physics - Light Reflection Notes &amp; Formulas" required />
+      </mat-form-field>
+    
+      <div class="grid-3-cols">
+        <mat-form-field appearance="outline">
+          <mat-label>Chapter Name (Optional)</mat-label>
+          <input matInput [(ngModel)]="form.chapterName" placeholder="e.g. Chapter 4: Quadratic Equations" />
+        </mat-form-field>
+    
+        <mat-form-field appearance="outline">
+          <mat-label>Specific Topic (Optional)</mat-label>
+          <input matInput [(ngModel)]="form.topic" placeholder="e.g. Ray Diagrams &amp; Mirror Formula" />
+        </mat-form-field>
+    
+        <mat-form-field appearance="outline">
+          <mat-label>Academic Year</mat-label>
+          <input matInput [(ngModel)]="form.academicYear" placeholder="2026-27" />
+        </mat-form-field>
+      </div>
+    
+      <!-- Exam & PYQ Details -->
+      @if (form.materialType === 'PYQ' || form.materialType === 'QuestionBank' || form.targetScope === 'Coaching') {
+        <div class="grid-3-cols">
+          <mat-form-field appearance="outline">
+            <mat-label>Target Exam</mat-label>
+            <mat-select [(ngModel)]="form.targetExam">
+              <mat-option value="CBSE Board">CBSE Board</mat-option>
+              <mat-option value="ICSE Board">ICSE Board</mat-option>
+              <mat-option value="State Board">State Board</mat-option>
+              <mat-option value="JEE Main">JEE Main</mat-option>
+              <mat-option value="JEE Advanced">JEE Advanced</mat-option>
+              <mat-option value="NEET UG">NEET UG</mat-option>
+              <mat-option value="Olympiad / NTSE">Olympiad / NTSE</mat-option>
+              <mat-option value="Foundation">Foundation (9th &amp; 10th)</mat-option>
+              <mat-option value="General">General / All Exams</mat-option>
+            </mat-select>
           </mat-form-field>
-
-          <div class="grid-3-cols">
-            <mat-form-field appearance="outline">
-              <mat-label>Chapter Name (Optional)</mat-label>
-              <input matInput [(ngModel)]="form.chapterName" placeholder="e.g. Chapter 4: Quadratic Equations" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Specific Topic (Optional)</mat-label>
-              <input matInput [(ngModel)]="form.topic" placeholder="e.g. Ray Diagrams &amp; Mirror Formula" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Academic Year</mat-label>
-              <input matInput [(ngModel)]="form.academicYear" placeholder="2026-27" />
-            </mat-form-field>
-          </div>
-
-          <!-- Exam & PYQ Details -->
-          <div class="grid-3-cols" *ngIf="form.materialType === 'PYQ' || form.materialType === 'QuestionBank' || form.targetScope === 'Coaching'">
-            <mat-form-field appearance="outline">
-              <mat-label>Target Exam</mat-label>
-              <mat-select [(ngModel)]="form.targetExam">
-                <mat-option value="CBSE Board">CBSE Board</mat-option>
-                <mat-option value="ICSE Board">ICSE Board</mat-option>
-                <mat-option value="State Board">State Board</mat-option>
-                <mat-option value="JEE Main">JEE Main</mat-option>
-                <mat-option value="JEE Advanced">JEE Advanced</mat-option>
-                <mat-option value="NEET UG">NEET UG</mat-option>
-                <mat-option value="Olympiad / NTSE">Olympiad / NTSE</mat-option>
-                <mat-option value="Foundation">Foundation (9th &amp; 10th)</mat-option>
-                <mat-option value="General">General / All Exams</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Exam Year / Range</mat-label>
-              <input matInput [(ngModel)]="form.examYear" placeholder="e.g. 2024, 2020-2024" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Difficulty Level</mat-label>
-              <mat-select [(ngModel)]="form.difficultyLevel">
-                <mat-option value="Easy">Beginner / Easy</mat-option>
-                <mat-option value="Medium">Standard / Medium</mat-option>
-                <mat-option value="Hard">Advanced / Hard</mat-option>
-                <mat-option value="All Levels">All Levels (Comprehensive)</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
-          <mat-form-field appearance="outline" class="w-full">
-            <mat-label>Short Summary / Instructions (Optional)</mat-label>
-            <textarea matInput [(ngModel)]="form.description" rows="2" placeholder="Brief summary of key topics covered, formula lists or special problem-solving tips..."></textarea>
+          <mat-form-field appearance="outline">
+            <mat-label>Exam Year / Range</mat-label>
+            <input matInput [(ngModel)]="form.examYear" placeholder="e.g. 2024, 2020-2024" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Difficulty Level</mat-label>
+            <mat-select [(ngModel)]="form.difficultyLevel">
+              <mat-option value="Easy">Beginner / Easy</mat-option>
+              <mat-option value="Medium">Standard / Medium</mat-option>
+              <mat-option value="Hard">Advanced / Hard</mat-option>
+              <mat-option value="All Levels">All Levels (Comprehensive)</mat-option>
+            </mat-select>
           </mat-form-field>
         </div>
-
-        <!-- 3. File Upload Section -->
-        <div class="form-section-card">
-          <div class="section-heading">
-            <mat-icon>attachment</mat-icon>
-            <span>File Attachment &amp; Resources</span>
-          </div>
-
-          <!-- Primary File Upload Area -->
-          <div class="upload-dropzone" [class.has-file]="!!form.fileUrl">
-            <div class="dropzone-content" *ngIf="!form.fileUrl">
-              <div class="dropzone-icon">
-                <mat-icon>cloud_upload</mat-icon>
-              </div>
-              <div class="dropzone-text">
-                <strong>Click to upload document file</strong> or drag &amp; drop here
-                <span>Supports PDF, DOCX, PPTX, XLSX, ZIP (Up to 50MB)</span>
-              </div>
-              <input type="file" class="hidden-file-input" (change)="onFileSelected($event, 'file')" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip" />
+      }
+    
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Short Summary / Instructions (Optional)</mat-label>
+        <textarea matInput [(ngModel)]="form.description" rows="2" placeholder="Brief summary of key topics covered, formula lists or special problem-solving tips..."></textarea>
+      </mat-form-field>
+    </div>
+    
+    <!-- 3. File Upload Section -->
+    <div class="form-section-card">
+      <div class="section-heading">
+        <mat-icon>attachment</mat-icon>
+        <span>File Attachment &amp; Resources</span>
+      </div>
+    
+      <!-- Primary File Upload Area -->
+      <div class="upload-dropzone" [class.has-file]="!!form.fileUrl">
+        @if (!form.fileUrl) {
+          <div class="dropzone-content">
+            <div class="dropzone-icon">
+              <mat-icon>cloud_upload</mat-icon>
             </div>
-
-            <div class="dropzone-file-preview" *ngIf="form.fileUrl">
-              <div class="file-icon-box" [ngClass]="form.fileFormat">
-                <mat-icon>description</mat-icon>
-              </div>
-              <div class="file-details">
-                <span class="file-name">{{ form.fileName }}</span>
-                <span class="file-meta">
-                  <span class="format-pill">{{ form.fileFormat | uppercase }}</span>
-                  <span *ngIf="form.fileSizeBytes > 0">{{ formatBytes(form.fileSizeBytes) }}</span>
-                  <span class="status-ready">✅ Ready to save</span>
-                </span>
-              </div>
-              <button mat-icon-button color="warn" type="button" (click)="clearFile('file')" matTooltip="Remove file">
-                <mat-icon>delete</mat-icon>
-              </button>
+            <div class="dropzone-text">
+              <strong>Click to upload document file</strong> or drag &amp; drop here
+              <span>Supports PDF, DOCX, PPTX, XLSX, ZIP (Up to 50MB)</span>
             </div>
-
-            <mat-progress-bar *ngIf="uploadingFile" mode="indeterminate"></mat-progress-bar>
+            <input type="file" class="hidden-file-input" (change)="onFileSelected($event, 'file')" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip" />
           </div>
-
-          <!-- Solutions Toggle -->
-          <div class="solutions-strip">
-            <mat-checkbox [(ngModel)]="form.hasSolutions" color="primary">
-              <span class="cb-label">Includes Official Solutions / Answer Key</span>
-            </mat-checkbox>
-          </div>
-
-          <!-- Separate Solution File Upload (Optional) -->
-          <div class="solution-upload-box" *ngIf="form.hasSolutions">
-            <div class="solution-label-row">
-              <mat-icon>key</mat-icon>
-              <span>Attach Separate Solution / Marking Scheme PDF (Optional):</span>
+        }
+    
+        @if (form.fileUrl) {
+          <div class="dropzone-file-preview">
+            <div class="file-icon-box" [ngClass]="form.fileFormat">
+              <mat-icon>description</mat-icon>
             </div>
-            <div class="sub-dropzone" *ngIf="!form.solutionFileUrl">
+            <div class="file-details">
+              <span class="file-name">{{ form.fileName }}</span>
+              <span class="file-meta">
+                <span class="format-pill">{{ form.fileFormat | uppercase }}</span>
+                @if (form.fileSizeBytes > 0) {
+                  <span>{{ formatBytes(form.fileSizeBytes) }}</span>
+                }
+                <span class="status-ready">✅ Ready to save</span>
+              </span>
+            </div>
+            <button mat-icon-button color="warn" type="button" (click)="clearFile('file')" matTooltip="Remove file">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        }
+    
+        @if (uploadingFile) {
+          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        }
+      </div>
+    
+      <!-- Solutions Toggle -->
+      <div class="solutions-strip">
+        <mat-checkbox [(ngModel)]="form.hasSolutions" color="primary">
+          <span class="cb-label">Includes Official Solutions / Answer Key</span>
+        </mat-checkbox>
+      </div>
+    
+      <!-- Separate Solution File Upload (Optional) -->
+      @if (form.hasSolutions) {
+        <div class="solution-upload-box">
+          <div class="solution-label-row">
+            <mat-icon>key</mat-icon>
+            <span>Attach Separate Solution / Marking Scheme PDF (Optional):</span>
+          </div>
+          @if (!form.solutionFileUrl) {
+            <div class="sub-dropzone">
               <button mat-stroked-button type="button" class="btn-sub-upload">
                 <mat-icon>upload_file</mat-icon> Upload Solution PDF
                 <input type="file" class="hidden-file-input" (change)="onFileSelected($event, 'solution')" accept=".pdf,.doc,.docx" />
               </button>
               <span class="sub-hint">If solutions are stored in a separate document</span>
             </div>
-            <div class="solution-file-tag" *ngIf="form.solutionFileUrl">
+          }
+          @if (form.solutionFileUrl) {
+            <div class="solution-file-tag">
               <mat-icon>check_circle</mat-icon>
               <span>{{ form.solutionFileName }}</span>
               <button mat-icon-button color="warn" type="button" (click)="clearFile('solution')">
                 <mat-icon>close</mat-icon>
               </button>
             </div>
-            <mat-progress-bar *ngIf="uploadingSolution" mode="indeterminate"></mat-progress-bar>
-          </div>
-
-          <!-- External Link (Optional) -->
-          <mat-form-field appearance="outline" class="w-full" style="margin-top: 14px;">
-            <mat-label>Google Drive / Video Lecture Link (Optional)</mat-label>
-            <input matInput [(ngModel)]="form.externalLink" placeholder="https://drive.google.com/... or https://youtube.com/..." />
-            <mat-icon matPrefix>link</mat-icon>
-          </mat-form-field>
+          }
+          @if (uploadingSolution) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          }
         </div>
-
-        <!-- 4. Options -->
-        <div class="options-row">
-          <mat-checkbox [(ngModel)]="form.isFeatured" color="accent">
-            <span class="cb-label">⭐ Mark as Featured (Top of student feed)</span>
-          </mat-checkbox>
-          <mat-checkbox [(ngModel)]="form.isPublished" color="primary">
-            <span class="cb-label">Publish Immediately to Students</span>
-          </mat-checkbox>
-        </div>
-      </mat-dialog-content>
-
-      <mat-dialog-actions align="end" class="dialog-actions">
-        <button mat-button type="button" (click)="dialogRef.close()" [disabled]="saving">Cancel</button>
-        <button mat-flat-button color="primary" class="submit-btn" [disabled]="!isFormValid() || saving" (click)="save()">
-          <mat-icon *ngIf="!saving">check_circle</mat-icon>
-          <mat-icon *ngIf="saving" class="spin">refresh</mat-icon>
-          <span>{{ saving ? 'Saving...' : (isEdit ? 'Update Material' : 'Upload & Publish') }}</span>
-        </button>
-      </mat-dialog-actions>
+      }
+    
+      <!-- External Link (Optional) -->
+      <mat-form-field appearance="outline" class="w-full" style="margin-top: 14px;">
+        <mat-label>Google Drive / Video Lecture Link (Optional)</mat-label>
+        <input matInput [(ngModel)]="form.externalLink" placeholder="https://drive.google.com/... or https://youtube.com/..." />
+        <mat-icon matPrefix>link</mat-icon>
+      </mat-form-field>
     </div>
-  `,
+    
+    <!-- 4. Options -->
+    <div class="options-row">
+      <mat-checkbox [(ngModel)]="form.isFeatured" color="accent">
+        <span class="cb-label">⭐ Mark as Featured (Top of student feed)</span>
+      </mat-checkbox>
+      <mat-checkbox [(ngModel)]="form.isPublished" color="primary">
+        <span class="cb-label">Publish Immediately to Students</span>
+      </mat-checkbox>
+    </div>
+    </mat-dialog-content>
+    
+    <mat-dialog-actions align="end" class="dialog-actions">
+      <button mat-button type="button" (click)="dialogRef.close()" [disabled]="saving">Cancel</button>
+      <button mat-flat-button color="primary" class="submit-btn" [disabled]="!isFormValid() || saving" (click)="save()">
+        @if (!saving) {
+          <mat-icon>check_circle</mat-icon>
+        }
+        @if (saving) {
+          <mat-icon class="spin">refresh</mat-icon>
+        }
+        <span>{{ saving ? 'Saving...' : (isEdit ? 'Update Material' : 'Upload & Publish') }}</span>
+      </button>
+    </mat-dialog-actions>
+    </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       padding: 0;

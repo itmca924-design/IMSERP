@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -45,348 +45,399 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
             </p>
           </div>
         </div>
-
-        <div class="header-action-buttons" *ngIf="ledger">
-          <button mat-flat-button class="pay-upi-btn" *ngIf="ledger.totalOutstandingDue > 0" (click)="openUpiPaymentForTotal()" matTooltip="Scan Dynamic UPI QR to Pay Outstanding Fees Instantly">
-            <mat-icon>qr_code_scanner</mat-icon>
-            <span>Pay via UPI (₹{{ ledger.totalOutstandingDue | number:'1.0-0' }})</span>
-          </button>
-          <button mat-stroked-button class="due-slip-btn" *ngIf="ledger.totalOutstandingDue > 0" (click)="openDueSlip()" matTooltip="Download / Print Official Due Slip">
-            <mat-icon>receipt</mat-icon>
-            <span>Print Due Slip</span>
-          </button>
-          <button mat-raised-button class="print-passbook-btn" (click)="printPassbook()" matTooltip="Print or save fee passbook as PDF">
-            <mat-icon>print</mat-icon>
-            <span>Print Statement</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="page-content-wrap" *ngIf="ledger && !loading">
-        <!-- Student Information Card & KPI Metrics Row -->
-        <mat-card class="student-kpi-card mat-elevation-z1">
-          <div class="card-inner-grid">
-            <!-- Student Meta Details -->
-            <div class="student-profile-summary">
-              <div class="student-avatar-box">
-                <mat-icon>school</mat-icon>
-              </div>
-              <div class="student-details">
-                <div class="st-name-row">
-                  <h3 class="st-name">{{ ledger.studentName }}</h3>
-                  <span class="st-status-chip">Enrolled</span>
-                </div>
-                <div class="st-tags-row">
-                  <span class="st-tag">Roll: <strong>{{ ledger.rollNumber || 'N/A' }}</strong></span>
-                  <span class="dot">•</span>
-                  <span class="st-tag">Batch/Class: <strong>{{ ledger.batchName || 'General' }}</strong></span>
-                  <span class="dot" *ngIf="effectiveBranchName">•</span>
-                  <span class="st-tag branch" *ngIf="effectiveBranchName">🏛️ {{ effectiveBranchName }}</span>
-                </div>
-                <div class="parent-contact-row" *ngIf="ledger.parentName || ledger.parentWhatsAppPhone">
-                  <mat-icon class="contact-icon">family_restroom</mat-icon>
-                  <span>Parent / Guardian: <strong>{{ ledger.parentName || 'Guardian' }}</strong></span>
-                  <span class="wa-num" *ngIf="ledger.parentWhatsAppPhone">(WA: {{ ledger.parentWhatsAppPhone }})</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 4 KPI Metrics -->
-            <div class="financial-kpis-grid">
-              <div class="kpi-box total">
-                <span class="kpi-label">Total Fee Charged</span>
-                <strong class="kpi-value">₹{{ ledger.totalFeesCharged | number:'1.2-2' }}</strong>
-                <span class="kpi-sub">Total institutional billing</span>
-              </div>
-
-              <div class="kpi-box paid">
-                <span class="kpi-label">Total Fee Paid</span>
-                <strong class="kpi-value text-success">₹{{ ledger.totalFeesPaid | number:'1.2-2' }}</strong>
-                <span class="kpi-sub text-success">Settled &amp; receipted</span>
-              </div>
-
-              <div class="kpi-box balance" [class.has-due]="ledger.totalOutstandingDue > 0">
-                <span class="kpi-label">Net Balance Due</span>
-                <strong class="kpi-value" [class.text-danger]="ledger.totalOutstandingDue > 0" [class.text-success]="ledger.totalOutstandingDue <= 0">
-                  ₹{{ ledger.totalOutstandingDue | number:'1.2-2' }}
-                </strong>
-                <span class="kpi-sub" *ngIf="ledger.totalOutstandingDue > 0">Pending fee arrears</span>
-                <span class="kpi-sub text-success" *ngIf="ledger.totalOutstandingDue <= 0">All dues cleared 🎉</span>
-                <button mat-flat-button class="kpi-pay-btn" *ngIf="ledger.totalOutstandingDue > 0" (click)="openUpiPaymentForTotal()">
-                  <mat-icon>qr_code_scanner</mat-icon>
-                  <span>Pay Now</span>
-                </button>
-              </div>
-
-              <div class="kpi-box lib-fines" *ngIf="ledger.pendingLibraryFine && ledger.pendingLibraryFine > 0">
-                <span class="kpi-label">Library Fine Due</span>
-                <strong class="kpi-value text-warning">₹{{ ledger.pendingLibraryFine | number:'1.2-2' }}</strong>
-                <span class="kpi-sub">Book return overdue</span>
-              </div>
-            </div>
+    
+        @if (ledger) {
+          <div class="header-action-buttons">
+            @if (ledger.totalOutstandingDue > 0) {
+              <button mat-flat-button class="pay-upi-btn" (click)="openUpiPaymentForTotal()" matTooltip="Scan Dynamic UPI QR to Pay Outstanding Fees Instantly">
+                <mat-icon>qr_code_scanner</mat-icon>
+                <span>Pay via UPI (₹{{ ledger.totalOutstandingDue | number:'1.0-0' }})</span>
+              </button>
+            }
+            @if (ledger.totalOutstandingDue > 0) {
+              <button mat-stroked-button class="due-slip-btn" (click)="openDueSlip()" matTooltip="Download / Print Official Due Slip">
+                <mat-icon>receipt</mat-icon>
+                <span>Print Due Slip</span>
+              </button>
+            }
+            <button mat-raised-button class="print-passbook-btn" (click)="printPassbook()" matTooltip="Print or save fee passbook as PDF">
+              <mat-icon>print</mat-icon>
+              <span>Print Statement</span>
+            </button>
           </div>
-        </mat-card>
-
-        <!-- Statement Tabs -->
-        <mat-card class="statement-card mat-elevation-z1">
-          <mat-tab-group class="statement-tabs" animationDuration="0ms">
-            <!-- Tab 1: Month-Wise Invoices & Arrears -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-label-icon">receipt</mat-icon>
-                <span>Month-Wise Invoices &amp; Arrears ({{ ledger.invoices.length }})</span>
-              </ng-template>
-
-              <div class="tab-body-wrap">
-                <!-- Desktop / Tablet Table View -->
-                <div class="table-responsive desktop-table-wrap">
-                  <table class="passbook-table">
-                    <thead>
-                      <tr>
-                        <th class="col-inv">Invoice No</th>
-                        <th class="col-desc">Month / Description</th>
-                        <th class="col-date">Due Date (IST)</th>
-                        <th class="col-amt text-right">Total Billed</th>
-                        <th class="col-amt text-right">Amount Paid</th>
-                        <th class="col-amt text-right">Balance Due</th>
-                        <th class="col-status text-center">Status</th>
-                        <th class="col-action text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let inv of ledger.invoices" [class.cancelled-row]="inv.status === 'Cancelled'">
-                        <td class="font-mono nowrap"><strong>{{ inv.invoiceNumber }}</strong></td>
-                        <td class="col-desc-td">
-                          <div class="inv-title">{{ inv.title }}</div>
-                          <div class="heads-wrap" *ngIf="inv.items && inv.items.length > 0">
-                            <span *ngFor="let it of inv.items" class="head-chip">
-                              {{ it.headName }}: <strong>₹{{ it.amount | number:'1.0-0' }}</strong>
+        }
+      </div>
+    
+      @if (ledger && !loading) {
+        <div class="page-content-wrap">
+          <!-- Student Information Card & KPI Metrics Row -->
+          <mat-card class="student-kpi-card mat-elevation-z1">
+            <div class="card-inner-grid">
+              <!-- Student Meta Details -->
+              <div class="student-profile-summary">
+                <div class="student-avatar-box">
+                  <mat-icon>school</mat-icon>
+                </div>
+                <div class="student-details">
+                  <div class="st-name-row">
+                    <h3 class="st-name">{{ ledger.studentName }}</h3>
+                    <span class="st-status-chip">Enrolled</span>
+                  </div>
+                  <div class="st-tags-row">
+                    <span class="st-tag">Roll: <strong>{{ ledger.rollNumber || 'N/A' }}</strong></span>
+                    <span class="dot">•</span>
+                    <span class="st-tag">Batch/Class: <strong>{{ ledger.batchName || 'General' }}</strong></span>
+                    @if (effectiveBranchName) {
+                      <span class="dot">•</span>
+                    }
+                    @if (effectiveBranchName) {
+                      <span class="st-tag branch">🏛️ {{ effectiveBranchName }}</span>
+                    }
+                  </div>
+                  @if (ledger.parentName || ledger.parentWhatsAppPhone) {
+                    <div class="parent-contact-row">
+                      <mat-icon class="contact-icon">family_restroom</mat-icon>
+                      <span>Parent / Guardian: <strong>{{ ledger.parentName || 'Guardian' }}</strong></span>
+                      @if (ledger.parentWhatsAppPhone) {
+                        <span class="wa-num">(WA: {{ ledger.parentWhatsAppPhone }})</span>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+              <!-- 4 KPI Metrics -->
+              <div class="financial-kpis-grid">
+                <div class="kpi-box total">
+                  <span class="kpi-label">Total Fee Charged</span>
+                  <strong class="kpi-value">₹{{ ledger.totalFeesCharged | number:'1.2-2' }}</strong>
+                  <span class="kpi-sub">Total institutional billing</span>
+                </div>
+                <div class="kpi-box paid">
+                  <span class="kpi-label">Total Fee Paid</span>
+                  <strong class="kpi-value text-success">₹{{ ledger.totalFeesPaid | number:'1.2-2' }}</strong>
+                  <span class="kpi-sub text-success">Settled &amp; receipted</span>
+                </div>
+                <div class="kpi-box balance" [class.has-due]="ledger.totalOutstandingDue > 0">
+                  <span class="kpi-label">Net Balance Due</span>
+                  <strong class="kpi-value" [class.text-danger]="ledger.totalOutstandingDue > 0" [class.text-success]="ledger.totalOutstandingDue <= 0">
+                    ₹{{ ledger.totalOutstandingDue | number:'1.2-2' }}
+                  </strong>
+                  @if (ledger.totalOutstandingDue > 0) {
+                    <span class="kpi-sub">Pending fee arrears</span>
+                  }
+                  @if (ledger.totalOutstandingDue <= 0) {
+                    <span class="kpi-sub text-success">All dues cleared 🎉</span>
+                  }
+                  @if (ledger.totalOutstandingDue > 0) {
+                    <button mat-flat-button class="kpi-pay-btn" (click)="openUpiPaymentForTotal()">
+                      <mat-icon>qr_code_scanner</mat-icon>
+                      <span>Pay Now</span>
+                    </button>
+                  }
+                </div>
+                @if (ledger.pendingLibraryFine && ledger.pendingLibraryFine > 0) {
+                  <div class="kpi-box lib-fines">
+                    <span class="kpi-label">Library Fine Due</span>
+                    <strong class="kpi-value text-warning">₹{{ ledger.pendingLibraryFine | number:'1.2-2' }}</strong>
+                    <span class="kpi-sub">Book return overdue</span>
+                  </div>
+                }
+              </div>
+            </div>
+          </mat-card>
+          <!-- Statement Tabs -->
+          <mat-card class="statement-card mat-elevation-z1">
+            <mat-tab-group class="statement-tabs" animationDuration="0ms">
+              <!-- Tab 1: Month-Wise Invoices & Arrears -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-label-icon">receipt</mat-icon>
+                  <span>Month-Wise Invoices &amp; Arrears ({{ ledger.invoices.length }})</span>
+                </ng-template>
+                <div class="tab-body-wrap">
+                  <!-- Desktop / Tablet Table View -->
+                  <div class="table-responsive desktop-table-wrap">
+                    <table class="passbook-table">
+                      <thead>
+                        <tr>
+                          <th class="col-inv">Invoice No</th>
+                          <th class="col-desc">Month / Description</th>
+                          <th class="col-date">Due Date (IST)</th>
+                          <th class="col-amt text-right">Total Billed</th>
+                          <th class="col-amt text-right">Amount Paid</th>
+                          <th class="col-amt text-right">Balance Due</th>
+                          <th class="col-status text-center">Status</th>
+                          <th class="col-action text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (inv of ledger.invoices; track inv) {
+                          <tr [class.cancelled-row]="inv.status === 'Cancelled'">
+                            <td class="font-mono nowrap"><strong>{{ inv.invoiceNumber }}</strong></td>
+                            <td class="col-desc-td">
+                              <div class="inv-title">{{ inv.title }}</div>
+                              @if (inv.items && inv.items.length > 0) {
+                                <div class="heads-wrap">
+                                  @for (it of inv.items; track it) {
+                                    <span class="head-chip">
+                                      {{ it.headName }}: <strong>₹{{ it.amount | number:'1.0-0' }}</strong>
+                                    </span>
+                                  }
+                                </div>
+                              }
+                              @if (inv.status === 'Cancelled') {
+                                <span class="cancelled-tag" [matTooltip]="'Cancelled: ' + (inv.cancellationReason || 'Admin Action')">
+                                  VOID / CANCELLED
+                                </span>
+                              }
+                            </td>
+                            <td class="nowrap">{{ formatToIST(inv.dueDate, false) }}</td>
+                            <td class="text-right nowrap">
+                              {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}
+                            </td>
+                            <td class="text-right text-success nowrap">
+                              {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}
+                            </td>
+                            <td class="text-right nowrap font-bold" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
+                              {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}
+                            </td>
+                            <td class="text-center nowrap">
+                              <span class="status-pill" [ngClass]="inv.status.toLowerCase()">
+                                {{ inv.status }}
+                              </span>
+                            </td>
+                            <td class="text-center nowrap">
+                              @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
+                                <button
+                                  mat-flat-button
+                                  class="row-pay-upi-btn"
+                                  (click)="openUpiPaymentForInvoice(inv)"
+                                  matTooltip="Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via Dynamic UPI QR"
+                                  >
+                                  <mat-icon>qr_code_scanner</mat-icon>
+                                  <span>Pay ₹{{ inv.dueAmount | number:'1.0-0' }}</span>
+                                </button>
+                              }
+                              @if (inv.dueAmount <= 0 && inv.status === 'Paid') {
+                                <span class="paid-tag">
+                                  <mat-icon>check_circle</mat-icon> Settled
+                                </span>
+                              }
+                            </td>
+                          </tr>
+                        }
+                        @if (ledger.invoices.length === 0) {
+                          <tr>
+                            <td colspan="8" class="empty-state-cell">
+                              <mat-icon class="empty-icon">sentiment_satisfied_alt</mat-icon>
+                              <p>No fee invoices billed for this student profile yet.</p>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                  <!-- Mobile Invoices Card List (< 768px) -->
+                  @if (ledger.invoices.length > 0) {
+                    <div class="mobile-cards-wrap">
+                      @for (inv of ledger.invoices; track inv) {
+                        <div class="mobile-invoice-card" [class.cancelled-card]="inv.status === 'Cancelled'">
+                          <div class="m-card-header">
+                            <div class="m-inv-no">
+                              <mat-icon class="m-inv-icon">tag</mat-icon>
+                              <strong>{{ inv.invoiceNumber }}</strong>
+                            </div>
+                            <span class="status-pill" [ngClass]="inv.status.toLowerCase()">
+                              {{ inv.status }}
                             </span>
                           </div>
-                          <span *ngIf="inv.status === 'Cancelled'" class="cancelled-tag" [matTooltip]="'Cancelled: ' + (inv.cancellationReason || 'Admin Action')">
-                            VOID / CANCELLED
-                          </span>
-                        </td>
-                        <td class="nowrap">{{ formatToIST(inv.dueDate, false) }}</td>
-                        <td class="text-right nowrap">
-                          {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}
-                        </td>
-                        <td class="text-right text-success nowrap">
-                          {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}
-                        </td>
-                        <td class="text-right nowrap font-bold" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
-                          {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}
-                        </td>
-                        <td class="text-center nowrap">
-                          <span class="status-pill" [ngClass]="inv.status.toLowerCase()">
-                            {{ inv.status }}
-                          </span>
-                        </td>
-                        <td class="text-center nowrap">
-                          <button
-                            mat-flat-button
-                            class="row-pay-upi-btn"
-                            *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'"
-                            (click)="openUpiPaymentForInvoice(inv)"
-                            matTooltip="Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via Dynamic UPI QR"
-                          >
-                            <mat-icon>qr_code_scanner</mat-icon>
-                            <span>Pay ₹{{ inv.dueAmount | number:'1.0-0' }}</span>
-                          </button>
-                          <span *ngIf="inv.dueAmount <= 0 && inv.status === 'Paid'" class="paid-tag">
-                            <mat-icon>check_circle</mat-icon> Settled
-                          </span>
-                        </td>
-                      </tr>
-                      <tr *ngIf="ledger.invoices.length === 0">
-                        <td colspan="8" class="empty-state-cell">
-                          <mat-icon class="empty-icon">sentiment_satisfied_alt</mat-icon>
-                          <p>No fee invoices billed for this student profile yet.</p>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                          <div class="m-card-body">
+                            <div class="m-inv-title">{{ inv.title }}</div>
+                            @if (inv.dueDate) {
+                              <div class="m-inv-due">
+                                <mat-icon class="m-meta-icon">event</mat-icon>
+                                <span>Due Date: <strong>{{ formatToIST(inv.dueDate, false) }}</strong></span>
+                              </div>
+                            }
+                            @if (inv.items && inv.items.length > 0) {
+                              <div class="m-heads-list">
+                                <div class="m-heads-label">Fee Breakdown:</div>
+                                <div class="heads-wrap">
+                                  @for (it of inv.items; track it) {
+                                    <span class="head-chip">
+                                      {{ it.headName }}: <strong>₹{{ it.amount | number:'1.0-0' }}</strong>
+                                    </span>
+                                  }
+                                </div>
+                              </div>
+                            }
+                            @if (inv.status === 'Cancelled') {
+                              <span class="cancelled-tag">
+                                VOID / CANCELLED ({{ inv.cancellationReason || 'Admin Action' }})
+                              </span>
+                            }
+                            <div class="m-amount-row">
+                              <div class="m-amt-box">
+                                <span class="m-amt-lbl">Total Billed</span>
+                                <span class="m-amt-val">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</span>
+                              </div>
+                              <div class="m-amt-box text-success">
+                                <span class="m-amt-lbl">Amount Paid</span>
+                                <span class="m-amt-val">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}</span>
+                              </div>
+                              <div class="m-amt-box" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
+                                <span class="m-amt-lbl">Balance Due</span>
+                                <span class="m-amt-val font-bold">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</span>
+                              </div>
+                            </div>
+                          </div>
+                          @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
+                            <div class="m-card-footer">
+                              <button mat-flat-button class="m-pay-btn" (click)="openUpiPaymentForInvoice(inv)">
+                                <mat-icon>qr_code_scanner</mat-icon>
+                                <span>Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via UPI</span>
+                              </button>
+                            </div>
+                          }
+                          @if (inv.dueAmount <= 0 && inv.status === 'Paid') {
+                            <div class="m-card-footer settled">
+                              <span class="paid-tag"><mat-icon>check_circle</mat-icon> Fully Settled</span>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                  @if (ledger.invoices.length === 0) {
+                    <div class="empty-state-card">
+                      <mat-icon class="empty-icon">sentiment_satisfied_alt</mat-icon>
+                      <p>No fee invoices billed for this student profile yet.</p>
+                    </div>
+                  }
                 </div>
-
-                <!-- Mobile Invoices Card List (< 768px) -->
-                <div class="mobile-cards-wrap" *ngIf="ledger.invoices.length > 0">
-                  <div class="mobile-invoice-card" *ngFor="let inv of ledger.invoices" [class.cancelled-card]="inv.status === 'Cancelled'">
-                    <div class="m-card-header">
-                      <div class="m-inv-no">
-                        <mat-icon class="m-inv-icon">tag</mat-icon>
-                        <strong>{{ inv.invoiceNumber }}</strong>
-                      </div>
-                      <span class="status-pill" [ngClass]="inv.status.toLowerCase()">
-                        {{ inv.status }}
-                      </span>
-                    </div>
-
-                    <div class="m-card-body">
-                      <div class="m-inv-title">{{ inv.title }}</div>
-                      <div class="m-inv-due" *ngIf="inv.dueDate">
-                        <mat-icon class="m-meta-icon">event</mat-icon>
-                        <span>Due Date: <strong>{{ formatToIST(inv.dueDate, false) }}</strong></span>
-                      </div>
-
-                      <div class="m-heads-list" *ngIf="inv.items && inv.items.length > 0">
-                        <div class="m-heads-label">Fee Breakdown:</div>
-                        <div class="heads-wrap">
-                          <span *ngFor="let it of inv.items" class="head-chip">
-                            {{ it.headName }}: <strong>₹{{ it.amount | number:'1.0-0' }}</strong>
-                          </span>
-                        </div>
-                      </div>
-
-                      <span *ngIf="inv.status === 'Cancelled'" class="cancelled-tag">
-                        VOID / CANCELLED ({{ inv.cancellationReason || 'Admin Action' }})
-                      </span>
-
-                      <div class="m-amount-row">
-                        <div class="m-amt-box">
-                          <span class="m-amt-lbl">Total Billed</span>
-                          <span class="m-amt-val">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}</span>
-                        </div>
-                        <div class="m-amt-box text-success">
-                          <span class="m-amt-lbl">Amount Paid</span>
-                          <span class="m-amt-val">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}</span>
-                        </div>
-                        <div class="m-amt-box" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
-                          <span class="m-amt-lbl">Balance Due</span>
-                          <span class="m-amt-val font-bold">{{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="m-card-footer" *ngIf="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
-                      <button mat-flat-button class="m-pay-btn" (click)="openUpiPaymentForInvoice(inv)">
-                        <mat-icon>qr_code_scanner</mat-icon>
-                        <span>Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via UPI</span>
-                      </button>
-                    </div>
-                    <div class="m-card-footer settled" *ngIf="inv.dueAmount <= 0 && inv.status === 'Paid'">
-                      <span class="paid-tag"><mat-icon>check_circle</mat-icon> Fully Settled</span>
-                    </div>
+              </mat-tab>
+              <!-- Tab 2: Payment Receipts History -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="tab-label-icon">history_edu</mat-icon>
+                  <span>Payment Receipts History ({{ ledger.payments.length }})</span>
+                </ng-template>
+                <div class="tab-body-wrap">
+                  <!-- Desktop / Tablet Table View -->
+                  <div class="table-responsive desktop-table-wrap">
+                    <table class="passbook-table">
+                      <thead>
+                        <tr>
+                          <th>Receipt No</th>
+                          <th>Payment Date (IST)</th>
+                          <th>Invoice Ref</th>
+                          <th>Payment Mode</th>
+                          <th class="text-right">Amount Paid</th>
+                          <th>Transaction Ref / Remarks</th>
+                          <th class="text-center" style="width: 100px;">Receipt</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (p of ledger.payments; track p) {
+                          <tr>
+                            <td class="font-mono nowrap"><strong class="receipt-no-tag">{{ p.receiptNumber }}</strong></td>
+                            <td class="nowrap">{{ formatToIST(p.paymentDate, true) }}</td>
+                            <td class="nowrap font-mono">{{ p.invoiceNumber || '—' }}</td>
+                            <td class="nowrap">
+                              <span class="mode-pill">{{ getPaymentModeName(p.mode) }}</span>
+                            </td>
+                            <td class="text-right text-success nowrap font-bold">
+                              ₹{{ p.amountPaid | number:'1.2-2' }}
+                            </td>
+                            <td class="remarks-col">
+                              <span>{{ p.remarks || p.transactionRef || 'Institutional fee deposit' }}</span>
+                            </td>
+                            <td class="text-center nowrap">
+                              <button mat-stroked-button class="view-receipt-btn" (click)="openPaymentReceipt(p)" matTooltip="View & Print Official Receipt">
+                                <mat-icon>print</mat-icon>
+                                <span>Receipt</span>
+                              </button>
+                            </td>
+                          </tr>
+                        }
+                        @if (ledger.payments.length === 0) {
+                          <tr>
+                            <td colspan="7" class="empty-state-cell">
+                              <mat-icon class="empty-icon">receipt</mat-icon>
+                              <p>No fee payment receipts issued yet.</p>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-
-                <div class="empty-state-card" *ngIf="ledger.invoices.length === 0">
-                  <mat-icon class="empty-icon">sentiment_satisfied_alt</mat-icon>
-                  <p>No fee invoices billed for this student profile yet.</p>
-                </div>
-              </div>
-            </mat-tab>
-
-            <!-- Tab 2: Payment Receipts History -->
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <mat-icon class="tab-label-icon">history_edu</mat-icon>
-                <span>Payment Receipts History ({{ ledger.payments.length }})</span>
-              </ng-template>
-
-              <div class="tab-body-wrap">
-                <!-- Desktop / Tablet Table View -->
-                <div class="table-responsive desktop-table-wrap">
-                  <table class="passbook-table">
-                    <thead>
-                      <tr>
-                        <th>Receipt No</th>
-                        <th>Payment Date (IST)</th>
-                        <th>Invoice Ref</th>
-                        <th>Payment Mode</th>
-                        <th class="text-right">Amount Paid</th>
-                        <th>Transaction Ref / Remarks</th>
-                        <th class="text-center" style="width: 100px;">Receipt</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let p of ledger.payments">
-                        <td class="font-mono nowrap"><strong class="receipt-no-tag">{{ p.receiptNumber }}</strong></td>
-                        <td class="nowrap">{{ formatToIST(p.paymentDate, true) }}</td>
-                        <td class="nowrap font-mono">{{ p.invoiceNumber || '—' }}</td>
-                        <td class="nowrap">
-                          <span class="mode-pill">{{ getPaymentModeName(p.mode) }}</span>
-                        </td>
-                        <td class="text-right text-success nowrap font-bold">
-                          ₹{{ p.amountPaid | number:'1.2-2' }}
-                        </td>
-                        <td class="remarks-col">
-                          <span>{{ p.remarks || p.transactionRef || 'Institutional fee deposit' }}</span>
-                        </td>
-                        <td class="text-center nowrap">
-                          <button mat-stroked-button class="view-receipt-btn" (click)="openPaymentReceipt(p)" matTooltip="View & Print Official Receipt">
-                            <mat-icon>print</mat-icon>
-                            <span>Receipt</span>
-                          </button>
-                        </td>
-                      </tr>
-                      <tr *ngIf="ledger.payments.length === 0">
-                        <td colspan="7" class="empty-state-cell">
-                          <mat-icon class="empty-icon">receipt</mat-icon>
-                          <p>No fee payment receipts issued yet.</p>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Mobile Receipts Card List (< 768px) -->
-                <div class="mobile-cards-wrap" *ngIf="ledger.payments.length > 0">
-                  <div class="mobile-receipt-card" *ngFor="let p of ledger.payments">
-                    <div class="m-card-header">
-                      <div class="m-receipt-no">
-                        <mat-icon class="m-inv-icon">receipt</mat-icon>
-                        <strong class="receipt-no-tag">{{ p.receiptNumber }}</strong>
-                      </div>
-                      <span class="mode-pill">{{ getPaymentModeName(p.mode) }}</span>
-                    </div>
-
-                    <div class="m-card-body">
-                      <div class="m-receipt-main">
-                        <div class="m-receipt-amt text-success">₹{{ p.amountPaid | number:'1.2-2' }}</div>
-                        <div class="m-receipt-date">
-                          <mat-icon class="m-meta-icon">schedule</mat-icon>
-                          <span>{{ formatToIST(p.paymentDate, true) }}</span>
+                  <!-- Mobile Receipts Card List (< 768px) -->
+                  @if (ledger.payments.length > 0) {
+                    <div class="mobile-cards-wrap">
+                      @for (p of ledger.payments; track p) {
+                        <div class="mobile-receipt-card">
+                          <div class="m-card-header">
+                            <div class="m-receipt-no">
+                              <mat-icon class="m-inv-icon">receipt</mat-icon>
+                              <strong class="receipt-no-tag">{{ p.receiptNumber }}</strong>
+                            </div>
+                            <span class="mode-pill">{{ getPaymentModeName(p.mode) }}</span>
+                          </div>
+                          <div class="m-card-body">
+                            <div class="m-receipt-main">
+                              <div class="m-receipt-amt text-success">₹{{ p.amountPaid | number:'1.2-2' }}</div>
+                              <div class="m-receipt-date">
+                                <mat-icon class="m-meta-icon">schedule</mat-icon>
+                                <span>{{ formatToIST(p.paymentDate, true) }}</span>
+                              </div>
+                            </div>
+                            @if (p.invoiceNumber) {
+                              <div class="m-receipt-meta">
+                                <span class="m-meta-lbl">Invoice Ref:</span>
+                                <span class="font-mono"><strong>{{ p.invoiceNumber }}</strong></span>
+                              </div>
+                            }
+                            @if (p.remarks || p.transactionRef) {
+                              <div class="m-receipt-remarks">
+                                <span class="m-meta-lbl">Ref / Remarks:</span>
+                                <span>{{ p.remarks || p.transactionRef }}</span>
+                              </div>
+                            }
+                          </div>
+                          <div class="m-card-footer">
+                            <button mat-stroked-button class="view-receipt-btn m-receipt-btn" (click)="openPaymentReceipt(p)">
+                              <mat-icon>print</mat-icon>
+                              <span>View / Print Receipt</span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-
-                      <div class="m-receipt-meta" *ngIf="p.invoiceNumber">
-                        <span class="m-meta-lbl">Invoice Ref:</span>
-                        <span class="font-mono"><strong>{{ p.invoiceNumber }}</strong></span>
-                      </div>
-
-                      <div class="m-receipt-remarks" *ngIf="p.remarks || p.transactionRef">
-                        <span class="m-meta-lbl">Ref / Remarks:</span>
-                        <span>{{ p.remarks || p.transactionRef }}</span>
-                      </div>
+                      }
                     </div>
-
-                    <div class="m-card-footer">
-                      <button mat-stroked-button class="view-receipt-btn m-receipt-btn" (click)="openPaymentReceipt(p)">
-                        <mat-icon>print</mat-icon>
-                        <span>View / Print Receipt</span>
-                      </button>
+                  }
+                  @if (ledger.payments.length === 0) {
+                    <div class="empty-state-card">
+                      <mat-icon class="empty-icon">receipt</mat-icon>
+                      <p>No fee payment receipts issued yet.</p>
                     </div>
-                  </div>
+                  }
                 </div>
-
-                <div class="empty-state-card" *ngIf="ledger.payments.length === 0">
-                  <mat-icon class="empty-icon">receipt</mat-icon>
-                  <p>No fee payment receipts issued yet.</p>
-                </div>
-              </div>
-            </mat-tab>
-          </mat-tab-group>
-        </mat-card>
-      </div>
-
+              </mat-tab>
+            </mat-tab-group>
+          </mat-card>
+        </div>
+      }
+    
       <!-- Error / Empty State if no student record mapped -->
-      <div class="empty-profile-box" *ngIf="!ledger && !loading">
-        <mat-icon class="large-icon">contact_support</mat-icon>
-        <h3>No Student Profile Linked</h3>
-        <p>This parent account is not currently linked to an active student admission record. Please contact the school or coaching administration office.</p>
-      </div>
+      @if (!ledger && !loading) {
+        <div class="empty-profile-box">
+          <mat-icon class="large-icon">contact_support</mat-icon>
+          <h3>No Student Profile Linked</h3>
+          <p>This parent account is not currently linked to an active student admission record. Please contact the school or coaching administration office.</p>
+        </div>
+      }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .my-fees-page {
       display: flex;

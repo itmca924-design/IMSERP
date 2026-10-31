@@ -1811,7 +1811,7 @@ body:not(.header-theme-light) {
       background: rgba(255, 255, 255, 0.12) !important;
       border-color: rgba(255, 255, 255, 0.3) !important;
       color: #ffffff !important;
-      --mdc-outlined-button-label-text-color: #ffffff !important;
+      --mat-button-outlined-label-text-color: #ffffff !important;
       ::ng-deep .mdc-button__label { color: #ffffff !important; }
       mat-icon { color: #fbbf24 !important; }
       &:hover { background: rgba(255, 255, 255, 0.22) !important; }
@@ -1821,7 +1821,7 @@ body:not(.header-theme-light) {
       background: rgba(255, 255, 255, 0.12) !important;
       border: 1px solid rgba(255, 255, 255, 0.3) !important;
       color: #ffffff !important;
-      --mdc-outlined-button-label-text-color: #ffffff !important;
+      --mat-button-outlined-label-text-color: #ffffff !important;
       ::ng-deep .mdc-button__label { color: #ffffff !important; }
       .branch-btn-content { color: #ffffff !important; }
       .branch-btn-icon { color: #93c5fd !important; }

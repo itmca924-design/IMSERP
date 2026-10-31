@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -53,16 +53,16 @@ export interface CancelInvoiceDialogData {
             {{ data.paidAmount > 0 ? 'Invoice Cancellation & Settlement' : 'Cancel / Void Fee Invoice' }}
           </h2>
           <p class="subtitle">
-            {{ data.paidAmount > 0 
-              ? 'Handle partial collected fees, Day Book entries & student due clearance' 
-              : 'Select reason for marking this unpaid invoice as cancelled & voiding dues' }}
+            {{ data.paidAmount > 0
+            ? 'Handle partial collected fees, Day Book entries & student due clearance'
+            : 'Select reason for marking this unpaid invoice as cancelled & voiding dues' }}
           </p>
         </div>
         <button mat-icon-button type="button" class="close-btn" (click)="onClose()" [disabled]="submitting">
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="cancelForm" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
           <!-- Invoice & Student Summary Strip -->
@@ -76,16 +76,20 @@ export interface CancelInvoiceDialogData {
                 <span class="label">Student:</span>
                 <span class="val font-semibold">{{ data.studentName }} (Roll #{{ data.rollNumber || 'N/A' }})</span>
               </div>
-              <div class="summary-item" *ngIf="data.batchName">
-                <span class="label">Course / Batch:</span>
-                <span class="val text-muted">{{ data.batchName }}</span>
-              </div>
-              <div class="summary-item" *ngIf="data.title">
-                <span class="label">Particular:</span>
-                <span class="val">{{ data.title }}</span>
-              </div>
+              @if (data.batchName) {
+                <div class="summary-item">
+                  <span class="label">Course / Batch:</span>
+                  <span class="val text-muted">{{ data.batchName }}</span>
+                </div>
+              }
+              @if (data.title) {
+                <div class="summary-item">
+                  <span class="label">Particular:</span>
+                  <span class="val">{{ data.title }}</span>
+                </div>
+              }
             </div>
-
+    
             <div class="amount-strip">
               <div class="amt-box">
                 <span class="amt-lbl">Total Billed</span>
@@ -101,114 +105,126 @@ export interface CancelInvoiceDialogData {
               </div>
             </div>
           </div>
-
+    
           <!-- PARTIAL PAYMENT OPTIONS (When Paid > 0) -->
-          <div class="partial-options-section" *ngIf="data.paidAmount > 0">
-            <h4 class="section-title">
-              <mat-icon>tune</mat-icon>
-              Choose Settlement Action for Collected Fees (₹{{ data.paidAmount | number:'1.2-2' }})
-            </h4>
-
-            <div class="action-cards-grid">
-              <!-- Option A: Retain & Waive Remaining Due -->
-              <div 
-                class="action-card" 
-                [class.selected]="selectedAction === 'WaiveAndClose'"
-                (click)="setAction('WaiveAndClose')"
-              >
-                <div class="card-radio-header">
-                  <div class="radio-indicator">
-                    <mat-icon *ngIf="selectedAction === 'WaiveAndClose'">check_circle</mat-icon>
-                    <mat-icon *ngIf="selectedAction !== 'WaiveAndClose'">radio_button_unchecked</mat-icon>
+          @if (data.paidAmount > 0) {
+            <div class="partial-options-section">
+              <h4 class="section-title">
+                <mat-icon>tune</mat-icon>
+                Choose Settlement Action for Collected Fees (₹{{ data.paidAmount | number:'1.2-2' }})
+              </h4>
+              <div class="action-cards-grid">
+                <!-- Option A: Retain & Waive Remaining Due -->
+                <div
+                  class="action-card"
+                  [class.selected]="selectedAction === 'WaiveAndClose'"
+                  (click)="setAction('WaiveAndClose')"
+                  >
+                  <div class="card-radio-header">
+                    <div class="radio-indicator">
+                      @if (selectedAction === 'WaiveAndClose') {
+                        <mat-icon>check_circle</mat-icon>
+                      }
+                      @if (selectedAction !== 'WaiveAndClose') {
+                        <mat-icon>radio_button_unchecked</mat-icon>
+                      }
+                    </div>
+                    <div class="card-title-group">
+                      <div class="card-title">Retain Collected &amp; Waive Remaining Due</div>
+                      <div class="card-subtitle-hi">जमा ₹{{ data.paidAmount | number:'1.2-2' }} रखें और बाकी ₹{{ data.dueAmount | number:'1.2-2' }} माफ करें</div>
+                    </div>
+                    <span class="badge-recommended">Recommended</span>
                   </div>
-                  <div class="card-title-group">
-                    <div class="card-title">Retain Collected &amp; Waive Remaining Due</div>
-                    <div class="card-subtitle-hi">जमा ₹{{ data.paidAmount | number:'1.2-2' }} रखें और बाकी ₹{{ data.dueAmount | number:'1.2-2' }} माफ करें</div>
+                  <div class="card-body">
+                    <ul class="impact-list">
+                      <li>
+                        <mat-icon class="bullet-icon check-green">check</mat-icon>
+                        <span><strong>School retains ₹{{ data.paidAmount | number:'1.2-2' }}</strong> in accounts. Existing receipts &amp; Day Book entries remain intact.</span>
+                      </li>
+                      <li>
+                        <mat-icon class="bullet-icon check-green">check</mat-icon>
+                        <span>Remaining balance due of <strong>₹{{ data.dueAmount | number:'1.2-2' }} is waived off</strong> (no future dues or collection reminders).</span>
+                      </li>
+                      <li>
+                        <mat-icon class="bullet-icon check-green">check</mat-icon>
+                        <span>Invoice is marked <strong>"Paid / Settled"</strong>, clearing the student's ledger.</span>
+                      </li>
+                    </ul>
                   </div>
-                  <span class="badge-recommended">Recommended</span>
                 </div>
-
-                <div class="card-body">
-                  <ul class="impact-list">
-                    <li>
-                      <mat-icon class="bullet-icon check-green">check</mat-icon>
-                      <span><strong>School retains ₹{{ data.paidAmount | number:'1.2-2' }}</strong> in accounts. Existing receipts &amp; Day Book entries remain intact.</span>
-                    </li>
-                    <li>
-                      <mat-icon class="bullet-icon check-green">check</mat-icon>
-                      <span>Remaining balance due of <strong>₹{{ data.dueAmount | number:'1.2-2' }} is waived off</strong> (no future dues or collection reminders).</span>
-                    </li>
-                    <li>
-                      <mat-icon class="bullet-icon check-green">check</mat-icon>
-                      <span>Invoice is marked <strong>"Paid / Settled"</strong>, clearing the student's ledger.</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <!-- Option B: Refund to Parent & Void Invoice -->
-              <div 
-                class="action-card" 
-                [class.selected]="selectedAction === 'RefundAndCancel'"
-                [class.card-danger]="true"
-                (click)="setAction('RefundAndCancel')"
-              >
-                <div class="card-radio-header">
-                  <div class="radio-indicator danger-radio">
-                    <mat-icon *ngIf="selectedAction === 'RefundAndCancel'">check_circle</mat-icon>
-                    <mat-icon *ngIf="selectedAction !== 'RefundAndCancel'">radio_button_unchecked</mat-icon>
+                <!-- Option B: Refund to Parent & Void Invoice -->
+                <div
+                  class="action-card"
+                  [class.selected]="selectedAction === 'RefundAndCancel'"
+                  [class.card-danger]="true"
+                  (click)="setAction('RefundAndCancel')"
+                  >
+                  <div class="card-radio-header">
+                    <div class="radio-indicator danger-radio">
+                      @if (selectedAction === 'RefundAndCancel') {
+                        <mat-icon>check_circle</mat-icon>
+                      }
+                      @if (selectedAction !== 'RefundAndCancel') {
+                        <mat-icon>radio_button_unchecked</mat-icon>
+                      }
+                    </div>
+                    <div class="card-title-group">
+                      <div class="card-title">Refund to Parent &amp; Void Invoice</div>
+                      <div class="card-subtitle-hi">पैरेंट को ₹{{ data.paidAmount | number:'1.2-2' }} रिफंड करें और इनवॉइस रद्द करें</div>
+                    </div>
+                    <span class="badge-reversal">Full Reversal</span>
                   </div>
-                  <div class="card-title-group">
-                    <div class="card-title">Refund to Parent &amp; Void Invoice</div>
-                    <div class="card-subtitle-hi">पैरेंट को ₹{{ data.paidAmount | number:'1.2-2' }} रिफंड करें और इनवॉइस रद्द करें</div>
+                  <div class="card-body">
+                    <ul class="impact-list">
+                      <li>
+                        <mat-icon class="bullet-icon check-red">replay</mat-icon>
+                        <span>All <strong>₹{{ data.paidAmount | number:'1.2-2' }} collected payments will be reversed</strong> and removed from Day Book &amp; cash accounts.</span>
+                      </li>
+                      <li>
+                        <mat-icon class="bullet-icon check-red">cancel</mat-icon>
+                        <span>All payment receipts for this invoice are revoked and marked void.</span>
+                      </li>
+                      <li>
+                        <mat-icon class="bullet-icon check-red">block</mat-icon>
+                        <span>Invoice is marked <strong>"Cancelled"</strong> with ₹0 dues.</span>
+                      </li>
+                    </ul>
                   </div>
-                  <span class="badge-reversal">Full Reversal</span>
-                </div>
-
-                <div class="card-body">
-                  <ul class="impact-list">
-                    <li>
-                      <mat-icon class="bullet-icon check-red">replay</mat-icon>
-                      <span>All <strong>₹{{ data.paidAmount | number:'1.2-2' }} collected payments will be reversed</strong> and removed from Day Book &amp; cash accounts.</span>
-                    </li>
-                    <li>
-                      <mat-icon class="bullet-icon check-red">cancel</mat-icon>
-                      <span>All payment receipts for this invoice are revoked and marked void.</span>
-                    </li>
-                    <li>
-                      <mat-icon class="bullet-icon check-red">block</mat-icon>
-                      <span>Invoice is marked <strong>"Cancelled"</strong> with ₹0 dues.</span>
-                    </li>
-                  </ul>
                 </div>
               </div>
             </div>
-          </div>
-
+          }
+    
           <!-- ZERO PAYMENT NOTICE (When Paid == 0) -->
-          <div class="zero-payment-notice" *ngIf="data.paidAmount === 0">
-            <mat-icon class="info-icon">info</mat-icon>
-            <div class="notice-text">
-              <strong>Voiding Unpaid Invoice:</strong> No payments have been collected on this invoice. 
-              Confirming will mark this invoice as <em>CANCELLED / VOID</em> and eliminate the pending due of 
-              <strong>₹{{ data.dueAmount | number:'1.2-2' }}</strong> from {{ data.studentName }}'s account.
+          @if (data.paidAmount === 0) {
+            <div class="zero-payment-notice">
+              <mat-icon class="info-icon">info</mat-icon>
+              <div class="notice-text">
+                <strong>Voiding Unpaid Invoice:</strong> No payments have been collected on this invoice.
+                Confirming will mark this invoice as <em>CANCELLED / VOID</em> and eliminate the pending due of
+                <strong>₹{{ data.dueAmount | number:'1.2-2' }}</strong> from {{ data.studentName }}'s account.
+              </div>
             </div>
-          </div>
-
+          }
+    
           <!-- REASON SELECTION & REMARKS -->
           <div class="form-section">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Select Reason / Purpose (कारण चुनें)</mat-label>
               <mat-select formControlName="selectedReason">
-                <mat-option *ngFor="let r of predefinedReasons" [value]="r.value">
-                  {{ r.label }}
-                </mat-option>
+                @for (r of predefinedReasons; track r) {
+                  <mat-option [value]="r.value">
+                    {{ r.label }}
+                  </mat-option>
+                }
               </mat-select>
-              <mat-error *ngIf="cancelForm.get('selectedReason')?.hasError('required')">
-                Please select a valid reason
-              </mat-error>
+              @if (cancelForm.get('selectedReason')?.hasError('required')) {
+                <mat-error>
+                  Please select a valid reason
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>
                 {{ cancelForm.get('selectedReason')?.value === 'Other' ? 'Specify Custom Reason (अनिवार्य कारण)' : 'Additional Audit Remarks / Notes (टिप्पणी - वैकल्पिक)' }}
@@ -221,56 +237,65 @@ export interface CancelInvoiceDialogData {
                   ? 'e.g. Student relocated to another city; special approval by Director...' 
                   : 'Add any specific notes for audit trail...'"
               ></textarea>
-              <mat-error *ngIf="cancelForm.get('customReason')?.hasError('required')">
-                Please provide details for the custom reason
-              </mat-error>
+              @if (cancelForm.get('customReason')?.hasError('required')) {
+                <mat-error>
+                  Please provide details for the custom reason
+                </mat-error>
+              }
             </mat-form-field>
-
-            <div class="student-left-notice" *ngIf="cancelForm.get('selectedReason')?.value === 'Student Left / Discontinued'">
-              <mat-icon>school</mat-icon>
-              <span>
-                <strong>Student Registry Sync:</strong> Selecting <em>Student Left / Discontinued</em> will also update the student directory to mark <strong>{{ data.studentName }}</strong> as Left/Inactive so no further monthly tuition invoices or fee reminders are generated.
-              </span>
-            </div>
+    
+            @if (cancelForm.get('selectedReason')?.value === 'Student Left / Discontinued') {
+              <div class="student-left-notice">
+                <mat-icon>school</mat-icon>
+                <span>
+                  <strong>Student Registry Sync:</strong> Selecting <em>Student Left / Discontinued</em> will also update the student directory to mark <strong>{{ data.studentName }}</strong> as Left/Inactive so no further monthly tuition invoices or fee reminders are generated.
+                </span>
+              </div>
+            }
           </div>
-
+    
           <!-- Summary Confirmation Alert -->
           <div class="confirmation-summary-alert" [class.alert-danger]="selectedAction === 'RefundAndCancel'">
             <mat-icon>{{ selectedAction === 'RefundAndCancel' ? 'warning' : 'verified_user' }}</mat-icon>
             <div class="alert-content">
-              <ng-container *ngIf="data.paidAmount > 0 && selectedAction === 'WaiveAndClose'">
+              @if (data.paidAmount > 0 && selectedAction === 'WaiveAndClose') {
                 <strong>Summary:</strong> Retaining ₹{{ data.paidAmount | number:'1.2-2' }} collected • Waiving remaining balance ₹{{ data.dueAmount | number:'1.2-2' }} • Invoice status will be <strong>Paid / Settled</strong>.
-              </ng-container>
-              <ng-container *ngIf="data.paidAmount > 0 && selectedAction === 'RefundAndCancel'">
+              }
+              @if (data.paidAmount > 0 && selectedAction === 'RefundAndCancel') {
                 <strong>Summary:</strong> Reversing ₹{{ data.paidAmount | number:'1.2-2' }} payments • Revoking receipts from Day Book • Invoice status will be <strong>Cancelled</strong>.
-              </ng-container>
-              <ng-container *ngIf="data.paidAmount === 0">
+              }
+              @if (data.paidAmount === 0) {
                 <strong>Summary:</strong> Marking invoice as VOID • Cancelling pending balance ₹{{ data.dueAmount | number:'1.2-2' }}.
-              </ng-container>
+              }
             </div>
           </div>
         </mat-dialog-content>
-
+    
         <!-- ACTION BUTTONS -->
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" class="btn-cancel" (click)="onClose()" [disabled]="submitting">
             Go Back
           </button>
-          
+    
           <button
             mat-raised-button
             [class]="getSubmitButtonClass()"
             type="submit"
             [disabled]="cancelForm.invalid || submitting"
-          >
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner"></mat-spinner>
-            <mat-icon *ngIf="!submitting">{{ getSubmitButtonIcon() }}</mat-icon>
+            >
+            @if (submitting) {
+              <mat-spinner diameter="18" class="spinner"></mat-spinner>
+            }
+            @if (!submitting) {
+              <mat-icon>{{ getSubmitButtonIcon() }}</mat-icon>
+            }
             <span>{{ getSubmitButtonText() }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .cancel-dialog-container {
       padding: 0;

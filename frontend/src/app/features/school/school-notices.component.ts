@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -79,7 +79,7 @@ export interface NoticeStatsDto {
             </p>
           </div>
         </div>
-
+    
         <div class="header-actions">
           <button mat-raised-button class="create-btn" (click)="openNoticeDialog()">
             <mat-icon>post_add</mat-icon>
@@ -91,7 +91,7 @@ export interface NoticeStatsDto {
           </button>
         </div>
       </div>
-
+    
       <!-- Stats Bar -->
       <div class="stats-grid">
         <div class="stat-card stat-total">
@@ -101,7 +101,7 @@ export interface NoticeStatsDto {
             <span class="stat-lbl">Total Circulars</span>
           </div>
         </div>
-
+    
         <div class="stat-card stat-urgent">
           <div class="stat-icon-wrap"><mat-icon>crisis_alert</mat-icon></div>
           <div class="stat-info">
@@ -109,7 +109,7 @@ export interface NoticeStatsDto {
             <span class="stat-lbl">Urgent Alerts</span>
           </div>
         </div>
-
+    
         <div class="stat-card stat-pinned">
           <div class="stat-icon-wrap"><mat-icon>push_pin</mat-icon></div>
           <div class="stat-info">
@@ -117,7 +117,7 @@ export interface NoticeStatsDto {
             <span class="stat-lbl">Pinned to Top</span>
           </div>
         </div>
-
+    
         <div class="stat-card stat-students">
           <div class="stat-icon-wrap"><mat-icon>groups</mat-icon></div>
           <div class="stat-info">
@@ -126,7 +126,7 @@ export interface NoticeStatsDto {
           </div>
         </div>
       </div>
-
+    
       <!-- Controls & Filter Strip -->
       <div class="controls-card">
         <div class="filter-row">
@@ -144,7 +144,7 @@ export interface NoticeStatsDto {
               <mat-option value="Emergency">🚨 Emergency / Weather</mat-option>
             </mat-select>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Target Audience</mat-label>
             <mat-select [(ngModel)]="filterAudience" (selectionChange)="onAudienceFilterChange()">
@@ -157,70 +157,81 @@ export interface NoticeStatsDto {
               <mat-option value="SpecificBatch">🎯 Coaching Batch (विशिष्ट बैच)</mat-option>
             </mat-select>
           </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic" *ngIf="filterAudience === 'SpecificClass' || filterAudience === 'SpecificBatch'">
-            <mat-label>{{ filterAudience === 'SpecificBatch' ? 'Academic Class (कक्षा)' : 'Class' }}</mat-label>
-            <mat-select [(ngModel)]="filterClassId" (selectionChange)="onClassFilterChange()">
-              <mat-option value="">All Classes</mat-option>
-              <mat-option *ngFor="let c of classes" [value]="c.id">{{c.name}}</mat-option>
+    
+          @if (filterAudience === 'SpecificClass' || filterAudience === 'SpecificBatch') {
+            <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
+              <mat-label>{{ filterAudience === 'SpecificBatch' ? 'Academic Class (कक्षा)' : 'Class' }}</mat-label>
+              <mat-select [(ngModel)]="filterClassId" (selectionChange)="onClassFilterChange()">
+                <mat-option value="">All Classes</mat-option>
+                @for (c of classes; track c) {
+                  <mat-option [value]="c.id">{{c.name}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+    
+          @if (filterAudience === 'SpecificBatch') {
+            <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
+              <mat-label>Coaching Batch</mat-label>
+              <mat-select [(ngModel)]="filterBatchId" (selectionChange)="loadNotices()">
+                <mat-option value="">All Batches</mat-option>
+                @for (b of filteredFilterBatches; track b) {
+                  <mat-option [value]="b.id">
+                    {{b.name}} @if (b.subject || b.courseName) {
+                    <span>({{b.subject || b.courseName}})</span>
+                  }
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic" *ngIf="filterAudience === 'SpecificBatch'">
-            <mat-label>Coaching Batch</mat-label>
-            <mat-select [(ngModel)]="filterBatchId" (selectionChange)="loadNotices()">
-              <mat-option value="">All Batches</mat-option>
-              <mat-option *ngFor="let b of filteredFilterBatches" [value]="b.id">
-                {{b.name}} <span *ngIf="b.subject || b.courseName">({{b.subject || b.courseName}})</span>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
-            <mat-label>Priority</mat-label>
-            <mat-select [(ngModel)]="filterPriority" (selectionChange)="loadNotices()">
-              <mat-option value="">All Priorities</mat-option>
-              <mat-option value="Urgent">🔥 Urgent Only</mat-option>
-              <mat-option value="High">⚡ High Priority</mat-option>
-              <mat-option value="Normal">ℹ️ Normal</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field search-field" subscriptSizing="dynamic">
-            <mat-label>Search Title, Circular #, Words</mat-label>
-            <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadNotices()">
-          </mat-form-field>
-
-          <button mat-button class="chip-filter" [class.active-chip]="filterPinnedOnly" (click)="togglePinnedFilter()">
-            <mat-icon>{{filterPinnedOnly ? 'push_pin' : 'push_pin'}}</mat-icon>
-            <span>Pinned Only</span>
+        }
+    
+        <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
+          <mat-label>Priority</mat-label>
+          <mat-select [(ngModel)]="filterPriority" (selectionChange)="loadNotices()">
+            <mat-option value="">All Priorities</mat-option>
+            <mat-option value="Urgent">🔥 Urgent Only</mat-option>
+            <mat-option value="High">⚡ High Priority</mat-option>
+            <mat-option value="Normal">ℹ️ Normal</mat-option>
+          </mat-select>
+        </mat-form-field>
+    
+        <mat-form-field appearance="outline" class="filter-field search-field" subscriptSizing="dynamic">
+          <mat-label>Search Title, Circular #, Words</mat-label>
+          <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadNotices()">
+        </mat-form-field>
+    
+        <button mat-button class="chip-filter" [class.active-chip]="filterPinnedOnly" (click)="togglePinnedFilter()">
+          <mat-icon>{{filterPinnedOnly ? 'push_pin' : 'push_pin'}}</mat-icon>
+          <span>Pinned Only</span>
+        </button>
+    
+        <div class="view-toggle">
+          <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Notice Board Grid">
+            <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <rect x="3" y="3" width="8" height="8" rx="1.5" />
+              <rect x="13" y="3" width="8" height="8" rx="1.5" />
+              <rect x="3" y="13" width="8" height="8" rx="1.5" />
+              <rect x="13" y="13" width="8" height="8" rx="1.5" />
+            </svg>
           </button>
-
-          <div class="view-toggle">
-            <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Notice Board Grid">
-              <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <rect x="3" y="3" width="8" height="8" rx="1.5" />
-                <rect x="13" y="3" width="8" height="8" rx="1.5" />
-                <rect x="3" y="13" width="8" height="8" rx="1.5" />
-                <rect x="13" y="13" width="8" height="8" rx="1.5" />
-              </svg>
-            </button>
-            <button type="button" class="toggle-btn" [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List">
-              <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="9" y1="6" x2="21" y2="6"></line>
-                <line x1="9" y1="12" x2="21" y2="12"></line>
-                <line x1="9" y1="18" x2="21" y2="18"></line>
-                <circle cx="4.5" cy="6" r="1.5" fill="currentColor" stroke="none"></circle>
-                <circle cx="4.5" cy="12" r="1.5" fill="currentColor" stroke="none"></circle>
-                <circle cx="4.5" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
-              </svg>
-            </button>
-          </div>
+          <button type="button" class="toggle-btn" [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List">
+            <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="9" y1="6" x2="21" y2="6"></line>
+              <line x1="9" y1="12" x2="21" y2="12"></line>
+              <line x1="9" y1="18" x2="21" y2="18"></line>
+              <circle cx="4.5" cy="6" r="1.5" fill="currentColor" stroke="none"></circle>
+              <circle cx="4.5" cy="12" r="1.5" fill="currentColor" stroke="none"></circle>
+              <circle cx="4.5" cy="18" r="1.5" fill="currentColor" stroke="none"></circle>
+            </svg>
+          </button>
         </div>
       </div>
-
-      <!-- Connection Error Alert -->
-      <div class="conn-error-banner" *ngIf="!loading && hasConnectionError">
+    </div>
+    
+    <!-- Connection Error Alert -->
+    @if (!loading && hasConnectionError) {
+      <div class="conn-error-banner">
         <div class="err-info">
           <mat-icon class="err-ic">cloud_off</mat-icon>
           <div class="err-text">
@@ -232,9 +243,11 @@ export interface NoticeStatsDto {
           <mat-icon>refresh</mat-icon> Reconnect Now
         </button>
       </div>
-
-      <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading && !hasConnectionError && filteredNotices.length === 0">
+    }
+    
+    <!-- Empty State -->
+    @if (!loading && !hasConnectionError && filteredNotices.length === 0) {
+      <div class="empty-state">
         <div class="empty-icon-wrap"><mat-icon>campaign</mat-icon></div>
         <h3>No Notices or Circulars Found</h3>
         <p>No circulars match your current filters. Click "Publish Circular" to issue your first official announcement.</p>
@@ -242,87 +255,91 @@ export interface NoticeStatsDto {
           <mat-icon>post_add</mat-icon> Issue First Notice
         </button>
       </div>
-
-      <!-- NOTICE BOARD GRID VIEW -->
-      <div class="notices-grid" *ngIf="!loading && viewMode==='grid' && filteredNotices.length > 0">
-        <div class="notice-card" *ngFor="let n of filteredNotices" [class.pinned-card]="n.isPinned" [class.urgent-card]="n.priority === 'Urgent'">
-          <!-- Pinned Ribbon -->
-          <div class="pin-indicator" *ngIf="n.isPinned" matTooltip="Pinned to top of Notice Board">
-            <mat-icon>push_pin</mat-icon>
-            <span>PINNED</span>
-          </div>
-
-          <!-- Card Top Bar -->
-          <div class="card-meta-top">
-            <span class="cir-num">{{n.noticeNumber}}</span>
-            <div class="badge-cluster">
-              <span class="cat-pill">{{n.category}}</span>
-              <span class="priority-pill" [ngClass]="n.priority.toLowerCase()">{{n.priority}}</span>
+    }
+    
+    <!-- NOTICE BOARD GRID VIEW -->
+    @if (!loading && viewMode==='grid' && filteredNotices.length > 0) {
+      <div class="notices-grid">
+        @for (n of filteredNotices; track n) {
+          <div class="notice-card" [class.pinned-card]="n.isPinned" [class.urgent-card]="n.priority === 'Urgent'">
+            <!-- Pinned Ribbon -->
+            @if (n.isPinned) {
+              <div class="pin-indicator" matTooltip="Pinned to top of Notice Board">
+                <mat-icon>push_pin</mat-icon>
+                <span>PINNED</span>
+              </div>
+            }
+            <!-- Card Top Bar -->
+            <div class="card-meta-top">
+              <span class="cir-num">{{n.noticeNumber}}</span>
+              <div class="badge-cluster">
+                <span class="cat-pill">{{n.category}}</span>
+                <span class="priority-pill" [ngClass]="n.priority.toLowerCase()">{{n.priority}}</span>
+              </div>
+            </div>
+            <!-- Notice Title -->
+            <h3 class="notice-title" (click)="viewNotice(n)">{{n.title}}</h3>
+            <!-- Audience & Target -->
+            <div class="audience-row">
+              <span class="audience-chip" [ngClass]="getAudienceClass(n.targetAudience)">
+                <mat-icon class="chip-ic">{{getAudienceIcon(n.targetAudience)}}</mat-icon>
+                <span>{{getAudienceText(n)}}</span>
+              </span>
+            </div>
+            <!-- Snippet -->
+            <p class="notice-snippet">{{getDisplayContent(n)}}</p>
+            <!-- Attachment tag -->
+            @if (n.attachmentUrl) {
+              <div class="attachment-line">
+                <mat-icon class="ic-att">attach_file</mat-icon>
+                <a [href]="n.attachmentUrl" target="_blank" class="att-link">View Attached Circular Document</a>
+              </div>
+            }
+            <!-- Dates Bar -->
+            <div class="dates-bar">
+              <div class="date-item">
+                <mat-icon class="ic-date">schedule</mat-icon>
+                <span>Published: <strong>{{formatToIST(n.publishDate)}}</strong></span>
+              </div>
+              @if (n.expiryDate) {
+                <div class="date-item expiry">
+                  <mat-icon class="ic-date">event_busy</mat-icon>
+                  <span>Expires: <strong>{{n.expiryDate | date:'dd MMM yyyy'}}</strong></span>
+                </div>
+              }
+            </div>
+            <!-- Card Action Footer -->
+            <div class="card-footer">
+              <div class="card-footer-btns">
+                <button mat-stroked-button class="view-btn" (click)="viewNotice(n)">
+                  <mat-icon>visibility</mat-icon>
+                  <span>View Circular</span>
+                </button>
+                <button mat-stroked-button class="wa-btn" (click)="shareNoticeWhatsApp(n)" matTooltip="Share on WhatsApp">
+                  <mat-icon class="wa-icon">chat</mat-icon>
+                  <span>WhatsApp</span>
+                </button>
+              </div>
+              <div class="card-actions">
+                <button mat-icon-button (click)="togglePin(n)" [matTooltip]="n.isPinned ? 'Unpin Notice' : 'Pin to Top'" [class.pinned-active]="n.isPinned">
+                  <mat-icon class="card-action-ic">{{n.isPinned ? 'push_pin' : 'push_pin'}}</mat-icon>
+                </button>
+                <button mat-icon-button (click)="openNoticeDialog(n)" matTooltip="Edit Circular">
+                  <mat-icon class="card-action-ic edit">edit</mat-icon>
+                </button>
+                <button mat-icon-button (click)="deleteNotice(n)" matTooltip="Delete">
+                  <mat-icon class="card-action-ic delete">delete</mat-icon>
+                </button>
+              </div>
             </div>
           </div>
-
-          <!-- Notice Title -->
-          <h3 class="notice-title" (click)="viewNotice(n)">{{n.title}}</h3>
-
-          <!-- Audience & Target -->
-          <div class="audience-row">
-            <span class="audience-chip" [ngClass]="getAudienceClass(n.targetAudience)">
-              <mat-icon class="chip-ic">{{getAudienceIcon(n.targetAudience)}}</mat-icon>
-              <span>{{getAudienceText(n)}}</span>
-            </span>
-          </div>
-
-          <!-- Snippet -->
-          <p class="notice-snippet">{{getDisplayContent(n)}}</p>
-
-          <!-- Attachment tag -->
-          <div class="attachment-line" *ngIf="n.attachmentUrl">
-            <mat-icon class="ic-att">attach_file</mat-icon>
-            <a [href]="n.attachmentUrl" target="_blank" class="att-link">View Attached Circular Document</a>
-          </div>
-
-          <!-- Dates Bar -->
-          <div class="dates-bar">
-            <div class="date-item">
-              <mat-icon class="ic-date">schedule</mat-icon>
-              <span>Published: <strong>{{formatToIST(n.publishDate)}}</strong></span>
-            </div>
-            <div class="date-item expiry" *ngIf="n.expiryDate">
-              <mat-icon class="ic-date">event_busy</mat-icon>
-              <span>Expires: <strong>{{n.expiryDate | date:'dd MMM yyyy'}}</strong></span>
-            </div>
-          </div>
-
-          <!-- Card Action Footer -->
-          <div class="card-footer">
-            <div class="card-footer-btns">
-              <button mat-stroked-button class="view-btn" (click)="viewNotice(n)">
-                <mat-icon>visibility</mat-icon>
-                <span>View Circular</span>
-              </button>
-              <button mat-stroked-button class="wa-btn" (click)="shareNoticeWhatsApp(n)" matTooltip="Share on WhatsApp">
-                <mat-icon class="wa-icon">chat</mat-icon>
-                <span>WhatsApp</span>
-              </button>
-            </div>
-
-            <div class="card-actions">
-              <button mat-icon-button (click)="togglePin(n)" [matTooltip]="n.isPinned ? 'Unpin Notice' : 'Pin to Top'" [class.pinned-active]="n.isPinned">
-                <mat-icon class="card-action-ic">{{n.isPinned ? 'push_pin' : 'push_pin'}}</mat-icon>
-              </button>
-              <button mat-icon-button (click)="openNoticeDialog(n)" matTooltip="Edit Circular">
-                <mat-icon class="card-action-ic edit">edit</mat-icon>
-              </button>
-              <button mat-icon-button (click)="deleteNotice(n)" matTooltip="Delete">
-                <mat-icon class="card-action-ic delete">delete</mat-icon>
-              </button>
-            </div>
-          </div>
-        </div>
+        }
       </div>
-
-      <!-- TABLE VIEW -->
-      <div class="notices-table-wrap" *ngIf="!loading && viewMode==='table' && filteredNotices.length > 0">
+    }
+    
+    <!-- TABLE VIEW -->
+    @if (!loading && viewMode==='table' && filteredNotices.length > 0) {
+      <div class="notices-table-wrap">
         <table class="notices-table">
           <thead>
             <tr>
@@ -338,50 +355,58 @@ export interface NoticeStatsDto {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let n of filteredNotices" [class.pinned-tr]="n.isPinned">
-              <td><strong>{{n.noticeNumber}}</strong></td>
-              <td>
-                <div class="tbl-title" (click)="viewNotice(n)">{{n.title}}</div>
-                <div class="tbl-sub">{{getDisplayContent(n) | slice:0:70}}...</div>
-              </td>
-              <td><span class="cat-pill">{{n.category}}</span></td>
-              <td>
-                <span class="audience-chip" [ngClass]="getAudienceClass(n.targetAudience)">
-                  {{getAudienceText(n)}}
-                </span>
-              </td>
-              <td><span class="priority-pill" [ngClass]="n.priority.toLowerCase()">{{n.priority}}</span></td>
-              <td><strong>{{formatToIST(n.publishDate)}}</strong></td>
-              <td>{{n.expiryDate ? (n.expiryDate | date:'dd MMM yyyy') : '—'}}</td>
-              <td>
-                <mat-icon *ngIf="n.isPinned" style="color:#d97706; font-size:18px;">push_pin</mat-icon>
-                <span *ngIf="!n.isPinned" style="color:#94a3b8;">—</span>
-              </td>
-              <td>
-                <div class="tbl-actions">
-                  <button mat-icon-button (click)="viewNotice(n)" matTooltip="View Full Circular">
-                    <mat-icon class="card-action-ic view">visibility</mat-icon>
-                  </button>
-                  <button mat-icon-button (click)="shareNoticeWhatsApp(n)" matTooltip="Share on WhatsApp" class="wa-tbl-btn">
-                    <mat-icon class="card-action-ic wa-ic">chat</mat-icon>
-                  </button>
-                  <button mat-icon-button (click)="togglePin(n)" [matTooltip]="n.isPinned ? 'Unpin' : 'Pin to Top'">
-                    <mat-icon class="card-action-ic" [style.color]="n.isPinned ? '#d97706' : '#64748b'">push_pin</mat-icon>
-                  </button>
-                  <button mat-icon-button (click)="openNoticeDialog(n)" matTooltip="Edit">
-                    <mat-icon class="card-action-ic edit">edit</mat-icon>
-                  </button>
-                  <button mat-icon-button (click)="deleteNotice(n)" matTooltip="Delete">
-                    <mat-icon class="card-action-ic delete">delete</mat-icon>
-                  </button>
-                </div>
-              </td>
-            </tr>
+            @for (n of filteredNotices; track n) {
+              <tr [class.pinned-tr]="n.isPinned">
+                <td><strong>{{n.noticeNumber}}</strong></td>
+                <td>
+                  <div class="tbl-title" (click)="viewNotice(n)">{{n.title}}</div>
+                  <div class="tbl-sub">{{getDisplayContent(n) | slice:0:70}}...</div>
+                </td>
+                <td><span class="cat-pill">{{n.category}}</span></td>
+                <td>
+                  <span class="audience-chip" [ngClass]="getAudienceClass(n.targetAudience)">
+                    {{getAudienceText(n)}}
+                  </span>
+                </td>
+                <td><span class="priority-pill" [ngClass]="n.priority.toLowerCase()">{{n.priority}}</span></td>
+                <td><strong>{{formatToIST(n.publishDate)}}</strong></td>
+                <td>{{n.expiryDate ? (n.expiryDate | date:'dd MMM yyyy') : '—'}}</td>
+                <td>
+                  @if (n.isPinned) {
+                    <mat-icon style="color:#d97706; font-size:18px;">push_pin</mat-icon>
+                  }
+                  @if (!n.isPinned) {
+                    <span style="color:#94a3b8;">—</span>
+                  }
+                </td>
+                <td>
+                  <div class="tbl-actions">
+                    <button mat-icon-button (click)="viewNotice(n)" matTooltip="View Full Circular">
+                      <mat-icon class="card-action-ic view">visibility</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="shareNoticeWhatsApp(n)" matTooltip="Share on WhatsApp" class="wa-tbl-btn">
+                      <mat-icon class="card-action-ic wa-ic">chat</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="togglePin(n)" [matTooltip]="n.isPinned ? 'Unpin' : 'Pin to Top'">
+                      <mat-icon class="card-action-ic" [style.color]="n.isPinned ? '#d97706' : '#64748b'">push_pin</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="openNoticeDialog(n)" matTooltip="Edit">
+                      <mat-icon class="card-action-ic edit">edit</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="deleteNotice(n)" matTooltip="Delete">
+                      <mat-icon class="card-action-ic delete">delete</mat-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
+    }
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .notices-page-container { padding: 0 0 40px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; width: 100%; }
     .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: #fff; padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -983,7 +1008,7 @@ export class SchoolNoticesComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Form Body with Reactive Forms -->
       <form [formGroup]="form" (ngSubmit)="saveNotice()" class="dialog-form-container">
         <div class="modal-body">
@@ -992,9 +1017,11 @@ export class SchoolNoticesComponent implements OnInit {
             <mat-label>Notice / Circular Title (परिपत्र का शीर्षक) *</mat-label>
             <input matInput formControlName="title" placeholder="e.g. Weekly Test Exam (साप्ताहिक परीक्षा) / Term 1 Schedule" />
             <mat-icon matSuffix color="primary">title</mat-icon>
-            <mat-error *ngIf="form.get('title')?.hasError('required')">Notice title is required</mat-error>
+            @if (form.get('title')?.hasError('required')) {
+              <mat-error>Notice title is required</mat-error>
+            }
           </mat-form-field>
-
+    
           <!-- 3-Column Grid: Category, Priority, Target Audience -->
           <div class="form-grid-3">
             <mat-form-field appearance="outline" class="form-field">
@@ -1010,7 +1037,7 @@ export class SchoolNoticesComponent implements OnInit {
                 <mat-option value="Emergency">🚨 Emergency / Weather Alert</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-field">
               <mat-label>Priority Level</mat-label>
               <mat-select formControlName="priority">
@@ -1019,7 +1046,7 @@ export class SchoolNoticesComponent implements OnInit {
                 <mat-option value="Normal">ℹ️ Normal</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-field">
               <mat-label>Target Audience (लक्षित समूह) *</mat-label>
               <mat-select formControlName="targetAudience" (selectionChange)="onAudienceSelect()">
@@ -1032,202 +1059,240 @@ export class SchoolNoticesComponent implements OnInit {
               </mat-select>
             </mat-form-field>
           </div>
-
+    
           <!-- School Class Selection (when SpecificClass) -->
-          <div class="full-field" *ngIf="form.get('targetAudience')?.value === 'SpecificClass'">
-            <mat-form-field appearance="outline" class="full-field">
-              <mat-label>Select School Class *</mat-label>
-              <mat-select formControlName="classId" (selectionChange)="onClassSelect()">
-                <mat-option *ngFor="let c of classesList" [value]="c.id">{{ c.name }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
+          @if (form.get('targetAudience')?.value === 'SpecificClass') {
+            <div class="full-field">
+              <mat-form-field appearance="outline" class="full-field">
+                <mat-label>Select School Class *</mat-label>
+                <mat-select formControlName="classId" (selectionChange)="onClassSelect()">
+                  @for (c of classesList; track c) {
+                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          }
+    
           <!-- Coaching Batch Scope & Selector Deck (when SpecificBatch) -->
-          <div class="batch-scope-toggle-deck" *ngIf="form.get('targetAudience')?.value === 'SpecificBatch'">
-            <div class="scope-deck-header">
-              <div class="scope-deck-left">
-                <mat-icon class="deck-icon">tune</mat-icon>
-                <span class="scope-deck-title">Batch Architecture / Scope (बैच का प्रकार):</span>
+          @if (form.get('targetAudience')?.value === 'SpecificBatch') {
+            <div class="batch-scope-toggle-deck">
+              <div class="scope-deck-header">
+                <div class="scope-deck-left">
+                  <mat-icon class="deck-icon">tune</mat-icon>
+                  <span class="scope-deck-title">Batch Architecture / Scope (बैच का प्रकार):</span>
+                </div>
+                <span class="scope-deck-hint">Filter batches by single class or combined foundation groups</span>
               </div>
-              <span class="scope-deck-hint">Filter batches by single class or combined foundation groups</span>
-            </div>
-
-            <div class="scope-toggle-pills">
-              <button
-                type="button"
-                class="scope-pill-btn"
-                [class.active]="batchScope === 'single'"
-                (click)="setBatchScope('single')"
-              >
-                <mat-icon>school</mat-icon>
-                <div class="pill-texts">
-                  <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
-                  <span class="pill-sub">Specific Class (e.g. Class 5th Special)</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                class="scope-pill-btn"
-                [class.active]="batchScope === 'combined'"
-                (click)="setBatchScope('combined')"
-              >
-                <mat-icon>layers</mat-icon>
-                <div class="pill-texts">
-                  <span class="pill-main">Combined / Multi-Class (संयुक्त कक्षा)</span>
-                  <span class="pill-sub">Foundation (1st to 5th Combined)</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                class="scope-pill-btn"
-                [class.active]="batchScope === 'all'"
-                (click)="setBatchScope('all')"
-              >
-                <mat-icon>view_list</mat-icon>
-                <div class="pill-texts">
-                  <span class="pill-main">All Batches (सभी बैच)</span>
-                  <span class="pill-sub">Consolidated View</span>
-                </div>
-              </button>
-            </div>
-
-            <!-- Selection Controls Row -->
-            <!-- In Single Class Mode: Academic Class selector first! -->
-            <div class="scope-selection-grid" *ngIf="batchScope === 'single'">
-              <mat-form-field appearance="outline" class="form-field">
-                <mat-label>Academic Class (कक्षा चुनें) *</mat-label>
-                <mat-select [formControl]="filterCoachingClassCtrl" (selectionChange)="onCoachingClassChange()" panelClass="notice-batch-select-panel" [panelWidth]="null">
-                  <mat-option *ngIf="activeClasses.length === 0" disabled>
-                    No classes with coaching batches found
-                  </mat-option>
-                  <mat-option *ngFor="let c of activeClasses" [value]="c.id">
-                    {{ c.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-hint *ngIf="!filterCoachingClassCtrl.value">Select class to view its coaching batches</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="form-field">
-                <mat-label>Select Coaching Batch *</mat-label>
-                <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
-                  <mat-option *ngIf="availableBatches.length === 0" disabled>
-                    {{ !filterCoachingClassCtrl.value ? 'Please choose class first' : 'No coaching batches found for selected class' }}
-                  </mat-option>
-                  <mat-option *ngFor="let b of availableBatches" [value]="b.id">
-                    <div class="batch-opt-item">
-                      <span class="b-opt-name">{{ b.name }}</span>
-                      <div class="b-opt-tags">
-                        <span class="shift-pill" [ngClass]="getBatchShift(b).toLowerCase()" *ngIf="getBatchShift(b)">
-                          {{ getBatchShift(b) === 'Morning' ? '☀️' : (getBatchShift(b) === 'Evening' ? '🌇' : '🕒') }} {{ getBatchShift(b) }} Shift
-                        </span>
-                        <span class="scope-tag" [ngClass]="isCombinedBatch(b) ? 'is-comb' : 'is-single'">
-                          {{ isCombinedBatch(b) ? 'Combined' : 'Single' }}
-                        </span>
-                      </div>
-                    </div>
-                  </mat-option>
-                </mat-select>
-                <mat-hint *ngIf="selectedBatchDisplay">Selected: <strong>{{ selectedBatchDisplay }}</strong></mat-hint>
-              </mat-form-field>
-            </div>
-
-            <!-- In Combined Mode: Info Banner + Combined Batches -->
-            <div class="scope-selection-combined" *ngIf="batchScope === 'combined'">
-              <div class="combined-info-pill">
-                <mat-icon>info</mat-icon>
-                <span>Showing combined foundation batches covering multi-class ranges</span>
+              <div class="scope-toggle-pills">
+                <button
+                  type="button"
+                  class="scope-pill-btn"
+                  [class.active]="batchScope === 'single'"
+                  (click)="setBatchScope('single')"
+                  >
+                  <mat-icon>school</mat-icon>
+                  <div class="pill-texts">
+                    <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
+                    <span class="pill-sub">Specific Class (e.g. Class 5th Special)</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="scope-pill-btn"
+                  [class.active]="batchScope === 'combined'"
+                  (click)="setBatchScope('combined')"
+                  >
+                  <mat-icon>layers</mat-icon>
+                  <div class="pill-texts">
+                    <span class="pill-main">Combined / Multi-Class (संयुक्त कक्षा)</span>
+                    <span class="pill-sub">Foundation (1st to 5th Combined)</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="scope-pill-btn"
+                  [class.active]="batchScope === 'all'"
+                  (click)="setBatchScope('all')"
+                  >
+                  <mat-icon>view_list</mat-icon>
+                  <div class="pill-texts">
+                    <span class="pill-main">All Batches (सभी बैच)</span>
+                    <span class="pill-sub">Consolidated View</span>
+                  </div>
+                </button>
               </div>
-
-              <mat-form-field appearance="outline" class="full-field">
-                <mat-label>Select Combined Batch *</mat-label>
-                <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
-                  <mat-option *ngIf="availableBatches.length === 0" disabled>
-                    No combined batches found
-                  </mat-option>
-                  <mat-option *ngFor="let b of availableBatches" [value]="b.id">
-                    <div class="batch-opt-item">
-                      <span class="b-opt-name">{{ b.name }}</span>
-                      <div class="b-opt-tags">
-                        <span class="shift-pill" [ngClass]="getBatchShift(b).toLowerCase()" *ngIf="getBatchShift(b)">
-                          {{ getBatchShift(b) === 'Morning' ? '☀️' : (getBatchShift(b) === 'Evening' ? '🌇' : '🕒') }} {{ getBatchShift(b) }} Shift
-                        </span>
-                        <span class="scope-tag is-comb">Combined</span>
-                      </div>
-                    </div>
-                  </mat-option>
-                </mat-select>
-                <mat-hint *ngIf="selectedBatchDisplay">Selected: <strong>{{ selectedBatchDisplay }}</strong></mat-hint>
-              </mat-form-field>
+              <!-- Selection Controls Row -->
+              <!-- In Single Class Mode: Academic Class selector first! -->
+              @if (batchScope === 'single') {
+                <div class="scope-selection-grid">
+                  <mat-form-field appearance="outline" class="form-field">
+                    <mat-label>Academic Class (कक्षा चुनें) *</mat-label>
+                    <mat-select [formControl]="filterCoachingClassCtrl" (selectionChange)="onCoachingClassChange()" panelClass="notice-batch-select-panel" [panelWidth]="null">
+                      @if (activeClasses.length === 0) {
+                        <mat-option disabled>
+                          No classes with coaching batches found
+                        </mat-option>
+                      }
+                      @for (c of activeClasses; track c) {
+                        <mat-option [value]="c.id">
+                          {{ c.name }}
+                        </mat-option>
+                      }
+                    </mat-select>
+                    @if (!filterCoachingClassCtrl.value) {
+                      <mat-hint>Select class to view its coaching batches</mat-hint>
+                    }
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="form-field">
+                    <mat-label>Select Coaching Batch *</mat-label>
+                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
+                      @if (availableBatches.length === 0) {
+                        <mat-option disabled>
+                          {{ !filterCoachingClassCtrl.value ? 'Please choose class first' : 'No coaching batches found for selected class' }}
+                        </mat-option>
+                      }
+                      @for (b of availableBatches; track b) {
+                        <mat-option [value]="b.id">
+                          <div class="batch-opt-item">
+                            <span class="b-opt-name">{{ b.name }}</span>
+                            <div class="b-opt-tags">
+                              @if (getBatchShift(b)) {
+                                <span class="shift-pill" [ngClass]="getBatchShift(b).toLowerCase()">
+                                  {{ getBatchShift(b) === 'Morning' ? '☀️' : (getBatchShift(b) === 'Evening' ? '🌇' : '🕒') }} {{ getBatchShift(b) }} Shift
+                                </span>
+                              }
+                              <span class="scope-tag" [ngClass]="isCombinedBatch(b) ? 'is-comb' : 'is-single'">
+                                {{ isCombinedBatch(b) ? 'Combined' : 'Single' }}
+                              </span>
+                            </div>
+                          </div>
+                        </mat-option>
+                      }
+                    </mat-select>
+                    @if (selectedBatchDisplay) {
+                      <mat-hint>Selected: <strong>{{ selectedBatchDisplay }}</strong></mat-hint>
+                    }
+                  </mat-form-field>
+                </div>
+              }
+              <!-- In Combined Mode: Info Banner + Combined Batches -->
+              @if (batchScope === 'combined') {
+                <div class="scope-selection-combined">
+                  <div class="combined-info-pill">
+                    <mat-icon>info</mat-icon>
+                    <span>Showing combined foundation batches covering multi-class ranges</span>
+                  </div>
+                  <mat-form-field appearance="outline" class="full-field">
+                    <mat-label>Select Combined Batch *</mat-label>
+                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
+                      @if (availableBatches.length === 0) {
+                        <mat-option disabled>
+                          No combined batches found
+                        </mat-option>
+                      }
+                      @for (b of availableBatches; track b) {
+                        <mat-option [value]="b.id">
+                          <div class="batch-opt-item">
+                            <span class="b-opt-name">{{ b.name }}</span>
+                            <div class="b-opt-tags">
+                              @if (getBatchShift(b)) {
+                                <span class="shift-pill" [ngClass]="getBatchShift(b).toLowerCase()">
+                                  {{ getBatchShift(b) === 'Morning' ? '☀️' : (getBatchShift(b) === 'Evening' ? '🌇' : '🕒') }} {{ getBatchShift(b) }} Shift
+                                </span>
+                              }
+                              <span class="scope-tag is-comb">Combined</span>
+                            </div>
+                          </div>
+                        </mat-option>
+                      }
+                    </mat-select>
+                    @if (selectedBatchDisplay) {
+                      <mat-hint>Selected: <strong>{{ selectedBatchDisplay }}</strong></mat-hint>
+                    }
+                  </mat-form-field>
+                </div>
+              }
+              <!-- In All Batches Mode -->
+              @if (batchScope === 'all') {
+                <div class="scope-selection-all">
+                  <mat-form-field appearance="outline" class="full-field">
+                    <mat-label>Select Any Coaching Batch *</mat-label>
+                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
+                      @if (availableBatches.length === 0) {
+                        <mat-option disabled>
+                          No coaching batches available
+                        </mat-option>
+                      }
+                      @for (b of availableBatches; track b) {
+                        <mat-option [value]="b.id">
+                          <div class="batch-opt-item">
+                            <span class="b-opt-name">{{ b.name }}</span>
+                            <div class="b-opt-tags">
+                              @if (getBatchShift(b)) {
+                                <span class="shift-pill" [ngClass]="getBatchShift(b).toLowerCase()">
+                                  {{ getBatchShift(b) === 'Morning' ? '☀️' : (getBatchShift(b) === 'Evening' ? '🌇' : '🕒') }} {{ getBatchShift(b) }} Shift
+                                </span>
+                              }
+                              <span class="scope-tag" [ngClass]="isCombinedBatch(b) ? 'is-comb' : 'is-single'">
+                                {{ isCombinedBatch(b) ? 'Combined' : 'Single' }}
+                              </span>
+                            </div>
+                          </div>
+                        </mat-option>
+                      }
+                    </mat-select>
+                    @if (selectedBatchDisplay) {
+                      <mat-hint>Selected: <strong>{{ selectedBatchDisplay }}</strong></mat-hint>
+                    }
+                  </mat-form-field>
+                </div>
+              }
             </div>
-
-            <!-- In All Batches Mode -->
-            <div class="scope-selection-all" *ngIf="batchScope === 'all'">
-              <mat-form-field appearance="outline" class="full-field">
-                <mat-label>Select Any Coaching Batch *</mat-label>
-                <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
-                  <mat-option *ngIf="availableBatches.length === 0" disabled>
-                    No coaching batches available
-                  </mat-option>
-                  <mat-option *ngFor="let b of availableBatches" [value]="b.id">
-                    <div class="batch-opt-item">
-                      <span class="b-opt-name">{{ b.name }}</span>
-                      <div class="b-opt-tags">
-                        <span class="shift-pill" [ngClass]="getBatchShift(b).toLowerCase()" *ngIf="getBatchShift(b)">
-                          {{ getBatchShift(b) === 'Morning' ? '☀️' : (getBatchShift(b) === 'Evening' ? '🌇' : '🕒') }} {{ getBatchShift(b) }} Shift
-                        </span>
-                        <span class="scope-tag" [ngClass]="isCombinedBatch(b) ? 'is-comb' : 'is-single'">
-                          {{ isCombinedBatch(b) ? 'Combined' : 'Single' }}
-                        </span>
-                      </div>
-                    </div>
-                  </mat-option>
-                </mat-select>
-                <mat-hint *ngIf="selectedBatchDisplay">Selected: <strong>{{ selectedBatchDisplay }}</strong></mat-hint>
-              </mat-form-field>
-            </div>
-          </div>
-
+          }
+    
           <!-- Dates Row (Publish Date, Time, Expiry Date) -->
           <div class="form-grid-dates">
             <mat-form-field appearance="outline" class="form-field">
               <mat-label>Publish Date *</mat-label>
               <input matInput type="date" formControlName="publishDate" (change)="validateDates()" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-field">
               <mat-label>Publish Time (IST)</mat-label>
               <input matInput type="time" formControlName="publishTime" />
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline" class="form-field">
               <mat-label>Expiry Date (Optional)</mat-label>
-              <input matInput type="date" formControlName="expiryDate" [min]="form.get('publishDate')?.value" (change)="validateDates()" />
+              <input matInput type="date" formControlName="expiryDate" [min]="$safeNavigationMigration(form.get('publishDate')?.value)" (change)="validateDates()" />
             </mat-form-field>
           </div>
-
+    
           <!-- Date Error Alert -->
-          <div class="date-error-banner" *ngIf="dateError">
-            <mat-icon>error</mat-icon>
-            <span>{{ dateError }}</span>
-          </div>
-
+          @if (dateError) {
+            <div class="date-error-banner">
+              <mat-icon>error</mat-icon>
+              <span>{{ dateError }}</span>
+            </div>
+          }
+    
           <!-- Circular Body Content -->
           <mat-form-field appearance="outline" class="full-field">
             <mat-label>Official Circular Content (परिपत्र विवरण) *</mat-label>
             <textarea matInput formControlName="content" rows="4" placeholder="Enter complete circular text, instructions, timings, requirements..."></textarea>
-            <mat-error *ngIf="form.get('content')?.hasError('required')">Content text is required</mat-error>
+            @if (form.get('content')?.hasError('required')) {
+              <mat-error>Content text is required</mat-error>
+            }
           </mat-form-field>
-
+    
           <!-- Attachment Link -->
           <mat-form-field appearance="outline" class="full-field">
             <mat-label>Attachment Document / PDF Link (वैकल्पिक लिंक)</mat-label>
             <input matInput formControlName="attachmentUrl" placeholder="https://... (Optional circular PDF / scan document)" />
             <mat-icon matSuffix color="primary">attach_file</mat-icon>
           </mat-form-field>
-
+    
           <!-- Pin Notice Checkbox -->
           <div class="checkbox-row">
             <label class="custom-chk-label">
@@ -1236,7 +1301,7 @@ export class SchoolNoticesComponent implements OnInit {
             </label>
           </div>
         </div>
-
+    
         <!-- Footer -->
         <div class="modal-footer">
           <button mat-button type="button" (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
@@ -1247,7 +1312,8 @@ export class SchoolNoticesComponent implements OnInit {
         </div>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .notice-dialog-wrap {
       display: flex;
@@ -2050,7 +2116,7 @@ export class NoticeFormDialogComponent implements OnInit {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <!-- Dedicated Sub-Header Executive Control Toolbar -->
       <div class="preview-toolbar">
         <div class="toolbar-left">
@@ -2063,7 +2129,7 @@ export class NoticeFormDialogComponent implements OnInit {
               role="tab"
               [attr.aria-selected]="previewMode === 'poster'"
               matTooltip="View full colorful WhatsApp notice card"
-            >
+              >
               <mat-icon>palette</mat-icon>
               <span>WhatsApp Poster</span>
             </button>
@@ -2075,310 +2141,332 @@ export class NoticeFormDialogComponent implements OnInit {
               role="tab"
               [attr.aria-selected]="previewMode === 'letterhead'"
               matTooltip="View official letterhead circular document"
-            >
+              >
               <mat-icon>description</mat-icon>
               <span>Official Letterhead</span>
             </button>
           </div>
         </div>
-
+    
         <div class="toolbar-right">
           <!-- 1-Click WhatsApp Share with Visual Poster Image -->
           <button mat-raised-button class="wa-action-btn" (click)="shareOnWhatsApp()" [disabled]="sharingWhatsApp" matTooltip="Copy &amp; share visual poster on WhatsApp">
-            <mat-icon class="wa-btn-icon" *ngIf="!sharingWhatsApp">chat</mat-icon>
-            <mat-icon class="spin-icon" *ngIf="sharingWhatsApp">autorenew</mat-icon>
+            @if (!sharingWhatsApp) {
+              <mat-icon class="wa-btn-icon">chat</mat-icon>
+            }
+            @if (sharingWhatsApp) {
+              <mat-icon class="spin-icon">autorenew</mat-icon>
+            }
             <span>{{ sharingWhatsApp ? 'Capturing...' : 'Share on WhatsApp' }}</span>
           </button>
-
+    
           <!-- Explicit Save Image Button (Optional Manual Download) -->
           <button mat-stroked-button class="save-img-btn" (click)="downloadPosterImage()" [disabled]="downloadingPoster" matTooltip="Save HD Poster Image (PNG)">
-            <mat-icon class="save-icon" *ngIf="!downloadingPoster">file_download</mat-icon>
-            <mat-icon class="spin-icon" *ngIf="downloadingPoster">autorenew</mat-icon>
+            @if (!downloadingPoster) {
+              <mat-icon class="save-icon">file_download</mat-icon>
+            }
+            @if (downloadingPoster) {
+              <mat-icon class="spin-icon">autorenew</mat-icon>
+            }
             <span>{{ downloadingPoster ? 'Saving...' : 'Save Poster' }}</span>
           </button>
-
+    
           <button mat-stroked-button class="print-btn" (click)="printNotice()" matTooltip="Print or Save as PDF">
             <mat-icon>print</mat-icon>
             <span>Print Circular</span>
           </button>
         </div>
       </div>
-
+    
       <!-- Content Area -->
       <div class="view-dialog-body">
-
+    
         <!-- Interactive WhatsApp Guide Banner when poster is copied to clipboard -->
-        <div class="whatsapp-ready-strip" *ngIf="posterCopied">
-          <div class="ready-icon-wrap">
-            <mat-icon>check_circle</mat-icon>
+        @if (posterCopied) {
+          <div class="whatsapp-ready-strip">
+            <div class="ready-icon-wrap">
+              <mat-icon>check_circle</mat-icon>
+            </div>
+            <div class="ready-info">
+              <span class="ready-title">🎨 पोस्टर इमेज क्लिपबोर्ड पर कॉपी हो गई है! (Poster Copied)</span>
+              <span class="ready-desc">WhatsApp चैट में जाकर सिर्फ <strong>Ctrl + V</strong> (Paste) दबाएँ — पूरा रंगीन पोस्टर तुरंत अटैच हो जाएगा!</span>
+            </div>
+            <button mat-flat-button class="open-wa-strip-btn" (click)="openWhatsAppChat()" matTooltip="Open WhatsApp Web">
+              <mat-icon>launch</mat-icon>
+              <span>Open WhatsApp Web</span>
+            </button>
+            <button mat-icon-button (click)="posterCopied = false" class="dismiss-strip-btn" matTooltip="Dismiss">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
-          <div class="ready-info">
-            <span class="ready-title">🎨 पोस्टर इमेज क्लिपबोर्ड पर कॉपी हो गई है! (Poster Copied)</span>
-            <span class="ready-desc">WhatsApp चैट में जाकर सिर्फ <strong>Ctrl + V</strong> (Paste) दबाएँ — पूरा रंगीन पोस्टर तुरंत अटैच हो जाएगा!</span>
-          </div>
-          <button mat-flat-button class="open-wa-strip-btn" (click)="openWhatsAppChat()" matTooltip="Open WhatsApp Web">
-            <mat-icon>launch</mat-icon>
-            <span>Open WhatsApp Web</span>
-          </button>
-          <button mat-icon-button (click)="posterCopied = false" class="dismiss-strip-btn" matTooltip="Dismiss">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
+        }
+    
         <!-- VIEW 1: WhatsApp Graphic Poster (Matching Screenshot 4) -->
-        <div class="poster-container" *ngIf="previewMode === 'poster'" id="printable-poster">
-          <div class="whatsapp-poster-card">
-            <!-- Director Header Banner -->
-            <div class="poster-director-strip">
-              <div class="director-avatar-wrap">
-                <img *ngIf="directorPhoto" [src]="directorPhoto" class="director-avatar-img" alt="Authority" />
-                <mat-icon *ngIf="!directorPhoto">account_circle</mat-icon>
-              </div>
-              <div class="director-meta">
-                <span class="director-name">{{ directorName }}</span>
-                <span class="director-title">{{ directorTitle }}</span>
-              </div>
-            </div>
-
-            <!-- Poster Top Banner with Scenic Campus Illustration -->
-            <div class="poster-crest-header" [style.backgroundImage]="'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.85) 60%, #ffffff 100%), url(' + posterAssets.campus + ')'">
-              <div class="campus-header-overlay"></div>
-              
-              <div class="campus-header-top-row">
-                <!-- Circular Campus Logo Badge -->
-                <div class="campus-logo-badge">
-                  <img *ngIf="instituteLogo" [src]="instituteLogo" class="crest-logo-img" alt="Logo" />
-                  <mat-icon *ngIf="!instituteLogo">school</mat-icon>
+        @if (previewMode === 'poster') {
+          <div class="poster-container" id="printable-poster">
+            <div class="whatsapp-poster-card">
+              <!-- Director Header Banner -->
+              <div class="poster-director-strip">
+                <div class="director-avatar-wrap">
+                  @if (directorPhoto) {
+                    <img [src]="directorPhoto" class="director-avatar-img" alt="Authority" />
+                  }
+                  @if (!directorPhoto) {
+                    <mat-icon>account_circle</mat-icon>
+                  }
                 </div>
-
-                <!-- Campus Center Titles -->
-                <div class="campus-title-block">
-                  <h1 class="poster-campus-title">{{ instituteName }}</h1>
-                  <div class="poster-addr-pill" *ngIf="branchAddress">
-                    <span>{{ branchAddress }}</span>
+                <div class="director-meta">
+                  <span class="director-name">{{ directorName }}</span>
+                  <span class="director-title">{{ directorTitle }}</span>
+                </div>
+              </div>
+              <!-- Poster Top Banner with Scenic Campus Illustration -->
+              <div class="poster-crest-header" [style.backgroundImage]="'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.85) 60%, #ffffff 100%), url(' + posterAssets.campus + ')'">
+                <div class="campus-header-overlay"></div>
+                <div class="campus-header-top-row">
+                  <!-- Circular Campus Logo Badge -->
+                  <div class="campus-logo-badge">
+                    @if (instituteLogo) {
+                      <img [src]="instituteLogo" class="crest-logo-img" alt="Logo" />
+                    }
+                    @if (!instituteLogo) {
+                      <mat-icon>school</mat-icon>
+                    }
                   </div>
-                  <div class="poster-scope-pill" *ngIf="campusScopeTag">
-                    <span>{{ campusScopeTag }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 3D Ribbon Banner: NOTICE with Megaphone & Books Stack -->
-              <div class="poster-notice-banner-row">
-                <!-- 3D Megaphone -->
-                <div class="poster-megaphone-wrap">
-                  <span class="megaphone-emoji">📢</span>
-                </div>
-
-                <!-- 3D NOTICE Ribbon Banner -->
-                <div class="ribbon-3d-wrapper">
-                  <div class="ribbon-tail tail-left"></div>
-                  <div class="ribbon-main-banner">
-                    <span class="sparkle-star">✦</span>
-                    <span class="ribbon-title-text">NOTICE</span>
-                    <span class="sparkle-star">✦</span>
-                  </div>
-                  <div class="ribbon-tail tail-right"></div>
-                </div>
-
-                <!-- 3D Mini Stack of Books -->
-                <div class="mini-books-stack">
-                  <div class="mini-book-spine spine-blue"><span>DISCIPLINE</span></div>
-                  <div class="mini-book-spine spine-red"><span>STUDY</span></div>
-                  <div class="mini-book-spine spine-green"><span>SUCCESS</span></div>
-                  <div class="mini-book-spine spine-purple"><span>BRIGHT FUTURE</span></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Hanging Board Red Pins -->
-            <div class="board-hanging-pins">
-              <div class="pin-unit pin-left"><div class="pin-head"></div><div class="pin-cord"></div></div>
-              <div class="pin-unit pin-right"><div class="pin-head"></div><div class="pin-cord"></div></div>
-            </div>
-
-            <!-- Main Notice Key Details Rows -->
-            <div class="poster-details-table">
-              <!-- Dear Student Row -->
-              <div class="poster-row">
-                <div class="poster-cell-label bg-blue">
-                  <span class="cell-ico">👥</span>
-                  <span class="cell-lbl">Dear Student</span>
-                  <span class="cell-sep">:</span>
-                </div>
-                <div class="poster-cell-value">
-                  <span class="val-pill pill-cyan">प्रिय विद्यार्थियों,</span>
-                </div>
-              </div>
-
-              <!-- Batch Row -->
-              <div class="poster-row">
-                <div class="poster-cell-label bg-green">
-                  <span class="cell-ico">👥</span>
-                  <span class="cell-lbl">Batch</span>
-                  <span class="cell-sep">:</span>
-                </div>
-                <div class="poster-cell-value">
-                  <span class="val-pill pill-yellow">
-                    {{ getDisplayBatchWithShift(data.notice) }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Subject Row -->
-              <div class="poster-row">
-                <div class="poster-cell-label bg-red">
-                  <span class="cell-ico">📝</span>
-                  <span class="cell-lbl">Subject</span>
-                  <span class="cell-sep">:</span>
-                </div>
-                <div class="poster-cell-value">
-                  <span class="val-pill pill-pink">
-                    {{ data.notice.title || 'Weekly Test Exam' }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Date Row -->
-              <div class="poster-row">
-                <div class="poster-cell-label bg-purple">
-                  <span class="cell-ico">📅</span>
-                  <span class="cell-lbl">Date</span>
-                  <span class="cell-sep">:</span>
-                </div>
-                <div class="poster-cell-value">
-                  <span class="val-pill pill-purple">
-                    {{ getDisplayDate(data.notice.publishDate) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Announcement Content Body Callout -->
-            <div class="poster-content-box">
-              <div class="hand-icon">👉</div>
-              <div class="content-hindi-text">
-                {{ getDisplayContent(data.notice) }}
-              </div>
-            </div>
-
-            <!-- Rich Footer Banner with 3D Cartoon Kids & Books Stack -->
-            <div class="poster-footer-composite">
-              <!-- Left: 3D Cartoon School Students thumbs up -->
-              <div class="footer-kids-col">
-                <img [src]="posterAssets.kids" class="footer-kids-img" alt="Students" />
-              </div>
-
-              <!-- Center: Red Brush-Stroke Thank You & Motto -->
-              <div class="footer-center-col">
-                <div class="brush-thank-you-wrap">
-                  <div class="brush-thank-you-btn">
-                    <span class="thank-you-burst">✨</span>
-                    <span class="thank-you-script">Thank You</span>
+                  <!-- Campus Center Titles -->
+                  <div class="campus-title-block">
+                    <h1 class="poster-campus-title">{{ instituteName }}</h1>
+                    @if (branchAddress) {
+                      <div class="poster-addr-pill">
+                        <span>{{ branchAddress }}</span>
+                      </div>
+                    }
+                    @if (campusScopeTag) {
+                      <div class="poster-scope-pill">
+                        <span>{{ campusScopeTag }}</span>
+                      </div>
+                    }
                   </div>
                 </div>
-                <div class="footer-motto-strip">
-                  <span class="motto-chip c-blue">STUDY</span>
-                  <span class="motto-dot">&bull;</span>
-                  <span class="motto-chip c-red">PRACTICE</span>
-                  <span class="motto-dot">&bull;</span>
-                  <span class="motto-chip c-yellow">IMPROVE</span>
-                  <span class="motto-dot">&bull;</span>
-                  <span class="motto-chip c-green">ACHIEVE</span>
-                </div>
-                <div class="footer-time-overlay">
-                  {{ formatISTTime(data.notice.publishDate) }}
+                <!-- 3D Ribbon Banner: NOTICE with Megaphone & Books Stack -->
+                <div class="poster-notice-banner-row">
+                  <!-- 3D Megaphone -->
+                  <div class="poster-megaphone-wrap">
+                    <span class="megaphone-emoji">📢</span>
+                  </div>
+                  <!-- 3D NOTICE Ribbon Banner -->
+                  <div class="ribbon-3d-wrapper">
+                    <div class="ribbon-tail tail-left"></div>
+                    <div class="ribbon-main-banner">
+                      <span class="sparkle-star">✦</span>
+                      <span class="ribbon-title-text">NOTICE</span>
+                      <span class="sparkle-star">✦</span>
+                    </div>
+                    <div class="ribbon-tail tail-right"></div>
+                  </div>
+                  <!-- 3D Mini Stack of Books -->
+                  <div class="mini-books-stack">
+                    <div class="mini-book-spine spine-blue"><span>DISCIPLINE</span></div>
+                    <div class="mini-book-spine spine-red"><span>STUDY</span></div>
+                    <div class="mini-book-spine spine-green"><span>SUCCESS</span></div>
+                    <div class="mini-book-spine spine-purple"><span>BRIGHT FUTURE</span></div>
+                  </div>
                 </div>
               </div>
-
-              <!-- Right: 3D Study Books on Desk with Pen Holder -->
-              <div class="footer-books-col">
-                <img [src]="posterAssets.books" class="footer-books-img" alt="Study Books" />
+              <!-- Hanging Board Red Pins -->
+              <div class="board-hanging-pins">
+                <div class="pin-unit pin-left"><div class="pin-head"></div><div class="pin-cord"></div></div>
+                <div class="pin-unit pin-right"><div class="pin-head"></div><div class="pin-cord"></div></div>
+              </div>
+              <!-- Main Notice Key Details Rows -->
+              <div class="poster-details-table">
+                <!-- Dear Student Row -->
+                <div class="poster-row">
+                  <div class="poster-cell-label bg-blue">
+                    <span class="cell-ico">👥</span>
+                    <span class="cell-lbl">Dear Student</span>
+                    <span class="cell-sep">:</span>
+                  </div>
+                  <div class="poster-cell-value">
+                    <span class="val-pill pill-cyan">प्रिय विद्यार्थियों,</span>
+                  </div>
+                </div>
+                <!-- Batch Row -->
+                <div class="poster-row">
+                  <div class="poster-cell-label bg-green">
+                    <span class="cell-ico">👥</span>
+                    <span class="cell-lbl">Batch</span>
+                    <span class="cell-sep">:</span>
+                  </div>
+                  <div class="poster-cell-value">
+                    <span class="val-pill pill-yellow">
+                      {{ getDisplayBatchWithShift(data.notice) }}
+                    </span>
+                  </div>
+                </div>
+                <!-- Subject Row -->
+                <div class="poster-row">
+                  <div class="poster-cell-label bg-red">
+                    <span class="cell-ico">📝</span>
+                    <span class="cell-lbl">Subject</span>
+                    <span class="cell-sep">:</span>
+                  </div>
+                  <div class="poster-cell-value">
+                    <span class="val-pill pill-pink">
+                      {{ data.notice.title || 'Weekly Test Exam' }}
+                    </span>
+                  </div>
+                </div>
+                <!-- Date Row -->
+                <div class="poster-row">
+                  <div class="poster-cell-label bg-purple">
+                    <span class="cell-ico">📅</span>
+                    <span class="cell-lbl">Date</span>
+                    <span class="cell-sep">:</span>
+                  </div>
+                  <div class="poster-cell-value">
+                    <span class="val-pill pill-purple">
+                      {{ getDisplayDate(data.notice.publishDate) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <!-- Announcement Content Body Callout -->
+              <div class="poster-content-box">
+                <div class="hand-icon">👉</div>
+                <div class="content-hindi-text">
+                  {{ getDisplayContent(data.notice) }}
+                </div>
+              </div>
+              <!-- Rich Footer Banner with 3D Cartoon Kids & Books Stack -->
+              <div class="poster-footer-composite">
+                <!-- Left: 3D Cartoon School Students thumbs up -->
+                <div class="footer-kids-col">
+                  <img [src]="posterAssets.kids" class="footer-kids-img" alt="Students" />
+                </div>
+                <!-- Center: Red Brush-Stroke Thank You & Motto -->
+                <div class="footer-center-col">
+                  <div class="brush-thank-you-wrap">
+                    <div class="brush-thank-you-btn">
+                      <span class="thank-you-burst">✨</span>
+                      <span class="thank-you-script">Thank You</span>
+                    </div>
+                  </div>
+                  <div class="footer-motto-strip">
+                    <span class="motto-chip c-blue">STUDY</span>
+                    <span class="motto-dot">&bull;</span>
+                    <span class="motto-chip c-red">PRACTICE</span>
+                    <span class="motto-dot">&bull;</span>
+                    <span class="motto-chip c-yellow">IMPROVE</span>
+                    <span class="motto-dot">&bull;</span>
+                    <span class="motto-chip c-green">ACHIEVE</span>
+                  </div>
+                  <div class="footer-time-overlay">
+                    {{ formatISTTime(data.notice.publishDate) }}
+                  </div>
+                </div>
+                <!-- Right: 3D Study Books on Desk with Pen Holder -->
+                <div class="footer-books-col">
+                  <img [src]="posterAssets.books" class="footer-books-img" alt="Study Books" />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-
+        }
+    
         <!-- VIEW 2: Printable Letterhead Paper -->
-        <div class="letterhead-container" *ngIf="previewMode === 'letterhead'">
-          <div class="circular-paper" id="printable-circular">
-            <!-- School Letterhead Header -->
-            <div class="paper-header">
-              <div class="school-seal">
-                <img *ngIf="instituteLogo" [src]="instituteLogo" class="paper-logo-img" alt="Logo" />
-                <mat-icon *ngIf="!instituteLogo">school</mat-icon>
-              </div>
-              <div class="school-meta">
-                <h1 class="school-name">{{ instituteName }}</h1>
-                <p class="school-tagline">{{ campusTagline }}</p>
-                <p class="school-addr" *ngIf="branchAddress">{{ branchAddress }}</p>
-                <p class="school-contact" *ngIf="contactInfo">{{ contactInfo }}</p>
-              </div>
-            </div>
-
-            <div class="decorative-divider"></div>
-
-            <!-- Reference & Date Line -->
-            <div class="ref-date-row">
-              <span class="ref-no">Ref No: <strong>{{ data.notice.noticeNumber }}</strong></span>
-              <span class="pub-date">Dated: <strong>{{ data.notice.publishDate | date:'dd MMMM yyyy' }}</strong></span>
-            </div>
-
-            <!-- Circular Banner -->
-            <div class="cir-banner">
-              <span class="cir-badge" [class.urgent-badge]="data.notice.priority === 'Urgent'">
-                {{ data.notice.priority === 'Urgent' ? 'URGENT CIRCULAR' : 'OFFICIAL CIRCULAR' }}
-              </span>
-              <h2 class="paper-title">{{ data.notice.title }}</h2>
-              <div class="paper-audience">
-                Target Audience: <strong>{{ getAudienceDesc(data.notice) }}</strong>
-              </div>
-            </div>
-
-            <!-- Body Content -->
-            <div class="paper-body">
-              <p class="greeting-line">Dear Parents, Students and Faculty members,</p>
-              <div class="body-paragraphs">
-                {{ getDisplayContent(data.notice) }}
-              </div>
-              <p class="closing-line">
-                Your kind cooperation and strict adherence to the schedule above is solicited.
-              </p>
-            </div>
-
-            <!-- Attachment Link if any -->
-            <div class="paper-att-box" *ngIf="data.notice.attachmentUrl">
-              <mat-icon>attach_file</mat-icon>
-              <span>Attached Document: <a [href]="data.notice.attachmentUrl" target="_blank">{{ data.notice.attachmentUrl }}</a></span>
-            </div>
-
-            <!-- Signature Block (3-Column Layout: Academic Office, Official Seal, Signatory) -->
-            <div class="sign-block">
-              <div class="sign-box sign-left">
-                <div class="sign-line"></div>
-                <span class="sign-title">Issued By: Academic Office</span>
-                <span class="sign-sub">{{ instituteName }}</span>
-              </div>
-              <div class="sign-box sign-center">
-                <div class="seal-img-wrap" *ngIf="officialSealUrl">
-                  <img [src]="officialSealUrl" class="official-seal-img" alt="Official Seal" />
+        @if (previewMode === 'letterhead') {
+          <div class="letterhead-container">
+            <div class="circular-paper" id="printable-circular">
+              <!-- School Letterhead Header -->
+              <div class="paper-header">
+                <div class="school-seal">
+                  @if (instituteLogo) {
+                    <img [src]="instituteLogo" class="paper-logo-img" alt="Logo" />
+                  }
+                  @if (!instituteLogo) {
+                    <mat-icon>school</mat-icon>
+                  }
                 </div>
-                <div class="seal-placeholder" *ngIf="!officialSealUrl">OFFICIAL<br>INSTITUTION<br>SEAL</div>
-              </div>
-              <div class="sign-box sign-right">
-                <div class="sig-img-wrap" *ngIf="digitalSignatureUrl">
-                  <img [src]="digitalSignatureUrl" class="digital-sig-img" alt="Signature" />
+                <div class="school-meta">
+                  <h1 class="school-name">{{ instituteName }}</h1>
+                  <p class="school-tagline">{{ campusTagline }}</p>
+                  @if (branchAddress) {
+                    <p class="school-addr">{{ branchAddress }}</p>
+                  }
+                  @if (contactInfo) {
+                    <p class="school-contact">{{ contactInfo }}</p>
+                  }
                 </div>
-                <div class="sign-line"></div>
-                <span class="sign-title">{{ directorName }}</span>
-                <span class="sign-sub">{{ directorTitle }}</span>
+              </div>
+              <div class="decorative-divider"></div>
+              <!-- Reference & Date Line -->
+              <div class="ref-date-row">
+                <span class="ref-no">Ref No: <strong>{{ data.notice.noticeNumber }}</strong></span>
+                <span class="pub-date">Dated: <strong>{{ data.notice.publishDate | date:'dd MMMM yyyy' }}</strong></span>
+              </div>
+              <!-- Circular Banner -->
+              <div class="cir-banner">
+                <span class="cir-badge" [class.urgent-badge]="data.notice.priority === 'Urgent'">
+                  {{ data.notice.priority === 'Urgent' ? 'URGENT CIRCULAR' : 'OFFICIAL CIRCULAR' }}
+                </span>
+                <h2 class="paper-title">{{ data.notice.title }}</h2>
+                <div class="paper-audience">
+                  Target Audience: <strong>{{ getAudienceDesc(data.notice) }}</strong>
+                </div>
+              </div>
+              <!-- Body Content -->
+              <div class="paper-body">
+                <p class="greeting-line">Dear Parents, Students and Faculty members,</p>
+                <div class="body-paragraphs">
+                  {{ getDisplayContent(data.notice) }}
+                </div>
+                <p class="closing-line">
+                  Your kind cooperation and strict adherence to the schedule above is solicited.
+                </p>
+              </div>
+              <!-- Attachment Link if any -->
+              @if (data.notice.attachmentUrl) {
+                <div class="paper-att-box">
+                  <mat-icon>attach_file</mat-icon>
+                  <span>Attached Document: <a [href]="data.notice.attachmentUrl" target="_blank">{{ data.notice.attachmentUrl }}</a></span>
+                </div>
+              }
+              <!-- Signature Block (3-Column Layout: Academic Office, Official Seal, Signatory) -->
+              <div class="sign-block">
+                <div class="sign-box sign-left">
+                  <div class="sign-line"></div>
+                  <span class="sign-title">Issued By: Academic Office</span>
+                  <span class="sign-sub">{{ instituteName }}</span>
+                </div>
+                <div class="sign-box sign-center">
+                  @if (officialSealUrl) {
+                    <div class="seal-img-wrap">
+                      <img [src]="officialSealUrl" class="official-seal-img" alt="Official Seal" />
+                    </div>
+                  }
+                  @if (!officialSealUrl) {
+                    <div class="seal-placeholder">OFFICIAL<br>INSTITUTION<br>SEAL</div>
+                  }
+                </div>
+                <div class="sign-box sign-right">
+                  @if (digitalSignatureUrl) {
+                    <div class="sig-img-wrap">
+                      <img [src]="digitalSignatureUrl" class="digital-sig-img" alt="Signature" />
+                    </div>
+                  }
+                  <div class="sign-line"></div>
+                  <span class="sign-title">{{ directorName }}</span>
+                  <span class="sign-sub">{{ directorTitle }}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        }
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .view-dialog-wrap { display: flex; flex-direction: column; background: #ffffff; border-radius: 14px; overflow: hidden; width: 100%; box-sizing: border-box; }
     

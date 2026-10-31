@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,7 +21,6 @@ export interface InventoryBillSequenceDialogData {
   selector: 'app-inventory-bill-sequence-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -31,7 +30,7 @@ export interface InventoryBillSequenceDialogData {
     MatIconModule,
     MatSlideToggleModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="dialog-container">
       <!-- Strict ERP Light-Blue Gradient Header -->
@@ -49,7 +48,7 @@ export interface InventoryBillSequenceDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-body">
           <!-- Live Preview Banner -->
@@ -60,7 +59,7 @@ export interface InventoryBillSequenceDialogData {
             </div>
             <mat-icon class="preview-icon">auto_awesome</mat-icon>
           </div>
-
+    
           <div class="form-grid">
             <!-- Prefix -->
             <mat-form-field appearance="outline">
@@ -68,14 +67,14 @@ export interface InventoryBillSequenceDialogData {
               <input matInput formControlName="prefix" placeholder="e.g. BILL-, INV-, PUR-" />
               <mat-hint>Letters or code preceding number</mat-hint>
             </mat-form-field>
-
+    
             <!-- Next Counter -->
             <mat-form-field appearance="outline">
               <mat-label>Next Sequence Number</mat-label>
               <input matInput type="number" min="1" formControlName="nextNumber" />
               <mat-hint>Counter starts from this integer</mat-hint>
             </mat-form-field>
-
+    
             <!-- Padding Digits -->
             <mat-form-field appearance="outline">
               <mat-label>Digit Padding</mat-label>
@@ -87,7 +86,7 @@ export interface InventoryBillSequenceDialogData {
               </mat-select>
               <mat-hint>Leading zeros formatting</mat-hint>
             </mat-form-field>
-
+    
             <!-- Include Financial Year Toggle -->
             <div class="toggle-card">
               <mat-slide-toggle formControlName="includeFinancialYear" color="primary">
@@ -97,19 +96,22 @@ export interface InventoryBillSequenceDialogData {
             </div>
           </div>
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">
             Cancel
           </button>
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || saving">
-            <mat-spinner diameter="18" *ngIf="saving" class="spinner-btn"></mat-spinner>
+            @if (saving) {
+              <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
+            }
             <span>Save Sequence Settings</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       display: flex;

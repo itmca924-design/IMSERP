@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -20,7 +20,6 @@ export interface EventFormDialogData {
   selector: 'app-event-form-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -30,7 +29,7 @@ export interface EventFormDialogData {
     MatIconModule,
     MatCheckboxModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="dialog-wrapper">
       <!-- Strict Light Blue Header matching AGENTS.md rule -->
@@ -50,31 +49,35 @@ export interface EventFormDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-content">
           <!-- Quick Preset Pill Badges for Fast Creation -->
-          <div class="preset-row" *ngIf="!isEdit">
-            <span class="preset-label">Quick Presets:</span>
-            <div class="preset-chips">
-              <button type="button" class="preset-chip national" (click)="applyPreset('15th August - Independence Day', 'National', 'Flag hoisting, march-past & cultural patriotic events in school ground.', 'School Ground')">🇮🇳 15 Aug</button>
-              <button type="button" class="preset-chip national" (click)="applyPreset('26th January - Republic Day', 'National', 'Patriotic assembly, unfurling of Tricolour, speech & sweet distribution.', 'School Assembly Area')">🇮🇳 26 Jan</button>
-              <button type="button" class="preset-chip cultural" (click)="applyPreset('Farewell Ceremony 2026', 'Cultural', 'Grand farewell celebration, memento distribution & blessings for graduating seniors.', 'School Auditorium')">🎓 Farewell Party</button>
-              <button type="button" class="preset-chip sports" (click)="applyPreset('Annual Sports Meet', 'Sports', 'Track & field athletics, march-past, inter-house trophy tournaments.', 'Sports Arena')">🏆 Sports Day</button>
-              <button type="button" class="preset-chip academic" (click)="applyPreset('Parent-Teacher Meeting (PTM)', 'PTM', 'Comprehensive review of student academic progress, attendance & term feedback.', 'Respective Classrooms')">🤝 PTM</button>
-              <button type="button" class="preset-chip celebration" (click)="applyPreset('Teachers Day Celebration', 'Celebration', 'Special tribute performance by students honoring our esteemed educators.', 'School Auditorium')">💐 Teachers Day</button>
+          @if (!isEdit) {
+            <div class="preset-row">
+              <span class="preset-label">Quick Presets:</span>
+              <div class="preset-chips">
+                <button type="button" class="preset-chip national" (click)="applyPreset('15th August - Independence Day', 'National', 'Flag hoisting, march-past & cultural patriotic events in school ground.', 'School Ground')">🇮🇳 15 Aug</button>
+                <button type="button" class="preset-chip national" (click)="applyPreset('26th January - Republic Day', 'National', 'Patriotic assembly, unfurling of Tricolour, speech & sweet distribution.', 'School Assembly Area')">🇮🇳 26 Jan</button>
+                <button type="button" class="preset-chip cultural" (click)="applyPreset('Farewell Ceremony 2026', 'Cultural', 'Grand farewell celebration, memento distribution & blessings for graduating seniors.', 'School Auditorium')">🎓 Farewell Party</button>
+                <button type="button" class="preset-chip sports" (click)="applyPreset('Annual Sports Meet', 'Sports', 'Track & field athletics, march-past, inter-house trophy tournaments.', 'Sports Arena')">🏆 Sports Day</button>
+                <button type="button" class="preset-chip academic" (click)="applyPreset('Parent-Teacher Meeting (PTM)', 'PTM', 'Comprehensive review of student academic progress, attendance & term feedback.', 'Respective Classrooms')">🤝 PTM</button>
+                <button type="button" class="preset-chip celebration" (click)="applyPreset('Teachers Day Celebration', 'Celebration', 'Special tribute performance by students honoring our esteemed educators.', 'School Auditorium')">💐 Teachers Day</button>
+              </div>
             </div>
-          </div>
-
+          }
+    
           <div class="form-grid">
             <!-- Event Title -->
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Event / Function Title *</mat-label>
               <input matInput formControlName="title" placeholder="e.g. Annual Cultural Fest & Exhibition 2026" />
               <mat-icon matSuffix color="primary">title</mat-icon>
-              <mat-error *ngIf="form.get('title')?.hasError('required')">Event title is required</mat-error>
+              @if (form.get('title')?.hasError('required')) {
+                <mat-error>Event title is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Category -->
             <mat-form-field appearance="outline">
               <mat-label>Category *</mat-label>
@@ -89,7 +92,7 @@ export interface EventFormDialogData {
               </mat-select>
               <mat-icon matSuffix color="primary">category</mat-icon>
             </mat-form-field>
-
+    
             <!-- Target Audience -->
             <mat-form-field appearance="outline">
               <mat-label>Target Audience *</mat-label>
@@ -103,79 +106,87 @@ export interface EventFormDialogData {
               </mat-select>
               <mat-icon matSuffix color="primary">groups</mat-icon>
             </mat-form-field>
-
+    
             <!-- Start Date -->
             <mat-form-field appearance="outline">
               <mat-label>Start Date *</mat-label>
               <input matInput type="date" formControlName="startDate" />
               <mat-icon matSuffix color="primary">calendar_today</mat-icon>
-              <mat-error *ngIf="form.get('startDate')?.hasError('required')">Start date is required</mat-error>
+              @if (form.get('startDate')?.hasError('required')) {
+                <mat-error>Start date is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- End Date -->
             <mat-form-field appearance="outline">
               <mat-label>End Date (Optional for multi-day)</mat-label>
               <input matInput type="date" formControlName="endDate" />
               <mat-icon matSuffix color="primary">event_repeat</mat-icon>
             </mat-form-field>
-
+    
             <!-- Start Time -->
             <mat-form-field appearance="outline">
               <mat-label>Start Time (e.g. 09:00 AM)</mat-label>
               <input matInput formControlName="startTime" placeholder="09:00 AM" />
               <mat-icon matSuffix color="primary">schedule</mat-icon>
             </mat-form-field>
-
+    
             <!-- End Time -->
             <mat-form-field appearance="outline">
               <mat-label>End Time (e.g. 01:30 PM)</mat-label>
               <input matInput formControlName="endTime" placeholder="01:30 PM" />
               <mat-icon matSuffix color="primary">update</mat-icon>
             </mat-form-field>
-
+    
             <!-- Venue -->
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Venue / Location</mat-label>
               <input matInput formControlName="venue" placeholder="e.g. Main Auditorium / Central Sports Arena / Classroom 10-A" />
               <mat-icon matSuffix color="primary">place</mat-icon>
             </mat-form-field>
-
+    
             <!-- Chief Guest -->
             <mat-form-field appearance="outline">
               <mat-label>Chief Guest / Special Invitee</mat-label>
               <input matInput formControlName="chiefGuestName" placeholder="e.g. Hon'ble District Collector / Renowned Scientist" />
               <mat-icon matSuffix color="primary">star</mat-icon>
             </mat-form-field>
-
+    
             <!-- Coordinator Name -->
             <mat-form-field appearance="outline">
               <mat-label>Faculty Coordinator / In-Charge</mat-label>
               <input matInput formControlName="coordinatorName" placeholder="e.g. Mrs. Sunita Roy (CCA In-Charge)" />
               <mat-icon matSuffix color="primary">badge</mat-icon>
             </mat-form-field>
-
+    
             <!-- Branch Dropdown (if multiple branches) -->
-            <mat-form-field appearance="outline" *ngIf="branches.length > 1" class="col-span-2">
-              <mat-label>Applicable Branch</mat-label>
-              <mat-select formControlName="branchId">
-                <mat-option [value]="null">🏢 All Branches (Central Event)</mat-option>
-                <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">apartment</mat-icon>
-            </mat-form-field>
-
+            @if (branches.length > 1) {
+              <mat-form-field appearance="outline" class="col-span-2">
+                <mat-label>Applicable Branch</mat-label>
+                <mat-select formControlName="branchId">
+                  <mat-option [value]="null">🏢 All Branches (Central Event)</mat-option>
+                  @for (b of branches; track b) {
+                    <mat-option [value]="b.id">{{ b.name }}</mat-option>
+                  }
+                </mat-select>
+                <mat-icon matSuffix color="primary">apartment</mat-icon>
+              </mat-form-field>
+            }
+    
             <!-- Status (if edit) -->
-            <mat-form-field appearance="outline" *ngIf="isEdit" class="col-span-2">
-              <mat-label>Event Status</mat-label>
-              <mat-select formControlName="status">
-                <mat-option value="Scheduled">Scheduled (Upcoming)</mat-option>
-                <mat-option value="Ongoing">Ongoing (In Progress)</mat-option>
-                <mat-option value="Completed">Completed (Concluded)</mat-option>
-                <mat-option value="Cancelled">Cancelled</mat-option>
-              </mat-select>
-              <mat-icon matSuffix color="primary">rule</mat-icon>
-            </mat-form-field>
-
+            @if (isEdit) {
+              <mat-form-field appearance="outline" class="col-span-2">
+                <mat-label>Event Status</mat-label>
+                <mat-select formControlName="status">
+                  <mat-option value="Scheduled">Scheduled (Upcoming)</mat-option>
+                  <mat-option value="Ongoing">Ongoing (In Progress)</mat-option>
+                  <mat-option value="Completed">Completed (Concluded)</mat-option>
+                  <mat-option value="Cancelled">Cancelled</mat-option>
+                </mat-select>
+                <mat-icon matSuffix color="primary">rule</mat-icon>
+              </mat-form-field>
+            }
+    
             <!-- Description -->
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Event Overview & Schedule Instructions</mat-label>
@@ -183,14 +194,14 @@ export interface EventFormDialogData {
               <mat-icon matSuffix color="primary">notes</mat-icon>
             </mat-form-field>
           </div>
-
+    
           <!-- Attachments Section (Banner Poster & Circular PDF) -->
           <div class="attachments-box">
             <div class="box-title">
               <mat-icon>attachment</mat-icon>
               <span>Event Posters & Circular PDF Guidelines</span>
             </div>
-
+    
             <div class="attachments-grid">
               <!-- Banner Image Upload -->
               <div class="upload-card">
@@ -201,21 +212,25 @@ export interface EventFormDialogData {
                     <span class="card-sub">Will be featured on Dashboard & Event Card</span>
                   </div>
                 </div>
-
-                <div class="preview-area" *ngIf="bannerPreviewUrl">
-                  <img [src]="bannerPreviewUrl" alt="Banner Preview" class="banner-img" />
-                  <button type="button" class="remove-btn" (click)="removeBanner()">
-                    <mat-icon>close</mat-icon> Remove
-                  </button>
-                </div>
-
-                <div class="drop-zone" *ngIf="!bannerPreviewUrl" (click)="bannerFileInput.click()">
-                  <mat-icon class="drop-icon">cloud_upload</mat-icon>
-                  <span>Click to upload Banner (JPG, PNG, WebP)</span>
-                  <input #bannerFileInput type="file" accept="image/*" (change)="onBannerFileSelected($event)" style="display:none;" />
-                </div>
+    
+                @if (bannerPreviewUrl) {
+                  <div class="preview-area">
+                    <img [src]="bannerPreviewUrl" alt="Banner Preview" class="banner-img" />
+                    <button type="button" class="remove-btn" (click)="removeBanner()">
+                      <mat-icon>close</mat-icon> Remove
+                    </button>
+                  </div>
+                }
+    
+                @if (!bannerPreviewUrl) {
+                  <div class="drop-zone" (click)="bannerFileInput.click()">
+                    <mat-icon class="drop-icon">cloud_upload</mat-icon>
+                    <span>Click to upload Banner (JPG, PNG, WebP)</span>
+                    <input #bannerFileInput type="file" accept="image/*" (change)="onBannerFileSelected($event)" style="display:none;" />
+                  </div>
+                }
               </div>
-
+    
               <!-- Circular PDF Upload -->
               <div class="upload-card">
                 <div class="upload-card-head">
@@ -225,48 +240,59 @@ export interface EventFormDialogData {
                     <span class="card-sub">Rules, routine & parent consent form</span>
                   </div>
                 </div>
-
-                <div class="preview-area pdf-preview" *ngIf="circularFileName">
-                  <div class="pdf-info">
-                    <mat-icon class="pdf-file-icon">picture_as_pdf</mat-icon>
-                    <span class="pdf-name" [title]="circularFileName">{{ circularFileName }}</span>
+    
+                @if (circularFileName) {
+                  <div class="preview-area pdf-preview">
+                    <div class="pdf-info">
+                      <mat-icon class="pdf-file-icon">picture_as_pdf</mat-icon>
+                      <span class="pdf-name" [title]="circularFileName">{{ circularFileName }}</span>
+                    </div>
+                    <button type="button" class="remove-btn" (click)="removeCircular()">
+                      <mat-icon>close</mat-icon> Remove
+                    </button>
                   </div>
-                  <button type="button" class="remove-btn" (click)="removeCircular()">
-                    <mat-icon>close</mat-icon> Remove
-                  </button>
-                </div>
-
-                <div class="drop-zone" *ngIf="!circularFileName" (click)="circularFileInput.click()">
-                  <mat-icon class="drop-icon pdf-drop">picture_as_pdf</mat-icon>
-                  <span>Click to attach PDF Circular / Document</span>
-                  <input #circularFileInput type="file" accept=".pdf,.doc,.docx" (change)="onCircularFileSelected($event)" style="display:none;" />
-                </div>
+                }
+    
+                @if (!circularFileName) {
+                  <div class="drop-zone" (click)="circularFileInput.click()">
+                    <mat-icon class="drop-icon pdf-drop">picture_as_pdf</mat-icon>
+                    <span>Click to attach PDF Circular / Document</span>
+                    <input #circularFileInput type="file" accept=".pdf,.doc,.docx" (change)="onCircularFileSelected($event)" style="display:none;" />
+                  </div>
+                }
               </div>
             </div>
           </div>
-
+    
           <!-- Send WhatsApp Broadcast (Create Only) -->
-          <div class="broadcast-banner" *ngIf="!isEdit">
-            <mat-checkbox formControlName="sendWhatsAppBroadcast" color="primary">
-              <span class="broadcast-label">
-                <strong>Queue WhatsApp Announcement</strong> to students & parents with event timing & venue
-              </span>
-            </mat-checkbox>
-          </div>
-
+          @if (!isEdit) {
+            <div class="broadcast-banner">
+              <mat-checkbox formControlName="sendWhatsAppBroadcast" color="primary">
+                <span class="broadcast-label">
+                  <strong>Queue WhatsApp Announcement</strong> to students & parents with event timing & venue
+                </span>
+              </mat-checkbox>
+            </div>
+          }
+    
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
           <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn">
-            <mat-spinner diameter="18" *ngIf="saving" class="btn-spinner"></mat-spinner>
-            <mat-icon *ngIf="!saving">{{ isEdit ? 'save' : 'celebration' }}</mat-icon>
+            @if (saving) {
+              <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
+            }
+            @if (!saving) {
+              <mat-icon>{{ isEdit ? 'save' : 'celebration' }}</mat-icon>
+            }
             <span>{{ saving ? 'Saving...' : (isEdit ? 'Update Event' : 'Publish & Schedule Event') }}</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       padding: 0;

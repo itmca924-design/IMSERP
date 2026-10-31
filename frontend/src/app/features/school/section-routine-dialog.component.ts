@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -75,7 +75,7 @@ export interface SectionRoutineDialogData {
           </button>
         </div>
       </div>
-
+    
       <div class="dialog-body">
         <!-- Section Info & Incharge Banner -->
         <div class="section-meta-banner">
@@ -87,12 +87,16 @@ export interface SectionRoutineDialogData {
               <span class="meta-label">{{ isCoachingMode ? (isCoachingSingleClass ? 'Single Class Coaching Batch' : 'Combined Coaching Batch') : 'Class & Section' }}</span>
               <div class="meta-title-row">
                 <strong class="meta-val">{{ isCoachingMode ? data.batchName : (data.className + ' • ' + data.sectionName) }}</strong>
-                <span class="meta-type-tag single" *ngIf="isCoachingSingleClass">🏫 Single Class ({{ data.className }})</span>
-                <span class="meta-type-tag combined" *ngIf="isCoachingCombined">🔗 Multi-Class Combined</span>
+                @if (isCoachingSingleClass) {
+                  <span class="meta-type-tag single">🏫 Single Class ({{ data.className }})</span>
+                }
+                @if (isCoachingCombined) {
+                  <span class="meta-type-tag combined">🔗 Multi-Class Combined</span>
+                }
               </div>
             </div>
           </div>
-
+    
           <div class="meta-item ct-box" [class.has-ct]="isCoachingMode ? data.mentorTeacherId : data.classTeacherId">
             <div class="meta-icon-badge ct-badge">
               <mat-icon>{{ (isCoachingMode ? data.mentorTeacherId : data.classTeacherId) ? 'verified_user' : 'person_off' }}</mat-icon>
@@ -102,392 +106,480 @@ export interface SectionRoutineDialogData {
               <strong class="meta-val">{{ (isCoachingMode ? data.mentorTeacherName : data.classTeacherName) || 'No Incharge Assigned' }}</strong>
             </div>
           </div>
-
-          <div class="meta-action" *ngIf="!isCoachingMode && data.classTeacherId && !isClassTeacherAssignedToPeriod">
-            <button type="button" class="quick-ct-btn" (click)="quickPickClassTeacher()" matTooltip="Quickly pre-fill form to assign Class Teacher to a subject">
-              <mat-icon>star</mat-icon> Assign {{ classTeacherFirstName }}
-            </button>
-          </div>
-          <div class="meta-action" *ngIf="isCoachingMode && data.mentorTeacherId && selectedTeacherId !== data.mentorTeacherId">
-            <button type="button" class="quick-ct-btn" (click)="quickPickMentorTeacher()" matTooltip="Quickly pre-fill form to assign Batch Mentor to this subject">
-              <mat-icon>star</mat-icon> Assign {{ mentorTeacherFirstName }}
-            </button>
-          </div>
+    
+          @if (!isCoachingMode && data.classTeacherId && !isClassTeacherAssignedToPeriod) {
+            <div class="meta-action">
+              <button type="button" class="quick-ct-btn" (click)="quickPickClassTeacher()" matTooltip="Quickly pre-fill form to assign Class Teacher to a subject">
+                <mat-icon>star</mat-icon> Assign {{ classTeacherFirstName }}
+              </button>
+            </div>
+          }
+          @if (isCoachingMode && data.mentorTeacherId && selectedTeacherId !== data.mentorTeacherId) {
+            <div class="meta-action">
+              <button type="button" class="quick-ct-btn" (click)="quickPickMentorTeacher()" matTooltip="Quickly pre-fill form to assign Batch Mentor to this subject">
+                <mat-icon>star</mat-icon> Assign {{ mentorTeacherFirstName }}
+              </button>
+            </div>
+          }
         </div>
-
+    
         <!-- Clash Alert Notice -->
-        <div class="clash-alert" *ngIf="clashWarning">
-          <mat-icon class="clash-icon">warning_amber</mat-icon>
-          <div class="clash-text">
-            <strong>Faculty Schedule Clash Detected!</strong>
-            <p>{{ clashWarning }}</p>
-            <div class="clash-actions">
-              <button mat-flat-button color="primary" class="btn-pick-free" (click)="pickFirstAvailableTeacher()">
-                <mat-icon>auto_awesome</mat-icon> Pick Free Teacher (खाली शिक्षक चुनें)
-              </button>
-              <button mat-flat-button color="warn" class="btn-override" (click)="submitPeriod(true)">
-                <mat-icon>priority_high</mat-icon> Schedule Anyway (Override Clash)
-              </button>
-              <button mat-button (click)="clashWarning = null">Cancel</button>
+        @if (clashWarning) {
+          <div class="clash-alert">
+            <mat-icon class="clash-icon">warning_amber</mat-icon>
+            <div class="clash-text">
+              <strong>Faculty Schedule Clash Detected!</strong>
+              <p>{{ clashWarning }}</p>
+              <div class="clash-actions">
+                <button mat-flat-button color="primary" class="btn-pick-free" (click)="pickFirstAvailableTeacher()">
+                  <mat-icon>auto_awesome</mat-icon> Pick Free Teacher (खाली शिक्षक चुनें)
+                </button>
+                <button mat-flat-button color="warn" class="btn-override" (click)="submitPeriod(true)">
+                  <mat-icon>priority_high</mat-icon> Schedule Anyway (Override Clash)
+                </button>
+                <button mat-button (click)="clashWarning = null">Cancel</button>
+              </div>
             </div>
           </div>
-        </div>
-
+        }
+    
         <!-- Routine Periods Table -->
         <div class="routine-section">
           <div class="section-title-row">
             <div class="title-with-badge">
               <h3 class="section-heading"><mat-icon>schedule</mat-icon> Scheduled Periods ({{ routine.length }})</h3>
-              <span class="coverage-pill" *ngIf="routine.length > 0">{{ uniqueSubjects.length }} Subjects Configured</span>
+              @if (routine.length > 0) {
+                <span class="coverage-pill">{{ uniqueSubjects.length }} Subjects Configured</span>
+              }
             </div>
             <button type="button" class="add-period-toggle" (click)="toggleAddForm()">
               <mat-icon>{{ showAddForm ? 'remove' : 'add' }}</mat-icon>
               {{ showAddForm ? 'Hide Form' : 'Add Subject Period' }}
             </button>
           </div>
-
+    
           <!-- Add/Assign Period Form Drawer -->
-          <div class="add-period-card" *ngIf="showAddForm">
-            <div class="form-title-row">
-              <h4 class="form-title">
-                <mat-icon>{{ editingPeriodId ? 'edit_calendar' : 'add_task' }}</mat-icon>
-                {{ editingPeriodId ? 'Edit Period / Change Faculty' : 'Add Period / Subject Slot' }}
-              </h4>
-              <button type="button" class="auto-fill-btn" (click)="autoFillNextSlot()" *ngIf="!editingPeriodId" matTooltip="Auto-pick next unassigned subject, empty period, and available teacher">
-                <mat-icon>auto_awesome</mat-icon> Auto-Fill Next Slot (खाली स्लॉट भरें)
-              </button>
-            </div>
-
-            <!-- Activity Slot Notification -->
-            <div class="activity-slot-alert" *ngIf="isCurrentSelectedSlotActivity">
-              <div class="act-alert-icon">
-                <mat-icon>celebration</mat-icon>
-              </div>
-              <div class="act-alert-content">
-                <strong>Activity / Co-Curricular Period: {{ currentSelectedSlotObj?.name }}</strong>
-                <p>
-                  यह एक सह-शैक्षणिक गतिविधि (Activity Slot) है। विषय अपने-आप <strong>{{ currentSelectedSlotObj?.name }}</strong> सेट हो गया है। इसके लिए आप नीचे एक्टिविटी शिक्षक चुन सकते हैं। आपके 6 मुख्य विषय सुरक्षित हैं।
-                </p>
-              </div>
-            </div>
-
-            <!-- Quick Subject Suggestions -->
-            <div class="form-group" [class.dimmed-by-activity]="isCurrentSelectedSlotActivity">
-              <div class="subject-header-row">
-                <label class="field-label">
-                  Subject (विषय) *
-                  <span class="act-auto-pill" *ngIf="isCurrentSelectedSlotActivity">
-                    <mat-icon>auto_awesome</mat-icon> Auto-Mapped Activity
-                  </span>
-                </label>
-                <span class="curr-pill" *ngIf="!isCoachingMode && classSubjects.length > 0 && !isCurrentSelectedSlotActivity">
-                  <mat-icon>verified</mat-icon> {{ classSubjects.length }} Curriculum Subjects
-                </span>
-                <span class="curr-pill coaching-subj-badge" *ngIf="isCoachingMode && displaySubjects.length > 0">
-                  <mat-icon>groups</mat-icon> {{ displaySubjects.length }} Batch Subjects
-                </span>
-              </div>
-
-              <!-- 🎯 Coaching Schedule Scope Toggle: Single Subject vs All Subjects Combined -->
-              <div class="coaching-scope-toggle-bar" *ngIf="isCoachingMode">
-                <span class="scope-toggle-label">Schedule Mode (शेड्यूल प्रकार):</span>
-                <div class="scope-toggle-pills">
-                  <button type="button" class="scope-pill-btn"
-                    [class.active]="coachingRoutineMode === 'single'"
-                    (click)="setCoachingRoutineMode('single')">
-                    <mat-icon>school</mat-icon>
-                    <span>Single Subject Period (एकल विषय - अलग स्लॉट)</span>
-                    <span class="mini-count-badge" *ngIf="displaySubjects.length > 0">{{ displaySubjects.length }} Subjects</span>
+          @if (showAddForm) {
+            <div class="add-period-card">
+              <div class="form-title-row">
+                <h4 class="form-title">
+                  <mat-icon>{{ editingPeriodId ? 'edit_calendar' : 'add_task' }}</mat-icon>
+                  {{ editingPeriodId ? 'Edit Period / Change Faculty' : 'Add Period / Subject Slot' }}
+                </h4>
+                @if (!editingPeriodId) {
+                  <button type="button" class="auto-fill-btn" (click)="autoFillNextSlot()" matTooltip="Auto-pick next unassigned subject, empty period, and available teacher">
+                    <mat-icon>auto_awesome</mat-icon> Auto-Fill Next Slot (खाली स्लॉट भरें)
                   </button>
-                  <button type="button" class="scope-pill-btn"
-                    [class.active]="coachingRoutineMode === 'combined'"
-                    (click)="setCoachingRoutineMode('combined')">
-                    <mat-icon>layers</mat-icon>
-                    <span>All Subjects Combined (सभी विषय - 2hr ट्यूशन)</span>
-                  </button>
-                </div>
+                }
               </div>
-
-              <!-- 🌟 1-Click ALL SUBJECTS for Combined / 2hr Tuition Batches -->
-              <div class="coaching-all-subjects-bar" *ngIf="isCoachingMode && coachingRoutineMode === 'combined' && displaySubjects.length > 0">
-                <button type="button" class="btn-all-subjects"
-                  [class.active]="isAllSubjectsSelected"
-                  (click)="toggleAllSubjects()">
-                  <mat-icon>auto_awesome</mat-icon>
-                  <div class="btn-all-text">
-                    <span class="all-title">🌟 All Batch Subjects (सभी विषय - Complete 2hr Tuition)</span>
-                    <span class="all-sub">1-Click: Covers all assigned subjects together in this single 2hr daily session</span>
+              <!-- Activity Slot Notification -->
+              @if (isCurrentSelectedSlotActivity) {
+                <div class="activity-slot-alert">
+                  <div class="act-alert-icon">
+                    <mat-icon>celebration</mat-icon>
                   </div>
-                  <span class="all-badge">{{ displaySubjects.length }} Subjects (सभी विषय)</span>
-                </button>
-              </div>
-
-              <!-- Single Subject Mode Helper Note -->
-              <div class="single-mode-helper" *ngIf="isCoachingMode && coachingRoutineMode === 'single'">
-                <mat-icon>info</mat-icon>
-                <span>विषय चुनें और उसका शिक्षक, दिन (MWF / TTS / Daily) और समय स्लॉट अलग से सेट करें:</span>
-              </div>
-
-              <div class="subject-chips" *ngIf="!isCurrentSelectedSlotActivity">
-                <button type="button" *ngFor="let s of displaySubjects; trackBy: trackBySubject"
-                  class="subj-chip"
-                  [class.curriculum-chip]="s.isCurriculum"
-                  [class.already-configured]="isSubjectAssigned(s.name)"
-                  [class.active]="isSubjectPillActive(s.name)"
-                  (click)="pickSubject(s)"
-                  [matTooltip]="isSubjectAssigned(s.name) ? 'Already scheduled in this batch' : (s.teacherId ? 'Auto-selects assigned subject teacher if available' : '')">
-                  <span *ngIf="isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)" class="check-icon">✓ </span>
-                  <span *ngIf="isAllSubjectsSelected && coachingRoutineMode === 'combined'" class="check-icon">✓ </span>
-                  <span *ngIf="!isSubjectAssigned(s.name) && s.isCurriculum && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)" class="star-icon">⭐ </span>{{ s.name }}
-                  <span *ngIf="isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)" class="badge-done">Configured</span>
-                  <span *ngIf="isAllSubjectsSelected && coachingRoutineMode === 'combined'" class="badge-done">All Included</span>
-                  <span *ngIf="!isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)" class="badge-pending">Unassigned</span>
-                </button>
-              </div>
-              <input type="text" [(ngModel)]="newSubject" [readonly]="isCurrentSelectedSlotActivity" placeholder="Or enter subject name (e.g. All Subjects, Science & Maths)..." class="custom-input" [class.activity-locked-input]="isCurrentSelectedSlotActivity" />
-            </div>
-
-            <!-- Faculty Selection -->
-            <div class="form-group">
-              <div class="fac-label-row">
-                <label class="field-label">Faculty Member (शिक्षक) *</label>
-                <span class="fac-availability-tag clash" *ngIf="selectedTeacherClash">
-                  <mat-icon>error</mat-icon> Busy in other class!
-                </span>
-                <span class="fac-availability-tag free" *ngIf="!selectedTeacherClash && selectedTeacherId">
-                  <mat-icon>check_circle</mat-icon> Available at this slot
-                </span>
-              </div>
-              <select [(ngModel)]="selectedTeacherId" class="custom-select" [class.input-clash]="selectedTeacherClash">
-                <option value="">-- Choose Teacher --</option>
-                <optgroup [label]="'🟢 Available Faculty (उपलब्ध शिक्षक - कोई Clash नहीं) (' + availableTeachers.length + ' Free)'" *ngIf="availableTeachers.length > 0">
-                  <option *ngIf="isCoachingMode && mentorTeacherObj && !isTeacherClashed(mentorTeacherObj.id)" [value]="mentorTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
-                    ⭐ {{ mentorTeacherObj.fullName }} ({{ mentorTeacherObj.employeeCode }}) — Batch Mentor [Available]
-                  </option>
-                  <option *ngIf="!isCoachingMode && classTeacherObj && !isTeacherClashed(classTeacherObj.id)" [value]="classTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
-                    ⭐ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Class Teacher [Available]
-                  </option>
-                  <option *ngFor="let t of availableNonCtTeachers; trackBy: trackByTeacherId" [value]="t.id">
-                    🟢 {{ t.fullName }} ({{ t.employeeCode }}) {{ t.specialization ? '• ' + t.specialization : '' }}
-                  </option>
-                </optgroup>
-                <optgroup [label]="'🔴 Busy Faculty (व्यस्त शिक्षक - दूसरी क्लास में शेड्यूल) (' + busyTeachers.length + ' Busy)'" *ngIf="busyTeachers.length > 0">
-                  <option *ngIf="isCoachingMode && mentorTeacherObj && isTeacherClashed(mentorTeacherObj.id)" [value]="mentorTeacherObj.id" style="color: #991b1b;">
-                    ⚠️ {{ mentorTeacherObj.fullName }} ({{ mentorTeacherObj.employeeCode }}) — Busy in {{ getTeacherClash(mentorTeacherObj.id) }}
-                  </option>
-                  <option *ngIf="!isCoachingMode && classTeacherObj && isTeacherClashed(classTeacherObj.id)" [value]="classTeacherObj.id" style="color: #991b1b;">
-                    ⚠️ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Busy in {{ getTeacherClash(classTeacherObj.id) }}
-                  </option>
-                  <option *ngFor="let t of busyNonCtTeachers; trackBy: trackByTeacherId" [value]="t.id" style="color: #991b1b;">
-                    ⚠️ {{ t.fullName }} ({{ t.employeeCode }}) — Busy in {{ getTeacherClash(t.id) }}
-                  </option>
-                </optgroup>
-              </select>
-              <!-- Inline teacher clash helper box -->
-              <div class="teacher-inline-clash-box" *ngIf="selectedTeacherClash">
-                <div class="clash-inline-text">
-                  <mat-icon>warning</mat-icon>
-                  <span><strong>{{ selectedTeacherObj?.fullName }}</strong> is busy: {{ selectedTeacherClash }}</span>
-                </div>
-                <button type="button" class="btn-quick-fix-teacher" (click)="pickFirstAvailableTeacher()">
-                  <mat-icon>auto_fix_high</mat-icon> Pick Available Teacher
-                </button>
-              </div>
-            </div>
-
-            <!-- Days Selection -->
-            <div class="form-group">
-              <div class="days-label-row">
-                <label class="field-label">Scheduled Days *</label>
-                <div class="quick-days-btns">
-                  <button type="button" class="q-day-btn" (click)="setAllDays()">Mon-Sat (All)</button>
-                  <button type="button" class="q-day-btn" (click)="setWeekdays()">Mon-Fri</button>
-                  <button type="button" class="q-day-btn" (click)="setAltDays()">Mon, Wed, Fri</button>
-                  <button type="button" class="q-day-btn" (click)="setTtsDays()">Tue, Thu, Sat</button>
-                </div>
-              </div>
-              <div class="days-pills">
-                <button type="button" *ngFor="let day of weekDaysList"
-                  class="day-pill"
-                  [class.selected]="isDaySelected(day)"
-                  (click)="toggleDay(day)">
-                  {{ day }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Period / Timing -->
-            <div class="form-group">
-              <label class="field-label">Period / Timing Slot *</label>
-
-              <!-- COACHING MODE: Flexible Duration, Quick Shifts & Custom Times -->
-              <div class="coaching-timing-card" *ngIf="isCoachingMode">
-                <!-- 1. Quick Duration Selector -->
-                <div class="coaching-duration-row">
-                  <span class="c-label"><mat-icon>timelapse</mat-icon> Class Duration:</span>
-                  <div class="c-dur-pills">
-                    <button type="button" *ngFor="let opt of coachingDurationOptions"
-                      class="c-dur-btn"
-                      [class.active]="coachingSelectedDuration === opt.minutes"
-                      (click)="applyCoachingDuration(opt.minutes)">
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                  <span class="live-dur-badge" *ngIf="coachingCalculatedDurationText">
-                    Duration: <strong>{{ coachingCalculatedDurationText }}</strong>
-                  </span>
-                </div>
-
-                <!-- 2. Coaching Shift Preset Pills -->
-                <div class="coaching-presets-row">
-                  <span class="c-label"><mat-icon>access_time</mat-icon> Quick Shifts:</span>
-                  <div class="c-presets-wrap">
-                    <button type="button" *ngFor="let sp of coachingShiftPresets"
-                      class="c-preset-pill"
-                      [class.active]="selectedTimeSlot === sp.slotString"
-                      (click)="applyCoachingPreset(sp)">
-                      <span>{{ sp.label }}</span>
-                      <small>({{ sp.duration }})</small>
-                    </button>
+                  <div class="act-alert-content">
+                    <strong>Activity / Co-Curricular Period: {{ currentSelectedSlotObj?.name }}</strong>
+                    <p>
+                      यह एक सह-शैक्षणिक गतिविधि (Activity Slot) है। विषय अपने-आप <strong>{{ currentSelectedSlotObj?.name }}</strong> सेट हो गया है। इसके लिए आप नीचे एक्टिविटी शिक्षक चुन सकते हैं। आपके 6 मुख्य विषय सुरक्षित हैं।
+                    </p>
                   </div>
                 </div>
-
-                <!-- 3. Dynamic Interactive Start & End Time Native Inputs -->
-                <div class="coaching-native-time-row">
-                  <div class="c-time-field">
-                    <label>Lecture Start Time (कक्षा शुरू)</label>
-                    <input type="time" [(ngModel)]="coachingStartTime" (change)="onCoachingTimeChange()" class="c-native-input" />
-                  </div>
-                  <span class="c-to-sep">to</span>
-                  <div class="c-time-field">
-                    <label>Lecture End Time (कक्षा समाप्ति)</label>
-                    <input type="time" [(ngModel)]="coachingEndTime" (change)="onCoachingTimeChange()" class="c-native-input" />
-                  </div>
-                </div>
-              </div>
-
-              <!-- SCHOOL MODE: 100% UNTOUCHED (Period 1, Period 2, Bell Schedule) -->
-              <div class="school-timing-card" *ngIf="!isCoachingMode">
-                <div class="period-chips">
-                  <button type="button" *ngFor="let p of presetPeriods"
-                    class="p-chip"
-                    [class.is-activity-chip]="isActivitySlot(p)"
-                    [class.active]="selectedTimeSlot === p.slot"
-                    [class.period-taken]="isPeriodAssigned(p.slot)"
-                    (click)="onSelectPeriodSlot(p.slot)">
-                    <div class="p-top-row">
-                      <span class="p-name">
-                        <mat-icon *ngIf="isActivitySlot(p)" class="chip-act-icon">celebration</mat-icon>
-                        {{ p.name }}
+              }
+              <!-- Quick Subject Suggestions -->
+              <div class="form-group" [class.dimmed-by-activity]="isCurrentSelectedSlotActivity">
+                <div class="subject-header-row">
+                  <label class="field-label">
+                    Subject (विषय) *
+                    @if (isCurrentSelectedSlotActivity) {
+                      <span class="act-auto-pill">
+                        <mat-icon>auto_awesome</mat-icon> Auto-Mapped Activity
                       </span>
-                      <span class="p-tag-pill act-tag" *ngIf="isActivitySlot(p)">Activity</span>
-                      <span class="p-tag-pill" *ngIf="!isActivitySlot(p) && getPeriodSubjectName(p.slot)">✓ {{ getPeriodSubjectName(p.slot) }}</span>
-                      <span class="p-tag-pill free-tag" *ngIf="!isActivitySlot(p) && !getPeriodSubjectName(p.slot)">🟢 Free</span>
-                    </div>
-                    <span class="p-time">{{ p.slot }}</span>
-                  </button>
-                </div>
-              </div>
-
-              <input type="text" [(ngModel)]="selectedTimeSlot" placeholder="Or type custom slot (e.g. 05:00 PM - 07:00 PM)..." class="custom-input slot-display-input" />
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="form-actions">
-              <button mat-button (click)="resetForm()" [disabled]="saving">Cancel</button>
-              <button mat-flat-button color="primary" class="save-slot-btn" (click)="submitPeriod(false)" [disabled]="saving">
-                <mat-icon>{{ saving ? 'hourglass_empty' : (editingPeriodId ? 'check_circle' : 'save') }}</mat-icon>
-                {{ editingPeriodId ? 'Update Period Slot' : 'Save Period Slot' }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Existing Periods Table -->
-          <div class="routine-table-container" *ngIf="routine.length > 0">
-            <table class="routine-table">
-              <thead>
-                <tr>
-                  <th>Period / Time</th>
-                  <th>Subject</th>
-                  <th>Assigned Faculty</th>
-                  <th>Days</th>
-                  <th style="text-align: right;">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let p of routine" [class.is-ct-row]="p.isClassTeacher">
-                  <td class="col-slot">
-                    <div class="slot-pill">
-                      <mat-icon>alarm</mat-icon>
-                      <span>{{ p.timeSlot || 'Timing Unspecified' }}</span>
-                    </div>
-                  </td>
-                  <td class="col-subject">
-                    <span class="subject-tag" [class.activity-tag]="isSubjectActivity(p.subject)" [class.all-subjects-tag]="isSubjectAllSubjects(p.subject)">
-                      <mat-icon *ngIf="isSubjectActivity(p.subject)" class="table-act-icon">celebration</mat-icon>
-                      <mat-icon *ngIf="isSubjectAllSubjects(p.subject)" class="table-act-icon">auto_awesome</mat-icon>
-                      {{ p.subject }}
+                    }
+                  </label>
+                  @if (!isCoachingMode && classSubjects.length > 0 && !isCurrentSelectedSlotActivity) {
+                    <span class="curr-pill">
+                      <mat-icon>verified</mat-icon> {{ classSubjects.length }} Curriculum Subjects
                     </span>
-                  </td>
-                  <td class="col-teacher">
-                    <div class="teacher-cell">
-                      <div class="t-avatar" [class.ct-avatar]="p.isClassTeacher">
-                        {{ p.teacherName.charAt(0) | uppercase }}
+                  }
+                  @if (isCoachingMode && displaySubjects.length > 0) {
+                    <span class="curr-pill coaching-subj-badge">
+                      <mat-icon>groups</mat-icon> {{ displaySubjects.length }} Batch Subjects
+                    </span>
+                  }
+                </div>
+                <!-- 🎯 Coaching Schedule Scope Toggle: Single Subject vs All Subjects Combined -->
+                @if (isCoachingMode) {
+                  <div class="coaching-scope-toggle-bar">
+                    <span class="scope-toggle-label">Schedule Mode (शेड्यूल प्रकार):</span>
+                    <div class="scope-toggle-pills">
+                      <button type="button" class="scope-pill-btn"
+                        [class.active]="coachingRoutineMode === 'single'"
+                        (click)="setCoachingRoutineMode('single')">
+                        <mat-icon>school</mat-icon>
+                        <span>Single Subject Period (एकल विषय - अलग स्लॉट)</span>
+                        @if (displaySubjects.length > 0) {
+                          <span class="mini-count-badge">{{ displaySubjects.length }} Subjects</span>
+                        }
+                      </button>
+                      <button type="button" class="scope-pill-btn"
+                        [class.active]="coachingRoutineMode === 'combined'"
+                        (click)="setCoachingRoutineMode('combined')">
+                        <mat-icon>layers</mat-icon>
+                        <span>All Subjects Combined (सभी विषय - 2hr ट्यूशन)</span>
+                      </button>
+                    </div>
+                  </div>
+                }
+                <!-- 🌟 1-Click ALL SUBJECTS for Combined / 2hr Tuition Batches -->
+                @if (isCoachingMode && coachingRoutineMode === 'combined' && displaySubjects.length > 0) {
+                  <div class="coaching-all-subjects-bar">
+                    <button type="button" class="btn-all-subjects"
+                      [class.active]="isAllSubjectsSelected"
+                      (click)="toggleAllSubjects()">
+                      <mat-icon>auto_awesome</mat-icon>
+                      <div class="btn-all-text">
+                        <span class="all-title">🌟 All Batch Subjects (सभी विषय - Complete 2hr Tuition)</span>
+                        <span class="all-sub">1-Click: Covers all assigned subjects together in this single 2hr daily session</span>
                       </div>
-                      <div class="t-info">
-                        <strong class="t-name">{{ p.teacherName }}</strong>
-                        <div class="t-sub">
-                          <span class="t-code">{{ p.teacherEmployeeCode }}</span>
-                          <span class="ct-badge-pill" *ngIf="p.isClassTeacher">Class Teacher</span>
+                      <span class="all-badge">{{ displaySubjects.length }} Subjects (सभी विषय)</span>
+                    </button>
+                  </div>
+                }
+                <!-- Single Subject Mode Helper Note -->
+                @if (isCoachingMode && coachingRoutineMode === 'single') {
+                  <div class="single-mode-helper">
+                    <mat-icon>info</mat-icon>
+                    <span>विषय चुनें और उसका शिक्षक, दिन (MWF / TTS / Daily) और समय स्लॉट अलग से सेट करें:</span>
+                  </div>
+                }
+                @if (!isCurrentSelectedSlotActivity) {
+                  <div class="subject-chips">
+                    @for (s of displaySubjects; track trackBySubject($index, s)) {
+                      <button type="button"
+                        class="subj-chip"
+                        [class.curriculum-chip]="s.isCurriculum"
+                        [class.already-configured]="isSubjectAssigned(s.name)"
+                        [class.active]="isSubjectPillActive(s.name)"
+                        (click)="pickSubject(s)"
+                        [matTooltip]="isSubjectAssigned(s.name) ? 'Already scheduled in this batch' : (s.teacherId ? 'Auto-selects assigned subject teacher if available' : '')">
+                        @if (isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)) {
+                          <span class="check-icon">✓ </span>
+                        }
+                        @if (isAllSubjectsSelected && coachingRoutineMode === 'combined') {
+                          <span class="check-icon">✓ </span>
+                        }
+                        @if (!isSubjectAssigned(s.name) && s.isCurriculum && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)) {
+                          <span class="star-icon">⭐ </span>
+                          }{{ s.name }}
+                          @if (isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)) {
+                            <span class="badge-done">Configured</span>
+                          }
+                          @if (isAllSubjectsSelected && coachingRoutineMode === 'combined') {
+                            <span class="badge-done">All Included</span>
+                          }
+                          @if (!isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)) {
+                            <span class="badge-pending">Unassigned</span>
+                          }
+                        </button>
+                      }
+                    </div>
+                  }
+                  <input type="text" [(ngModel)]="newSubject" [readonly]="isCurrentSelectedSlotActivity" placeholder="Or enter subject name (e.g. All Subjects, Science & Maths)..." class="custom-input" [class.activity-locked-input]="isCurrentSelectedSlotActivity" />
+                </div>
+                <!-- Faculty Selection -->
+                <div class="form-group">
+                  <div class="fac-label-row">
+                    <label class="field-label">Faculty Member (शिक्षक) *</label>
+                    @if (selectedTeacherClash) {
+                      <span class="fac-availability-tag clash">
+                        <mat-icon>error</mat-icon> Busy in other class!
+                      </span>
+                    }
+                    @if (!selectedTeacherClash && selectedTeacherId) {
+                      <span class="fac-availability-tag free">
+                        <mat-icon>check_circle</mat-icon> Available at this slot
+                      </span>
+                    }
+                  </div>
+                  <select [(ngModel)]="selectedTeacherId" class="custom-select" [class.input-clash]="selectedTeacherClash">
+                    <option value="">-- Choose Teacher --</option>
+                    @if (availableTeachers.length > 0) {
+                      <optgroup [label]="'🟢 Available Faculty (उपलब्ध शिक्षक - कोई Clash नहीं) (' + availableTeachers.length + ' Free)'">
+                        @if (isCoachingMode && mentorTeacherObj && !isTeacherClashed(mentorTeacherObj.id)) {
+                          <option [value]="mentorTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
+                            ⭐ {{ mentorTeacherObj.fullName }} ({{ mentorTeacherObj.employeeCode }}) — Batch Mentor [Available]
+                          </option>
+                        }
+                        @if (!isCoachingMode && classTeacherObj && !isTeacherClashed(classTeacherObj.id)) {
+                          <option [value]="classTeacherObj.id" style="font-weight: 700; color: #1e3a8a;">
+                            ⭐ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Class Teacher [Available]
+                          </option>
+                        }
+                        @for (t of availableNonCtTeachers; track trackByTeacherId($index, t)) {
+                          <option [value]="t.id">
+                            🟢 {{ t.fullName }} ({{ t.employeeCode }}) {{ t.specialization ? '• ' + t.specialization : '' }}
+                          </option>
+                        }
+                      </optgroup>
+                    }
+                    @if (busyTeachers.length > 0) {
+                      <optgroup [label]="'🔴 Busy Faculty (व्यस्त शिक्षक - दूसरी क्लास में शेड्यूल) (' + busyTeachers.length + ' Busy)'">
+                        @if (isCoachingMode && mentorTeacherObj && isTeacherClashed(mentorTeacherObj.id)) {
+                          <option [value]="mentorTeacherObj.id" style="color: #991b1b;">
+                            ⚠️ {{ mentorTeacherObj.fullName }} ({{ mentorTeacherObj.employeeCode }}) — Busy in {{ getTeacherClash(mentorTeacherObj.id) }}
+                          </option>
+                        }
+                        @if (!isCoachingMode && classTeacherObj && isTeacherClashed(classTeacherObj.id)) {
+                          <option [value]="classTeacherObj.id" style="color: #991b1b;">
+                            ⚠️ {{ classTeacherObj.fullName }} ({{ classTeacherObj.employeeCode }}) — Busy in {{ getTeacherClash(classTeacherObj.id) }}
+                          </option>
+                        }
+                        @for (t of busyNonCtTeachers; track trackByTeacherId($index, t)) {
+                          <option [value]="t.id" style="color: #991b1b;">
+                            ⚠️ {{ t.fullName }} ({{ t.employeeCode }}) — Busy in {{ getTeacherClash(t.id) }}
+                          </option>
+                        }
+                      </optgroup>
+                    }
+                  </select>
+                  <!-- Inline teacher clash helper box -->
+                  @if (selectedTeacherClash) {
+                    <div class="teacher-inline-clash-box">
+                      <div class="clash-inline-text">
+                        <mat-icon>warning</mat-icon>
+                        <span><strong>{{ selectedTeacherObj?.fullName }}</strong> is busy: {{ selectedTeacherClash }}</span>
+                      </div>
+                      <button type="button" class="btn-quick-fix-teacher" (click)="pickFirstAvailableTeacher()">
+                        <mat-icon>auto_fix_high</mat-icon> Pick Available Teacher
+                      </button>
+                    </div>
+                  }
+                </div>
+                <!-- Days Selection -->
+                <div class="form-group">
+                  <div class="days-label-row">
+                    <label class="field-label">Scheduled Days *</label>
+                    <div class="quick-days-btns">
+                      <button type="button" class="q-day-btn" (click)="setAllDays()">Mon-Sat (All)</button>
+                      <button type="button" class="q-day-btn" (click)="setWeekdays()">Mon-Fri</button>
+                      <button type="button" class="q-day-btn" (click)="setAltDays()">Mon, Wed, Fri</button>
+                      <button type="button" class="q-day-btn" (click)="setTtsDays()">Tue, Thu, Sat</button>
+                    </div>
+                  </div>
+                  <div class="days-pills">
+                    @for (day of weekDaysList; track day) {
+                      <button type="button"
+                        class="day-pill"
+                        [class.selected]="isDaySelected(day)"
+                        (click)="toggleDay(day)">
+                        {{ day }}
+                      </button>
+                    }
+                  </div>
+                </div>
+                <!-- Period / Timing -->
+                <div class="form-group">
+                  <label class="field-label">Period / Timing Slot *</label>
+                  <!-- COACHING MODE: Flexible Duration, Quick Shifts & Custom Times -->
+                  @if (isCoachingMode) {
+                    <div class="coaching-timing-card">
+                      <!-- 1. Quick Duration Selector -->
+                      <div class="coaching-duration-row">
+                        <span class="c-label"><mat-icon>timelapse</mat-icon> Class Duration:</span>
+                        <div class="c-dur-pills">
+                          @for (opt of coachingDurationOptions; track opt) {
+                            <button type="button"
+                              class="c-dur-btn"
+                              [class.active]="coachingSelectedDuration === opt.minutes"
+                              (click)="applyCoachingDuration(opt.minutes)">
+                              {{ opt.label }}
+                            </button>
+                          }
+                        </div>
+                        @if (coachingCalculatedDurationText) {
+                          <span class="live-dur-badge">
+                            Duration: <strong>{{ coachingCalculatedDurationText }}</strong>
+                          </span>
+                        }
+                      </div>
+                      <!-- 2. Coaching Shift Preset Pills -->
+                      <div class="coaching-presets-row">
+                        <span class="c-label"><mat-icon>access_time</mat-icon> Quick Shifts:</span>
+                        <div class="c-presets-wrap">
+                          @for (sp of coachingShiftPresets; track sp) {
+                            <button type="button"
+                              class="c-preset-pill"
+                              [class.active]="selectedTimeSlot === sp.slotString"
+                              (click)="applyCoachingPreset(sp)">
+                              <span>{{ sp.label }}</span>
+                              <small>({{ sp.duration }})</small>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                      <!-- 3. Dynamic Interactive Start & End Time Native Inputs -->
+                      <div class="coaching-native-time-row">
+                        <div class="c-time-field">
+                          <label>Lecture Start Time (कक्षा शुरू)</label>
+                          <input type="time" [(ngModel)]="coachingStartTime" (change)="onCoachingTimeChange()" class="c-native-input" />
+                        </div>
+                        <span class="c-to-sep">to</span>
+                        <div class="c-time-field">
+                          <label>Lecture End Time (कक्षा समाप्ति)</label>
+                          <input type="time" [(ngModel)]="coachingEndTime" (change)="onCoachingTimeChange()" class="c-native-input" />
                         </div>
                       </div>
                     </div>
-                  </td>
-                  <td class="col-days">
-                    <div class="days-badges">
-                      <span class="day-chip" *ngFor="let d of getDaysArray(p.daysOfWeek)">{{ d }}</span>
+                  }
+                  <!-- SCHOOL MODE: 100% UNTOUCHED (Period 1, Period 2, Bell Schedule) -->
+                  @if (!isCoachingMode) {
+                    <div class="school-timing-card">
+                      <div class="period-chips">
+                        @for (p of presetPeriods; track p) {
+                          <button type="button"
+                            class="p-chip"
+                            [class.is-activity-chip]="isActivitySlot(p)"
+                            [class.active]="selectedTimeSlot === p.slot"
+                            [class.period-taken]="isPeriodAssigned(p.slot)"
+                            (click)="onSelectPeriodSlot(p.slot)">
+                            <div class="p-top-row">
+                              <span class="p-name">
+                                @if (isActivitySlot(p)) {
+                                  <mat-icon class="chip-act-icon">celebration</mat-icon>
+                                }
+                                {{ p.name }}
+                              </span>
+                              @if (isActivitySlot(p)) {
+                                <span class="p-tag-pill act-tag">Activity</span>
+                              }
+                              @if (!isActivitySlot(p) && getPeriodSubjectName(p.slot)) {
+                                <span class="p-tag-pill">✓ {{ getPeriodSubjectName(p.slot) }}</span>
+                              }
+                              @if (!isActivitySlot(p) && !getPeriodSubjectName(p.slot)) {
+                                <span class="p-tag-pill free-tag">🟢 Free</span>
+                              }
+                            </div>
+                            <span class="p-time">{{ p.slot }}</span>
+                          </button>
+                        }
+                      </div>
                     </div>
-                  </td>
-                  <td class="col-action">
-                    <div class="action-btn-group">
-                      <button mat-icon-button (click)="editPeriod(p)" matTooltip="Edit Period / Change Faculty" class="edit-btn">
-                        <mat-icon>edit</mat-icon>
-                      </button>
-                      <button mat-icon-button color="warn" (click)="deletePeriod(p)" matTooltip="Remove Period" class="del-btn">
-                        <mat-icon>delete_outline</mat-icon>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Empty State -->
-          <div class="empty-routine" *ngIf="routine.length === 0 && !showAddForm">
-            <div class="empty-icon">
-              <mat-icon>event_busy</mat-icon>
-            </div>
-            <h4>No periods scheduled yet</h4>
-            <p>Configure weekly timetable for <strong>{{ data.className }} - {{ data.sectionName }}</strong> by adding subjects and assigned faculty members.</p>
-            <button mat-flat-button color="primary" class="start-btn" (click)="showAddForm = true; autoFillNextSlot()">
-              <mat-icon>auto_awesome</mat-icon> Setup Class Routine (खाली स्लॉट भरें)
-            </button>
+                  }
+                  <input type="text" [(ngModel)]="selectedTimeSlot" placeholder="Or type custom slot (e.g. 05:00 PM - 07:00 PM)..." class="custom-input slot-display-input" />
+                </div>
+                <!-- Action Buttons -->
+                <div class="form-actions">
+                  <button mat-button (click)="resetForm()" [disabled]="saving">Cancel</button>
+                  <button mat-flat-button color="primary" class="save-slot-btn" (click)="submitPeriod(false)" [disabled]="saving">
+                    <mat-icon>{{ saving ? 'hourglass_empty' : (editingPeriodId ? 'check_circle' : 'save') }}</mat-icon>
+                    {{ editingPeriodId ? 'Update Period Slot' : 'Save Period Slot' }}
+                  </button>
+                </div>
+              </div>
+            }
+    
+            <!-- Existing Periods Table -->
+            @if (routine.length > 0) {
+              <div class="routine-table-container">
+                <table class="routine-table">
+                  <thead>
+                    <tr>
+                      <th>Period / Time</th>
+                      <th>Subject</th>
+                      <th>Assigned Faculty</th>
+                      <th>Days</th>
+                      <th style="text-align: right;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of routine; track p) {
+                      <tr [class.is-ct-row]="p.isClassTeacher">
+                        <td class="col-slot">
+                          <div class="slot-pill">
+                            <mat-icon>alarm</mat-icon>
+                            <span>{{ p.timeSlot || 'Timing Unspecified' }}</span>
+                          </div>
+                        </td>
+                        <td class="col-subject">
+                          <span class="subject-tag" [class.activity-tag]="isSubjectActivity(p.subject)" [class.all-subjects-tag]="isSubjectAllSubjects(p.subject)">
+                            @if (isSubjectActivity(p.subject)) {
+                              <mat-icon class="table-act-icon">celebration</mat-icon>
+                            }
+                            @if (isSubjectAllSubjects(p.subject)) {
+                              <mat-icon class="table-act-icon">auto_awesome</mat-icon>
+                            }
+                            {{ p.subject }}
+                          </span>
+                        </td>
+                        <td class="col-teacher">
+                          <div class="teacher-cell">
+                            <div class="t-avatar" [class.ct-avatar]="p.isClassTeacher">
+                              {{ p.teacherName.charAt(0) | uppercase }}
+                            </div>
+                            <div class="t-info">
+                              <strong class="t-name">{{ p.teacherName }}</strong>
+                              <div class="t-sub">
+                                <span class="t-code">{{ p.teacherEmployeeCode }}</span>
+                                @if (p.isClassTeacher) {
+                                  <span class="ct-badge-pill">Class Teacher</span>
+                                }
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="col-days">
+                          <div class="days-badges">
+                            @for (d of getDaysArray(p.daysOfWeek); track d) {
+                              <span class="day-chip">{{ d }}</span>
+                            }
+                          </div>
+                        </td>
+                        <td class="col-action">
+                          <div class="action-btn-group">
+                            <button mat-icon-button (click)="editPeriod(p)" matTooltip="Edit Period / Change Faculty" class="edit-btn">
+                              <mat-icon>edit</mat-icon>
+                            </button>
+                            <button mat-icon-button color="warn" (click)="deletePeriod(p)" matTooltip="Remove Period" class="del-btn">
+                              <mat-icon>delete_outline</mat-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+    
+            <!-- Empty State -->
+            @if (routine.length === 0 && !showAddForm) {
+              <div class="empty-routine">
+                <div class="empty-icon">
+                  <mat-icon>event_busy</mat-icon>
+                </div>
+                <h4>No periods scheduled yet</h4>
+                <p>Configure weekly timetable for <strong>{{ data.className }} - {{ data.sectionName }}</strong> by adding subjects and assigned faculty members.</p>
+                <button mat-flat-button color="primary" class="start-btn" (click)="showAddForm = true; autoFillNextSlot()">
+                  <mat-icon>auto_awesome</mat-icon> Setup Class Routine (खाली स्लॉट भरें)
+                </button>
+              </div>
+            }
           </div>
         </div>
+    
+        <!-- Dialog Footer -->
+        <div class="dialog-footer">
+          <span class="footer-note">
+            <mat-icon>info</mat-icon> Changes take effect immediately across faculty timetable and lesson diaries.
+          </span>
+          <button mat-flat-button color="primary" (click)="onClose()">
+            Done
+          </button>
+        </div>
       </div>
-
-      <!-- Dialog Footer -->
-      <div class="dialog-footer">
-        <span class="footer-note">
-          <mat-icon>info</mat-icon> Changes take effect immediately across faculty timetable and lesson diaries.
-        </span>
-        <button mat-flat-button color="primary" (click)="onClose()">
-          Done
-        </button>
-      </div>
-    </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container {
       width: 100%;

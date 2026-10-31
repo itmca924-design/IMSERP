@@ -1,5 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,13 +15,12 @@ export interface EventGalleryDialogData {
   selector: 'app-event-gallery-dialog',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="dialog-wrapper">
       <!-- Strict Light Blue Header matching AGENTS.md rule -->
@@ -41,7 +40,7 @@ export interface EventGalleryDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <mat-dialog-content class="dialog-content">
         <!-- Upload Zone -->
         <div class="upload-section">
@@ -53,77 +52,95 @@ export interface EventGalleryDialogData {
             </div>
             <input #multiFileInput type="file" multiple accept="image/*" (change)="onFilesSelected($event)" style="display:none;" />
           </div>
-
+    
           <!-- Pending Uploads Preview -->
-          <div class="pending-section" *ngIf="pendingBase64Photos.length > 0">
-            <div class="pending-header">
-              <span>Ready to upload ({{ pendingBase64Photos.length }} selected):</span>
-              <button mat-raised-button color="primary" (click)="uploadPendingPhotos()" [disabled]="uploading" class="upload-btn">
-                <mat-spinner diameter="16" *ngIf="uploading"></mat-spinner>
-                <mat-icon *ngIf="!uploading">cloud_upload</mat-icon>
-                <span>{{ uploading ? 'Uploading...' : 'Confirm & Upload' }}</span>
-              </button>
-            </div>
-
-            <div class="pending-grid">
-              <div class="pending-thumb" *ngFor="let p of pendingBase64Photos; let i = index">
-                <img [src]="p" alt="Pending upload" />
-                <button type="button" class="remove-thumb-btn" (click)="removePending(i)">
-                  <mat-icon>close</mat-icon>
+          @if (pendingBase64Photos.length > 0) {
+            <div class="pending-section">
+              <div class="pending-header">
+                <span>Ready to upload ({{ pendingBase64Photos.length }} selected):</span>
+                <button mat-raised-button color="primary" (click)="uploadPendingPhotos()" [disabled]="uploading" class="upload-btn">
+                  @if (uploading) {
+                    <mat-spinner diameter="16"></mat-spinner>
+                  }
+                  @if (!uploading) {
+                    <mat-icon>cloud_upload</mat-icon>
+                  }
+                  <span>{{ uploading ? 'Uploading...' : 'Confirm & Upload' }}</span>
                 </button>
               </div>
+              <div class="pending-grid">
+                @for (p of pendingBase64Photos; track p; let i = $index) {
+                  <div class="pending-thumb">
+                    <img [src]="p" alt="Pending upload" />
+                    <button type="button" class="remove-thumb-btn" (click)="removePending(i)">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
             </div>
-          </div>
+          }
         </div>
-
+    
         <!-- Existing Photos Grid -->
         <div class="gallery-wrapper">
-          <div class="gallery-empty" *ngIf="!loading && photos.length === 0 && pendingBase64Photos.length === 0">
-            <mat-icon class="empty-icon">photo_camera_back</mat-icon>
-            <p class="empty-title">No event photos uploaded yet</p>
-            <p class="empty-sub">Add memorable photographs from this celebration using the upload section above.</p>
-          </div>
-
-          <div class="spinner-box" *ngIf="loading">
-            <mat-spinner diameter="32"></mat-spinner>
-            <span>Loading photo memories...</span>
-          </div>
-
-          <div class="photos-grid" *ngIf="photos.length > 0">
-            <div class="photo-card" *ngFor="let photo of photos">
-              <div class="image-box" (click)="viewFull(photo.photoUrl)">
-                <img [src]="photo.photoUrl" [alt]="photo.caption || 'Event memory'" />
-                <div class="hover-overlay">
-                  <mat-icon>zoom_in</mat-icon>
-                  <span>View Full</span>
+          @if (!loading && photos.length === 0 && pendingBase64Photos.length === 0) {
+            <div class="gallery-empty">
+              <mat-icon class="empty-icon">photo_camera_back</mat-icon>
+              <p class="empty-title">No event photos uploaded yet</p>
+              <p class="empty-sub">Add memorable photographs from this celebration using the upload section above.</p>
+            </div>
+          }
+    
+          @if (loading) {
+            <div class="spinner-box">
+              <mat-spinner diameter="32"></mat-spinner>
+              <span>Loading photo memories...</span>
+            </div>
+          }
+    
+          @if (photos.length > 0) {
+            <div class="photos-grid">
+              @for (photo of photos; track photo) {
+                <div class="photo-card">
+                  <div class="image-box" (click)="viewFull(photo.photoUrl)">
+                    <img [src]="photo.photoUrl" [alt]="photo.caption || 'Event memory'" />
+                    <div class="hover-overlay">
+                      <mat-icon>zoom_in</mat-icon>
+                      <span>View Full</span>
+                    </div>
+                  </div>
+                  <div class="photo-footer">
+                    <span class="photo-caption">{{ photo.caption || 'Event Memory' }}</span>
+                    <button type="button" class="delete-btn" (click)="deletePhoto(photo.id)" [disabled]="deletingId === photo.id" title="Delete Photo">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div class="photo-footer">
-                <span class="photo-caption">{{ photo.caption || 'Event Memory' }}</span>
-                <button type="button" class="delete-btn" (click)="deletePhoto(photo.id)" [disabled]="deletingId === photo.id" title="Delete Photo">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </div>
+              }
+            </div>
+          }
+        </div>
+    
+        <!-- Fullscreen Preview Overlay -->
+        @if (fullPreviewUrl) {
+          <div class="fullscreen-overlay" (click)="fullPreviewUrl = null">
+            <div class="fullscreen-content" (click)="$event.stopPropagation()">
+              <img [src]="fullPreviewUrl" alt="Full Preview" />
+              <button class="close-full-btn" (click)="fullPreviewUrl = null">
+                <mat-icon>close</mat-icon>
+              </button>
             </div>
           </div>
-        </div>
-
-        <!-- Fullscreen Preview Overlay -->
-        <div class="fullscreen-overlay" *ngIf="fullPreviewUrl" (click)="fullPreviewUrl = null">
-          <div class="fullscreen-content" (click)="$event.stopPropagation()">
-            <img [src]="fullPreviewUrl" alt="Full Preview" />
-            <button class="close-full-btn" (click)="fullPreviewUrl = null">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-        </div>
+        }
       </mat-dialog-content>
-
+    
       <mat-dialog-actions align="end" class="dialog-actions">
         <button mat-button type="button" (click)="onClose()">Close Gallery</button>
       </mat-dialog-actions>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper {
       padding: 0;

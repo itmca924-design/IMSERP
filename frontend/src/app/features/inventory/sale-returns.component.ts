@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -65,7 +65,7 @@ import {
             </div>
           </div>
         </div>
-
+    
         <div class="action-btn-group">
           <button
             mat-flat-button
@@ -80,7 +80,7 @@ import {
           </button>
         </div>
       </div>
-
+    
       <!-- Module Sub-Nav Bar -->
       <div class="module-nav-bar">
         <a mat-button [routerLink]="['/inventory']" class="nav-tab">
@@ -96,10 +96,12 @@ import {
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
         </a>
       </div>
-
+    
       <!-- Single Prominent Loader Rule -->
-      <mat-progress-bar *ngIf="loading" mode="indeterminate" class="global-loader"></mat-progress-bar>
-
+      @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="global-loader"></mat-progress-bar>
+      }
+    
       <!-- 2. KPI Metrics Deck -->
       <div class="kpi-grid">
         <mat-card class="kpi-card mat-elevation-z1">
@@ -114,7 +116,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -127,7 +129,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -140,7 +142,7 @@ import {
             </div>
           </div>
         </mat-card>
-
+    
         <mat-card class="kpi-card mat-elevation-z1">
           <div class="kpi-content">
             <div class="kpi-info">
@@ -154,211 +156,203 @@ import {
           </div>
         </mat-card>
       </div>
-
+    
       <!-- 3. Embedded Kit Return Creation Form (No Popup Dialog!) -->
-      <mat-card *ngIf="showCreateForm" class="create-form-card mat-elevation-z2">
-        <div class="form-header">
-          <div class="f-title-row">
-            <mat-icon class="f-icon">keyboard_return</mat-icon>
-            <div>
-              <h2 class="f-title">Record Student Kit / Uniform Return</h2>
-              <p class="f-sub">Items returned in good condition are automatically added back into live inventory.</p>
-            </div>
-          </div>
-          <button mat-icon-button (click)="toggleCreateForm()" class="f-close-btn" matTooltip="Cancel & Close">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <form [formGroup]="form" (ngSubmit)="onSubmitReturn()" class="return-form">
-          <!-- Student Selector Section -->
-          <div class="student-select-card">
-            <div class="sec-title">
-              <mat-icon>person</mat-icon>
-              <span>Student / Recipient Selection</span>
-            </div>
-
-            <div class="picker-row">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Select Class</mat-label>
-                <mat-select [formControl]="selectedClassCtrl" (selectionChange)="onClassChange($event.value)" placeholder="Choose Class">
-                  <mat-option [value]="null">-- Select Class --</mat-option>
-                  <mat-option *ngFor="let c of classesList" [value]="c.id">{{ c.name }}</mat-option>
-                </mat-select>
-                <mat-icon matPrefix class="prefix-icon">school</mat-icon>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Select Student</mat-label>
-                <mat-select
-                  [formControl]="selectedClassStudentCtrl"
-                  (selectionChange)="onClassStudentChange($event.value)"
-                  [disabled]="!selectedClassCtrl.value || loadingClassStudents"
-                  placeholder="Choose Student">
-                  <mat-option *ngFor="let s of classStudents" [value]="s">
-                    Roll {{ s.rollNumber || '-' }} — {{ s.fullName }}
-                  </mat-option>
-                </mat-select>
-                <mat-icon matPrefix class="prefix-icon">person</mat-icon>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-input">
-                <mat-label>Quick Search Student (Name / Roll)</mat-label>
-                <input
-                  matInput
-                  placeholder="Type student name..."
-                  [formControl]="studentSearchCtrl"
-                  [matAutocomplete]="studentAuto" />
-                <mat-icon matPrefix class="prefix-icon">search</mat-icon>
-                <mat-autocomplete #studentAuto="matAutocomplete" (optionSelected)="onStudentSelectedFromSearch($event.option.value)">
-                  <mat-option *ngFor="let s of studentSearchResults" [value]="s">
-                    <strong>{{ s.fullName }}</strong> | Roll: {{ s.rollNumber }} | Class: {{ s.className || 'N/A' }}
-                  </mat-option>
-                </mat-autocomplete>
-              </mat-form-field>
-            </div>
-
-            <div class="meta-row">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Returned By Name*</mat-label>
-                <input matInput formControlName="returnedByName" placeholder="Student or Person Name" />
-                <mat-icon matPrefix class="prefix-icon">badge</mat-icon>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Class / Department</mat-label>
-                <input matInput formControlName="departmentOrClass" placeholder="e.g. Class 10th A" />
-                <mat-icon matPrefix class="prefix-icon">meeting_room</mat-icon>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Return Date*</mat-label>
-                <input matInput type="date" formControlName="returnDate" />
-                <mat-icon matPrefix class="prefix-icon">calendar_today</mat-icon>
-              </mat-form-field>
-            </div>
-          </div>
-
-          <!-- Items Table -->
-          <div class="items-card">
-            <div class="items-header-bar">
-              <div class="bar-title">
-                <mat-icon>undo</mat-icon>
-                <span>Items Being Returned</span>
+      @if (showCreateForm) {
+        <mat-card class="create-form-card mat-elevation-z2">
+          <div class="form-header">
+            <div class="f-title-row">
+              <mat-icon class="f-icon">keyboard_return</mat-icon>
+              <div>
+                <h2 class="f-title">Record Student Kit / Uniform Return</h2>
+                <p class="f-sub">Items returned in good condition are automatically added back into live inventory.</p>
               </div>
-              <button mat-stroked-button color="primary" type="button" (click)="addItemRow()" class="erp-btn">
-                <mat-icon>add</mat-icon>
-                <span>Add Item Line</span>
-              </button>
             </div>
-
-            <div formArrayName="items" class="items-list">
-              <div
-                *ngFor="let row of itemRows.controls; let i = index"
-                [formGroupName]="i"
-                class="item-line-box">
-                <span class="line-index">#{{ i + 1 }}</span>
-
-                <div class="item-select-wrap">
-                  <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-                    <mat-label>Returned Item*</mat-label>
-                    <mat-select formControlName="itemId" (selectionChange)="onItemChange(i, $event.value)">
-                      <mat-option *ngFor="let item of items" [value]="item.id">
-                        {{ item.itemName }} ({{ item.itemCode }})
-                      </mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                </div>
-
-                <mat-form-field appearance="outline" class="qty-field" subscriptSizing="dynamic">
-                  <mat-label>Qty*</mat-label>
-                  <input matInput type="number" min="1" formControlName="quantity" (input)="computeFormTotals()" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="rate-field" subscriptSizing="dynamic">
-                  <mat-label>Rate / MRP (₹)*</mat-label>
-                  <input matInput type="number" min="0" formControlName="unitPrice" (input)="computeFormTotals()" />
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="cond-field" subscriptSizing="dynamic">
-                  <mat-label>Condition (Restock?)*</mat-label>
-                  <mat-select formControlName="condition">
-                    <mat-option value="Good/Resellable">
-                      <span class="text-emerald">Good (Restock In Store)</span>
-                    </mat-option>
-                    <mat-option value="Damaged">
-                      <span class="text-danger">Damaged (Do Not Restock)</span>
-                    </mat-option>
+            <button mat-icon-button (click)="toggleCreateForm()" class="f-close-btn" matTooltip="Cancel & Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <form [formGroup]="form" (ngSubmit)="onSubmitReturn()" class="return-form">
+            <!-- Student Selector Section -->
+            <div class="student-select-card">
+              <div class="sec-title">
+                <mat-icon>person</mat-icon>
+                <span>Student / Recipient Selection</span>
+              </div>
+              <div class="picker-row">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Select Class</mat-label>
+                  <mat-select [formControl]="selectedClassCtrl" (selectionChange)="onClassChange($event.value)" placeholder="Choose Class">
+                    <mat-option [value]="null">-- Select Class --</mat-option>
+                    @for (c of classesList; track c) {
+                      <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                    }
                   </mat-select>
+                  <mat-icon matPrefix class="prefix-icon">school</mat-icon>
                 </mat-form-field>
-
-                <mat-form-field appearance="outline" class="reason-field" subscriptSizing="dynamic">
-                  <mat-label>Return Reason</mat-label>
-                  <input matInput formControlName="reason" placeholder="e.g. Size exchange, TC taken" />
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Select Student</mat-label>
+                  <mat-select
+                    [formControl]="selectedClassStudentCtrl"
+                    (selectionChange)="onClassStudentChange($event.value)"
+                    [disabled]="!selectedClassCtrl.value || loadingClassStudents"
+                    placeholder="Choose Student">
+                    @for (s of classStudents; track s) {
+                      <mat-option [value]="s">
+                        Roll {{ s.rollNumber || '-' }} — {{ s.fullName }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-icon matPrefix class="prefix-icon">person</mat-icon>
                 </mat-form-field>
-
-                <button
-                  mat-icon-button
-                  type="button"
-                  (click)="removeItemRow(i)"
-                  [disabled]="itemRows.length === 1"
-                  color="warn"
-                  matTooltip="Remove item"
-                  class="del-btn">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-input">
+                  <mat-label>Quick Search Student (Name / Roll)</mat-label>
+                  <input
+                    matInput
+                    placeholder="Type student name..."
+                    [formControl]="studentSearchCtrl"
+                    [matAutocomplete]="studentAuto" />
+                  <mat-icon matPrefix class="prefix-icon">search</mat-icon>
+                  <mat-autocomplete #studentAuto="matAutocomplete" (optionSelected)="onStudentSelectedFromSearch($event.option.value)">
+                    @for (s of studentSearchResults; track s) {
+                      <mat-option [value]="s">
+                        <strong>{{ s.fullName }}</strong> | Roll: {{ s.rollNumber }} | Class: {{ s.className || 'N/A' }}
+                      </mat-option>
+                    }
+                  </mat-autocomplete>
+                </mat-form-field>
+              </div>
+              <div class="meta-row">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Returned By Name*</mat-label>
+                  <input matInput formControlName="returnedByName" placeholder="Student or Person Name" />
+                  <mat-icon matPrefix class="prefix-icon">badge</mat-icon>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Class / Department</mat-label>
+                  <input matInput formControlName="departmentOrClass" placeholder="e.g. Class 10th A" />
+                  <mat-icon matPrefix class="prefix-icon">meeting_room</mat-icon>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Return Date*</mat-label>
+                  <input matInput type="date" formControlName="returnDate" />
+                  <mat-icon matPrefix class="prefix-icon">calendar_today</mat-icon>
+                </mat-form-field>
               </div>
             </div>
-          </div>
-
-          <!-- Bottom Summary & Refund Treatment -->
-          <div class="form-bottom-row">
-            <div class="treatment-box">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                <mat-label>Refund / Financial Treatment*</mat-label>
-                <mat-select formControlName="refundStatus">
-                  <mat-option value="NoRefund">No Refund (Standard Free Kit Return)</mat-option>
-                  <mat-option value="RefundedCash">Refunded in Cash to Student</mat-option>
-                  <mat-option value="AdjustedInFees">Credit / Adjust in Student Fee Ledger</mat-option>
-                </mat-select>
-                <mat-icon matPrefix class="prefix-icon">payments</mat-icon>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                <mat-label>Return Remarks / Notes</mat-label>
-                <textarea matInput formControlName="remarks" rows="2" placeholder="Enter remarks..."></textarea>
-              </mat-form-field>
-            </div>
-
-            <div class="summary-box">
-              <div class="sum-row">
-                <span>Total Items:</span>
-                <strong>{{ formItemCount }} Pcs</strong>
-              </div>
-              <div class="sum-row total">
-                <span>Total Return Value:</span>
-                <strong class="text-emerald">₹{{ formGrandTotal | number:'1.2-2' }}</strong>
-              </div>
-
-              <div class="btn-group">
-                <button mat-button type="button" (click)="toggleCreateForm()" [disabled]="submitting">
-                  Cancel
-                </button>
-                <button
-                  mat-flat-button
-                  color="primary"
-                  type="submit"
-                  [disabled]="form.invalid || submitting || formGrandTotal <= 0"
-                  class="save-btn">
-                  <mat-icon>keyboard_return</mat-icon>
-                  <span>{{ submitting ? 'Processing Return...' : 'Confirm Kit Return & Restock' }}</span>
+            <!-- Items Table -->
+            <div class="items-card">
+              <div class="items-header-bar">
+                <div class="bar-title">
+                  <mat-icon>undo</mat-icon>
+                  <span>Items Being Returned</span>
+                </div>
+                <button mat-stroked-button color="primary" type="button" (click)="addItemRow()" class="erp-btn">
+                  <mat-icon>add</mat-icon>
+                  <span>Add Item Line</span>
                 </button>
               </div>
+              <div formArrayName="items" class="items-list">
+                @for (row of itemRows.controls; track row; let i = $index) {
+                  <div
+                    [formGroupName]="i"
+                    class="item-line-box">
+                    <span class="line-index">#{{ i + 1 }}</span>
+                    <div class="item-select-wrap">
+                      <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+                        <mat-label>Returned Item*</mat-label>
+                        <mat-select formControlName="itemId" (selectionChange)="onItemChange(i, $event.value)">
+                          @for (item of items; track item) {
+                            <mat-option [value]="item.id">
+                              {{ item.itemName }} ({{ item.itemCode }})
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                    <mat-form-field appearance="outline" class="qty-field" subscriptSizing="dynamic">
+                      <mat-label>Qty*</mat-label>
+                      <input matInput type="number" min="1" formControlName="quantity" (input)="computeFormTotals()" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="rate-field" subscriptSizing="dynamic">
+                      <mat-label>Rate / MRP (₹)*</mat-label>
+                      <input matInput type="number" min="0" formControlName="unitPrice" (input)="computeFormTotals()" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="cond-field" subscriptSizing="dynamic">
+                      <mat-label>Condition (Restock?)*</mat-label>
+                      <mat-select formControlName="condition">
+                        <mat-option value="Good/Resellable">
+                          <span class="text-emerald">Good (Restock In Store)</span>
+                        </mat-option>
+                        <mat-option value="Damaged">
+                          <span class="text-danger">Damaged (Do Not Restock)</span>
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="reason-field" subscriptSizing="dynamic">
+                      <mat-label>Return Reason</mat-label>
+                      <input matInput formControlName="reason" placeholder="e.g. Size exchange, TC taken" />
+                    </mat-form-field>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      (click)="removeItemRow(i)"
+                      [disabled]="itemRows.length === 1"
+                      color="warn"
+                      matTooltip="Remove item"
+                      class="del-btn">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
             </div>
-          </div>
-        </form>
-      </mat-card>
-
+            <!-- Bottom Summary & Refund Treatment -->
+            <div class="form-bottom-row">
+              <div class="treatment-box">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                  <mat-label>Refund / Financial Treatment*</mat-label>
+                  <mat-select formControlName="refundStatus">
+                    <mat-option value="NoRefund">No Refund (Standard Free Kit Return)</mat-option>
+                    <mat-option value="RefundedCash">Refunded in Cash to Student</mat-option>
+                    <mat-option value="AdjustedInFees">Credit / Adjust in Student Fee Ledger</mat-option>
+                  </mat-select>
+                  <mat-icon matPrefix class="prefix-icon">payments</mat-icon>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                  <mat-label>Return Remarks / Notes</mat-label>
+                  <textarea matInput formControlName="remarks" rows="2" placeholder="Enter remarks..."></textarea>
+                </mat-form-field>
+              </div>
+              <div class="summary-box">
+                <div class="sum-row">
+                  <span>Total Items:</span>
+                  <strong>{{ formItemCount }} Pcs</strong>
+                </div>
+                <div class="sum-row total">
+                  <span>Total Return Value:</span>
+                  <strong class="text-emerald">₹{{ formGrandTotal | number:'1.2-2' }}</strong>
+                </div>
+                <div class="btn-group">
+                  <button mat-button type="button" (click)="toggleCreateForm()" [disabled]="submitting">
+                    Cancel
+                  </button>
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="form.invalid || submitting || formGrandTotal <= 0"
+                    class="save-btn">
+                    <mat-icon>keyboard_return</mat-icon>
+                    <span>{{ submitting ? 'Processing Return...' : 'Confirm Kit Return & Restock' }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </mat-card>
+      }
+    
       <!-- 4. Filter & Search Controls Deck -->
       <mat-card class="filter-card mat-elevation-z1">
         <div class="filter-deck">
@@ -369,16 +363,17 @@ import {
               [formControl]="filterSearchCtrl"
               placeholder="Return #, student..." />
             <mat-icon matPrefix class="prefix-icon">search</mat-icon>
-            <button
-              mat-icon-button
-              matSuffix
-              *ngIf="filterSearchCtrl.value"
-              (click)="filterSearchCtrl.setValue('')"
-              matTooltip="Clear">
-              <mat-icon>close</mat-icon>
-            </button>
+            @if (filterSearchCtrl.value) {
+              <button
+                mat-icon-button
+                matSuffix
+                (click)="filterSearchCtrl.setValue('')"
+                matTooltip="Clear">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
           </mat-form-field>
-
+    
           <div class="chip-total">
             <mat-chip-set>
               <mat-chip highlighted color="primary">
@@ -388,7 +383,7 @@ import {
           </div>
         </div>
       </mat-card>
-
+    
       <!-- 5. Sale Returns List Table -->
       <mat-card class="table-card mat-elevation-z1">
         <div class="table-responsive">
@@ -406,51 +401,57 @@ import {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let ret of returnsList" class="data-row">
-                <td class="cell-date">
-                  <span [appIstDatetime]="ret.returnDate"></span>
-                </td>
-                <td class="cell-code">
-                  <span class="sr-code">{{ ret.returnNumber }}</span>
-                </td>
-                <td class="cell-name">
-                  <strong>{{ ret.returnedByName }}</strong>
-                </td>
-                <td class="cell-dept">
-                  {{ ret.departmentOrClass || '-' }}
-                </td>
-                <td class="cell-items">
-                  <div class="item-tag-list">
-                    <span *ngFor="let it of ret.items" class="item-pill" [class.damaged-pill]="it.condition === 'Damaged'">
-                      {{ it.itemName }} × <strong>{{ it.quantity }}</strong>
-                      <span class="cond-tag">[{{ it.condition }}]</span>
+              @for (ret of returnsList; track ret) {
+                <tr class="data-row">
+                  <td class="cell-date">
+                    <span [appIstDatetime]="ret.returnDate"></span>
+                  </td>
+                  <td class="cell-code">
+                    <span class="sr-code">{{ ret.returnNumber }}</span>
+                  </td>
+                  <td class="cell-name">
+                    <strong>{{ ret.returnedByName }}</strong>
+                  </td>
+                  <td class="cell-dept">
+                    {{ ret.departmentOrClass || '-' }}
+                  </td>
+                  <td class="cell-items">
+                    <div class="item-tag-list">
+                      @for (it of ret.items; track it) {
+                        <span class="item-pill" [class.damaged-pill]="it.condition === 'Damaged'">
+                          {{ it.itemName }} × <strong>{{ it.quantity }}</strong>
+                          <span class="cond-tag">[{{ it.condition }}]</span>
+                        </span>
+                      }
+                    </div>
+                  </td>
+                  <td class="cell-amount text-right">
+                    <strong class="text-emerald">₹{{ (ret.totalAmount || 0) | number:'1.2-2' }}</strong>
+                  </td>
+                  <td>
+                    <span class="badge-status" [ngClass]="getRefundBadgeClass(ret.refundStatus)">
+                      {{ ret.refundStatus }}
                     </span>
-                  </div>
-                </td>
-                <td class="cell-amount text-right">
-                  <strong class="text-emerald">₹{{ (ret.totalAmount || 0) | number:'1.2-2' }}</strong>
-                </td>
-                <td>
-                  <span class="badge-status" [ngClass]="getRefundBadgeClass(ret.refundStatus)">
-                    {{ ret.refundStatus }}
-                  </span>
-                </td>
-                <td class="cell-remarks">
-                  <span class="remarks-text" [matTooltip]="ret.remarks || ''">{{ ret.remarks || '-' }}</span>
-                </td>
-              </tr>
-
-              <tr *ngIf="returnsList.length === 0 && !loading">
-                <td colspan="8" class="empty-state">
-                  <mat-icon class="empty-icon">keyboard_return</mat-icon>
-                  <p class="empty-title">No Kit Returns Recorded</p>
-                  <p class="empty-sub">Click 'New Kit Return (SR)' above to record a returned uniform, books, or kit.</p>
-                </td>
-              </tr>
+                  </td>
+                  <td class="cell-remarks">
+                    <span class="remarks-text" [matTooltip]="ret.remarks || ''">{{ ret.remarks || '-' }}</span>
+                  </td>
+                </tr>
+              }
+    
+              @if (returnsList.length === 0 && !loading) {
+                <tr>
+                  <td colspan="8" class="empty-state">
+                    <mat-icon class="empty-icon">keyboard_return</mat-icon>
+                    <p class="empty-title">No Kit Returns Recorded</p>
+                    <p class="empty-sub">Click 'New Kit Return (SR)' above to record a returned uniform, books, or kit.</p>
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-
+    
         <mat-paginator
           [length]="totalCount"
           [pageSize]="pageSize"
@@ -462,7 +463,8 @@ import {
         </mat-paginator>
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

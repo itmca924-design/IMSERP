@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -47,7 +47,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     </div>
   </div>
 
-  <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
 
   <!-- Metrics Cards -->
   <div class="stats-grid">
@@ -88,7 +90,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         <mat-label>Teacher Filter</mat-label>
         <mat-select [(ngModel)]="filterTeacherId" (selectionChange)="loadLessonPlans()">
           <mat-option value="">All Teachers</mat-option>
-          <mat-option *ngFor="let t of teachers" [value]="t.id">{{t.fullName}} ({{t.employeeCode}})</mat-option>
+          @for (t of teachers; track t) {
+            <mat-option [value]="t.id">{{t.fullName}} ({{t.employeeCode}})</mat-option>
+          }
         </mat-select>
       </mat-form-field>
 
@@ -110,125 +114,142 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   </mat-card>
 
   <!-- Lesson Plans Grid -->
-  <div class="plans-grid" *ngIf="!loading && lessonPlans.length > 0">
-    <mat-card class="plan-card mat-elevation-z2" *ngFor="let p of lessonPlans">
-      <div class="plan-top-bar">
-        <div class="plan-date-chip">
-          <mat-icon>event</mat-icon>
-          <span>{{p.planDate | date:'dd MMM yyyy'}}</span>
-        </div>
-        <span class="status-chip" [ngClass]="'status-' + p.status.toLowerCase()">
-          {{p.status}}
-        </span>
-      </div>
-
-      <div class="teacher-info-row">
-        <div class="t-avatar">{{getInitials(p.teacherName)}}</div>
-        <div>
-          <div class="t-name">{{p.teacherName}}</div>
-          <div class="t-sub">{{p.teacherCode}} &bull; <strong>{{p.subjectName}}</strong></div>
-        </div>
-      </div>
-
-      <div class="topic-highlight">
-        <div class="topic-title">{{p.chapterTopic}}</div>
-        <div class="obj-text" *ngIf="p.learningObjectives">
-          <em>Obj: {{p.learningObjectives}}</em>
-        </div>
-      </div>
-
-      <div class="meta-pills">
-        <span class="meta-pill" *ngIf="p.batchName"><mat-icon>class</mat-icon> {{p.batchName}}</span>
-        <span class="meta-pill" *ngIf="p.classSectionName"><mat-icon>meeting_room</mat-icon> {{p.classSectionName}}</span>
-        <span class="meta-pill" *ngIf="p.teachingMethodology"><mat-icon>psychology</mat-icon> {{p.teachingMethodology}}</span>
-        <span class="meta-pill" *ngIf="p.completionPercentage"><mat-icon>percent</mat-icon> {{p.completionPercentage}}</span>
-      </div>
-
-      <div class="homework-box" *ngIf="p.homeworkAssigned">
-        <div class="hw-title"><mat-icon>assignment_turned_in</mat-icon> Homework / गृहकार्य:</div>
-        <div class="hw-content">{{p.homeworkAssigned}}</div>
-      </div>
-
-      <div class="feedback-box" *ngIf="p.principalFeedback">
-        <div class="fb-title"><mat-icon>verified</mat-icon> Principal Feedback:</div>
-        <div class="fb-content">{{p.principalFeedback}}</div>
-      </div>
-
-      <div class="plan-footer">
-        <span class="created-at">Logged: {{p.createdAt | date:'shortTime'}}</span>
-        <div class="card-actions">
-          <button mat-icon-button color="primary" matTooltip="Add Principal Feedback / Edit" (click)="openEditModal(p)">
-            <mat-icon>rate_review</mat-icon>
-          </button>
-          <button mat-icon-button color="warn" matTooltip="Delete Entry" (click)="deleteLessonPlan(p.id)">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </div>
-      </div>
-    </mat-card>
-  </div>
+  @if (!loading && lessonPlans.length > 0) {
+    <div class="plans-grid">
+      @for (p of lessonPlans; track p) {
+        <mat-card class="plan-card mat-elevation-z2">
+          <div class="plan-top-bar">
+            <div class="plan-date-chip">
+              <mat-icon>event</mat-icon>
+              <span>{{p.planDate | date:'dd MMM yyyy'}}</span>
+            </div>
+            <span class="status-chip" [ngClass]="'status-' + p.status.toLowerCase()">
+              {{p.status}}
+            </span>
+          </div>
+          <div class="teacher-info-row">
+            <div class="t-avatar">{{getInitials(p.teacherName)}}</div>
+            <div>
+              <div class="t-name">{{p.teacherName}}</div>
+              <div class="t-sub">{{p.teacherCode}} &bull; <strong>{{p.subjectName}}</strong></div>
+            </div>
+          </div>
+          <div class="topic-highlight">
+            <div class="topic-title">{{p.chapterTopic}}</div>
+            @if (p.learningObjectives) {
+              <div class="obj-text">
+                <em>Obj: {{p.learningObjectives}}</em>
+              </div>
+            }
+          </div>
+          <div class="meta-pills">
+            @if (p.batchName) {
+              <span class="meta-pill"><mat-icon>class</mat-icon> {{p.batchName}}</span>
+            }
+            @if (p.classSectionName) {
+              <span class="meta-pill"><mat-icon>meeting_room</mat-icon> {{p.classSectionName}}</span>
+            }
+            @if (p.teachingMethodology) {
+              <span class="meta-pill"><mat-icon>psychology</mat-icon> {{p.teachingMethodology}}</span>
+            }
+            @if (p.completionPercentage) {
+              <span class="meta-pill"><mat-icon>percent</mat-icon> {{p.completionPercentage}}</span>
+            }
+          </div>
+          @if (p.homeworkAssigned) {
+            <div class="homework-box">
+              <div class="hw-title"><mat-icon>assignment_turned_in</mat-icon> Homework / गृहकार्य:</div>
+              <div class="hw-content">{{p.homeworkAssigned}}</div>
+            </div>
+          }
+          @if (p.principalFeedback) {
+            <div class="feedback-box">
+              <div class="fb-title"><mat-icon>verified</mat-icon> Principal Feedback:</div>
+              <div class="fb-content">{{p.principalFeedback}}</div>
+            </div>
+          }
+          <div class="plan-footer">
+            <span class="created-at">Logged: {{p.createdAt | date:'shortTime'}}</span>
+            <div class="card-actions">
+              <button mat-icon-button color="primary" matTooltip="Add Principal Feedback / Edit" (click)="openEditModal(p)">
+                <mat-icon>rate_review</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" matTooltip="Delete Entry" (click)="deleteLessonPlan(p.id)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      }
+    </div>
+  }
 
   <!-- Empty State -->
-  <mat-card class="empty-card mat-elevation-z1" *ngIf="!loading && lessonPlans.length === 0">
-    <mat-icon class="empty-icon">menu_book</mat-icon>
-    <h3>No Diary Entries Found</h3>
-    <p>No lesson plans or diary entries match the selected criteria. Click below to log a new lesson entry.</p>
-    <button mat-stroked-button color="primary" (click)="openAddModal()">
-      <mat-icon>edit_note</mat-icon> Log Daily Lesson
-    </button>
-  </mat-card>
+  @if (!loading && lessonPlans.length === 0) {
+    <mat-card class="empty-card mat-elevation-z1">
+      <mat-icon class="empty-icon">menu_book</mat-icon>
+      <h3>No Diary Entries Found</h3>
+      <p>No lesson plans or diary entries match the selected criteria. Click below to log a new lesson entry.</p>
+      <button mat-stroked-button color="primary" (click)="openAddModal()">
+        <mat-icon>edit_note</mat-icon> Log Daily Lesson
+      </button>
+    </mat-card>
+  }
 </div>
 
 <!-- ============================================================== -->
 <!-- MODAL: LOG LESSON PLAN (Strict Light-Blue Header Compliance)   -->
 <!-- ============================================================== -->
-<div class="modal-backdrop" *ngIf="showAddModal" (click)="closeAddModal()">
-  <div class="modal-container" (click)="$event.stopPropagation()">
-    <!-- Strict AGENTS.md Header -->
-    <div class="modal-header">
-      <div class="header-left-box">
-        <div class="header-icon">
-          <mat-icon>edit_note</mat-icon>
+@if (showAddModal) {
+  <div class="modal-backdrop" (click)="closeAddModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <!-- Strict AGENTS.md Header -->
+      <div class="modal-header">
+        <div class="header-left-box">
+          <div class="header-icon">
+            <mat-icon>edit_note</mat-icon>
+          </div>
+          <div>
+            <h2 class="modal-title">{{editingPlanId ? 'Edit Lesson Diary / Feedback' : 'Log Daily Lesson & Diary'}}</h2>
+            <p class="modal-subtitle">शिक्षक डायरी प्रविष्टि — टॉपिक, शिक्षण विधि, एवं दिया गया गृहकार्य।</p>
+          </div>
         </div>
-        <div>
-          <h2 class="modal-title">{{editingPlanId ? 'Edit Lesson Diary / Feedback' : 'Log Daily Lesson & Diary'}}</h2>
-          <p class="modal-subtitle">शिक्षक डायरी प्रविष्टि — टॉपिक, शिक्षण विधि, एवं दिया गया गृहकार्य।</p>
-        </div>
+        <button mat-icon-button (click)="closeAddModal()" class="close-btn">
+          <mat-icon>close</mat-icon>
+        </button>
       </div>
-      <button mat-icon-button (click)="closeAddModal()" class="close-btn">
-        <mat-icon>close</mat-icon>
-      </button>
-    </div>
-
-    <div class="modal-body">
-      <div class="form-grid">
-        <!-- Teacher Dropdown -->
-        <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Teacher *</mat-label>
-          <mat-select [(ngModel)]="addForm.teacherId" [disabled]="!!editingPlanId">
-            <mat-option *ngFor="let t of teachers" [value]="t.id">
-              {{t.fullName}} ({{t.employeeCode}})
-            </mat-option>
+      <div class="modal-body">
+        <div class="form-grid">
+          <!-- Teacher Dropdown -->
+          <mat-form-field appearance="outline" class="col-half">
+            <mat-label>Teacher *</mat-label>
+            <mat-select [(ngModel)]="addForm.teacherId" [disabled]="!!editingPlanId">
+              @for (t of teachers; track t) {
+                <mat-option [value]="t.id">
+                  {{t.fullName}} ({{t.employeeCode}})
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <!-- Date -->
+          <mat-form-field appearance="outline" class="col-half">
+            <mat-label>Plan Date *</mat-label>
+            <input matInput type="date" [(ngModel)]="addForm.planDate">
+          </mat-form-field>
+          <!-- Subject Dropdown (DB Bound - Full Width) -->
+          <mat-form-field appearance="outline" class="col-full">
+            <mat-label>Subject (विषय) *</mat-label>
+            <mat-select [ngModel]="addForm.subjectId" (ngModelChange)="onSubjectSelect($event)">
+              <mat-option [value]="undefined">-- Select Subject --</mat-option>
+              @for (s of subjects; track s) {
+                <mat-option [value]="s.id">
+                  {{s.name}} @if (s.code) {
+                  <span>({{s.code}})</span>
+                }
+              </mat-option>
+            }
           </mat-select>
         </mat-form-field>
-
-        <!-- Date -->
-        <mat-form-field appearance="outline" class="col-half">
-          <mat-label>Plan Date *</mat-label>
-          <input matInput type="date" [(ngModel)]="addForm.planDate">
-        </mat-form-field>
-
-        <!-- Subject Dropdown (DB Bound - Full Width) -->
-        <mat-form-field appearance="outline" class="col-full">
-          <mat-label>Subject (विषय) *</mat-label>
-          <mat-select [ngModel]="addForm.subjectId" (ngModelChange)="onSubjectSelect($event)">
-            <mat-option [value]="undefined">-- Select Subject --</mat-option>
-            <mat-option *ngFor="let s of subjects" [value]="s.id">
-              {{s.name}} <span *ngIf="s.code">({{s.code}})</span>
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
         <!-- Stream Type Selector: School vs Coaching -->
         <div class="col-full target-toggle-box">
           <label class="toggle-label">क्लास या बैच चुनें (Class or Batch Stream):</label>
@@ -241,51 +262,53 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </button>
           </div>
         </div>
-
         <!-- If School Class Stream -->
-        <ng-container *ngIf="streamType === 'School'">
+        @if (streamType === 'School') {
           <mat-form-field appearance="outline" class="col-half">
             <mat-label>School Class (कक्षा)</mat-label>
             <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onSchoolClassChange()">
               <mat-option [value]="''">-- Select School Class --</mat-option>
-              <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                {{c.name}}
-              </mat-option>
+              @for (c of schoolClasses; track c) {
+                <mat-option [value]="c.id">
+                  {{c.name}}
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-
           <mat-form-field appearance="outline" class="col-half">
             <mat-label>Section (वर्ग)</mat-label>
             <mat-select [(ngModel)]="addForm.classSectionId">
               <mat-option [value]="undefined">-- Select Section --</mat-option>
-              <mat-option *ngFor="let sec of availableSections" [value]="sec.id">
-                {{sec.name}}
-              </mat-option>
+              @for (sec of availableSections; track sec) {
+                <mat-option [value]="sec.id">
+                  {{sec.name}}
+                </mat-option>
+              }
             </mat-select>
           </mat-form-field>
-        </ng-container>
-
+        }
         <!-- If Coaching Batch Stream -->
-        <mat-form-field appearance="outline" class="col-full" *ngIf="streamType === 'Coaching'">
-          <mat-label>Coaching Batch</mat-label>
-          <mat-select [(ngModel)]="addForm.batchId">
-            <mat-option [value]="undefined">-- Select Coaching Batch --</mat-option>
-            <mat-option *ngFor="let b of batches" [value]="b.id">{{b.name}}</mat-option>
-          </mat-select>
-        </mat-form-field>
-
+        @if (streamType === 'Coaching') {
+          <mat-form-field appearance="outline" class="col-full">
+            <mat-label>Coaching Batch</mat-label>
+            <mat-select [(ngModel)]="addForm.batchId">
+              <mat-option [value]="undefined">-- Select Coaching Batch --</mat-option>
+              @for (b of batches; track b) {
+                <mat-option [value]="b.id">{{b.name}}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
         <!-- Chapter & Topic Taught -->
         <mat-form-field appearance="outline" class="col-full">
           <mat-label>Chapter &amp; Topic Taught *</mat-label>
           <input matInput [(ngModel)]="addForm.chapterTopic" placeholder="e.g. Chapter 6: Life Processes — Respiration Mechanism & ATP Cycle">
         </mat-form-field>
-
         <!-- Learning Objectives -->
         <mat-form-field appearance="outline" class="col-full">
           <mat-label>Learning Objectives / शिक्षण उद्देश्य</mat-label>
           <input matInput [(ngModel)]="addForm.learningObjectives" placeholder="Students understand aerobic vs anaerobic respiration">
         </mat-form-field>
-
         <!-- Teaching Methodology -->
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Teaching Methodology</mat-label>
@@ -297,7 +320,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-option value="Revision & Pop Quiz">Revision &amp; Pop Quiz</mat-option>
           </mat-select>
         </mat-form-field>
-
         <!-- Status -->
         <mat-form-field appearance="outline" class="col-half">
           <mat-label>Status *</mat-label>
@@ -308,31 +330,34 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-option value="Planned">Planned</mat-option>
           </mat-select>
         </mat-form-field>
-
         <!-- Homework Assigned -->
         <mat-form-field appearance="outline" class="col-full">
           <mat-label>Homework / गृहकार्य Assigned</mat-label>
           <textarea matInput rows="2" [(ngModel)]="addForm.homeworkAssigned" placeholder="e.g. Solve textbook Q1 to Q6 in notebook; revise diagram for tomorrow's quiz."></textarea>
         </mat-form-field>
-
         <!-- Principal / Supervisor Feedback (When Editing) -->
-        <mat-form-field appearance="outline" class="col-full" *ngIf="editingPlanId">
-          <mat-label>Principal / Supervisor Feedback (फीडबैक)</mat-label>
-          <input matInput [(ngModel)]="editFeedback" placeholder="e.g. Well planned; ensure weak students submit homework on time.">
-        </mat-form-field>
+        @if (editingPlanId) {
+          <mat-form-field appearance="outline" class="col-full">
+            <mat-label>Principal / Supervisor Feedback (फीडबैक)</mat-label>
+            <input matInput [(ngModel)]="editFeedback" placeholder="e.g. Well planned; ensure weak students submit homework on time.">
+          </mat-form-field>
+        }
       </div>
     </div>
-
     <div class="modal-footer">
       <button mat-button (click)="closeAddModal()">Cancel</button>
       <button mat-raised-button color="primary" class="primary-btn" [disabled]="saving || !addForm.teacherId || !addForm.subjectName || !addForm.chapterTopic" (click)="saveLessonPlan()">
-        <mat-icon *ngIf="!saving">check</mat-icon>
+        @if (!saving) {
+          <mat-icon>check</mat-icon>
+        }
         <span>{{saving ? 'Saving...' : (editingPlanId ? 'Update Diary Entry' : 'Save Diary Entry')}}</span>
       </button>
     </div>
   </div>
 </div>
-  `,
+}
+`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       padding: 0 0 40px;

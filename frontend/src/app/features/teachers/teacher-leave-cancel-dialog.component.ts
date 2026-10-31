@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -51,7 +51,7 @@ const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   ],
   template: `
     <div class="fd-dialog-md">
-
+    
       <!-- ── Header ── -->
       <div class="fd-dialog-header">
         <div class="fd-dialog-icon"><mat-icon>event_busy</mat-icon></div>
@@ -66,10 +66,10 @@ const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="submit()">
         <div class="fd-dialog-body">
-
+    
           <!-- ── Leave Summary Banner ── -->
           <div class="leave-overview-card">
             <div class="overview-header">
@@ -84,216 +84,233 @@ const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
                 &nbsp;→&nbsp;
                 <strong>{{leave.toDate | date:'dd MMM yyyy'}}</strong>
               </span>
-              <span *ngIf="leave.reason">Reason: <em>"{{leave.reason}}"</em></span>
+              @if (leave.reason) {
+                <span>Reason: <em>"{{leave.reason}}"</em></span>
+              }
             </div>
           </div>
-
+    
           <!-- ── Cancellation Mode ── -->
           <div class="cancellation-mode-box">
             <label class="mode-label">Cancellation Type *</label>
             <mat-radio-group formControlName="cancellationType"
-                             (change)="onModeChange()"
-                             class="mode-radio-group">
-
+              (change)="onModeChange()"
+              class="mode-radio-group">
+    
               <mat-radio-button value="full" color="primary">
                 <div class="radio-content">
                   <strong>Cancel Entire Leave</strong>
                   <span>Revoke all {{leave.totalDays}} days — full restoration to working roster &amp; leave quota</span>
                 </div>
               </mat-radio-button>
-
+    
               <mat-radio-button value="partial" color="primary">
                 <div class="radio-content">
                   <strong>Partial Date Cancellation</strong>
                   <span>Pick specific days below — uncheck the days you want cancelled</span>
                 </div>
               </mat-radio-button>
-
+    
             </mat-radio-group>
           </div>
-
+    
           <!-- ═══════════════════════════════════════════════════════════
-               SMART CALENDAR — visible only when "partial" is chosen
-               ═══════════════════════════════════════════════════════════ -->
-          <div class="calendar-wrap" *ngIf="isPartialMode">
-
-            <!-- Legend -->
-            <div class="cal-legend">
-              <span class="legend-item">
-                <span class="legend-dot keep-dot"></span> Checked = Keep
-              </span>
-              <span class="legend-item">
-                <span class="legend-dot cancel-dot"></span> Unchecked = Cancel
-              </span>
-              <span class="legend-item">
-                <span class="legend-dot holiday-dot"></span> 🏖️ Holiday (Exempt)
-              </span>
-              <span class="legend-item">
-                <span class="legend-dot off-dot"></span> ☀️ Sunday (Exempt)
-              </span>
-              <span class="legend-item" *ngIf="hasAnyCancelled">
-                <span class="legend-dot" style="background:#dc2626;"></span> 🚫 Already Cancelled
-              </span>
-            </div>
-
-            <!-- One block per calendar month -->
-            <div class="cal-month-block" *ngFor="let cm of calMonths">
-
-              <div class="cal-month-header">
-                <mat-icon class="cal-hdr-icon">calendar_month</mat-icon>
-                <span>{{cm.label}}</span>
+          SMART CALENDAR — visible only when "partial" is chosen
+          ═══════════════════════════════════════════════════════════ -->
+          @if (isPartialMode) {
+            <div class="calendar-wrap">
+              <!-- Legend -->
+              <div class="cal-legend">
+                <span class="legend-item">
+                  <span class="legend-dot keep-dot"></span> Checked = Keep
+                </span>
+                <span class="legend-item">
+                  <span class="legend-dot cancel-dot"></span> Unchecked = Cancel
+                </span>
+                <span class="legend-item">
+                  <span class="legend-dot holiday-dot"></span> 🏖️ Holiday (Exempt)
+                </span>
+                <span class="legend-item">
+                  <span class="legend-dot off-dot"></span> ☀️ Sunday (Exempt)
+                </span>
+                @if (hasAnyCancelled) {
+                  <span class="legend-item">
+                    <span class="legend-dot" style="background:#dc2626;"></span> 🚫 Already Cancelled
+                  </span>
+                }
               </div>
-
-              <!-- Grid -->
-              <div class="cal-grid">
-                <!-- Day-of-week labels -->
-                <div class="cal-dow" *ngFor="let lbl of dowLabels">{{lbl}}</div>
-
-                <ng-container *ngFor="let week of cm.weeks">
-                  <ng-container *ngFor="let cell of week">
-
-                    <!-- Empty filler -->
-                    <div class="cal-cell cal-empty" *ngIf="!cell"></div>
-
-                    <!-- 1. Declared School Holiday (Exempt - Not deducted from quota) -->
-                    <div class="cal-cell cal-exempt cal-holiday"
-                         *ngIf="cell && cell.isHoliday"
-                         [matTooltip]="(cell.holidayTitle || 'Official Holiday') + ' — Not deducted from leave quota'">
-                      <span class="cal-num">{{cell.day}}</span>
-                      <span class="cal-tag">🏖️ Holiday</span>
-                    </div>
-
-                    <!-- 2. Sunday / Weekly Off (Exempt - Not deducted from quota) -->
-                    <div class="cal-cell cal-exempt cal-weekly-off"
-                         *ngIf="cell && cell.isWeeklyOff"
-                         matTooltip="Sunday (Weekly Off) — Not deducted from leave quota">
-                      <span class="cal-num">{{cell.day}}</span>
-                      <span class="cal-tag">☀️ Off</span>
-                    </div>
-
-                    <!-- 2b. Already Cancelled Day (Approved cancellation) -->
-                    <div class="cal-cell cal-exempt cal-cancelled"
-                         *ngIf="cell && cell.isCancelled"
-                         matTooltip="This day was already cancelled and removed from leave">
-                      <span class="cal-num">{{cell.day}}</span>
-                      <span class="cal-tag">🚫 Cancelled</span>
-                    </div>
-
-                    <!-- 3. Actual Working Leave Day (Interactive: Keep / Cancel) -->
-                    <div class="cal-cell cal-leave"
-                         *ngIf="cell && cell.isLeave && !cell.isCancelled"
-                         [class.is-keep]="cell.checked"
-                         [class.is-cancel]="!cell.checked"
-                         (click)="toggleDay(cell)"
+              <!-- One block per calendar month -->
+              @for (cm of calMonths; track cm) {
+                <div class="cal-month-block">
+                  <div class="cal-month-header">
+                    <mat-icon class="cal-hdr-icon">calendar_month</mat-icon>
+                    <span>{{cm.label}}</span>
+                  </div>
+                  <!-- Grid -->
+                  <div class="cal-grid">
+                    <!-- Day-of-week labels -->
+                    @for (lbl of dowLabels; track lbl) {
+                      <div class="cal-dow">{{lbl}}</div>
+                    }
+                    @for (week of cm.weeks; track week) {
+                      @for (cell of week; track cell) {
+                        <!-- Empty filler -->
+                        @if (!cell) {
+                          <div class="cal-cell cal-empty"></div>
+                        }
+                        <!-- 1. Declared School Holiday (Exempt - Not deducted from quota) -->
+                        @if (cell && cell.isHoliday) {
+                          <div class="cal-cell cal-exempt cal-holiday"
+                            [matTooltip]="(cell.holidayTitle || 'Official Holiday') + ' — Not deducted from leave quota'">
+                            <span class="cal-num">{{cell.day}}</span>
+                            <span class="cal-tag">🏖️ Holiday</span>
+                          </div>
+                        }
+                        <!-- 2. Sunday / Weekly Off (Exempt - Not deducted from quota) -->
+                        @if (cell && cell.isWeeklyOff) {
+                          <div class="cal-cell cal-exempt cal-weekly-off"
+                            matTooltip="Sunday (Weekly Off) — Not deducted from leave quota">
+                            <span class="cal-num">{{cell.day}}</span>
+                            <span class="cal-tag">☀️ Off</span>
+                          </div>
+                        }
+                        <!-- 2b. Already Cancelled Day (Approved cancellation) -->
+                        @if (cell && cell.isCancelled) {
+                          <div class="cal-cell cal-exempt cal-cancelled"
+                            matTooltip="This day was already cancelled and removed from leave">
+                            <span class="cal-num">{{cell.day}}</span>
+                            <span class="cal-tag">🚫 Cancelled</span>
+                          </div>
+                        }
+                        <!-- 3. Actual Working Leave Day (Interactive: Keep / Cancel) -->
+                        @if (cell && cell.isLeave && !cell.isCancelled) {
+                          <div class="cal-cell cal-leave"
+                            [class.is-keep]="cell.checked"
+                            [class.is-cancel]="!cell.checked"
+                            (click)="toggleDay(cell)"
                          [matTooltip]="cell.checked
                            ? 'Click to mark for cancellation'
                            : 'Click to restore this day'">
-                      <span class="cal-num">{{cell.day}}</span>
-                      <mat-icon class="cal-chk-icon">
-                        {{cell.checked ? 'check_circle' : 'cancel'}}
-                      </mat-icon>
-                      <span class="cal-tag" *ngIf="cell.isSat">Sat</span>
-                    </div>
-
-                    <!-- 4. Ordinary day outside leave span (display only) -->
-                    <div class="cal-cell cal-other"
-                         *ngIf="cell && !cell.isLeave && !cell.isHoliday && !cell.isWeeklyOff && !cell.isCancelled"
-                         [class.cal-weekend]="cell.isSunday || cell.isSat"
-                         [class.cal-today]="cell.isToday">
-                      <span class="cal-num">{{cell.day}}</span>
-                      <span class="cal-tag" *ngIf="cell.isSunday">Sun</span>
-                      <span class="cal-tag" *ngIf="cell.isSat">Sat</span>
-                    </div>
-
-                  </ng-container>
-                </ng-container>
+                            <span class="cal-num">{{cell.day}}</span>
+                            <mat-icon class="cal-chk-icon">
+                              {{cell.checked ? 'check_circle' : 'cancel'}}
+                            </mat-icon>
+                            @if (cell.isSat) {
+                              <span class="cal-tag">Sat</span>
+                            }
+                          </div>
+                        }
+                        <!-- 4. Ordinary day outside leave span (display only) -->
+                        @if (cell && !cell.isLeave && !cell.isHoliday && !cell.isWeeklyOff && !cell.isCancelled) {
+                          <div class="cal-cell cal-other"
+                            [class.cal-weekend]="cell.isSunday || cell.isSat"
+                            [class.cal-today]="cell.isToday">
+                            <span class="cal-num">{{cell.day}}</span>
+                            @if (cell.isSunday) {
+                              <span class="cal-tag">Sun</span>
+                            }
+                            @if (cell.isSat) {
+                              <span class="cal-tag">Sat</span>
+                            }
+                          </div>
+                        }
+                      }
+                    }
+                  </div>
+                </div>
+              }
+              <!-- Warning: non-contiguous selection -->
+              @if (nonContiguousWarn) {
+                <div class="cal-warn">
+                  <mat-icon>warning</mat-icon>
+                  <span>The system supports cancellation of a <strong>contiguous date block</strong>.
+                Please uncheck consecutive days only.</span>
               </div>
-            </div>
-
-            <!-- Warning: non-contiguous selection -->
-            <div class="cal-warn" *ngIf="nonContiguousWarn">
-              <mat-icon>warning</mat-icon>
-              <span>The system supports cancellation of a <strong>contiguous date block</strong>.
-                    Please uncheck consecutive days only.</span>
-            </div>
-
+            }
             <!-- Hint: nothing unchecked yet -->
-            <div class="cal-warn cal-warn-info"
-                 *ngIf="cancelDaysList.length === 0 && !nonContiguousWarn">
-              <mat-icon>touch_app</mat-icon>
-              <span>Tap a <strong>blue tile</strong> to mark that day for cancellation.</span>
-            </div>
-
+            @if (cancelDaysList.length === 0 && !nonContiguousWarn) {
+              <div class="cal-warn cal-warn-info"
+                >
+                <mat-icon>touch_app</mat-icon>
+                <span>Tap a <strong>blue tile</strong> to mark that day for cancellation.</span>
+              </div>
+            }
             <!-- Live Summary Pill -->
-            <div class="summary-pill" *ngIf="cancelDaysList.length > 0 && !nonContiguousWarn">
-              <div class="pill-side cancel-side">
-                <mat-icon>event_busy</mat-icon>
-                <div>
-                  <div class="pill-count">{{cancelDaysList.length}} Day(s)</div>
-                  <div class="pill-sub">Will be cancelled</div>
+            @if (cancelDaysList.length > 0 && !nonContiguousWarn) {
+              <div class="summary-pill">
+                <div class="pill-side cancel-side">
+                  <mat-icon>event_busy</mat-icon>
+                  <div>
+                    <div class="pill-count">{{cancelDaysList.length}} Day(s)</div>
+                    <div class="pill-sub">Will be cancelled</div>
+                  </div>
+                </div>
+                <mat-icon class="pill-arrow">arrow_forward</mat-icon>
+                <div class="pill-side keep-side">
+                  <mat-icon>event_available</mat-icon>
+                  <div>
+                    <div class="pill-count">{{keepDaysList.length}} Day(s)</div>
+                    <div class="pill-sub">Will remain</div>
+                  </div>
+                </div>
+                <div class="pill-range">
+                  {{cancelDaysList[0] | date:'d MMM'}}
+                  @if (cancelDaysList.length > 1) {
+                    <span>
+                      &nbsp;–&nbsp;{{cancelDaysList[cancelDaysList.length-1] | date:'d MMM yyyy'}}
+                    </span>
+                  }
+                  @if (cancelDaysList.length === 1) {
+                    <span>
+                      &nbsp;{{cancelDaysList[0] | date:'yyyy'}}
+                    </span>
+                  }
                 </div>
               </div>
-
-              <mat-icon class="pill-arrow">arrow_forward</mat-icon>
-
-              <div class="pill-side keep-side">
-                <mat-icon>event_available</mat-icon>
-                <div>
-                  <div class="pill-count">{{keepDaysList.length}} Day(s)</div>
-                  <div class="pill-sub">Will remain</div>
-                </div>
-              </div>
-
-              <div class="pill-range">
-                {{cancelDaysList[0] | date:'d MMM'}}
-                <span *ngIf="cancelDaysList.length > 1">
-                  &nbsp;–&nbsp;{{cancelDaysList[cancelDaysList.length-1] | date:'d MMM yyyy'}}
-                </span>
-                <span *ngIf="cancelDaysList.length === 1">
-                  &nbsp;{{cancelDaysList[0] | date:'yyyy'}}
-                </span>
-              </div>
-            </div>
-
+            }
           </div>
-          <!-- /calendar-wrap -->
-
-          <!-- ── Reason ── -->
-          <mat-form-field appearance="outline" class="fd-field-full">
-            <mat-label>Reason for Cancellation *</mat-label>
-            <textarea matInput formControlName="reason" rows="3"
-              placeholder="e.g. Reported back early, personal work completed, tour rescheduled...">
-            </textarea>
-          </mat-form-field>
-
-          <!-- ── Policy Notice ── -->
-          <div class="policy-notice-box">
-            <mat-icon>info</mat-icon>
-            <div>
-              <strong>Audit &amp; Roster Impact:</strong> Once approved by Administration, the
-              selected date(s) will be removed from leave registers, restored to working
-              attendance, and the deducted leave balance will be credited back.
-            </div>
+        }
+        <!-- /calendar-wrap -->
+    
+        <!-- ── Reason ── -->
+        <mat-form-field appearance="outline" class="fd-field-full">
+          <mat-label>Reason for Cancellation *</mat-label>
+          <textarea matInput formControlName="reason" rows="3"
+            placeholder="e.g. Reported back early, personal work completed, tour rescheduled...">
+          </textarea>
+        </mat-form-field>
+    
+        <!-- ── Policy Notice ── -->
+        <div class="policy-notice-box">
+          <mat-icon>info</mat-icon>
+          <div>
+            <strong>Audit &amp; Roster Impact:</strong> Once approved by Administration, the
+            selected date(s) will be removed from leave registers, restored to working
+            attendance, and the deducted leave balance will be credited back.
           </div>
-
-          <!-- ── Backend Error ── -->
-          <div class="error-banner" *ngIf="backendError">
+        </div>
+    
+        <!-- ── Backend Error ── -->
+        @if (backendError) {
+          <div class="error-banner">
             <mat-icon>error_outline</mat-icon>
             <span>{{backendError}}</span>
           </div>
-
-        </div>
-
-        <div class="fd-dialog-footer">
-          <button mat-stroked-button type="button" (click)="cancel()">Close</button>
-          <button mat-flat-button color="warn" type="submit" [disabled]="!canSubmit()">
-            <mat-icon>{{saving ? 'hourglass_empty' : 'send'}}</mat-icon>
-            {{saving ? 'Submitting...' : 'Submit Cancellation Request'}}
-          </button>
-        </div>
-      </form>
+        }
+    
+      </div>
+    
+      <div class="fd-dialog-footer">
+        <button mat-stroked-button type="button" (click)="cancel()">Close</button>
+        <button mat-flat-button color="warn" type="submit" [disabled]="!canSubmit()">
+          <mat-icon>{{saving ? 'hourglass_empty' : 'send'}}</mat-icon>
+          {{saving ? 'Submitting...' : 'Submit Cancellation Request'}}
+        </button>
+      </div>
+    </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     /* ── Container ── */
     :host {
@@ -921,7 +938,7 @@ export class RequestLeaveCancellationDialogComponent implements OnInit {
         </div>
         <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
       </div>
-
+    
       <div class="fd-dialog-body">
         <!-- Request Details -->
         <div class="review-meta-box">
@@ -932,39 +949,47 @@ export class RequestLeaveCancellationDialogComponent implements OnInit {
               ({{leave.fromDate | date:'dd MMM yyyy'}} to {{leave.toDate | date:'dd MMM yyyy'}} • {{leave.totalDays}} Days)
             </span>
           </div>
-
+    
           <div class="meta-row highlight-row">
             <span class="meta-label">Cancellation Scope:</span>
             <span class="meta-val">
-              <strong *ngIf="!leave.isPartialCancellation" class="badge-full">Full Cancellation (All {{leave.totalDays}} Days)</strong>
-              <strong *ngIf="leave.isPartialCancellation" class="badge-partial">
-                Partial ({{leave.cancellationFromDate | date:'dd MMM yyyy'}} to {{leave.cancellationToDate | date:'dd MMM yyyy'}})
-              </strong>
+              @if (!leave.isPartialCancellation) {
+                <strong class="badge-full">Full Cancellation (All {{leave.totalDays}} Days)</strong>
+              }
+              @if (leave.isPartialCancellation) {
+                <strong class="badge-partial">
+                  Partial ({{leave.cancellationFromDate | date:'dd MMM yyyy'}} to {{leave.cancellationToDate | date:'dd MMM yyyy'}})
+                </strong>
+              }
             </span>
           </div>
-
+    
           <div class="meta-row">
             <span class="meta-label">Employee Reason:</span>
             <span class="meta-val reason-val">{{leave.cancellationReason || '—'}}</span>
           </div>
-
-          <div class="meta-row" *ngIf="leave.cancellationRequestedAt">
-            <span class="meta-label">Requested On:</span>
-            <span class="meta-val">{{leave.cancellationRequestedAt | date:'dd MMM yyyy, hh:mm a'}}</span>
-          </div>
+    
+          @if (leave.cancellationRequestedAt) {
+            <div class="meta-row">
+              <span class="meta-label">Requested On:</span>
+              <span class="meta-val">{{leave.cancellationRequestedAt | date:'dd MMM yyyy, hh:mm a'}}</span>
+            </div>
+          }
         </div>
-
+    
         <mat-form-field appearance="outline" class="fd-field-full">
           <mat-label>Administrative Remarks (Optional)</mat-label>
           <textarea matInput [(ngModel)]="remarks" rows="2" placeholder="e.g. Approved as requested / Verified report on duty..."></textarea>
         </mat-form-field>
-
-        <div class="error-banner" *ngIf="backendError">
-          <mat-icon>error_outline</mat-icon>
-          <span>{{backendError}}</span>
-        </div>
+    
+        @if (backendError) {
+          <div class="error-banner">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{backendError}}</span>
+          </div>
+        }
       </div>
-
+    
       <div class="fd-dialog-footer">
         <button mat-stroked-button class="btn-cancel-flat" type="button" (click)="cancel()" [disabled]="submitting">
           Cancel
@@ -981,7 +1006,8 @@ export class RequestLeaveCancellationDialogComponent implements OnInit {
         </div>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .fd-dialog-review { width: 100%; max-width: 600px; box-sizing: border-box; }
     .fd-dialog-header {

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -39,7 +39,6 @@ import { StudentPortalLoginDialogComponent } from './student-portal-login-dialog
 import { AuthService } from '../../core/services/auth.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryItem } from '../inventory/inventory.models';
-import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiBaseUrl;
@@ -75,24 +74,31 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     MatCheckboxModule,
     MatDialogModule,
     MatMenuModule,
-    MatDividerModule,
-    IstDatetimeDirective
+    MatDividerModule
   ],
   template: `
     <div class="students-wrapper">
       <div class="header-actions">
         <div>
           <h2>Student Directory &amp; Admissions</h2>
-          <p *ngIf="authService.hasSchoolModule() && authService.hasCoachingModule()">Unified admissions for School &amp; Coaching. School students can seamlessly enroll into evening coaching batches.</p>
-          <p *ngIf="authService.hasSchoolModule() && !authService.hasCoachingModule()">Comprehensive school student admissions, academic class assignments, and student directory.</p>
-          <p *ngIf="!authService.hasSchoolModule() && authService.hasCoachingModule()">Manage student admissions, batch enrollments, and coaching tuition records.</p>
+          @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
+            <p>Unified admissions for School &amp; Coaching. School students can seamlessly enroll into evening coaching batches.</p>
+          }
+          @if (authService.hasSchoolModule() && !authService.hasCoachingModule()) {
+            <p>Comprehensive school student admissions, academic class assignments, and student directory.</p>
+          }
+          @if (!authService.hasSchoolModule() && authService.hasCoachingModule()) {
+            <p>Manage student admissions, batch enrollments, and coaching tuition records.</p>
+          }
         </div>
         <div class="header-btns">
-          <a *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
-            <mat-icon>trending_up</mat-icon>
-            <span>Promote Students</span>
-          </a>
-
+          @if (authService.hasSchoolModule() && !authService.isTeacher()) {
+            <a mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
+              <mat-icon>trending_up</mat-icon>
+              <span>Promote Students</span>
+            </a>
+          }
+    
           <!-- Quick Operations Dropdown -->
           <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="more-actions-btn" matTooltip="Student Leaves, Gate Passes, Classes &amp; Roll Sequencer">
             <mat-icon style="color:#0284c7;">tune</mat-icon>
@@ -108,1133 +114,1304 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               <mat-icon style="color:#0284c7;">meeting_room</mat-icon>
               <span>Gate Passes</span>
             </a>
-            <mat-divider *ngIf="authService.hasSchoolModule() && !authService.isTeacher()"></mat-divider>
-            <a *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-menu-item routerLink="/school/classes">
-              <mat-icon style="color:#2563eb;">domain</mat-icon>
-              <span>Classes &amp; Sections</span>
-            </a>
-            <button *ngIf="authService.hasSchoolModule() && !authService.isTeacher()" mat-menu-item (click)="openRollSequencer()">
-              <mat-icon style="color:#7c3aed;">format_list_numbered</mat-icon>
-              <span>Roll No. Sequencer</span>
-            </button>
+            @if (authService.hasSchoolModule() && !authService.isTeacher()) {
+              <mat-divider></mat-divider>
+            }
+            @if (authService.hasSchoolModule() && !authService.isTeacher()) {
+              <a mat-menu-item routerLink="/school/classes">
+                <mat-icon style="color:#2563eb;">domain</mat-icon>
+                <span>Classes &amp; Sections</span>
+              </a>
+            }
+            @if (authService.hasSchoolModule() && !authService.isTeacher()) {
+              <button mat-menu-item (click)="openRollSequencer()">
+                <mat-icon style="color:#7c3aed;">format_list_numbered</mat-icon>
+                <span>Roll No. Sequencer</span>
+              </button>
+            }
           </mat-menu>
-
-          <button *ngIf="!authService.isTeacher()" mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
-            <mat-icon>{{ showForm ? 'close' : 'person_add' }}</mat-icon>
-            <span>{{ showForm ? 'Cancel' : (isEditMode ? 'Edit Student' : 'New Admission') }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Add/Edit Student Form Card -->
-      <mat-card *ngIf="showForm" class="form-card mat-elevation-z2">
-        <mat-card-content>
-          <div class="form-title">
-            <mat-icon color="primary">{{ isEditMode ? 'edit' : 'person_add' }}</mat-icon>
-            <span>{{ isEditMode ? 'Edit Student Record' : 'New Student Admission &amp; Enrollment' }}</span>
-          </div>
-
-          <form [formGroup]="studentForm" (ngSubmit)="onSubmitStudent()" class="form-grid">
-
-            <!-- Profile Photo Upload (full-width, centered) -->
-            <div class="photo-upload-area full-span">
-              <div class="photo-preview-wrap">
-                <div class="photo-circle" (click)="triggerFileInput()">
-                  <img *ngIf="photoPreview" [src]="photoPreview" alt="Preview" class="photo-img" />
-                  <div *ngIf="!photoPreview" class="photo-placeholder">
-                    <mat-icon class="photo-placeholder-icon">add_a_photo</mat-icon>
-                    <span>Upload Photo</span>
-                  </div>
-                </div>
-                <div class="photo-actions">
-                  <button mat-stroked-button type="button" color="primary" (click)="triggerFileInput()">
-                    <mat-icon>upload</mat-icon> {{ photoPreview ? 'Change Photo' : 'Upload Photo' }}
-                  </button>
-                  <button mat-icon-button type="button" color="warn" *ngIf="photoPreview" (click)="removePhoto()" matTooltip="Remove photo">
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </div>
-              </div>
-              <input #fileInput type="file" accept="image/*" style="display:none" (change)="onFileSelected($event)" />
-            </div>
-
-            <!-- Enrollment Streams Selector Box -->
-            <div class="stream-selector-box full-span">
-              <div class="stream-selector-title">
-                <mat-icon color="primary">hub</mat-icon>
-                <span>Select Enrollment Stream(s)</span>
-              </div>
-              <div class="stream-checkboxes">
-                <mat-checkbox *ngIf="authService.hasSchoolModule()" formControlName="isSchoolStudent" (change)="onStreamCheckChanged()" color="primary">
-                  <span class="chk-label">🏫 <strong>School Enrollment</strong> (Class, Section, Admission No)</span>
-                </mat-checkbox>
-                <mat-checkbox *ngIf="authService.hasCoachingModule()" formControlName="isCoachingStudent" (change)="onStreamCheckChanged()" color="primary">
-                  <span class="chk-label">🎯 <strong>Coaching Enrollment</strong> (Batch, Monthly Tuition Fee)</span>
-                </mat-checkbox>
-                <mat-checkbox *ngIf="authService.hasHostelModule()" formControlName="isHostelStudent" (change)="onHostelCheckChanged()" color="accent">
-                  <span class="chk-label">🏨 <strong>Hostel Resident (Optional)</strong> (Room &amp; Bed Allotment)</span>
-                </mat-checkbox>
-                <mat-checkbox *ngIf="authService.hasLibraryModule()" formControlName="isLibraryMember" (change)="onLibraryCheckChanged()" color="primary">
-                  <span class="chk-label">📚 <strong>Library Membership (Optional)</strong> (Books &amp; Reading Shifts)</span>
-                </mat-checkbox>
-                <mat-checkbox *ngIf="authService.hasTransportModule()" formControlName="isTransportStudent" (change)="onTransportCheckChanged()" color="primary">
-                  <span class="chk-label">🚌 <strong>Transport Facility (Optional)</strong> (Route &amp; Stop Assignment)</span>
-                </mat-checkbox>
-              </div>
-              <div class="stream-hint-warn" *ngIf="!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent && (authService.hasSchoolModule() || authService.hasCoachingModule())">
-                <mat-icon>warning_amber</mat-icon>
-                <span>Please select at least one stream ({{ authService.hasSchoolModule() && authService.hasCoachingModule() ? 'School, Coaching, or both' : (authService.hasSchoolModule() ? 'School' : 'Coaching') }}).</span>
-              </div>
-            </div>
-
-            <!-- School Section Details (if School is checked) -->
-            <ng-container *ngIf="studentForm.value.isSchoolStudent">
-              <div class="section-divider-box full-span school-sect">
-                <mat-icon>domain</mat-icon>
-                <span>School Academic Assignment</span>
-              </div>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Admission / SR Number</mat-label>
-                <input matInput formControlName="admissionNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
-                <mat-icon matSuffix matTooltip="Auto-generated on admission">lock</mat-icon>
-                <mat-hint>Auto-generated Institutional Admission / SR Number</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Admission / Joining Date</mat-label>
-                <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
-                <mat-icon matSuffix>event</mat-icon>
-                <mat-hint>Format: DD-MM-YYYY • Allowed range: 01-01-2010 to {{ maxDojFormatted }}</mat-hint>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('required')">Admission date is required</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Admission date cannot be more than 1 year in advance (Max: {{ maxDojFormatted }})</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01-01-2010 and {{ maxDojFormatted }}</mat-error>
-                <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')">Admission date must be strictly after Date of Birth</mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>School Class</mat-label>
-                <mat-select formControlName="classId" placeholder="Select School Class" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
-                  <mat-option [value]="''">-- Select School Class --</mat-option>
-                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                    {{ c.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-error *ngIf="studentForm.get('classId')?.hasError('required')">School Class is required</mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Class Section</mat-label>
-                <mat-select formControlName="sectionId" placeholder="Select Section" panelClass="batch-filter-panel">
-                  <mat-option [value]="''">-- Select Section --</mat-option>
-                  <mat-option *ngFor="let s of formSections" [value]="s.id">
-                    Section {{ s.name }} (Cap: {{ s.maxCapacity }}{{ s.roomNumber ? ' • Room ' + s.roomNumber : '' }})
-                  </mat-option>
-                </mat-select>
-                <mat-hint *ngIf="formSections.length === 0 && studentForm.value.classId">No sections configured for this class</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>School Roll Number</mat-label>
-                <input matInput formControlName="schoolRollNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
-                <mat-icon matSuffix matTooltip="Auto-generated based on class">lock</mat-icon>
-                <mat-hint *ngIf="!isEditMode">Auto-generated when class is selected (starts from 1 per class)</mat-hint>
-              </mat-form-field>
-            </ng-container>
-
-            <!-- Coaching Section Details (if Coaching is checked) -->
-            <ng-container *ngIf="studentForm.value.isCoachingStudent">
-              <div class="section-divider-box full-span coaching-sect">
-                <mat-icon>school</mat-icon>
-                <span>Coaching Batch &amp; Fee Assignment</span>
-              </div>
-
-              <mat-form-field appearance="outline" *ngIf="!studentForm.value.isSchoolStudent">
-                <mat-label>Coaching / Joining Date</mat-label>
-                <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
-                <mat-icon matSuffix>event</mat-icon>
-                <mat-hint>Format: DD-MM-YYYY • Allowed range: 01-01-2010 to {{ maxDojFormatted }}</mat-hint>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('required')">Coaching / Joining date is required</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('futureDate')">Coaching / Joining date cannot be more than 1 year in advance (Max: {{ maxDojFormatted }})</mat-error>
-                <mat-error *ngIf="studentForm.get('joiningDate')?.hasError('invalidRange')">Date must be between 01-01-2010 and {{ maxDojFormatted }}</mat-error>
-                <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')">Coaching / Joining date must be strictly after Date of Birth</mat-error>
-              </mat-form-field>
-
-              <!-- Dedicated Coaching Entry / Joining Date for School Students who also enroll in Coaching -->
-              <mat-form-field appearance="outline" *ngIf="studentForm.value.isSchoolStudent">
-                <mat-label>Coaching Entry Date (Optional)</mat-label>
-                <input matInput type="date" formControlName="coachingJoiningDate" [min]="minDoj" [max]="maxDoj" />
-                <mat-icon matSuffix>event</mat-icon>
-                <mat-hint>Format: DD-MM-YYYY • Coaching start date (defaults to School admission date if blank)</mat-hint>
-              </mat-form-field>
-
-              <!-- Academic Class Selection for Coaching Student (if not a School Student) -->
-              <mat-form-field appearance="outline" *ngIf="!studentForm.value.isSchoolStudent">
-                <mat-label>Academic Class (कक्षा)</mat-label>
-                <mat-select formControlName="classId" placeholder="Select Academic Class" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
-                  <mat-option [value]="''">-- Select Academic Class --</mat-option>
-                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                    {{ c.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-error *ngIf="studentForm.get('classId')?.hasError('required')">Academic Class is required</mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Coaching Batch</mat-label>
-                <mat-select formControlName="batchId" placeholder="Select Coaching Batch" panelClass="batch-filter-panel">
-                  <mat-option [value]="''">-- Select Coaching Batch --</mat-option>
-                  <mat-option *ngFor="let b of formBatches" [value]="b.id">
-                    {{ b.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-error *ngIf="studentForm.get('batchId')?.hasError('required')">Batch selection is required for coaching</mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Coaching Roll Number</mat-label>
-                <input matInput formControlName="rollNumber" [readonly]="true" placeholder="Select batch first..." style="cursor: default;" />
-                <mat-icon matSuffix *ngIf="!rollNumberLoading" matTooltip="Auto-generated based on batch">lock</mat-icon>
-                <mat-progress-bar mode="indeterminate" *ngIf="rollNumberLoading" style="position:absolute;bottom:0;left:0;right:0;"></mat-progress-bar>
-                <mat-hint *ngIf="!isEditMode">Auto-generated when batch is selected</mat-hint>
-                <mat-error *ngIf="studentForm.get('rollNumber')?.hasError('required')">Roll number is required</mat-error>
-              </mat-form-field>
-
-              <div class="batch-class-badge-container">
-                <div class="batch-class-badge-box" [class.has-class]="getSelectedBatchClassName()">
-                  <div class="batch-class-hdr">
-                    <mat-icon class="class-icon">school</mat-icon>
-                    <span class="hdr-text">Batch Target Class</span>
-                  </div>
-                  <div class="batch-class-val">
-                    <span *ngIf="getSelectedBatchClassName()" class="batch-class-badge">
-                      <mat-icon class="badge-dot-icon">verified</mat-icon>
-                      {{ getSelectedBatchClassName() }}
-                    </span>
-                    <span *ngIf="!getSelectedBatchClassName() && studentForm.value.batchId" class="batch-class-general">
-                      <mat-icon class="badge-dot-icon">all_inclusive</mat-icon>
-                      General / All Classes
-                    </span>
-                    <span *ngIf="!studentForm.value.batchId" class="batch-class-hint">
-                      Select batch to view target class
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </ng-container>
-
-            <!-- Hostel Residential Details (if Hostel is checked) -->
-            <ng-container *ngIf="studentForm.value.isHostelStudent">
-              <div class="section-divider-box full-span hostel-sect">
-                <mat-icon>apartment</mat-icon>
-                <span>Hostel Residential &amp; Bed Assignment (Optional Facility)</span>
-              </div>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Hostel Building / Block</mat-label>
-                <mat-select formControlName="hostelId" (selectionChange)="onHostelBuildingChange($event.value)" panelClass="batch-filter-panel">
-                  <mat-option *ngFor="let h of hostelsList" [value]="h.id">
-                    {{ h.name }} ({{ h.hostelType }}) - {{ h.availableBeds }} beds vacant
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Select Available Bed</mat-label>
-                <mat-select formControlName="hostelBedId" (selectionChange)="onBedSelectionChange($event.value)" panelClass="batch-filter-panel">
-                  <mat-option *ngFor="let b of availableBedsList" [value]="b.id">
-                    Room {{ b.roomNumber }} - Bed {{ b.bedCode }} (₹{{ b.monthlyRent | number }}/mo)
-                  </mat-option>
-                </mat-select>
-                <mat-hint *ngIf="selectedBedRent">Monthly Bed Rent: ₹{{ selectedBedRent | number }}</mat-hint>
-              </mat-form-field>
-            </ng-container>
-
-            <!-- Transport Facility Details (if Transport is checked) -->
-            <ng-container *ngIf="studentForm.value.isTransportStudent">
-              <div class="section-divider-box full-span transport-sect">
-                <mat-icon>directions_bus</mat-icon>
-                <span>Transport Route &amp; Stop Assignment (Optional Facility)</span>
-              </div>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Transport Route</mat-label>
-                <mat-select formControlName="transportRouteId" (selectionChange)="onTransportRouteChange($event.value)" panelClass="batch-filter-panel">
-                  <mat-option [value]="''">-- Select Route --</mat-option>
-                  <mat-option *ngFor="let r of transportRoutes" [value]="r.id">
-                    {{ r.routeCode }} — {{ r.routeName }}{{ r.startPoint ? ' (' + r.startPoint : '' }}{{ r.endPoint ? ' → ' + r.endPoint + ')' : (r.startPoint ? ')' : '') }}
-                  </mat-option>
-                </mat-select>
-                <mat-hint>Select the bus route for this student</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Pickup / Drop Stop</mat-label>
-                <mat-select formControlName="transportRouteStopId" (selectionChange)="onTransportStopChange($event.value)" panelClass="batch-filter-panel">
-                  <mat-option [value]="''">-- Select Stop --</mat-option>
-                  <mat-option *ngFor="let s of transportStops" [value]="s.id">
-                    {{ s.stopName }} (₹{{ s.monthlyFare | number }}/mo{{ s.pickupTime ? ' • Pickup: ' + s.pickupTime : '' }}{{ s.dropTime ? ' • Drop: ' + s.dropTime : '' }})
-                  </mat-option>
-                </mat-select>
-                <mat-hint *ngIf="selectedTransportFare">Monthly Transport Fare: ₹{{ selectedTransportFare | number }}</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Pickup / Drop Type</mat-label>
-                <mat-select formControlName="transportPickupDropType">
-                  <mat-option value="Both">Both Pickup &amp; Drop</mat-option>
-                  <mat-option value="PickupOnly">Pickup Only</mat-option>
-                  <mat-option value="DropOnly">Drop Only</mat-option>
-                </mat-select>
-                <mat-hint>Select whether student needs pickup, drop, or both</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Monthly Transport Fare (₹)</mat-label>
-                <input matInput type="number" formControlName="monthlyTransportFare" min="0" />
-                <mat-hint>Auto-filled from stop; adjust if custom fare applies</mat-hint>
-              </mat-form-field>
-            </ng-container>
-
-            <!-- Library Membership Details (if Library is checked) -->
-            <ng-container *ngIf="studentForm.value.isLibraryMember">
-              <div class="section-divider-box full-span library-sect">
-                <mat-icon>local_library</mat-icon>
-                <span>Library Facility &amp; Reading Room Details (Optional Facility)</span>
-              </div>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Membership Type / Shift</mat-label>
-                <mat-select formControlName="libraryMembershipType" (selectionChange)="onLibraryPlanSelectionChange($event.value)" panelClass="batch-filter-panel">
-                  <mat-option *ngFor="let plan of libraryPlans" [value]="plan.planName">
-                    {{ plan.planName }} {{ plan.monthlyFee > 0 ? '(₹' + (plan.monthlyFee | number) + '/mo)' : '(Free / ₹0)' }}
-                  </mat-option>
-                </mat-select>
-                <button mat-icon-button matSuffix type="button" (click)="openManagePlansModal(); $event.stopPropagation()" matTooltip="Configure Shifts & Pricing">
-                  <mat-icon color="primary" style="font-size: 20px; width: 20px; height: 20px;">settings</mat-icon>
-                </button>
-                <button mat-icon-button matSuffix type="button" (click)="loadLibraryPlans(); $event.stopPropagation()" matTooltip="Refresh Shifts List">
-                  <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #64748b;">refresh</mat-icon>
-                </button>
-                <mat-hint>Select lending or coaching self-study shift</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Library Card / Barcode No.</mat-label>
-                <input matInput formControlName="libraryCardNumber" placeholder="e.g. LIB-2026-1045" />
-                <button mat-icon-button matSuffix type="button" (click)="autoGenerateLibraryCard()" matTooltip="Auto-generate Library Card Number">
-                  <mat-icon color="primary">autorenew</mat-icon>
-                </button>
-                <mat-hint>Library card or barcode identifier</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Max Book Borrow Limit</mat-label>
-                <input matInput type="number" formControlName="maxLibraryBooks" min="1" max="10" />
-                <mat-hint>Max books student can hold at a time (Default: 2)</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Monthly Library Fee (₹)</mat-label>
-                <input matInput type="number" formControlName="monthlyLibraryFee" min="0" />
-                <mat-hint>Keep ₹0 for free lending, or set monthly reading fee</mat-hint>
-              </mat-form-field>
-            </ng-container>
-
-            <!-- Personal Information Section -->
-            <div class="section-divider-box full-span info-sect">
-              <mat-icon>person</mat-icon>
-              <span>Student Personal &amp; Family Information</span>
-            </div>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Student Full Name</mat-label>
-              <input matInput formControlName="studentName" placeholder="e.g. Rahul Sharma" />
-              <mat-error *ngIf="studentForm.get('studentName')?.hasError('required')">Student name is required</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Gender</mat-label>
-              <mat-select formControlName="gender">
-                <mat-option value="Male">Male</mat-option>
-                <mat-option value="Female">Female</mat-option>
-                <mat-option value="Other">Other</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Date of Birth</mat-label>
-              <input matInput type="date" formControlName="dateOfBirth"
-                [min]="minDob"
-                [max]="maxDob"
-                [errorStateMatcher]="dateErrorMatcher" />
-              <mat-hint *ngIf="getNepAgeAdvisory() as advisory">
-                <span class="age-pill-inline" [ngClass]="'age-pill-' + advisory.type" [matTooltip]="advisory.message">
-                  <mat-icon *ngIf="advisory.type === 'success'">check_circle</mat-icon>
-                  <mat-icon *ngIf="advisory.type === 'warning'">warning</mat-icon>
-                  <mat-icon *ngIf="advisory.type === 'info'">info</mat-icon>
-                  <span>{{ advisory.badge }}</span>
-                </span>
-                <span style="margin-left: 6px; font-weight: 500; color: #64748b;">(Format: DD-MM-YYYY)</span>
-              </mat-hint>
-              <mat-hint *ngIf="!getNepAgeAdvisory()">Format: DD-MM-YYYY • Allowed: 01-01-1950 to Today</mat-hint>
-              <mat-error *ngIf="studentForm.get('dateOfBirth')?.hasError('futureDate')">Date of birth cannot be in the future (Max: Today)</mat-error>
-              <mat-error *ngIf="studentForm.get('dateOfBirth')?.hasError('tooOld')">Please enter a valid date of birth (1950 to Today)</mat-error>
-              <mat-error *ngIf="studentForm.hasError('dojBeforeDob') || studentForm.get('dateOfBirth')?.hasError('dojBeforeDob')">Date of birth must be before Admission date</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Blood Group</mat-label>
-              <mat-select formControlName="bloodGroup">
-                <mat-option value="">Not Specified</mat-option>
-                <mat-option value="A+">A+</mat-option>
-                <mat-option value="A-">A-</mat-option>
-                <mat-option value="B+">B+</mat-option>
-                <mat-option value="B-">B-</mat-option>
-                <mat-option value="O+">O+</mat-option>
-                <mat-option value="O-">O-</mat-option>
-                <mat-option value="AB+">AB+</mat-option>
-                <mat-option value="AB-">AB-</mat-option>
-              </mat-select>
-              <mat-hint>Optional medical record</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Father / Guardian Name</mat-label>
-              <input matInput formControlName="parentName" placeholder="e.g. Suresh Sharma" />
-              <mat-error *ngIf="studentForm.get('parentName')?.hasError('required')">Father/Guardian name is required</mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Mother Name (Optional)</mat-label>
-              <input matInput formControlName="motherName" placeholder="e.g. Sunita Sharma" />
-            </mat-form-field>
-
-            <div class="phone-address-row full-span">
-              <div class="phone-field-wrap">
-                <mat-form-field appearance="outline" class="full-width-field" [class.sibling-field-active]="!!siblingInfo">
-                  <mat-label>Parent WhatsApp Number</mat-label>
-                  <span matPrefix class="phone-prefix">+91&nbsp;</span>
-                  <input
-                    matInput
-                    type="tel"
-                    formControlName="parentWhatsAppPhone"
-                    placeholder="98765 43210"
-                    maxlength="11"
-                    (input)="onPhoneInput($event)"
-                  />
-                  <mat-icon matSuffix color="primary" *ngIf="!phoneCheckLoading && !siblingInfo">chat</mat-icon>
-                  <mat-icon matSuffix class="sibling-suffix-icon" [class.warning]="!isParentNameMatching" *ngIf="!phoneCheckLoading && siblingInfo" [matTooltip]="isParentNameMatching ? 'Family / Sibling Linked' : 'Different Parent Name'">{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
-                  <mat-spinner matSuffix diameter="18" *ngIf="phoneCheckLoading" style="margin-right:6px"></mat-spinner>
-                  <mat-hint>Optional WhatsApp contact number</mat-hint>
-                  <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
-                    {{ phoneDuplicateError }}
-                  </mat-error>
-                  <mat-error *ngIf="studentForm.get('parentWhatsAppPhone')?.hasError('invalidPhone') && !studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')">
-                    Please enter a valid 10-digit mobile number (e.g. 98765 43210)
-                  </mat-error>
-                </mat-form-field>
-
-                <!-- Smart Sibling / Parent Validation Info Card -->
-                <div class="sibling-detected-box" [class.warning]="!isParentNameMatching" *ngIf="siblingInfo">
-                  <div class="sibling-header">
-                    <div class="sibling-badge-icon" [class.warning]="!isParentNameMatching">
-                      <mat-icon>{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
-                    </div>
-                    <div class="sibling-details">
-                      <div class="sibling-title-row">
-                        <span class="sibling-title" [class.warning-title]="!isParentNameMatching">
-                          {{ isParentNameMatching ? 'Sibling / Family Member Detected' : 'Notice: Different Parent Name Detected' }}
-                        </span>
-                        <span class="sibling-status-pill" [class.warning-pill]="!isParentNameMatching">
-                          {{ isParentNameMatching ? 'Sibling Verified ✓' : 'Verify Parent / Number ⚠️' }}
-                        </span>
-                      </div>
-                      <p class="sibling-desc">
-                        Mobile number is registered to student <strong>{{ siblingInfo.studentName }}</strong>
-                        <span *ngIf="siblingInfo.parentName"> with Parent: <strong>{{ siblingInfo.parentName }}</strong></span>.
-                        <span *ngIf="!isParentNameMatching && currentEnteredParentName">
-                          (You entered Parent: <strong>"{{ currentEnteredParentName }}"</strong>)
-                        </span>
-                      </p>
-
-                      <!-- Quick Action if Parent Name differs -->
-                      <div class="sibling-action-row" *ngIf="!isParentNameMatching && siblingInfo.parentName">
-                        <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedParentName()">
-                          <mat-icon>how_to_reg</mat-icon> Set Parent as "{{ siblingInfo.parentName }}"
-                        </button>
-                        <span class="differ-note">If {{ currentEnteredParentName }} is a guardian/relative or shared phone, you can still save.</span>
-                      </div>
-
-                      <!-- Quick Action if Address differs or can be copied -->
-                      <div class="sibling-action-row" *ngIf="siblingInfo.address && studentForm.get('address')?.value !== siblingInfo.address">
-                        <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedAddress()">
-                          <mat-icon>home</mat-icon> Set Address from Sibling
-                        </button>
-                      </div>
-
-                      <div class="sibling-tags">
-                        <span class="sibling-tag branch" *ngIf="siblingInfo.branchName">
-                          <mat-icon>domain</mat-icon>
-                          <span>Branch: {{ siblingInfo.branchName }}</span>
-                        </span>
-                        <span class="sibling-tag class" *ngIf="siblingInfo.className">
-                          <mat-icon>class</mat-icon>
-                          <span>Class: {{ siblingInfo.className }}{{ siblingInfo.sectionName ? ' - ' + siblingInfo.sectionName : '' }}</span>
-                        </span>
-                        <span class="sibling-tag batch" *ngIf="siblingInfo.batchName">
-                          <mat-icon>school</mat-icon>
-                          <span>Batch: {{ siblingInfo.batchName }}</span>
-                        </span>
-                        <span class="sibling-tag address" *ngIf="siblingInfo.address" [matTooltip]="siblingInfo.address">
-                          <mat-icon>home</mat-icon>
-                          <span>Address: {{ siblingInfo.address }}</span>
-                        </span>
-                      </div>
-
-                      <!-- Sibling Link & Family Concession (saved with admission) -->
-                      <div class="sibling-link-panel" *ngIf="siblingInfo.studentId">
-                        <mat-checkbox formControlName="linkSibling" color="primary">
-                          <span class="link-chk-label">
-                            {{ siblingInfo.isAlreadyLinked ? 'Linked as sibling with' : 'Link as sibling with' }}
-                            <strong>{{ siblingInfo.studentName }}</strong> &amp; apply family concession
-                          </span>
-                        </mat-checkbox>
-
-                        <div class="sibling-link-grid" *ngIf="studentForm.value.linkSibling">
-                          <mat-form-field appearance="outline">
-                            <mat-label>{{ siblingInfo.studentName }} is</mat-label>
-                            <mat-select formControlName="siblingRelationship">
-                              <mat-option *ngFor="let r of siblingRelationshipOptions" [value]="r">{{ r }}</mat-option>
-                            </mat-select>
-                          </mat-form-field>
-
-                          <mat-form-field appearance="outline">
-                            <mat-label>Sibling Concession (%)</mat-label>
-                            <input matInput type="number" formControlName="siblingDiscountPercent" min="0" max="100" />
-                            <span matSuffix class="pct-suffix">%</span>
-                            <mat-hint *ngIf="siblingInfo.existingFamilyDiscountPercent && !siblingInfo.isAlreadyLinked">
-                              Family's existing concession: {{ siblingInfo.existingFamilyDiscountPercent }}%
-                            </mat-hint>
-                            <mat-error *ngIf="studentForm.get('siblingDiscountPercent')?.invalid">Enter 0 – 100</mat-error>
-                          </mat-form-field>
-
-                          <mat-form-field appearance="outline" class="sibling-notes-field">
-                            <mat-label>Approval Notes (Optional)</mat-label>
-                            <input matInput formControlName="siblingDiscountNotes" />
-                          </mat-form-field>
-                        </div>
-
-                        <div class="sibling-discount-preview" *ngIf="studentForm.value.linkSibling && (studentForm.value.siblingDiscountPercent || 0) > 0">
-                          <mat-icon>local_offer</mat-icon>
-                          <span>
-                            <strong>{{ studentForm.value.siblingDiscountPercent }}%</strong> will be auto-deducted from this student's recurring
-                            {{ studentForm.value.isSchoolStudent && studentForm.value.isCoachingStudent ? 'School + Coaching' : (studentForm.value.isCoachingStudent ? 'Coaching batch' : 'School') }}
-                            academic fees in every generated invoice<ng-container *ngIf="siblingCoachingDiscountPreview as p">
-                              (Coaching batch: ₹{{ p.base | number }}/mo → <strong>−₹{{ p.discount | number:'1.0-2' }}</strong>)</ng-container>.
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <mat-form-field appearance="outline" class="address-field">
-                <mat-label>Residential Address</mat-label>
-                <mat-icon matPrefix style="color:#64748b;margin-right:4px;font-size:18px;width:18px;height:18px;">home</mat-icon>
-                <input matInput formControlName="address" placeholder="e.g. Flat 302, Green Park Apartments, New Delhi" />
-              </mat-form-field>
-            </div>
-
-            <!-- Government Compliance & Student Identifiers (UDISE+ / NEP 2020) -->
-            <div class="section-divider-box full-span compliance-sect">
-              <mat-icon>verified_user</mat-icon>
-              <span>Government Compliance &amp; Student Identifiers (UDISE+ / NEP)</span>
-            </div>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Social Category / Quota</mat-label>
-              <mat-select formControlName="category">
-                <mat-option value="General">General</mat-option>
-                <mat-option value="OBC">OBC (Other Backward Class)</mat-option>
-                <mat-option value="SC">SC (Scheduled Caste)</mat-option>
-                <mat-option value="ST">ST (Scheduled Tribe)</mat-option>
-                <mat-option value="EWS">EWS / RTE (25% Quota)</mat-option>
-              </mat-select>
-              <mat-hint>RTE / Govt scholarship &amp; fee category</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>UDISE+ PEN Number</mat-label>
-              <input matInput formControlName="penNumber" placeholder="e.g. 11-digit Central PEN" maxlength="20" />
-              <mat-icon matSuffix color="primary">badge</mat-icon>
-              <mat-hint>Central Govt UDISE+ Student ID</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>APAAR ID</mat-label>
-              <input matInput formControlName="apaarId" placeholder="e.g. 12-digit APAAR ID" maxlength="20" />
-              <mat-icon matSuffix color="primary">fingerprint</mat-icon>
-              <mat-hint>Ministry of Education APAAR ID</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Student Aadhaar Number</mat-label>
-              <input matInput formControlName="aadhaarNumber" placeholder="XXXX-XXXX-XXXX" maxlength="16" />
-              <mat-icon matSuffix color="primary">credit_card</mat-icon>
-              <mat-hint>Optional / Required for Govt benefits</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Religion</mat-label>
-              <mat-select formControlName="religion">
-                <mat-option value="">Not Specified</mat-option>
-                <mat-option value="Hindu">Hindu</mat-option>
-                <mat-option value="Muslim">Muslim</mat-option>
-                <mat-option value="Christian">Christian</mat-option>
-                <mat-option value="Sikh">Sikh</mat-option>
-                <mat-option value="Jain">Jain</mat-option>
-                <mat-option value="Buddhist">Buddhist</mat-option>
-                <mat-option value="Other">Other</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <!-- Previous School & Emergency Contacts -->
-            <div class="section-divider-box full-span history-sect">
-              <mat-icon>history_edu</mat-icon>
-              <span>Previous Academic History &amp; Emergency Contact</span>
-            </div>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Previous School Name</mat-label>
-              <input matInput formControlName="previousSchoolName" placeholder="e.g. St. Xavier High School" />
-              <mat-icon matSuffix style="color:#64748b">school</mat-icon>
-              <mat-hint>If transfer or migrated student</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Previous Board / Affiliation</mat-label>
-              <mat-select formControlName="previousBoard">
-                <mat-option value="">None / Fresh Admission</mat-option>
-                <mat-option value="CBSE">CBSE</mat-option>
-                <mat-option value="ICSE">ICSE / ISC</mat-option>
-                <mat-option value="State Board">State Board</mat-option>
-                <mat-option value="IB / Cambridge">IB / Cambridge</mat-option>
-                <mat-option value="Other">Other</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Emergency Contact Person</mat-label>
-              <input matInput formControlName="emergencyContactName" placeholder="e.g. Uncle, Grandparent, Doctor" />
-              <mat-icon matSuffix style="color:#64748b">contact_emergency</mat-icon>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Emergency Contact Phone</mat-label>
-              <input matInput type="tel" formControlName="emergencyContactPhone" placeholder="10-digit mobile number" maxlength="15" />
-              <mat-icon matSuffix style="color:#64748b">phone</mat-icon>
-            </mat-form-field>
-
-            <!-- Live Form Validation Summary Banner -->
-            <div class="form-validation-notice full-span" *ngIf="getFormValidationErrorsList().length > 0 && (studentForm.dirty || studentForm.touched)">
-              <div class="notice-header">
-                <mat-icon>warning</mat-icon>
-                <span>Please address the following required details to save:</span>
-              </div>
-              <ul class="notice-list">
-                <li *ngFor="let err of getFormValidationErrorsList()">{{ err }}</li>
-              </ul>
-            </div>
-
-            <div class="form-actions full-span">
-              <button mat-button type="button" (click)="toggleForm()" [disabled]="saving">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="saving || phoneCheckLoading">
-                <span>{{ isEditMode ? 'Update Student Record' : 'Confirm Admission' }}</span>
-              </button>
-            </div>
-          </form>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Students Directory View -->
-      <div *ngIf="!showForm" class="directory-container">
-        
-        <!-- Stream Switcher Tabs -->
-        <div class="stream-switcher-bar">
-          <button type="button" class="stream-tab" [class.active]="selectedStreamFilter === 'all'" (click)="setStreamFilter('all')">
-            <mat-icon>dashboard</mat-icon>
-            <span>All Enrolled</span>
-            <span class="tab-count">{{ totalCount }}</span>
-          </button>
-          <button *ngIf="authService.hasSchoolModule()" type="button" class="stream-tab school-tab" [class.active]="selectedStreamFilter === 'school'" (click)="setStreamFilter('school')">
-            <mat-icon>domain</mat-icon>
-            <span>School Students</span>
-          </button>
-          <button *ngIf="authService.hasCoachingModule()" type="button" class="stream-tab coaching-tab" [class.active]="selectedStreamFilter === 'coaching'" (click)="setStreamFilter('coaching')">
-            <mat-icon>school</mat-icon>
-            <span>Coaching Batches</span>
-          </button>
-          <button *ngIf="authService.hasHostelModule()" type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')">
-            <mat-icon>apartment</mat-icon>
-            <span>Hostel Residents</span>
-          </button>
-          <button *ngIf="authService.hasLibraryModule()" type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')">
-            <mat-icon>local_library</mat-icon>
-            <span>Library Members</span>
-          </button>
-          <button *ngIf="authService.hasHostelModule()" type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')">
-            <mat-icon>directions_walk</mat-icon>
-            <span>Day Scholars</span>
-          </button>
-        </div>
-
-        <mat-card class="table-card mat-elevation-z2">
-          <!-- Filter Toolbar -->
-          <div class="filter-toolbar">
-            <mat-form-field appearance="outline" class="search-field">
-              <mat-label>Search Students...</mat-label>
-              <input
-                matInput
-                [(ngModel)]="searchTerm"
-                (keyup.enter)="onSearch()"
-                placeholder="Search by Roll No, Name, Phone, SR No, Lib Card..."
-              />
-              <button mat-icon-button matSuffix (click)="onSearch()" aria-label="Search">
-                <mat-icon>search</mat-icon>
-              </button>
-            </mat-form-field>
-
-            <!-- Academic Class Filter (Available for School, Coaching, All) -->
-            <mat-form-field appearance="outline" class="filter-select">
-              <mat-label>{{ selectedStreamFilter === 'coaching' ? 'Filter by Academic Class' : 'Filter by School Class' }}</mat-label>
-              <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onClassFilterChange()" panelClass="batch-filter-panel">
-                <mat-option value="">All Academic Classes</mat-option>
-                <mat-option *ngFor="let c of schoolClasses" [value]="c.id">
-                  {{ c.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <!-- Coaching Batch Filter -->
-            <mat-form-field appearance="outline" class="filter-select" *ngIf="authService.hasCoachingModule() && selectedStreamFilter !== 'school'">
-              <mat-label>Filter by Coaching Batch</mat-label>
-              <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
-                <mat-option value="">All Academic Batches</mat-option>
-                <mat-option *ngFor="let b of filteredBatchesForFilter" [value]="b.id">
-                  {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <!-- Section Filter -->
-            <mat-form-field appearance="outline" class="filter-select section-select" *ngIf="authService.hasSchoolModule() && selectedClassFilter && selectedStreamFilter !== 'coaching'">
-              <mat-label>Filter by Section</mat-label>
-              <mat-select [(ngModel)]="selectedSectionFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
-                <mat-option value="">All Sections</mat-option>
-                <mat-option *ngFor="let s of filterSections" [value]="s.id">
-                  Section {{ s.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <!-- Enrollment Status Filter -->
-            <mat-form-field appearance="outline" class="filter-select status-select">
-              <mat-label>Status</mat-label>
-              <mat-select [(ngModel)]="selectedStatusFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
-                <mat-option value="all">All Records</mat-option>
-                <mat-option value="active">Active Enrolled</mat-option>
-                <mat-option value="left">Left / TC Issued</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
-          <mat-progress-bar mode="indeterminate" *ngIf="loading" class="grid-loader"></mat-progress-bar>
-
-          <mat-card-content class="table-container">
-            <table mat-table [dataSource]="students" matSort (matSortChange)="onSortChange($event)" class="full-width">
-
-              <!-- Photo Column -->
-              <ng-container matColumnDef="photo">
-                <th mat-header-cell *matHeaderCellDef></th>
-                <td mat-cell *matCellDef="let s" class="photo-cell">
-                  <div class="avatar-wrap">
-                    <img *ngIf="s.profilePhoto" [src]="getPhotoUrl(s.profilePhoto)" alt="{{ s.studentName }}" class="avatar-img" />
-                    <div *ngIf="!s.profilePhoto" class="avatar-initials">{{ getInitials(s.studentName) }}</div>
-                  </div>
-                </td>
-              </ng-container>
-
-              <!-- Roll Number / Identifiers -->
-              <ng-container matColumnDef="rollNumber">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header="rollNumber">Identifiers</th>
-                <td mat-cell *matCellDef="let s">
-                  <div class="id-stack">
-                    <div class="school-adm-pill" *ngIf="s.admissionNumber">
-                      <span class="lbl">Adm:</span> <strong>{{ s.admissionNumber }}</strong>
-                    </div>
-                    <div class="school-adm-pill" *ngIf="!s.admissionNumber && (s.admissionNo || s.rollNumber || s.coachingRollNumber)">
-                      <span class="lbl">Adm:</span> <strong>{{ s.admissionNo || s.rollNumber || s.coachingRollNumber }}</strong>
-                    </div>
-                    <div class="school-adm-date-pill" *ngIf="s.joiningDate">
-                      <span class="lbl">DOJ:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
-                    </div>
-                    <div class="school-adm-date-pill coaching-date-pill" *ngIf="s.isCoachingStudent && s.coachingJoiningDate && s.isSchoolStudent" matTooltip="Coaching Entry Date">
-                      <span class="lbl">Coach DOJ:</span> <strong>{{ s.coachingJoiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
-                    </div>
-                    <div class="lib-card-pill" *ngIf="s.isLibraryMember && s.libraryCardNumber">
-                      <span class="lbl">Lib:</span> <strong>{{ s.libraryCardNumber }}</strong>
-                    </div>
-                  </div>
-                </td>
-              </ng-container>
-
-              <!-- Student Name -->
-              <ng-container matColumnDef="studentName">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName">Student Name</th>
-                <td mat-cell *matCellDef="let s">
-                  <div class="name-cell-wrap">
-                    <div class="name-row-header">
-                      <span class="student-name-text student-name-clickable" (click)="openStudent360(s)" matTooltip="Click to open Student 360° Dossier & KYC Vault">{{ s.studentName }}</span>
-                      <span class="slc-badge-pill" *ngIf="s.isActive === false && isStudentPassedOut(s)" matTooltip="Terminal Pass-Out Alumnus - SLC: {{ s.tcNumber || 'Issued' }}">
-                        <mat-icon class="tc-icon-mini">school</mat-icon>
-                        <span>{{ s.tcNumber || 'SLC' }}</span>
-                      </span>
-                      <span class="tc-badge-pill" *ngIf="s.isActive === false && !isStudentPassedOut(s)" matTooltip="Left School - TC: {{ s.tcNumber || 'Issued' }}">
-                        <mat-icon class="tc-icon-mini">assignment_turned_in</mat-icon>
-                        <span>{{ s.tcNumber || 'Left' }}</span>
-                      </span>
-                    </div>
-                    <div class="student-meta-sub" *ngIf="s.gender || s.dateOfBirth">
-                      <span>{{ s.gender }}</span>
-                      <span *ngIf="s.gender && s.dateOfBirth">&bull;</span>
-                      <span *ngIf="s.dateOfBirth">{{ s.dateOfBirth | date:'dd MMM yyyy' }}</span>
-                      <span *ngIf="s.bloodGroup" class="bg-badge">{{ s.bloodGroup }}</span>
-                    </div>
-                  </div>
-                </td>
-              </ng-container>
-
-              <!-- Stream / Enrollment Badges -->
-              <ng-container matColumnDef="enrollment">
-                <th mat-header-cell *matHeaderCellDef>Stream</th>
-                <td mat-cell *matCellDef="let s">
-                  <div class="stream-badge-stack">
-                    <span class="badge-pill dual" *ngIf="s.isSchoolStudent && s.isCoachingStudent">
-                      <mat-icon>verified</mat-icon> School + Coaching
-                    </span>
-                    <span class="badge-pill school" *ngIf="s.isSchoolStudent && !s.isCoachingStudent">
-                      <mat-icon>domain</mat-icon> School Only
-                    </span>
-                    <span class="badge-pill coaching" *ngIf="!s.isSchoolStudent && s.isCoachingStudent">
-                      <mat-icon>school</mat-icon> Coaching Only
-                    </span>
-                    <span class="badge-pill hostel" *ngIf="s.isHostelStudent">
-                      <mat-icon>apartment</mat-icon> Hosteler
-                    </span>
-                    <span class="badge-pill dayscholar" *ngIf="!s.isHostelStudent">
-                      <mat-icon>directions_walk</mat-icon> Day Scholar
-                    </span>
-                    <span class="badge-pill library" *ngIf="s.isLibraryMember">
-                      <mat-icon>local_library</mat-icon> Library Member
-                    </span>
-                    <span class="badge-pill transport" *ngIf="s.isTransportStudent">
-                      <mat-icon>directions_bus</mat-icon> Transport
-                    </span>
-                  </div>
-                </td>
-              </ng-container>
-
-              <!-- Academic Allocation: Class & Batch -->
-              <ng-container matColumnDef="batchOrClass">
-                <th mat-header-cell *matHeaderCellDef>Academic</th>
-                <td mat-cell *matCellDef="let s">
-                  <div class="academic-stack">
-                    <div class="school-alloc" *ngIf="s.isSchoolStudent">
-                      <mat-icon class="icon-school">domain</mat-icon>
-                      <span><strong>{{ s.className || 'Class' }}</strong> - Sec {{ s.sectionName || 'A' }}</span>
-                    </div>
-                    <div class="teacher-alloc" *ngIf="s.isSchoolStudent && s.classTeacherName" [matTooltip]="'Class Teacher: ' + s.classTeacherName + (s.classTeacherPhone ? ' (📞 ' + s.classTeacherPhone + ')' : '')">
-                      <mat-icon class="icon-teacher">supervisor_account</mat-icon>
-                      <span>CT: <strong>{{ s.classTeacherName }}</strong></span>
-                    </div>
-                    <div class="coaching-alloc" *ngIf="s.isCoachingStudent">
-                      <mat-icon class="icon-coaching">school</mat-icon>
-                      <span class="batch-title-text">{{ s.batchName || 'Coaching Batch' }}</span>
-                      <span class="batch-class-tag" *ngIf="s.className || getBatchClassName(s.batchId)" [matTooltip]="'Target Academic Class: ' + (s.className || getBatchClassName(s.batchId))">
-                        {{ s.className || getBatchClassName(s.batchId) }}
-                      </span>
-                    </div>
-                    <div class="hostel-alloc" *ngIf="s.isHostelStudent">
-                      <mat-icon class="icon-hostel">hotel</mat-icon>
-                      <span>{{ s.hostelName || 'Hostel' }} - Rm {{ s.roomNumber || '' }} ({{ s.bedCode || 'Bed' }})</span>
-                    </div>
-                    <div class="library-alloc" *ngIf="s.isLibraryMember">
-                      <mat-icon class="icon-library">local_library</mat-icon>
-                      <span>{{ s.libraryMembershipType || 'Standard Lending' }} (Limit: {{ s.maxLibraryBooks || 2 }}{{ s.monthlyLibraryFee > 0 ? ' • ₹' + s.monthlyLibraryFee + '/mo' : '' }})</span>
-                    </div>
-                    <div class="transport-alloc" *ngIf="s.isTransportStudent">
-                      <mat-icon class="icon-transport">directions_bus</mat-icon>
-                      <span>{{ s.transportRouteName || 'Transport' }}{{ s.transportStopName ? ' • ' + s.transportStopName : '' }}{{ s.monthlyTransportFare > 0 ? ' (₹' + s.monthlyTransportFare + '/mo)' : '' }}</span>
-                    </div>
-                    <div class="kit-alloc" *ngIf="s.hasAdmissionKit" [matTooltip]="'Admission Kit Issued' + (s.kitStatus ? ' (' + s.kitStatus + ')' : '')">
-                      <mat-icon class="icon-kit">inventory_2</mat-icon>
-                      <span>Kit Issued{{ s.kitStatus ? ' • ' + s.kitStatus : '' }}</span>
-                    </div>
-                  </div>
-                </td>
-              </ng-container>
-
-              <!-- Parent Info -->
-              <ng-container matColumnDef="parentName">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header="parentName">Guardian</th>
-                <td mat-cell *matCellDef="let s">
-                  <div class="parent-cell-wrap">
-                    <span class="father-name">{{ s.parentName }}</span>
-                    <small *ngIf="s.motherName" class="mother-name">M: {{ s.motherName }}</small>
-                  </div>
-                </td>
-              </ng-container>
-
-              <!-- WhatsApp Phone -->
-              <ng-container matColumnDef="parentWhatsAppPhone">
-                <th mat-header-cell *matHeaderCellDef>WhatsApp Phone</th>
-                <td mat-cell *matCellDef="let s">
-                  <span class="wa-phone" *ngIf="s.parentWhatsAppPhone">
-                    <mat-icon class="wa-icon">chat</mat-icon>
-                    {{ formatDisplayPhone(s.parentWhatsAppPhone) }}
-                  </span>
-                  <span *ngIf="!s.parentWhatsAppPhone" class="text-muted">-</span>
-                </td>
-              </ng-container>
-
-              <!-- Actions Column -->
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
-                <td mat-cell *matCellDef="let s" class="text-right">
-                  <div class="action-buttons">
-                    <!-- Primary 1: Student 360° Profile & KYC Dossier -->
-                    <button
-                      mat-icon-button
-                      class="btn-profile-360"
-                      (click)="openStudent360(s)"
-                      matTooltip="Student 360° Dossier &amp; KYC Vault">
-                      <mat-icon>account_circle</mat-icon>
-                    </button>
-
-                    <!-- Primary 2: Edit Student Record -->
-                    <button mat-icon-button color="primary" (click)="editStudent(s)" matTooltip="Edit Student">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-
-                    <!-- Primary 3: More Actions Dropdown Menu (⋮) -->
-                    <button mat-icon-button [matMenuTriggerFor]="studentActionMenu" matTooltip="More Actions">
-                      <mat-icon>more_vert</mat-icon>
-                    </button>
-
-                    <mat-menu #studentActionMenu="matMenu" xPosition="before" class="student-actions-dropdown">
-                      <!-- 1-Click Coaching Enrollment Button for School Students -->
-                      <button
-                        mat-menu-item
-                        *ngIf="authService.hasCoachingModule() && s.isSchoolStudent && !s.isCoachingStudent && s.isActive !== false"
-                        (click)="openEnrollCoachingModal(s)">
-                        <mat-icon style="color: #7c3aed;">add_task</mat-icon>
-                        <span>Enroll in Coaching Batch</span>
-                      </button>
-
-                      <!-- School Student: Print ID Card -->
-                      <button
-                        mat-menu-item
-                        *ngIf="s.isSchoolStudent && s.isActive !== false"
-                        (click)="openIdCardDialog(s)">
-                        <mat-icon style="color: #0284c7;">badge</mat-icon>
-                        <span>Print Student ID Card</span>
-                      </button>
-
-                      <!-- School Student: Bonafide / Character Certificate -->
-                      <button
-                        mat-menu-item
-                        *ngIf="s.isSchoolStudent"
-                        (click)="openBonafideDialog(s)">
-                        <mat-icon style="color: #b45309;">workspace_premium</mat-icon>
-                        <span>Bonafide Certificate</span>
-                      </button>
-
-                      <!-- School Student: Academic Marksheet & Report Card -->
-                      <a
-                        mat-menu-item
-                        *ngIf="s.isSchoolStudent && s.classId"
-                        [routerLink]="['/school/exams']"
-                        [queryParams]="{classId: s.classId}">
-                        <mat-icon style="color: #2563eb;">analytics</mat-icon>
-                        <span>Exams &amp; Marksheets</span>
-                      </a>
-
-                      <!-- Student & Parent Portal Logins Action Button -->
-                      <button
-                        mat-menu-item
-                        (click)="openPortalLogins(s)">
-                        <mat-icon style="color: #4f46e5;">vpn_key</mat-icon>
-                        <span>Portal Logins (Access Keys)</span>
-                      </button>
-
-                      <!-- Active Student: Mark Attendance -->
-                      <a
-                        mat-menu-item
-                        [routerLink]="['/students/attendance']"
-                        [queryParams]="{studentId: s.id}"
-                        *ngIf="s.isActive !== false">
-                        <mat-icon style="color: #059669;">event_available</mat-icon>
-                        <span>View / Mark Attendance</span>
-                      </a>
-
-                      <mat-divider></mat-divider>
-
-                      <!-- Active Student: Mark Left / Issue TC Button -->
-                      <button
-                        mat-menu-item
-                        *ngIf="s.isActive !== false"
-                        (click)="openStudentLeavingModal(s)">
-                        <mat-icon style="color: #ea580c;">exit_to_app</mat-icon>
-                        <span>Student Leaving / Issue TC</span>
-                      </button>
-
-                      <!-- Left Student: View/Print Certificate (SLC / TC) -->
-                      <button
-                        mat-menu-item
-                        *ngIf="s.isActive === false"
-                        (click)="openStudentLeavingModal(s, true)">
-                        <mat-icon style="color: #0284c7;">{{ isStudentPassedOut(s) ? 'workspace_premium' : 'description' }}</mat-icon>
-                        <span>{{ isStudentPassedOut(s) ? 'Print SLC Certificate' : 'Print Transfer Certificate (TC)' }}</span>
-                      </button>
-
-                      <!-- Re-Admit Button: ONLY for mid-session left students -->
-                      <button
-                        mat-menu-item
-                        *ngIf="s.isActive === false && !isStudentPassedOut(s)"
-                        (click)="openReAdmitModal(s)">
-                        <mat-icon style="color: #16a34a;">replay</mat-icon>
-                        <span>Re-Admit Student</span>
-                      </button>
-
-                      <mat-divider></mat-divider>
-
-                      <!-- Delete Student -->
-                      <button
-                        mat-menu-item
-                        (click)="deleteStudent(s)">
-                        <mat-icon style="color: #dc2626;">delete</mat-icon>
-                        <span style="color: #dc2626;">Delete Student</span>
-                      </button>
-                    </mat-menu>
-                  </div>
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-
-              <tr class="mat-row" *matNoDataRow>
-                <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
-                  <div class="empty-state" *ngIf="!loading">
-                    <mat-icon class="empty-icon">people</mat-icon>
-                    <p>No student records found matching your filter criteria.</p>
-                  </div>
-                </td>
-              </tr>
-            </table>
-          </mat-card-content>
-
-          <mat-paginator
-            [length]="totalCount"
-            [pageSize]="pageSize"
-            [pageSizeOptions]="[10, 25, 50, 100]"
-            [pageIndex]="pageIndex"
-            (page)="onPageChange($event)"
-            showFirstLastButtons>
-          </mat-paginator>
-        </mat-card>
-      </div>
-
-      <!-- 1-Click Coaching Enrollment Modal for School Students -->
-      <div class="enroll-modal-backdrop" *ngIf="enrollCoachingModalOpen" (click)="closeEnrollCoachingModal()">
-        <div class="enroll-modal-card mat-elevation-z8" (click)="$event.stopPropagation()">
-          <div class="ecc-header">
-            <div class="ecc-header-left">
-              <div class="ecc-icon-wrap">
-                <mat-icon>school</mat-icon>
-              </div>
-              <div class="ecc-title">
-                <h3>Enroll School Student into Coaching</h3>
-                <p>Instantly enroll <strong>{{ enrollingStudent?.studentName }}</strong> into an evening coaching batch.</p>
-              </div>
-            </div>
-            <button mat-icon-button class="close-btn" (click)="closeEnrollCoachingModal()"><mat-icon>close</mat-icon></button>
-          </div>
-
-          <div class="ecc-body">
-            <div class="student-pill-banner">
-              <div class="spb-name">{{ enrollingStudent?.studentName }}</div>
-              <div class="spb-meta">
-                <span>🏫 Class: <strong>{{ enrollingStudent?.className }} - {{ enrollingStudent?.sectionName }}</strong></span>
-                <span>SR No: <strong>{{ enrollingStudent?.admissionNumber || 'N/A' }}</strong></span>
-                <span>Parent: <strong>{{ enrollingStudent?.parentName }}</strong></span>
-              </div>
-            </div>
-
-            <div class="ecc-form">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Academic Class (Filter Batches)</mat-label>
-                <mat-select [(ngModel)]="enrollingFilterClassId" (selectionChange)="onEnrollingFilterClassChange()" panelClass="batch-filter-panel">
-                  <mat-option value="">-- All Classes --</mat-option>
-                  <mat-option *ngFor="let c of schoolClasses" [value]="c.id">{{ c.name }}</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Select Coaching Batch *</mat-label>
-                <mat-select [(ngModel)]="enrollingBatchId" (selectionChange)="onEnrollingBatchChange($event.value)">
-                  <mat-option *ngFor="let b of enrolledFilteredBatches" [value]="b.id">
-                    {{ b.name }}
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Batch-wise Coaching Roll Number</mat-label>
-                <input matInput [(ngModel)]="enrollingCoachingRollNumber" placeholder="Auto-generating..." readonly />
-                <mat-icon matSuffix *ngIf="!enrollingRollNumberLoading" style="color: #64748b; font-size: 20px; width: 20px; height: 20px;">lock</mat-icon>
-                <mat-spinner matSuffix diameter="18" *ngIf="enrollingRollNumberLoading"></mat-spinner>
-                <mat-hint>Auto-generated batch roll sequence for this coaching batch.</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Custom Monthly Fee (₹) [Optional]</mat-label>
-                <input matInput type="number" [(ngModel)]="enrollingCustomFee" placeholder="Leave blank to use standard fee" />
-                <mat-hint>Overrides default monthly fee for this school student.</mat-hint>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Coaching Entry Date (Optional)</mat-label>
-                <input matInput type="date" [(ngModel)]="enrollingCoachingJoiningDate" [min]="minDoj" [max]="maxDoj" />
-                <mat-icon matSuffix>event</mat-icon>
-                <mat-hint>Format: DD-MM-YYYY (defaults to today if left blank)</mat-hint>
-              </mat-form-field>
-            </div>
-          </div>
-
-          <div class="ecc-actions">
-            <button mat-button type="button" (click)="closeEnrollCoachingModal()" [disabled]="enrollingLoading">Cancel</button>
-            <button mat-raised-button color="primary" (click)="confirmEnrollCoaching()" [disabled]="!enrollingBatchId || enrollingLoading">
-              <mat-spinner diameter="18" *ngIf="enrollingLoading" style="display:inline-block; margin-right:6px;"></mat-spinner>
-              <span>Confirm &amp; Enroll into Coaching</span>
+    
+          @if (!authService.isTeacher()) {
+            <button mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
+              <mat-icon>{{ showForm ? 'close' : 'person_add' }}</mat-icon>
+              <span>{{ showForm ? 'Cancel' : (isEditMode ? 'Edit Student' : 'New Admission') }}</span>
             </button>
-          </div>
+          }
         </div>
       </div>
-    </div>
-  `,
+    
+      <!-- Add/Edit Student Form Card -->
+      @if (showForm) {
+        <mat-card class="form-card mat-elevation-z2">
+          <mat-card-content>
+            <div class="form-title">
+              <mat-icon color="primary">{{ isEditMode ? 'edit' : 'person_add' }}</mat-icon>
+              <span>{{ isEditMode ? 'Edit Student Record' : 'New Student Admission &amp; Enrollment' }}</span>
+            </div>
+            <form [formGroup]="studentForm" (ngSubmit)="onSubmitStudent()" class="form-grid">
+              <!-- Profile Photo Upload (full-width, centered) -->
+              <div class="photo-upload-area full-span">
+                <div class="photo-preview-wrap">
+                  <div class="photo-circle" (click)="triggerFileInput()">
+                    @if (photoPreview) {
+                      <img [src]="photoPreview" alt="Preview" class="photo-img" />
+                    }
+                    @if (!photoPreview) {
+                      <div class="photo-placeholder">
+                        <mat-icon class="photo-placeholder-icon">add_a_photo</mat-icon>
+                        <span>Upload Photo</span>
+                      </div>
+                    }
+                  </div>
+                  <div class="photo-actions">
+                    <button mat-stroked-button type="button" color="primary" (click)="triggerFileInput()">
+                      <mat-icon>upload</mat-icon> {{ photoPreview ? 'Change Photo' : 'Upload Photo' }}
+                    </button>
+                    @if (photoPreview) {
+                      <button mat-icon-button type="button" color="warn" (click)="removePhoto()" matTooltip="Remove photo">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </div>
+                <input #fileInput type="file" accept="image/*" style="display:none" (change)="onFileSelected($event)" />
+              </div>
+              <!-- Enrollment Streams Selector Box -->
+              <div class="stream-selector-box full-span">
+                <div class="stream-selector-title">
+                  <mat-icon color="primary">hub</mat-icon>
+                  <span>Select Enrollment Stream(s)</span>
+                </div>
+                <div class="stream-checkboxes">
+                  @if (authService.hasSchoolModule()) {
+                    <mat-checkbox formControlName="isSchoolStudent" (change)="onStreamCheckChanged()" color="primary">
+                      <span class="chk-label">🏫 <strong>School Enrollment</strong> (Class, Section, Admission No)</span>
+                    </mat-checkbox>
+                  }
+                  @if (authService.hasCoachingModule()) {
+                    <mat-checkbox formControlName="isCoachingStudent" (change)="onStreamCheckChanged()" color="primary">
+                      <span class="chk-label">🎯 <strong>Coaching Enrollment</strong> (Batch, Monthly Tuition Fee)</span>
+                    </mat-checkbox>
+                  }
+                  @if (authService.hasHostelModule()) {
+                    <mat-checkbox formControlName="isHostelStudent" (change)="onHostelCheckChanged()" color="accent">
+                      <span class="chk-label">🏨 <strong>Hostel Resident (Optional)</strong> (Room &amp; Bed Allotment)</span>
+                    </mat-checkbox>
+                  }
+                  @if (authService.hasLibraryModule()) {
+                    <mat-checkbox formControlName="isLibraryMember" (change)="onLibraryCheckChanged()" color="primary">
+                      <span class="chk-label">📚 <strong>Library Membership (Optional)</strong> (Books &amp; Reading Shifts)</span>
+                    </mat-checkbox>
+                  }
+                  @if (authService.hasTransportModule()) {
+                    <mat-checkbox formControlName="isTransportStudent" (change)="onTransportCheckChanged()" color="primary">
+                      <span class="chk-label">🚌 <strong>Transport Facility (Optional)</strong> (Route &amp; Stop Assignment)</span>
+                    </mat-checkbox>
+                  }
+                </div>
+                @if (!studentForm.value.isSchoolStudent && !studentForm.value.isCoachingStudent && (authService.hasSchoolModule() || authService.hasCoachingModule())) {
+                  <div class="stream-hint-warn">
+                    <mat-icon>warning_amber</mat-icon>
+                    <span>Please select at least one stream ({{ authService.hasSchoolModule() && authService.hasCoachingModule() ? 'School, Coaching, or both' : (authService.hasSchoolModule() ? 'School' : 'Coaching') }}).</span>
+                  </div>
+                }
+              </div>
+              <!-- School Section Details (if School is checked) -->
+              @if (studentForm.value.isSchoolStudent) {
+                <div class="section-divider-box full-span school-sect">
+                  <mat-icon>domain</mat-icon>
+                  <span>School Academic Assignment</span>
+                </div>
+                <mat-form-field appearance="outline">
+                  <mat-label>Admission / SR Number</mat-label>
+                  <input matInput formControlName="admissionNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
+                  <mat-icon matSuffix matTooltip="Auto-generated on admission">lock</mat-icon>
+                  <mat-hint>Auto-generated Institutional Admission / SR Number</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Admission / Joining Date</mat-label>
+                  <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
+                  <mat-icon matSuffix>event</mat-icon>
+                  <mat-hint>Format: DD-MM-YYYY • Allowed range: 01-01-2010 to {{ maxDojFormatted }}</mat-hint>
+                  @if (studentForm.get('joiningDate')?.hasError('required')) {
+                    <mat-error>Admission date is required</mat-error>
+                  }
+                  @if (studentForm.get('joiningDate')?.hasError('futureDate')) {
+                    <mat-error>Admission date cannot be more than 1 year in advance (Max: {{ maxDojFormatted }})</mat-error>
+                  }
+                  @if (studentForm.get('joiningDate')?.hasError('invalidRange')) {
+                    <mat-error>Date must be between 01-01-2010 and {{ maxDojFormatted }}</mat-error>
+                  }
+                  @if (studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')) {
+                    <mat-error>Admission date must be strictly after Date of Birth</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>School Class</mat-label>
+                  <mat-select formControlName="classId" placeholder="Select School Class" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
+                    <mat-option [value]="''">-- Select School Class --</mat-option>
+                    @for (c of schoolClasses; track c) {
+                      <mat-option [value]="c.id">
+                        {{ c.name }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  @if (studentForm.get('classId')?.hasError('required')) {
+                    <mat-error>School Class is required</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Class Section</mat-label>
+                  <mat-select formControlName="sectionId" placeholder="Select Section" panelClass="batch-filter-panel">
+                    <mat-option [value]="''">-- Select Section --</mat-option>
+                    @for (s of formSections; track s) {
+                      <mat-option [value]="s.id">
+                        Section {{ s.name }} (Cap: {{ s.maxCapacity }}{{ s.roomNumber ? ' • Room ' + s.roomNumber : '' }})
+                      </mat-option>
+                    }
+                  </mat-select>
+                  @if (formSections.length === 0 && studentForm.value.classId) {
+                    <mat-hint>No sections configured for this class</mat-hint>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>School Roll Number</mat-label>
+                  <input matInput formControlName="schoolRollNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
+                  <mat-icon matSuffix matTooltip="Auto-generated based on class">lock</mat-icon>
+                  @if (!isEditMode) {
+                    <mat-hint>Auto-generated when class is selected (starts from 1 per class)</mat-hint>
+                  }
+                </mat-form-field>
+              }
+              <!-- Coaching Section Details (if Coaching is checked) -->
+              @if (studentForm.value.isCoachingStudent) {
+                <div class="section-divider-box full-span coaching-sect">
+                  <mat-icon>school</mat-icon>
+                  <span>Coaching Batch &amp; Fee Assignment</span>
+                </div>
+                @if (!studentForm.value.isSchoolStudent) {
+                  <mat-form-field appearance="outline">
+                    <mat-label>Coaching / Joining Date</mat-label>
+                    <input matInput type="date" formControlName="joiningDate" [min]="minDoj" [max]="maxDoj" [errorStateMatcher]="dateErrorMatcher" />
+                    <mat-icon matSuffix>event</mat-icon>
+                    <mat-hint>Format: DD-MM-YYYY • Allowed range: 01-01-2010 to {{ maxDojFormatted }}</mat-hint>
+                    @if (studentForm.get('joiningDate')?.hasError('required')) {
+                      <mat-error>Coaching / Joining date is required</mat-error>
+                    }
+                    @if (studentForm.get('joiningDate')?.hasError('futureDate')) {
+                      <mat-error>Coaching / Joining date cannot be more than 1 year in advance (Max: {{ maxDojFormatted }})</mat-error>
+                    }
+                    @if (studentForm.get('joiningDate')?.hasError('invalidRange')) {
+                      <mat-error>Date must be between 01-01-2010 and {{ maxDojFormatted }}</mat-error>
+                    }
+                    @if (studentForm.hasError('dojBeforeDob') || studentForm.get('joiningDate')?.hasError('dojBeforeDob')) {
+                      <mat-error>Coaching / Joining date must be strictly after Date of Birth</mat-error>
+                    }
+                  </mat-form-field>
+                }
+                <!-- Dedicated Coaching Entry / Joining Date for School Students who also enroll in Coaching -->
+                @if (studentForm.value.isSchoolStudent) {
+                  <mat-form-field appearance="outline">
+                    <mat-label>Coaching Entry Date (Optional)</mat-label>
+                    <input matInput type="date" formControlName="coachingJoiningDate" [min]="minDoj" [max]="maxDoj" />
+                    <mat-icon matSuffix>event</mat-icon>
+                    <mat-hint>Format: DD-MM-YYYY • Coaching start date (defaults to School admission date if blank)</mat-hint>
+                  </mat-form-field>
+                }
+                <!-- Academic Class Selection for Coaching Student (if not a School Student) -->
+                @if (!studentForm.value.isSchoolStudent) {
+                  <mat-form-field appearance="outline">
+                    <mat-label>Academic Class (कक्षा)</mat-label>
+                    <mat-select formControlName="classId" placeholder="Select Academic Class" (selectionChange)="onClassSelectionChange($event.value)" panelClass="batch-filter-panel">
+                      <mat-option [value]="''">-- Select Academic Class --</mat-option>
+                      @for (c of schoolClasses; track c) {
+                        <mat-option [value]="c.id">
+                          {{ c.name }}
+                        </mat-option>
+                      }
+                    </mat-select>
+                    @if (studentForm.get('classId')?.hasError('required')) {
+                      <mat-error>Academic Class is required</mat-error>
+                    }
+                  </mat-form-field>
+                }
+                <mat-form-field appearance="outline">
+                  <mat-label>Coaching Batch</mat-label>
+                  <mat-select formControlName="batchId" placeholder="Select Coaching Batch" panelClass="batch-filter-panel">
+                    <mat-option [value]="''">-- Select Coaching Batch --</mat-option>
+                    @for (b of formBatches; track b) {
+                      <mat-option [value]="b.id">
+                        {{ b.name }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  @if (studentForm.get('batchId')?.hasError('required')) {
+                    <mat-error>Batch selection is required for coaching</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Coaching Roll Number</mat-label>
+                  <input matInput formControlName="rollNumber" [readonly]="true" placeholder="Select batch first..." style="cursor: default;" />
+                  @if (!rollNumberLoading) {
+                    <mat-icon matSuffix matTooltip="Auto-generated based on batch">lock</mat-icon>
+                  }
+                  @if (rollNumberLoading) {
+                    <mat-progress-bar mode="indeterminate" style="position:absolute;bottom:0;left:0;right:0;"></mat-progress-bar>
+                  }
+                  @if (!isEditMode) {
+                    <mat-hint>Auto-generated when batch is selected</mat-hint>
+                  }
+                  @if (studentForm.get('rollNumber')?.hasError('required')) {
+                    <mat-error>Roll number is required</mat-error>
+                  }
+                </mat-form-field>
+                <div class="batch-class-badge-container">
+                  <div class="batch-class-badge-box" [class.has-class]="getSelectedBatchClassName()">
+                    <div class="batch-class-hdr">
+                      <mat-icon class="class-icon">school</mat-icon>
+                      <span class="hdr-text">Batch Target Class</span>
+                    </div>
+                    <div class="batch-class-val">
+                      @if (getSelectedBatchClassName()) {
+                        <span class="batch-class-badge">
+                          <mat-icon class="badge-dot-icon">verified</mat-icon>
+                          {{ getSelectedBatchClassName() }}
+                        </span>
+                      }
+                      @if (!getSelectedBatchClassName() && studentForm.value.batchId) {
+                        <span class="batch-class-general">
+                          <mat-icon class="badge-dot-icon">all_inclusive</mat-icon>
+                          General / All Classes
+                        </span>
+                      }
+                      @if (!studentForm.value.batchId) {
+                        <span class="batch-class-hint">
+                          Select batch to view target class
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+              <!-- Hostel Residential Details (if Hostel is checked) -->
+              @if (studentForm.value.isHostelStudent) {
+                <div class="section-divider-box full-span hostel-sect">
+                  <mat-icon>apartment</mat-icon>
+                  <span>Hostel Residential &amp; Bed Assignment (Optional Facility)</span>
+                </div>
+                <mat-form-field appearance="outline">
+                  <mat-label>Hostel Building / Block</mat-label>
+                  <mat-select formControlName="hostelId" (selectionChange)="onHostelBuildingChange($event.value)" panelClass="batch-filter-panel">
+                    @for (h of hostelsList; track h) {
+                      <mat-option [value]="h.id">
+                        {{ h.name }} ({{ h.hostelType }}) - {{ h.availableBeds }} beds vacant
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Select Available Bed</mat-label>
+                  <mat-select formControlName="hostelBedId" (selectionChange)="onBedSelectionChange($event.value)" panelClass="batch-filter-panel">
+                    @for (b of availableBedsList; track b) {
+                      <mat-option [value]="b.id">
+                        Room {{ b.roomNumber }} - Bed {{ b.bedCode }} (₹{{ b.monthlyRent | number }}/mo)
+                      </mat-option>
+                    }
+                  </mat-select>
+                  @if (selectedBedRent) {
+                    <mat-hint>Monthly Bed Rent: ₹{{ selectedBedRent | number }}</mat-hint>
+                  }
+                </mat-form-field>
+              }
+              <!-- Transport Facility Details (if Transport is checked) -->
+              @if (studentForm.value.isTransportStudent) {
+                <div class="section-divider-box full-span transport-sect">
+                  <mat-icon>directions_bus</mat-icon>
+                  <span>Transport Route &amp; Stop Assignment (Optional Facility)</span>
+                </div>
+                <mat-form-field appearance="outline">
+                  <mat-label>Transport Route</mat-label>
+                  <mat-select formControlName="transportRouteId" (selectionChange)="onTransportRouteChange($event.value)" panelClass="batch-filter-panel">
+                    <mat-option [value]="''">-- Select Route --</mat-option>
+                    @for (r of transportRoutes; track r) {
+                      <mat-option [value]="r.id">
+                        {{ r.routeCode }} — {{ r.routeName }}{{ r.startPoint ? ' (' + r.startPoint : '' }}{{ r.endPoint ? ' → ' + r.endPoint + ')' : (r.startPoint ? ')' : '') }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-hint>Select the bus route for this student</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Pickup / Drop Stop</mat-label>
+                  <mat-select formControlName="transportRouteStopId" (selectionChange)="onTransportStopChange($event.value)" panelClass="batch-filter-panel">
+                    <mat-option [value]="''">-- Select Stop --</mat-option>
+                    @for (s of transportStops; track s) {
+                      <mat-option [value]="s.id">
+                        {{ s.stopName }} (₹{{ s.monthlyFare | number }}/mo{{ s.pickupTime ? ' • Pickup: ' + s.pickupTime : '' }}{{ s.dropTime ? ' • Drop: ' + s.dropTime : '' }})
+                      </mat-option>
+                    }
+                  </mat-select>
+                  @if (selectedTransportFare) {
+                    <mat-hint>Monthly Transport Fare: ₹{{ selectedTransportFare | number }}</mat-hint>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Pickup / Drop Type</mat-label>
+                  <mat-select formControlName="transportPickupDropType">
+                    <mat-option value="Both">Both Pickup &amp; Drop</mat-option>
+                    <mat-option value="PickupOnly">Pickup Only</mat-option>
+                    <mat-option value="DropOnly">Drop Only</mat-option>
+                  </mat-select>
+                  <mat-hint>Select whether student needs pickup, drop, or both</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Monthly Transport Fare (₹)</mat-label>
+                  <input matInput type="number" formControlName="monthlyTransportFare" min="0" />
+                  <mat-hint>Auto-filled from stop; adjust if custom fare applies</mat-hint>
+                </mat-form-field>
+              }
+              <!-- Library Membership Details (if Library is checked) -->
+              @if (studentForm.value.isLibraryMember) {
+                <div class="section-divider-box full-span library-sect">
+                  <mat-icon>local_library</mat-icon>
+                  <span>Library Facility &amp; Reading Room Details (Optional Facility)</span>
+                </div>
+                <mat-form-field appearance="outline">
+                  <mat-label>Membership Type / Shift</mat-label>
+                  <mat-select formControlName="libraryMembershipType" (selectionChange)="onLibraryPlanSelectionChange($event.value)" panelClass="batch-filter-panel">
+                    @for (plan of libraryPlans; track plan) {
+                      <mat-option [value]="plan.planName">
+                        {{ plan.planName }} {{ plan.monthlyFee > 0 ? '(₹' + (plan.monthlyFee | number) + '/mo)' : '(Free / ₹0)' }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <button mat-icon-button matSuffix type="button" (click)="openManagePlansModal(); $event.stopPropagation()" matTooltip="Configure Shifts & Pricing">
+                    <mat-icon color="primary" style="font-size: 20px; width: 20px; height: 20px;">settings</mat-icon>
+                  </button>
+                  <button mat-icon-button matSuffix type="button" (click)="loadLibraryPlans(); $event.stopPropagation()" matTooltip="Refresh Shifts List">
+                    <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #64748b;">refresh</mat-icon>
+                  </button>
+                  <mat-hint>Select lending or coaching self-study shift</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Library Card / Barcode No.</mat-label>
+                  <input matInput formControlName="libraryCardNumber" placeholder="e.g. LIB-2026-1045" />
+                  <button mat-icon-button matSuffix type="button" (click)="autoGenerateLibraryCard()" matTooltip="Auto-generate Library Card Number">
+                    <mat-icon color="primary">autorenew</mat-icon>
+                  </button>
+                  <mat-hint>Library card or barcode identifier</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Max Book Borrow Limit</mat-label>
+                  <input matInput type="number" formControlName="maxLibraryBooks" min="1" max="10" />
+                  <mat-hint>Max books student can hold at a time (Default: 2)</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Monthly Library Fee (₹)</mat-label>
+                  <input matInput type="number" formControlName="monthlyLibraryFee" min="0" />
+                  <mat-hint>Keep ₹0 for free lending, or set monthly reading fee</mat-hint>
+                </mat-form-field>
+              }
+              <!-- Personal Information Section -->
+              <div class="section-divider-box full-span info-sect">
+                <mat-icon>person</mat-icon>
+                <span>Student Personal &amp; Family Information</span>
+              </div>
+              <mat-form-field appearance="outline">
+                <mat-label>Student Full Name</mat-label>
+                <input matInput formControlName="studentName" placeholder="e.g. Rahul Sharma" />
+                @if (studentForm.get('studentName')?.hasError('required')) {
+                  <mat-error>Student name is required</mat-error>
+                }
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Gender</mat-label>
+                <mat-select formControlName="gender">
+                  <mat-option value="Male">Male</mat-option>
+                  <mat-option value="Female">Female</mat-option>
+                  <mat-option value="Other">Other</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Date of Birth</mat-label>
+                <input matInput type="date" formControlName="dateOfBirth"
+                  [min]="minDob"
+                  [max]="maxDob"
+                  [errorStateMatcher]="dateErrorMatcher" />
+                  @if (getNepAgeAdvisory(); as advisory) {
+                    <mat-hint>
+                      <span class="age-pill-inline" [ngClass]="'age-pill-' + advisory.type" [matTooltip]="advisory.message">
+                        @if (advisory.type === 'success') {
+                          <mat-icon>check_circle</mat-icon>
+                        }
+                        @if (advisory.type === 'warning') {
+                          <mat-icon>warning</mat-icon>
+                        }
+                        @if (advisory.type === 'info') {
+                          <mat-icon>info</mat-icon>
+                        }
+                        <span>{{ advisory.badge }}</span>
+                      </span>
+                      <span style="margin-left: 6px; font-weight: 500; color: #64748b;">(Format: DD-MM-YYYY)</span>
+                    </mat-hint>
+                  }
+                  @if (!getNepAgeAdvisory()) {
+                    <mat-hint>Format: DD-MM-YYYY • Allowed: 01-01-1950 to Today</mat-hint>
+                  }
+                  @if (studentForm.get('dateOfBirth')?.hasError('futureDate')) {
+                    <mat-error>Date of birth cannot be in the future (Max: Today)</mat-error>
+                  }
+                  @if (studentForm.get('dateOfBirth')?.hasError('tooOld')) {
+                    <mat-error>Please enter a valid date of birth (1950 to Today)</mat-error>
+                  }
+                  @if (studentForm.hasError('dojBeforeDob') || studentForm.get('dateOfBirth')?.hasError('dojBeforeDob')) {
+                    <mat-error>Date of birth must be before Admission date</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Blood Group</mat-label>
+                  <mat-select formControlName="bloodGroup">
+                    <mat-option value="">Not Specified</mat-option>
+                    <mat-option value="A+">A+</mat-option>
+                    <mat-option value="A-">A-</mat-option>
+                    <mat-option value="B+">B+</mat-option>
+                    <mat-option value="B-">B-</mat-option>
+                    <mat-option value="O+">O+</mat-option>
+                    <mat-option value="O-">O-</mat-option>
+                    <mat-option value="AB+">AB+</mat-option>
+                    <mat-option value="AB-">AB-</mat-option>
+                  </mat-select>
+                  <mat-hint>Optional medical record</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Father / Guardian Name</mat-label>
+                  <input matInput formControlName="parentName" placeholder="e.g. Suresh Sharma" />
+                  @if (studentForm.get('parentName')?.hasError('required')) {
+                    <mat-error>Father/Guardian name is required</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Mother Name (Optional)</mat-label>
+                  <input matInput formControlName="motherName" placeholder="e.g. Sunita Sharma" />
+                </mat-form-field>
+                <div class="phone-address-row full-span">
+                  <div class="phone-field-wrap">
+                    <mat-form-field appearance="outline" class="full-width-field" [class.sibling-field-active]="!!siblingInfo">
+                      <mat-label>Parent WhatsApp Number</mat-label>
+                      <span matPrefix class="phone-prefix">+91&nbsp;</span>
+                      <input
+                        matInput
+                        type="tel"
+                        formControlName="parentWhatsAppPhone"
+                        placeholder="98765 43210"
+                        maxlength="11"
+                        (input)="onPhoneInput($event)"
+                        />
+                        @if (!phoneCheckLoading && !siblingInfo) {
+                          <mat-icon matSuffix color="primary">chat</mat-icon>
+                        }
+                        @if (!phoneCheckLoading && siblingInfo) {
+                          <mat-icon matSuffix class="sibling-suffix-icon" [class.warning]="!isParentNameMatching" [matTooltip]="isParentNameMatching ? 'Family / Sibling Linked' : 'Different Parent Name'">{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
+                        }
+                        @if (phoneCheckLoading) {
+                          <mat-spinner matSuffix diameter="18" style="margin-right:6px"></mat-spinner>
+                        }
+                        <mat-hint>Optional WhatsApp contact number</mat-hint>
+                        @if (studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')) {
+                          <mat-error>
+                            {{ phoneDuplicateError }}
+                          </mat-error>
+                        }
+                        @if (studentForm.get('parentWhatsAppPhone')?.hasError('invalidPhone') && !studentForm.get('parentWhatsAppPhone')?.hasError('duplicate')) {
+                          <mat-error>
+                            Please enter a valid 10-digit mobile number (e.g. 98765 43210)
+                          </mat-error>
+                        }
+                      </mat-form-field>
+                      <!-- Smart Sibling / Parent Validation Info Card -->
+                      @if (siblingInfo) {
+                        <div class="sibling-detected-box" [class.warning]="!isParentNameMatching">
+                          <div class="sibling-header">
+                            <div class="sibling-badge-icon" [class.warning]="!isParentNameMatching">
+                              <mat-icon>{{ isParentNameMatching ? 'family_restroom' : 'warning_amber' }}</mat-icon>
+                            </div>
+                            <div class="sibling-details">
+                              <div class="sibling-title-row">
+                                <span class="sibling-title" [class.warning-title]="!isParentNameMatching">
+                                  {{ isParentNameMatching ? 'Sibling / Family Member Detected' : 'Notice: Different Parent Name Detected' }}
+                                </span>
+                                <span class="sibling-status-pill" [class.warning-pill]="!isParentNameMatching">
+                                  {{ isParentNameMatching ? 'Sibling Verified ✓' : 'Verify Parent / Number ⚠️' }}
+                                </span>
+                              </div>
+                              <p class="sibling-desc">
+                                Mobile number is registered to student <strong>{{ siblingInfo.studentName }}</strong>
+                                @if (siblingInfo.parentName) {
+                                  <span> with Parent: <strong>{{ siblingInfo.parentName }}</strong></span>
+                                  }.
+                                  @if (!isParentNameMatching && currentEnteredParentName) {
+                                    <span>
+                                      (You entered Parent: <strong>"{{ currentEnteredParentName }}"</strong>)
+                                    </span>
+                                  }
+                                </p>
+                                <!-- Quick Action if Parent Name differs -->
+                                @if (!isParentNameMatching && siblingInfo.parentName) {
+                                  <div class="sibling-action-row">
+                                    <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedParentName()">
+                                      <mat-icon>how_to_reg</mat-icon> Set Parent as "{{ siblingInfo.parentName }}"
+                                    </button>
+                                    <span class="differ-note">If {{ currentEnteredParentName }} is a guardian/relative or shared phone, you can still save.</span>
+                                  </div>
+                                }
+                                <!-- Quick Action if Address differs or can be copied -->
+                                @if (siblingInfo.address && studentForm.get('address')?.value !== siblingInfo.address) {
+                                  <div class="sibling-action-row">
+                                    <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedAddress()">
+                                      <mat-icon>home</mat-icon> Set Address from Sibling
+                                    </button>
+                                  </div>
+                                }
+                                <div class="sibling-tags">
+                                  @if (siblingInfo.branchName) {
+                                    <span class="sibling-tag branch">
+                                      <mat-icon>domain</mat-icon>
+                                      <span>Branch: {{ siblingInfo.branchName }}</span>
+                                    </span>
+                                  }
+                                  @if (siblingInfo.className) {
+                                    <span class="sibling-tag class">
+                                      <mat-icon>class</mat-icon>
+                                      <span>Class: {{ siblingInfo.className }}{{ siblingInfo.sectionName ? ' - ' + siblingInfo.sectionName : '' }}</span>
+                                    </span>
+                                  }
+                                  @if (siblingInfo.batchName) {
+                                    <span class="sibling-tag batch">
+                                      <mat-icon>school</mat-icon>
+                                      <span>Batch: {{ siblingInfo.batchName }}</span>
+                                    </span>
+                                  }
+                                  @if (siblingInfo.address) {
+                                    <span class="sibling-tag address" [matTooltip]="siblingInfo.address">
+                                      <mat-icon>home</mat-icon>
+                                      <span>Address: {{ siblingInfo.address }}</span>
+                                    </span>
+                                  }
+                                </div>
+                                <!-- Sibling Link & Family Concession (saved with admission) -->
+                                @if (siblingInfo.studentId) {
+                                  <div class="sibling-link-panel">
+                                    <mat-checkbox formControlName="linkSibling" color="primary">
+                                      <span class="link-chk-label">
+                                        {{ siblingInfo.isAlreadyLinked ? 'Linked as sibling with' : 'Link as sibling with' }}
+                                        <strong>{{ siblingInfo.studentName }}</strong> &amp; apply family concession
+                                      </span>
+                                    </mat-checkbox>
+                                    @if (studentForm.value.linkSibling) {
+                                      <div class="sibling-link-grid">
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>{{ siblingInfo.studentName }} is</mat-label>
+                                          <mat-select formControlName="siblingRelationship">
+                                            @for (r of siblingRelationshipOptions; track r) {
+                                              <mat-option [value]="r">{{ r }}</mat-option>
+                                            }
+                                          </mat-select>
+                                        </mat-form-field>
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Sibling Concession (%)</mat-label>
+                                          <input matInput type="number" formControlName="siblingDiscountPercent" min="0" max="100" />
+                                          <span matSuffix class="pct-suffix">%</span>
+                                          @if (siblingInfo.existingFamilyDiscountPercent && !siblingInfo.isAlreadyLinked) {
+                                            <mat-hint>
+                                              Family's existing concession: {{ siblingInfo.existingFamilyDiscountPercent }}%
+                                            </mat-hint>
+                                          }
+                                          @if (studentForm.get('siblingDiscountPercent')?.invalid) {
+                                            <mat-error>Enter 0 – 100</mat-error>
+                                          }
+                                        </mat-form-field>
+                                        <mat-form-field appearance="outline" class="sibling-notes-field">
+                                          <mat-label>Approval Notes (Optional)</mat-label>
+                                          <input matInput formControlName="siblingDiscountNotes" />
+                                        </mat-form-field>
+                                      </div>
+                                    }
+                                    @if (studentForm.value.linkSibling && (studentForm.value.siblingDiscountPercent || 0) > 0) {
+                                      <div class="sibling-discount-preview">
+                                        <mat-icon>local_offer</mat-icon>
+                                        <span>
+                                          <strong>{{ studentForm.value.siblingDiscountPercent }}%</strong> will be auto-deducted from this student's recurring
+                                          {{ studentForm.value.isSchoolStudent && studentForm.value.isCoachingStudent ? 'School + Coaching' : (studentForm.value.isCoachingStudent ? 'Coaching batch' : 'School') }}
+                                          academic fees in every generated invoice@if (siblingCoachingDiscountPreview; as p) {
+                                          (Coaching batch: ₹{{ p.base | number }}/mo → <strong>−₹{{ p.discount | number:'1.0-2' }}</strong>)
+                                          }.
+                                        </span>
+                                      </div>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                      <mat-form-field appearance="outline" class="address-field">
+                        <mat-label>Residential Address</mat-label>
+                        <mat-icon matPrefix style="color:#64748b;margin-right:4px;font-size:18px;width:18px;height:18px;">home</mat-icon>
+                        <input matInput formControlName="address" placeholder="e.g. Flat 302, Green Park Apartments, New Delhi" />
+                      </mat-form-field>
+                    </div>
+                    <!-- Government Compliance & Student Identifiers (UDISE+ / NEP 2020) -->
+                    <div class="section-divider-box full-span compliance-sect">
+                      <mat-icon>verified_user</mat-icon>
+                      <span>Government Compliance &amp; Student Identifiers (UDISE+ / NEP)</span>
+                    </div>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Social Category / Quota</mat-label>
+                      <mat-select formControlName="category">
+                        <mat-option value="General">General</mat-option>
+                        <mat-option value="OBC">OBC (Other Backward Class)</mat-option>
+                        <mat-option value="SC">SC (Scheduled Caste)</mat-option>
+                        <mat-option value="ST">ST (Scheduled Tribe)</mat-option>
+                        <mat-option value="EWS">EWS / RTE (25% Quota)</mat-option>
+                      </mat-select>
+                      <mat-hint>RTE / Govt scholarship &amp; fee category</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>UDISE+ PEN Number</mat-label>
+                      <input matInput formControlName="penNumber" placeholder="e.g. 11-digit Central PEN" maxlength="20" />
+                      <mat-icon matSuffix color="primary">badge</mat-icon>
+                      <mat-hint>Central Govt UDISE+ Student ID</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>APAAR ID</mat-label>
+                      <input matInput formControlName="apaarId" placeholder="e.g. 12-digit APAAR ID" maxlength="20" />
+                      <mat-icon matSuffix color="primary">fingerprint</mat-icon>
+                      <mat-hint>Ministry of Education APAAR ID</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Student Aadhaar Number</mat-label>
+                      <input matInput formControlName="aadhaarNumber" placeholder="XXXX-XXXX-XXXX" maxlength="16" />
+                      <mat-icon matSuffix color="primary">credit_card</mat-icon>
+                      <mat-hint>Optional / Required for Govt benefits</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Religion</mat-label>
+                      <mat-select formControlName="religion">
+                        <mat-option value="">Not Specified</mat-option>
+                        <mat-option value="Hindu">Hindu</mat-option>
+                        <mat-option value="Muslim">Muslim</mat-option>
+                        <mat-option value="Christian">Christian</mat-option>
+                        <mat-option value="Sikh">Sikh</mat-option>
+                        <mat-option value="Jain">Jain</mat-option>
+                        <mat-option value="Buddhist">Buddhist</mat-option>
+                        <mat-option value="Other">Other</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <!-- Previous School & Emergency Contacts -->
+                    <div class="section-divider-box full-span history-sect">
+                      <mat-icon>history_edu</mat-icon>
+                      <span>Previous Academic History &amp; Emergency Contact</span>
+                    </div>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Previous School Name</mat-label>
+                      <input matInput formControlName="previousSchoolName" placeholder="e.g. St. Xavier High School" />
+                      <mat-icon matSuffix style="color:#64748b">school</mat-icon>
+                      <mat-hint>If transfer or migrated student</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Previous Board / Affiliation</mat-label>
+                      <mat-select formControlName="previousBoard">
+                        <mat-option value="">None / Fresh Admission</mat-option>
+                        <mat-option value="CBSE">CBSE</mat-option>
+                        <mat-option value="ICSE">ICSE / ISC</mat-option>
+                        <mat-option value="State Board">State Board</mat-option>
+                        <mat-option value="IB / Cambridge">IB / Cambridge</mat-option>
+                        <mat-option value="Other">Other</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Emergency Contact Person</mat-label>
+                      <input matInput formControlName="emergencyContactName" placeholder="e.g. Uncle, Grandparent, Doctor" />
+                      <mat-icon matSuffix style="color:#64748b">contact_emergency</mat-icon>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Emergency Contact Phone</mat-label>
+                      <input matInput type="tel" formControlName="emergencyContactPhone" placeholder="10-digit mobile number" maxlength="15" />
+                      <mat-icon matSuffix style="color:#64748b">phone</mat-icon>
+                    </mat-form-field>
+                    <!-- Live Form Validation Summary Banner -->
+                    @if (getFormValidationErrorsList().length > 0 && (studentForm.dirty || studentForm.touched)) {
+                      <div class="form-validation-notice full-span">
+                        <div class="notice-header">
+                          <mat-icon>warning</mat-icon>
+                          <span>Please address the following required details to save:</span>
+                        </div>
+                        <ul class="notice-list">
+                          @for (err of getFormValidationErrorsList(); track err) {
+                            <li>{{ err }}</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                    <div class="form-actions full-span">
+                      <button mat-button type="button" (click)="toggleForm()" [disabled]="saving">Cancel</button>
+                      <button mat-raised-button color="primary" type="submit" [disabled]="saving || phoneCheckLoading">
+                        <span>{{ isEditMode ? 'Update Student Record' : 'Confirm Admission' }}</span>
+                      </button>
+                    </div>
+                  </form>
+                </mat-card-content>
+              </mat-card>
+            }
+    
+            <!-- Students Directory View -->
+            @if (!showForm) {
+              <div class="directory-container">
+                <!-- Stream Switcher Tabs -->
+                <div class="stream-switcher-bar">
+                  <button type="button" class="stream-tab" [class.active]="selectedStreamFilter === 'all'" (click)="setStreamFilter('all')">
+                    <mat-icon>dashboard</mat-icon>
+                    <span>All Enrolled</span>
+                    <span class="tab-count">{{ totalCount }}</span>
+                  </button>
+                  @if (authService.hasSchoolModule()) {
+                    <button type="button" class="stream-tab school-tab" [class.active]="selectedStreamFilter === 'school'" (click)="setStreamFilter('school')">
+                      <mat-icon>domain</mat-icon>
+                      <span>School Students</span>
+                    </button>
+                  }
+                  @if (authService.hasCoachingModule()) {
+                    <button type="button" class="stream-tab coaching-tab" [class.active]="selectedStreamFilter === 'coaching'" (click)="setStreamFilter('coaching')">
+                      <mat-icon>school</mat-icon>
+                      <span>Coaching Batches</span>
+                    </button>
+                  }
+                  @if (authService.hasHostelModule()) {
+                    <button type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')">
+                      <mat-icon>apartment</mat-icon>
+                      <span>Hostel Residents</span>
+                    </button>
+                  }
+                  @if (authService.hasLibraryModule()) {
+                    <button type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')">
+                      <mat-icon>local_library</mat-icon>
+                      <span>Library Members</span>
+                    </button>
+                  }
+                  @if (authService.hasHostelModule()) {
+                    <button type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')">
+                      <mat-icon>directions_walk</mat-icon>
+                      <span>Day Scholars</span>
+                    </button>
+                  }
+                </div>
+                <mat-card class="table-card mat-elevation-z2">
+                  <!-- Filter Toolbar -->
+                  <div class="filter-toolbar">
+                    <mat-form-field appearance="outline" class="search-field">
+                      <mat-label>Search Students...</mat-label>
+                      <input
+                        matInput
+                        [(ngModel)]="searchTerm"
+                        (keyup.enter)="onSearch()"
+                        placeholder="Search by Roll No, Name, Phone, SR No, Lib Card..."
+                        />
+                        <button mat-icon-button matSuffix (click)="onSearch()" aria-label="Search">
+                          <mat-icon>search</mat-icon>
+                        </button>
+                      </mat-form-field>
+                      <!-- Academic Class Filter (Available for School, Coaching, All) -->
+                      <mat-form-field appearance="outline" class="filter-select">
+                        <mat-label>{{ selectedStreamFilter === 'coaching' ? 'Filter by Academic Class' : 'Filter by School Class' }}</mat-label>
+                        <mat-select [(ngModel)]="selectedClassFilter" (selectionChange)="onClassFilterChange()" panelClass="batch-filter-panel">
+                          <mat-option value="">All Academic Classes</mat-option>
+                          @for (c of schoolClasses; track c) {
+                            <mat-option [value]="c.id">
+                              {{ c.name }}
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <!-- Coaching Batch Filter -->
+                      @if (authService.hasCoachingModule() && selectedStreamFilter !== 'school') {
+                        <mat-form-field appearance="outline" class="filter-select">
+                          <mat-label>Filter by Coaching Batch</mat-label>
+                          <mat-select [(ngModel)]="selectedBatchFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
+                            <mat-option value="">All Academic Batches</mat-option>
+                            @for (b of filteredBatchesForFilter; track b) {
+                              <mat-option [value]="b.id">
+                                {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}
+                              </mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                      }
+                      <!-- Section Filter -->
+                      @if (authService.hasSchoolModule() && selectedClassFilter && selectedStreamFilter !== 'coaching') {
+                        <mat-form-field appearance="outline" class="filter-select section-select">
+                          <mat-label>Filter by Section</mat-label>
+                          <mat-select [(ngModel)]="selectedSectionFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
+                            <mat-option value="">All Sections</mat-option>
+                            @for (s of filterSections; track s) {
+                              <mat-option [value]="s.id">
+                                Section {{ s.name }}
+                              </mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                      }
+                      <!-- Enrollment Status Filter -->
+                      <mat-form-field appearance="outline" class="filter-select status-select">
+                        <mat-label>Status</mat-label>
+                        <mat-select [(ngModel)]="selectedStatusFilter" (selectionChange)="onFilterChange()" panelClass="batch-filter-panel">
+                          <mat-option value="all">All Records</mat-option>
+                          <mat-option value="active">Active Enrolled</mat-option>
+                          <mat-option value="left">Left / TC Issued</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                    @if (loading) {
+                      <mat-progress-bar mode="indeterminate" class="grid-loader"></mat-progress-bar>
+                    }
+                    <mat-card-content class="table-container">
+                      <table mat-table [dataSource]="students" matSort (matSortChange)="onSortChange($event)" class="full-width">
+                        <!-- Photo Column -->
+                        <ng-container matColumnDef="photo">
+                          <th mat-header-cell *matHeaderCellDef></th>
+                          <td mat-cell *matCellDef="let s" class="photo-cell">
+                            <div class="avatar-wrap">
+                              @if (s.profilePhoto) {
+                                <img [src]="getPhotoUrl(s.profilePhoto)" alt="{{ s.studentName }}" class="avatar-img" />
+                              }
+                              @if (!s.profilePhoto) {
+                                <div class="avatar-initials">{{ getInitials(s.studentName) }}</div>
+                              }
+                            </div>
+                          </td>
+                        </ng-container>
+                        <!-- Roll Number / Identifiers -->
+                        <ng-container matColumnDef="rollNumber">
+                          <th mat-header-cell *matHeaderCellDef mat-sort-header="rollNumber">Identifiers</th>
+                          <td mat-cell *matCellDef="let s">
+                            <div class="id-stack">
+                              @if (s.admissionNumber) {
+                                <div class="school-adm-pill">
+                                  <span class="lbl">Adm:</span> <strong>{{ s.admissionNumber }}</strong>
+                                </div>
+                              }
+                              @if (!s.admissionNumber && (s.admissionNo || s.rollNumber || s.coachingRollNumber)) {
+                                <div class="school-adm-pill">
+                                  <span class="lbl">Adm:</span> <strong>{{ s.admissionNo || s.rollNumber || s.coachingRollNumber }}</strong>
+                                </div>
+                              }
+                              @if (s.joiningDate) {
+                                <div class="school-adm-date-pill">
+                                  <span class="lbl">DOJ:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+                                </div>
+                              }
+                              @if (s.isCoachingStudent && s.coachingJoiningDate && s.isSchoolStudent) {
+                                <div class="school-adm-date-pill coaching-date-pill" matTooltip="Coaching Entry Date">
+                                  <span class="lbl">Coach DOJ:</span> <strong>{{ s.coachingJoiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+                                </div>
+                              }
+                              @if (s.isLibraryMember && s.libraryCardNumber) {
+                                <div class="lib-card-pill">
+                                  <span class="lbl">Lib:</span> <strong>{{ s.libraryCardNumber }}</strong>
+                                </div>
+                              }
+                            </div>
+                          </td>
+                        </ng-container>
+                        <!-- Student Name -->
+                        <ng-container matColumnDef="studentName">
+                          <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName">Student Name</th>
+                          <td mat-cell *matCellDef="let s">
+                            <div class="name-cell-wrap">
+                              <div class="name-row-header">
+                                <span class="student-name-text student-name-clickable" (click)="openStudent360(s)" matTooltip="Click to open Student 360° Dossier & KYC Vault">{{ s.studentName }}</span>
+                                @if (s.isActive === false && isStudentPassedOut(s)) {
+                                  <span class="slc-badge-pill" matTooltip="Terminal Pass-Out Alumnus - SLC: {{ s.tcNumber || 'Issued' }}">
+                                    <mat-icon class="tc-icon-mini">school</mat-icon>
+                                    <span>{{ s.tcNumber || 'SLC' }}</span>
+                                  </span>
+                                }
+                                @if (s.isActive === false && !isStudentPassedOut(s)) {
+                                  <span class="tc-badge-pill" matTooltip="Left School - TC: {{ s.tcNumber || 'Issued' }}">
+                                    <mat-icon class="tc-icon-mini">assignment_turned_in</mat-icon>
+                                    <span>{{ s.tcNumber || 'Left' }}</span>
+                                  </span>
+                                }
+                              </div>
+                              @if (s.gender || s.dateOfBirth) {
+                                <div class="student-meta-sub">
+                                  <span>{{ s.gender }}</span>
+                                  @if (s.gender && s.dateOfBirth) {
+                                    <span>&bull;</span>
+                                  }
+                                  @if (s.dateOfBirth) {
+                                    <span>{{ s.dateOfBirth | date:'dd MMM yyyy' }}</span>
+                                  }
+                                  @if (s.bloodGroup) {
+                                    <span class="bg-badge">{{ s.bloodGroup }}</span>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          </td>
+                        </ng-container>
+                        <!-- Stream / Enrollment Badges -->
+                        <ng-container matColumnDef="enrollment">
+                          <th mat-header-cell *matHeaderCellDef>Stream</th>
+                          <td mat-cell *matCellDef="let s">
+                            <div class="stream-badge-stack">
+                              @if (s.isSchoolStudent && s.isCoachingStudent) {
+                                <span class="badge-pill dual">
+                                  <mat-icon>verified</mat-icon> School + Coaching
+                                </span>
+                              }
+                              @if (s.isSchoolStudent && !s.isCoachingStudent) {
+                                <span class="badge-pill school">
+                                  <mat-icon>domain</mat-icon> School Only
+                                </span>
+                              }
+                              @if (!s.isSchoolStudent && s.isCoachingStudent) {
+                                <span class="badge-pill coaching">
+                                  <mat-icon>school</mat-icon> Coaching Only
+                                </span>
+                              }
+                              @if (s.isHostelStudent) {
+                                <span class="badge-pill hostel">
+                                  <mat-icon>apartment</mat-icon> Hosteler
+                                </span>
+                              }
+                              @if (!s.isHostelStudent) {
+                                <span class="badge-pill dayscholar">
+                                  <mat-icon>directions_walk</mat-icon> Day Scholar
+                                </span>
+                              }
+                              @if (s.isLibraryMember) {
+                                <span class="badge-pill library">
+                                  <mat-icon>local_library</mat-icon> Library Member
+                                </span>
+                              }
+                              @if (s.isTransportStudent) {
+                                <span class="badge-pill transport">
+                                  <mat-icon>directions_bus</mat-icon> Transport
+                                </span>
+                              }
+                            </div>
+                          </td>
+                        </ng-container>
+                        <!-- Academic Allocation: Class & Batch -->
+                        <ng-container matColumnDef="batchOrClass">
+                          <th mat-header-cell *matHeaderCellDef>Academic</th>
+                          <td mat-cell *matCellDef="let s">
+                            <div class="academic-stack">
+                              @if (s.isSchoolStudent) {
+                                <div class="school-alloc">
+                                  <mat-icon class="icon-school">domain</mat-icon>
+                                  <span><strong>{{ s.className || 'Class' }}</strong> - Sec {{ s.sectionName || 'A' }}</span>
+                                </div>
+                              }
+                              @if (s.isSchoolStudent && s.classTeacherName) {
+                                <div class="teacher-alloc" [matTooltip]="'Class Teacher: ' + s.classTeacherName + (s.classTeacherPhone ? ' (📞 ' + s.classTeacherPhone + ')' : '')">
+                                  <mat-icon class="icon-teacher">supervisor_account</mat-icon>
+                                  <span>CT: <strong>{{ s.classTeacherName }}</strong></span>
+                                </div>
+                              }
+                              @if (s.isCoachingStudent) {
+                                <div class="coaching-alloc">
+                                  <mat-icon class="icon-coaching">school</mat-icon>
+                                  <span class="batch-title-text">{{ s.batchName || 'Coaching Batch' }}</span>
+                                  @if (s.className || getBatchClassName(s.batchId)) {
+                                    <span class="batch-class-tag" [matTooltip]="'Target Academic Class: ' + (s.className || getBatchClassName(s.batchId))">
+                                      {{ s.className || getBatchClassName(s.batchId) }}
+                                    </span>
+                                  }
+                                </div>
+                              }
+                              @if (s.isHostelStudent) {
+                                <div class="hostel-alloc">
+                                  <mat-icon class="icon-hostel">hotel</mat-icon>
+                                  <span>{{ s.hostelName || 'Hostel' }} - Rm {{ s.roomNumber || '' }} ({{ s.bedCode || 'Bed' }})</span>
+                                </div>
+                              }
+                              @if (s.isLibraryMember) {
+                                <div class="library-alloc">
+                                  <mat-icon class="icon-library">local_library</mat-icon>
+                                  <span>{{ s.libraryMembershipType || 'Standard Lending' }} (Limit: {{ s.maxLibraryBooks || 2 }}{{ s.monthlyLibraryFee > 0 ? ' • ₹' + s.monthlyLibraryFee + '/mo' : '' }})</span>
+                                </div>
+                              }
+                              @if (s.isTransportStudent) {
+                                <div class="transport-alloc">
+                                  <mat-icon class="icon-transport">directions_bus</mat-icon>
+                                  <span>{{ s.transportRouteName || 'Transport' }}{{ s.transportStopName ? ' • ' + s.transportStopName : '' }}{{ s.monthlyTransportFare > 0 ? ' (₹' + s.monthlyTransportFare + '/mo)' : '' }}</span>
+                                </div>
+                              }
+                              @if (s.hasAdmissionKit) {
+                                <div class="kit-alloc" [matTooltip]="'Admission Kit Issued' + (s.kitStatus ? ' (' + s.kitStatus + ')' : '')">
+                                  <mat-icon class="icon-kit">inventory_2</mat-icon>
+                                  <span>Kit Issued{{ s.kitStatus ? ' • ' + s.kitStatus : '' }}</span>
+                                </div>
+                              }
+                            </div>
+                          </td>
+                        </ng-container>
+                        <!-- Parent Info -->
+                        <ng-container matColumnDef="parentName">
+                          <th mat-header-cell *matHeaderCellDef mat-sort-header="parentName">Guardian</th>
+                          <td mat-cell *matCellDef="let s">
+                            <div class="parent-cell-wrap">
+                              <span class="father-name">{{ s.parentName }}</span>
+                              @if (s.motherName) {
+                                <small class="mother-name">M: {{ s.motherName }}</small>
+                              }
+                            </div>
+                          </td>
+                        </ng-container>
+                        <!-- WhatsApp Phone -->
+                        <ng-container matColumnDef="parentWhatsAppPhone">
+                          <th mat-header-cell *matHeaderCellDef>WhatsApp Phone</th>
+                          <td mat-cell *matCellDef="let s">
+                            @if (s.parentWhatsAppPhone) {
+                              <span class="wa-phone">
+                                <mat-icon class="wa-icon">chat</mat-icon>
+                                {{ formatDisplayPhone(s.parentWhatsAppPhone) }}
+                              </span>
+                            }
+                            @if (!s.parentWhatsAppPhone) {
+                              <span class="text-muted">-</span>
+                            }
+                          </td>
+                        </ng-container>
+                        <!-- Actions Column -->
+                        <ng-container matColumnDef="actions">
+                          <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+                          <td mat-cell *matCellDef="let s" class="text-right">
+                            <div class="action-buttons">
+                              <!-- Primary 1: Student 360° Profile & KYC Dossier -->
+                              <button
+                                mat-icon-button
+                                class="btn-profile-360"
+                                (click)="openStudent360(s)"
+                                matTooltip="Student 360° Dossier &amp; KYC Vault">
+                                <mat-icon>account_circle</mat-icon>
+                              </button>
+                              <!-- Primary 2: Edit Student Record -->
+                              <button mat-icon-button color="primary" (click)="editStudent(s)" matTooltip="Edit Student">
+                                <mat-icon>edit</mat-icon>
+                              </button>
+                              <!-- Primary 3: More Actions Dropdown Menu (⋮) -->
+                              <button mat-icon-button [matMenuTriggerFor]="studentActionMenu" matTooltip="More Actions">
+                                <mat-icon>more_vert</mat-icon>
+                              </button>
+                              <mat-menu #studentActionMenu="matMenu" xPosition="before" class="student-actions-dropdown">
+                                <!-- 1-Click Coaching Enrollment Button for School Students -->
+                                @if (authService.hasCoachingModule() && s.isSchoolStudent && !s.isCoachingStudent && s.isActive !== false) {
+                                  <button
+                                    mat-menu-item
+                                    (click)="openEnrollCoachingModal(s)">
+                                    <mat-icon style="color: #7c3aed;">add_task</mat-icon>
+                                    <span>Enroll in Coaching Batch</span>
+                                  </button>
+                                }
+                                <!-- School Student: Print ID Card -->
+                                @if (s.isSchoolStudent && s.isActive !== false) {
+                                  <button
+                                    mat-menu-item
+                                    (click)="openIdCardDialog(s)">
+                                    <mat-icon style="color: #0284c7;">badge</mat-icon>
+                                    <span>Print Student ID Card</span>
+                                  </button>
+                                }
+                                <!-- School Student: Bonafide / Character Certificate -->
+                                @if (s.isSchoolStudent) {
+                                  <button
+                                    mat-menu-item
+                                    (click)="openBonafideDialog(s)">
+                                    <mat-icon style="color: #b45309;">workspace_premium</mat-icon>
+                                    <span>Bonafide Certificate</span>
+                                  </button>
+                                }
+                                <!-- School Student: Academic Marksheet & Report Card -->
+                                @if (s.isSchoolStudent && s.classId) {
+                                  <a
+                                    mat-menu-item
+                                    [routerLink]="['/school/exams']"
+                                    [queryParams]="{classId: s.classId}">
+                                    <mat-icon style="color: #2563eb;">analytics</mat-icon>
+                                    <span>Exams &amp; Marksheets</span>
+                                  </a>
+                                }
+                                <!-- Student & Parent Portal Logins Action Button -->
+                                <button
+                                  mat-menu-item
+                                  (click)="openPortalLogins(s)">
+                                  <mat-icon style="color: #4f46e5;">vpn_key</mat-icon>
+                                  <span>Portal Logins (Access Keys)</span>
+                                </button>
+                                <!-- Active Student: Mark Attendance -->
+                                @if (s.isActive !== false) {
+                                  <a
+                                    mat-menu-item
+                                    [routerLink]="['/students/attendance']"
+                                    [queryParams]="{studentId: s.id}"
+                                    >
+                                    <mat-icon style="color: #059669;">event_available</mat-icon>
+                                    <span>View / Mark Attendance</span>
+                                  </a>
+                                }
+                                <mat-divider></mat-divider>
+                                <!-- Active Student: Mark Left / Issue TC Button -->
+                                @if (s.isActive !== false) {
+                                  <button
+                                    mat-menu-item
+                                    (click)="openStudentLeavingModal(s)">
+                                    <mat-icon style="color: #ea580c;">exit_to_app</mat-icon>
+                                    <span>Student Leaving / Issue TC</span>
+                                  </button>
+                                }
+                                <!-- Left Student: View/Print Certificate (SLC / TC) -->
+                                @if (s.isActive === false) {
+                                  <button
+                                    mat-menu-item
+                                    (click)="openStudentLeavingModal(s, true)">
+                                    <mat-icon style="color: #0284c7;">{{ isStudentPassedOut(s) ? 'workspace_premium' : 'description' }}</mat-icon>
+                                    <span>{{ isStudentPassedOut(s) ? 'Print SLC Certificate' : 'Print Transfer Certificate (TC)' }}</span>
+                                  </button>
+                                }
+                                <!-- Re-Admit Button: ONLY for mid-session left students -->
+                                @if (s.isActive === false && !isStudentPassedOut(s)) {
+                                  <button
+                                    mat-menu-item
+                                    (click)="openReAdmitModal(s)">
+                                    <mat-icon style="color: #16a34a;">replay</mat-icon>
+                                    <span>Re-Admit Student</span>
+                                  </button>
+                                }
+                                <mat-divider></mat-divider>
+                                <!-- Delete Student -->
+                                <button
+                                  mat-menu-item
+                                  (click)="deleteStudent(s)">
+                                  <mat-icon style="color: #dc2626;">delete</mat-icon>
+                                  <span style="color: #dc2626;">Delete Student</span>
+                                </button>
+                              </mat-menu>
+                            </div>
+                          </td>
+                        </ng-container>
+                        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                        <tr class="mat-row" *matNoDataRow>
+                          <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
+                            @if (!loading) {
+                              <div class="empty-state">
+                                <mat-icon class="empty-icon">people</mat-icon>
+                                <p>No student records found matching your filter criteria.</p>
+                              </div>
+                            }
+                          </td>
+                        </tr>
+                      </table>
+                    </mat-card-content>
+                    <mat-paginator
+                      [length]="totalCount"
+                      [pageSize]="pageSize"
+                      [pageSizeOptions]="[10, 25, 50, 100]"
+                      [pageIndex]="pageIndex"
+                      (page)="onPageChange($event)"
+                      showFirstLastButtons>
+                    </mat-paginator>
+                  </mat-card>
+                </div>
+              }
+    
+              <!-- 1-Click Coaching Enrollment Modal for School Students -->
+              @if (enrollCoachingModalOpen) {
+                <div class="enroll-modal-backdrop" (click)="closeEnrollCoachingModal()">
+                  <div class="enroll-modal-card mat-elevation-z8" (click)="$event.stopPropagation()">
+                    <div class="ecc-header">
+                      <div class="ecc-header-left">
+                        <div class="ecc-icon-wrap">
+                          <mat-icon>school</mat-icon>
+                        </div>
+                        <div class="ecc-title">
+                          <h3>Enroll School Student into Coaching</h3>
+                          <p>Instantly enroll <strong>{{ enrollingStudent?.studentName }}</strong> into an evening coaching batch.</p>
+                        </div>
+                      </div>
+                      <button mat-icon-button class="close-btn" (click)="closeEnrollCoachingModal()"><mat-icon>close</mat-icon></button>
+                    </div>
+                    <div class="ecc-body">
+                      <div class="student-pill-banner">
+                        <div class="spb-name">{{ enrollingStudent?.studentName }}</div>
+                        <div class="spb-meta">
+                          <span>🏫 Class: <strong>{{ enrollingStudent?.className }} - {{ enrollingStudent?.sectionName }}</strong></span>
+                          <span>SR No: <strong>{{ enrollingStudent?.admissionNumber || 'N/A' }}</strong></span>
+                          <span>Parent: <strong>{{ enrollingStudent?.parentName }}</strong></span>
+                        </div>
+                      </div>
+                      <div class="ecc-form">
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>Academic Class (Filter Batches)</mat-label>
+                          <mat-select [(ngModel)]="enrollingFilterClassId" (selectionChange)="onEnrollingFilterClassChange()" panelClass="batch-filter-panel">
+                            <mat-option value="">-- All Classes --</mat-option>
+                            @for (c of schoolClasses; track c) {
+                              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>Select Coaching Batch *</mat-label>
+                          <mat-select [(ngModel)]="enrollingBatchId" (selectionChange)="onEnrollingBatchChange($event.value)">
+                            @for (b of enrolledFilteredBatches; track b) {
+                              <mat-option [value]="b.id">
+                                {{ b.name }}
+                              </mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>Batch-wise Coaching Roll Number</mat-label>
+                          <input matInput [(ngModel)]="enrollingCoachingRollNumber" placeholder="Auto-generating..." readonly />
+                          @if (!enrollingRollNumberLoading) {
+                            <mat-icon matSuffix style="color: #64748b; font-size: 20px; width: 20px; height: 20px;">lock</mat-icon>
+                          }
+                          @if (enrollingRollNumberLoading) {
+                            <mat-spinner matSuffix diameter="18"></mat-spinner>
+                          }
+                          <mat-hint>Auto-generated batch roll sequence for this coaching batch.</mat-hint>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>Custom Monthly Fee (₹) [Optional]</mat-label>
+                          <input matInput type="number" [(ngModel)]="enrollingCustomFee" placeholder="Leave blank to use standard fee" />
+                          <mat-hint>Overrides default monthly fee for this school student.</mat-hint>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>Coaching Entry Date (Optional)</mat-label>
+                          <input matInput type="date" [(ngModel)]="enrollingCoachingJoiningDate" [min]="minDoj" [max]="maxDoj" />
+                          <mat-icon matSuffix>event</mat-icon>
+                          <mat-hint>Format: DD-MM-YYYY (defaults to today if left blank)</mat-hint>
+                        </mat-form-field>
+                      </div>
+                    </div>
+                    <div class="ecc-actions">
+                      <button mat-button type="button" (click)="closeEnrollCoachingModal()" [disabled]="enrollingLoading">Cancel</button>
+                      <button mat-raised-button color="primary" (click)="confirmEnrollCoaching()" [disabled]="!enrollingBatchId || enrollingLoading">
+                        @if (enrollingLoading) {
+                          <mat-spinner diameter="18" style="display:inline-block; margin-right:6px;"></mat-spinner>
+                        }
+                        <span>Confirm &amp; Enroll into Coaching</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .students-wrapper {
       display: flex;

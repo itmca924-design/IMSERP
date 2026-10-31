@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -45,7 +45,7 @@ export interface InventoryAdjustDialogData {
           <mat-icon>close</mat-icon>
         </button>
       </div>
-
+    
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <mat-dialog-content class="dialog-body">
           <!-- Current Stock Banner -->
@@ -58,12 +58,14 @@ export interface InventoryAdjustDialogData {
               <span class="label">Reorder Level:</span>
               <span class="val-sub">{{ data.item.minStockAlertLevel }} {{ data.item.unitOfMeasurement }}</span>
             </div>
-            <div class="banner-item" *ngIf="data.item.rackOrLocation">
-              <span class="label">Location:</span>
-              <span class="val-sub">{{ data.item.rackOrLocation }}</span>
-            </div>
+            @if (data.item.rackOrLocation) {
+              <div class="banner-item">
+                <span class="label">Location:</span>
+                <span class="val-sub">{{ data.item.rackOrLocation }}</span>
+              </div>
+            }
           </div>
-
+    
           <div class="form-grid">
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Adjustment Reason / Type</mat-label>
@@ -74,16 +76,18 @@ export interface InventoryAdjustDialogData {
                 <mat-option value="ReturnToVendor">Defective Returned to Vendor</mat-option>
               </mat-select>
             </mat-form-field>
-
+    
             <mat-form-field appearance="outline">
               <mat-label>Adjust Quantity (+ or -)</mat-label>
               <input matInput type="number" formControlName="adjustedQuantity" (input)="computeNewStock()" />
               <mat-hint>e.g. +5 to increase, -3 to write off</mat-hint>
-              <mat-error *ngIf="form.get('adjustedQuantity')?.hasError('required')">
-                Adjustment quantity is required
-              </mat-error>
+              @if (form.get('adjustedQuantity')?.hasError('required')) {
+                <mat-error>
+                  Adjustment quantity is required
+                </mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- New Stock Preview -->
             <div class="new-stock-preview">
               <span class="preview-label">New Resulting Stock:</span>
@@ -91,29 +95,34 @@ export interface InventoryAdjustDialogData {
                 {{ newStock }} {{ data.item.unitOfMeasurement }}
               </strong>
             </div>
-
+    
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Audit Remarks / Reason Details</mat-label>
               <textarea matInput formControlName="reason" rows="2" placeholder="e.g. Monthly stock take verified by store incharge"></textarea>
-              <mat-error *ngIf="form.get('reason')?.hasError('required')">
-                Please provide an audit reason
-              </mat-error>
+              @if (form.get('reason')?.hasError('required')) {
+                <mat-error>
+                  Please provide an audit reason
+                </mat-error>
+              }
             </mat-form-field>
           </div>
         </mat-dialog-content>
-
+    
         <mat-dialog-actions align="end" class="dialog-actions">
           <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
             Cancel
           </button>
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting || newStock < 0">
-            <mat-spinner diameter="18" *ngIf="submitting" class="spinner-btn"></mat-spinner>
+            @if (submitting) {
+              <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
+            }
             <span>Confirm Adjustment</span>
           </button>
         </mat-dialog-actions>
       </form>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-container { display: flex; flex-direction: column; max-height: 90vh; }
     .dialog-header {

@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -17,7 +17,6 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
   selector: 'app-login',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatCardModule,
@@ -26,27 +25,27 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule
-  ],
+],
   template: `
     <div class="login-wrapper">
       <!-- Ambient light blobs in background -->
       <div class="ambient-glow"></div>
-
+    
       <mat-card class="login-card">
         <!-- Top decorative gradient line -->
         <div class="card-accent-line"></div>
-
+    
         <div class="login-header">
           <div class="brand-logo-box">
             <mat-icon class="brand-icon">school</mat-icon>
           </div>
           <h1 class="brand-title">ERP Vertical SaaS</h1>
-          
+    
           <div class="subtitle-badge">
             <span class="tenant-pill">Multi-Tenant</span>
             <span class="subtitle-text">All-in-One Education ERP</span>
           </div>
-
+    
           <div class="module-tags-row">
             <span class="module-tag">School</span>
             <span class="tag-sep">•</span>
@@ -59,26 +58,30 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
             <span class="module-tag">Transport</span>
           </div>
         </div>
-
+    
         <mat-card-content class="form-content">
           <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-
+    
             <!-- Company / Tenant Code -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Company Code</mat-label>
               <input matInput formControlName="tenantCode" placeholder="e.g. ZENITH, SYSTEM, APEX" (input)="onTenantCodeInput($event)">
               <mat-icon matSuffix>corporate_fare</mat-icon>
-              <mat-error *ngIf="loginForm.get('tenantCode')?.hasError('required')">Company Code is required</mat-error>
+              @if (loginForm.get('tenantCode')?.hasError('required')) {
+                <mat-error>Company Code is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Username -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Username</mat-label>
               <input matInput formControlName="username" placeholder="e.g. admin, faculty, accountant">
               <mat-icon matSuffix>person</mat-icon>
-              <mat-error *ngIf="loginForm.get('username')?.hasError('required')">Username is required</mat-error>
+              @if (loginForm.get('username')?.hasError('required')) {
+                <mat-error>Username is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Password -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Password</mat-label>
@@ -86,46 +89,56 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
               <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
                 <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
               </button>
-              <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is required</mat-error>
+              @if (loginForm.get('password')?.hasError('required')) {
+                <mat-error>Password is required</mat-error>
+              }
             </mat-form-field>
-
+    
             <!-- Session Notice or Error Banner -->
-            <div *ngIf="sessionNotice" class="info-banner">
-              <mat-icon>schedule</mat-icon>
-              <span>{{ sessionNotice }}</span>
-            </div>
-
-            <div *ngIf="errorMessage" class="error-banner">
-              <mat-icon color="warn">error</mat-icon>
-              <span>{{ errorMessage }}</span>
-            </div>
-
+            @if (sessionNotice) {
+              <div class="info-banner">
+                <mat-icon>schedule</mat-icon>
+                <span>{{ sessionNotice }}</span>
+              </div>
+            }
+    
+            @if (errorMessage) {
+              <div class="error-banner">
+                <mat-icon color="warn">error</mat-icon>
+                <span>{{ errorMessage }}</span>
+              </div>
+            }
+    
             <button mat-raised-button class="full-width submit-btn" type="submit" [disabled]="loginForm.invalid || loading">
-              <mat-spinner diameter="20" *ngIf="loading" style="display:inline-block; margin-right:8px;"></mat-spinner>
+              @if (loading) {
+                <mat-spinner diameter="20" style="display:inline-block; margin-right:8px;"></mat-spinner>
+              }
               <span>Sign In to Institute</span>
-              <mat-icon class="btn-arrow" *ngIf="!loading">arrow_forward</mat-icon>
+              @if (!loading) {
+                <mat-icon class="btn-arrow">arrow_forward</mat-icon>
+              }
             </button>
-
+    
             <!-- Action Divider -->
             <div class="or-divider">
               <span class="line"></span>
               <span class="text">or explore software</span>
               <span class="line"></span>
             </div>
-
+    
             <!-- Demo and Registration Actions -->
             <div class="demo-actions-row">
               <button type="button" mat-stroked-button class="create-tenant-btn" (click)="openRegisterTrialDialog()">
                 <mat-icon>rocket_launch</mat-icon>
                 <span>Create Institute (14-Day Free Demo)</span>
               </button>
-
+    
               <button type="button" class="quick-demo-link" (click)="fillDemoCredentials()">
                 <mat-icon>flash_on</mat-icon>
                 <span>Try 1-Click Interactive Demo</span>
               </button>
             </div>
-
+    
             <!-- Enterprise Trust Footer -->
             <div class="security-footer">
               <mat-icon class="sec-icon">verified_user</mat-icon>
@@ -135,7 +148,8 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         </mat-card-content>
       </mat-card>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: block;

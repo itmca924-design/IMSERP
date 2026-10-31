@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -79,20 +79,22 @@ interface PeriodEditorRow {
                   <span class="trigger-name">{{ currentBranchDisplayName }}</span>
                 </div>
               </mat-select-trigger>
-
+    
               <mat-option value="ALL">
                 <span class="opt-icon">🏢</span>
                 <span class="opt-title">All Branches (Default / Main Campus)</span>
                 <span class="opt-badge">Default</span>
               </mat-option>
-              <mat-option *ngFor="let b of branches" [value]="b.id">
-                <span class="opt-icon">🏫</span>
-                <span class="opt-title">{{ b.name }}</span>
-                <span class="opt-badge">{{ b.code }}</span>
-              </mat-option>
+              @for (b of branches; track b) {
+                <mat-option [value]="b.id">
+                  <span class="opt-icon">🏫</span>
+                  <span class="opt-title">{{ b.name }}</span>
+                  <span class="opt-badge">{{ b.code }}</span>
+                </mat-option>
+              }
             </mat-select>
           </div>
-
+    
           <button type="button" class="btn-header-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule">
             <mat-icon>file_download</mat-icon>
             <span>Export CSV</span>
@@ -107,384 +109,399 @@ interface PeriodEditorRow {
           </button>
         </div>
       </div>
-
-      <div class="page-content" *ngIf="!loading">
-        <!-- ⚡ 1-Click Smart Timetable Generator Card -->
-        <mat-card class="generator-card mat-elevation-z1">
-          <div class="gen-header">
-            <div class="gen-title-wrap">
-              <span class="gen-badge">⚡ Quick Generator</span>
-              <h3 class="gen-title">1-Click Bell Schedule Generator (जादुई ऑटो-जनरेटर)</h3>
-              <p class="gen-sub">Automatically calculate period timings by setting start time, duration, and lunch break.</p>
+    
+      @if (!loading) {
+        <div class="page-content">
+          <!-- ⚡ 1-Click Smart Timetable Generator Card -->
+          <mat-card class="generator-card mat-elevation-z1">
+            <div class="gen-header">
+              <div class="gen-title-wrap">
+                <span class="gen-badge">⚡ Quick Generator</span>
+                <h3 class="gen-title">1-Click Bell Schedule Generator (जादुई ऑटो-जनरेटर)</h3>
+                <p class="gen-sub">Automatically calculate period timings by setting start time, duration, and lunch break.</p>
+              </div>
+              <div class="quick-presets">
+                <span class="preset-label">Season Presets:</span>
+                <button type="button" class="preset-btn" (click)="applyPreset('summer')">☀️ Summer (07:30 AM)</button>
+                <button type="button" class="preset-btn" (click)="applyPreset('standard')">🏫 Standard (08:00 AM)</button>
+                <button type="button" class="preset-btn" (click)="applyPreset('winter')">❄️ Winter (09:00 AM)</button>
+              </div>
             </div>
-            <div class="quick-presets">
-              <span class="preset-label">Season Presets:</span>
-              <button type="button" class="preset-btn" (click)="applyPreset('summer')">☀️ Summer (07:30 AM)</button>
-              <button type="button" class="preset-btn" (click)="applyPreset('standard')">🏫 Standard (08:00 AM)</button>
-              <button type="button" class="preset-btn" (click)="applyPreset('winter')">❄️ Winter (09:00 AM)</button>
+            <div class="gen-inputs-grid">
+              <div class="gen-field">
+                <label class="g-label">School Start Time</label>
+                <input type="time"
+                  [(ngModel)]="genStartTime24"
+                  (change)="onGenTimeChange()"
+                  class="g-input time-single-input" />
+              </div>
+              <div class="gen-field">
+                <label class="g-label">Period Duration</label>
+                <select [(ngModel)]="genDuration" class="g-select">
+                  <option [value]="35">35 Minutes</option>
+                  <option [value]="40">40 Minutes</option>
+                  <option [value]="45">45 Minutes</option>
+                  <option [value]="50">50 Minutes</option>
+                  <option [value]="60">60 Minutes</option>
+                </select>
+              </div>
+              <div class="gen-field">
+                <label class="g-label">Total Teaching Periods</label>
+                <select [(ngModel)]="genTotalPeriods" class="g-select">
+                  <option [value]="5">5 Periods</option>
+                  <option [value]="6">6 Periods</option>
+                  <option [value]="7">7 Periods</option>
+                  <option [value]="8">8 Periods</option>
+                  <option [value]="9">9 Periods</option>
+                  <option [value]="10">10 Periods</option>
+                </select>
+              </div>
+              <div class="gen-field">
+                <label class="g-label">Lunch / Recess After</label>
+                <select [(ngModel)]="genBreakAfter" class="g-select">
+                  <option [value]="3">After Period 3</option>
+                  <option [value]="4">After Period 4</option>
+                  <option [value]="5">After Period 5</option>
+                  <option [value]="0">No Lunch Break</option>
+                </select>
+              </div>
+              @if (genBreakAfter > 0) {
+                <div class="gen-field">
+                  <label class="g-label">Break Duration</label>
+                  <select [(ngModel)]="genBreakDuration" class="g-select">
+                    <option [value]="15">15 Minutes</option>
+                    <option [value]="20">20 Minutes</option>
+                    <option [value]="30">30 Minutes</option>
+                    <option [value]="45">45 Minutes</option>
+                  </select>
+                </div>
+              }
+              <div class="gen-field">
+                <label class="g-label">Activity Slot After</label>
+                <select [(ngModel)]="genActivityAfter" class="g-select">
+                  <option [value]="0">None (कोई नहीं)</option>
+                  @for (p of getPeriodNumbersList(); track p) {
+                    <option [value]="p">After Period {{ p }}</option>
+                  }
+                </select>
+              </div>
+              @if (genActivityAfter > 0) {
+                <div class="gen-field">
+                  <label class="g-label">Activity Type</label>
+                  <select [(ngModel)]="genActivityType" (change)="onActivityTypeChange()" class="g-select">
+                    @for (act of activityTypes; track act) {
+                      <option [value]="act.name">
+                        {{ act.name }} {{ act.displayNameHi ? '(' + act.displayNameHi + ')' : '' }}
+                      </option>
+                    }
+                    <option value="Custom">+ Custom (नया जोड़ें)</option>
+                  </select>
+                </div>
+              }
+              @if (genActivityAfter > 0) {
+                <div class="gen-field">
+                  <label class="g-label">Activity Slot Name</label>
+                  <input type="text" [(ngModel)]="genActivityName" class="g-input" placeholder="e.g. Quiz Time" />
+                </div>
+              }
+              @if (genActivityAfter > 0) {
+                <div class="gen-field">
+                  <label class="g-label">Duration</label>
+                  <select [(ngModel)]="genActivityDuration" class="g-select">
+                    <option [value]="10">10 Minutes</option>
+                    <option [value]="15">15 Minutes</option>
+                    <option [value]="20">20 Minutes</option>
+                    <option [value]="25">25 Minutes</option>
+                    <option [value]="30">30 Minutes</option>
+                    <option [value]="40">40 Minutes</option>
+                    <option [value]="45">45 Minutes</option>
+                    <option [value]="60">60 Minutes</option>
+                  </select>
+                </div>
+              }
+              <div class="gen-action-col">
+                <label class="g-label">&nbsp;</label>
+                <button type="button" class="btn-run-generator" (click)="generateSchedule()">
+                  <mat-icon>auto_awesome</mat-icon> Generate Schedule
+                </button>
+              </div>
+            </div>
+          </mat-card>
+          <!-- Live Timings Summary Pill Bar -->
+          <div class="summary-bar">
+            <div class="summary-pill primary-pill">
+              <mat-icon>schedule</mat-icon>
+              <span>School Timing: <strong>{{ computedSchoolHours }}</strong></span>
+            </div>
+            <div class="summary-pill">
+              <mat-icon>menu_book</mat-icon>
+              <span>Teaching Periods: <strong>{{ teachingPeriodCount }}</strong></span>
+            </div>
+            <div class="summary-pill">
+              <mat-icon>restaurant</mat-icon>
+              <span>Breaks / Recess: <strong>{{ breakCount }}</strong></span>
+            </div>
+            @if (activityCount > 0) {
+              <div class="summary-pill" style="background:#fdf4ff; border-color:#f0abfc; color:#9333ea;">
+                <mat-icon style="color:#a855f7;">local_activity</mat-icon>
+                <span>Activities / Quiz: <strong>{{ activityCount }}</strong></span>
+              </div>
+            }
+            <div class="summary-pill branch-pill">
+              <mat-icon>domain</mat-icon>
+              <span>Scope: <strong>{{ currentScopeText }}</strong></span>
             </div>
           </div>
-
-          <div class="gen-inputs-grid">
-            <div class="gen-field">
-              <label class="g-label">School Start Time</label>
-              <input type="time" 
-                     [(ngModel)]="genStartTime24" 
-                     (change)="onGenTimeChange()" 
-                     class="g-input time-single-input" />
+          <!-- Period Slots Master Table Card -->
+          <mat-card class="slots-table-card mat-elevation-z1">
+            <div class="table-header-row">
+              <div>
+                <h3 class="table-title">Configured Period Slots ({{ rows.length }})</h3>
+                <p class="table-subtitle">Review, fine-tune individual slot times, or add custom periods.</p>
+              </div>
+              <div class="table-header-actions">
+                <button type="button" class="btn-table-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule">
+                  <mat-icon>file_download</mat-icon> Export CSV
+                </button>
+                <button type="button" class="btn-table-action" (click)="printReport()" [disabled]="rows.length === 0" matTooltip="Print or Download PDF Schedule">
+                  <mat-icon>print</mat-icon> Print / PDF Report
+                </button>
+                <button type="button" class="btn-add-row" (click)="addNewRow()">
+                  <mat-icon>add_circle_outline</mat-icon> Add Custom Slot (कस्टम स्लॉट जोड़ें)
+                </button>
+              </div>
             </div>
-
-            <div class="gen-field">
-              <label class="g-label">Period Duration</label>
-              <select [(ngModel)]="genDuration" class="g-select">
-                <option [value]="35">35 Minutes</option>
-                <option [value]="40">40 Minutes</option>
-                <option [value]="45">45 Minutes</option>
-                <option [value]="50">50 Minutes</option>
-                <option [value]="60">60 Minutes</option>
-              </select>
+            <div class="table-responsive">
+              <table class="slots-table">
+                <thead>
+                  <tr>
+                    <th style="width: 50px; text-align: center;"># Order</th>
+                    <th style="min-width: 200px;">Slot / Period Name</th>
+                    <th style="width: 140px;">Start Time</th>
+                    <th style="width: 140px;">End Time</th>
+                    <th style="min-width: 170px;">Formatted Time Slot</th>
+                    <th style="width: 140px; text-align: center;">Type</th>
+                    <th style="width: 80px; text-align: center;">Status</th>
+                    <th style="width: 110px; text-align: center;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of rows; track row; let i = $index) {
+                    <tr [class.is-break-row]="row.isBreak" [class.is-activity-row]="isActivitySlot(row)">
+                      <td style="text-align: center;">
+                        <div class="order-badge" [class.break-order]="row.isBreak" [class.activity-order]="isActivitySlot(row)">{{ i + 1 }}</div>
+                      </td>
+                      <td>
+                        <div class="name-cell">
+                          <div class="slot-icon-box" [class.is-break]="row.isBreak" [class.is-activity]="isActivitySlot(row)">
+                            <mat-icon>{{ getSlotTypeIcon(row.slotType) }}</mat-icon>
+                          </div>
+                          <input type="text" [(ngModel)]="row.name" class="row-input" placeholder="e.g. Period 1" (change)="updateRowTimeSlot(row)" />
+                        </div>
+                      </td>
+                      <td>
+                        <input type="time"
+                          [value]="to24(row.startTime)"
+                          (change)="onRowStartTimeChange(row, $any($event.target).value)"
+                          class="row-time-input"
+                          title="Click clock icon to pick Start Time" />
+                      </td>
+                      <td>
+                        <input type="time"
+                          [value]="to24(row.endTime)"
+                          (change)="onRowEndTimeChange(row, $any($event.target).value)"
+                          class="row-time-input"
+                          title="Click clock icon to pick End Time" />
+                      </td>
+                      <td>
+                        <span class="preview-slot-pill" [class.break-pill]="row.isBreak" [class.activity-pill]="isActivitySlot(row)">
+                          {{ row.timeSlot }}
+                        </span>
+                      </td>
+                      <td style="text-align: center;">
+                        <button type="button"
+                          class="type-pill-btn"
+                          [ngClass]="getSlotBadgeClass(row.slotType)"
+                          [matMenuTriggerFor]="slotTypeMenu"
+                          matTooltip="Click to change Slot Type">
+                          <mat-icon class="slot-badge-icon">{{ getSlotTypeIcon(row.slotType) }}</mat-icon>
+                          <span class="slot-badge-label">{{ row.slotType || (row.isBreak ? 'Break' : 'Teaching') }}</span>
+                          <mat-icon class="slot-badge-arrow">arrow_drop_down</mat-icon>
+                        </button>
+                        <mat-menu #slotTypeMenu="matMenu" class="slot-type-menu-panel">
+                          <div class="menu-head">Main Schedule:</div>
+                          <button mat-menu-item (click)="setRowType(row, 'Teaching')">
+                            <mat-icon color="primary">school</mat-icon>
+                            <span>Teaching Period</span>
+                          </button>
+                          <button mat-menu-item (click)="setRowType(row, 'Break')">
+                            <mat-icon style="color: #b45309;">restaurant</mat-icon>
+                            <span>Lunch / Recess Break</span>
+                          </button>
+                          <mat-divider></mat-divider>
+                          <div class="menu-head">Activity / Co-Curricular (DB Master):</div>
+                          @for (act of activityTypes; track act) {
+                            <button mat-menu-item (click)="setRowType(row, act.name)">
+                              <mat-icon [style.color]="act.colorHex || '#7e22ce'">{{ act.icon || 'local_activity' }}</mat-icon>
+                              <span>{{ act.name }} {{ act.displayNameHi ? '(' + act.displayNameHi + ')' : '' }}</span>
+                            </button>
+                          }
+                          <mat-divider></mat-divider>
+                          <button mat-menu-item (click)="promptCustomType(row)">
+                            <mat-icon color="primary">add_circle_outline</mat-icon>
+                            <span>+ Add New Activity to DB (नया जोड़ें)</span>
+                          </button>
+                        </mat-menu>
+                      </td>
+                      <td style="text-align: center;">
+                        <mat-slide-toggle [(ngModel)]="row.isActive" color="primary"></mat-slide-toggle>
+                      </td>
+                      <td style="text-align: center;">
+                        <div class="action-btns">
+                          <button type="button" class="btn-icon-move" (click)="moveRow(i, -1)" [disabled]="i === 0" matTooltip="Move Up">
+                            <mat-icon>arrow_upward</mat-icon>
+                          </button>
+                          <button type="button" class="btn-icon-move" (click)="moveRow(i, 1)" [disabled]="i === rows.length - 1" matTooltip="Move Down">
+                            <mat-icon>arrow_downward</mat-icon>
+                          </button>
+                          <button type="button" class="btn-icon-del" (click)="deleteRow(i)" matTooltip="Remove Slot">
+                            <mat-icon>delete_outline</mat-icon>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                  @if (rows.length === 0) {
+                    <tr>
+                      <td colspan="8" class="empty-cell">
+                        <mat-icon class="empty-icon">schedule</mat-icon>
+                        <p>No period slots configured yet. Use the 1-Click Generator above to create your schedule!</p>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
             </div>
-
-            <div class="gen-field">
-              <label class="g-label">Total Teaching Periods</label>
-              <select [(ngModel)]="genTotalPeriods" class="g-select">
-                <option [value]="5">5 Periods</option>
-                <option [value]="6">6 Periods</option>
-                <option [value]="7">7 Periods</option>
-                <option [value]="8">8 Periods</option>
-                <option [value]="9">9 Periods</option>
-                <option [value]="10">10 Periods</option>
-              </select>
-            </div>
-
-            <div class="gen-field">
-              <label class="g-label">Lunch / Recess After</label>
-              <select [(ngModel)]="genBreakAfter" class="g-select">
-                <option [value]="3">After Period 3</option>
-                <option [value]="4">After Period 4</option>
-                <option [value]="5">After Period 5</option>
-                <option [value]="0">No Lunch Break</option>
-              </select>
-            </div>
-
-            <div class="gen-field" *ngIf="genBreakAfter > 0">
-              <label class="g-label">Break Duration</label>
-              <select [(ngModel)]="genBreakDuration" class="g-select">
-                <option [value]="15">15 Minutes</option>
-                <option [value]="20">20 Minutes</option>
-                <option [value]="30">30 Minutes</option>
-                <option [value]="45">45 Minutes</option>
-              </select>
-            </div>
-
-            <div class="gen-field">
-              <label class="g-label">Activity Slot After</label>
-              <select [(ngModel)]="genActivityAfter" class="g-select">
-                <option [value]="0">None (कोई नहीं)</option>
-                <option *ngFor="let p of getPeriodNumbersList()" [value]="p">After Period {{ p }}</option>
-              </select>
-            </div>
-
-            <div class="gen-field" *ngIf="genActivityAfter > 0">
-              <label class="g-label">Activity Type</label>
-              <select [(ngModel)]="genActivityType" (change)="onActivityTypeChange()" class="g-select">
-                <option *ngFor="let act of activityTypes" [value]="act.name">
-                  {{ act.name }} {{ act.displayNameHi ? '(' + act.displayNameHi + ')' : '' }}
-                </option>
-                <option value="Custom">+ Custom (नया जोड़ें)</option>
-              </select>
-            </div>
-
-            <div class="gen-field" *ngIf="genActivityAfter > 0">
-              <label class="g-label">Activity Slot Name</label>
-              <input type="text" [(ngModel)]="genActivityName" class="g-input" placeholder="e.g. Quiz Time" />
-            </div>
-
-            <div class="gen-field" *ngIf="genActivityAfter > 0">
-              <label class="g-label">Duration</label>
-              <select [(ngModel)]="genActivityDuration" class="g-select">
-                <option [value]="10">10 Minutes</option>
-                <option [value]="15">15 Minutes</option>
-                <option [value]="20">20 Minutes</option>
-                <option [value]="25">25 Minutes</option>
-                <option [value]="30">30 Minutes</option>
-                <option [value]="40">40 Minutes</option>
-                <option [value]="45">45 Minutes</option>
-                <option [value]="60">60 Minutes</option>
-              </select>
-            </div>
-
-            <div class="gen-action-col">
-              <label class="g-label">&nbsp;</label>
-              <button type="button" class="btn-run-generator" (click)="generateSchedule()">
-                <mat-icon>auto_awesome</mat-icon> Generate Schedule
+            <div class="table-footer">
+              <div class="footer-left-actions">
+                <button mat-button class="btn-reset" (click)="loadSlots()">
+                  <mat-icon>refresh</mat-icon> Reset / Reload
+                </button>
+                <button mat-button class="btn-footer-report" (click)="exportToCsv()" [disabled]="rows.length === 0">
+                  <mat-icon>file_download</mat-icon> Export CSV
+                </button>
+                <button mat-button class="btn-footer-report" (click)="printReport()" [disabled]="rows.length === 0">
+                  <mat-icon>print</mat-icon> Print / PDF Report
+                </button>
+              </div>
+              <button mat-flat-button color="primary" class="btn-save-master-bottom" (click)="saveSlots()" [disabled]="saving || rows.length === 0">
+                <mat-icon>save</mat-icon> Save Bell Schedule
               </button>
             </div>
-          </div>
-        </mat-card>
-
-        <!-- Live Timings Summary Pill Bar -->
-        <div class="summary-bar">
-          <div class="summary-pill primary-pill">
-            <mat-icon>schedule</mat-icon>
-            <span>School Timing: <strong>{{ computedSchoolHours }}</strong></span>
-          </div>
-          <div class="summary-pill">
-            <mat-icon>menu_book</mat-icon>
-            <span>Teaching Periods: <strong>{{ teachingPeriodCount }}</strong></span>
-          </div>
-          <div class="summary-pill">
-            <mat-icon>restaurant</mat-icon>
-            <span>Breaks / Recess: <strong>{{ breakCount }}</strong></span>
-          </div>
-          <div class="summary-pill" *ngIf="activityCount > 0" style="background:#fdf4ff; border-color:#f0abfc; color:#9333ea;">
-            <mat-icon style="color:#a855f7;">local_activity</mat-icon>
-            <span>Activities / Quiz: <strong>{{ activityCount }}</strong></span>
-          </div>
-          <div class="summary-pill branch-pill">
-            <mat-icon>domain</mat-icon>
-            <span>Scope: <strong>{{ currentScopeText }}</strong></span>
-          </div>
+          </mat-card>
         </div>
-
-        <!-- Period Slots Master Table Card -->
-        <mat-card class="slots-table-card mat-elevation-z1">
-          <div class="table-header-row">
-            <div>
-              <h3 class="table-title">Configured Period Slots ({{ rows.length }})</h3>
-              <p class="table-subtitle">Review, fine-tune individual slot times, or add custom periods.</p>
-            </div>
-            <div class="table-header-actions">
-              <button type="button" class="btn-table-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule">
-                <mat-icon>file_download</mat-icon> Export CSV
-              </button>
-              <button type="button" class="btn-table-action" (click)="printReport()" [disabled]="rows.length === 0" matTooltip="Print or Download PDF Schedule">
-                <mat-icon>print</mat-icon> Print / PDF Report
-              </button>
-              <button type="button" class="btn-add-row" (click)="addNewRow()">
-                <mat-icon>add_circle_outline</mat-icon> Add Custom Slot (कस्टम स्लॉट जोड़ें)
-              </button>
-            </div>
-          </div>
-
-          <div class="table-responsive">
-            <table class="slots-table">
-              <thead>
-                <tr>
-                  <th style="width: 50px; text-align: center;"># Order</th>
-                  <th style="min-width: 200px;">Slot / Period Name</th>
-                  <th style="width: 140px;">Start Time</th>
-                  <th style="width: 140px;">End Time</th>
-                  <th style="min-width: 170px;">Formatted Time Slot</th>
-                  <th style="width: 140px; text-align: center;">Type</th>
-                  <th style="width: 80px; text-align: center;">Status</th>
-                  <th style="width: 110px; text-align: center;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let row of rows; let i = index" [class.is-break-row]="row.isBreak" [class.is-activity-row]="isActivitySlot(row)">
-                  <td style="text-align: center;">
-                    <div class="order-badge" [class.break-order]="row.isBreak" [class.activity-order]="isActivitySlot(row)">{{ i + 1 }}</div>
-                  </td>
-                  <td>
-                    <div class="name-cell">
-                      <div class="slot-icon-box" [class.is-break]="row.isBreak" [class.is-activity]="isActivitySlot(row)">
-                        <mat-icon>{{ getSlotTypeIcon(row.slotType) }}</mat-icon>
-                      </div>
-                      <input type="text" [(ngModel)]="row.name" class="row-input" placeholder="e.g. Period 1" (change)="updateRowTimeSlot(row)" />
-                    </div>
-                  </td>
-                  <td>
-                    <input type="time" 
-                           [value]="to24(row.startTime)" 
-                           (change)="onRowStartTimeChange(row, $any($event.target).value)" 
-                           class="row-time-input" 
-                           title="Click clock icon to pick Start Time" />
-                  </td>
-                  <td>
-                    <input type="time" 
-                           [value]="to24(row.endTime)" 
-                           (change)="onRowEndTimeChange(row, $any($event.target).value)" 
-                           class="row-time-input" 
-                           title="Click clock icon to pick End Time" />
-                  </td>
-                  <td>
-                    <span class="preview-slot-pill" [class.break-pill]="row.isBreak" [class.activity-pill]="isActivitySlot(row)">
-                      {{ row.timeSlot }}
-                    </span>
-                  </td>
-                  <td style="text-align: center;">
-                    <button type="button" 
-                            class="type-pill-btn" 
-                            [ngClass]="getSlotBadgeClass(row.slotType)"
-                            [matMenuTriggerFor]="slotTypeMenu" 
-                            matTooltip="Click to change Slot Type">
-                      <mat-icon class="slot-badge-icon">{{ getSlotTypeIcon(row.slotType) }}</mat-icon>
-                      <span class="slot-badge-label">{{ row.slotType || (row.isBreak ? 'Break' : 'Teaching') }}</span>
-                      <mat-icon class="slot-badge-arrow">arrow_drop_down</mat-icon>
-                    </button>
-                    <mat-menu #slotTypeMenu="matMenu" class="slot-type-menu-panel">
-                      <div class="menu-head">Main Schedule:</div>
-                      <button mat-menu-item (click)="setRowType(row, 'Teaching')">
-                        <mat-icon color="primary">school</mat-icon>
-                        <span>Teaching Period</span>
-                      </button>
-                      <button mat-menu-item (click)="setRowType(row, 'Break')">
-                        <mat-icon style="color: #b45309;">restaurant</mat-icon>
-                        <span>Lunch / Recess Break</span>
-                      </button>
-                      <mat-divider></mat-divider>
-                      <div class="menu-head">Activity / Co-Curricular (DB Master):</div>
-                      <button mat-menu-item *ngFor="let act of activityTypes" (click)="setRowType(row, act.name)">
-                        <mat-icon [style.color]="act.colorHex || '#7e22ce'">{{ act.icon || 'local_activity' }}</mat-icon>
-                        <span>{{ act.name }} {{ act.displayNameHi ? '(' + act.displayNameHi + ')' : '' }}</span>
-                      </button>
-                      <mat-divider></mat-divider>
-                      <button mat-menu-item (click)="promptCustomType(row)">
-                        <mat-icon color="primary">add_circle_outline</mat-icon>
-                        <span>+ Add New Activity to DB (नया जोड़ें)</span>
-                      </button>
-                    </mat-menu>
-                  </td>
-                  <td style="text-align: center;">
-                    <mat-slide-toggle [(ngModel)]="row.isActive" color="primary"></mat-slide-toggle>
-                  </td>
-                  <td style="text-align: center;">
-                    <div class="action-btns">
-                      <button type="button" class="btn-icon-move" (click)="moveRow(i, -1)" [disabled]="i === 0" matTooltip="Move Up">
-                        <mat-icon>arrow_upward</mat-icon>
-                      </button>
-                      <button type="button" class="btn-icon-move" (click)="moveRow(i, 1)" [disabled]="i === rows.length - 1" matTooltip="Move Down">
-                        <mat-icon>arrow_downward</mat-icon>
-                      </button>
-                      <button type="button" class="btn-icon-del" (click)="deleteRow(i)" matTooltip="Remove Slot">
-                        <mat-icon>delete_outline</mat-icon>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr *ngIf="rows.length === 0">
-                  <td colspan="8" class="empty-cell">
-                    <mat-icon class="empty-icon">schedule</mat-icon>
-                    <p>No period slots configured yet. Use the 1-Click Generator above to create your schedule!</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="table-footer">
-            <div class="footer-left-actions">
-              <button mat-button class="btn-reset" (click)="loadSlots()">
-                <mat-icon>refresh</mat-icon> Reset / Reload
-              </button>
-              <button mat-button class="btn-footer-report" (click)="exportToCsv()" [disabled]="rows.length === 0">
-                <mat-icon>file_download</mat-icon> Export CSV
-              </button>
-              <button mat-button class="btn-footer-report" (click)="printReport()" [disabled]="rows.length === 0">
-                <mat-icon>print</mat-icon> Print / PDF Report
-              </button>
-            </div>
-            <button mat-flat-button color="primary" class="btn-save-master-bottom" (click)="saveSlots()" [disabled]="saving || rows.length === 0">
-              <mat-icon>save</mat-icon> Save Bell Schedule
-            </button>
-          </div>
-        </mat-card>
-      </div>
+      }
     </div>
-
+    
     <!-- 🖨️ PRINTABLE BELL SCHEDULE SHEET (Hidden on screen, visible during window.print) -->
-    <div class="printable-bell-schedule-sheet" id="printBellScheduleArea" *ngIf="rows.length > 0">
-      <div class="print-header">
-        <div class="print-brand-badge">IMSERP ACADEMIC TIMETABLE SYSTEM</div>
-        <h1 class="print-institute-name">{{ instituteName }}</h1>
-        <div class="print-branch-name">{{ currentBranchDisplayName }}</div>
-        <h2 class="print-doc-title">OFFICIAL PERIOD & BELL TIMINGS SCHEDULE (दैनिक घंटी व समय सारणी)</h2>
-        <div class="print-meta-grid">
-          <div class="meta-item">
-            <span class="meta-lbl">School Timings:</span>
-            <span class="meta-val">{{ computedSchoolHours }}</span>
+    @if (rows.length > 0) {
+      <div class="printable-bell-schedule-sheet" id="printBellScheduleArea">
+        <div class="print-header">
+          <div class="print-brand-badge">IMSERP ACADEMIC TIMETABLE SYSTEM</div>
+          <h1 class="print-institute-name">{{ instituteName }}</h1>
+          <div class="print-branch-name">{{ currentBranchDisplayName }}</div>
+          <h2 class="print-doc-title">OFFICIAL PERIOD & BELL TIMINGS SCHEDULE (दैनिक घंटी व समय सारणी)</h2>
+          <div class="print-meta-grid">
+            <div class="meta-item">
+              <span class="meta-lbl">School Timings:</span>
+              <span class="meta-val">{{ computedSchoolHours }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">Teaching Periods:</span>
+              <span class="meta-val">{{ teachingPeriodCount }} Periods</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">Breaks / Recess:</span>
+              <span class="meta-val">{{ breakCount }}</span>
+            </div>
+            @if (activityCount > 0) {
+              <div class="meta-item">
+                <span class="meta-lbl">Activities / Co-Curricular:</span>
+                <span class="meta-val">{{ activityCount }}</span>
+              </div>
+            }
+            <div class="meta-item">
+              <span class="meta-lbl">Applicable Campus:</span>
+              <span class="meta-val">{{ currentScopeText }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">Generated On (IST):</span>
+              <span class="meta-val">{{ reportGeneratedOnIst }}</span>
+            </div>
           </div>
-          <div class="meta-item">
-            <span class="meta-lbl">Teaching Periods:</span>
-            <span class="meta-val">{{ teachingPeriodCount }} Periods</span>
+        </div>
+        <table class="print-table">
+          <thead>
+            <tr>
+              <th style="width: 50px; text-align: center;">#</th>
+              <th>Period / Slot Name</th>
+              <th style="width: 120px; text-align: center;">Start Time</th>
+              <th style="width: 120px; text-align: center;">End Time</th>
+              <th style="width: 150px; text-align: center;">Time Slot</th>
+              <th style="width: 90px; text-align: center;">Duration</th>
+              <th style="width: 130px; text-align: center;">Slot Type</th>
+              <th style="width: 80px; text-align: center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of rows; track r; let idx = $index) {
+              <tr [class.print-break-row]="r.isBreak" [class.print-act-row]="isActivitySlot(r)">
+                <td style="text-align: center; font-weight: bold;">{{ idx + 1 }}</td>
+                <td class="print-name-cell">
+                  <strong>{{ r.name }}</strong>
+                  @if (r.isBreak) {
+                    <span class="print-tag-break">(Interval)</span>
+                  }
+                  @if (isActivitySlot(r)) {
+                    <span class="print-tag-act">({{ r.slotType }})</span>
+                  }
+                </td>
+                <td style="text-align: center;">{{ r.startTime }}</td>
+                <td style="text-align: center;">{{ r.endTime }}</td>
+                <td style="text-align: center; font-weight: 600;">{{ r.timeSlot }}</td>
+                <td style="text-align: center;">{{ getSlotDurationMinutes(r.startTime, r.endTime) }} mins</td>
+                <td style="text-align: center;">{{ r.slotType || (r.isBreak ? 'Break' : 'Teaching') }}</td>
+                <td style="text-align: center;">{{ r.isActive ? 'Active' : 'Inactive' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <div class="print-footer-signatures">
+          <div class="print-sign-col">
+            <div class="sign-line"></div>
+            <div class="sign-title">Timetable In-charge</div>
+            <div class="sign-sub">Prepared By</div>
           </div>
-          <div class="meta-item">
-            <span class="meta-lbl">Breaks / Recess:</span>
-            <span class="meta-val">{{ breakCount }}</span>
+          <div class="print-sign-col">
+            <div class="sign-line"></div>
+            <div class="sign-title">Academic Coordinator</div>
+            <div class="sign-sub">Verified By</div>
           </div>
-          <div class="meta-item" *ngIf="activityCount > 0">
-            <span class="meta-lbl">Activities / Co-Curricular:</span>
-            <span class="meta-val">{{ activityCount }}</span>
+          <div class="print-sign-col">
+            <div class="sign-seal-box">Institutional Seal / Stamp</div>
+            <div class="sign-line"></div>
+            <div class="sign-title">Principal / Director</div>
+            <div class="sign-sub">Approved By</div>
           </div>
-          <div class="meta-item">
-            <span class="meta-lbl">Applicable Campus:</span>
-            <span class="meta-val">{{ currentScopeText }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-lbl">Generated On (IST):</span>
-            <span class="meta-val">{{ reportGeneratedOnIst }}</span>
-          </div>
+        </div>
+        <div class="print-system-footer">
+          <span>IMSERP • School & Coaching Management System</span>
+          <span>Official Timings Schedule • Generated in Indian Standard Time (IST)</span>
         </div>
       </div>
-
-      <table class="print-table">
-        <thead>
-          <tr>
-            <th style="width: 50px; text-align: center;">#</th>
-            <th>Period / Slot Name</th>
-            <th style="width: 120px; text-align: center;">Start Time</th>
-            <th style="width: 120px; text-align: center;">End Time</th>
-            <th style="width: 150px; text-align: center;">Time Slot</th>
-            <th style="width: 90px; text-align: center;">Duration</th>
-            <th style="width: 130px; text-align: center;">Slot Type</th>
-            <th style="width: 80px; text-align: center;">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let r of rows; let idx = index" [class.print-break-row]="r.isBreak" [class.print-act-row]="isActivitySlot(r)">
-            <td style="text-align: center; font-weight: bold;">{{ idx + 1 }}</td>
-            <td class="print-name-cell">
-              <strong>{{ r.name }}</strong>
-              <span *ngIf="r.isBreak" class="print-tag-break">(Interval)</span>
-              <span *ngIf="isActivitySlot(r)" class="print-tag-act">({{ r.slotType }})</span>
-            </td>
-            <td style="text-align: center;">{{ r.startTime }}</td>
-            <td style="text-align: center;">{{ r.endTime }}</td>
-            <td style="text-align: center; font-weight: 600;">{{ r.timeSlot }}</td>
-            <td style="text-align: center;">{{ getSlotDurationMinutes(r.startTime, r.endTime) }} mins</td>
-            <td style="text-align: center;">{{ r.slotType || (r.isBreak ? 'Break' : 'Teaching') }}</td>
-            <td style="text-align: center;">{{ r.isActive ? 'Active' : 'Inactive' }}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="print-footer-signatures">
-        <div class="print-sign-col">
-          <div class="sign-line"></div>
-          <div class="sign-title">Timetable In-charge</div>
-          <div class="sign-sub">Prepared By</div>
-        </div>
-        <div class="print-sign-col">
-          <div class="sign-line"></div>
-          <div class="sign-title">Academic Coordinator</div>
-          <div class="sign-sub">Verified By</div>
-        </div>
-        <div class="print-sign-col">
-          <div class="sign-seal-box">Institutional Seal / Stamp</div>
-          <div class="sign-line"></div>
-          <div class="sign-title">Principal / Director</div>
-          <div class="sign-sub">Approved By</div>
-        </div>
-      </div>
-
-      <div class="print-system-footer">
-        <span>IMSERP • School & Coaching Management System</span>
-        <span>Official Timings Schedule • Generated in Indian Standard Time (IST)</span>
-      </div>
-    </div>
-  `,
+    }
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container {
       display: flex;

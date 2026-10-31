@@ -1,5 +1,6 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -99,8 +100,7 @@ export interface StudentItem {
 @Component({
   selector: 'app-visitor-checkin-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatDividerModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDividerModule],
   template: `
     <div class="fd-dialog">
       <div class="fd-dialog-header">
@@ -111,18 +111,20 @@ export interface StudentItem {
         </div>
         <button mat-icon-button class="fd-dialog-close" (click)="cancel()" matTooltip="Close"><mat-icon>close</mat-icon></button>
       </div>
-
+    
       <div class="fd-dialog-body">
         <div class="form-section-title">
           <mat-icon>person_pin</mat-icon>
           <span>Visitor Information</span>
         </div>
-
+    
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Visitor Type *</mat-label>
             <mat-select [(ngModel)]="form.visitorType" required>
-              <mat-option *ngFor="let t of visitorTypes" [value]="t">{{t}}</mat-option>
+              @for (t of visitorTypes; track t) {
+                <mat-option [value]="t">{{t}}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
@@ -131,7 +133,7 @@ export interface StudentItem {
             <mat-icon matPrefix>person</mat-icon>
           </mat-form-field>
         </div>
-
+    
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Organization / School</mat-label>
@@ -144,13 +146,15 @@ export interface StudentItem {
             <mat-icon matPrefix>phone</mat-icon>
           </mat-form-field>
         </div>
-
+    
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>ID Proof Type</mat-label>
             <mat-select [(ngModel)]="form.idProofType">
               <mat-option value="">None</mat-option>
-              <mat-option *ngFor="let p of idProofTypes" [value]="p">{{p}}</mat-option>
+              @for (p of idProofTypes; track p) {
+                <mat-option [value]="p">{{p}}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
@@ -159,12 +163,12 @@ export interface StudentItem {
             <mat-icon matPrefix>badge</mat-icon>
           </mat-form-field>
         </div>
-
+    
         <div class="form-section-title">
           <mat-icon>meeting_room</mat-icon>
           <span>Meeting Details & Host</span>
         </div>
-
+    
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Person to Meet</mat-label>
@@ -177,30 +181,32 @@ export interface StudentItem {
             <mat-icon matPrefix>domain</mat-icon>
           </mat-form-field>
         </div>
-
-        <div class="fd-form-row" *ngIf="form.visitorType === 'Parent'">
-          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
-            <mat-label>Student Name</mat-label>
-            <input matInput [(ngModel)]="form.studentName" placeholder="Ward's name" />
-            <mat-icon matPrefix>school</mat-icon>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
-            <mat-label>Student Class</mat-label>
-            <input matInput [(ngModel)]="form.studentClass" placeholder="e.g. Class 5A" />
-            <mat-icon matPrefix>class</mat-icon>
-          </mat-form-field>
-        </div>
-
+    
+        @if (form.visitorType === 'Parent') {
+          <div class="fd-form-row">
+            <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
+              <mat-label>Student Name</mat-label>
+              <input matInput [(ngModel)]="form.studentName" placeholder="Ward's name" />
+              <mat-icon matPrefix>school</mat-icon>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
+              <mat-label>Student Class</mat-label>
+              <input matInput [(ngModel)]="form.studentClass" placeholder="e.g. Class 5A" />
+              <mat-icon matPrefix>class</mat-icon>
+            </mat-form-field>
+          </div>
+        }
+    
         <mat-form-field appearance="outline" class="fd-field-full" subscriptSizing="dynamic">
           <mat-label>Purpose of Visit *</mat-label>
           <textarea matInput [(ngModel)]="form.purpose" rows="2" placeholder="Describe the reason for visit" required></textarea>
         </mat-form-field>
-
+    
         <div class="form-section-title">
           <mat-icon>verified_user</mat-icon>
           <span>Security & Logistics</span>
         </div>
-
+    
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>No. of Visitors</mat-label>
@@ -213,7 +219,7 @@ export interface StudentItem {
             <mat-icon matPrefix>directions_car</mat-icon>
           </mat-form-field>
         </div>
-
+    
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Badge / Pass Number</mat-label>
@@ -226,7 +232,7 @@ export interface StudentItem {
             <mat-icon matPrefix>how_to_reg</mat-icon>
           </mat-form-field>
         </div>
-
+    
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field" subscriptSizing="dynamic">
             <mat-label>Material / Items Carried</mat-label>
@@ -240,7 +246,7 @@ export interface StudentItem {
           </mat-form-field>
         </div>
       </div>
-
+    
       <div class="fd-dialog-footer">
         <button mat-button class="cancel-btn" (click)="cancel()">Cancel</button>
         <button mat-raised-button class="submit-btn" (click)="save()" [disabled]="saving || !form.visitorName || !form.purpose">
@@ -249,7 +255,8 @@ export interface StudentItem {
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .fd-dialog {
       width: 100%;
@@ -462,8 +469,7 @@ export class VisitorCheckInDialogComponent {
 @Component({
   selector: 'app-gate-pass-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
     <div class="fd-dialog">
       <div class="fd-dialog-header">
@@ -474,96 +480,105 @@ export class VisitorCheckInDialogComponent {
         </div>
         <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
       </div>
-
+    
       <div class="fd-dialog-body">
         <div class="fd-form-row">
           <mat-form-field appearance="outline" class="fd-field">
             <mat-label>Select Class</mat-label>
             <mat-select [(ngModel)]="selectedClass" (selectionChange)="onClassChange()">
               <mat-option value="">-- All Classes --</mat-option>
-              <mat-option *ngFor="let c of classList" [value]="c">
-                {{c}}
-              </mat-option>
+              @for (c of classList; track c) {
+                <mat-option [value]="c">
+                  {{c}}
+                </mat-option>
+              }
             </mat-select>
             <mat-icon matPrefix>domain</mat-icon>
           </mat-form-field>
-
+    
           <mat-form-field appearance="outline" class="fd-field">
             <mat-label>Select Student *</mat-label>
             <mat-select [(ngModel)]="form.studentId" required (selectionChange)="onStudentChange()">
-              <mat-option *ngFor="let s of filteredStudents" [value]="s.id">
-                {{s.studentName}} <span *ngIf="s.rollNumber">(Roll: {{s.rollNumber}})</span>
+              @for (s of filteredStudents; track s) {
+                <mat-option [value]="s.id">
+                  {{s.studentName}} @if (s.rollNumber) {
+                  <span>(Roll: {{s.rollNumber}})</span>
+                }
               </mat-option>
-            </mat-select>
-            <mat-icon matPrefix>school</mat-icon>
-          </mat-form-field>
-        </div>
-
-        <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
-            <mat-label>Reason Category</mat-label>
-            <mat-select [(ngModel)]="form.reasonCategory">
-              <mat-option *ngFor="let r of reasonCategories" [value]="r">{{r}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
-            <mat-label>Expected Return Time</mat-label>
-            <input matInput type="datetime-local" [(ngModel)]="form.expectedReturnTime" />
-            <mat-icon matPrefix>schedule</mat-icon>
-          </mat-form-field>
-        </div>
-
-        <mat-form-field appearance="outline" class="fd-field-full">
-          <mat-label>Reason for Early Exit *</mat-label>
-          <textarea matInput [(ngModel)]="form.reason" rows="2" placeholder="Explain why the student is leaving" required></textarea>
-        </mat-form-field>
-
-        <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
-            <mat-label>Parent / Guardian Name</mat-label>
-            <input matInput [(ngModel)]="form.parentGuardianName" placeholder="Who is picking up" />
-            <mat-icon matPrefix>person</mat-icon>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
-            <mat-label>Parent Contact Number</mat-label>
-            <input matInput [(ngModel)]="form.parentContactNumber" placeholder="Mobile" />
-            <mat-icon matPrefix>phone</mat-icon>
-          </mat-form-field>
-        </div>
-
-        <div class="fd-form-row">
-          <mat-form-field appearance="outline" class="fd-field">
-            <mat-label>Relation to Student</mat-label>
-            <mat-select [(ngModel)]="form.parentRelation">
-              <mat-option value="Father">Father</mat-option>
-              <mat-option value="Mother">Mother</mat-option>
-              <mat-option value="Guardian">Guardian</mat-option>
-              <mat-option value="Elder Sibling">Elder Sibling</mat-option>
-              <mat-option value="Other">Other</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="fd-field">
-            <mat-label>Security Guard</mat-label>
-            <input matInput [(ngModel)]="form.securityGuardName" placeholder="On duty guard name" />
-            <mat-icon matPrefix>security</mat-icon>
-          </mat-form-field>
-        </div>
-
-        <mat-form-field appearance="outline" class="fd-field-full">
-          <mat-label>Remarks</mat-label>
-          <input matInput [(ngModel)]="form.remarks" placeholder="Additional notes" />
+            }
+          </mat-select>
+          <mat-icon matPrefix>school</mat-icon>
         </mat-form-field>
       </div>
-
-      <div class="fd-dialog-footer">
-        <button mat-stroked-button (click)="cancel()">Cancel</button>
-        <button mat-flat-button color="primary" (click)="save()" [disabled]="saving || !form.studentId || !form.reason">
-          <mat-icon>{{saving ? 'hourglass_empty' : 'exit_to_app'}}</mat-icon>
-          {{saving ? 'Issuing...' : 'Issue Gate Pass'}}
-        </button>
+    
+      <div class="fd-form-row">
+        <mat-form-field appearance="outline" class="fd-field">
+          <mat-label>Reason Category</mat-label>
+          <mat-select [(ngModel)]="form.reasonCategory">
+            @for (r of reasonCategories; track r) {
+              <mat-option [value]="r">{{r}}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="fd-field">
+          <mat-label>Expected Return Time</mat-label>
+          <input matInput type="datetime-local" [(ngModel)]="form.expectedReturnTime" />
+          <mat-icon matPrefix>schedule</mat-icon>
+        </mat-form-field>
       </div>
+    
+      <mat-form-field appearance="outline" class="fd-field-full">
+        <mat-label>Reason for Early Exit *</mat-label>
+        <textarea matInput [(ngModel)]="form.reason" rows="2" placeholder="Explain why the student is leaving" required></textarea>
+      </mat-form-field>
+    
+      <div class="fd-form-row">
+        <mat-form-field appearance="outline" class="fd-field">
+          <mat-label>Parent / Guardian Name</mat-label>
+          <input matInput [(ngModel)]="form.parentGuardianName" placeholder="Who is picking up" />
+          <mat-icon matPrefix>person</mat-icon>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="fd-field">
+          <mat-label>Parent Contact Number</mat-label>
+          <input matInput [(ngModel)]="form.parentContactNumber" placeholder="Mobile" />
+          <mat-icon matPrefix>phone</mat-icon>
+        </mat-form-field>
+      </div>
+    
+      <div class="fd-form-row">
+        <mat-form-field appearance="outline" class="fd-field">
+          <mat-label>Relation to Student</mat-label>
+          <mat-select [(ngModel)]="form.parentRelation">
+            <mat-option value="Father">Father</mat-option>
+            <mat-option value="Mother">Mother</mat-option>
+            <mat-option value="Guardian">Guardian</mat-option>
+            <mat-option value="Elder Sibling">Elder Sibling</mat-option>
+            <mat-option value="Other">Other</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="fd-field">
+          <mat-label>Security Guard</mat-label>
+          <input matInput [(ngModel)]="form.securityGuardName" placeholder="On duty guard name" />
+          <mat-icon matPrefix>security</mat-icon>
+        </mat-form-field>
+      </div>
+    
+      <mat-form-field appearance="outline" class="fd-field-full">
+        <mat-label>Remarks</mat-label>
+        <input matInput [(ngModel)]="form.remarks" placeholder="Additional notes" />
+      </mat-form-field>
     </div>
-  `,
+    
+    <div class="fd-dialog-footer">
+      <button mat-stroked-button (click)="cancel()">Cancel</button>
+      <button mat-flat-button color="primary" (click)="save()" [disabled]="saving || !form.studentId || !form.reason">
+        <mat-icon>{{saving ? 'hourglass_empty' : 'exit_to_app'}}</mat-icon>
+        {{saving ? 'Issuing...' : 'Issue Gate Pass'}}
+      </button>
+    </div>
+    </div>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .fd-dialog {
       width: 100%;
@@ -705,8 +720,7 @@ export class GatePassDialogComponent implements OnInit {
 @Component({
   selector: 'app-approve-gatepass-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
   template: `
     <div class="fd-dialog-sm">
       <div class="fd-dialog-header">
@@ -719,56 +733,63 @@ export class GatePassDialogComponent implements OnInit {
         </div>
         <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
       </div>
-
+    
       <div class="fd-dialog-body">
         <!-- Rejection Warning Banner -->
-        <div class="rejection-notice" *ngIf="data.action === 'Reject'">
-          <mat-icon>info</mat-icon>
-          <div>
-            <strong>Rejection Reason Required:</strong> Please specify why this gate pass is being rejected. This reason will be recorded and visible to the student/parent.
+        @if (data.action === 'Reject') {
+          <div class="rejection-notice">
+            <mat-icon>info</mat-icon>
+            <div>
+              <strong>Rejection Reason Required:</strong> Please specify why this gate pass is being rejected. This reason will be recorded and visible to the student/parent.
+            </div>
           </div>
-        </div>
-
+        }
+    
         <!-- Quick Reason Selection Chips -->
-        <div class="quick-causes" *ngIf="data.action === 'Reject'">
-          <div class="quick-causes-label">Common Rejection Causes:</div>
-          <div class="causes-chips">
-            <button type="button" class="cause-chip" (click)="setCause('Parent / Guardian unverified or not answering phone')">
-              📞 Parent Unverified
-            </button>
-            <button type="button" class="cause-chip" (click)="setCause('Exam / Class test scheduled at this time')">
-              📝 Exam in Progress
-            </button>
-            <button type="button" class="cause-chip" (click)="setCause('Unauthorized escort or guardian')">
-              🚫 Unauthorized Guardian
-            </button>
-            <button type="button" class="cause-chip" (click)="setCause('Invalid or insufficient reason provided')">
-              ⚠️ Insufficient Reason
-            </button>
+        @if (data.action === 'Reject') {
+          <div class="quick-causes">
+            <div class="quick-causes-label">Common Rejection Causes:</div>
+            <div class="causes-chips">
+              <button type="button" class="cause-chip" (click)="setCause('Parent / Guardian unverified or not answering phone')">
+                📞 Parent Unverified
+              </button>
+              <button type="button" class="cause-chip" (click)="setCause('Exam / Class test scheduled at this time')">
+                📝 Exam in Progress
+              </button>
+              <button type="button" class="cause-chip" (click)="setCause('Unauthorized escort or guardian')">
+                🚫 Unauthorized Guardian
+              </button>
+              <button type="button" class="cause-chip" (click)="setCause('Invalid or insufficient reason provided')">
+                ⚠️ Insufficient Reason
+              </button>
+            </div>
           </div>
-        </div>
-
+        }
+    
         <mat-form-field appearance="outline" class="fd-field-full">
           <mat-label>{{ data.action === 'Reject' ? 'Rejection Cause / Reason *' : 'Approval Remarks (optional)' }}</mat-label>
-          <textarea matInput [(ngModel)]="remarks" rows="3" 
-            [placeholder]="data.action === 'Reject' ? 'Type or select the reason for rejection...' : 'E.g., Verified with parent via phone...'"></textarea>
-          <mat-hint *ngIf="data.action === 'Reject' && !remarks.trim()" class="rejection-error-hint">
-            * Please enter or select a rejection cause before submitting
-          </mat-hint>
+          <textarea matInput [(ngModel)]="remarks" rows="3"
+          [placeholder]="data.action === 'Reject' ? 'Type or select the reason for rejection...' : 'E.g., Verified with parent via phone...'"></textarea>
+          @if (data.action === 'Reject' && !remarks.trim()) {
+            <mat-hint class="rejection-error-hint">
+              * Please enter or select a rejection cause before submitting
+            </mat-hint>
+          }
         </mat-form-field>
       </div>
-
+    
       <div class="fd-dialog-footer">
         <button mat-stroked-button (click)="cancel()">Cancel</button>
-        <button mat-flat-button [color]="data.action === 'Approve' ? 'primary' : 'warn'" 
-          (click)="confirm()" 
+        <button mat-flat-button [color]="data.action === 'Approve' ? 'primary' : 'warn'"
+          (click)="confirm()"
           [disabled]="saving || (data.action === 'Reject' && !remarks.trim())">
           <mat-icon>{{data.action === 'Approve' ? 'check' : 'block'}}</mat-icon>
           {{saving ? 'Processing...' : (data.action === 'Approve' ? 'Approve Gate Pass' : 'Reject Gate Pass')}}
         </button>
       </div>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .fd-dialog-sm {
       width: 100%;
@@ -934,13 +955,22 @@ export class ApproveGatePassDialogComponent {
   selector: 'app-visitors',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule,
-    MatProgressBarModule, MatDividerModule, MatTabsModule
-  ],
+    CommonModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    MatDividerModule,
+    MatTabsModule
+],
   template: `
     <div class="fd-page">
-
+    
       <!-- ── Page Header ── -->
       <div class="page-header">
         <div class="header-left">
@@ -963,7 +993,7 @@ export class ApproveGatePassDialogComponent {
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
-          <ng-container *ngIf="!isStudentOrParent">
+          @if (!isStudentOrParent) {
             <button mat-flat-button class="btn-visitor" (click)="openVisitorDialog()">
               <mat-icon>how_to_reg</mat-icon>
               <span>Check In Visitor</span>
@@ -972,13 +1002,13 @@ export class ApproveGatePassDialogComponent {
               <mat-icon>exit_to_app</mat-icon>
               <span>Issue Gate Pass</span>
             </button>
-          </ng-container>
+          }
         </div>
       </div>
-
+    
       <!-- ── Stats Cards ── -->
       <div class="stats-grid" [class.stats-student]="isStudentOrParent">
-        <ng-container *ngIf="!isStudentOrParent">
+        @if (!isStudentOrParent) {
           <div class="stat-card stat-blue">
             <mat-icon class="stat-icon">groups</mat-icon>
             <div class="stat-body">
@@ -1000,7 +1030,7 @@ export class ApproveGatePassDialogComponent {
               <div class="stat-label">Checked Out</div>
             </div>
           </div>
-        </ng-container>
+        }
         <div class="stat-card stat-orange">
           <mat-icon class="stat-icon">exit_to_app</mat-icon>
           <div class="stat-body">
@@ -1023,140 +1053,165 @@ export class ApproveGatePassDialogComponent {
           </div>
         </div>
       </div>
-
+    
       <!-- ── Tabs ── -->
       <mat-tab-group [(selectedIndex)]="activeTab" class="fd-tabs" animationDuration="200ms">
-
+    
         <!-- ═══ TAB 1: VISITOR BOOK ═══ -->
-        <mat-tab *ngIf="!isStudentOrParent">
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">badge</mat-icon>
-            Visitor Book
-          </ng-template>
-
-          <!-- Filters -->
-          <div class="filter-bar">
-            <mat-form-field appearance="outline" class="filter-field-date" subscriptSizing="dynamic">
-              <mat-label>Date</mat-label>
-              <mat-icon matPrefix class="filter-icon">today</mat-icon>
-              <input matInput type="date" [(ngModel)]="visitorDate" (change)="loadVisitors()" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
-              <mat-label>Status</mat-label>
-              <mat-select [(ngModel)]="visitorStatus" (selectionChange)="loadVisitors()">
-                <mat-option value="All">All</mat-option>
-                <mat-option value="Active">Active (Inside)</mat-option>
-                <mat-option value="CheckedOut">Checked Out</mat-option>
-                <mat-option value="Overstay">Overstay</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="filter-field filter-field-full-mobile" subscriptSizing="dynamic">
-              <mat-label>Visitor Type</mat-label>
-              <mat-select [(ngModel)]="visitorType" (selectionChange)="loadVisitors()">
-                <mat-option value="All">All Types</mat-option>
-                <mat-option *ngFor="let t of visitorTypes" [value]="t">{{t}}</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="filter-field-search" subscriptSizing="dynamic">
-              <mat-icon matPrefix class="filter-icon">search</mat-icon>
-              <input matInput [(ngModel)]="visitorSearch" (input)="loadVisitors()" placeholder="Search by name, org, pass no..." />
-              <button mat-icon-button matSuffix *ngIf="visitorSearch" (click)="visitorSearch=''; loadVisitors()" style="color:#94a3b8;">
-                <mat-icon style="font-size:18px;">close</mat-icon>
-              </button>
-            </mat-form-field>
-          </div>
-
-          <!-- Visitor Table -->
-          <div class="fd-table-wrap" *ngIf="visitors.length > 0; else noVisitors">
-            <table class="fd-table">
-              <thead>
-                <tr>
-                  <th>Pass #</th>
-                  <th>Name & Type</th>
-                  <th>Purpose</th>
-                  <th>Person to Meet</th>
-                  <th>Check In</th>
-                  <th>Check Out</th>
-                  <th>Duration</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let v of visitors" [class.row-active]="v.status === 'Active'">
-                  <td>
-                    <span class="pass-num">{{v.visitorNumber}}</span>
-                    <div class="visitor-org" *ngIf="v.organization">{{v.organization}}</div>
-                  </td>
-                  <td>
-                    <div class="visitor-name">{{v.visitorName}}</div>
-                    <span class="type-badge type-{{v.visitorType.toLowerCase()}}">{{v.visitorType}}</span>
-                    <div class="visitor-phone" *ngIf="v.contactNumber">
-                      <mat-icon style="font-size:11px; width:11px; height:11px;">phone</mat-icon>
-                      {{v.contactNumber}}
-                    </div>
-                  </td>
-                  <td>
-                    <div class="purpose-text">{{v.purpose | slice:0:60}}{{v.purpose.length > 60 ? '...' : ''}}</div>
-                  </td>
-                  <td>
-                    <div *ngIf="v.personToMeet">{{v.personToMeet}}</div>
-                    <div class="dept-text" *ngIf="v.departmentToVisit">{{v.departmentToVisit}}</div>
-                    <span class="na-text" *ngIf="!v.personToMeet">—</span>
-                  </td>
-                  <td>
-                    <div class="time-primary">{{v.checkInTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
-                    <div class="time-date">{{v.checkInTime | date:'dd MMM':'Asia/Kolkata'}}</div>
-                  </td>
-                  <td>
-                    <div class="time-primary" *ngIf="v.checkOutTime">{{v.checkOutTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
-                    <div class="time-date" *ngIf="v.checkOutTime">{{v.checkOutTime | date:'dd MMM':'Asia/Kolkata'}}</div>
-                    <span class="na-text" *ngIf="!v.checkOutTime">—</span>
-                  </td>
-                  <td>
-                    <span class="duration-text">{{getDuration(v.checkInTime, v.checkOutTime)}}</span>
-                  </td>
-                  <td>
-                    <span class="status-badge status-{{v.status.toLowerCase()}}">
-                      <mat-icon>{{v.status === 'Active' ? 'sensors' : v.status === 'CheckedOut' ? 'check_circle' : 'warning'}}</mat-icon>
-                      {{v.status === 'CheckedOut' ? 'Out' : v.status}}
-                    </span>
-                  </td>
-                  <td>
-                    <div class="action-btns">
-                      <button mat-icon-button color="primary" [disabled]="v.status === 'CheckedOut'"
-                        (click)="checkOutVisitor(v)" matTooltip="Check Out Visitor">
-                        <mat-icon>logout</mat-icon>
-                      </button>
-                      <button mat-icon-button color="warn"
-                        (click)="deleteVisitor(v)" matTooltip="Delete Record">
-                        <mat-icon>delete</mat-icon>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <ng-template #noVisitors>
-            <div class="empty-state">
-              <mat-icon>badge</mat-icon>
-              <p>No visitors found for the selected criteria.</p>
-              <button mat-stroked-button (click)="openVisitorDialog()">
-                <mat-icon>add</mat-icon> Check In First Visitor
-              </button>
+        @if (!isStudentOrParent) {
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon class="tab-icon">badge</mat-icon>
+              Visitor Book
+            </ng-template>
+            <!-- Filters -->
+            <div class="filter-bar">
+              <mat-form-field appearance="outline" class="filter-field-date" subscriptSizing="dynamic">
+                <mat-label>Date</mat-label>
+                <mat-icon matPrefix class="filter-icon">today</mat-icon>
+                <input matInput type="date" [(ngModel)]="visitorDate" (change)="loadVisitors()" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
+                <mat-label>Status</mat-label>
+                <mat-select [(ngModel)]="visitorStatus" (selectionChange)="loadVisitors()">
+                  <mat-option value="All">All</mat-option>
+                  <mat-option value="Active">Active (Inside)</mat-option>
+                  <mat-option value="CheckedOut">Checked Out</mat-option>
+                  <mat-option value="Overstay">Overstay</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field filter-field-full-mobile" subscriptSizing="dynamic">
+                <mat-label>Visitor Type</mat-label>
+                <mat-select [(ngModel)]="visitorType" (selectionChange)="loadVisitors()">
+                  <mat-option value="All">All Types</mat-option>
+                  @for (t of visitorTypes; track t) {
+                    <mat-option [value]="t">{{t}}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field-search" subscriptSizing="dynamic">
+                <mat-icon matPrefix class="filter-icon">search</mat-icon>
+                <input matInput [(ngModel)]="visitorSearch" (input)="loadVisitors()" placeholder="Search by name, org, pass no..." />
+                @if (visitorSearch) {
+                  <button mat-icon-button matSuffix (click)="visitorSearch=''; loadVisitors()" style="color:#94a3b8;">
+                    <mat-icon style="font-size:18px;">close</mat-icon>
+                  </button>
+                }
+              </mat-form-field>
             </div>
-          </ng-template>
-        </mat-tab>
-
+            <!-- Visitor Table -->
+            @if (visitors.length > 0) {
+              <div class="fd-table-wrap">
+                <table class="fd-table">
+                  <thead>
+                    <tr>
+                      <th>Pass #</th>
+                      <th>Name & Type</th>
+                      <th>Purpose</th>
+                      <th>Person to Meet</th>
+                      <th>Check In</th>
+                      <th>Check Out</th>
+                      <th>Duration</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (v of visitors; track v) {
+                      <tr [class.row-active]="v.status === 'Active'">
+                        <td>
+                          <span class="pass-num">{{v.visitorNumber}}</span>
+                          @if (v.organization) {
+                            <div class="visitor-org">{{v.organization}}</div>
+                          }
+                        </td>
+                        <td>
+                          <div class="visitor-name">{{v.visitorName}}</div>
+                          <span class="type-badge type-{{v.visitorType.toLowerCase()}}">{{v.visitorType}}</span>
+                          @if (v.contactNumber) {
+                            <div class="visitor-phone">
+                              <mat-icon style="font-size:11px; width:11px; height:11px;">phone</mat-icon>
+                              {{v.contactNumber}}
+                            </div>
+                          }
+                        </td>
+                        <td>
+                          <div class="purpose-text">{{v.purpose | slice:0:60}}{{v.purpose.length > 60 ? '...' : ''}}</div>
+                        </td>
+                        <td>
+                          @if (v.personToMeet) {
+                            <div>{{v.personToMeet}}</div>
+                          }
+                          @if (v.departmentToVisit) {
+                            <div class="dept-text">{{v.departmentToVisit}}</div>
+                          }
+                          @if (!v.personToMeet) {
+                            <span class="na-text">—</span>
+                          }
+                        </td>
+                        <td>
+                          <div class="time-primary">{{v.checkInTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
+                          <div class="time-date">{{v.checkInTime | date:'dd MMM':'Asia/Kolkata'}}</div>
+                        </td>
+                        <td>
+                          @if (v.checkOutTime) {
+                            <div class="time-primary">{{v.checkOutTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
+                          }
+                          @if (v.checkOutTime) {
+                            <div class="time-date">{{v.checkOutTime | date:'dd MMM':'Asia/Kolkata'}}</div>
+                          }
+                          @if (!v.checkOutTime) {
+                            <span class="na-text">—</span>
+                          }
+                        </td>
+                        <td>
+                          <span class="duration-text">{{getDuration(v.checkInTime, v.checkOutTime)}}</span>
+                        </td>
+                        <td>
+                          <span class="status-badge status-{{v.status.toLowerCase()}}">
+                            <mat-icon>{{v.status === 'Active' ? 'sensors' : v.status === 'CheckedOut' ? 'check_circle' : 'warning'}}</mat-icon>
+                            {{v.status === 'CheckedOut' ? 'Out' : v.status}}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="action-btns">
+                            <button mat-icon-button color="primary" [disabled]="v.status === 'CheckedOut'"
+                              (click)="checkOutVisitor(v)" matTooltip="Check Out Visitor">
+                              <mat-icon>logout</mat-icon>
+                            </button>
+                            <button mat-icon-button color="warn"
+                              (click)="deleteVisitor(v)" matTooltip="Delete Record">
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <div class="empty-state">
+                <mat-icon>badge</mat-icon>
+                <p>No visitors found for the selected criteria.</p>
+                <button mat-stroked-button (click)="openVisitorDialog()">
+                  <mat-icon>add</mat-icon> Check In First Visitor
+                </button>
+              </div>
+            }
+          </mat-tab>
+        }
+    
         <!-- ═══ TAB 2: STUDENT GATE PASS ═══ -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">exit_to_app</mat-icon>
             Student Gate Pass
-            <span class="pending-chip" *ngIf="stats.pendingGatePasses > 0">{{stats.pendingGatePasses}}</span>
+            @if (stats.pendingGatePasses > 0) {
+              <span class="pending-chip">{{stats.pendingGatePasses}}</span>
+            }
           </ng-template>
-
+    
           <!-- Filters -->
           <div class="filter-bar">
             <mat-form-field appearance="outline" class="filter-field-date" subscriptSizing="dynamic">
@@ -1177,108 +1232,144 @@ export class ApproveGatePassDialogComponent {
             <mat-form-field appearance="outline" class="filter-field-search" subscriptSizing="dynamic">
               <mat-icon matPrefix class="filter-icon">search</mat-icon>
               <input matInput [(ngModel)]="gatePassSearch" (input)="loadGatePasses()" placeholder="Search by student name, pass no..." />
-              <button mat-icon-button matSuffix *ngIf="gatePassSearch" (click)="gatePassSearch=''; loadGatePasses()" style="color:#94a3b8;">
-                <mat-icon style="font-size:18px;">close</mat-icon>
-              </button>
+              @if (gatePassSearch) {
+                <button mat-icon-button matSuffix (click)="gatePassSearch=''; loadGatePasses()" style="color:#94a3b8;">
+                  <mat-icon style="font-size:18px;">close</mat-icon>
+                </button>
+              }
             </mat-form-field>
           </div>
-
+    
           <!-- Gate Pass Table -->
-          <div class="fd-table-wrap" *ngIf="gatePasses.length > 0; else noPasses">
-            <table class="fd-table">
-              <thead>
-                <tr>
-                  <th>Pass #</th>
-                  <th>Student</th>
-                  <th>Reason</th>
-                  <th>Parent / Guardian</th>
-                  <th>Out Time</th>
-                  <th>Expected Return</th>
-                  <th>Status</th>
-                  <th>Approved By</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let g of gatePasses">
-                  <td><span class="pass-num">{{g.gatePassNumber}}</span></td>
-                  <td>
-                    <div class="student-name">{{g.studentName}}</div>
-                    <div class="student-meta">
-                      {{g.className}} {{g.sectionName}}
-                      <span *ngIf="g.rollNumber"> | Roll: {{g.rollNumber}}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span class="reason-badge">{{g.reasonCategory}}</span>
-                    <div class="reason-text">{{g.reason | slice:0:50}}{{g.reason.length > 50 ? '...' : ''}}</div>
-                  </td>
-                  <td>
-                    <div *ngIf="g.parentGuardianName">{{g.parentGuardianName}}</div>
-                    <div class="dept-text" *ngIf="g.parentRelation">{{g.parentRelation}}</div>
-                    <div class="visitor-phone" *ngIf="g.parentContactNumber">
-                      <mat-icon style="font-size:11px; width:11px; height:11px;">phone</mat-icon>
-                      {{g.parentContactNumber}}
-                    </div>
-                    <span class="na-text" *ngIf="!g.parentGuardianName">—</span>
-                  </td>
-                  <td>
-                    <div class="time-primary">{{g.outDateTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
-                    <div class="time-date">{{g.outDateTime | date:'dd MMM':'Asia/Kolkata'}}</div>
-                  </td>
-                  <td>
-                    <div class="time-primary" *ngIf="g.expectedReturnTime">{{g.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
-                    <div class="time-date" *ngIf="g.expectedReturnTime">{{g.expectedReturnTime | date:'dd MMM':'Asia/Kolkata'}}</div>
-                    <div class="time-date" *ngIf="g.actualReturnTime" style="color:#16a34a;">
-                      Ret: {{g.actualReturnTime | date:'hh:mm a':'Asia/Kolkata'}} · {{g.actualReturnTime | date:'dd MMM':'Asia/Kolkata'}}
-                    </div>
-                    <span class="na-text" *ngIf="!g.expectedReturnTime">—</span>
-                  </td>
-                  <td>
-                    <span class="status-badge gp-status-{{g.status.toLowerCase()}}">
-                      <mat-icon>{{getGpIcon(g.status)}}</mat-icon>
-                      {{g.status}}
-                    </span>
-                  </td>
-                  <td>
-                    <div *ngIf="g.approvedBy" class="approver-text">{{g.approvedBy}}</div>
-                    <div *ngIf="g.approvedAt" class="time-date">{{g.approvedAt | date:'hh:mm a':'Asia/Kolkata'}} · {{g.approvedAt | date:'dd MMM':'Asia/Kolkata'}}</div>
-                    <span class="na-text" *ngIf="!g.approvedBy">—</span>
-                  </td>
-                  <td>
-                    <div class="action-btns">
-                      <!-- Approve / Reject / Return: ONLY for Admin / Staff / Wardens -->
-                      <ng-container *ngIf="canApproveGatePass">
-                        <button mat-icon-button style="color:#16a34a;" *ngIf="g.status === 'Pending'"
-                          (click)="approveGatePass(g, 'Approve')" matTooltip="Approve">
-                          <mat-icon>check_circle</mat-icon>
-                        </button>
-                        <button mat-icon-button color="warn" *ngIf="g.status === 'Pending'"
-                          (click)="approveGatePass(g, 'Reject')" matTooltip="Reject">
-                          <mat-icon>cancel</mat-icon>
-                        </button>
-                        <button mat-icon-button style="color:#2563eb;" *ngIf="g.status === 'Approved'"
-                          (click)="markReturn(g)" matTooltip="Mark Student Returned">
-                          <mat-icon>keyboard_return</mat-icon>
-                        </button>
-                        <button mat-icon-button color="warn"
-                          (click)="deleteGatePass(g)" matTooltip="Delete">
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </ng-container>
-
-                      <!-- If Student or Parent: They can only cancel their own pending request -->
-                      <button mat-icon-button color="warn" *ngIf="isStudentOrParent && g.status === 'Pending'"
-                        (click)="deleteGatePass(g)" matTooltip="Cancel Request">
-                        <mat-icon>close</mat-icon>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <ng-template #noPasses>
+          @if (gatePasses.length > 0) {
+            <div class="fd-table-wrap">
+              <table class="fd-table">
+                <thead>
+                  <tr>
+                    <th>Pass #</th>
+                    <th>Student</th>
+                    <th>Reason</th>
+                    <th>Parent / Guardian</th>
+                    <th>Out Time</th>
+                    <th>Expected Return</th>
+                    <th>Status</th>
+                    <th>Approved By</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (g of gatePasses; track g) {
+                    <tr>
+                      <td><span class="pass-num">{{g.gatePassNumber}}</span></td>
+                      <td>
+                        <div class="student-name">{{g.studentName}}</div>
+                        <div class="student-meta">
+                          {{g.className}} {{g.sectionName}}
+                          @if (g.rollNumber) {
+                            <span> | Roll: {{g.rollNumber}}</span>
+                          }
+                        </div>
+                      </td>
+                      <td>
+                        <span class="reason-badge">{{g.reasonCategory}}</span>
+                        <div class="reason-text">{{g.reason | slice:0:50}}{{g.reason.length > 50 ? '...' : ''}}</div>
+                      </td>
+                      <td>
+                        @if (g.parentGuardianName) {
+                          <div>{{g.parentGuardianName}}</div>
+                        }
+                        @if (g.parentRelation) {
+                          <div class="dept-text">{{g.parentRelation}}</div>
+                        }
+                        @if (g.parentContactNumber) {
+                          <div class="visitor-phone">
+                            <mat-icon style="font-size:11px; width:11px; height:11px;">phone</mat-icon>
+                            {{g.parentContactNumber}}
+                          </div>
+                        }
+                        @if (!g.parentGuardianName) {
+                          <span class="na-text">—</span>
+                        }
+                      </td>
+                      <td>
+                        <div class="time-primary">{{g.outDateTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
+                        <div class="time-date">{{g.outDateTime | date:'dd MMM':'Asia/Kolkata'}}</div>
+                      </td>
+                      <td>
+                        @if (g.expectedReturnTime) {
+                          <div class="time-primary">{{g.expectedReturnTime | date:'hh:mm a':'Asia/Kolkata'}}</div>
+                        }
+                        @if (g.expectedReturnTime) {
+                          <div class="time-date">{{g.expectedReturnTime | date:'dd MMM':'Asia/Kolkata'}}</div>
+                        }
+                        @if (g.actualReturnTime) {
+                          <div class="time-date" style="color:#16a34a;">
+                            Ret: {{g.actualReturnTime | date:'hh:mm a':'Asia/Kolkata'}} · {{g.actualReturnTime | date:'dd MMM':'Asia/Kolkata'}}
+                          </div>
+                        }
+                        @if (!g.expectedReturnTime) {
+                          <span class="na-text">—</span>
+                        }
+                      </td>
+                      <td>
+                        <span class="status-badge gp-status-{{g.status.toLowerCase()}}">
+                          <mat-icon>{{getGpIcon(g.status)}}</mat-icon>
+                          {{g.status}}
+                        </span>
+                      </td>
+                      <td>
+                        @if (g.approvedBy) {
+                          <div class="approver-text">{{g.approvedBy}}</div>
+                        }
+                        @if (g.approvedAt) {
+                          <div class="time-date">{{g.approvedAt | date:'hh:mm a':'Asia/Kolkata'}} · {{g.approvedAt | date:'dd MMM':'Asia/Kolkata'}}</div>
+                        }
+                        @if (!g.approvedBy) {
+                          <span class="na-text">—</span>
+                        }
+                      </td>
+                      <td>
+                        <div class="action-btns">
+                          <!-- Approve / Reject / Return: ONLY for Admin / Staff / Wardens -->
+                          @if (canApproveGatePass) {
+                            @if (g.status === 'Pending') {
+                              <button mat-icon-button style="color:#16a34a;"
+                                (click)="approveGatePass(g, 'Approve')" matTooltip="Approve">
+                                <mat-icon>check_circle</mat-icon>
+                              </button>
+                            }
+                            @if (g.status === 'Pending') {
+                              <button mat-icon-button color="warn"
+                                (click)="approveGatePass(g, 'Reject')" matTooltip="Reject">
+                                <mat-icon>cancel</mat-icon>
+                              </button>
+                            }
+                            @if (g.status === 'Approved') {
+                              <button mat-icon-button style="color:#2563eb;"
+                                (click)="markReturn(g)" matTooltip="Mark Student Returned">
+                                <mat-icon>keyboard_return</mat-icon>
+                              </button>
+                            }
+                            <button mat-icon-button color="warn"
+                              (click)="deleteGatePass(g)" matTooltip="Delete">
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          }
+                          <!-- If Student or Parent: They can only cancel their own pending request -->
+                          @if (isStudentOrParent && g.status === 'Pending') {
+                            <button mat-icon-button color="warn"
+                              (click)="deleteGatePass(g)" matTooltip="Cancel Request">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
             <div class="empty-state">
               <mat-icon>exit_to_app</mat-icon>
               <p>No gate passes found for the selected criteria.</p>
@@ -1286,12 +1377,13 @@ export class ApproveGatePassDialogComponent {
                 <mat-icon>add</mat-icon> Issue First Gate Pass
               </button>
             </div>
-          </ng-template>
+          }
         </mat-tab>
-
+    
       </mat-tab-group>
     </div>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
