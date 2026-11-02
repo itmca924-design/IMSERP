@@ -2366,10 +2366,10 @@ import { environment } from '../../../environments/environment';
       }
     }
 
-    /* STRICT SINGLE-PAGE A4 PRINT STYLESHEET */
+    /* A4 landscape print layout */
     @page {
-      size: A4 portrait;
-      margin: 4mm 6mm;
+      size: A4 landscape;
+      margin: 8mm;
     }
 
     @media print {
@@ -2378,18 +2378,35 @@ import { environment } from '../../../environments/environment';
         margin: 0 !important;
         padding: 0 !important;
         height: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+      }
+
+      * {
+        box-sizing: border-box !important;
       }
 
       .no-print, header, nav, .sidebar, .mat-toolbar, .header-container, app-footer, .footer {
         display: none !important;
       }
 
-      .fee-card-page-container {
+      :host {
+        display: block !important;
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+      }
+
+      .fee-card-page-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
         background: #ffffff !important;
+        display: block !important;
       }
 
       .fee-card-wrapper {
@@ -2397,30 +2414,40 @@ import { environment } from '../../../environments/environment';
         padding: 0 !important;
         page-break-after: avoid !important;
         break-after: avoid !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
       }
 
       .page-break-container {
         page-break-after: always !important;
         break-after: page !important;
         margin-bottom: 0 !important;
+        width: 100% !important;
       }
 
       .student-fee-passbook {
         border: 2px solid #1e3a8a !important;
         box-shadow: none !important;
-        padding: 4mm 6mm !important;
+        padding: 3mm 4mm !important;
         border-radius: 4px !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
-        width: 100% !important;
+        zoom: 0.9 !important;
+        width: 111.12% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        margin: 0 auto !important;
         box-sizing: border-box !important;
         background: #ffffff !important;
+        overflow: hidden !important;
       }
 
       .card-institute-header {
         display: grid !important;
-        grid-template-columns: 60px 1fr 70px !important;
-        gap: 10px !important;
+        grid-template-columns: 52px minmax(0, 1fr) 64px !important;
+        gap: 8px !important;
         align-items: center !important;
         text-align: center !important;
         padding-bottom: 4px !important;
@@ -2444,12 +2471,15 @@ import { environment } from '../../../environments/environment';
       }
 
       .inst-name {
-        font-size: 16px !important;
+        font-size: 15px !important;
         font-weight: 800 !important;
         line-height: 1.15 !important;
         color: #1e3a8a !important;
         text-transform: uppercase !important;
         margin: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }

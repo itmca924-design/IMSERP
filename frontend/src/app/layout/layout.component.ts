@@ -1261,6 +1261,7 @@ export interface BreadcrumbItem {
       overflow: visible !important;
       flex-wrap: nowrap;
       width: 100%;
+      min-width: 0;
       box-sizing: border-box !important;
       position: relative;
       color: #1e293b;
@@ -1323,7 +1324,8 @@ export interface BreadcrumbItem {
       align-items: center;
       gap: 6px;
       margin-left: 6px;
-      flex-shrink: 0;
+      flex: 0 1 auto;
+      min-width: 0;
 
       @media (max-width: 600px) {
         margin-left: 2px !important;
@@ -1946,8 +1948,8 @@ export interface BreadcrumbItem {
     }
     .menu-section-title { padding:10px 16px 6px; color:#64748b; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
     .spacer {
-      flex: 1 1 auto;
-      min-width: 8px;
+      flex: 1 1 0;
+      min-width: 0;
     }
     .branch-selector-button {
       height: 36px;
@@ -2203,6 +2205,8 @@ export interface BreadcrumbItem {
       width: 38px;
       height: 38px;
       min-width: 38px;
+      flex: 0 0 38px !important;
+      box-sizing: border-box !important;
 
       @media (max-width: 1440px) {
         margin-left: 4px;
@@ -2215,6 +2219,7 @@ export interface BreadcrumbItem {
         width: 34px !important;
         height: 34px !important;
         min-width: 34px !important;
+        flex-basis: 34px !important;
         box-sizing: border-box !important;
 
         .header-avatar-circle {
@@ -2273,6 +2278,49 @@ export interface BreadcrumbItem {
       height: 100vh;
       max-height: 100vh;
       overflow: hidden !important;
+    }
+
+    @media (max-width: 1440px) {
+      .header-tools {
+        gap: 3px;
+        margin-left: 2px;
+      }
+
+      .header-tools .install-pwa-btn {
+        display: none !important;
+      }
+
+      .header-search:not(.open) {
+        width: clamp(36px, 9vw, 120px);
+      }
+
+      .account-btn {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+      }
+    }
+
+    @media (max-width: 1280px) {
+      .header-tools .active-users-pill-btn {
+        display: none !important;
+      }
+
+      .header-search:not(.open) {
+        width: 36px;
+        padding: 0;
+        justify-content: center;
+        border-radius: 50%;
+      }
+
+      .header-search:not(.open) input {
+        display: none;
+      }
+
+      .branch-selector-button {
+        max-width: 150px;
+        margin-right: 2px;
+        padding: 0 6px !important;
+      }
     }
 
     .enterprise-breadcrumb-bar {
@@ -2406,6 +2454,65 @@ export interface BreadcrumbItem {
 
       @media (max-width: 768px) {
         padding: 12px;
+      }
+    }
+
+    @media print {
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .sidenav,
+      .assistant-drawer,
+      .header-toolbar,
+      .brand-section,
+      .nav-container,
+      .enterprise-breadcrumb-bar,
+      app-footer,
+      .mat-drawer-backdrop,
+      .quick-settings-drawer,
+      .app-quick-settings-drawer,
+      .sidebar-pwa-strip,
+      .mat-sidenav-backdrop,
+      .mat-drawer-inner-container,
+      .mat-drawer-side {
+        display: none !important;
+      }
+
+      .sidenav-container,
+      .mat-sidenav-container,
+      .mat-sidenav-content,
+      .main-content {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        transform: none !important;
+        position: static !important;
+      }
+
+      .mat-sidenav-content {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+      }
+
+      .sidenav-container:not(.mobile-mode) > .mat-drawer-content.mat-sidenav-content,
+      .sidenav-container.rail-mode:not(.mobile-mode) > .mat-drawer-content.mat-sidenav-content {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 100% !important;
       }
     }
     app-footer {
@@ -3564,28 +3671,6 @@ export class LayoutComponent implements OnInit {
       children: []
     };
 
-    const timetableItemMaster: MenuItem = {
-      id: 'master-timetable-link',
-      title: 'Class Timetable & Routine',
-      routeUrl: '/students/timetable',
-      icon: 'calendar_view_week',
-      sortOrder: 5.5,
-      module: 'Master',
-      isActive: true,
-      children: []
-    };
-
-    const timetableItemFaculty: MenuItem = {
-      id: 'faculty-timetable-link',
-      title: 'Class Timetable & Routine',
-      routeUrl: '/students/timetable',
-      icon: 'calendar_view_week',
-      sortOrder: 3.5,
-      module: 'Teachers',
-      isActive: true,
-      children: []
-    };
-
     const studyMaterialsItemAcademic: MenuItem = {
       id: 'academic-study-materials-link',
       title: 'Study Material & PYQ Bank',
@@ -3593,28 +3678,6 @@ export class LayoutComponent implements OnInit {
       icon: 'auto_stories',
       sortOrder: 3.8,
       module: 'Academic',
-      isActive: true,
-      children: []
-    };
-
-    const studyMaterialsItemFaculty: MenuItem = {
-      id: 'faculty-study-materials-link',
-      title: 'Study Material & PYQs',
-      routeUrl: '/study-materials',
-      icon: 'auto_stories',
-      sortOrder: 3.8,
-      module: 'Teachers',
-      isActive: true,
-      children: []
-    };
-
-    const studyMaterialsItemMaster: MenuItem = {
-      id: 'master-study-materials-link',
-      title: 'Study Material & PYQ Bank',
-      routeUrl: '/study-materials',
-      icon: 'auto_stories',
-      sortOrder: 5.8,
-      module: 'Master',
       isActive: true,
       children: []
     };
@@ -3746,22 +3809,6 @@ export class LayoutComponent implements OnInit {
                        copy.id === '2' ||
                        (copy.module && copy.module.toLowerCase() === 'master');
       if (isMaster) {
-        if (!copy.children.some(c => c.routeUrl === '/students/timetable')) {
-          const stuIdx = copy.children.findIndex(c => c.routeUrl === '/students' || c.routeUrl === '/students/my-profile');
-          if (stuIdx >= 0) {
-            copy.children.splice(stuIdx + 1, 0, timetableItemMaster);
-          } else {
-            copy.children.push(timetableItemMaster);
-          }
-        }
-        if (!copy.children.some(c => c.routeUrl === '/study-materials')) {
-          const ttIdx = copy.children.findIndex(c => c.routeUrl === '/students/timetable');
-          if (ttIdx >= 0) {
-            copy.children.splice(ttIdx + 1, 0, studyMaterialsItemMaster);
-          } else {
-            copy.children.push(studyMaterialsItemMaster);
-          }
-        }
         if (!copy.children.some(c => c.routeUrl === '/teachers') && !this.authService.isStudentOrParent()) {
           const stuIdx = copy.children.findIndex(c => c.routeUrl === '/students');
           if (stuIdx >= 0) {
@@ -3785,22 +3832,6 @@ export class LayoutComponent implements OnInit {
             copy.children.splice(diaryIdx + 1, 0, testsItemFaculty);
           } else {
             copy.children.push(testsItemFaculty);
-          }
-        }
-        if (!copy.children.some(c => c.routeUrl === '/students/timetable')) {
-          const subIdx = copy.children.findIndex(c => c.routeUrl === '/teachers/substitution');
-          if (subIdx >= 0) {
-            copy.children.splice(subIdx + 1, 0, timetableItemFaculty);
-          } else {
-            copy.children.push(timetableItemFaculty);
-          }
-        }
-        if (!copy.children.some(c => c.routeUrl === '/study-materials')) {
-          const ttIdx = copy.children.findIndex(c => c.routeUrl === '/students/timetable');
-          if (ttIdx >= 0) {
-            copy.children.splice(ttIdx + 1, 0, studyMaterialsItemFaculty);
-          } else {
-            copy.children.push(studyMaterialsItemFaculty);
           }
         }
       }
@@ -3895,8 +3926,6 @@ export class LayoutComponent implements OnInit {
         children: [
           ...(isStudentOrParent ? [
             { id: '24my', title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech', sortOrder: 1, module: 'Master', isActive: true, children: [] },
-            { id: '24tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 2, module: 'Master', isActive: true, children: [] },
-            { id: '24sm', title: 'Study Material & PYQ Bank', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 3, module: 'Master', isActive: true, children: [] }
           ] : [
             { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
             { id: '20pt', title: 'Period & Bell Timings', routeUrl: '/school/period-settings', icon: 'alarm_on', sortOrder: 1.5, module: 'Master', isActive: true, children: [] },
@@ -3905,7 +3934,6 @@ export class LayoutComponent implements OnInit {
             { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
             { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
             { id: '24tm', title: 'Teachers Master', routeUrl: '/teachers', icon: 'groups', sortOrder: 5.2, module: 'Master', isActive: true, children: [] },
-            { id: '24tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 5.5, module: 'Master', isActive: true, children: [] },
             { id: '241', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 6, module: 'Master', isActive: true, children: [] },
             { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 7, module: 'Master', isActive: true, children: [] },
             { id: '26', title: 'Events & Celebrations', routeUrl: '/events', icon: 'celebration', sortOrder: 8, module: 'Master', isActive: true, children: [] }
@@ -3942,7 +3970,6 @@ export class LayoutComponent implements OnInit {
         children: [
           { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
           { id: '410', title: 'Proxy & Substitution', routeUrl: '/teachers/substitution', icon: 'swap_horiz', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
-          { id: '411tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 2.5, module: 'Teachers', isActive: true, children: [] },
           { id: '411', title: 'Daily Lesson Diary', routeUrl: '/teachers/lesson-plans', icon: 'menu_book', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
           { id: '412', title: 'Faculty Workload', routeUrl: '/teachers/reports', icon: 'analytics', sortOrder: 4, module: 'Teachers', isActive: true, children: [] }
         ]
