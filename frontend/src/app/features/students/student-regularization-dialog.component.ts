@@ -78,7 +78,7 @@ export interface StudentAttendanceRegularizationDto {
             Submit a correction or On-Duty (OD) request for a past date to be verified by Class Teacher
           </span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="dialogRef.close(false)" type="button">
+        <button class="fd-dialog-close" (click)="dialogRef.close(false)" type="button" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -190,8 +190,8 @@ export interface StudentAttendanceRegularizationDto {
     
         <!-- Dialog Actions -->
         <div class="fd-dialog-actions">
-          <button mat-stroked-button type="button" (click)="dialogRef.close(false)" [disabled]="submitting">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || submitting">
+          <button type="button" (click)="dialogRef.close(false)" [disabled]="submitting" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="form.invalid || submitting" matButton="filled">
             <mat-icon>{{ submitting ? 'hourglass_top' : 'send' }}</mat-icon>
             <span>{{ submitting ? 'Submitting...' : 'Submit Request' }}</span>
           </button>
@@ -440,7 +440,7 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
             Verify student's justification &amp; approve attendance record update
           </span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="dialogRef.close(false)" type="button">
+        <button class="fd-dialog-close" (click)="dialogRef.close(false)" type="button" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -495,14 +495,14 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
         <div class="decision-section">
           <label class="decision-lbl">Decision *</label>
           <div class="decision-buttons">
-            <button type="button" class="decision-btn approve-btn" [class.selected]="decision === 'Approve'" (click)="decision = 'Approve'">
+            <button type="button" class="decision-btn approve-btn" [class.selected]="decision === 'Approve'" (click)="decision = 'Approve'" matButton="filled">
               <mat-icon>check_circle</mat-icon>
               <div>
                 <strong>Approve Request</strong>
                 <small>Updates attendance to {{ approvedStatus }}</small>
               </div>
             </button>
-            <button type="button" class="decision-btn reject-btn" [class.selected]="decision === 'Reject'" (click)="decision = 'Reject'">
+            <button type="button" class="decision-btn reject-btn" [class.selected]="decision === 'Reject'" (click)="decision = 'Reject'" matButton="filled">
               <mat-icon>cancel</mat-icon>
               <div>
                 <strong>Reject Request</strong>
@@ -543,11 +543,11 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
     
       <!-- Dialog Actions -->
       <div class="fd-dialog-actions">
-        <button mat-stroked-button type="button" (click)="dialogRef.close(false)" [disabled]="submitting">Dismiss</button>
-        <button mat-raised-button
+        <button type="button" (click)="dialogRef.close(false)" [disabled]="submitting" matButton="filled" class="app-button-cancel">Dismiss</button>
+        <button
           [color]="decision === 'Approve' ? 'primary' : 'warn'"
           (click)="submitDecision()"
-          [disabled]="submitting || (decision === 'Reject' && (!reviewRemarks || reviewRemarks.trim().length === 0))">
+          [disabled]="submitting || (decision === 'Reject' && (!reviewRemarks || reviewRemarks.trim().length === 0))" matButton="filled">
           <mat-icon>{{ submitting ? 'hourglass_top' : (decision === 'Approve' ? 'check' : 'close') }}</mat-icon>
           <span>{{ submitting ? 'Processing...' : (decision === 'Approve' ? 'Confirm Approval' : 'Confirm Rejection') }}</span>
         </button>

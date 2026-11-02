@@ -180,6 +180,8 @@ public class ClassSubject
 public class MenuItem
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? RouteUrl { get; set; }
     public string? Icon { get; set; }
@@ -187,6 +189,12 @@ public class MenuItem
     public int SortOrder { get; set; } = 0;
     public string Module { get; set; } = "Master";
     public bool IsActive { get; set; } = true;
+
+    [ForeignKey("TenantId")]
+    public Tenant? Tenant { get; set; }
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 
     public MenuItem? Parent { get; set; }
     public ICollection<MenuItem> Children { get; set; } = new List<MenuItem>();
@@ -3282,7 +3290,6 @@ public class FeePromiseToPay
     [ForeignKey("InvoiceId")]
     public FeeInvoice? Invoice { get; set; }
 }
-
 
 
 

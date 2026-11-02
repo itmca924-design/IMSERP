@@ -42,7 +42,7 @@ export interface LedgerDialogData {
         <p class="modal-subtitle">खाता बही मास्टर &bull; <strong>{{ isEdit ? data.ledger?.accountCode : 'Institutional Chart of Accounts' }}</strong></p>
       </div>
     </div>
-    <button mat-icon-button (click)="dialogRef.close()" class="close-btn">
+    <button (click)="dialogRef.close()" class="close-btn" mat-icon-button>
       <mat-icon>close</mat-icon>
     </button>
   </div>
@@ -136,8 +136,8 @@ export interface LedgerDialogData {
   </div>
 
   <div class="modal-footer">
-    <button mat-button (click)="dialogRef.close()" [disabled]="loading">Cancel</button>
-    <button mat-raised-button color="primary" (click)="saveLedger()" [disabled]="loading || !isValid()">
+    <button (click)="dialogRef.close()" [disabled]="loading" matButton="filled" class="app-button-cancel">Cancel</button>
+    <button color="primary" (click)="saveLedger()" [disabled]="loading || !isValid()" matButton="filled" [class.app-button-update]="isEdit" [class.app-button-save]="!(isEdit)">
       <mat-icon>{{ isEdit ? 'save' : 'check_circle' }}</mat-icon>
       <span>{{ isEdit ? 'Save Changes' : 'Create Ledger' }}</span>
     </button>

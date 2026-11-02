@@ -35,7 +35,7 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
             Institute: <strong>{{ data?.instituteName || 'My Institute' }}</strong> &bull; Code: <strong>{{ data?.tenantCode }}</strong>
           </p>
         </div>
-        <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close dialog">
+        <button class="close-btn" (click)="dialogRef.close()" matTooltip="Close dialog" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -111,8 +111,8 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
       </div>
     
       <div class="dialog-actions">
-        <button mat-stroked-button (click)="dialogRef.close()">Cancel</button>
-        <button mat-raised-button color="primary" [disabled]="submitted" (click)="submitRenewal()">
+        <button (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button color="primary" [disabled]="submitted" (click)="submitRenewal()" matButton="filled">
           <mat-icon>send</mat-icon>
           <span>Confirm &amp; Request Renewal</span>
         </button>

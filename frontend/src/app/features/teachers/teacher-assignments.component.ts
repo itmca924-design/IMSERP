@@ -73,14 +73,14 @@ export interface AssignmentSlot {
   <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers (Hidden if School Module is disabled or user cannot manage staff) -->
   @if (authService.hasSchoolModule() && canManage) {
     <div class="primary-nav-bar mat-elevation-z1">
-      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
+      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')" matButton="filled">
         <mat-icon>calendar_view_week</mat-icon>
         <div class="nav-btn-info">
           <span class="nav-title">Batch &amp; Subject Timetable</span>
           <span class="nav-sub">Teaching periods, weekly routine &amp; clash detection</span>
         </div>
       </button>
-      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')">
+      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')" matButton="filled">
         <mat-icon>supervisor_account</mat-icon>
         <div class="nav-btn-info">
           <span class="nav-title">School Class Teachers (कक्षा अध्यापक)</span>
@@ -109,21 +109,21 @@ export interface AssignmentSlot {
           <span>Assignment Scope:</span>
         </div>
         <div class="scope-buttons">
-          <button type="button" class="scope-btn" [class.active]="selectedScope === 'ALL'" (click)="setScope('ALL')">
+          <button type="button" class="scope-btn" [class.active]="selectedScope === 'ALL'" (click)="setScope('ALL')" matButton="filled">
             <mat-icon>dashboard_customize</mat-icon>
             <span class="btn-main">All (School + Coaching)</span>
             @if (batchCoverage) {
               <span class="scope-pill">{{totalScopeCount('ALL')}}</span>
             }
           </button>
-          <button type="button" class="scope-btn school-btn" [class.active]="selectedScope === 'SCHOOL'" (click)="setScope('SCHOOL')">
+          <button type="button" class="scope-btn school-btn" [class.active]="selectedScope === 'SCHOOL'" (click)="setScope('SCHOOL')" matButton="filled">
             <mat-icon>account_balance</mat-icon>
             <span class="btn-main">School Classes (Class 9-A, 10-B, etc.)</span>
             @if (batchCoverage) {
               <span class="scope-pill">{{totalScopeCount('SCHOOL')}}</span>
             }
           </button>
-          <button type="button" class="scope-btn coaching-btn" [class.active]="selectedScope === 'COACHING'" (click)="setScope('COACHING')">
+          <button type="button" class="scope-btn coaching-btn" [class.active]="selectedScope === 'COACHING'" (click)="setScope('COACHING')" matButton="filled">
             <mat-icon>biotech</mat-icon>
             <span class="btn-main">Coaching Batches (NEET, JEE, MTH-09-A, etc.)</span>
             @if (batchCoverage) {
@@ -159,7 +159,7 @@ export interface AssignmentSlot {
         </div>
         @if (scopeCoverageData.unassigned > 0) {
           <div class="coverage-actions">
-            <button mat-button class="toggle-unassigned-btn" (click)="showUnassigned = !showUnassigned">
+            <button class="toggle-unassigned-btn" (click)="showUnassigned = !showUnassigned" matButton="filled">
               <mat-icon>{{showUnassigned ? 'expand_less' : 'expand_more'}}</mat-icon>
               {{showUnassigned ? 'Hide' : 'View ' + scopeCoverageData.unassigned + ' Unassigned'}}
             </button>
@@ -192,16 +192,16 @@ export interface AssignmentSlot {
           <div class="hub-header-controls">
             <!-- View Mode: Cards vs Table -->
             <div class="view-mode-toggles">
-              <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'cards'" (click)="unassignedViewMode = 'cards'" matTooltip="Card Grid View">
+              <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'cards'" (click)="unassignedViewMode = 'cards'" matTooltip="Card Grid View" matButton="filled">
                 <mat-icon>grid_view</mat-icon>
                 <span class="mode-text">Cards</span>
               </button>
-              <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'table'" (click)="unassignedViewMode = 'table'" matTooltip="Compact Table View">
+              <button type="button" class="mode-btn" [class.active]="unassignedViewMode === 'table'" (click)="unassignedViewMode = 'table'" matTooltip="Compact Table View" matButton="filled">
                 <mat-icon>view_list</mat-icon>
                 <span class="mode-text">Table</span>
               </button>
             </div>
-            <button mat-icon-button class="hub-close-btn" (click)="showUnassigned = false" matTooltip="Hide this tray">
+            <button class="hub-close-btn" (click)="showUnassigned = false" matTooltip="Hide this tray" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -212,7 +212,7 @@ export interface AssignmentSlot {
             <mat-icon class="search-icon">search</mat-icon>
             <input type="text" [(ngModel)]="unassignedSearch" (ngModelChange)="onUnassignedFilterChange()" placeholder="Search by batch name, code, or subject (e.g. NEET, 12, Physics)..." />
             @if (unassignedSearch) {
-              <button type="button" class="clear-search-btn" (click)="unassignedSearch = ''; onUnassignedFilterChange()">
+              <button type="button" class="clear-search-btn" (click)="unassignedSearch = ''; onUnassignedFilterChange()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -239,7 +239,7 @@ export interface AssignmentSlot {
             </div>
             <!-- Reset Button -->
             @if (isFilterActive) {
-              <button type="button" class="reset-filter-btn" (click)="resetUnassignedFilters()">
+              <button type="button" class="reset-filter-btn app-button-cancel" (click)="resetUnassignedFilters()" matButton="filled">
                 <mat-icon>filter_alt_off</mat-icon> Reset
               </button>
             }
@@ -253,7 +253,7 @@ export interface AssignmentSlot {
                 <button type="button"
                   class="subject-chip-btn"
                   [class.active]="unassignedSubjectFilter === tab.name"
-                  (click)="setSubjectFilter(tab.name)">
+                  (click)="setSubjectFilter(tab.name)" matButton="filled">
                   <span class="chip-name">{{tab.name}}</span>
                   <span class="chip-count">{{tab.count}}</span>
                 </button>
@@ -310,12 +310,12 @@ export interface AssignmentSlot {
                 </div>
                 <div class="card-bottom">
                   @if (selectedTeacher) {
-                    <button mat-flat-button color="primary" class="assign-action-btn" (click)="quickAssignBatch(ub)" matTooltip="Assign this batch to {{selectedTeacher.fullName}}">
+                    <button color="primary" class="assign-action-btn" (click)="quickAssignBatch(ub)" matTooltip="Assign this batch to {{selectedTeacher.fullName}}" matButton="filled">
                       <mat-icon>add</mat-icon> Assign to {{selectedTeacher.fullName | slice:0:14}}
                     </button>
                   }
                   @if (!selectedTeacher) {
-                    <button mat-stroked-button color="primary" class="assign-action-btn" (click)="openQuickAssignModal(ub)" matTooltip="Choose a teacher to assign this batch">
+                    <button color="primary" class="assign-action-btn" (click)="openQuickAssignModal(ub)" matTooltip="Choose a teacher to assign this batch" matButton="filled">
                       <mat-icon>person_add</mat-icon> Assign Faculty
                     </button>
                   }
@@ -365,12 +365,12 @@ export interface AssignmentSlot {
                     </td>
                     <td class="action-col">
                       @if (selectedTeacher) {
-                        <button mat-stroked-button color="primary" class="table-assign-btn" (click)="quickAssignBatch(ub)">
+                        <button color="primary" class="table-assign-btn" (click)="quickAssignBatch(ub)" matButton="filled">
                           <mat-icon>add</mat-icon> Assign
                         </button>
                       }
                       @if (!selectedTeacher) {
-                        <button mat-stroked-button color="primary" class="table-assign-btn" (click)="openQuickAssignModal(ub)">
+                        <button color="primary" class="table-assign-btn" (click)="openQuickAssignModal(ub)" matButton="filled">
                           <mat-icon>person_add</mat-icon> Assign
                         </button>
                       }
@@ -387,7 +387,7 @@ export interface AssignmentSlot {
             <mat-icon class="empty-icon">search_off</mat-icon>
             <h4>No Unassigned Batches Found</h4>
             <p>No batches match the search term "{{unassignedSearch}}" or the selected filters.</p>
-            <button mat-stroked-button color="primary" (click)="resetUnassignedFilters()">
+            <button color="primary" (click)="resetUnassignedFilters()" matButton="filled">
               <mat-icon>refresh</mat-icon> Reset Filters
             </button>
           </div>
@@ -401,18 +401,18 @@ export interface AssignmentSlot {
               </span>
               <div class="page-size-selector">
                 <label>Page Size:</label>
-                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 9" (click)="setPageSize(9)">9</button>
-                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 18" (click)="setPageSize(18)">18</button>
-                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 0" (click)="setPageSize(0)">All ({{filteredUnassignedBatches.length}})</button>
+                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 9" (click)="setPageSize(9)" matButton="filled">9</button>
+                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 18" (click)="setPageSize(18)" matButton="filled">18</button>
+                <button type="button" class="size-btn" [class.active]="unassignedPageSize === 0" (click)="setPageSize(0)" matButton="filled">All ({{filteredUnassignedBatches.length}})</button>
               </div>
             </div>
             @if (unassignedPageSize > 0 && totalUnassignedPages > 1) {
               <div class="pagination-controls">
-                <button mat-icon-button [disabled]="unassignedPage === 1" (click)="setUnassignedPage(unassignedPage - 1)" matTooltip="Previous page">
+                <button [disabled]="unassignedPage === 1" (click)="setUnassignedPage(unassignedPage - 1)" matTooltip="Previous page" mat-icon-button>
                   <mat-icon>chevron_left</mat-icon>
                 </button>
                 <span class="page-current">Page {{unassignedPage}} of {{totalUnassignedPages}}</span>
-                <button mat-icon-button [disabled]="unassignedPage >= totalUnassignedPages" (click)="setUnassignedPage(unassignedPage + 1)" matTooltip="Next page">
+                <button [disabled]="unassignedPage>= totalUnassignedPages" (click)="setUnassignedPage(unassignedPage + 1)" matTooltip="Next page" mat-icon-button>
                   <mat-icon>chevron_right</mat-icon>
                 </button>
               </div>
@@ -452,21 +452,21 @@ export interface AssignmentSlot {
           <div class="header-action-group">
             <!-- View Switcher -->
             <div class="view-toggle-bar">
-              <button type="button" class="view-toggle-btn" [class.active]="activeView === 'cards'" (click)="activeView = 'cards'">
+              <button type="button" class="view-toggle-btn" [class.active]="activeView === 'cards'" (click)="activeView = 'cards'" matButton="filled">
                 <mat-icon>grid_view</mat-icon>
                 <span>Batches ({{assignments.length}})</span>
               </button>
-              <button type="button" class="view-toggle-btn" [class.active]="activeView === 'timetable'" (click)="activeView = 'timetable'">
+              <button type="button" class="view-toggle-btn" [class.active]="activeView === 'timetable'" (click)="activeView = 'timetable'" matButton="filled">
                 <mat-icon>calendar_view_week</mat-icon>
                 <span>Weekly Timetable</span>
               </button>
             </div>
-            <button mat-stroked-button class="print-btn" (click)="printTimetable()" [disabled]="assignments.length === 0" matTooltip="Print or Export Faculty Weekly Routine">
+            <button class="print-btn" (click)="printTimetable()" [disabled]="assignments.length === 0" matTooltip="Print or Export Faculty Weekly Routine" matButton="filled">
               <mat-icon>print</mat-icon>
               <span class="btn-text">Print Routine</span>
             </button>
             @if (canManage) {
-              <button mat-raised-button color="primary" class="toggle-btn" (click)="toggleForm()">
+              <button color="primary" class="toggle-btn" (click)="toggleForm()" matButton="filled">
                 <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
                 <span class="btn-text">{{showForm ? 'Cancel' : 'Assign New Batch'}}</span>
               </button>
@@ -504,15 +504,15 @@ export interface AssignmentSlot {
                     </div>
                     <!-- Type Selector: School Class vs Coaching Batch -->
                     <div class="slot-type-pills">
-                      <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'school'" (click)="setSlotType(slot, 'school')">
+                      <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'school'" (click)="setSlotType(slot, 'school')" matButton="filled">
                         <mat-icon>account_balance</mat-icon> School Class
                       </button>
-                      <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'coaching'" (click)="setSlotType(slot, 'coaching')">
+                      <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'coaching'" (click)="setSlotType(slot, 'coaching')" matButton="filled">
                         <mat-icon>biotech</mat-icon> Coaching Batch
                       </button>
                     </div>
                     @if (slots.length > 1) {
-                      <button mat-icon-button color="warn" (click)="removeSlot(i)" matTooltip="Remove this slot">
+                      <button color="warn" (click)="removeSlot(i)" matTooltip="Remove this slot" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     }
@@ -606,27 +606,27 @@ export interface AssignmentSlot {
                   <div class="presets-row">
                     <span class="preset-title">⚡ Quick Presets:</span>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'MWF')"
-                      [class.preset-active]="isPresetActive(slot, 'MWF')">
+                      [class.preset-active]="isPresetActive(slot,'MWF')" matButton="filled">
                       MWF (Mon, Wed, Fri)
                     </button>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'TTS')"
-                      [class.preset-active]="isPresetActive(slot, 'TTS')">
+                      [class.preset-active]="isPresetActive(slot,'TTS')" matButton="filled">
                       TTS (Tue, Thu, Sat)
                     </button>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'DAILY')"
-                      [class.preset-active]="isPresetActive(slot, 'DAILY')">
+                      [class.preset-active]="isPresetActive(slot, 'DAILY')" matButton="filled">
                       Daily (Mon–Sat)
                     </button>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'WEEKEND')"
-                      [class.preset-active]="isPresetActive(slot, 'WEEKEND')">
+                      [class.preset-active]="isPresetActive(slot, 'WEEKEND')" matButton="filled">
                       Weekend (Sat, Sun)
                     </button>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'ALL')"
-                      [class.preset-active]="isPresetActive(slot, 'ALL')">
+                      [class.preset-active]="isPresetActive(slot,'ALL')" matButton="filled">
                       All 7 Days
                     </button>
                     @if (slot.selectedDays.length > 0) {
-                      <button type="button" class="preset-pill clear-pill" (click)="clearDays(slot)">
+                      <button type="button" class="preset-pill clear-pill app-button-cancel" (click)="clearDays(slot)" matButton="filled">
                         Clear
                       </button>
                     }
@@ -637,7 +637,7 @@ export interface AssignmentSlot {
                       <button type="button"
                         class="day-circle"
                         [class.day-selected]="isDaySelected(slot, day)"
-                        (click)="toggleDay(slot, day)">
+                        (click)="toggleDay(slot, day)" matButton="filled">
                         {{day}}
                       </button>
                     }
@@ -650,12 +650,12 @@ export interface AssignmentSlot {
                     <div class="mode-toggles">
                       <button type="button" class="mode-btn"
                         [class.mode-btn-active]="slot.timeSlotMode === 'preset'"
-                        (click)="setTimeSlotMode(slot, 'preset')">
+                        (click)="setTimeSlotMode(slot, 'preset')" matButton="filled">
                         Standard Presets
                       </button>
                       <button type="button" class="mode-btn"
                         [class.mode-btn-active]="slot.timeSlotMode === 'custom'"
-                        (click)="setTimeSlotMode(slot, 'custom')">
+                        (click)="setTimeSlotMode(slot, 'custom')" matButton="filled">
                         Custom Time
                       </button>
                     </div>
@@ -667,7 +667,7 @@ export interface AssignmentSlot {
                         <button type="button"
                           class="time-chip"
                           [class.time-chip-selected]="slot.presetSlot === ps.value"
-                          (click)="selectPresetSlot(slot, ps.value)">
+                          (click)="selectPresetSlot(slot, ps.value)" matButton="filled">
                           <mat-icon class="chip-icon">access_time</mat-icon>
                           <span class="chip-label">{{ps.value}}</span>
                           <span class="chip-duration">{{ps.duration}}</span>
@@ -717,13 +717,13 @@ export interface AssignmentSlot {
         </div>
         <!-- Add Another Slot Button & Form Actions -->
         <div class="form-footer">
-          <button mat-stroked-button color="primary" class="add-slot-btn" (click)="addSlot()">
+          <button color="primary" class="add-slot-btn" (click)="addSlot()" matButton="filled">
             <mat-icon>add_circle_outline</mat-icon>
             Add Another Batch Slot
           </button>
           <div class="action-buttons">
-            <button mat-button (click)="showForm = false">Cancel</button>
-            <button mat-raised-button color="primary" class="save-all-btn" (click)="saveAllSlots()" [disabled]="saving || !isFormValid()">
+            <button (click)="showForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+            <button color="primary" class="save-all-btn app-button-save" (click)="saveAllSlots()" [disabled]="saving || !isFormValid()" matButton="filled">
               <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
               {{slots.length > 1 ? ('Save All ' + slots.length + ' Batches') : 'Assign Batch'}}
             </button>
@@ -760,8 +760,8 @@ export interface AssignmentSlot {
                       </div>
                     </div>
                     @if (canManage) {
-                      <button mat-icon-button color="warn" class="remove-btn" (click)="removeAssignment(a.id)"
-                        matTooltip="Remove this batch assignment">
+                      <button color="warn" class="remove-btn" (click)="removeAssignment(a.id)"
+                        matTooltip="Remove this batch assignment" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     }
@@ -796,7 +796,7 @@ export interface AssignmentSlot {
             <h3>No Batches Assigned Yet</h3>
             <p>{{selectedTeacher.fullName}} currently has no active batch assignments. Click "Assign New Batch" above to configure routine schedule.</p>
             @if (canManage) {
-              <button mat-raised-button color="primary" (click)="showForm = true">
+              <button color="primary" (click)="showForm = true" matButton="filled">
                 <mat-icon>add</mat-icon> Assign Batch
               </button>
             }
@@ -815,7 +815,7 @@ export interface AssignmentSlot {
               <span class="tt-sub">{{totalClassesPerWeek}} Classes / Week • Approx {{totalHoursPerWeek}} Teaching Hours</span>
             </div>
           </div>
-          <button mat-stroked-button class="print-inner-btn" (click)="printTimetable()">
+          <button class="print-inner-btn" (click)="printTimetable()" matButton="filled">
             <mat-icon>print</mat-icon> Print Routine
           </button>
         </div>
@@ -970,7 +970,7 @@ export interface AssignmentSlot {
       <mat-icon class="search-icon">search</mat-icon>
       <input type="text" [(ngModel)]="matrixSearch" (ngModelChange)="applyMatrixFilters()" placeholder="Search class, section, teacher name or code (e.g. 10th, Sharma, EMP001)..." />
       @if (matrixSearch) {
-        <button type="button" class="clear-btn" (click)="matrixSearch = ''; applyMatrixFilters()">
+        <button type="button" class="clear-btn" (click)="matrixSearch = ''; applyMatrixFilters()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       }
@@ -997,20 +997,20 @@ export interface AssignmentSlot {
       </div>
       <!-- View Mode Switcher -->
       <div class="view-mode-buttons">
-        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'cards'" (click)="matrixViewMode = 'cards'" matTooltip="3-Column All Sections Grid">
+        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'cards'" (click)="matrixViewMode = 'cards'" matTooltip="3-Column All Sections Grid" matButton="filled">
           <mat-icon>grid_view</mat-icon>
           <span class="v-btn-text">3 Columns</span>
         </button>
-        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'grouped'" (click)="matrixViewMode = 'grouped'" matTooltip="Grouped by Class">
+        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'grouped'" (click)="matrixViewMode = 'grouped'" matTooltip="Grouped by Class" matButton="filled">
           <mat-icon>view_agenda</mat-icon>
           <span class="v-btn-text">By Class</span>
         </button>
-        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'table'" (click)="matrixViewMode = 'table'" matTooltip="Compact Matrix Table">
+        <button type="button" class="v-btn" [class.active]="matrixViewMode === 'table'" (click)="matrixViewMode = 'table'" matTooltip="Compact Matrix Table" matButton="filled">
           <mat-icon>view_list</mat-icon>
           <span class="v-btn-text">Table</span>
         </button>
       </div>
-      <button mat-icon-button (click)="loadClassTeachersMatrix()" matTooltip="Refresh Matrix" class="refresh-btn">
+      <button (click)="loadClassTeachersMatrix()" matTooltip="Refresh Matrix" class="refresh-btn" mat-icon-button>
         <mat-icon>refresh</mat-icon>
       </button>
     </div>
@@ -1069,16 +1069,16 @@ export interface AssignmentSlot {
           @if (canManage) {
             <div class="ct-action-row">
               @if (!sec.classTeacherId) {
-                <button mat-flat-button color="primary" class="ct-assign-btn" (click)="openAssignDialog(sec)">
+                <button color="primary" class="ct-assign-btn" (click)="openAssignDialog(sec)" matButton="filled">
                   <mat-icon>person_add</mat-icon> Assign Class Teacher
                 </button>
               }
               @if (sec.classTeacherId) {
                 <div class="ct-assigned-actions">
-                  <button mat-stroked-button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)">
+                  <button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)" matButton="filled">
                     <mat-icon>edit</mat-icon> Change Faculty
                   </button>
-                  <button mat-icon-button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                  <button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher" mat-icon-button>
                     <mat-icon>person_remove</mat-icon>
                   </button>
                 </div>
@@ -1115,13 +1115,13 @@ export interface AssignmentSlot {
           </div>
           <!-- Card Bottom Shortcuts -->
           <div class="sec-card-actions">
-            <a mat-button class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
+            <a matButton="filled" class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
               <mat-icon>groups</mat-icon> Students
             </a>
-            <a mat-button class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
+            <a matButton="filled" class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
               <mat-icon>event_available</mat-icon> Roll Call
             </a>
-            <button mat-button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing">
+            <button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing" matButton="filled">
               <mat-icon>calendar_view_week</mat-icon> Routine
             </button>
           </div>
@@ -1145,7 +1145,7 @@ export interface AssignmentSlot {
               </div>
             </div>
             <div class="class-group-summary">
-              <a mat-button class="classes-link" routerLink="/school/classes" matTooltip="Manage Class & Sections in Master Settings">
+              <a matButton="filled" class="classes-link" routerLink="/school/classes" matTooltip="Manage Class & Sections in Master Settings">
                 <mat-icon>settings</mat-icon> Manage Class
               </a>
             </div>
@@ -1192,16 +1192,16 @@ export interface AssignmentSlot {
                 @if (canManage) {
                   <div class="ct-action-row">
                     @if (!sec.classTeacherId) {
-                      <button mat-flat-button color="primary" class="ct-assign-btn" (click)="openAssignDialog(sec)">
+                      <button color="primary" class="ct-assign-btn" (click)="openAssignDialog(sec)" matButton="filled">
                         <mat-icon>person_add</mat-icon> Assign Class Teacher
                       </button>
                     }
                     @if (sec.classTeacherId) {
                       <div class="ct-assigned-actions">
-                        <button mat-stroked-button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)">
+                        <button color="primary" class="ct-change-btn" (click)="openAssignDialog(sec)" matButton="filled">
                           <mat-icon>edit</mat-icon> Change Faculty
                         </button>
-                        <button mat-icon-button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                        <button color="warn" class="ct-remove-btn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher" mat-icon-button>
                           <mat-icon>person_remove</mat-icon>
                         </button>
                       </div>
@@ -1238,13 +1238,13 @@ export interface AssignmentSlot {
                 </div>
                 <!-- Card Bottom Shortcuts -->
                 <div class="sec-card-actions">
-                  <a mat-button class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
+                  <a matButton="filled" class="sec-act-btn" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View students enrolled in this section">
                     <mat-icon>groups</mat-icon> Students
                   </a>
-                  <a mat-button class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
+                  <a matButton="filled" class="sec-act-btn" [routerLink]="['/students/attendance']" [queryParams]="{scope: 'school', classId: sec.classId, sectionId: sec.sectionId}" matTooltip="Take roll call attendance for this section">
                     <mat-icon>event_available</mat-icon> Roll Call
                   </a>
-                  <button mat-button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing">
+                  <button class="sec-act-btn routine-btn" (click)="openSectionRoutineDialog(sec)" matTooltip="Configure subjects, weekly routine & period timing" matButton="filled">
                     <mat-icon>calendar_view_week</mat-icon> Routine
                   </button>
                 </div>
@@ -1261,7 +1261,7 @@ export interface AssignmentSlot {
       <mat-icon>search_off</mat-icon>
       <h3>No sections match your filter</h3>
       <p>Try resetting your search query or changing the class/status filters.</p>
-      <button mat-stroked-button (click)="matrixSearch = ''; matrixClassFilter = 'ALL'; matrixStatusFilter = 'ALL'; applyMatrixFilters()">
+      <button (click)="matrixSearch = ''; matrixClassFilter = 'ALL'; matrixStatusFilter = 'ALL'; applyMatrixFilters()" matButton="filled">
         <mat-icon>restart_alt</mat-icon> Reset Filters
       </button>
     </div>
@@ -1325,17 +1325,17 @@ export interface AssignmentSlot {
                 <td class="col-actions">
                   <div class="table-action-btns">
                     @if (canManage) {
-                      <button mat-stroked-button color="primary" class="table-assign-btn" (click)="openAssignDialog(sec)">
+                      <button color="primary" class="table-assign-btn" (click)="openAssignDialog(sec)" matButton="filled">
                         <mat-icon>{{ sec.classTeacherId ? 'edit' : 'person_add' }}</mat-icon>
                         {{ sec.classTeacherId ? 'Change' : 'Assign' }}
                       </button>
                     }
                     @if (canManage && sec.classTeacherId) {
-                      <button mat-icon-button color="warn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher">
+                      <button color="warn" (click)="confirmUnassign(sec)" matTooltip="Remove Class Teacher" mat-icon-button>
                         <mat-icon>person_remove</mat-icon>
                       </button>
                     }
-                    <button mat-icon-button color="primary" (click)="openSectionRoutineDialog(sec)" matTooltip="Class Routine & Period Timetable">
+                    <button color="primary" (click)="openSectionRoutineDialog(sec)" matTooltip="Class Routine & Period Timetable" mat-icon-button>
                       <mat-icon>calendar_view_week</mat-icon>
                     </button>
                     <a mat-icon-button color="primary" [routerLink]="['/students']" [queryParams]="{classId: sec.classId, sectionId: sec.sectionId}" matTooltip="View Students">

@@ -47,11 +47,11 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
         </div>
     
         <div class="header-actions">
-          <button mat-stroked-button class="refresh-btn" (click)="loadEvents()" [disabled]="loading">
+          <button class="refresh-btn" (click)="loadEvents()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
-          <button mat-raised-button color="primary" class="create-btn" (click)="openCreateDialog()">
+          <button color="primary" class="create-btn" (click)="openCreateDialog()" matButton="filled">
             <mat-icon>add_circle</mat-icon>
             <span>Schedule New Event</span>
           </button>
@@ -100,48 +100,42 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
             type="button"
             class="chip-tab"
             [class.active]="selectedCategory === ''"
-            (click)="setCategory('')"
-            >
+            (click)="setCategory('')" matButton="filled">
             All Events ({{ events.length }})
           </button>
           <button
             type="button"
             class="chip-tab national-tab"
             [class.active]="selectedCategory === 'National'"
-            (click)="setCategory('National')"
-            >
+            (click)="setCategory('National')" matButton="filled">
             🇮🇳 National ({{ getCategoryCount('National') }})
           </button>
           <button
             type="button"
             class="chip-tab cultural-tab"
             [class.active]="selectedCategory === 'Cultural'"
-            (click)="setCategory('Cultural')"
-            >
+            (click)="setCategory('Cultural')" matButton="filled">
             🎭 Cultural & Farewell ({{ getCategoryCount('Cultural') }})
           </button>
           <button
             type="button"
             class="chip-tab sports-tab"
             [class.active]="selectedCategory === 'Sports'"
-            (click)="setCategory('Sports')"
-            >
+            (click)="setCategory('Sports')" matButton="filled">
             🏆 Sports ({{ getCategoryCount('Sports') }})
           </button>
           <button
             type="button"
             class="chip-tab ptm-tab"
             [class.active]="selectedCategory === 'PTM'"
-            (click)="setCategory('PTM')"
-            >
+            (click)="setCategory('PTM')" matButton="filled">
             🤝 PTM ({{ getCategoryCount('PTM') }})
           </button>
           <button
             type="button"
             class="chip-tab academic-tab"
             [class.active]="selectedCategory === 'Academic'"
-            (click)="setCategory('Academic')"
-            >
+            (click)="setCategory('Academic')" matButton="filled">
             📚 Academic Fair ({{ getCategoryCount('Academic') }})
           </button>
         </div>
@@ -156,7 +150,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
               (input)="onSearchChange()"
               />
             @if (searchQuery) {
-              <button class="clear-btn" (click)="searchQuery = ''; onSearchChange()">
+              <button class="clear-btn" (click)="searchQuery = ''; onSearchChange()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -183,7 +177,7 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
           <p class="empty-sub">
             {{ searchQuery || selectedCategory ? 'No events matched your current filters.' : 'Get started by scheduling your first school function or celebration!' }}
           </p>
-          <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <button color="primary" (click)="openCreateDialog()" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Schedule School Event</span>
           </button>
@@ -276,19 +270,17 @@ import { EventGalleryDialogComponent } from './event-gallery-dialog.component';
               <!-- Card Actions Footer -->
               <div class="card-footer">
                 <button
-                  mat-stroked-button
                   class="gallery-btn"
                   (click)="openGalleryDialog(ev)"
-                  matTooltip="View & upload event photo memories"
-                  >
+                  matTooltip="View & upload event photo memories" matButton="filled">
                   <mat-icon>photo_library</mat-icon>
                   <span>Memories ({{ ev.photosCount }})</span>
                 </button>
                 <div class="action-buttons">
-                  <button mat-icon-button class="edit-btn" (click)="openEditDialog(ev)" matTooltip="Edit Event">
+                  <button class="edit-btn" (click)="openEditDialog(ev)" matTooltip="Edit Event" mat-icon-button>
                     <mat-icon>edit</mat-icon>
                   </button>
-                  <button mat-icon-button class="del-btn" (click)="deleteEvent(ev)" matTooltip="Delete Event">
+                  <button class="del-btn" (click)="deleteEvent(ev)" matTooltip="Delete Event" mat-icon-button>
                     <mat-icon>delete_outline</mat-icon>
                   </button>
                 </div>

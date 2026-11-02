@@ -44,7 +44,7 @@ export interface InventoryBillSequenceDialogData {
             <p>Configure prefix, digit padding, starting counter, and dynamic financial year format</p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onCancel()" type="button">
+        <button class="close-btn" (click)="onCancel()" type="button" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -98,10 +98,10 @@ export interface InventoryBillSequenceDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="saving">
+          <button type="button" (click)="onCancel()" [disabled]="saving" matButton="filled" class="app-button-cancel">
             Cancel
           </button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || saving">
+          <button color="primary" type="submit" [disabled]="form.invalid || saving" matButton="filled" class="app-button-save">
             @if (saving) {
               <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
             }

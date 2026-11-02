@@ -39,7 +39,7 @@ export interface RoleEditDialogData {
           <h2 class="main-title">{{ data.isNew ? 'Create New Role' : 'Edit Role: ' + (data.role?.name || 'Role') }}</h2>
           <p class="subtitle">{{ data.isNew ? 'Define a new system role and its basic properties' : 'Modify role title, description, and operational status' }}</p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" title="Close">
+        <button type="button" class="close-btn" (click)="onCancel()" title="Close" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -80,8 +80,8 @@ export interface RoleEditDialogData {
     
         <!-- Dialog Footer Actions -->
         <mat-dialog-actions align="end" class="dialog-footer">
-          <button mat-button type="button" class="cancel-btn" (click)="onCancel()">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn">
+          <button type="button" class="cancel-btn app-button-cancel" (click)="onCancel()" matButton="filled">Cancel</button>
+          <button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn" matButton="filled" [class.app-button-update]="!(data.isNew)" [class.app-button-save]="data.isNew">
             @if (saving) {
               <mat-spinner diameter="18" style="display:inline-block;margin-right:6px"></mat-spinner>
             }

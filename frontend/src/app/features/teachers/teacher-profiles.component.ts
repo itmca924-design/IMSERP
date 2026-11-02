@@ -40,17 +40,17 @@ import { environment } from '../../../environments/environment';
     </div>
     <div class="header-actions-row">
       @if (!showForm && canManageStaff) {
-        <button mat-stroked-button color="primary" (click)="openBulkIdCards()">
+        <button color="primary" (click)="openBulkIdCards()" matButton="filled">
           <mat-icon>badge</mat-icon> Staff ID Cards
         </button>
       }
       @if (!showForm && canManageStaff) {
-        <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']">
+        <a matButton="filled" color="warn" [routerLink]="['/teachers/fnf']">
           <mat-icon>exit_to_app</mat-icon> Exit &amp; FNF
         </a>
       }
       @if (!showForm && canManageStaff) {
-        <button mat-raised-button color="primary" (click)="openAddForm()">
+        <button color="primary" (click)="openAddForm()" matButton="filled">
           <mat-icon>person_add</mat-icon> Add Staff / Teacher
         </button>
       }
@@ -68,7 +68,7 @@ import { environment } from '../../../environments/environment';
         <h2><mat-icon color="primary">{{editingId ? 'edit' : 'person_add'}}</mat-icon>
         {{editingId ? 'Edit Staff / Faculty Details' : 'Add New Staff / Faculty Member'}}
       </h2>
-      <button mat-icon-button (click)="cancelForm()"><mat-icon>close</mat-icon></button>
+      <button (click)="cancelForm()" mat-icon-button><mat-icon>close</mat-icon></button>
     </div>
     <form [formGroup]="teacherForm" (ngSubmit)="saveTeacher()">
       <div class="form-grid">
@@ -93,9 +93,9 @@ import { environment } from '../../../environments/environment';
           <mat-label>Employee Code *</mat-label>
           <input matInput formControlName="employeeCode" [readonly]="editingId || !allowManualCode" [class.readonly-field]="editingId || !allowManualCode">
           @if (!editingId && !codeLoading) {
-            <button mat-icon-button matSuffix type="button"
+            <button matSuffix type="button"
               (click)="toggleCustomCode()"
-              [matTooltip]="allowManualCode ? 'Reset to category auto-code' : 'Click to enter custom code'">
+              [matTooltip]="allowManualCode ? 'Reset to category auto-code' : 'Click to enter custom code'" mat-icon-button>
               <mat-icon style="font-size:18px;color:#2563eb">{{allowManualCode ? 'autorenew' : 'edit'}}</mat-icon>
             </button>
           }
@@ -248,7 +248,7 @@ import { environment } from '../../../environments/environment';
             <mat-label>WhatsApp Number</mat-label>
             <input matInput formControlName="whatsAppPhone" maxlength="12" (blur)="checkDuplicate('whatsApp')">
             <div matSuffix class="suffix-group">
-              <button mat-icon-button type="button" (click)="copyPhoneToWhatsApp()" matTooltip="Same as Phone Number" class="copy-suffix-btn">
+              <button type="button" (click)="copyPhoneToWhatsApp()" matTooltip="Same as Phone Number" class="copy-suffix-btn" mat-icon-button>
                 <mat-icon>content_copy</mat-icon>
               </button>
               @if (whatsAppDupChecking) {
@@ -392,14 +392,14 @@ import { environment } from '../../../environments/environment';
               <input matInput formControlName="photoUrl" placeholder="Paste image link or choose image file below" (input)="previewImgError = false">
               <mat-icon matPrefix style="color:#64748b;margin-right:6px">photo_camera</mat-icon>
               @if (teacherForm.get('photoUrl')?.value) {
-                <button mat-icon-button matSuffix type="button" (click)="teacherForm.patchValue({photoUrl: ''})">
+                <button matSuffix type="button" (click)="teacherForm.patchValue({photoUrl: ''})" mat-icon-button>
                   <mat-icon style="font-size:16px">clear</mat-icon>
                 </button>
               }
             </mat-form-field>
             <div class="photo-btn-group">
               <input #formFileInput type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none">
-              <button mat-stroked-button type="button" color="primary" class="upload-pic-btn" (click)="formFileInput.click()">
+              <button type="button" color="primary" class="upload-pic-btn" (click)="formFileInput.click()" matButton="filled">
                 <mat-icon>cloud_upload</mat-icon> Upload Photo
               </button>
               <span class="upload-note">Supports JPG, PNG, WebP (Max 2MB)</span>
@@ -408,8 +408,8 @@ import { environment } from '../../../environments/environment';
         </div>
       </div>
       <div class="form-actions">
-        <button mat-button type="button" (click)="cancelForm()">Cancel</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="teacherForm.invalid || saving || hasDuplicates">
+        <button type="button" (click)="cancelForm()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button color="primary" type="submit" [disabled]="teacherForm.invalid || saving || hasDuplicates" matButton="filled" [class.app-button-update]="editingId" [class.app-button-save]="!(editingId)">
           @if (saving) {
             <mat-spinner diameter="18" style="display:inline-block;margin-right:6px"></mat-spinner>
           }
@@ -436,7 +436,7 @@ import { environment } from '../../../environments/environment';
         <mat-icon matPrefix>search</mat-icon>
         <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearch()" placeholder="Name, code, designation, department...">
         @if (searchTerm) {
-          <button mat-icon-button matSuffix (click)="searchTerm=''; loadTeachers()">
+          <button matSuffix (click)="searchTerm=''; loadTeachers()" mat-icon-button>
             <mat-icon>clear</mat-icon>
           </button>
         }
@@ -521,7 +521,7 @@ import { environment } from '../../../environments/environment';
             }
           </div>
         </div>
-        <button mat-icon-button (click)="selectedTeacher = null" class="close-profile" matTooltip="Close Profile Card">
+        <button (click)="selectedTeacher = null" class="close-profile" matTooltip="Close Profile Card" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -535,7 +535,7 @@ import { environment } from '../../../environments/environment';
               <span class="banner-sub">Full &amp; Final Settlement (FNF) has been finalized. ERP portal login, monthly payroll, and operational allocations are deactivated.</span>
             </div>
           </div>
-          <a mat-flat-button color="primary" class="banner-btn" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
+          <a matButton="filled" color="primary" class="banner-btn" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
             <mat-icon>receipt_long</mat-icon> View FNF Statement &amp; Certificate
           </a>
         </div>
@@ -629,85 +629,85 @@ import { environment } from '../../../environments/environment';
         <p class="quick-nav-title">{{ isSelf(selectedTeacher) ? 'My Self-Service Actions →' : 'Directly Jaao →' }}</p>
         <div class="quick-nav-grid">
           @if (isTeachingStaff(selectedTeacher) && (canManageStaff || isSelf(selectedTeacher))) {
-            <a mat-stroked-button [routerLink]="['/teachers/assignments']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <a matButton="filled" [routerLink]="['/teachers/assignments']" [queryParams]="{teacherId: selectedTeacher.id}">
               <mat-icon>class</mat-icon> {{ isSelf(selectedTeacher) ? 'My Teaching Schedule' : 'Batch Assignments' }}
             </a>
           }
           <!-- Attendance: Self or Admin/HR can view logs -->
           @if (canManageStaff || isSelf(selectedTeacher)) {
-            <a mat-stroked-button [routerLink]="['/teachers/attendance']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <a matButton="filled" [routerLink]="['/teachers/attendance']" [queryParams]="{teacherId: selectedTeacher.id}">
               <mat-icon>event_available</mat-icon> {{ isSelf(selectedTeacher) ? 'My Attendance' : 'Attendance' }}
             </a>
           }
           <!-- Salary Structure: Admin/HR only -->
           @if (canManageStaff) {
-            <a mat-stroked-button [routerLink]="['/teachers/salary']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <a matButton="filled" [routerLink]="['/teachers/salary']" [queryParams]="{teacherId: selectedTeacher.id}">
               <mat-icon>account_balance_wallet</mat-icon> Salary Structure
             </a>
           }
           <!-- Salary Payments: Admin/HR or Self only -->
           @if (canViewFinancials(selectedTeacher)) {
-            <a mat-stroked-button [routerLink]="['/teachers/payments']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <a matButton="filled" [routerLink]="['/teachers/payments']" [queryParams]="{teacherId: selectedTeacher.id}">
               <mat-icon>payments</mat-icon> {{ isSelf(selectedTeacher) ? 'My Salary Slips' : 'Salary Payments' }}
             </a>
           }
           <!-- Advances: Admin/HR or Self only -->
           @if (canViewFinancials(selectedTeacher)) {
-            <a mat-stroked-button [routerLink]="['/teachers/advances']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <a matButton="filled" [routerLink]="['/teachers/advances']" [queryParams]="{teacherId: selectedTeacher.id}">
               <mat-icon>currency_rupee</mat-icon> {{ isSelf(selectedTeacher) ? 'My Advances' : 'Advances' }}
             </a>
           }
           <!-- Leaves: Self or Admin/HR only -->
           @if (canManageStaff || isSelf(selectedTeacher)) {
-            <a mat-stroked-button [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <a matButton="filled" [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}">
               <mat-icon>beach_access</mat-icon> {{ isSelf(selectedTeacher) ? 'My Leaves' : 'Leave Management' }}
             </a>
           }
           <!-- Proxy & Substitution: Academic coordination -->
           @if (isTeachingStaff(selectedTeacher)) {
-            <a mat-stroked-button [routerLink]="['/teachers/substitution']">
+            <a matButton="filled" [routerLink]="['/teachers/substitution']">
               <mat-icon>swap_horiz</mat-icon> Proxy &amp; Substitution
             </a>
           }
           <!-- Lesson Diary: Academic planning -->
           @if (isTeachingStaff(selectedTeacher)) {
-            <a mat-stroked-button [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
+            <a matButton="filled" [routerLink]="['/teachers/lesson-plans']" [queryParams]="{teacherId: selectedTeacher.id}">
               <mat-icon>menu_book</mat-icon> Lesson Diary
             </a>
           }
           <!-- Transport Pass: shown if transport module is on -->
           @if (authService.hasTransportModule() && (canManageStaff || isSelf(selectedTeacher))) {
-            <a mat-stroked-button [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
+            <a matButton="filled" [routerLink]="['/transport']" style="color: #2563eb; border-color: #93c5fd;">
               <mat-icon style="color: #2563eb;">directions_bus</mat-icon> Transport Pass
             </a>
           }
           <!-- Staff Quarters: Admin/HR only -->
           @if (canManageStaff && authService.hasHostelModule()) {
-            <a mat-stroked-button [routerLink]="['/hostel']" style="color: #4f46e5; border-color: #c7d2fe;">
+            <a matButton="filled" [routerLink]="['/hostel']" style="color: #4f46e5; border-color: #c7d2fe;">
               <mat-icon style="color: #4f46e5;">apartment</mat-icon> Staff Quarters
             </a>
           }
           <!-- Library Account: shown if library module is on -->
           @if (authService.hasLibraryModule() && (canManageStaff || isSelf(selectedTeacher))) {
-            <a mat-stroked-button [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
+            <a matButton="filled" [routerLink]="['/library/circulation']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #059669; border-color: #a7f3d0;">
               <mat-icon style="color: #059669;">local_library</mat-icon> Library Account
             </a>
           }
           <!-- Promotion & Appraisals: Admin/HR only -->
           @if (canManageStaff) {
-            <a mat-stroked-button [routerLink]="['/teachers/promotions']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #7c3aed; border-color: #ddd6fe;">
+            <a matButton="filled" [routerLink]="['/teachers/promotions']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #7c3aed; border-color: #ddd6fe;">
               <mat-icon style="color: #7c3aed;">military_tech</mat-icon> Promotion &amp; Appraisal
             </a>
           }
           <!-- Exit/FNF: Admin/HR only -->
           @if (canManageStaff && selectedTeacher.isActive) {
-            <a mat-stroked-button [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
+            <a matButton="filled" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" style="color: #dc2626; border-color: #fca5a5;">
               <mat-icon style="color: #dc2626;">exit_to_app</mat-icon> Exit / FNF
             </a>
           }
           <!-- Relieved/Inactive Teacher: View Settled FNF Statement -->
           @if (canManageStaff && !selectedTeacher.isActive) {
-            <a mat-stroked-button [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}" style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;">
+            <a matButton="filled" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}" style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;">
               <mat-icon style="color: #2563eb;">receipt_long</mat-icon> FNF Statement
             </a>
           }
@@ -725,44 +725,44 @@ import { environment } from '../../../environments/environment';
           }
           <!-- Create Login Button: Admin/HR only when login is NOT created yet -->
           @if (canManageStaff && selectedTeacher.isActive && !selectedTeacher.hasLoginAccount) {
-            <button mat-stroked-button color="accent" (click)="openCreateAccountDialog(selectedTeacher)">
+            <button color="accent" (click)="openCreateAccountDialog(selectedTeacher)" matButton="filled">
               <mat-icon>person_add_alt</mat-icon> Create ERP Login
             </button>
           }
         </div>
         <!-- Staff ID Card: Admin/HR can print all; Teacher prints own only -->
         @if (selectedTeacher.isActive && canViewDocs(selectedTeacher)) {
-          <button mat-stroked-button color="primary" (click)="openSingleIdCard(selectedTeacher)">
+          <button color="primary" (click)="openSingleIdCard(selectedTeacher)" matButton="filled">
             <mat-icon>badge</mat-icon> {{ isSelf(selectedTeacher) ? 'My Staff ID Card' : 'Staff ID Card' }}
           </button>
         }
         <!-- KYC & Docs: Admin/HR can view all; Teacher views own only -->
         @if (selectedTeacher.isActive && canViewDocs(selectedTeacher)) {
-          <button mat-stroked-button color="accent" (click)="openDocumentsModal(selectedTeacher)">
+          <button color="accent" (click)="openDocumentsModal(selectedTeacher)" matButton="filled">
             <mat-icon>folder_shared</mat-icon> {{ isSelf(selectedTeacher) ? 'My KYC & Docs' : 'KYC & Docs' }}
           </button>
         }
         <!-- Exit / FNF Settlement: Admin/HR only -->
         @if (canManageStaff && selectedTeacher.isActive) {
-          <a mat-stroked-button color="warn" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
+          <a matButton="filled" color="warn" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}">
             <mat-icon>exit_to_app</mat-icon> Exit / FNF Settlement
           </a>
         }
         <!-- Offboarded / Relieved Teacher: View FNF Statement & Certificate -->
         @if (canManageStaff && !selectedTeacher.isActive) {
-          <a mat-stroked-button style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
+          <a matButton="filled" style="color: #1e40af; border-color: #93c5fd; background: #eff6ff;" [routerLink]="['/teachers/fnf']" [queryParams]="{viewSettlementTeacherId: selectedTeacher.id}">
             <mat-icon style="color: #2563eb;">receipt_long</mat-icon> View FNF Statement
           </a>
         }
         <!-- Edit Profile: Admin/HR only -->
         @if (canManageStaff && selectedTeacher.isActive) {
-          <button mat-raised-button color="primary" (click)="editTeacher(selectedTeacher)">
+          <button color="primary" (click)="editTeacher(selectedTeacher)" matButton="filled" class="app-button-update">
             <mat-icon>edit</mat-icon> Edit Profile
           </button>
         }
         <!-- Remove: Admin only (not HR) -->
         @if (authService.isAdmin() && selectedTeacher.isActive) {
-          <button mat-raised-button color="warn" (click)="deleteTeacher(selectedTeacher.id)">
+          <button color="warn" (click)="deleteTeacher(selectedTeacher.id)" matButton="filled" class="app-button-delete">
             <mat-icon>delete</mat-icon> Remove
           </button>
         }
@@ -792,9 +792,9 @@ import { environment } from '../../../environments/environment';
             </div>
           }
           @if (t.photoUrl && !imgLoadErrors[t.id]) {
-            <button mat-icon-button class="card-photo-zoom-btn"
+            <button class="card-photo-zoom-btn"
               (click)="$event.stopPropagation(); openPhotoPreview(t.photoUrl, t.fullName)"
-              matTooltip="View Full Photo">
+              matTooltip="View Full Photo" mat-icon-button>
               <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;">zoom_in</mat-icon>
             </button>
           }
@@ -813,9 +813,9 @@ import { environment } from '../../../environments/environment';
             }
             <!-- Not created login: show + Login button -->
             @if (!t.hasLoginAccount && canManageStaff && t.isActive) {
-              <button mat-button class="card-create-login-btn"
+              <button class="card-create-login-btn"
                 (click)="$event.stopPropagation(); openCreateAccountDialog(t)"
-                matTooltip="Create ERP Login account for this staff member">
+                matTooltip="Create ERP Login account for this staff member" matButton="filled">
                 <mat-icon>person_add_alt</mat-icon> + Login
               </button>
             }
@@ -869,11 +869,11 @@ import { environment } from '../../../environments/environment';
           <!-- Quick Action Buttons -->
           <div class="card-footer-actions">
             @if (canManageStaff && t.isActive) {
-              <button mat-button class="card-action-btn edit-btn" (click)="$event.stopPropagation(); editTeacher(t)" matTooltip="Edit details at top">
+              <button class="card-action-btn edit-btn app-button-update" (click)="$event.stopPropagation(); editTeacher(t)" matTooltip="Edit details at top" matButton="filled">
                 <mat-icon>edit</mat-icon> Edit
               </button>
             }
-            <button mat-button class="card-action-btn view-btn" (click)="$event.stopPropagation(); viewTeacherProfile(t)" matTooltip="View Full Profile &amp; Records">
+            <button class="card-action-btn view-btn" (click)="$event.stopPropagation(); viewTeacherProfile(t)" matTooltip="View Full Profile &amp; Records" matButton="filled">
               <mat-icon>visibility</mat-icon> Profile
             </button>
           </div>
@@ -892,11 +892,11 @@ import { environment } from '../../../environments/environment';
 <!-- Pagination -->
 @if (totalCount > pageSize && !showForm) {
   <div class="pagination">
-    <button mat-icon-button [disabled]="pageNumber === 1" (click)="changePage(-1)">
+    <button [disabled]="pageNumber === 1" (click)="changePage(-1)" mat-icon-button>
       <mat-icon>chevron_left</mat-icon>
     </button>
     <span>Page {{pageNumber}} of {{totalPages}}</span>
-    <button mat-icon-button [disabled]="pageNumber >= totalPages" (click)="changePage(1)">
+    <button [disabled]="pageNumber>= totalPages" (click)="changePage(1)" mat-icon-button>
       <mat-icon>chevron_right</mat-icon>
     </button>
   </div>
@@ -919,7 +919,7 @@ import { environment } from '../../../environments/environment';
           <h3>Create Staff ERP Login</h3>
           <p>Set up portal login credentials for <strong>{{accountTeacher?.fullName}}</strong></p>
         </div>
-        <button mat-icon-button (click)="closeAccountModal()"><mat-icon>close</mat-icon></button>
+        <button (click)="closeAccountModal()" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <div class="account-drawer-body">
         <!-- Photo Upload Row -->
@@ -937,12 +937,12 @@ import { environment } from '../../../environments/environment';
             <div class="photo-hint">PNG, JPG or WEBP up to 2MB</div>
             <div class="photo-buttons">
               <input type="file" #accountPhotoInput (change)="onAccountPhotoSelected($event)" accept="image/png,image/jpeg,image/webp" style="display: none;" />
-              <button mat-stroked-button type="button" class="upload-btn" (click)="accountPhotoInput.click()">
+              <button type="button" class="upload-btn" (click)="accountPhotoInput.click()" matButton="filled">
                 <mat-icon>photo_camera</mat-icon>
                 <span>{{ (accountPhoto || accountTeacher?.photoUrl) ? 'Change Photo' : 'Upload Photo' }}</span>
               </button>
               @if (accountPhoto || accountTeacher?.photoUrl) {
-                <button mat-button color="warn" type="button" class="remove-btn" (click)="removeAccountPhoto()">
+                <button color="warn" type="button" class="remove-btn app-button-delete" (click)="removeAccountPhoto()" matButton="filled">
                   <mat-icon>delete_outline</mat-icon>
                   <span>Remove</span>
                 </button>
@@ -971,8 +971,8 @@ import { environment } from '../../../environments/environment';
         </mat-form-field>
       </div>
       <div class="account-drawer-footer">
-        <button mat-button (click)="closeAccountModal()">Cancel</button>
-        <button mat-raised-button color="primary" [disabled]="!accountFormData.username || !accountFormData.password || accountSaving" (click)="saveAccount()">
+        <button (click)="closeAccountModal()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button color="primary" [disabled]="!accountFormData.username || !accountFormData.password || accountSaving" (click)="saveAccount()" matButton="filled">
           <mat-icon>{{ accountSaving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
           {{ accountSaving ? 'Creating...' : 'Create Account' }}
         </button>
@@ -990,7 +990,7 @@ import { environment } from '../../../environments/environment';
           <mat-icon>account_circle</mat-icon>
           <span>{{previewPhotoTitle || 'Profile Photo'}}</span>
         </div>
-        <button mat-icon-button (click)="previewPhotoUrl = null" class="lightbox-close-btn">
+        <button (click)="previewPhotoUrl = null" class="lightbox-close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>

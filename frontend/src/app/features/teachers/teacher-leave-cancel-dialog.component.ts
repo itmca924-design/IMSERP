@@ -62,7 +62,7 @@ const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
             <strong>{{formatLeaveType(leave.leaveType)}}</strong>
           </span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()">
+        <button class="fd-dialog-close" (click)="cancel()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -301,8 +301,8 @@ const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
       </div>
     
       <div class="fd-dialog-footer">
-        <button mat-stroked-button type="button" (click)="cancel()">Close</button>
-        <button mat-flat-button color="warn" type="submit" [disabled]="!canSubmit()">
+        <button type="button" (click)="cancel()" matButton="filled" class="app-button-cancel">Close</button>
+        <button color="warn" type="submit" [disabled]="!canSubmit()" matButton="filled">
           <mat-icon>{{saving ? 'hourglass_empty' : 'send'}}</mat-icon>
           {{saving ? 'Submitting...' : 'Submit Cancellation Request'}}
         </button>
@@ -936,7 +936,7 @@ export class RequestLeaveCancellationDialogComponent implements OnInit {
           <h2 class="fd-dialog-title">Review Cancellation Request</h2>
           <span class="fd-dialog-sub">{{leave.teacherName}} ({{leave.employeeCode}})</span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
+        <button class="fd-dialog-close" (click)="cancel()" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
     
       <div class="fd-dialog-body">
@@ -991,15 +991,15 @@ export class RequestLeaveCancellationDialogComponent implements OnInit {
       </div>
     
       <div class="fd-dialog-footer">
-        <button mat-stroked-button class="btn-cancel-flat" type="button" (click)="cancel()" [disabled]="submitting">
+        <button class="btn-cancel-flat app-button-cancel" type="button" (click)="cancel()" [disabled]="submitting" matButton="filled">
           Cancel
         </button>
         <div class="footer-actions">
-          <button mat-stroked-button class="btn-smart-reject" type="button" (click)="decide(false)" [disabled]="submitting">
+          <button class="btn-smart-reject" type="button" (click)="decide(false)" [disabled]="submitting" matButton="filled">
             <mat-icon>cancel</mat-icon>
             <span>Reject Request</span>
           </button>
-          <button mat-flat-button class="btn-smart-approve" type="button" (click)="decide(true)" [disabled]="submitting">
+          <button class="btn-smart-approve" type="button" (click)="decide(true)" [disabled]="submitting" matButton="filled">
             <mat-icon [class.spin]="submitting">{{submitting ? 'refresh' : 'check_circle'}}</mat-icon>
             <span>{{submitting ? 'Processing...' : 'Approve & Sync Roster'}}</span>
           </button>

@@ -48,7 +48,7 @@ import { MatSelectModule } from '@angular/material/select';
           <h2 mat-dialog-title class="main-title">Student Financial Passbook & Ledger</h2>
           <p class="subtitle">Complete month-wise fee statement, arrears, and payment receipts audit trail.</p>
         </div>
-        <button mat-icon-button (click)="onClose()" class="close-btn" aria-label="Close dialog">
+        <button (click)="onClose()" class="close-btn" aria-label="Close dialog" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -273,10 +273,10 @@ import { MatSelectModule } from '@angular/material/select';
                       </mat-form-field>
                     </div>
                     <div class="rev-confirm-actions">
-                      <button mat-stroked-button (click)="cancelReverse()" [disabled]="reversingInProgress" class="btn-cancel-rev">
+                      <button (click)="cancelReverse()" [disabled]="reversingInProgress" class="btn-cancel-rev" matButton="filled">
                         {{ reversalLang === 'HI' ? 'रद्द करें (Cancel)' : 'Cancel' }}
                       </button>
-                      <button mat-raised-button color="warn" (click)="confirmReversePayment(reversingPayment)" [disabled]="reversingInProgress" class="btn-confirm-rev">
+                      <button color="warn" (click)="confirmReversePayment(reversingPayment)" [disabled]="reversingInProgress" class="btn-confirm-rev" matButton="filled">
                         @if (!reversingInProgress) {
                           <mat-icon>undo</mat-icon>
                         }
@@ -324,28 +324,24 @@ import { MatSelectModule } from '@angular/material/select';
                           <td class="text-right text-success nowrap-col amount-text"><strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong></td>
                           <td class="remarks-cell"><small>{{ p.transactionRef || 'N/A' }} ({{ p.remarks || '-' }})</small></td>
                           <td class="text-center nowrap-col">
-                            <button mat-icon-button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt">
+                            <button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt" mat-icon-button>
                               <mat-icon>print</mat-icon>
                             </button>
                           </td>
                           <td class="text-center nowrap-col">
                             @if (reversingPaymentId !== p.paymentId) {
                               <button
-                                mat-icon-button
                                 color="warn"
                                 (click)="startReversePayment(p)"
-                                matTooltip="Reverse / Undo this payment"
-                                >
+                                matTooltip="Reverse / Undo this payment" mat-icon-button>
                                 <mat-icon>undo</mat-icon>
                               </button>
                             }
                             @if (reversingPaymentId === p.paymentId) {
                               <button
-                                mat-icon-button
                                 color="warn"
                                 (click)="cancelReverse()"
-                                matTooltip="Cancel reversal"
-                                >
+                                matTooltip="Cancel reversal" mat-icon-button>
                                 <mat-icon>close</mat-icon>
                               </button>
                             }
@@ -441,19 +437,19 @@ import { MatSelectModule } from '@angular/material/select';
     
       <div class="dialog-actions">
         @if (ledger && ledger.totalOutstandingDue > 0) {
-          <button mat-stroked-button color="warn" (click)="openDueSlip()" class="btn-due-slip">
+          <button color="warn" (click)="openDueSlip()" class="btn-due-slip" matButton="filled">
             <mat-icon>receipt_long</mat-icon>
             <span class="btn-text-full">Print Due Slip (बकाया पर्ची)</span>
             <span class="btn-text-short">Due Slip</span>
           </button>
         }
         @if (ledger && ledger.totalOutstandingDue > 0) {
-          <button mat-stroked-button color="primary" (click)="collectFeeModal()" class="btn-collect">
+          <button color="primary" (click)="collectFeeModal()" class="btn-collect" matButton="filled">
             <mat-icon>payments</mat-icon>
             <span>Collect Fee</span>
           </button>
         }
-        <button mat-raised-button color="primary" (click)="onClose()" class="btn-done">
+        <button color="primary" (click)="onClose()" class="btn-done" matButton="filled">
           Done
         </button>
       </div>

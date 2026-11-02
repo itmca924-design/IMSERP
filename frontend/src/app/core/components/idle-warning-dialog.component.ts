@@ -33,12 +33,12 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
       <mat-progress-bar mode="determinate" [value]="progressPercent" color="warn" class="countdown-bar"></mat-progress-bar>
 
       <div class="modal-actions">
-        <button mat-flat-button color="primary" class="stay-btn" (click)="stayLoggedIn()">
+        <button color="primary" class="stay-btn" (click)="stayLoggedIn()" matButton="filled">
           <mat-icon>check_circle</mat-icon>
           <span>Stay Logged In</span>
         </button>
 
-        <button mat-stroked-button color="warn" class="logout-btn" (click)="logoutNow()">
+        <button color="warn" class="logout-btn" (click)="logoutNow()" matButton="filled">
           <mat-icon>logout</mat-icon>
           <span>Logout Now</span>
         </button>

@@ -74,13 +74,13 @@ import {
           </div>
     
           <div class="nav-actions">
-            <button mat-stroked-button [class.btn-active]="activeTab === 'apply'" (click)="activeTab = 'apply'">
+            <button [class.btn-active]="activeTab === 'apply'" (click)="activeTab = 'apply'" matButton="filled">
               <mat-icon>edit_note</mat-icon> Apply Online
             </button>
-            <button mat-stroked-button [class.btn-active]="activeTab === 'track'" (click)="activeTab = 'track'">
+            <button [class.btn-active]="activeTab === 'track'" (click)="activeTab = 'track'" matButton="filled">
               <mat-icon>search</mat-icon> Track Application
             </button>
-            <button mat-flat-button color="primary" class="login-redirect-btn" (click)="goToLogin()">
+            <button color="primary" class="login-redirect-btn" (click)="goToLogin()" matButton="filled">
               <mat-icon>lock</mat-icon> Staff Login
             </button>
           </div>
@@ -123,7 +123,7 @@ import {
                     <span class="ref-label">Application Reference No.</span>
                     <div class="ref-val-wrap">
                       <span class="ref-val">{{ submittedResult.applicationNumber }}</span>
-                      <button mat-icon-button (click)="copyAppNumber(submittedResult.applicationNumber)" matTooltip="Copy Application Number">
+                      <button (click)="copyAppNumber(submittedResult.applicationNumber)" matTooltip="Copy Application Number" mat-icon-button>
                         <mat-icon>content_copy</mat-icon>
                       </button>
                     </div>
@@ -149,10 +149,10 @@ import {
                 </div>
               </div>
               <div class="success-actions no-print">
-                <button mat-raised-button color="primary" class="action-btn" (click)="printSlip()">
+                <button color="primary" class="action-btn" (click)="printSlip()" matButton="filled">
                   <mat-icon>print</mat-icon> Print Application Slip
                 </button>
-                <button mat-stroked-button class="action-btn" (click)="resetForm()">
+                <button class="action-btn" (click)="resetForm()" matButton="filled">
                   <mat-icon>add_circle_outline</mat-icon> Submit Another Application
                 </button>
               </div>
@@ -189,7 +189,7 @@ import {
                     <button type="button"
                       class="stream-type-btn"
                       [class.active]="admissionForm.get('admissionStream')?.value === 'School'"
-                      (click)="setStream('School')">
+                      (click)="setStream('School')" matButton="filled">
                       <div class="stream-icon-box school-box">
                         <mat-icon>school</mat-icon>
                       </div>
@@ -204,7 +204,7 @@ import {
                     <button type="button"
                       class="stream-type-btn"
                       [class.active]="admissionForm.get('admissionStream')?.value === 'Coaching'"
-                      (click)="setStream('Coaching')">
+                      (click)="setStream('Coaching')" matButton="filled">
                       <div class="stream-icon-box coaching-box">
                         <mat-icon>menu_book</mat-icon>
                       </div>
@@ -447,7 +447,7 @@ import {
               </mat-card>
               <!-- SUBMISSION BUTTON -->
               <div class="form-submit-panel">
-                <button mat-raised-button color="primary" type="submit" class="submit-btn" [disabled]="submitting || admissionForm.invalid">
+                <button color="primary" type="submit" class="submit-btn" [disabled]="submitting || admissionForm.invalid" matButton="filled">
                   @if (!submitting) {
                     <mat-icon>send</mat-icon>
                   }
@@ -486,7 +486,7 @@ import {
                     <input matInput formControlName="phone" placeholder="10-digit Mobile" maxlength="10" />
                     <mat-icon matSuffix>phone</mat-icon>
                   </mat-form-field>
-                  <button mat-raised-button color="primary" type="submit" class="track-submit-btn" [disabled]="tracking || trackForm.invalid">
+                  <button color="primary" type="submit" class="track-submit-btn" [disabled]="tracking || trackForm.invalid" matButton="filled">
                     <mat-icon>search</mat-icon> {{ tracking ? 'Searching...' : 'Check Status' }}
                   </button>
                 </div>

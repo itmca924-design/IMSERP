@@ -106,17 +106,24 @@ bootstrapApplication(AppComponent, {...appConfig, providers: [provideZoneChangeD
     // ── Progressive Web App (PWA) Service Worker Registration ──
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => {
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+
         navigator.serviceWorker
           .register('/sw.js')
           .then((registration) => {
             console.log('[PWA] Service Worker registered with scope:', registration.scope);
+            return registration.update();
           })
           .catch((err) => {
-            console.warn('[PWA] Service Worker registration failed:', err);
+            console.warn('[PWA] Service Worker registration or update failed:', err);
           });
       });
     }
   })
   .catch((err) => console.error(err));
-
-

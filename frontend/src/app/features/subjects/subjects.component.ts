@@ -88,13 +88,13 @@ interface ClassSubjectRowState {
         </div>
         <div class="header-actions">
           @if (activeTabIndex === 0) {
-            <button mat-raised-button color="primary" class="add-btn" (click)="openSubjectModal()">
+            <button color="primary" class="add-btn" (click)="openSubjectModal()" matButton="filled">
               <mat-icon>add</mat-icon>
               <span>Add New Subject</span>
             </button>
           }
           @if (activeTabIndex === 1) {
-            <button mat-raised-button color="primary" class="add-btn" (click)="saveClassAllocation()" [disabled]="savingAllocation || !selectedClass">
+            <button color="primary" class="add-btn app-button-save" (click)="saveClassAllocation()" [disabled]="savingAllocation || !selectedClass" matButton="filled">
               <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'save' }}</mat-icon>
               <span>Save Allocation for {{ selectedClass?.className || 'Class' }}</span>
             </button>
@@ -122,11 +122,11 @@ interface ClassSubjectRowState {
                   <mat-label>Search Subjects...</mat-label>
                   <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearchInput($event)" (input)="onSearchInput(searchTerm)" (keyup.enter)="onSearch()" placeholder="Search by name, code or description" />
                   @if (searchTerm) {
-                    <button matSuffix mat-icon-button aria-label="Clear" (click)="clearSearch()">
+                    <button matSuffix aria-label="Clear" (click)="clearSearch()" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   }
-                  <button matSuffix mat-icon-button (click)="onSearch()">
+                  <button matSuffix (click)="onSearch()" mat-icon-button>
                     <mat-icon>search</mat-icon>
                   </button>
                 </mat-form-field>
@@ -141,7 +141,7 @@ interface ClassSubjectRowState {
                 </mat-form-field>
     
                 <div class="spacer"></div>
-                <button mat-stroked-button color="primary" (click)="loadSubjects()">
+                <button color="primary" (click)="loadSubjects()" matButton="filled">
                   <mat-icon>refresh</mat-icon> Refresh Catalog
                 </button>
               </div>
@@ -188,10 +188,10 @@ interface ClassSubjectRowState {
                   <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef class="text-right"> Actions </th>
                     <td mat-cell *matCellDef="let element" class="text-right">
-                      <button mat-icon-button color="primary" (click)="openSubjectModal(element)" matTooltip="Edit Subject">
+                      <button color="primary" (click)="openSubjectModal(element)" matTooltip="Edit Subject" mat-icon-button>
                         <mat-icon>edit</mat-icon>
                       </button>
-                      <button mat-icon-button color="warn" (click)="deleteSubject(element)" matTooltip="Delete Subject">
+                      <button color="warn" (click)="deleteSubject(element)" matTooltip="Delete Subject" mat-icon-button>
                         <mat-icon>delete</mat-icon>
                       </button>
                     </td>
@@ -286,7 +286,7 @@ interface ClassSubjectRowState {
                     </div>
                     <div class="ph-actions-wrap">
                       <!-- Copy from Class Dropdown -->
-                      <button mat-stroked-button [matMenuTriggerFor]="copyMenu" class="copy-btn" [disabled]="classSummaries.length <= 1">
+                      <button [matMenuTriggerFor]="copyMenu" class="copy-btn" [disabled]="classSummaries.length <= 1" matButton="filled">
                         <mat-icon>content_copy</mat-icon>
                         <span>Copy From Class</span>
                         <mat-icon>arrow_drop_down</mat-icon>
@@ -303,7 +303,7 @@ interface ClassSubjectRowState {
                         }
                       </mat-menu>
                       <!-- Save Allocation Button -->
-                      <button mat-raised-button color="primary" class="save-alloc-btn" (click)="saveClassAllocation()" [disabled]="savingAllocation">
+                      <button color="primary" class="save-alloc-btn app-button-save" (click)="saveClassAllocation()" [disabled]="savingAllocation" matButton="filled">
                         <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
                         <span>{{ savingAllocation ? 'Saving...' : 'Save Allocation' }}</span>
                       </button>
@@ -321,9 +321,9 @@ interface ClassSubjectRowState {
                       <strong>{{ compulsorySubjectsCount }}</strong> Compulsory Subjects
                     </div>
                     <div class="meta-actions">
-                      <button type="button" class="quick-link-btn" (click)="selectAllSubjects(true)">Select All</button>
+                      <button type="button" class="quick-link-btn" (click)="selectAllSubjects(true)" matButton="filled">Select All</button>
                       <span class="sep">&bull;</span>
-                      <button type="button" class="quick-link-btn" (click)="selectAllSubjects(false)">Deselect All</button>
+                      <button type="button" class="quick-link-btn" (click)="selectAllSubjects(false)" matButton="filled">Deselect All</button>
                     </div>
                   </div>
                 }
@@ -418,7 +418,7 @@ interface ClassSubjectRowState {
                       <mat-icon>info</mat-icon>
                       <span>Allocating subjects here dynamically filters subjects in School Exams, Routine Timetable, and Homework modules.</span>
                     </div>
-                    <button mat-raised-button color="primary" class="save-alloc-btn" (click)="saveClassAllocation()" [disabled]="savingAllocation">
+                    <button color="primary" class="save-alloc-btn app-button-save" (click)="saveClassAllocation()" [disabled]="savingAllocation" matButton="filled">
                       <mat-icon>{{ savingAllocation ? 'hourglass_empty' : 'save' }}</mat-icon>
                       <span>Save Allocation for {{ selectedClass.className }}</span>
                     </button>

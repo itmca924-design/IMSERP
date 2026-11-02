@@ -52,22 +52,22 @@ export interface FeeHeadsReportDialogData {
             </div>
           </div>
           <!-- Close button on Mobile sits in the top row -->
-          <button mat-icon-button class="close-btn close-btn-mobile" (click)="dialogRef.close()" matTooltip="Close Window">
+          <button class="close-btn close-btn-mobile" (click)="dialogRef.close()" matTooltip="Close Window" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
     
         <div class="top-actions">
-          <button mat-flat-button color="primary" class="action-btn print-btn" (click)="printReport()">
+          <button color="primary" class="action-btn print-btn" (click)="printReport()" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Catalog</span>
           </button>
-          <button mat-stroked-button class="action-btn excel-btn" (click)="exportToCsv()" matTooltip="Download as Excel/CSV">
+          <button class="action-btn excel-btn" (click)="exportToCsv()" matTooltip="Download as Excel/CSV" matButton="filled">
             <mat-icon>download</mat-icon>
             <span>Export CSV</span>
           </button>
           <!-- Close button on Desktop sits with action buttons -->
-          <button mat-icon-button class="close-btn close-btn-desktop" (click)="dialogRef.close()" matTooltip="Close Window">
+          <button class="close-btn close-btn-desktop" (click)="dialogRef.close()" matTooltip="Close Window" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>

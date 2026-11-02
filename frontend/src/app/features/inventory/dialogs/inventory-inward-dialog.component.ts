@@ -55,7 +55,7 @@ export interface InventoryInwardDialogData {
             <p>Record stock arrival from vendor to automatically increase inventory count</p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onCancel()" type="button">
+        <button class="close-btn" (click)="onCancel()" type="button" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -93,7 +93,7 @@ export interface InventoryInwardDialogData {
                 (keydown)="$event.preventDefault()"
                 class="readonly-bill-input"
                 matTooltip="Auto-generated sequential bill number. Click ⚙️ to configure." />
-              <button mat-icon-button matSuffix (click)="openSequenceSettings()" type="button" matTooltip="Configure Bill Sequencer">
+              <button matSuffix (click)="openSequenceSettings()" type="button" matTooltip="Configure Bill Sequencer" mat-icon-button>
                 <mat-icon class="icon-sm">settings</mat-icon>
               </button>
             </mat-form-field>
@@ -140,7 +140,7 @@ export interface InventoryInwardDialogData {
               <mat-icon>inventory_2</mat-icon>
               <span>Items to Inward / Receive</span>
             </div>
-            <button mat-stroked-button color="primary" type="button" (click)="addItemRow()" class="add-row-btn">
+            <button color="primary" type="button" (click)="addItemRow()" class="add-row-btn" matButton="filled">
               <mat-icon>add</mat-icon>
               <span>Add Item Row</span>
             </button>
@@ -201,7 +201,7 @@ export interface InventoryInwardDialogData {
                   <span class="val">₹{{ getLineTotal(i) | number:'1.2-2' }}</span>
                 </div>
                 <!-- Remove button -->
-                <button mat-icon-button color="warn" type="button" (click)="removeItemRow(i)" [disabled]="itemRows.length === 1" matTooltip="Remove Line">
+                <button color="warn" type="button" (click)="removeItemRow(i)" [disabled]="itemRows.length === 1" matTooltip="Remove Line" mat-icon-button>
                   <mat-icon>delete_outline</mat-icon>
                 </button>
               </div>
@@ -251,10 +251,10 @@ export interface InventoryInwardDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
+          <button type="button" (click)="onCancel()" [disabled]="submitting" matButton="filled" class="app-button-cancel">
             Cancel
           </button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting || itemRows.length === 0">
+          <button color="primary" type="submit" [disabled]="form.invalid || submitting || itemRows.length === 0" matButton="filled">
             @if (submitting) {
               <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
             }

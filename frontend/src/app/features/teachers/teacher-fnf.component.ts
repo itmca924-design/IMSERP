@@ -37,7 +37,7 @@ import { AuthService } from '../../core/services/auth.service';
       <p class="page-subtitle">Faculty offboarding, departmental clearances (No Dues), advance &amp; library recoveries, FNF vouchers, and official relieving certificates.</p>
     </div>
     <div class="header-actions">
-      <button mat-raised-button color="primary" class="action-btn" (click)="openFnFDrawer()">
+      <button color="primary" class="action-btn" (click)="openFnFDrawer()" matButton="filled">
         <mat-icon>person_remove</mat-icon>
         <span>Initiate Exit / FNF</span>
       </button>
@@ -90,7 +90,7 @@ import { AuthService } from '../../core/services/auth.service';
             <h3>Process Full &amp; Final Settlement (FNF)</h3>
             <p>Verify clearances, compute final pro-rata dues, adjust advances, and finalize offboarding.</p>
           </div>
-          <button mat-icon-button (click)="closeDrawer()"><mat-icon>close</mat-icon></button>
+          <button (click)="closeDrawer()" mat-icon-button><mat-icon>close</mat-icon></button>
         </div>
         <div class="drawer-body">
           <!-- Locked Settlement Notice Banner -->
@@ -103,7 +103,7 @@ import { AuthService } from '../../core/services/auth.service';
                   <span class="lock-sub">{{ preview?.teacherName }} ({{ preview?.employeeCode }}) has already been offboarded and settled. Duplicate FNF processing is strictly prohibited.</span>
                 </div>
               </div>
-              <button mat-flat-button color="primary" type="button" class="lock-banner-btn" (click)="openExistingSettlementFromPreview()">
+              <button color="primary" type="button" class="lock-banner-btn" (click)="openExistingSettlementFromPreview()" matButton="filled">
                 <mat-icon>receipt_long</mat-icon> View Settlement Statement
               </button>
             </div>
@@ -413,14 +413,14 @@ import { AuthService } from '../../core/services/auth.service';
           </div>
         </div>
         <div class="drawer-footer">
-          <button mat-button (click)="closeDrawer()">Cancel</button>
+          <button (click)="closeDrawer()" matButton="filled" class="app-button-cancel">Cancel</button>
           @if (!preview?.isFnFAlreadySettled) {
-            <button mat-raised-button color="primary" [disabled]="!formData.teacherId || saving" (click)="saveFnFSettlement()">
+            <button color="primary" [disabled]="!formData.teacherId || saving" (click)="saveFnFSettlement()" matButton="filled" class="app-button-save">
               <mat-icon>{{ saving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
               <span>{{ formData.finalizeNow ? 'Finalize & Settle FNF' : 'Save as Draft' }}</span>
             </button>
           } @else {
-            <button mat-raised-button color="primary" type="button" (click)="openExistingSettlementFromPreview()">
+            <button color="primary" type="button" (click)="openExistingSettlementFromPreview()" matButton="filled">
               <mat-icon>receipt_long</mat-icon>
               <span>View Settled Statement</span>
             </button>
@@ -496,10 +496,10 @@ import { AuthService } from '../../core/services/auth.service';
                   </span>
                 </td>
                 <td class="text-right actions-cell">
-                  <button mat-stroked-button class="doc-btn" (click)="viewSettlementStatement(s)" matTooltip="View / Print FNF Statement">
+                  <button class="doc-btn" (click)="viewSettlementStatement(s)" matTooltip="View / Print FNF Statement" matButton="filled">
                     <mat-icon>receipt_long</mat-icon> Statement
                   </button>
-                  <button mat-raised-button color="primary" class="doc-btn primary" (click)="viewRelievingCertificate(s)" matTooltip="Generate Official Experience & Relieving Certificate">
+                  <button color="primary" class="doc-btn primary" (click)="viewRelievingCertificate(s)" matTooltip="Generate Official Experience & Relieving Certificate" matButton="filled">
                     <mat-icon>workspace_premium</mat-icon> Certificate
                   </button>
                 </td>
@@ -533,10 +533,10 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
           </div>
           <div class="btn-grp">
-            <button mat-raised-button color="primary" (click)="printDocument('fnf-statement-paper')">
+            <button color="primary" (click)="printDocument('fnf-statement-paper')" matButton="filled">
               <mat-icon>print</mat-icon> Print Statement (A4)
             </button>
-            <button mat-icon-button (click)="showStatementModal = false"><mat-icon>close</mat-icon></button>
+            <button (click)="showStatementModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
           </div>
         </div>
         <!-- A4 Statement Paper -->
@@ -699,10 +699,10 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
           </div>
           <div class="btn-grp">
-            <button mat-raised-button color="primary" (click)="printDocument('relieving-cert-paper')">
+            <button color="primary" (click)="printDocument('relieving-cert-paper')" matButton="filled">
               <mat-icon>print</mat-icon> Print Certificate (A4)
             </button>
-            <button mat-icon-button (click)="showCertModal = false"><mat-icon>close</mat-icon></button>
+            <button (click)="showCertModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
           </div>
         </div>
         <!-- Certificate Paper with Border -->

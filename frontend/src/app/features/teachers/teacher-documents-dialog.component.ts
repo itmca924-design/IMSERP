@@ -41,7 +41,7 @@ export interface TeacherDocumentsDialogData {
         <p class="modal-subtitle">{{data.teacherName}} ({{data.employeeCode}}) &bull; सत्यापन एवं दस्तावेज़ रिपॉजिटरी</p>
       </div>
     </div>
-    <button mat-icon-button (click)="dialogRef.close()" class="close-btn">
+    <button (click)="dialogRef.close()" class="close-btn" mat-icon-button>
       <mat-icon>close</mat-icon>
     </button>
   </div>
@@ -57,7 +57,7 @@ export interface TeacherDocumentsDialogData {
         <mat-icon>verified</mat-icon>
         <span>{{getVerifiedCount()}} of {{documents.length}} Documents Verified</span>
       </div>
-      <button mat-raised-button color="primary" (click)="showAddForm = !showAddForm">
+      <button color="primary" (click)="showAddForm = !showAddForm" matButton="filled">
         <mat-icon>{{showAddForm ? 'close' : 'add'}}</mat-icon>
         {{showAddForm ? 'Cancel Add' : 'Upload / Add Document'}}
       </button>
@@ -100,8 +100,8 @@ export interface TeacherDocumentsDialogData {
           </mat-form-field>
         </div>
         <div class="form-actions">
-          <button mat-button (click)="showAddForm = false">Cancel</button>
-          <button mat-raised-button color="primary" [disabled]="saving || !newDoc.documentType || !newDoc.title" (click)="saveDocument()">
+          <button (click)="showAddForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" [disabled]="saving || !newDoc.documentType || !newDoc.title" (click)="saveDocument()" matButton="filled" class="app-button-save">
             @if (!saving) {
               <mat-icon>save</mat-icon>
             }
@@ -156,16 +156,16 @@ export interface TeacherDocumentsDialogData {
             </div>
             <div class="doc-actions-col">
               @if (doc.verificationStatus !== 'Verified') {
-                <button mat-stroked-button color="primary" class="action-btn" (click)="verifyDoc(doc, 'Verified')">
+                <button color="primary" class="action-btn" (click)="verifyDoc(doc, 'Verified')" matButton="filled">
                   <mat-icon>check_circle</mat-icon> Verify
                 </button>
               }
               @if (doc.verificationStatus === 'Verified') {
-                <button mat-stroked-button color="warn" class="action-btn" (click)="verifyDoc(doc, 'Pending')">
+                <button color="warn" class="action-btn" (click)="verifyDoc(doc, 'Pending')" matButton="filled">
                   <mat-icon>undo</mat-icon> Unverify
                 </button>
               }
-              <button mat-icon-button color="warn" matTooltip="Delete Document" (click)="deleteDoc(doc.id)">
+              <button color="warn" matTooltip="Delete Document" (click)="deleteDoc(doc.id)" mat-icon-button>
                 <mat-icon>delete</mat-icon>
               </button>
             </div>

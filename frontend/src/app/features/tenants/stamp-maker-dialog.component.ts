@@ -43,7 +43,7 @@ export interface StampMakerData {
           <h2 mat-dialog-title class="main-title">Digital Rubber Stamp Studio (आधिकारिक मुहर जनरेटर)</h2>
           <p class="subtitle">Design high-resolution official rubber stamp with transparent background in real-time.</p>
         </div>
-        <button mat-icon-button (click)="onClose()" class="close-btn" aria-label="Close dialog">
+        <button (click)="onClose()" class="close-btn" aria-label="Close dialog" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -83,7 +83,7 @@ export interface StampMakerData {
                     [style.background]="c.hex"
                     [class.active]="stampForm.get('color')?.value === c.hex"
                     (click)="setColor(c.hex)"
-                    [matTooltip]="c.name">
+                    [matTooltip]="c.name" matButton="filled">
                     @if (stampForm.get('color')?.value === c.hex) {
                       <mat-icon>check</mat-icon>
                     }
@@ -137,7 +137,7 @@ export interface StampMakerData {
             <span class="preview-tag">
               <mat-icon class="pulse-icon">fiber_manual_record</mat-icon> Live Real-Time Transparent Canvas
             </span>
-            <button mat-icon-button (click)="drawStamp()" matTooltip="Redraw Stamp">
+            <button (click)="drawStamp()" matTooltip="Redraw Stamp" mat-icon-button>
               <mat-icon>refresh</mat-icon>
             </button>
           </div>
@@ -151,10 +151,10 @@ export interface StampMakerData {
     
       <!-- Action Footer -->
       <div class="dialog-actions">
-        <button mat-stroked-button (click)="onClose()" [disabled]="uploading">
+        <button (click)="onClose()" [disabled]="uploading" matButton="filled" class="app-button-cancel">
           Cancel
         </button>
-        <button mat-raised-button color="primary" class="apply-btn" (click)="applyAndUpload()" [disabled]="uploading">
+        <button color="primary" class="apply-btn app-button-save" (click)="applyAndUpload()" [disabled]="uploading" matButton="filled">
           @if (!uploading) {
             <mat-icon>verified</mat-icon>
           }

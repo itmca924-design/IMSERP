@@ -27,7 +27,7 @@
     <div class="header-actions">
       <!-- WhatsApp Button (single mode only) -->
       @if (!isBulkMode && activeStudent) {
-        <button mat-flat-button class="wa-btn header-btn" (click)="sendWhatsApp()" [disabled]="sendingWhatsApp" matTooltip="Send Result Summary to Parent's WhatsApp">
+        <button class="wa-btn header-btn" (click)="sendWhatsApp()" [disabled]="sendingWhatsApp" matTooltip="Send Result Summary to Parent's WhatsApp" matButton="filled">
           @if (!sendingWhatsApp) {
             <mat-icon>send</mat-icon>
           }
@@ -39,13 +39,13 @@
       }
 
       <!-- Print Button -->
-      <button mat-flat-button class="print-btn header-btn" (click)="printDocument()" matTooltip="Print in A4 Portrait Layout">
+      <button class="print-btn header-btn" (click)="printDocument()" matTooltip="Print in A4 Portrait Layout" matButton="filled">
         <mat-icon>print</mat-icon>
         <span>Print {{ isBulkMode ? 'All (' + studentsToRender.length + ')' : 'Document' }}</span>
       </button>
 
       <!-- Close Button -->
-      <button mat-icon-button class="close-btn" [mat-dialog-close]="null" matTooltip="Close (Esc)">
+      <button class="close-btn" [mat-dialog-close]="null" matTooltip="Close (Esc)" mat-icon-button>
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -54,23 +54,23 @@
   <!-- Sub-Header Document Navigation Strip (5 Formats) -->
   <div class="doc-nav-toolbar no-print">
     <div class="toolbar-tabs">
-      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'bseb_marksheet'" (click)="currentView = 'bseb_marksheet'">
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'bseb_marksheet'" (click)="currentView = 'bseb_marksheet'" matButton="filled">
         <mat-icon>auto_stories</mat-icon>
         <span>Board Style Marksheet</span>
       </button>
-      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'admit_card'" (click)="currentView = 'admit_card'">
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'admit_card'" (click)="currentView = 'admit_card'" matButton="filled">
         <mat-icon>badge</mat-icon>
         <span>Admit Card</span>
       </button>
-      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'marksheet'" (click)="currentView = 'marksheet'">
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'marksheet'" (click)="currentView = 'marksheet'" matButton="filled">
         <mat-icon>description</mat-icon>
         <span>Progress Report Card</span>
       </button>
-      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'result_card'" (click)="currentView = 'result_card'">
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'result_card'" (click)="currentView = 'result_card'" matButton="filled">
         <mat-icon>analytics</mat-icon>
         <span>Result Card</span>
       </button>
-      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'certificate'" (click)="currentView = 'certificate'">
+      <button type="button" class="nav-tab-btn" [class.active]="currentView === 'certificate'" (click)="currentView = 'certificate'" matButton="filled">
         <mat-icon>workspace_premium</mat-icon>
         <span>Promotion Certificate</span>
       </button>

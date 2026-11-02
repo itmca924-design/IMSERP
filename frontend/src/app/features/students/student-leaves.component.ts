@@ -92,15 +92,15 @@ export interface StudentLeaveStatsDto {
         </div>
     
         <div class="header-actions">
-          <a mat-stroked-button class="refresh-btn" routerLink="/students/gate-pass" style="color:#2563eb; border-color:#bfdbfe;">
+          <a matButton="filled" class="refresh-btn" routerLink="/students/gate-pass" style="color:#2563eb; border-color:#bfdbfe;">
             <mat-icon>badge</mat-icon>
             <span>Gate Pass</span>
           </a>
-          <button mat-stroked-button class="refresh-btn" (click)="loadLeaves()" [disabled]="loading">
+          <button class="refresh-btn" (click)="loadLeaves()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
-          <button mat-raised-button class="create-btn" (click)="openApplyDialog()">
+          <button class="create-btn" (click)="openApplyDialog()" matButton="filled">
             <mat-icon>add_circle</mat-icon>
             <span>Apply Student Leave</span>
           </button>
@@ -176,13 +176,13 @@ export interface StudentLeaveStatsDto {
           <!-- Dual-Mode Scope Switcher Pills -->
           <div class="scope-pill-row">
             <div class="scope-pills">
-              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'All'" (click)="setScope('All')">
+              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'All'" (click)="setScope('All')" matButton="filled">
                 <mat-icon>domain</mat-icon> All Enrolments
               </button>
-              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'School'" (click)="setScope('School')">
+              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'School'" (click)="setScope('School')" matButton="filled">
                 <mat-icon>school</mat-icon> School Academic Classes
               </button>
-              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'Coaching'" (click)="setScope('Coaching')">
+              <button type="button" class="scope-pill" [class.active]="filterForm.get('academicScope')?.value === 'Coaching'" (click)="setScope('Coaching')" matButton="filled">
                 <mat-icon>groups</mat-icon> Coaching Batches
               </button>
             </div>
@@ -241,18 +241,18 @@ export interface StudentLeaveStatsDto {
             <mat-form-field appearance="outline" class="filter-field search-field">
               <mat-label>Search Student, Roll #, Batch, Reason</mat-label>
               <input matInput formControlName="searchTerm" placeholder="Search..." (keyup.enter)="loadLeaves()">
-              <button mat-icon-button matSuffix type="button" (click)="loadLeaves()">
+              <button matSuffix type="button" (click)="loadLeaves()" mat-icon-button>
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
     
-            <button mat-stroked-button type="button" class="reset-btn" (click)="resetFilters()">
+            <button type="button" class="reset-btn app-button-cancel" (click)="resetFilters()" matButton="filled">
               <mat-icon>refresh</mat-icon> Reset
             </button>
     
             <!-- Sharp SVG View Toggle -->
             <div class="view-toggle">
-              <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Card Grid View">
+              <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Card Grid View" mat-icon-button>
                 <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                   <rect x="3" y="3" width="8" height="8" rx="1.5" />
                   <rect x="13" y="3" width="8" height="8" rx="1.5" />
@@ -260,7 +260,7 @@ export interface StudentLeaveStatsDto {
                   <rect x="13" y="13" width="8" height="8" rx="1.5" />
                 </svg>
               </button>
-              <button type="button" class="toggle-btn" [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List View">
+              <button type="button" class="toggle-btn" [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List View" mat-icon-button>
                 <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="9" y1="6" x2="21" y2="6"></line>
                   <line x1="9" y1="12" x2="21" y2="12"></line>
@@ -285,7 +285,7 @@ export interface StudentLeaveStatsDto {
           <div class="empty-icon-wrap"><mat-icon>event_available</mat-icon></div>
           <h3>No Student Leave Requests Found</h3>
           <p>No leave records match the current filter selection. Click "Apply Student Leave" to submit a new application.</p>
-          <button mat-raised-button class="create-btn" (click)="openApplyDialog()">
+          <button class="create-btn" (click)="openApplyDialog()" matButton="filled">
             <mat-icon>add_circle</mat-icon> Apply First Leave
           </button>
         </div>
@@ -376,21 +376,21 @@ export interface StudentLeaveStatsDto {
               }
               <!-- Card Action Footer -->
               <div class="card-footer">
-                <button mat-stroked-button class="view-btn" (click)="viewLeaveDetails(item)">
+                <button class="view-btn" (click)="viewLeaveDetails(item)" matButton="filled">
                   <mat-icon>visibility</mat-icon> View
                 </button>
                 <!-- Cancellation Actions -->
                 @if ((item.status === 'Approved' || item.status === 'PartiallyCancelled') && !item.isCancellationRequested) {
-                  <button mat-stroked-button class="cancel-leave-btn"
+                  <button class="cancel-leave-btn"
                     (click)="openRequestCancellationDialog(item)"
-                    matTooltip="Request full or partial cancellation with interactive calendar">
+                    matTooltip="Request full or partial cancellation with interactive calendar" matButton="filled">
                     <mat-icon>event_busy</mat-icon> Cancel Leave
                   </button>
                 }
                 @if ((item.status === 'CancellationRequested' || item.isCancellationRequested) && !isStudentOrParent) {
-                  <button mat-flat-button class="review-cancel-btn"
+                  <button class="review-cancel-btn"
                     (click)="openReviewCancellationDialog(item)"
-                    matTooltip="Review requested leave cancellation">
+                    matTooltip="Review requested leave cancellation" matButton="filled">
                     <mat-icon>rule</mat-icon> Review Cancellation
                   </button>
                 }
@@ -402,19 +402,19 @@ export interface StudentLeaveStatsDto {
                 <div class="action-buttons">
                   <!-- Approve button if pending (Only for Teachers / Admins) -->
                   @if (!isStudentOrParent && item.status === 'Pending') {
-                    <button mat-flat-button class="approve-btn" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link Attendance">
+                    <button class="approve-btn" (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link Attendance" matButton="filled">
                       <mat-icon>check</mat-icon> Approve
                     </button>
                   }
                   <!-- Reject button if pending (Only for Teachers / Admins) -->
                   @if (!isStudentOrParent && item.status === 'Pending') {
-                    <button mat-stroked-button class="reject-btn" (click)="quickReview(item, 'Rejected')" matTooltip="Reject Application">
+                    <button class="reject-btn" (click)="quickReview(item, 'Rejected')" matTooltip="Reject Application" matButton="filled">
                       <mat-icon>close</mat-icon> Reject
                     </button>
                   }
                   <!-- Delete (Admins/Teachers or pending applications) -->
                   @if (!isStudentOrParent || item.status === 'Pending') {
-                    <button mat-icon-button class="del-btn" (click)="deleteLeave(item)" matTooltip="Delete Application">
+                    <button class="del-btn" (click)="deleteLeave(item)" matTooltip="Delete Application" mat-icon-button>
                       <mat-icon>delete_outline</mat-icon>
                     </button>
                   }
@@ -484,35 +484,35 @@ export interface StudentLeaveStatsDto {
                   </td>
                   <td>
                     <div class="tbl-actions">
-                      <button mat-icon-button (click)="viewLeaveDetails(item)" matTooltip="View Slip">
+                      <button (click)="viewLeaveDetails(item)" matTooltip="View Slip" mat-icon-button>
                         <mat-icon style="color:#2563eb;">visibility</mat-icon>
                       </button>
                       <!-- Cancel Leave Button on Approved / PartiallyCancelled -->
                       @if ((item.status === 'Approved' || item.status === 'PartiallyCancelled') && !item.isCancellationRequested) {
-                        <button mat-icon-button
-                          (click)="openRequestCancellationDialog(item)" matTooltip="Cancel Leave / Partial Dates">
+                        <button
+                          (click)="openRequestCancellationDialog(item)" matTooltip="Cancel Leave / Partial Dates" mat-icon-button>
                           <mat-icon style="color:#dc2626;">event_busy</mat-icon>
                         </button>
                       }
                       <!-- Review Cancellation Button on CancellationRequested for Teacher/Admin -->
                       @if ((item.status === 'CancellationRequested' || item.isCancellationRequested) && !isStudentOrParent) {
-                        <button mat-icon-button
-                          (click)="openReviewCancellationDialog(item)" matTooltip="Review Leave Cancellation">
+                        <button
+                          (click)="openReviewCancellationDialog(item)" matTooltip="Review Leave Cancellation" mat-icon-button>
                           <mat-icon style="color:#ea580c;">rule</mat-icon>
                         </button>
                       }
                       @if (!isStudentOrParent && item.status === 'Pending') {
-                        <button mat-icon-button (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link">
+                        <button (click)="quickReview(item, 'Approved')" matTooltip="Approve & Link" mat-icon-button>
                           <mat-icon style="color:#16a34a;">check_circle</mat-icon>
                         </button>
                       }
                       @if (!isStudentOrParent && item.status === 'Pending') {
-                        <button mat-icon-button (click)="quickReview(item, 'Rejected')" matTooltip="Reject">
+                        <button (click)="quickReview(item, 'Rejected')" matTooltip="Reject" mat-icon-button>
                           <mat-icon style="color:#dc2626;">cancel</mat-icon>
                         </button>
                       }
                       @if (!isStudentOrParent || item.status === 'Pending') {
-                        <button mat-icon-button (click)="deleteLeave(item)" matTooltip="Delete">
+                        <button (click)="deleteLeave(item)" matTooltip="Delete" mat-icon-button>
                           <mat-icon style="color:#64748b;">delete</mat-icon>
                         </button>
                       }
@@ -712,24 +712,35 @@ export interface StudentLeaveStatsDto {
         height: 38px !important;
       }
       .scope-pill-row {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
         width: 100%;
-        padding-bottom: 4px;
         margin-bottom: 8px;
       }
       .scope-pills {
-        display: flex;
+        display: grid;
+        grid-template-columns: 1fr;
         width: 100%;
-        min-width: 320px;
+        min-width: 0;
       }
       .scope-pill {
-        flex: 1;
-        justify-content: center;
-        text-align: center;
-        padding: 8px 10px;
+        width: 100%;
+        min-width: 0;
+        min-height: 40px;
+        justify-content: flex-start;
+        text-align: left;
+        padding: 8px 12px;
         font-size: 12px;
-        white-space: nowrap;
+        white-space: normal;
+      }
+      :host ::ng-deep .scope-pill .mdc-button__label {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+        white-space: normal;
+        text-align: left;
+      }
+      .scope-pill mat-icon {
+        flex: 0 0 16px;
       }
       .stats-grid {
         grid-template-columns: repeat(2, 1fr) !important;
@@ -1107,7 +1118,7 @@ export class StudentLeavesComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn">
+        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -1117,9 +1128,9 @@ export class StudentLeavesComponent implements OnInit {
         <!-- Stream Scope Switcher -->
         <div class="dialog-scope-bar">
           <div class="dialog-pills">
-            <button type="button" class="d-pill" [class.active]="dialogScope === 'All'" (click)="setDialogScope('All')">All Students</button>
-            <button type="button" class="d-pill" [class.active]="dialogScope === 'School'" (click)="setDialogScope('School')">School Classes</button>
-            <button type="button" class="d-pill" [class.active]="dialogScope === 'Coaching'" (click)="setDialogScope('Coaching')">Coaching Batches</button>
+            <button type="button" class="d-pill" [class.active]="dialogScope === 'All'" (click)="setDialogScope('All')" matButton="filled">All Students</button>
+            <button type="button" class="d-pill" [class.active]="dialogScope === 'School'" (click)="setDialogScope('School')" matButton="filled">School Classes</button>
+            <button type="button" class="d-pill" [class.active]="dialogScope === 'Coaching'" (click)="setDialogScope('Coaching')" matButton="filled">Coaching Batches</button>
           </div>
         </div>
     
@@ -1231,8 +1242,8 @@ export class StudentLeavesComponent implements OnInit {
     
       <!-- Footer -->
       <div class="modal-footer">
-        <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
-        <button mat-raised-button class="save-btn" (click)="submitLeave()" [disabled]="saving || !model.studentId || !model.reason || !fromDateStr || !toDateStr || !!dateError">
+        <button (click)="dialogRef.close(false)" class="cancel-btn app-button-cancel" matButton="filled">Cancel</button>
+        <button class="save-btn" (click)="submitLeave()" [disabled]="saving || !model.studentId || !model.reason || !fromDateStr || !toDateStr || !!dateError" matButton="filled">
           <mat-icon>send</mat-icon>
           <span>Submit Application</span>
         </button>
@@ -1473,10 +1484,10 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
           </div>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button class="print-btn" (click)="printSlip()">
+          <button class="print-btn" (click)="printSlip()" matButton="filled">
             <mat-icon>print</mat-icon> Print Slip
           </button>
-          <button mat-icon-button (click)="dialogRef.close()" class="close-btn">
+          <button (click)="dialogRef.close()" class="close-btn" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>

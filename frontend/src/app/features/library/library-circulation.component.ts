@@ -50,10 +50,10 @@ import { environment } from '../../../environments/environment';
           </p>
         </div>
         <div class="header-actions">
-          <a mat-stroked-button routerLink="/library/plans" class="catalog-link-btn">
+          <a matButton="filled" routerLink="/library/plans" class="catalog-link-btn">
             <mat-icon>schedule</mat-icon> Shifts &amp; Plans
           </a>
-          <a mat-stroked-button routerLink="/library/books" class="catalog-link-btn">
+          <a matButton="filled" routerLink="/library/books" class="catalog-link-btn">
             <mat-icon>local_library</mat-icon> Books Catalog
           </a>
         </div>
@@ -61,15 +61,15 @@ import { environment } from '../../../environments/environment';
     
       <!-- Quick Desk Tabs: Issue / Return / Ledger -->
       <div class="desk-tabs">
-        <button type="button" class="desk-tab" [class.active]="activeDeskTab === 'issue'" (click)="activeDeskTab = 'issue'">
+        <button type="button" class="desk-tab" [class.active]="activeDeskTab === 'issue'" (click)="activeDeskTab = 'issue'" matButton="filled">
           <mat-icon>arrow_upward</mat-icon>
           <span>Issue Book Counter</span>
         </button>
-        <button type="button" class="desk-tab" [class.active]="activeDeskTab === 'return'" (click)="activeDeskTab = 'return'">
+        <button type="button" class="desk-tab" [class.active]="activeDeskTab === 'return'" (click)="activeDeskTab = 'return'" matButton="filled">
           <mat-icon>arrow_downward</mat-icon>
           <span>Return Book Counter</span>
         </button>
-        <button type="button" class="desk-tab" [class.active]="activeDeskTab === 'ledger'" (click)="activeDeskTab = 'ledger'">
+        <button type="button" class="desk-tab" [class.active]="activeDeskTab === 'ledger'" (click)="activeDeskTab = 'ledger'" matButton="filled">
           <mat-icon>format_list_bulleted</mat-icon>
           <span>Issued Ledger &amp; Overdue</span>
           @if (overdueCount > 0) {
@@ -112,7 +112,7 @@ import { environment } from '../../../environments/environment';
                   <input matInput [(ngModel)]="issueAccession" (keyup.enter)="lookupBookForIssue()" placeholder="e.g. ACC-00001" />
                   <mat-icon matSuffix>qr_code_scanner</mat-icon>
                 </mat-form-field>
-                <button mat-raised-button color="primary" class="btn-lookup" (click)="lookupBookForIssue()" [disabled]="!issueAccession">
+                <button color="primary" class="btn-lookup" (click)="lookupBookForIssue()" [disabled]="!issueAccession" matButton="filled">
                   Scan / Check
                 </button>
               </div>
@@ -154,15 +154,15 @@ import { environment } from '../../../environments/environment';
                 <div>
                   <!-- Borrower Stream Selector -->
                   <div class="borrower-stream-pills">
-                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'All'" (click)="setBorrowerStream('All')">
+                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'All'" (click)="setBorrowerStream('All')" matButton="filled">
                       <mat-icon>people</mat-icon>
                       <span>All Students</span>
                     </button>
-                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'School'" (click)="setBorrowerStream('School')">
+                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'School'" (click)="setBorrowerStream('School')" matButton="filled">
                       <mat-icon>school</mat-icon>
                       <span>School Class &amp; Sec</span>
                     </button>
-                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'Coaching'" (click)="setBorrowerStream('Coaching')">
+                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'Coaching'" (click)="setBorrowerStream('Coaching')" matButton="filled">
                       <mat-icon>groups</mat-icon>
                       <span>Coaching Batch</span>
                     </button>
@@ -224,7 +224,7 @@ import { environment } from '../../../environments/environment';
                         <mat-label>🔍 Quick Filter (Name / Roll No / Barcode)</mat-label>
                         <input matInput [(ngModel)]="studentSearchTerm" placeholder="Type to instantly filter..." />
                         @if (studentSearchTerm) {
-                          <button mat-icon-button matSuffix (click)="studentSearchTerm = ''" type="button">
+                          <button matSuffix (click)="studentSearchTerm = ''" type="button" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
@@ -299,7 +299,7 @@ import { environment } from '../../../environments/environment';
                               <p class="bsc-warn-desc">Student has not enrolled in a Library Membership Plan. Book circulation is restricted to registered members only.</p>
                             </div>
                           </div>
-                          <button mat-stroked-button color="primary" class="btn-assign-mem" type="button" (click)="openAssignMembershipModal()">
+                          <button color="primary" class="btn-assign-mem" type="button" (click)="openAssignMembershipModal()" matButton="filled">
                             <mat-icon>card_membership</mat-icon>
                             <span>Assign Membership</span>
                           </button>
@@ -366,7 +366,7 @@ import { environment } from '../../../environments/environment';
                 </mat-form-field>
               </div>
               <div class="issue-action-bar">
-                <button mat-raised-button color="primary" class="btn-confirm-issue" (click)="confirmIssue()" [disabled]="!verifiedBook || verifiedBook.status !== 'Available' || (issueMemberType === 'Student' && (!issueStudentId || !selectedStudentForIssue?.isLibraryMember)) || (issueMemberType === 'Teacher' && !issueTeacherId) || issueSubmitting">
+                <button color="primary" class="btn-confirm-issue" (click)="confirmIssue()" [disabled]="!verifiedBook || verifiedBook.status !== 'Available' || (issueMemberType === 'Student' && (!issueStudentId || !selectedStudentForIssue?.isLibraryMember)) || (issueMemberType === 'Teacher' && !issueTeacherId) || issueSubmitting" matButton="filled">
                   <mat-icon>{{ (issueMemberType === 'Student' && selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember) ? 'lock' : 'check_circle' }}</mat-icon>
                   <span>{{ (issueMemberType === 'Student' && selectedStudentForIssue && !selectedStudentForIssue.isLibraryMember) ? 'Membership Required to Issue' : 'Confirm & Issue Book' }}</span>
                 </button>
@@ -395,7 +395,7 @@ import { environment } from '../../../environments/environment';
                 <input matInput [(ngModel)]="returnAccession" (keyup.enter)="lookupForReturn()" placeholder="e.g. ACC-00101" />
                 <mat-icon matSuffix>qr_code_scanner</mat-icon>
               </mat-form-field>
-              <button mat-raised-button color="primary" class="btn-lookup" (click)="lookupForReturn()" [disabled]="!returnAccession">
+              <button color="primary" class="btn-lookup" (click)="lookupForReturn()" [disabled]="!returnAccession" matButton="filled">
                 Fetch Issue Record
               </button>
             </div>
@@ -434,7 +434,7 @@ import { environment } from '../../../environments/environment';
                   </div>
                 </div>
                 <div class="return-btn-bar">
-                  <button mat-raised-button color="primary" class="btn-confirm-return" (click)="confirmReturn()" [disabled]="returnSubmitting">
+                  <button color="primary" class="btn-confirm-return" (click)="confirmReturn()" [disabled]="returnSubmitting" matButton="filled">
                     <mat-icon>done_all</mat-icon>
                     <span>Confirm Return &amp; Restock to Shelf</span>
                   </button>
@@ -450,10 +450,10 @@ import { environment } from '../../../environments/environment';
         <mat-card class="desk-card mat-elevation-z2">
           <div class="ledger-toolbar">
             <div class="ledger-pill-group">
-              <button type="button" class="lp-pill" [class.active]="!ledgerOverdueOnly" (click)="setOverdueFilter(false)">
+              <button type="button" class="lp-pill" [class.active]="!ledgerOverdueOnly" (click)="setOverdueFilter(false)" matButton="filled">
                 All Active Issues ({{ circulations.length }})
               </button>
-              <button type="button" class="lp-pill overdue-pill" [class.active]="ledgerOverdueOnly" (click)="setOverdueFilter(true)">
+              <button type="button" class="lp-pill overdue-pill" [class.active]="ledgerOverdueOnly" (click)="setOverdueFilter(true)" matButton="filled">
                 <mat-icon>warning</mat-icon>
                 Overdue Only ({{ overdueCount }})
               </button>
@@ -461,7 +461,7 @@ import { environment } from '../../../environments/environment';
             <mat-form-field appearance="outline" class="search-field">
               <mat-label>Search Book, Student, Roll No...</mat-label>
               <input matInput [(ngModel)]="ledgerSearchTerm" (keyup.enter)="loadCirculations()" placeholder="Search..." />
-              <button mat-icon-button matSuffix (click)="loadCirculations()"><mat-icon>search</mat-icon></button>
+              <button matSuffix (click)="loadCirculations()" mat-icon-button><mat-icon>search</mat-icon></button>
             </mat-form-field>
           </div>
           <div class="ledger-table-wrap">
@@ -536,7 +536,7 @@ import { environment } from '../../../environments/environment';
                           <mat-icon>chat</mat-icon>
                         </a>
                       }
-                      <button mat-stroked-button color="primary" class="btn-quick-return" (click)="quickReturnFromRow(c)" matTooltip="Return this book">
+                      <button color="primary" class="btn-quick-return" (click)="quickReturnFromRow(c)" matTooltip="Return this book" matButton="filled">
                         <mat-icon>arrow_downward</mat-icon> Return
                       </button>
                     </div>
@@ -570,7 +570,7 @@ import { environment } from '../../../environments/environment';
                 </p>
               </div>
             </div>
-            <button type="button" class="close-btn" (click)="closeAssignMembershipModal()" matTooltip="Close">
+            <button type="button" class="close-btn" (click)="closeAssignMembershipModal()" matTooltip="Close" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -617,10 +617,10 @@ import { environment } from '../../../environments/environment';
               </mat-form-field>
             </div>
             <div class="modal-footer-actions">
-              <button mat-stroked-button type="button" (click)="closeAssignMembershipModal()">
+              <button type="button" (click)="closeAssignMembershipModal()" matButton="filled" class="app-button-cancel">
                 Cancel
               </button>
-              <button mat-raised-button color="primary" type="button" class="btn-activate-save" (click)="saveAssignMembership()" [disabled]="assignSubmitting">
+              <button color="primary" type="button" class="btn-activate-save" (click)="saveAssignMembership()" [disabled]="assignSubmitting" matButton="filled">
                 <mat-icon>{{ assignSubmitting ? 'hourglass_empty' : 'verified' }}</mat-icon>
                 <span>{{ assignSubmitting ? 'Activating...' : 'Activate Membership & Enable Borrowing' }}</span>
               </button>

@@ -15,7 +15,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { HttpClient } from '@angular/common/http';
 import { SchoolService, SchoolClassDto, SchoolSectionDto, UnifiedStatsDto } from '../../core/services/school.service';
 import { SubjectsService } from '../../core/services/subjects.service';
-import { RoomService, RoomDto } from '../../core/services/room.service';
+import type { RoomDto } from '../../core/services/room.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -55,11 +55,11 @@ import { environment } from '../../../environments/environment';
           </p>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button color="primary" class="action-btn" (click)="openAddSectionDrawer()">
+          <button color="primary" class="action-btn" (click)="openAddSectionDrawer()" matButton="filled">
             <mat-icon>add_box</mat-icon>
             <span>Add Section</span>
           </button>
-          <button mat-raised-button color="primary" class="action-btn primary" (click)="openAddClassDrawer()">
+          <button color="primary" class="action-btn primary" (click)="openAddClassDrawer()" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Add New Class</span>
           </button>
@@ -122,7 +122,7 @@ import { environment } from '../../../environments/environment';
                 <small>{{ isEditingClass ? 'Update class title, code, and display order' : 'e.g. Nursery, UKG, Class 1st, Class 8th, Class 10th' }}</small>
               </div>
             </div>
-            <button mat-icon-button (click)="closeClassDrawer()" matTooltip="Close Edit Form">
+            <button (click)="closeClassDrawer()" matTooltip="Close Edit Form" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -155,8 +155,8 @@ import { environment } from '../../../environments/environment';
               </mat-slide-toggle>
             }
             <div class="btn-group">
-              <button mat-button (click)="closeClassDrawer()">Cancel</button>
-              <button mat-raised-button color="primary" (click)="saveClass()" [disabled]="!classFormData.name || saving">
+              <button (click)="closeClassDrawer()" matButton="filled" class="app-button-cancel">Cancel</button>
+              <button color="primary" (click)="saveClass()" [disabled]="!classFormData.name || saving" matButton="filled" [class.app-button-update]="isEditingClass" [class.app-button-save]="!(isEditingClass)">
                 <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
                 {{ isEditingClass ? 'Update Class' : 'Save Class' }}
               </button>
@@ -186,7 +186,7 @@ import { environment } from '../../../environments/environment';
                 <small>{{ isEditingSection ? 'Update section name, capacity, classroom allocation, or class teacher' : 'e.g. Section A, Section B, Commerce, Science' }}</small>
               </div>
             </div>
-            <button mat-icon-button (click)="closeSectionDrawer()" matTooltip="Close Edit Form">
+            <button (click)="closeSectionDrawer()" matTooltip="Close Edit Form" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -239,8 +239,8 @@ import { environment } from '../../../environments/environment';
               </mat-slide-toggle>
             }
             <div class="btn-group">
-              <button mat-button (click)="closeSectionDrawer()">Cancel</button>
-              <button mat-raised-button color="primary" (click)="saveSection()" [disabled]="!sectionFormData.name || saving">
+              <button (click)="closeSectionDrawer()" matButton="filled" class="app-button-cancel">Cancel</button>
+              <button color="primary" (click)="saveSection()" [disabled]="!sectionFormData.name || saving" matButton="filled" [class.app-button-update]="isEditingSection" [class.app-button-save]="!(isEditingSection)">
                 <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
                 {{ isEditingSection ? 'Update Section' : 'Save Section' }}
               </button>
@@ -255,20 +255,20 @@ import { environment } from '../../../environments/environment';
           <div class="scope-filter-toggle">
             <button type="button" class="s-toggle-btn"
               [class.active]="selectedScopeFilter === 'All'"
-              (click)="setScopeFilter('All')">
+              (click)="setScopeFilter('All')" matButton="filled">
               <span>✨ All Classes</span>
               <span class="count-pill">{{ classes.length }}</span>
             </button>
             <button type="button" class="s-toggle-btn"
               [class.active]="selectedScopeFilter === 'School'"
-              (click)="setScopeFilter('School')">
+              (click)="setScopeFilter('School')" matButton="filled">
               <mat-icon>school</mat-icon>
               <span>School Classes</span>
               <span class="count-pill">{{ getSchoolClassesCount() }}</span>
             </button>
             <button type="button" class="s-toggle-btn"
               [class.active]="selectedScopeFilter === 'Coaching'"
-              (click)="setScopeFilter('Coaching')">
+              (click)="setScopeFilter('Coaching')" matButton="filled">
               <mat-icon>groups</mat-icon>
               <span>Coaching Classes</span>
               <span class="count-pill">{{ getCoachingClassesCount() }}</span>
@@ -308,13 +308,13 @@ import { environment } from '../../../environments/environment';
                   <a mat-icon-button class="action-btn-circle subjects-btn" matTooltip="Manage Class Curriculum & Subjects" [routerLink]="['/subjects']" [queryParams]="{classId: c.id, tab: 1}">
                     <mat-icon>menu_book</mat-icon>
                   </a>
-                  <button mat-icon-button class="action-btn-circle add-btn" matTooltip="Add Section to this Class" (click)="quickAddSection(c)">
+                  <button class="action-btn-circle add-btn" matTooltip="Add Section to this Class" (click)="quickAddSection(c)" mat-icon-button>
                     <mat-icon>add</mat-icon>
                   </button>
-                  <button mat-icon-button class="action-btn-circle edit-btn" matTooltip="Edit Class" (click)="editClass(c)">
+                  <button class="action-btn-circle edit-btn" matTooltip="Edit Class" (click)="editClass(c)" mat-icon-button>
                     <mat-icon>edit</mat-icon>
                   </button>
-                  <button mat-icon-button class="action-btn-circle delete-btn" matTooltip="Delete Class" (click)="deleteClass(c)">
+                  <button class="action-btn-circle delete-btn" matTooltip="Delete Class" (click)="deleteClass(c)" mat-icon-button>
                     <mat-icon>delete_outline</mat-icon>
                   </button>
                 </div>
@@ -350,13 +350,13 @@ import { environment } from '../../../environments/environment';
                         </div>
                       </div>
                       <div class="sec-actions">
-                        <button mat-icon-button class="mini-action-btn routine-sec" (click)="openSectionRoutine(s, c)" matTooltip="Class Timetable / Period Routine (समय सारणी)">
+                        <button class="mini-action-btn routine-sec" (click)="openSectionRoutine(s, c)" matTooltip="Class Timetable / Period Routine (समय सारणी)" mat-icon-button>
                           <mat-icon>schedule</mat-icon>
                         </button>
-                        <button mat-icon-button class="mini-action-btn edit-sec" (click)="editSection(s)" matTooltip="Edit Section">
+                        <button class="mini-action-btn edit-sec" (click)="editSection(s)" matTooltip="Edit Section" mat-icon-button>
                           <mat-icon>edit</mat-icon>
                         </button>
-                        <button mat-icon-button class="mini-action-btn delete-sec" (click)="deleteSection(s)" matTooltip="Delete Section">
+                        <button class="mini-action-btn delete-sec" (click)="deleteSection(s)" matTooltip="Delete Section" mat-icon-button>
                           <mat-icon>delete_outline</mat-icon>
                         </button>
                       </div>
@@ -377,7 +377,7 @@ import { environment } from '../../../environments/environment';
                         <span class="teacher-name-label">{{ s.classTeacherName || 'Assign Class Teacher' }}</span>
                         <mat-icon class="quick-caret">arrow_drop_down</mat-icon>
                         @if (s.classTeacherName) {
-                          <button type="button" class="remove-teacher-chip-btn" (click)="$event.stopPropagation(); removeClassTeacher(s, c)" matTooltip="Remove Class Teacher">
+                          <button type="button" class="remove-teacher-chip-btn" (click)="$event.stopPropagation(); removeClassTeacher(s, c)" matTooltip="Remove Class Teacher" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
@@ -409,7 +409,7 @@ import { environment } from '../../../environments/environment';
           <mat-icon class="empty-state-icon">school</mat-icon>
           <h3>No School Classes Declared</h3>
           <p>Set up your institution's school classes (e.g. Class 1st to 12th) to begin enrolling school students and linking them with coaching batches.</p>
-          <button mat-raised-button color="primary" class="declare-btn" (click)="openAddClassDrawer()">
+          <button color="primary" class="declare-btn" (click)="openAddClassDrawer()" matButton="filled">
             <mat-icon class="btn-icon">add</mat-icon>
             <span>Declare First Class</span>
           </button>
@@ -1325,7 +1325,6 @@ export class SchoolClassesComponent implements OnInit {
   constructor(
     private schoolService: SchoolService,
     private subjectsService: SubjectsService,
-    private roomService: RoomService,
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
     private http: HttpClient
@@ -1491,7 +1490,7 @@ export class SchoolClassesComponent implements OnInit {
   }
 
   loadRooms(): void {
-    this.roomService.getRooms().subscribe({
+    this.http.get<RoomDto[]>(`${environment.apiUrl}/rooms`).subscribe({
       next: (res) => {
         this.rooms = (res || []).filter(r => r.isActive);
       }

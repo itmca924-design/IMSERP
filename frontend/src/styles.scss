@@ -66,6 +66,68 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
+// Keep filled Material buttons consistent across every feature.
+.mat-mdc-unelevated-button.app-button-save,
+.mat-mdc-unelevated-button[class*="save-"],
+.mat-mdc-unelevated-button[class*="-save"] {
+  --mat-button-filled-container-color: #15803d;
+  --mat-button-filled-label-text-color: #ffffff;
+  --mat-button-filled-state-layer-color: #ffffff;
+  --mat-button-filled-ripple-color: rgba(255, 255, 255, 0.18);
+}
+
+.mat-mdc-unelevated-button.app-button-update,
+.mat-mdc-unelevated-button[class*="update-"],
+.mat-mdc-unelevated-button[class*="-update"],
+.mat-mdc-unelevated-button[class*="edit-"],
+.mat-mdc-unelevated-button[class*="-edit"] {
+  --mat-button-filled-container-color: #b45309;
+  --mat-button-filled-label-text-color: #ffffff;
+  --mat-button-filled-state-layer-color: #ffffff;
+  --mat-button-filled-ripple-color: rgba(255, 255, 255, 0.18);
+}
+
+.mat-mdc-unelevated-button.app-button-delete,
+.mat-mdc-unelevated-button.mat-warn,
+.mat-mdc-unelevated-button[class*="delete"],
+.mat-mdc-unelevated-button[class*="remove"] {
+  --mat-button-filled-container-color: var(--mat-sys-error, #ba1a1a);
+  --mat-button-filled-label-text-color: var(--mat-sys-on-error, #ffffff);
+  --mat-button-filled-state-layer-color: var(--mat-sys-on-error, #ffffff);
+  --mat-button-filled-ripple-color: rgba(255, 255, 255, 0.18);
+}
+
+.mat-mdc-unelevated-button.app-button-cancel {
+  --mat-button-filled-container-color: var(--mat-sys-secondary-container, #d7e3f8);
+  --mat-button-filled-label-text-color: var(--mat-sys-on-secondary-container, #3b4858);
+  --mat-button-filled-state-layer-color: var(--mat-sys-on-secondary-container, #3b4858);
+  --mat-button-filled-ripple-color: rgba(59, 72, 88, 0.14);
+}
+
+html body :is(button, a).mat-mdc-unelevated-button.mat-mdc-button-base:not(#app-filled-btn):not(.status-pill):not(.quick-settings-drawer .theme-mode-selector .mode-btn):not(.quick-settings-drawer .drawer-tabs .tab-btn):not(.quick-settings-drawer .density-selector .density-btn):not(.quick-settings-drawer .lang-toggle-options .lang-opt-btn) {
+  height: var(--mat-button-filled-container-height, 40px) !important;
+  min-height: var(--mat-button-filled-container-height, 40px) !important;
+  border-radius: var(--mat-sys-corner-full, 9999px) !important;
+  border: none !important;
+  background-image: none !important;
+  background-color: var(--mat-button-filled-container-color) !important;
+  color: var(--mat-button-filled-label-text-color) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  text-transform: none !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.00714em !important;
+
+  &:disabled,
+  &[disabled],
+  &.mat-mdc-button-disabled {
+    background-color: var(--mat-button-filled-disabled-container-color, rgba(29, 27, 32, 0.12)) !important;
+    color: var(--mat-button-filled-disabled-label-text-color, rgba(29, 27, 32, 0.38)) !important;
+    opacity: 1 !important;
+  }
+}
+
 // CRITICAL: Protect Angular Material Icons Font Family
 .material-icons, mat-icon, .mat-icon, .mat-icon-no-color, .mat-icon-inline {
   font-family: 'Material Icons' !important;
@@ -1818,17 +1880,20 @@ body:not(.header-theme-light) {
     }
 
     .branch-selector-button {
-      background: rgba(255, 255, 255, 0.12) !important;
-      border: 1px solid rgba(255, 255, 255, 0.3) !important;
-      color: #ffffff !important;
-      --mat-button-outlined-label-text-color: #ffffff !important;
-      ::ng-deep .mdc-button__label { color: #ffffff !important; }
-      .branch-btn-content { color: #ffffff !important; }
-      .branch-btn-icon { color: #93c5fd !important; }
-      .branch-name-full { color: #ffffff !important; }
+      background: #ffffff !important;
+      border: 1px solid #ffffff !important;
+      color: #1e293b !important;
+      --mat-button-filled-label-text-color: #1e293b !important;
+      --mat-button-outlined-label-text-color: #1e293b !important;
+      ::ng-deep .mdc-button__label { color: #1e293b !important; }
+      .branch-btn-content,
+      .branch-name-full,
+      .branch-name-short { color: #1e293b !important; }
+      .branch-btn-icon { color: #2563eb !important; }
+      .dropdown-chevron { color: #64748b !important; }
       &:hover {
-        background: rgba(255, 255, 255, 0.2) !important;
-        border-color: rgba(255, 255, 255, 0.45) !important;
+        background: #eff6ff !important;
+        border-color: #bfdbfe !important;
       }
     }
   }
@@ -2253,7 +2318,8 @@ body.erp-dark-theme .mat-mdc-select-panel {
 /* Elevate mat-sidenav-content above mat-sidenav when in-page full-screen modal overlays are active */
 mat-sidenav-container {
   mat-sidenav-content:has(.marks-entry-overlay),
-  mat-sidenav-content:has(.modal-backdrop) {
+  mat-sidenav-content:has(.modal-backdrop),
+  mat-sidenav-content:has(.custom-modal-backdrop) {
     z-index: 1050 !important;
   }
 }
@@ -3213,7 +3279,6 @@ mat-sidenav-container {
   }
 }
 
-
 // Global safe-guard for all dialogs
 .cdk-overlay-pane.mat-mdc-dialog-panel {
   overflow-x: hidden !important;
@@ -3494,4 +3559,3 @@ button.utr-copy-btn {
     background: #ffffff !important;
   }
 }
-

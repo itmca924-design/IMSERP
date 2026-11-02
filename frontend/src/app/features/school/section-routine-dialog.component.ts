@@ -67,10 +67,10 @@ export interface SectionRoutineDialogData {
           </div>
         </div>
         <div class="header-actions">
-          <button mat-icon-button class="print-btn" (click)="printRoutine()" [disabled]="routine.length === 0" matTooltip="Print Section Routine">
+          <button class="print-btn" (click)="printRoutine()" [disabled]="routine.length === 0" matTooltip="Print Section Routine" mat-icon-button>
             <mat-icon>print</mat-icon>
           </button>
-          <button mat-icon-button class="close-btn" (click)="onClose()" matTooltip="Close">
+          <button class="close-btn" (click)="onClose()" matTooltip="Close" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -109,14 +109,14 @@ export interface SectionRoutineDialogData {
     
           @if (!isCoachingMode && data.classTeacherId && !isClassTeacherAssignedToPeriod) {
             <div class="meta-action">
-              <button type="button" class="quick-ct-btn" (click)="quickPickClassTeacher()" matTooltip="Quickly pre-fill form to assign Class Teacher to a subject">
+              <button type="button" class="quick-ct-btn" (click)="quickPickClassTeacher()" matTooltip="Quickly pre-fill form to assign Class Teacher to a subject" matButton="filled">
                 <mat-icon>star</mat-icon> Assign {{ classTeacherFirstName }}
               </button>
             </div>
           }
           @if (isCoachingMode && data.mentorTeacherId && selectedTeacherId !== data.mentorTeacherId) {
             <div class="meta-action">
-              <button type="button" class="quick-ct-btn" (click)="quickPickMentorTeacher()" matTooltip="Quickly pre-fill form to assign Batch Mentor to this subject">
+              <button type="button" class="quick-ct-btn" (click)="quickPickMentorTeacher()" matTooltip="Quickly pre-fill form to assign Batch Mentor to this subject" matButton="filled">
                 <mat-icon>star</mat-icon> Assign {{ mentorTeacherFirstName }}
               </button>
             </div>
@@ -131,13 +131,13 @@ export interface SectionRoutineDialogData {
               <strong>Faculty Schedule Clash Detected!</strong>
               <p>{{ clashWarning }}</p>
               <div class="clash-actions">
-                <button mat-flat-button color="primary" class="btn-pick-free" (click)="pickFirstAvailableTeacher()">
+                <button color="primary" class="btn-pick-free" (click)="pickFirstAvailableTeacher()" matButton="filled">
                   <mat-icon>auto_awesome</mat-icon> Pick Free Teacher (खाली शिक्षक चुनें)
                 </button>
-                <button mat-flat-button color="warn" class="btn-override" (click)="submitPeriod(true)">
+                <button color="warn" class="btn-override" (click)="submitPeriod(true)" matButton="filled">
                   <mat-icon>priority_high</mat-icon> Schedule Anyway (Override Clash)
                 </button>
-                <button mat-button (click)="clashWarning = null">Cancel</button>
+                <button (click)="clashWarning = null" matButton="filled" class="app-button-cancel">Cancel</button>
               </div>
             </div>
           </div>
@@ -152,7 +152,7 @@ export interface SectionRoutineDialogData {
                 <span class="coverage-pill">{{ uniqueSubjects.length }} Subjects Configured</span>
               }
             </div>
-            <button type="button" class="add-period-toggle" (click)="toggleAddForm()">
+            <button type="button" class="add-period-toggle" (click)="toggleAddForm()" matButton="filled">
               <mat-icon>{{ showAddForm ? 'remove' : 'add' }}</mat-icon>
               {{ showAddForm ? 'Hide Form' : 'Add Subject Period' }}
             </button>
@@ -167,7 +167,7 @@ export interface SectionRoutineDialogData {
                   {{ editingPeriodId ? 'Edit Period / Change Faculty' : 'Add Period / Subject Slot' }}
                 </h4>
                 @if (!editingPeriodId) {
-                  <button type="button" class="auto-fill-btn" (click)="autoFillNextSlot()" matTooltip="Auto-pick next unassigned subject, empty period, and available teacher">
+                  <button type="button" class="auto-fill-btn" (click)="autoFillNextSlot()" matTooltip="Auto-pick next unassigned subject, empty period, and available teacher" matButton="filled">
                     <mat-icon>auto_awesome</mat-icon> Auto-Fill Next Slot (खाली स्लॉट भरें)
                   </button>
                 }
@@ -215,7 +215,7 @@ export interface SectionRoutineDialogData {
                     <div class="scope-toggle-pills">
                       <button type="button" class="scope-pill-btn"
                         [class.active]="coachingRoutineMode === 'single'"
-                        (click)="setCoachingRoutineMode('single')">
+                        (click)="setCoachingRoutineMode('single')" matButton="filled">
                         <mat-icon>school</mat-icon>
                         <span>Single Subject Period (एकल विषय - अलग स्लॉट)</span>
                         @if (displaySubjects.length > 0) {
@@ -224,7 +224,7 @@ export interface SectionRoutineDialogData {
                       </button>
                       <button type="button" class="scope-pill-btn"
                         [class.active]="coachingRoutineMode === 'combined'"
-                        (click)="setCoachingRoutineMode('combined')">
+                        (click)="setCoachingRoutineMode('combined')" matButton="filled">
                         <mat-icon>layers</mat-icon>
                         <span>All Subjects Combined (सभी विषय - 2hr ट्यूशन)</span>
                       </button>
@@ -236,7 +236,7 @@ export interface SectionRoutineDialogData {
                   <div class="coaching-all-subjects-bar">
                     <button type="button" class="btn-all-subjects"
                       [class.active]="isAllSubjectsSelected"
-                      (click)="toggleAllSubjects()">
+                      (click)="toggleAllSubjects()" matButton="filled">
                       <mat-icon>auto_awesome</mat-icon>
                       <div class="btn-all-text">
                         <span class="all-title">🌟 All Batch Subjects (सभी विषय - Complete 2hr Tuition)</span>
@@ -262,7 +262,7 @@ export interface SectionRoutineDialogData {
                         [class.already-configured]="isSubjectAssigned(s.name)"
                         [class.active]="isSubjectPillActive(s.name)"
                         (click)="pickSubject(s)"
-                        [matTooltip]="isSubjectAssigned(s.name) ? 'Already scheduled in this batch' : (s.teacherId ? 'Auto-selects assigned subject teacher if available' : '')">
+                        [matTooltip]="isSubjectAssigned(s.name) ? 'Already scheduled in this batch' : (s.teacherId ? 'Auto-selects assigned subject teacher if available' : '')" matButton="filled">
                         @if (isSubjectAssigned(s.name) && (coachingRoutineMode === 'single' || !isAllSubjectsSelected)) {
                           <span class="check-icon">✓ </span>
                         }
@@ -350,7 +350,7 @@ export interface SectionRoutineDialogData {
                         <mat-icon>warning</mat-icon>
                         <span><strong>{{ selectedTeacherObj?.fullName }}</strong> is busy: {{ selectedTeacherClash }}</span>
                       </div>
-                      <button type="button" class="btn-quick-fix-teacher" (click)="pickFirstAvailableTeacher()">
+                      <button type="button" class="btn-quick-fix-teacher" (click)="pickFirstAvailableTeacher()" matButton="filled">
                         <mat-icon>auto_fix_high</mat-icon> Pick Available Teacher
                       </button>
                     </div>
@@ -361,10 +361,10 @@ export interface SectionRoutineDialogData {
                   <div class="days-label-row">
                     <label class="field-label">Scheduled Days *</label>
                     <div class="quick-days-btns">
-                      <button type="button" class="q-day-btn" (click)="setAllDays()">Mon-Sat (All)</button>
-                      <button type="button" class="q-day-btn" (click)="setWeekdays()">Mon-Fri</button>
-                      <button type="button" class="q-day-btn" (click)="setAltDays()">Mon, Wed, Fri</button>
-                      <button type="button" class="q-day-btn" (click)="setTtsDays()">Tue, Thu, Sat</button>
+                      <button type="button" class="q-day-btn" (click)="setAllDays()" matButton="filled">Mon-Sat (All)</button>
+                      <button type="button" class="q-day-btn" (click)="setWeekdays()" matButton="filled">Mon-Fri</button>
+                      <button type="button" class="q-day-btn" (click)="setAltDays()" matButton="filled">Mon, Wed, Fri</button>
+                      <button type="button" class="q-day-btn" (click)="setTtsDays()" matButton="filled">Tue, Thu, Sat</button>
                     </div>
                   </div>
                   <div class="days-pills">
@@ -372,7 +372,7 @@ export interface SectionRoutineDialogData {
                       <button type="button"
                         class="day-pill"
                         [class.selected]="isDaySelected(day)"
-                        (click)="toggleDay(day)">
+                        (click)="toggleDay(day)" matButton="filled">
                         {{ day }}
                       </button>
                     }
@@ -392,7 +392,7 @@ export interface SectionRoutineDialogData {
                             <button type="button"
                               class="c-dur-btn"
                               [class.active]="coachingSelectedDuration === opt.minutes"
-                              (click)="applyCoachingDuration(opt.minutes)">
+                              (click)="applyCoachingDuration(opt.minutes)" matButton="filled">
                               {{ opt.label }}
                             </button>
                           }
@@ -411,7 +411,7 @@ export interface SectionRoutineDialogData {
                             <button type="button"
                               class="c-preset-pill"
                               [class.active]="selectedTimeSlot === sp.slotString"
-                              (click)="applyCoachingPreset(sp)">
+                              (click)="applyCoachingPreset(sp)" matButton="filled">
                               <span>{{ sp.label }}</span>
                               <small>({{ sp.duration }})</small>
                             </button>
@@ -442,7 +442,7 @@ export interface SectionRoutineDialogData {
                             [class.is-activity-chip]="isActivitySlot(p)"
                             [class.active]="selectedTimeSlot === p.slot"
                             [class.period-taken]="isPeriodAssigned(p.slot)"
-                            (click)="onSelectPeriodSlot(p.slot)">
+                            (click)="onSelectPeriodSlot(p.slot)" matButton="filled">
                             <div class="p-top-row">
                               <span class="p-name">
                                 @if (isActivitySlot(p)) {
@@ -470,8 +470,8 @@ export interface SectionRoutineDialogData {
                 </div>
                 <!-- Action Buttons -->
                 <div class="form-actions">
-                  <button mat-button (click)="resetForm()" [disabled]="saving">Cancel</button>
-                  <button mat-flat-button color="primary" class="save-slot-btn" (click)="submitPeriod(false)" [disabled]="saving">
+                  <button (click)="resetForm()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+                  <button color="primary" class="save-slot-btn" (click)="submitPeriod(false)" [disabled]="saving" matButton="filled" [class.app-button-update]="editingPeriodId" [class.app-button-save]="!(editingPeriodId)">
                     <mat-icon>{{ saving ? 'hourglass_empty' : (editingPeriodId ? 'check_circle' : 'save') }}</mat-icon>
                     {{ editingPeriodId ? 'Update Period Slot' : 'Save Period Slot' }}
                   </button>
@@ -537,10 +537,10 @@ export interface SectionRoutineDialogData {
                         </td>
                         <td class="col-action">
                           <div class="action-btn-group">
-                            <button mat-icon-button (click)="editPeriod(p)" matTooltip="Edit Period / Change Faculty" class="edit-btn">
+                            <button (click)="editPeriod(p)" matTooltip="Edit Period / Change Faculty" class="edit-btn" mat-icon-button>
                               <mat-icon>edit</mat-icon>
                             </button>
-                            <button mat-icon-button color="warn" (click)="deletePeriod(p)" matTooltip="Remove Period" class="del-btn">
+                            <button color="warn" (click)="deletePeriod(p)" matTooltip="Remove Period" class="del-btn" mat-icon-button>
                               <mat-icon>delete_outline</mat-icon>
                             </button>
                           </div>
@@ -560,7 +560,7 @@ export interface SectionRoutineDialogData {
                 </div>
                 <h4>No periods scheduled yet</h4>
                 <p>Configure weekly timetable for <strong>{{ data.className }} - {{ data.sectionName }}</strong> by adding subjects and assigned faculty members.</p>
-                <button mat-flat-button color="primary" class="start-btn" (click)="showAddForm = true; autoFillNextSlot()">
+                <button color="primary" class="start-btn" (click)="showAddForm = true; autoFillNextSlot()" matButton="filled">
                   <mat-icon>auto_awesome</mat-icon> Setup Class Routine (खाली स्लॉट भरें)
                 </button>
               </div>
@@ -573,7 +573,7 @@ export interface SectionRoutineDialogData {
           <span class="footer-note">
             <mat-icon>info</mat-icon> Changes take effect immediately across faculty timetable and lesson diaries.
           </span>
-          <button mat-flat-button color="primary" (click)="onClose()">
+          <button color="primary" (click)="onClose()" matButton="filled">
             Done
           </button>
         </div>

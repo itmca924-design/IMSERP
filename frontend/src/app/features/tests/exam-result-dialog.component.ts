@@ -86,10 +86,10 @@ interface StudentRankRow {
         <div class="btn-group">
           <!-- View Toggle Tabs -->
           <div class="view-toggle-group">
-            <button type="button" class="view-tab" [class.active]="viewMode === 'leaderboard'" (click)="viewMode = 'leaderboard'">
+            <button type="button" class="view-tab" [class.active]="viewMode === 'leaderboard'" (click)="viewMode = 'leaderboard'" matButton="filled">
               <mat-icon>leaderboard</mat-icon> Leaderboard
             </button>
-            <button type="button" class="view-tab" [class.active]="viewMode === 'cards'" (click)="viewMode = 'cards'">
+            <button type="button" class="view-tab" [class.active]="viewMode === 'cards'" (click)="viewMode = 'cards'" matButton="filled">
               <mat-icon>badge</mat-icon> Result Cards
             </button>
           </div>
@@ -98,8 +98,8 @@ interface StudentRankRow {
     
           <!-- WhatsApp Summary Button -->
           @if (rankedList.length > 0) {
-            <button mat-flat-button class="header-action-btn wa-btn" (click)="shareClassSummaryWhatsApp()"
-              matTooltip="Share Performance Summary on WhatsApp">
+            <button class="header-action-btn wa-btn" (click)="shareClassSummaryWhatsApp()"
+              matTooltip="Share Performance Summary on WhatsApp" matButton="filled">
               <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
               </svg>
@@ -108,13 +108,13 @@ interface StudentRankRow {
           }
     
           <!-- Print Button -->
-          <button mat-flat-button class="header-action-btn print-btn" (click)="printResults()" matTooltip="Print Result / Cards">
+          <button class="header-action-btn print-btn" (click)="printResults()" matTooltip="Print Result / Cards" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print</span>
           </button>
     
           <!-- Close Button -->
-          <button mat-icon-button class="header-close-btn" [mat-dialog-close]="null" matTooltip="Close (Esc)" aria-label="Close dialog">
+          <button class="header-close-btn" [mat-dialog-close]="null" matTooltip="Close (Esc)" aria-label="Close dialog" mat-icon-button>
             <svg class="close-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -368,12 +368,12 @@ interface StudentRankRow {
                       <!-- Actions -->
                       <td class="col-actions no-print">
                         <div class="row-act-btns">
-                          <button mat-icon-button class="mini-wa-btn" (click)="shareWhatsApp(s)"
-                            [disabled]="!s.parentWhatsAppPhone" matTooltip="WhatsApp Result to Parent">
+                          <button class="mini-wa-btn" (click)="shareWhatsApp(s)"
+                            [disabled]="!s.parentWhatsAppPhone" matTooltip="WhatsApp Result to Parent" mat-icon-button>
                             <mat-icon>chat</mat-icon>
                           </button>
-                          <button mat-icon-button class="mini-print-btn" (click)="printSingleCard(s)"
-                            matTooltip="Print Individual Card">
+                          <button class="mini-print-btn" (click)="printSingleCard(s)"
+                            matTooltip="Print Individual Card" mat-icon-button>
                             <mat-icon>print</mat-icon>
                           </button>
                         </div>
@@ -539,12 +539,12 @@ interface StudentRankRow {
                 </div>
                 <!-- Card Actions (no-print) -->
                 <div class="rc-card-actions no-print">
-                  <button mat-stroked-button class="card-wa-btn" (click)="shareWhatsApp(s)"
-                    [disabled]="!s.parentWhatsAppPhone" matTooltip="Send to Parent on WhatsApp">
+                  <button class="card-wa-btn" (click)="shareWhatsApp(s)"
+                    [disabled]="!s.parentWhatsAppPhone" matTooltip="Send to Parent on WhatsApp" matButton="filled">
                     <mat-icon>chat</mat-icon> WhatsApp
                   </button>
-                  <button mat-stroked-button class="card-p-btn" (click)="printSingleCard(s)"
-                    matTooltip="Print this Card Only">
+                  <button class="card-p-btn" (click)="printSingleCard(s)"
+                    matTooltip="Print this Card Only" matButton="filled">
                     <mat-icon>print</mat-icon> Print
                   </button>
                 </div>

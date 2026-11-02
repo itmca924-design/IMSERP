@@ -28,6 +28,7 @@ import { QuickSettingsDrawerComponent } from './quick-settings-drawer/quick-sett
 import { PresenceService } from '../core/services/presence.service';
 import { ChatService } from '../core/services/chat.service';
 import { ConfirmDialogService } from '../core/services/confirm-dialog.service';
+import { StudentDuesAssistantComponent } from '../shared/components/student-dues-assistant.component';
 import { environment } from '../../environments/environment';
 
 export interface BreadcrumbItem {
@@ -52,6 +53,7 @@ export interface BreadcrumbItem {
     MatDividerModule,
     MatMenuModule,
     MatTooltipModule,
+    StudentDuesAssistantComponent,
     FooterComponent,
     QuickSettingsDrawerComponent
   ],
@@ -84,31 +86,31 @@ export interface BreadcrumbItem {
             </div>
           }
           @if (isMobile()) {
-            <button mat-icon-button class="close-drawer-btn" (click)="drawer.close()">
+            <button class="close-drawer-btn" (click)="drawer.close()" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           }
         </div>
     
-        <div class="nav-container">
+        <nav class="nav-container" aria-label="Primary navigation">
           <!-- Full Expanded Sidebar Menu (Default Desktop & Mobile Drawer) -->
           @if (!isRailMode() || isMobile()) {
-            <mat-accordion class="menu-accordion" [multi]="false">
-              @for (item of menuTree(); track item) {
-                <!-- Item with sub-menus (e.g. Master Management, Admin Settings) -->
-                @if (item.children && item.children.length > 0) {
-                  <mat-expansion-panel class="mat-elevation-z0" [expanded]="isParentActive(item)">
-                    <mat-expansion-panel-header [matTooltip]="item.title" matTooltipPosition="right">
-                      <mat-panel-title class="accordion-title">
-                        <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
-                          <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
-                        </span>
-                        <span class="module-title">{{ item.title }}</span>
-                      </mat-panel-title>
-                    </mat-expansion-panel-header>
-                    <div class="sub-nav-wrapper">
+            <mat-nav-list class="menu-list">
+              <mat-accordion class="menu-accordion" [multi]="false">
+                @for (item of menuTree(); track item.id) {
+                  @if (item.children && item.children.length > 0) {
+                    <mat-expansion-panel class="menu-section-panel mat-elevation-z0" [expanded]="isParentActive(item)">
+                      <mat-expansion-panel-header
+                        class="menu-section-header"
+                        [matTooltip]="item.title"
+                        matTooltipPosition="right">
+                        <mat-panel-title class="accordion-title">
+                          <mat-icon class="menu-item-icon">{{ item.icon || 'category' }}</mat-icon>
+                          <span class="module-title">{{ item.title }}</span>
+                        </mat-panel-title>
+                      </mat-expansion-panel-header>
                       <mat-nav-list class="sub-nav-list">
-                        @for (sub of item.children; track sub) {
+                        @for (sub of item.children; track sub.id) {
                           <a
                             mat-list-item
                             [routerLink]="sub.routeUrl"
@@ -116,94 +118,73 @@ export interface BreadcrumbItem {
                             [matTooltip]="sub.title"
                             matTooltipPosition="right"
                             (click)="onNavClick(drawer)">
-                            <mat-icon matListItemIcon class="sub-icon">{{ sub.icon || 'star' }}</mat-icon>
-                            <span matListItemTitle class="sub-title-text">{{ sub.title }}</span>
+                            <mat-icon matListItemIcon class="menu-item-icon">{{ sub.icon || 'star' }}</mat-icon>
+                            <span matListItemTitle class="menu-label submenu-label">{{ sub.title }}</span>
                           </a>
                         }
                       </mat-nav-list>
-                    </div>
-                  </mat-expansion-panel>
-                }
-                <!-- Direct item without children (e.g. Dashboard) -->
-                @if (!item.children || item.children.length === 0) {
-                  <div class="direct-nav-item">
-                    <a class="direct-nav-link"
+                    </mat-expansion-panel>
+                  }
+                  @if (!item.children || item.children.length === 0) {
+                    <a
+                      mat-list-item
                       [routerLink]="item.routeUrl"
                       routerLinkActive="active-link"
                       [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
                       [matTooltip]="item.title"
                       matTooltipPosition="right"
                       (click)="onNavClick(drawer)">
-                      <span class="menu-icon-badge badge-main">
-                        <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
-                      </span>
-                      <span class="direct-title-text">{{ item.title }}</span>
+                      <mat-icon matListItemIcon class="menu-item-icon">{{ item.icon || 'space_dashboard' }}</mat-icon>
+                      <span matListItemTitle class="menu-label">{{ item.title }}</span>
                     </a>
-                  </div>
+                  }
                 }
-              }
-            </mat-accordion>
+              </mat-accordion>
+            </mat-nav-list>
           }
     
           <!-- Smart Compact Rail Menu (When Collapsed on Desktop) -->
           @if (isRailMode() && !isMobile()) {
-            <div class="rail-nav-list">
-              @for (item of menuTree(); track item) {
-                <!-- Direct Item in Rail Mode (e.g. Dashboard) -->
+            <mat-nav-list class="rail-nav-list">
+              @for (item of menuTree(); track item.id) {
                 @if (!item.children || item.children.length === 0) {
                   <a
+                    mat-icon-button
                     class="rail-nav-btn"
                     [routerLink]="item.routeUrl"
                     routerLinkActive="rail-active"
                     [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
                     [matTooltip]="item.title"
                     matTooltipPosition="right">
-                    <span class="menu-icon-badge badge-main rail-badge">
-                      <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
-                    </span>
+                    <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
                   </a>
                 }
-                <!-- Parent Category Item in Rail Mode (Opens Smart Floating Flyout Submenu) -->
                 @if (item.children && item.children.length > 0) {
-                  <button type="button"
+                  <button
+                    type="button"
                     class="rail-nav-btn"
                     [class.rail-active]="isParentActive(item)"
                     [matMenuTriggerFor]="railSubMenu"
                     [matTooltip]="item.title"
-                    matTooltipPosition="right">
-                    <span class="menu-icon-badge rail-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
-                      <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
-                    </span>
-                    <span class="rail-chevron-dot"></span>
+                    matTooltipPosition="right" mat-icon-button>
+                    <mat-icon>{{ item.icon || 'category' }}</mat-icon>
                   </button>
-                  <mat-menu #railSubMenu="matMenu" class="rail-flyout-menu" xPosition="after" yPosition="below" [overlapTrigger]="false">
-                    <div class="rail-flyout-header" (click)="$event.stopPropagation()">
-                      <span class="menu-icon-badge" [ngClass]="'badge-' + ((item.module || '') | lowercase)">
-                        <mat-icon class="menu-icon">{{ item.icon || 'category' }}</mat-icon>
-                      </span>
-                      <div class="rail-flyout-titles">
-                        <strong>{{ item.title }}</strong>
-                        <small>{{ item.children.length }} Module{{ item.children.length > 1 ? 's' : '' }}</small>
-                      </div>
-                    </div>
-                    <div class="rail-flyout-items">
-                      @for (sub of item.children; track sub) {
-                        <a
-                          mat-menu-item
-                          [routerLink]="sub.routeUrl"
-                          routerLinkActive="active-rail-sub"
-                          class="rail-flyout-item">
-                          <mat-icon class="rail-sub-icon">{{ sub.icon || 'star' }}</mat-icon>
-                          <span class="rail-sub-label">{{ sub.title }}</span>
-                        </a>
-                      }
-                    </div>
+                  <mat-menu #railSubMenu="matMenu" xPosition="after" yPosition="below" [overlapTrigger]="false">
+                    @for (sub of item.children; track sub.id) {
+                      <a
+                        mat-menu-item
+                        [routerLink]="sub.routeUrl"
+                        routerLinkActive="active-rail-sub">
+                        <mat-icon>{{ sub.icon || 'star' }}</mat-icon>
+                        <span>{{ sub.title }}</span>
+                      </a>
+                    }
                   </mat-menu>
                 }
               }
-            </div>
+            </mat-nav-list>
           }
-        </div>
+        </nav>
     
         <!-- Expanded Mode Holiday Calendar -->
         @if (!isRailMode() || isMobile()) {
@@ -212,7 +193,7 @@ export interface BreadcrumbItem {
               <strong><mat-icon>event</mat-icon> Holiday Calendar</strong>
               <div class="calendar-header-actions">
                 <span>{{ calendarYear }}</span>
-                <button mat-icon-button type="button" class="calendar-collapse-btn" [matTooltip]="isCalendarCollapsed() ? 'Expand Holiday Calendar' : 'Collapse Holiday Calendar'" (click)="toggleCalendarCollapse($event)">
+                <button type="button" class="calendar-collapse-btn" [matTooltip]="isCalendarCollapsed() ? 'Expand Holiday Calendar' : 'Collapse Holiday Calendar'" (click)="toggleCalendarCollapse($event)" mat-icon-button>
                   <mat-icon>{{ isCalendarCollapsed() ? 'keyboard_arrow_down' : 'keyboard_arrow_up' }}</mat-icon>
                 </button>
               </div>
@@ -220,11 +201,11 @@ export interface BreadcrumbItem {
             @if (!isCalendarCollapsed()) {
               <div class="calendar-collapsible-body">
                 <div class="calendar-controls">
-                  <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
+                  <button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month" mat-icon-button>
                     <mat-icon>chevron_left</mat-icon>
                   </button>
                   <strong>{{ calendarMonths[calendarMonth] }}</strong>
-                  <button mat-icon-button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month">
+                  <button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month" mat-icon-button>
                     <mat-icon>chevron_right</mat-icon>
                   </button>
                 </div>
@@ -246,7 +227,7 @@ export interface BreadcrumbItem {
                       [class.sunday]="day.isSunday"
                       [class.holiday]="day.holiday"
                       [matTooltip]="getCalendarDayTooltip(day)"
-                      matTooltipPosition="right">
+                      matTooltipPosition="right" matButton="filled">
                       {{ day.day }}
                     </button>
                   }
@@ -268,7 +249,7 @@ export interface BreadcrumbItem {
               class="rail-footer-btn calendar-rail-btn"
               [matMenuTriggerFor]="railCalendarFlyout"
               [matTooltip]="'Holiday Calendar (' + calendarMonths[calendarMonth] + ' ' + calendarYear + ')'"
-              matTooltipPosition="right">
+              matTooltipPosition="right" mat-icon-button>
               <mat-icon>event</mat-icon>
             </button>
             <mat-menu #railCalendarFlyout="matMenu" class="rail-calendar-flyout-menu" xPosition="after" yPosition="above" [overlapTrigger]="false">
@@ -282,11 +263,11 @@ export interface BreadcrumbItem {
                 </div>
                 <div class="sidebar-calendar rail-embedded-calendar">
                   <div class="calendar-controls">
-                    <button mat-icon-button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month">
+                    <button type="button" (click)="changeCalendarMonth(-1)" matTooltip="Previous month" mat-icon-button>
                       <mat-icon>chevron_left</mat-icon>
                     </button>
                     <strong>{{ calendarMonths[calendarMonth] }}</strong>
-                    <button mat-icon-button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month">
+                    <button type="button" (click)="changeCalendarMonth(1)" matTooltip="Next month" mat-icon-button>
                       <mat-icon>chevron_right</mat-icon>
                     </button>
                   </div>
@@ -308,7 +289,7 @@ export interface BreadcrumbItem {
                         [class.sunday]="day.isSunday"
                         [class.holiday]="day.holiday"
                         [matTooltip]="getCalendarDayTooltip(day)"
-                        matTooltipPosition="right">
+                        matTooltipPosition="right" matButton="filled">
                         {{ day.day }}
                       </button>
                     }
@@ -325,7 +306,7 @@ export interface BreadcrumbItem {
               class="rail-footer-btn pwa-rail-btn"
               (click)="installPwa()"
               [matTooltip]="isAppInstalled() ? 'App Installed' : 'Install ERP App'"
-              matTooltipPosition="right">
+              matTooltipPosition="right" mat-icon-button>
               <mat-icon>install_mobile</mat-icon>
             </button>
             <a class="rail-footer-btn dev-rail-btn"
@@ -341,7 +322,7 @@ export interface BreadcrumbItem {
         <!-- Sidebar PWA Install App Action (Expanded Mode) -->
         @if (!isRailMode() || isMobile()) {
           <div class="sidebar-pwa-strip">
-            <button mat-button class="sidebar-pwa-btn" (click)="installPwa()">
+            <button class="sidebar-pwa-btn" (click)="installPwa()" matButton="filled">
               <mat-icon>install_mobile</mat-icon>
               <div class="pwa-text-wrap">
                 <strong>{{ isAppInstalled() ? 'App Installed' : 'Install ERP App' }}</strong>
@@ -354,7 +335,7 @@ export interface BreadcrumbItem {
         <!-- Sidebar Developer Team Action (Expanded Mode) -->
         @if (!isRailMode() || isMobile()) {
           <div class="sidebar-pwa-strip sidebar-dev-strip">
-            <button mat-button class="sidebar-pwa-btn sidebar-dev-btn" routerLink="/developer" (click)="onNavClick(drawer)">
+            <button class="sidebar-pwa-btn sidebar-dev-btn" routerLink="/developer" (click)="onNavClick(drawer)" matButton="filled">
               <mat-icon class="dev-icon">engineering</mat-icon>
               <div class="pwa-text-wrap">
                 <strong class="dev-title">Developer Team</strong>
@@ -364,16 +345,23 @@ export interface BreadcrumbItem {
           </div>
         }
       </mat-sidenav>
+
+      <mat-sidenav
+        #assistantDrawer
+        class="assistant-drawer"
+        position="end"
+        mode="over">
+        <app-student-dues-assistant (closeRequested)="assistantDrawer.close()"></app-student-dues-assistant>
+      </mat-sidenav>
     
       <mat-sidenav-content>
         <mat-toolbar class="header-toolbar">
           <button type="button"
-            mat-icon-button
             (click)="onToggleSidebar(drawer)"
             class="menu-toggle-btn"
             [class.rail-toggled]="isRailMode() && !isMobile()"
             [matTooltip]="isMobile() ? 'Toggle Navigation Drawer' : (isRailMode() ? 'Expand Full Sidebar' : 'Collapse to Smart Rail Menu')"
-            aria-label="Toggle navigation">
+            aria-label="Toggle navigation" mat-icon-button>
             <mat-icon>menu</mat-icon>
           </button>
     
@@ -388,7 +376,7 @@ export interface BreadcrumbItem {
     
             <!-- PWA Install App Header Button -->
             @if (!isAppInstalled()) {
-              <button mat-button class="install-pwa-btn" (click)="installPwa()" [matTooltip]="'Install ' + (currentUser()?.instituteName || 'Campus ERP') + ' App on your Device'" aria-label="Install App">
+              <button class="install-pwa-btn" (click)="installPwa()" [matTooltip]="'Install ' + (currentUser()?.instituteName || 'Campus ERP') + ' App on your Device'" aria-label="Install App" matButton="filled">
                 <mat-icon class="install-icon">install_mobile</mat-icon>
                 <span class="install-text">Install App</span>
               </button>
@@ -398,13 +386,13 @@ export interface BreadcrumbItem {
               <mat-icon class="search-icon" (click)="toggleSearch($event)">search</mat-icon>
               <input #headerSearchInput type="search" placeholder="Search pages..." [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
               @if (headerSearchFocused) {
-                <button type="button" class="search-clear-btn" (mousedown)="$event.preventDefault()" (click)="closeHeaderSearchImmediate($event)" aria-label="Close search">
+                <button type="button" class="search-clear-btn" (mousedown)="$event.preventDefault()" (click)="closeHeaderSearchImmediate($event)" aria-label="Closesearch" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               }
               @if (headerSearchFocused && headerSearchResults.length > 0) {
                 <div class="search-results">
-                  @for (result of headerSearchResults; track result) {
+                  @for (result of headerSearchResults; track result.route) {
                     <a [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
                       <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title }}</span>
                     </a>
@@ -414,7 +402,7 @@ export interface BreadcrumbItem {
             </div>
     
             <!-- Real-time Multi-tenant Branch-wise Active Users Live Button -->
-            <button mat-stroked-button [matMenuTriggerFor]="activeUsersMenu" class="active-users-pill-btn" [matTooltip]="presenceService.activeUsersCount() + ' user(s) currently active in ' + getCurrentBranchLabel()" aria-label="Active Users">
+            <button [matMenuTriggerFor]="activeUsersMenu" class="active-users-pill-btn" [matTooltip]="presenceService.activeUsersCount() + ' user(s) currently active in ' + getCurrentBranchLabel()" aria-label="Active Users" matButton="filled">
               <span class="active-pulse-dot"></span>
               <mat-icon class="active-icon">group</mat-icon>
               <span class="active-count">{{ presenceService.activeUsersCount() }}</span>
@@ -434,7 +422,7 @@ export interface BreadcrumbItem {
               </div>
               <mat-divider></mat-divider>
               <div class="active-users-scroll-container">
-                @for (u of presenceService.activeUsers(); track u) {
+                @for (u of presenceService.activeUsers(); track u.userId) {
                   <div class="active-user-item-row">
                     <div class="user-avatar-circle">{{ getInitials(u.fullName) }}</div>
                     <div class="user-details">
@@ -463,7 +451,7 @@ export interface BreadcrumbItem {
               </div>
             </mat-menu>
     
-            <button mat-icon-button routerLink="/chat" class="header-tool-button" matTooltip="Campus & Class Chat" aria-label="Campus & Class Chat">
+            <button routerLink="/chat" class="header-tool-button" matTooltip="Campus & Class Chat" aria-label="Campus & Class Chat" mat-icon-button>
               <mat-icon>forum</mat-icon>
               @if (chatService.totalUnreadCount() > 0) {
                 <span class="chat-unread-badge">
@@ -472,7 +460,7 @@ export interface BreadcrumbItem {
               }
             </button>
     
-            <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" matTooltip="Notifications" aria-label="Notifications">
+            <button [matMenuTriggerFor]="notificationMenu" class="header-tool-button" matTooltip="Notifications" aria-label="Notifications" mat-icon-button>
               <mat-icon>notifications_none</mat-icon><span class="notification-dot"></span>
             </button>
             <mat-menu #notificationMenu="matMenu" xPosition="before">
@@ -503,8 +491,14 @@ export interface BreadcrumbItem {
                 <button mat-menu-item routerLink="/school/notices"><mat-icon color="primary">campaign</mat-icon><span>School Notices</span></button>
               }
             </mat-menu>
-    
-            <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button">
+
+            @if (isRoutePermitted('/fees') || isRoutePermitted('/finance/fee-recovery-agent')) {
+              <button type="button" class="header-tool-button" (click)="openDuesAssistant()" matTooltip="Ask about student dues" aria-label="Ask about student dues" mat-icon-button>
+                <mat-icon>psychology</mat-icon>
+              </button>
+            }
+
+            <button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" matButton="filled">
               <mat-icon>bolt</mat-icon><span>Quick Actions</span>
             </button>
             <mat-menu #quickActionsMenu="matMenu" xPosition="before" class="quick-actions-menu">
@@ -512,7 +506,7 @@ export interface BreadcrumbItem {
                 <mat-icon style="font-size:16px; width:16px; height:16px; margin-right:4px; vertical-align:middle;">bolt</mat-icon>
                 <span>Quick Actions ({{ currentUser()?.role || 'User' }})</span>
               </div>
-              @for (a of dynamicQuickActions; track a) {
+              @for (a of dynamicQuickActions; track a.route) {
                 <button mat-menu-item [routerLink]="a.route">
                   <mat-icon [style.color]="a.color">{{ a.icon }}</mat-icon>
                   <span>{{ a.title }}</span>
@@ -529,7 +523,7 @@ export interface BreadcrumbItem {
     
           <!-- Branch Switcher Dropdown Button (Only for Admins) -->
           @if (branches.length > 0 && canSwitchBranches) {
-            <button mat-stroked-button [matMenuTriggerFor]="branchMenu" class="branch-selector-button" [matTooltip]="'Branch: ' + getCurrentBranchLabel()">
+            <button [matMenuTriggerFor]="branchMenu" class="branch-selector-button" [matTooltip]="'Branch: ' + getCurrentBranchLabel()" matButton="filled">
               <span class="branch-btn-content">
                 <mat-icon class="branch-btn-icon">storefront</mat-icon>
                 <span class="branch-name-full">{{ getCurrentBranchLabel() }}</span>
@@ -559,7 +553,7 @@ export interface BreadcrumbItem {
               }
             </button>
             <mat-divider></mat-divider>
-            @for (b of branches; track b) {
+            @for (b of branches; track b.id) {
               <button mat-menu-item (click)="onSelectBranch(b.id)" [class.active-branch-item]="selectedBranchId() === b.id">
                 <mat-icon [color]="selectedBranchId() === b.id ? 'primary' : ''">store</mat-icon>
                 <span>{{ b.name }} ({{ b.code }})</span>
@@ -571,7 +565,7 @@ export interface BreadcrumbItem {
           </mat-menu>
     
           <!-- User Account Menu Trigger Button -->
-          <button mat-icon-button [matMenuTriggerFor]="accountMenu" class="account-btn" matTooltip="My Profile &amp; Settings">
+          <button [matMenuTriggerFor]="accountMenu" class="account-btn" matTooltip="My Profile &amp; Settings" mat-icon-button>
             @if (getUserPhoto() && !userAvatarFailed()) {
               <div class="header-avatar-circle">
                 <img [src]="getPhotoUrl(getUserPhoto())" [alt]="$safeNavigationMigration(currentUser()?.fullName)" class="header-avatar-img" (error)="onUserAvatarError()" />
@@ -634,7 +628,7 @@ export interface BreadcrumbItem {
           @if (breadcrumbs().length > 0) {
             <nav class="enterprise-breadcrumb-bar" aria-label="Breadcrumb">
               <ol class="breadcrumb-list">
-                @for (b of breadcrumbs(); track b; let isLast = $last) {
+                @for (b of breadcrumbs(); track b.url || b.label; let isLast = $last) {
                   <li class="breadcrumb-item">
                     @if (!isLast && b.url) {
                       <a [routerLink]="b.url" class="breadcrumb-link" [title]="b.label">
@@ -688,7 +682,7 @@ export interface BreadcrumbItem {
 
       &:not(.mobile-mode) {
         ::ng-deep > .mat-drawer-content.mat-sidenav-content {
-          margin-left: 280px !important;
+          margin-left: 320px !important;
           transition: margin-left 0.24s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
       }
@@ -699,8 +693,29 @@ export interface BreadcrumbItem {
         }
       }
     }
+    .assistant-drawer {
+      width: min(460px, 100vw) !important;
+      max-width: 100vw !important;
+      background: #ffffff !important;
+      border-radius: 16px 0 0 16px !important;
+      box-shadow: -12px 0 32px rgba(15, 23, 42, 0.16);
+
+      ::ng-deep .mat-drawer-inner-container {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .assistant-drawer {
+        width: 100vw !important;
+        border-radius: 0 !important;
+      }
+    }
+
     .sidenav {
-      width: 280px !important;
+      width: 320px !important;
       max-width: 85vw !important;
       background-color: #ffffff !important;
       border-right: 1px solid #e2e8f0;
@@ -730,7 +745,6 @@ export interface BreadcrumbItem {
           overflow-x: hidden !important;
         }
       }
-
       ::ng-deep .mat-drawer-inner-container {
         display: flex !important;
         flex-direction: column !important;
@@ -892,236 +906,105 @@ export interface BreadcrumbItem {
     .nav-container {
       flex: 1;
       overflow-y: auto;
-      padding: 10px 8px;
-      scrollbar-width: none !important;
-      -ms-overflow-style: none !important;
-
-      &::-webkit-scrollbar {
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
-      }
+      padding: 12px 10px;
     }
+
+    .menu-list {
+      padding: 0;
+    }
+
     .menu-accordion {
       display: block;
       width: 100%;
-      overflow: hidden;
-
-      ::ng-deep .mat-expansion-panel-body {
-        padding: 0 !important;
-      }
-
-      ::ng-deep mat-expansion-panel {
-        background: transparent !important;
-        box-shadow: none !important;
-        margin: 0 0 3px 0 !important;
-        border-radius: 8px !important;
-        transition: background-color 150ms ease;
-
-        &:hover {
-          background: #f8fafc !important;
-        }
-
-        &.mat-expanded {
-          background: #f8fafc !important;
-        }
-      }
-
-      ::ng-deep mat-expansion-panel-header {
-        height: 42px !important;
-        padding: 0 10px !important;
-        border-radius: 8px !important;
-        background: transparent !important;
-        transition: background-color 150ms ease;
-
-        &:hover {
-          background: #f1f5f9 !important;
-        }
-
-        .mat-expansion-indicator::after {
-          color: #64748b !important;
-        }
-      }
-
-      .accordion-title {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 600;
-        color: #1e293b;
-        font-size: 0.86rem;
-
-        .module-title {
-          letter-spacing: -0.01em;
-          font-weight: 600;
-          color: #334155;
-        }
-      }
-    }
-
-    .menu-icon-badge {
-      width: 28px;
-      height: 28px;
-      border-radius: 7px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-
-      background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
-      box-shadow: 0 2px 6px rgba(6, 182, 212, 0.25);
-
-      .menu-icon, mat-icon {
-        font-size: 17px;
-        width: 17px;
-        height: 17px;
-        color: #ffffff;
-      }
-
-      &.badge-main {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
-      }
-      &.badge-master {
-        background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
-        box-shadow: 0 2px 6px rgba(6, 182, 212, 0.25);
-      }
-      &.badge-attendance {
-        background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-        box-shadow: 0 2px 6px rgba(244, 63, 94, 0.25);
-      }
-      &.badge-teachers {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
-      }
-      &.badge-academic {
-        background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
-        box-shadow: 0 2px 6px rgba(168, 85, 247, 0.25);
-      }
-      &.badge-admin {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
-      }
-    }
-
-    .sub-nav-wrapper {
-      margin-left: 20px;
-      padding-left: 10px;
-      border-left: 2px solid #e2e8f0;
-      margin-top: 2px;
-      margin-bottom: 6px;
+      padding: 0;
     }
 
     .sub-nav-list {
-      padding: 0;
-
-      a[mat-list-item] {
-        height: 36px;
-        min-height: 36px;
-        border-radius: 7px;
-        margin: 2px 0;
-        padding: 0 10px;
-        transition: all 150ms ease;
-
-        .sub-icon {
-          font-size: 17px;
-          width: 17px;
-          height: 17px;
-          color: #64748b;
-          margin-right: 10px;
-          transition: transform 150ms ease, color 150ms ease;
-        }
-
-        .sub-title-text {
-          font-size: 0.83rem;
-          font-weight: 500;
-          color: #475569;
-          letter-spacing: -0.005em;
-          white-space: nowrap !important;
-          overflow: visible !important;
-          text-overflow: clip !important;
-        }
-
-        &:hover {
-          background: #f1f5f9;
-          transform: translateX(2px);
-
-          .sub-title-text {
-            color: #0f172a;
-          }
-          .sub-icon {
-            color: #2563eb;
-            transform: scale(1.08);
-          }
-        }
-
-        &.active-link {
-          background: #eff6ff !important;
-          border-left: 3px solid #2563eb;
-          box-shadow: none;
-
-          .sub-title-text {
-            color: #1d4ed8 !important;
-            font-weight: 700;
-          }
-          .sub-icon {
-            color: #2563eb !important;
-          }
-        }
-      }
+      padding: 0 0 6px 8px;
     }
 
-    .direct-nav-item {
-      margin: 0 0 3px 0;
-
-      .direct-nav-link {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        height: 42px;
-        padding: 0 10px;
-        border-radius: 8px;
-        text-decoration: none;
-        box-sizing: border-box;
-        cursor: pointer;
-        transition: background-color 150ms ease, transform 150ms ease;
-
-        .direct-title-text {
-          font-size: 0.86rem;
-          font-weight: 600;
-          color: #334155;
-          letter-spacing: -0.01em;
-          white-space: nowrap !important;
-          overflow: visible !important;
-          text-overflow: clip !important;
-        }
-
-        &:hover {
-          background: #f8fafc;
-          transform: translateX(2px);
-          .direct-title-text { color: #0f172a; }
-        }
-
-        &.active-link {
-          background: #eff6ff !important;
-          border-left: 3px solid #2563eb;
-          padding-left: 8px;
-
-          .direct-title-text {
-            color: #1d4ed8 !important;
-            font-weight: 700;
-          }
-        }
-      }
+    .menu-section-panel {
+      margin: 0;
+      background: transparent;
     }
 
-    /* Angular Material MDC overrides to eliminate truncation */
-    ::ng-deep .mat-mdc-list-item {
-      .mdc-list-item__primary-text {
-        overflow: visible !important;
-        text-overflow: clip !important;
-        white-space: nowrap !important;
-      }
+    .menu-section-header {
+      height: auto !important;
+      min-height: 52px !important;
+      padding: 8px 10px !important;
+    }
+
+    .accordion-title {
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .module-title {
+      display: block;
+      flex: 1 1 auto;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      overflow-wrap: normal;
+      word-break: normal;
+      line-height: 1.35;
+    }
+
+    .menu-label {
+      display: block;
+      flex: 1 1 auto;
+      min-width: 0;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      overflow-wrap: normal;
+      word-break: normal;
+      line-height: 1.35;
+    }
+
+    .submenu-label {
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      overflow-wrap: normal !important;
+      word-break: normal !important;
+    }
+
+    .menu-item-icon {
+      color: #526179;
+      flex: 0 0 24px;
+      margin-inline-end: 6px !important;
+    }
+
+    .menu-list a[mat-list-item] {
+      height: auto !important;
+      min-height: 48px !important;
+      padding-inline: 8px !important;
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+
+    .menu-list a[mat-list-item] {
+      border-radius: 12px;
+      margin: 2px 0;
+    }
+
+    .sub-nav-list a[mat-list-item] {
+      margin: 2px 0;
+    }
+
+    .menu-list a[mat-list-item].active-link {
+      --mdc-list-list-item-label-text-color: var(--erp-primary);
+      --mdc-list-list-item-hover-label-text-color: var(--erp-primary);
+      background: var(--erp-primary-light);
+      font-weight: 600;
+    }
+
+    .menu-list a[mat-list-item].active-link .menu-item-icon,
+    .menu-section-panel.mat-expanded .accordion-title .menu-item-icon {
+      color: var(--erp-primary);
     }
 
     .user-footer {
@@ -2530,90 +2413,22 @@ export interface BreadcrumbItem {
       z-index: 10;
     }
 
-    /* ── Smart Rail Navigation Menu (Collapsed Sidebar) ── */
     .rail-nav-list {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       width: 100%;
+      padding: 8px 0;
     }
 
     .rail-nav-btn {
-      position: relative;
-      width: 48px;
-      height: 46px;
-      border-radius: 12px;
-      border: 1px solid transparent;
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      padding: 0;
-      text-decoration: none;
-      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-      outline: none;
+      color: #526179;
+    }
 
-      .rail-badge {
-        width: 34px;
-        height: 34px;
-        border-radius: 9px;
-        transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s ease;
-
-        .menu-icon, mat-icon {
-          font-size: 19px;
-          width: 19px;
-          height: 19px;
-        }
-      }
-
-      .rail-chevron-dot {
-        position: absolute;
-        bottom: 5px;
-        right: 5px;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: #94a3b8;
-        border: 1.5px solid #ffffff;
-        transition: transform 0.15s ease, background-color 0.15s ease;
-      }
-
-      &:hover {
-        background: #f1f5f9;
-        border-color: #e2e8f0;
-
-        .rail-badge {
-          transform: translateY(-1px) scale(1.05);
-        }
-
-        .rail-chevron-dot {
-          background: #2563eb;
-          transform: scale(1.2);
-        }
-      }
-
-      &.rail-active {
-        background: #eff6ff;
-        border-color: #bfdbfe;
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
-
-        &::before {
-          content: '';
-          position: absolute;
-          left: -6px;
-          top: 10px;
-          bottom: 10px;
-          width: 3.5px;
-          border-radius: 0 4px 4px 0;
-          background: #2563eb;
-        }
-
-        .rail-chevron-dot {
-          background: #2563eb;
-        }
-      }
+    .rail-nav-btn.rail-active {
+      color: var(--erp-primary);
+      background: var(--erp-primary-light);
     }
 
     .rail-footer-actions {
@@ -2665,105 +2480,6 @@ export interface BreadcrumbItem {
           background: #dbeafe;
           border-color: #60a5fa;
           color: #1e3a8a;
-        }
-      }
-    }
-
-    ::ng-deep .rail-flyout-menu.mat-mdc-menu-panel {
-      min-width: 245px !important;
-      max-width: 290px !important;
-      border-radius: 12px !important;
-      border: 1px solid #bfdbfe !important;
-      box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.18), 0 6px 14px -2px rgba(15, 23, 42, 0.08) !important;
-      overflow: hidden !important;
-      margin-left: 6px !important;
-      background: #ffffff !important;
-
-      .mat-mdc-menu-content {
-        padding: 0 !important;
-      }
-
-      .rail-flyout-header {
-        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        border-bottom: 1px solid #bfdbfe;
-        padding: 10px 14px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-
-        .rail-flyout-titles {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-          line-height: 1.25;
-
-          strong {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #1e3a8a;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-
-          small {
-            font-size: 0.68rem;
-            font-weight: 600;
-            color: #3b82f6;
-          }
-        }
-      }
-
-      .rail-flyout-items {
-        padding: 6px;
-        max-height: 360px;
-        overflow-y: auto;
-
-        .rail-flyout-item.mat-mdc-menu-item {
-          min-height: 38px !important;
-          height: 38px !important;
-          border-radius: 8px !important;
-          padding: 0 10px !important;
-          margin: 2px 0 !important;
-          transition: all 0.15s ease;
-
-          .rail-sub-icon {
-            font-size: 18px !important;
-            width: 18px !important;
-            height: 18px !important;
-            margin-right: 10px !important;
-            color: #64748b !important;
-          }
-
-          .rail-sub-label {
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: #334155;
-          }
-
-          &:hover {
-            background: #f1f5f9 !important;
-
-            .rail-sub-icon {
-              color: #2563eb !important;
-            }
-            .rail-sub-label {
-              color: #0f172a;
-            }
-          }
-
-          &.active-rail-sub {
-            background: #eff6ff !important;
-            border-left: 3px solid #2563eb;
-
-            .rail-sub-icon {
-              color: #2563eb !important;
-            }
-            .rail-sub-label {
-              color: #1d4ed8 !important;
-              font-weight: 700;
-            }
-          }
         }
       }
     }
@@ -2832,6 +2548,7 @@ export interface BreadcrumbItem {
 export class LayoutComponent implements OnInit {
 
   readonly router = inject(Router);
+  @ViewChild('assistantDrawer') assistantDrawer!: MatSidenav;
   private routerSub?: Subscription;
   breadcrumbs = signal<Array<{ label: string; url?: string; icon?: string }>>([]);
 
@@ -2849,8 +2566,14 @@ export class LayoutComponent implements OnInit {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
   menuTree = signal<MenuItem[]>([]);
-  isMobile = signal<boolean>(false);
+  isMobile = signal<boolean>(
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 960px)').matches
+  );
   isRailMode = signal<boolean>(typeof window !== 'undefined' ? localStorage.getItem('imserp_sidebar_rail') === 'true' : false);
+
+  openDuesAssistant(): void {
+    this.assistantDrawer.open();
+  }
 
   onToggleSidebar(drawer: MatSidenav): void {
     if (this.isMobile()) {
@@ -3172,7 +2895,7 @@ export class LayoutComponent implements OnInit {
       if (user?.userProfilePhoto) {
         this.userAvatarFailed.set(false);
       }
-    }, { allowSignalWrites: true });
+    });
 
     effect(() => {
       // Reactively re-filter menu when any module license is toggled
@@ -3190,7 +2913,7 @@ export class LayoutComponent implements OnInit {
         this.menuTree.set(filtered);
           this.updateBreadcrumbs(this.router.url);
       }
-    }, { allowSignalWrites: true });
+    });
   }
 
   getInstituteLogoUrl(): string | null {

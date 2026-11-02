@@ -109,11 +109,11 @@ interface ModuleHeaderState {
                   <span class="role-users">{{ role.userCount }} Assigned Users</span>
                 </div>
                 <div class="role-item-actions" (click)="$event.stopPropagation()">
-                  <button mat-icon-button (click)="openEditRoleDialog(role)" title="Edit Role Details" class="role-action-btn edit-act">
+                  <button (click)="openEditRoleDialog(role)" title="Edit Role Details" class="role-action-btn edit-act" mat-icon-button>
                     <mat-icon>edit</mat-icon>
                   </button>
-                  <button mat-icon-button color="warn" (click)="deleteRole(role)" title="Delete Role" class="role-action-btn del-act"
-                    [disabled]="role.userCount > 0 || isSystemRole(role)">
+                  <button color="warn" (click)="deleteRole(role)" title="Delete Role" class="role-action-btn del-act"
+                    [disabled]="role.userCount> 0 || isSystemRole(role)" mat-icon-button>
                     <mat-icon>delete</mat-icon>
                   </button>
                 </div>
@@ -133,18 +133,18 @@ interface ModuleHeaderState {
                 </div>
                 <div class="matrix-actions-group">
                   @if (!isNewRole && selectedRole) {
-                    <button mat-stroked-button type="button" (click)="openEditRoleDialog(selectedRole)" class="hdr-btn">
+                    <button type="button" (click)="openEditRoleDialog(selectedRole)" class="hdr-btn app-button-update" matButton="filled">
                       <mat-icon>edit</mat-icon> <span>Edit Role</span>
                     </button>
                   }
                   @if (!isNewRole && selectedRole) {
-                    <button mat-stroked-button color="warn" type="button" (click)="deleteRole(selectedRole)"
-                      [disabled]="(selectedRole.userCount || 0) > 0 || isSystemRole(selectedRole)" class="hdr-btn"
-                      [title]="isSystemRole(selectedRole) ? 'System role cannot be deleted' : ((selectedRole.userCount || 0) > 0 ? 'Cannot delete role with assigned users' : 'Delete this role')">
+                    <button color="warn" type="button" (click)="deleteRole(selectedRole)"
+                      [disabled]="(selectedRole.userCount || 0)> 0 || isSystemRole(selectedRole)" class="hdr-btn"
+                      [title]="isSystemRole(selectedRole) ? 'System role cannot be deleted' : ((selectedRole.userCount || 0) > 0 ? 'Cannot delete role with assigned users' : 'Delete this role')" matButton="filled">
                       <mat-icon>delete</mat-icon> <span>Delete Role</span>
                     </button>
                   }
-                  <button mat-raised-button color="primary" type="submit" [disabled]="roleForm.invalid || saving">
+                  <button color="primary" type="submit" [disabled]="roleForm.invalid || saving" matButton="filled" class="app-button-save">
                     @if (saving) {
                       <mat-spinner diameter="20" class="btn-spinner"></mat-spinner>
                     }
@@ -171,18 +171,18 @@ interface ModuleHeaderState {
               <!-- Smart Preset Quick Action Toolbar -->
               <div class="preset-toolbar">
                 <span class="preset-label">Smart Access Presets:</span>
-                <button mat-stroked-button color="primary" type="button" (click)="grantAll()">
+                <button color="primary" type="button" (click)="grantAll()" matButton="filled">
                   <mat-icon>bolt</mat-icon> Grant Full Access
                 </button>
-                <button mat-stroked-button type="button" (click)="grantReadOnly()">
+                <button type="button" (click)="grantReadOnly()" matButton="filled">
                   <mat-icon>visibility</mat-icon> Read-Only Access
                 </button>
-                <button mat-stroked-button color="warn" type="button" (click)="revokeAll()">
+                <button color="warn" type="button" (click)="revokeAll()" matButton="filled">
                   <mat-icon>block</mat-icon> Revoke All
                 </button>
                 <span class="toolbar-spacer"></span>
-                <button mat-stroked-button type="button" class="collapse-all-btn" (click)="toggleAllModules()"
-                  [title]="areAllModulesCollapsed ? 'Expand All Modules' : 'Collapse All Modules'">
+                <button type="button" class="collapse-all-btn" (click)="toggleAllModules()"
+                  [title]="areAllModulesCollapsed ? 'Expand All Modules' : 'Collapse All Modules'" matButton="filled">
                   <mat-icon>{{ areAllModulesCollapsed ? 'unfold_more' : 'unfold_less' }}</mat-icon>
                   <span>{{ areAllModulesCollapsed ? 'Expand All' : 'Collapse All' }}</span>
                 </button>

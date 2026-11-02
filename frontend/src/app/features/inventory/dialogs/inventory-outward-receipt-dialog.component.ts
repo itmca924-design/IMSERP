@@ -7,7 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { InventoryOutward } from '../inventory.models';
 import { AuthService } from '../../../core/services/auth.service';
 import { IstDatetimeDirective } from '../../../shared/directives/ist-datetime.directive';
-import * as QRCode from 'qrcode';
+import * as QRCode from '../../../shared/utils/qr-code';
 
 export interface InventoryOutwardReceiptDialogData {
   outward: InventoryOutward;
@@ -41,11 +41,11 @@ export interface InventoryOutwardReceiptDialogData {
           </div>
         </div>
         <div class="btn-group">
-          <button mat-flat-button class="header-action-btn print-btn" (click)="printSlip()" matTooltip="Print or Download PDF">
+          <button class="header-action-btn print-btn" (click)="printSlip()" matTooltip="Print or Download PDF" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Slip</span>
           </button>
-          <button mat-icon-button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close">
+          <button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>

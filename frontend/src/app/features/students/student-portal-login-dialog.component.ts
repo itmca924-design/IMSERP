@@ -54,7 +54,7 @@ export interface StudentPortalLoginDialogData {
             }
           </p>
         </div>
-        <button mat-icon-button class="dialog-close-btn" (click)="closeDialog()" [disabled]="saving">
+        <button class="dialog-close-btn" (click)="closeDialog()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -75,7 +75,7 @@ export interface StudentPortalLoginDialogData {
                   <p>Generate both Student and Parent portal accounts simultaneously with recommended credentials.</p>
                 </div>
               </div>
-              <button mat-raised-button color="primary" class="btn-both-setup" (click)="createBothAccounts()" [disabled]="saving">
+              <button color="primary" class="btn-both-setup" (click)="createBothAccounts()" [disabled]="saving" matButton="filled">
                 @if (!saving) {
                   <mat-icon>rocket_launch</mat-icon>
                 }
@@ -126,12 +126,12 @@ export interface StudentPortalLoginDialogData {
                   <div class="photo-hint">PNG, JPG or WEBP up to 2MB</div>
                   <div class="photo-buttons">
                     <input type="file" #studentPhotoInput (change)="onStudentPhotoSelected($event)" accept="image/png,image/jpeg,image/webp" style="display: none;" />
-                    <button mat-stroked-button type="button" class="upload-btn" (click)="studentPhotoInput.click()">
+                    <button type="button" class="upload-btn" (click)="studentPhotoInput.click()" matButton="filled">
                       <mat-icon>photo_camera</mat-icon>
                       <span>{{ (studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto) ? 'Change Photo' : 'Upload Photo' }}</span>
                     </button>
                     @if (studentPhotoPreview || loginInfo.profilePhoto || data.profilePhoto) {
-                      <button mat-button color="warn" type="button" class="remove-btn" (click)="removeStudentPhoto()">
+                      <button color="warn" type="button" class="remove-btn app-button-delete" (click)="removeStudentPhoto()" matButton="filled">
                         <mat-icon>delete_outline</mat-icon>
                         <span>Remove</span>
                       </button>
@@ -144,21 +144,21 @@ export interface StudentPortalLoginDialogData {
                   <mat-label>Student Username</mat-label>
                   <input matInput [(ngModel)]="studentUsername" [disabled]="loginInfo.hasStudentAccount && !editingStudentUsername" placeholder="e.g. adm2026.102" />
                   @if (loginInfo.hasStudentAccount && !editingStudentUsername) {
-                    <button mat-icon-button matSuffix (click)="editingStudentUsername = true" matTooltip="Edit username">
+                    <button matSuffix (click)="editingStudentUsername = true" matTooltip="Edit username" mat-icon-button>
                       <mat-icon class="suffix-btn-icon">edit</mat-icon>
                     </button>
                   }
-                  <button mat-icon-button matSuffix (click)="copyText(studentUsername, 'Student Username')" matTooltip="Copy username">
+                  <button matSuffix (click)="copyText(studentUsername, 'Student Username')" matTooltip="Copy username" mat-icon-button>
                     <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
                   </button>
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
                   <mat-label>{{ loginInfo.hasStudentAccount ? 'Set New Password' : 'Password' }}</mat-label>
                   <input matInput [type]="hideStudentPassword ? 'password' : 'text'" [(ngModel)]="studentPassword" placeholder="e.g. Student@2026" />
-                  <button mat-icon-button matSuffix type="button" (click)="hideStudentPassword = !hideStudentPassword" matTooltip="Toggle password visibility">
+                  <button matSuffix type="button" (click)="hideStudentPassword = !hideStudentPassword" matTooltip="Toggle password visibility" mat-icon-button>
                     <mat-icon class="suffix-btn-icon">{{ hideStudentPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
                   </button>
-                  <button mat-icon-button matSuffix type="button" (click)="copyText(studentPassword, 'Student Password')" matTooltip="Copy password">
+                  <button matSuffix type="button" (click)="copyText(studentPassword, 'Student Password')" matTooltip="Copy password" mat-icon-button>
                     <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
                   </button>
                 </mat-form-field>
@@ -174,7 +174,7 @@ export interface StudentPortalLoginDialogData {
                     <mat-icon class="hint-ico">verified</mat-icon> Account linked &amp; ready to sign in
                   </span>
                 }
-                <button mat-stroked-button color="primary" class="btn-account-action" (click)="createStudentAccount()" [disabled]="saving">
+                <button color="primary" class="btn-account-action" (click)="createStudentAccount()" [disabled]="saving" matButton="filled">
                   <mat-icon>{{ loginInfo.hasStudentAccount ? 'lock_reset' : 'person_add' }}</mat-icon>
                   <span>{{ loginInfo.hasStudentAccount ? 'Reset Password' : 'Create Student Login' }}</span>
                 </button>
@@ -206,17 +206,17 @@ export interface StudentPortalLoginDialogData {
                 <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
                   <mat-label>Parent Mobile / Username</mat-label>
                   <input matInput [(ngModel)]="parentUsername" [disabled]="loginInfo.hasParentAccount" placeholder="e.g. 9876543210" />
-                  <button mat-icon-button matSuffix (click)="copyText(parentUsername, 'Parent Username')" matTooltip="Copy username">
+                  <button matSuffix (click)="copyText(parentUsername, 'Parent Username')" matTooltip="Copy username" mat-icon-button>
                     <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
                   </button>
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="input-field" subscriptSizing="dynamic">
                   <mat-label>{{ loginInfo.hasParentAccount ? 'Set New Password' : 'Password' }}</mat-label>
                   <input matInput [type]="hideParentPassword ? 'password' : 'text'" [(ngModel)]="parentPassword" placeholder="e.g. Parent@2026" />
-                  <button mat-icon-button matSuffix type="button" (click)="hideParentPassword = !hideParentPassword" matTooltip="Toggle password visibility">
+                  <button matSuffix type="button" (click)="hideParentPassword = !hideParentPassword" matTooltip="Toggle password visibility" mat-icon-button>
                     <mat-icon class="suffix-btn-icon">{{ hideParentPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
                   </button>
-                  <button mat-icon-button matSuffix type="button" (click)="copyText(parentPassword, 'Parent Password')" matTooltip="Copy password">
+                  <button matSuffix type="button" (click)="copyText(parentPassword, 'Parent Password')" matTooltip="Copy password" mat-icon-button>
                     <mat-icon class="suffix-btn-icon">content_copy</mat-icon>
                   </button>
                 </mat-form-field>
@@ -232,7 +232,7 @@ export interface StudentPortalLoginDialogData {
                     <mat-icon class="hint-ico">verified</mat-icon> Account linked &amp; ready to sign in
                   </span>
                 }
-                <button mat-stroked-button color="primary" class="btn-account-action" (click)="createParentAccount()" [disabled]="saving">
+                <button color="primary" class="btn-account-action" (click)="createParentAccount()" [disabled]="saving" matButton="filled">
                   <mat-icon>{{ loginInfo.hasParentAccount ? 'lock_reset' : 'person_add' }}</mat-icon>
                   <span>{{ loginInfo.hasParentAccount ? 'Reset Password' : 'Create Parent Login' }}</span>
                 </button>
@@ -250,10 +250,10 @@ export interface StudentPortalLoginDialogData {
                 </div>
               </div>
               <div class="wa-actions">
-                <button mat-stroked-button class="btn-copy-wa" (click)="copyWhatsAppMessage()" matTooltip="Copy pre-formatted text">
+                <button class="btn-copy-wa" (click)="copyWhatsAppMessage()" matTooltip="Copy pre-formatted text" matButton="filled">
                   <mat-icon>content_copy</mat-icon> Copy Text
                 </button>
-                <button mat-raised-button class="btn-open-wa" (click)="openWhatsApp()" [disabled]="!loginInfo.parentPhone" matTooltip="Open WhatsApp Web / App">
+                <button class="btn-open-wa" (click)="openWhatsApp()" [disabled]="!loginInfo.parentPhone" matTooltip="Open WhatsApp Web / App" matButton="filled">
                   <mat-icon>send</mat-icon> Open WhatsApp
                 </button>
               </div>
@@ -263,7 +263,7 @@ export interface StudentPortalLoginDialogData {
       }
     
       <div class="dialog-footer">
-        <button mat-stroked-button (click)="closeDialog()">Close</button>
+        <button (click)="closeDialog()" matButton="filled" class="app-button-cancel">Close</button>
       </div>
     </div>
     `,

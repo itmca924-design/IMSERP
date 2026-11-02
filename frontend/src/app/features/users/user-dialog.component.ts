@@ -50,7 +50,7 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
           <h2 mat-dialog-title class="main-title">{{ isEditMode ? 'Edit User Credentials & Role' : 'Create New System User' }}</h2>
           <p class="subtitle">{{ isEditMode ? 'Modify account role, permissions, and campus access.' : 'Provision a new administrative account with role-based access control.' }}</p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -73,12 +73,12 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
               <div class="photo-hint">PNG, JPG or WEBP up to 2MB. Saved as fast-loading disk file.</div>
               <div class="photo-buttons">
                 <input type="file" #fileInput (change)="onFileSelected($event)" accept="image/png,image/jpeg,image/webp" style="display: none;" />
-                <button mat-stroked-button type="button" class="upload-btn" (click)="fileInput.click()">
+                <button type="button" class="upload-btn" (click)="fileInput.click()" matButton="filled">
                   <mat-icon>photo_camera</mat-icon>
                   <span>{{ photoPreview ? 'Change Photo' : 'Upload Photo' }}</span>
                 </button>
                 @if (photoPreview) {
-                  <button mat-button color="warn" type="button" class="remove-btn" (click)="removePhoto()">
+                  <button color="warn" type="button" class="remove-btn app-button-delete" (click)="removePhoto()" matButton="filled">
                     <mat-icon>delete_outline</mat-icon>
                     <span>Remove</span>
                   </button>
@@ -122,12 +122,11 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
               <mat-label>{{ isEditMode ? 'Password (Leave blank to keep unchanged)' : 'Account Password *' }}</mat-label>
               <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="••••••••" />
               <button
-                mat-icon-button
                 matSuffix
                 type="button"
                 (click)="hidePassword = !hidePassword"
                 [matTooltip]="hidePassword ? 'Show Password' : 'Hide Password'"
-                aria-label="Toggle password visibility">
+                aria-label="Toggle password visibility" mat-icon-button>
                 <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
               @if (userForm.get('password')?.hasError('required')) {
@@ -245,8 +244,8 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="userForm.invalid || emailDuplicate || phoneDuplicate || saving" class="submit-btn">
+          <button type="button" (click)="onCancel()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="userForm.invalid || emailDuplicate || phoneDuplicate || saving" class="submit-btn" matButton="filled" [class.app-button-update]="isEditMode" [class.app-button-save]="!(isEditMode)">
             @if (saving) {
               <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
             }

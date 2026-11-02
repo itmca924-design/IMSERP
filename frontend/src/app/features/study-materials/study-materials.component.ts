@@ -79,7 +79,7 @@ import { environment } from '../../../environments/environment';
     <div class="header-actions">
       <!-- 1-Click Upload Button (for Staff/Teachers/Admin) -->
       @if (canUpload()) {
-        <button mat-flat-button color="primary" class="upload-btn" (click)="openUploadDialog()">
+        <button color="primary" class="upload-btn" (click)="openUploadDialog()" matButton="filled">
           <mat-icon>cloud_upload</mat-icon> Upload Study Material / PYQ
         </button>
       }
@@ -136,7 +136,7 @@ import { environment } from '../../../environments/environment';
           type="button"
           class="scope-pill"
           [class.active]="currentScope === 'All'"
-          (click)="setScope('All')">
+          (click)="setScope('All')" matButton="filled">
           <mat-icon>public</mat-icon>
           <span>All Materials</span>
         </button>
@@ -145,8 +145,7 @@ import { environment } from '../../../environments/environment';
             type="button"
             class="scope-pill"
             [class.active]="currentScope === 'School'"
-            (click)="setScope('School')"
-            >
+            (click)="setScope('School')" matButton="filled">
             <mat-icon>school</mat-icon>
             <span>🏫 School Classes</span>
           </button>
@@ -156,8 +155,7 @@ import { environment } from '../../../environments/environment';
             type="button"
             class="scope-pill"
             [class.active]="currentScope === 'Coaching'"
-            (click)="setScope('Coaching')"
-            >
+            (click)="setScope('Coaching')" matButton="filled">
             <mat-icon>psychology</mat-icon>
             <span>🎯 Coaching Batches</span>
           </button>
@@ -173,7 +171,7 @@ import { environment } from '../../../environments/environment';
           (ngModelChange)="onSearchChanged()"
           placeholder="Search by title, chapter, topic, or exam (e.g. Physics, Light, JEE 2024)..." />
         @if (searchKeyword) {
-          <button mat-icon-button (click)="searchKeyword = ''; onSearchChanged()" class="clear-btn">
+          <button (click)="searchKeyword = ''; onSearchChanged()" class="clear-btn" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         }
@@ -186,42 +184,42 @@ import { environment } from '../../../environments/environment';
         type="button"
         class="type-tab"
         [class.active]="activeType === 'All'"
-        (click)="setType('All')">
+        (click)="setType('All')" matButton="filled">
         All Types
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'Notes'"
-        (click)="setType('Notes')">
+        (click)="setType('Notes')" matButton="filled">
         📝 Concept Notes
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'PYQ'"
-        (click)="setType('PYQ')">
+        (click)="setType('PYQ')" matButton="filled">
         🎯 PYQs
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'QuestionBank'"
-        (click)="setType('QuestionBank')">
+        (click)="setType('QuestionBank')" matButton="filled">
         📚 Question Bank &amp; DPP
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'FormulaSheet'"
-        (click)="setType('FormulaSheet')">
+        (click)="setType('FormulaSheet')" matButton="filled">
         ⚡ Formula Sheets &amp; Mindmaps
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'SamplePaper'"
-        (click)="setType('SamplePaper')">
+        (click)="setType('SamplePaper')" matButton="filled">
         📄 Sample &amp; Model Papers
       </button>
     </div>
@@ -297,7 +295,7 @@ import { environment } from '../../../environments/environment';
       type="button"
       class="filter-toggle-btn"
       [class.active]="filterWithSolutions"
-      (click)="toggleSolutionsFilter()">
+      (click)="toggleSolutionsFilter()" matButton="filled">
       <mat-icon>{{ filterWithSolutions ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
       <span>With Solutions</span>
     </button>
@@ -305,10 +303,9 @@ import { environment } from '../../../environments/environment';
     <!-- Reset Filter Button -->
     @if (isFilterActive) {
       <button
-        mat-button
         type="button"
-        class="reset-btn"
-        (click)="resetFilters()">
+        class="reset-btn app-button-cancel"
+        (click)="resetFilters()" matButton="filled">
         <mat-icon>filter_alt_off</mat-icon> Clear Filters
       </button>
     }
@@ -324,7 +321,7 @@ import { environment } from '../../../environments/environment';
     <h3>No Study Material Found</h3>
     <p>There are no notes, PYQs or question banks matching your selected criteria.</p>
     @if (isFilterActive) {
-      <button mat-stroked-button color="primary" (click)="resetFilters()">
+      <button color="primary" (click)="resetFilters()" matButton="filled">
         Reset All Filters
       </button>
     }
@@ -402,20 +399,20 @@ import { environment } from '../../../environments/environment';
           </div>
           <div class="action-buttons">
             <!-- Preview in App -->
-            <button mat-stroked-button color="primary" class="preview-btn" (click)="previewMaterial(item)">
+            <button color="primary" class="preview-btn" (click)="previewMaterial(item)" matButton="filled">
               <mat-icon>visibility</mat-icon> Preview
             </button>
             <!-- Direct Download -->
-            <button type="button" class="dl-btn" (click)="downloadMaterial(item)" matTooltip="Download file">
+            <button type="button" class="dl-btn" (click)="downloadMaterial(item)" matTooltip="Download file" mat-icon-button>
               <mat-icon>download</mat-icon>
             </button>
             <!-- WhatsApp Share -->
-            <button mat-icon-button class="wa-btn" (click)="shareViaWhatsApp(item)" matTooltip="Share via WhatsApp">
+            <button class="wa-btn" (click)="shareViaWhatsApp(item)" matTooltip="Share via WhatsApp" mat-icon-button>
               <mat-icon>share</mat-icon>
             </button>
             <!-- Delete / Edit for faculty -->
             @if (canUpload()) {
-              <button mat-icon-button class="del-btn" (click)="deleteMaterial(item)" matTooltip="Delete material">
+              <button class="del-btn" (click)="deleteMaterial(item)" matTooltip="Delete material" mat-icon-button>
                 <mat-icon>delete_outline</mat-icon>
               </button>
             }

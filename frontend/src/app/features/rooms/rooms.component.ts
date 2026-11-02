@@ -41,7 +41,7 @@ import { RoomDialogComponent } from './room-dialog.component';
           <h1 class="page-title">Classrooms & Rooms Master</h1>
           <p class="page-subtitle">Manage institute rooms, seat capacities, floors, and branch associations for batch scheduling.</p>
         </div>
-        <button mat-raised-button color="primary" class="add-btn" (click)="openAddRoomModal()">
+        <button color="primary" class="add-btn" (click)="openAddRoomModal()" matButton="filled">
           <mat-icon>add</mat-icon>
           <span>Add New Classroom</span>
         </button>
@@ -102,7 +102,7 @@ import { RoomDialogComponent } from './room-dialog.component';
               class="search-input"
               />
             @if (searchQuery) {
-              <button mat-icon-button class="clear-btn" (click)="searchQuery = ''">
+              <button class="clear-btn" (click)="searchQuery = ''" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -121,7 +121,7 @@ import { RoomDialogComponent } from './room-dialog.component';
               </mat-select>
             </mat-form-field>
     
-            <button mat-stroked-button class="refresh-btn" (click)="loadData()">
+            <button class="refresh-btn" (click)="loadData()" matButton="filled">
               <mat-icon>refresh</mat-icon>
               <span>Refresh</span>
             </button>
@@ -166,25 +166,21 @@ import { RoomDialogComponent } from './room-dialog.component';
                 </div>
               </div>
               <div class="room-card-footer">
-                <button mat-button class="btn-edit" (click)="openEditRoomModal(r)">
+                <button class="btn-edit app-button-update" (click)="openEditRoomModal(r)" matButton="filled">
                   <mat-icon>edit</mat-icon>
                   <span>Edit</span>
                 </button>
                 <button
-                  mat-button
                   [color]="r.isActive ? 'warn' : 'primary'"
-                  (click)="toggleStatus(r)"
-                  >
+                  (click)="toggleStatus(r)" matButton="filled">
                   <mat-icon>{{ r.isActive ? 'block' : 'check_circle' }}</mat-icon>
                   <span>{{ r.isActive ? 'Deactivate' : 'Activate' }}</span>
                 </button>
                 @if (r.activeBatchCount === 0) {
                   <button
-                    mat-icon-button
                     color="warn"
                     matTooltip="Delete Classroom"
-                    (click)="deleteRoom(r)"
-                    >
+                    (click)="deleteRoom(r)" mat-icon-button>
                     <mat-icon>delete_outline</mat-icon>
                   </button>
                 }
@@ -200,7 +196,7 @@ import { RoomDialogComponent } from './room-dialog.component';
           <mat-icon class="empty-icon">meeting_room</mat-icon>
           <h3>No Classrooms Found</h3>
           <p>There are no rooms matching your search or branch criteria.</p>
-          <button mat-flat-button class="action-btn-primary" (click)="openAddRoomModal()">
+          <button class="action-btn-primary" (click)="openAddRoomModal()" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Add Classroom</span>
           </button>

@@ -56,7 +56,7 @@ import { environment } from '../../../environments/environment';
           </h1>
           <p class="page-subtitle">Create user logins, assign dynamic roles, and map menu permissions from DB with server-side controls.</p>
         </div>
-        <button mat-raised-button color="primary" class="add-btn" (click)="openUserModal()">
+        <button color="primary" class="add-btn" (click)="openUserModal()" matButton="filled">
           <mat-icon>person_add</mat-icon>
           <span>Create New User</span>
         </button>
@@ -75,11 +75,11 @@ import { environment } from '../../../environments/environment';
                 (keyup.enter)="loadUsers()"
                 placeholder="Username, Name, Email, Phone..." />
               @if (searchTerm) {
-                <button matSuffix mat-icon-button aria-label="Clear Search" (click)="clearSearch()">
+                <button matSuffix aria-label="Clear Search" (click)="clearSearch()" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               }
-              <button matSuffix mat-icon-button (click)="loadUsers()" matTooltip="Search">
+              <button matSuffix (click)="loadUsers()" matTooltip="Search" mat-icon-button>
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
@@ -120,11 +120,10 @@ import { environment } from '../../../environments/environment';
     
             @if (hasActiveFilters()) {
               <button
-                mat-stroked-button
                 color="warn"
-                class="reset-btn"
+                class="reset-btn app-button-cancel"
                 (click)="resetFilters()"
-                matTooltip="Reset search and filters">
+                matTooltip="Reset search and filters" matButton="filled">
                 <mat-icon>restart_alt</mat-icon>
                 <span>Reset</span>
               </button>
@@ -245,11 +244,10 @@ import { environment } from '../../../environments/environment';
               </th>
               <td mat-cell *matCellDef="let element" class="text-center actions-col-cell">
                 <button
-                  mat-icon-button
                   [matMenuTriggerFor]="userRowMenu"
                   [disabled]="loading"
                   class="action-menu-btn"
-                  matTooltip="User Actions">
+                  matTooltip="User Actions" mat-icon-button>
                   <mat-icon>more_vert</mat-icon>
                 </button>
     
@@ -279,7 +277,7 @@ import { environment } from '../../../environments/environment';
                     <h3>No System Users Found</h3>
                     <p>No user accounts matched your search keyword or selected filter criteria.</p>
                     @if (hasActiveFilters()) {
-                      <button mat-stroked-button color="primary" (click)="resetFilters()">
+                      <button color="primary" (click)="resetFilters()" matButton="filled">
                         <mat-icon>filter_alt_off</mat-icon> Clear Filters &amp; Reload
                       </button>
                     }

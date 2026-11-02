@@ -128,21 +128,21 @@ export interface MonthlyPerformanceReportHeader {
         <div class="header-actions">
           <!-- 3-Way Feature Switcher -->
           <div class="module-nav-pills notranslate" translate="no">
-            <a mat-button routerLink="/school/homework" class="nav-pill-btn">
+            <a matButton="filled" routerLink="/school/homework" class="nav-pill-btn">
               <mat-icon>menu_book</mat-icon>
               <span>1. CW &amp; HW Diary</span>
             </a>
-            <a mat-button routerLink="/school/good-manners" class="nav-pill-btn">
+            <a matButton="filled" routerLink="/school/good-manners" class="nav-pill-btn">
               <mat-icon>hotel_class</mat-icon>
               <span>2. Good Manners &amp; Behaviour</span>
             </a>
-            <a mat-button routerLink="/school/monthly-performance" class="nav-pill-btn active">
+            <a matButton="filled" routerLink="/school/monthly-performance" class="nav-pill-btn active">
               <mat-icon>insights</mat-icon>
               <span>3. Monthly Performance</span>
             </a>
           </div>
     
-          <button mat-stroked-button class="refresh-btn" (click)="loadPerformanceReport()" [disabled]="loading">
+          <button class="refresh-btn" (click)="loadPerformanceReport()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
@@ -152,11 +152,11 @@ export interface MonthlyPerformanceReportHeader {
       <!-- Dual Scope Selector (School Classes vs Coaching Batches) -->
       <div class="scope-nav-container">
         <div class="scope-pills">
-          <button class="scope-pill-btn" [class.active]="targetScope === 'school'" (click)="setScope('school')" type="button">
+          <button class="scope-pill-btn" [class.active]="targetScope === 'school'" (click)="setScope('school')" type="button" matButton="filled">
             <mat-icon>school</mat-icon>
             <span>School Classes (स्कूल कक्षाएं)</span>
           </button>
-          <button class="scope-pill-btn" [class.active]="targetScope === 'coaching'" (click)="setScope('coaching')" type="button">
+          <button class="scope-pill-btn" [class.active]="targetScope === 'coaching'" (click)="setScope('coaching')" type="button" matButton="filled">
             <mat-icon>groups</mat-icon>
             <span>Coaching Batches (कोचिंग बैचेस)</span>
           </button>
@@ -231,12 +231,12 @@ export interface MonthlyPerformanceReportHeader {
           }
     
           <div class="deck-actions-group">
-            <button mat-stroked-button class="print-master-btn" type="button" (click)="printMasterRegister()" [disabled]="students.length === 0">
+            <button class="print-master-btn" type="button" (click)="printMasterRegister()" [disabled]="students.length === 0" matButton="filled">
               <mat-icon>print</mat-icon>
               <span>Print Class Master Sheet</span>
             </button>
     
-            <button mat-raised-button class="save-remarks-btn" type="button" (click)="saveTeacherRemarks()" [disabled]="saving || students.length === 0">
+            <button class="save-remarks-btn app-button-save" type="button" (click)="saveTeacherRemarks()" [disabled]="saving || students.length === 0" matButton="filled">
               @if (!saving) {
                 <mat-icon>save</mat-icon>
               }
@@ -390,7 +390,7 @@ export interface MonthlyPerformanceReportHeader {
                   <input type="text" class="remark-edit-input hide-on-print" [(ngModel)]="s.teacherMonthlyRemark" placeholder="Enter teacher note for scorecard...">
                 </td>
                 <td class="col-action hide-on-print text-center">
-                  <button mat-icon-button [matMenuTriggerFor]="studentActionMenu" class="row-3dots-btn" matTooltip="Actions">
+                  <button [matMenuTriggerFor]="studentActionMenu" class="row-3dots-btn" matTooltip="Actions" mat-icon-button>
                     <mat-icon>more_vert</mat-icon>
                   </button>
                   <mat-menu #studentActionMenu="matMenu" class="smart-action-menu">
@@ -1515,11 +1515,11 @@ export class MonthlyPerformanceComponent implements OnInit {
           </div>
     
           <div class="header-actions">
-            <button mat-flat-button class="print-action-btn" (click)="printScorecard()">
+            <button class="print-action-btn" (click)="printScorecard()" matButton="filled">
               <mat-icon>print</mat-icon>
               <span>Print A4</span>
             </button>
-            <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close dialog">
+            <button class="close-btn" (click)="dialogRef.close()" matTooltip="Close dialog" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>

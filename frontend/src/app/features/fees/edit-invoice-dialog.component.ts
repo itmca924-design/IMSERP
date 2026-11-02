@@ -53,7 +53,7 @@ interface EditableInvoiceItem {
           <h2 mat-dialog-title class="main-title">Manage Invoice Fee Heads</h2>
           <p class="subtitle">Add, adjust, or remove line items on {{ data.invoice.invoiceNumber }}</p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onClose()" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="onClose()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -141,13 +141,11 @@ interface EditableInvoiceItem {
                   </td>
                   <td class="text-center">
                     <button
-                      mat-icon-button
                       type="button"
                       class="delete-item-btn"
-                      [disabled]="it.paidAmount > 0 || saving"
+                      [disabled]="it.paidAmount> 0 || saving"
                       (click)="removeItem(idx)"
-                      [matTooltip]="it.paidAmount > 0 ? 'Cannot remove already paid item' : 'Remove this fee head'"
-                      >
+                      [matTooltip]="it.paidAmount > 0 ? 'Cannot remove already paid item' : 'Remove this fee head'" mat-icon-button>
                       <mat-icon>delete_outline</mat-icon>
                     </button>
                   </td>
@@ -210,13 +208,11 @@ interface EditableInvoiceItem {
                     />
                   @if (feeHeadSearchText) {
                     <button
-                      mat-icon-button
                       type="button"
                       class="clear-search-btn"
                       (click)="clearFeeHeadSearch($event)"
                       (mousedown)="$event.stopPropagation()"
-                      matTooltip="Clear search"
-                      >
+                      matTooltip="Clear search" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   }
@@ -268,12 +264,10 @@ interface EditableInvoiceItem {
           </mat-form-field>
     
           <button
-            mat-raised-button
             color="accent"
             type="submit"
             class="add-btn"
-            [disabled]="addForm.invalid || saving"
-            >
+            [disabled]="addForm.invalid || saving" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Add Head</span>
           </button>
@@ -283,15 +277,13 @@ interface EditableInvoiceItem {
     
     <!-- Actions -->
     <mat-dialog-actions align="end" class="dialog-actions">
-      <button mat-button type="button" (click)="onClose()" [disabled]="saving">Cancel</button>
+      <button type="button" (click)="onClose()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
       <button
-        mat-raised-button
         color="primary"
         type="button"
         (click)="onSaveChanges()"
         [disabled]="items.length === 0 || saving"
-        class="save-btn"
-        >
+        class="save-btn" matButton="filled" [class.app-button-update]="!(saving)">
         @if (saving) {
           <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
         }

@@ -54,7 +54,7 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
             }
           </p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onClose()" matTooltip="Close (Esc)">
+        <button type="button" class="close-btn" (click)="onClose()" matTooltip="Close (Esc)" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -257,12 +257,12 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
     <!-- Dialog Action Footer -->
     <div class="dialog-actions">
       <div class="actions-left">
-        <button mat-stroked-button type="button" class="action-btn-secondary" (click)="onOpenLedger()">
+        <button type="button" class="action-btn-secondary" (click)="onOpenLedger()" matButton="filled">
           <mat-icon>menu_book</mat-icon>
           <span>Passbook</span>
         </button>
         @if (inv.status !== 'Cancelled') {
-          <button mat-stroked-button type="button" class="action-btn-secondary" (click)="onSendWhatsApp()">
+          <button type="button" class="action-btn-secondary" (click)="onSendWhatsApp()" matButton="filled">
             <mat-icon class="whatsapp-ic">chat</mat-icon>
             <span>WhatsApp</span>
           </button>
@@ -270,17 +270,16 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
       </div>
     
       <div class="actions-right">
-        <button mat-stroked-button type="button" class="close-action-btn" (click)="onClose()">
+        <button type="button" class="close-action-btn app-button-cancel" (click)="onClose()" matButton="filled">
           Close
         </button>
     
         <!-- Pay via UPI QR -->
         @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
           <button
-            mat-stroked-button
             type="button"
             class="upi-action-btn"
-            (click)="onOpenUpi()">
+            (click)="onOpenUpi()" matButton="filled">
             <mat-icon>qr_code_2</mat-icon>
             <span>UPI QR</span>
           </button>
@@ -289,10 +288,9 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
         <!-- Print Due Slip (if due) -->
         @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
           <button
-            mat-stroked-button
             type="button"
             class="due-slip-btn"
-            (click)="onOpenDueSlip()">
+            (click)="onOpenDueSlip()" matButton="filled">
             <mat-icon>receipt_long</mat-icon>
             <span>Due Slip</span>
           </button>
@@ -301,11 +299,10 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
         <!-- Print Payment Receipt (if paid) -->
         @if (inv.status === 'Paid') {
           <button
-            mat-raised-button
             color="primary"
             type="button"
             class="primary-action-btn"
-            (click)="onOpenReceipt()">
+            (click)="onOpenReceipt()" matButton="filled">
             <mat-icon>receipt</mat-icon>
             <span>Print Receipt</span>
           </button>
@@ -314,11 +311,10 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
         <!-- Collect Fee (if pending) -->
         @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
           <button
-            mat-raised-button
             color="primary"
             type="button"
             class="primary-action-btn"
-            (click)="onCollectFee()">
+            (click)="onCollectFee()" matButton="filled">
             <mat-icon>payments</mat-icon>
             <span>Collect Fee</span>
           </button>

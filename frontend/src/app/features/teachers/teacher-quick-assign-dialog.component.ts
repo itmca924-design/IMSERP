@@ -39,7 +39,7 @@ export interface QuickAssignDialogData {
         </p>
       </div>
     </div>
-    <button mat-icon-button class="close-btn" (click)="onCancel()" matTooltip="Close dialog">
+    <button class="close-btn" (click)="onCancel()" matTooltip="Close dialog" mat-icon-button>
       <mat-icon>close</mat-icon>
     </button>
   </div>
@@ -72,7 +72,7 @@ export interface QuickAssignDialogData {
       <mat-icon class="search-icon">search</mat-icon>
       <input type="text" [(ngModel)]="searchQuery" placeholder="Search teacher by name, employee code, or specialization..." />
       @if (searchQuery) {
-        <button type="button" class="clear-btn" (click)="searchQuery = ''">
+        <button type="button" class="clear-btn" (click)="searchQuery = ''" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       }
@@ -148,8 +148,8 @@ export interface QuickAssignDialogData {
   </div>
 
   <div class="modal-footer">
-    <button mat-button class="cancel-btn" (click)="onCancel()">Cancel</button>
-    <button mat-raised-button color="primary" class="proceed-btn" [disabled]="!selectedTeacher" (click)="onConfirm()">
+    <button class="cancel-btn app-button-cancel" (click)="onCancel()" matButton="filled">Cancel</button>
+    <button color="primary" class="proceed-btn" [disabled]="!selectedTeacher" (click)="onConfirm()" matButton="filled">
       <mat-icon>check_circle</mat-icon>
       Assign to {{selectedTeacher ? selectedTeacher.fullName : 'Selected Teacher'}} & Configure Timetable
     </button>

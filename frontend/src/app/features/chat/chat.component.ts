@@ -58,11 +58,11 @@ import { environment } from '../../../environments/environment';
         </div>
     
         <div class="chat-header-actions">
-          <button mat-raised-button color="primary" class="new-chat-btn" (click)="openDirectoryDialog()">
+          <button color="primary" class="new-chat-btn" (click)="openDirectoryDialog()" matButton="filled">
             <mat-icon>chat</mat-icon>
             <span>+ Start New Chat</span>
           </button>
-          <button mat-stroked-button class="refresh-btn" (click)="refreshConversations()" matTooltip="Refresh conversations">
+          <button class="refresh-btn" (click)="refreshConversations()" matTooltip="Refresh conversations" matButton="filled">
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
@@ -80,7 +80,7 @@ import { environment } from '../../../environments/environment';
                 <mat-icon matPrefix>search</mat-icon>
                 <input matInput [formControl]="searchControl" placeholder="Search chats or members...">
                 @if (searchControl.value) {
-                  <button mat-icon-button matSuffix type="button" (click)="searchControl.setValue('')">
+                  <button matSuffix type="button" (click)="searchControl.setValue('')" mat-icon-button>
                     <mat-icon>close</mat-icon>
                   </button>
                 }
@@ -136,14 +136,14 @@ import { environment } from '../../../environments/environment';
                       <span>Explore the campus directory to message classmates or teachers.</span>
                     }
                   </p>
-                  <button mat-stroked-button color="primary" class="start-btn-empty" (click)="openDirectoryDialog()">
+                  <button color="primary" class="start-btn-empty" (click)="openDirectoryDialog()" matButton="filled">
                     <mat-icon>group_add</mat-icon>
                     <span>+ Find People to Chat</span>
                   </button>
                 </div>
               }
     
-              @for (c of filteredConversations(); track c) {
+              @for (c of filteredConversations(); track c.id) {
                 <div
                   class="conversation-row"
                   [class.selected]="activeChat()?.id === c.id"
@@ -227,7 +227,7 @@ import { environment } from '../../../environments/environment';
                     <span>Strict multi-tenant & branch-wise student & faculty isolation</span>
                   </div>
                 </div>
-                <button mat-raised-button color="primary" class="browse-directory-btn" (click)="openDirectoryDialog()">
+                <button color="primary" class="browse-directory-btn" (click)="openDirectoryDialog()" matButton="filled">
                   <mat-icon>search</mat-icon>
                   <span>Explore Campus Directory</span>
                 </button>
@@ -240,7 +240,7 @@ import { environment } from '../../../environments/environment';
             <div class="active-chat-wrapper">
               <!-- Active Chat Header -->
               <div class="active-header">
-                <button mat-icon-button class="mobile-back-btn" (click)="activeChat.set(null)" aria-label="Back to conversations">
+                <button class="mobile-back-btn" (click)="activeChat.set(null)" aria-label="Back to conversations" mat-icon-button>
                   <mat-icon>arrow_back</mat-icon>
                 </button>
                 <div class="header-avatar-box">
@@ -290,10 +290,10 @@ import { environment } from '../../../environments/environment';
                   </div>
                 </div>
                 <div class="active-header-actions">
-                  <button mat-icon-button type="button" (click)="refreshActiveMessages()" matTooltip="Reload messages">
+                  <button type="button" (click)="refreshActiveMessages()" matTooltip="Reload messages" mat-icon-button>
                     <mat-icon>sync</mat-icon>
                   </button>
-                  <button mat-icon-button type="button" [matMenuTriggerFor]="activeChatMenu" matTooltip="Conversation options">
+                  <button type="button" [matMenuTriggerFor]="activeChatMenu" matTooltip="Conversation options" mat-icon-button>
                     <mat-icon>more_vert</mat-icon>
                   </button>
                   <mat-menu #activeChatMenu="matMenu">
@@ -318,7 +318,7 @@ import { environment } from '../../../environments/environment';
                     <p>Say hello! Be the first to start the conversation.</p>
                   </div>
                 }
-                @for (msg of chatService.messages(); track msg; let i = $index) {
+                @for (msg of chatService.messages(); track msg.id; let i = $index) {
                   <div
                     class="message-row"
                     [class.outgoing]="msg.isMe"
@@ -335,7 +335,7 @@ import { environment } from '../../../environments/environment';
                     <!-- Hover Action Toolbar (Delete Message) -->
                     @if (canDeleteMessage(msg)) {
                       <div class="msg-actions-hover">
-                        <button type="button" class="bubble-action-btn delete-action" (click)="onDeleteMessage(msg, $event)" matTooltip="Delete message">
+                        <button type="button" class="bubble-action-btn delete-action" (click)="onDeleteMessage(msg, $event)" matTooltip="Delete message" mat-icon-button>
                           <mat-icon>delete_outline</mat-icon>
                         </button>
                       </div>
@@ -357,7 +357,7 @@ import { environment } from '../../../environments/environment';
                           @if (msg.messageType === 'Image') {
                             <div class="image-attachment-wrapper" (click)="downloadAttachment(msg, $event)">
                               <img [src]="getFileFullUrl(msg.attachmentUrl)" [alt]="msg.attachmentFileName || 'Attachment'" class="attachment-thumbnail" loading="lazy">
-                              <button type="button" class="img-download-overlay" (click)="downloadAttachment(msg, $event)" matTooltip="Download Image">
+                              <button type="button" class="img-download-overlay" (click)="downloadAttachment(msg, $event)" matTooltip="Download Image" mat-icon-button>
                                 <mat-icon>download</mat-icon>
                               </button>
                             </div>
@@ -372,7 +372,7 @@ import { environment } from '../../../environments/environment';
                                   <span class="doc-size">{{ formatFileSize(msg.fileSizeBytes) }}</span>
                                 }
                               </div>
-                              <button type="button" class="card-dl-btn" (click)="downloadAttachment(msg, $event)" matTooltip="Download">
+                              <button type="button" class="card-dl-btn" (click)="downloadAttachment(msg, $event)" matTooltip="Download" mat-icon-button>
                                 <mat-icon class="dl-icon">download</mat-icon>
                               </button>
                             </div>
@@ -406,7 +406,7 @@ import { environment } from '../../../environments/environment';
                     <span class="pending-filename">{{ pendingAttachment()?.fileName }}</span>
                     <span class="pending-filesize">({{ formatFileSize(pendingAttachment()?.fileSizeBytes || 0) }})</span>
                   </div>
-                  <button mat-icon-button type="button" class="remove-attachment-btn" (click)="removePendingAttachment()">
+                  <button type="button" class="remove-attachment-btn" (click)="removePendingAttachment()" mat-icon-button>
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
@@ -414,7 +414,7 @@ import { environment } from '../../../environments/environment';
               <!-- Bottom Input Dock -->
               <div class="bottom-input-dock">
                 <input #fileInput type="file" style="display: none;" (change)="onFileSelected($event)">
-                <button mat-icon-button type="button" class="action-dock-btn" (click)="fileInput.click()" [disabled]="uploadingAttachment()" matTooltip="Attach image or file">
+                <button type="button" class="action-dock-btn" (click)="fileInput.click()" [disabled]="uploadingAttachment()" matTooltip="Attach image or file" mat-icon-button>
                   @if (!uploadingAttachment()) {
                     <mat-icon>attach_file</mat-icon>
                   }
@@ -423,7 +423,7 @@ import { environment } from '../../../environments/environment';
                   }
                 </button>
                 <!-- Emoji Picker Trigger Button -->
-                <button mat-icon-button type="button" class="action-dock-btn emoji-trigger-btn" [matMenuTriggerFor]="emojiMenu" matTooltip="Add emoji">
+                <button type="button" class="action-dock-btn emoji-trigger-btn" [matMenuTriggerFor]="emojiMenu" matTooltip="Add emoji" mat-icon-button>
                   <mat-icon>sentiment_satisfied_alt</mat-icon>
                 </button>
                 <!-- Categorized Emoji Menu -->
@@ -436,7 +436,7 @@ import { environment } from '../../../environments/environment';
                           type="button"
                           class="cat-tab-btn"
                           [class.active]="selectedEmojiCategory() === ci"
-                          (click)="selectedEmojiCategory.set(ci)">
+                          (click)="selectedEmojiCategory.set(ci)" matButton="filled">
                           <mat-icon>{{ cat.icon }}</mat-icon>
                           <span>{{ cat.name }}</span>
                         </button>
@@ -448,7 +448,7 @@ import { environment } from '../../../environments/environment';
                         <button
                           type="button"
                           class="emoji-btn"
-                          (click)="insertEmoji(em)">
+                          (click)="insertEmoji(em)" matButton="filled">
                           {{ em }}
                         </button>
                       }
@@ -466,11 +466,10 @@ import { environment } from '../../../environments/environment';
                   (input)="onTextInput()"></textarea>
                 </div>
                 <button
-                  mat-flat-button
                   color="primary"
                   class="send-message-btn"
                   [disabled]="(!messageControl.value || !messageControl.value.trim()) && !pendingAttachment()"
-                  (click)="onSendMessage()">
+                  (click)="onSendMessage()" matButton="filled">
                   <mat-icon>send</mat-icon>
                 </button>
               </div>

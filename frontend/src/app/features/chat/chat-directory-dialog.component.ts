@@ -42,7 +42,7 @@ import { AuthService } from '../../core/services/auth.service';
           </div>
         </div>
     
-        <button type="button" class="sharp-close-btn" (click)="closeDialog()" aria-label="Close dialog">
+        <button type="button" class="sharp-close-btn" (click)="closeDialog()" aria-label="Closedialog" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -58,10 +58,9 @@ import { AuthService } from '../../core/services/auth.service';
               placeholder="Search by name, roll number, or username...">
             @if (searchControl.value) {
               <button
-                mat-icon-button
                 matSuffix
                 type="button"
-                (click)="searchControl.setValue('')">
+                (click)="searchControl.setValue('')" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -102,7 +101,7 @@ import { AuthService } from '../../core/services/auth.service';
     
           @if (!loading() && users().length > 0) {
             <div class="user-grid">
-              @for (u of users(); track u) {
+              @for (u of users(); track u.userId) {
                 <div class="user-card">
                   <div class="avatar-wrap">
                     <div class="user-avatar" [class.teacher]="u.userRole === 'Teacher' || u.userRole === 'Principal'">
@@ -138,11 +137,10 @@ import { AuthService } from '../../core/services/auth.service';
                   </div>
                 </div>
                 <button
-                  mat-flat-button
                   color="primary"
                   class="start-chat-btn"
                   [disabled]="startingChat() === u.userId"
-                  (click)="onSelectUser(u)">
+                  (click)="onSelectUser(u)" matButton="filled">
                   @if (startingChat() !== u.userId) {
                     <mat-icon>chat</mat-icon>
                   }

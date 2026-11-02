@@ -35,7 +35,7 @@ import { environment } from '../../../environments/environment';
             </p>
           </div>
           <!-- Mobile Close Button (Pinned Top Right) -->
-          <button mat-icon-button class="close-btn mobile-close-btn" (click)="dialogRef.close()" matTooltip="Close viewer">
+          <button class="close-btn mobile-close-btn" (click)="dialogRef.close()" matTooltip="Close viewer" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -44,23 +44,22 @@ import { environment } from '../../../environments/environment';
           <!-- Solution PDF toggle if available -->
           @if (data.material.solutionFileUrl) {
             <button
-              mat-stroked-button
               color="accent"
               class="solution-btn"
-              (click)="toggleSolutionView()">
+              (click)="toggleSolutionView()" matButton="filled">
               <mat-icon>{{ viewingSolution ? 'description' : 'key' }}</mat-icon>
               <span>{{ viewingSolution ? 'View Question' : 'View Solutions' }}</span>
             </button>
           }
     
           <!-- Download Button with auto counter -->
-          <button mat-flat-button color="primary" class="download-btn" (click)="downloadCurrentFile()">
+          <button color="primary" class="download-btn" (click)="downloadCurrentFile()" matButton="filled">
             <mat-icon>download</mat-icon>
             <span>Download {{ viewingSolution ? 'Solution' : 'Material' }}</span>
           </button>
     
           <!-- Desktop Close Button -->
-          <button mat-icon-button class="close-btn desktop-close-btn" (click)="dialogRef.close()" matTooltip="Close viewer">
+          <button class="close-btn desktop-close-btn" (click)="dialogRef.close()" matTooltip="Close viewer" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -87,11 +86,11 @@ import { environment } from '../../../environments/environment';
                 <span>Size: <strong>{{ formatBytes(data.material.fileSizeBytes) }}</strong></span>
                 <span>Uploaded by: <strong>{{ data.material.uploadedByName }}</strong></span>
               </div>
-              <button mat-flat-button color="primary" class="big-dl-btn" (click)="downloadCurrentFile()">
+              <button color="primary" class="big-dl-btn" (click)="downloadCurrentFile()" matButton="filled">
                 <mat-icon>download</mat-icon> Download {{ data.material.fileName }}
               </button>
               @if (data.material.externalLink) {
-                <a [href]="data.material.externalLink" target="_blank" class="ext-link-btn">
+                <a [href]="data.material.externalLink" target="_blank" class="ext-link-btn" matButton="filled">
                   <mat-icon>open_in_new</mat-icon> Open External Drive/Video Link
                 </a>
               }

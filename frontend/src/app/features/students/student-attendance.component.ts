@@ -129,15 +129,15 @@ interface CalendarDay {
       <h1 class="page-title"><mat-icon>event_available</mat-icon> Student Attendance Management</h1>
       <div class="header-actions">
         @if (attendancePermissions.canChangeMode) {
-          <button mat-stroked-button class="header-action-btn settings-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Students and Faculty">
+          <button class="header-action-btn settings-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Students and Faculty" matButton="filled">
             <mat-icon>settings</mat-icon> <span>Shift &amp; Policy Settings</span>
           </button>
         }
-        <a mat-stroked-button class="header-action-btn report-btn" routerLink="/attendance/reports">
+        <a matButton="filled" class="header-action-btn report-btn" routerLink="/attendance/reports">
           <mat-icon>summarize</mat-icon> <span>Attendance Reports</span>
         </a>
         @if (!isTeacher) {
-          <a mat-stroked-button class="header-action-btn directory-btn" routerLink="/students">
+          <a matButton="filled" class="header-action-btn directory-btn" routerLink="/students">
             <mat-icon>people</mat-icon> <span>Student Directory</span>
           </a>
         }
@@ -148,21 +148,21 @@ interface CalendarDay {
 
   <!-- Mode Tab Switcher -->
   <div class="view-mode-tabs">
-    <button type="button" class="tab-btn" [class.active]="activeTab === 'batch'" (click)="setTab('batch')">
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'batch'" (click)="setTab('batch')" matButton="filled">
       <mat-icon>groups</mat-icon>
       <div class="tab-text">
         <strong>Roll Call (Bulk)</strong>
         <small>{{ hasSchool && hasCoaching ? 'School Classes & Coaching Batches attendance in 1 click' : (hasSchool ? 'School Classes daily roll call in 1 click' : 'Coaching Batches attendance in 1 click') }}</small>
       </div>
     </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab === 'single'" (click)="setTab('single')">
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'single'" (click)="setTab('single')" matButton="filled">
       <mat-icon>person_search</mat-icon>
       <div class="tab-text">
         <strong>Individual Student Register</strong>
         <small>Monthly calendar, leave logs & compliance</small>
       </div>
     </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab === 'regularization'" (click)="setTab('regularization')">
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'regularization'" (click)="setTab('regularization')" matButton="filled">
       <mat-icon>assignment_turned_in</mat-icon>
       <div class="tab-text">
         <strong>{{ isTeacher ? 'Regularization Approvals' : 'Attendance Regularization' }}</strong>
@@ -182,14 +182,14 @@ interface CalendarDay {
       <!-- Scope Selector: School Class vs Coaching Batch (Only shown if both modules are active) -->
       @if (hasSchool && hasCoaching) {
         <div class="roll-call-scope-bar">
-          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'school'" (click)="setRollCallScope('school')">
+          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'school'" (click)="setRollCallScope('school')" matButton="filled">
             <mat-icon>school</mat-icon>
             <div class="scope-btn-text">
               <strong>School Class Roll Call</strong>
               <small>Class & Section daily attendance</small>
             </div>
           </button>
-          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'coaching'" (click)="setRollCallScope('coaching')">
+          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'coaching'" (click)="setRollCallScope('coaching')" matButton="filled">
             <mat-icon>menu_book</mat-icon>
             <div class="scope-btn-text">
               <strong>Coaching Batch Roll Call</strong>
@@ -272,17 +272,17 @@ interface CalendarDay {
       }
       <!-- Date Controls (Shared) -->
       <div class="date-controls">
-        <button mat-icon-button (click)="prevDay()" [disabled]="isBatchPastLocked" [matTooltip]="isBatchPastLocked ? 'Past attendance locked (Admin permission required)' : 'Previous Day'">
+        <button (click)="prevDay()" [disabled]="isBatchPastLocked" [matTooltip]="isBatchPastLocked ? 'Past attendance locked (Admin permission required)' : 'Previous Day'" mat-icon-button>
           <mat-icon>chevron_left</mat-icon>
         </button>
         <mat-form-field appearance="outline" class="date-input" subscriptSizing="dynamic">
           <mat-label>Attendance Date</mat-label>
           <input matInput type="date" [(ngModel)]="selectedBatchDate" [max]="todayStr" [min]="minAttendanceDate" (change)="onBatchDateChanged()">
         </mat-form-field>
-        <button mat-icon-button (click)="nextDay()" [disabled]="selectedBatchDate >= todayStr" matTooltip="Next Day">
+        <button (click)="nextDay()" [disabled]="selectedBatchDate>= todayStr" matTooltip="Next Day" mat-icon-button>
           <mat-icon>chevron_right</mat-icon>
         </button>
-        <button mat-stroked-button class="today-btn" (click)="setToday()">Today</button>
+        <button class="today-btn" (click)="setToday()" matButton="filled">Today</button>
       </div>
       <!-- Search in roll call -->
       <mat-form-field appearance="outline" class="search-input" subscriptSizing="dynamic">
@@ -301,10 +301,10 @@ interface CalendarDay {
         <span class="stat-pill halfday">Half-Day: <strong>{{ halfDayActiveCount }}</strong></span>
       </div>
       <div class="fast-actions">
-        <button mat-stroked-button class="btn-bulk-present" (click)="markAllActiveStatus('Present')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Present">
+        <button class="btn-bulk-present" (click)="markAllActiveStatus('Present')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Present" matButton="filled">
           <mat-icon>done_all</mat-icon> Mark All Present
         </button>
-        <button mat-stroked-button class="btn-bulk-absent" (click)="markAllActiveStatus('Absent')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Absent">
+        <button class="btn-bulk-absent" (click)="markAllActiveStatus('Absent')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Absent" matButton="filled">
           <mat-icon>highlight_off</mat-icon> Mark All Absent
         </button>
       </div>
@@ -320,13 +320,13 @@ interface CalendarDay {
           <!-- Coaching Shift Switcher Pills (Morning vs Afternoon vs Evening) -->
           @if (rollCallScope === 'coaching') {
             <div class="rct-shift-switcher">
-              <button type="button" class="shift-pill morning" [class.active]="coachingActiveShift === 'morning'" (click)="setCoachingShift('morning')" matTooltip="Select Morning Coaching Shift">
+              <button type="button" class="shift-pill morning" [class.active]="coachingActiveShift === 'morning'" (click)="setCoachingShift('morning')" matTooltip="Select Morning Coaching Shift" matButton="filled">
                 <span>🌅 Morning Shift</span>
               </button>
-              <button type="button" class="shift-pill afternoon" [class.active]="coachingActiveShift === 'afternoon'" (click)="setCoachingShift('afternoon')" matTooltip="Select Afternoon Coaching Shift">
+              <button type="button" class="shift-pill afternoon" [class.active]="coachingActiveShift === 'afternoon'" (click)="setCoachingShift('afternoon')" matTooltip="Select Afternoon Coaching Shift" matButton="filled">
                 <span>🕒 Afternoon Shift</span>
               </button>
-              <button type="button" class="shift-pill evening" [class.active]="coachingActiveShift === 'evening'" (click)="setCoachingShift('evening')" matTooltip="Select Evening Coaching Shift">
+              <button type="button" class="shift-pill evening" [class.active]="coachingActiveShift === 'evening'" (click)="setCoachingShift('evening')" matTooltip="Select Evening Coaching Shift" matButton="filled">
                 <span>🌆 Evening Shift</span>
               </button>
             </div>
@@ -341,7 +341,7 @@ interface CalendarDay {
             <label>Out</label>
             <input type="time" [(ngModel)]="bulkCheckOutTime" (ngModelChange)="onBulkTimingsChanged()" [disabled]="isBatchPastLocked" title="Default Check-Out Time">
           </div>
-          <button type="button" class="rct-apply-btn" (click)="applyBulkTimingsToPresent()" [disabled]="isBatchPastLocked" matTooltip="Apply these timings to all Present students">
+          <button type="button" class="rct-apply-btn" (click)="applyBulkTimingsToPresent()" [disabled]="isBatchPastLocked" matTooltip="Apply these timings to all Present students" matButton="filled">
             <mat-icon>sync</mat-icon> Apply to Present
           </button>
           @if (calculateDuration(bulkCheckInTime, bulkCheckOutTime)) {
@@ -358,7 +358,7 @@ interface CalendarDay {
     <div class="success-banner">
       <mat-icon>check_circle</mat-icon>
       <span>{{ activeSuccessMsg }}</span>
-      <button mat-icon-button (click)="activeSuccessMsg = ''"><mat-icon>close</mat-icon></button>
+      <button (click)="activeSuccessMsg = ''" mat-icon-button><mat-icon>close</mat-icon></button>
     </div>
   }
   <!-- Empty State: Not Selected -->
@@ -394,6 +394,10 @@ interface CalendarDay {
   <!-- Students Roll Call Table Card -->
   @if (filteredActiveStudents.length > 0) {
     <mat-card class="roll-call-card mat-elevation-z1">
+      <div class="roll-call-mobile-hint">
+        <mat-icon>swipe</mat-icon>
+        <span>Swipe horizontally to view all attendance fields</span>
+      </div>
       <div class="table-responsive">
         <table class="roll-call-table">
           <thead>
@@ -484,20 +488,16 @@ interface CalendarDay {
               </td>
               <td class="status-cell">
                 <div class="status-btn-group">
-                  <button type="button" class="status-pill p-btn" [class.selected]="s.status === 'Present'" (click)="setStudentActiveStatus(s, 'Present')" [disabled]="isBatchPastLocked" matTooltip="Mark Present">
-                    <span class="badge">P</span>
+                  <button type="button" class="status-pill p-btn" [class.selected]="s.status === 'Present'" (click)="setStudentActiveStatus(s, 'Present')" [disabled]="isBatchPastLocked" matTooltip="Mark Present" matButton="filled">
                     <span class="label">Present</span>
                   </button>
-                  <button type="button" class="status-pill a-btn" [class.selected]="s.status === 'Absent'" (click)="setStudentActiveStatus(s, 'Absent')" [disabled]="isBatchPastLocked" matTooltip="Mark Absent">
-                    <span class="badge">A</span>
+                  <button type="button" class="status-pill a-btn" [class.selected]="s.status === 'Absent'" (click)="setStudentActiveStatus(s, 'Absent')" [disabled]="isBatchPastLocked" matTooltip="MarkAbsent" matButton="filled">
                     <span class="label">Absent</span>
                   </button>
-                  <button type="button" class="status-pill l-btn" [class.selected]="s.status === 'Late'" (click)="setStudentActiveStatus(s, 'Late')" [disabled]="isBatchPastLocked" matTooltip="Mark Late">
-                    <span class="badge">L</span>
+                  <button type="button" class="status-pill l-btn" [class.selected]="s.status === 'Late'" (click)="setStudentActiveStatus(s, 'Late')" [disabled]="isBatchPastLocked" matTooltip="Mark Late" matButton="filled">
                     <span class="label">Late</span>
                   </button>
-                  <button type="button" class="status-pill h-btn" [class.selected]="s.status === 'HalfDay'" (click)="setStudentActiveStatus(s, 'HalfDay')" [disabled]="isBatchPastLocked" matTooltip="Mark Half Day">
-                    <span class="badge">H</span>
+                  <button type="button" class="status-pill h-btn" [class.selected]="s.status === 'HalfDay'" (click)="setStudentActiveStatus(s, 'HalfDay')" [disabled]="isBatchPastLocked" matTooltip="Mark Half Day" matButton="filled">
                     <span class="label">Half</span>
                   </button>
                 </div>
@@ -546,7 +546,7 @@ interface CalendarDay {
             <span>Past Attendance Locked (Admin Permission Required)</span>
           </div>
         }
-        <button mat-raised-button color="primary" class="btn-save-batch" (click)="saveActiveAttendance()" [disabled]="isScopeSaving || isScopeLoading || isBatchPastLocked">
+        <button color="primary" class="btn-save-batch app-button-save" (click)="saveActiveAttendance()" [disabled]="isScopeSaving || isScopeLoading || isBatchPastLocked" matButton="filled">
           <mat-icon>{{ isBatchPastLocked ? 'lock' : 'save' }}</mat-icon>
           <span>{{ isBatchPastLocked ? 'Locked (Past Date)' : (isScopeSaving ? 'Saving Attendance...' : 'Save ' + (rollCallScope === 'school' ? 'Class' : 'Batch') + ' Attendance (' + totalActiveStudents + ' Students)') }}</span>
         </button>
@@ -565,9 +565,9 @@ interface CalendarDay {
       <!-- Stream Filter Toggle (Only shown when both School & Coaching modules are active) -->
       @if (hasSchool && hasCoaching) {
         <div class="stream-pill-toggle">
-          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'all'" (click)="setSingleStreamFilter('all')">All</button>
-          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'school'" (click)="setSingleStreamFilter('school')">🏫 School</button>
-          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'coaching'" (click)="setSingleStreamFilter('coaching')">📚 Coaching</button>
+          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'all'" (click)="setSingleStreamFilter('all')" matButton="filled">All</button>
+          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'school'" (click)="setSingleStreamFilter('school')" matButton="filled">🏫 School</button>
+          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'coaching'" (click)="setSingleStreamFilter('coaching')" matButton="filled">📚 Coaching</button>
         </div>
       }
       <!-- School Class & Section Filter -->
@@ -655,8 +655,7 @@ interface CalendarDay {
                   type="button"
                   class="clear-mini-btn"
                   (click)="singleStudentSearchQuery = ''; $event.stopPropagation()"
-                  (mousedown)="$event.stopPropagation()"
-                  >
+                  (mousedown)="$event.stopPropagation()" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               }
@@ -756,18 +755,18 @@ interface CalendarDay {
         <div class="multi-select-toolbar">
           <div class="mst-left">
             <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
-            <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month">
+            <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month" matButton="filled">
               <mat-icon>fact_check</mat-icon> Select All Working Days
             </button>
-            <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days">
+            <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days" matButton="filled">
               <mat-icon>rule</mat-icon> Select Unmarked / Absent
             </button>
-            <button type="button" class="mst-btn save-month" (click)="saveStudentMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Auto-fill entire month: Checked dates as Present, Unchecked working dates as Absent">
+            <button type="button" class="mst-btn save-month" (click)="saveStudentMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Auto-fill entire month: Checked dates as Present, Unchecked working dates asAbsent" matButton="filled">
               <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save_as' }}</mat-icon>
               <span>{{ batchSavingDates ? 'Saving...' : 'Auto-Fill Full Month Register' }}</span>
             </button>
             @if (selectedMatrixDates.size > 0) {
-              <button type="button" class="mst-btn clear" (click)="clearDateSelection()">
+              <button type="button" class="mst-btn clear" (click)="clearDateSelection()" matButton="filled">
                 <mat-icon>clear_all</mat-icon> Clear Selection ({{ selectedMatrixDates.size }})
               </button>
             }
@@ -840,41 +839,41 @@ interface CalendarDay {
             </div>
           </div>
           <div class="mfb-center">
-            <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'">
+            <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'" matButton="filled">
               <mat-icon>check_circle</mat-icon> Present
             </button>
-            <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'">
+            <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'" matButton="filled">
               <mat-icon>cancel</mat-icon> Absent
             </button>
-            <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus = 'Late'">
+            <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus ='Late'" matButton="filled">
               <mat-icon>schedule</mat-icon> Late
             </button>
-            <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'">
+            <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'" matButton="filled">
               <mat-icon>hourglass_bottom</mat-icon> Half Day
             </button>
-            <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'">
+            <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'" matButton="filled">
               <mat-icon>event_busy</mat-icon> Leave
             </button>
             <!-- Shift Selector Pills for Single/Combined Student -->
             @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
               <div class="mfb-shift-group">
                 @if (showSingleMorningShift) {
-                  <button type="button" class="mfb-shift-pill morning" [class.active]="singleActiveShift === 'morning'" (click)="setSingleShift('morning')" matTooltip="Apply Coaching Morning Timings">
+                  <button type="button" class="mfb-shift-pill morning" [class.active]="singleActiveShift === 'morning'" (click)="setSingleShift('morning')" matTooltip="Apply Coaching Morning Timings" matButton="filled">
                     <span>🌅 Morning</span>
                   </button>
                 }
                 @if (showSingleAfternoonShift) {
-                  <button type="button" class="mfb-shift-pill afternoon" [class.active]="singleActiveShift === 'afternoon'" (click)="setSingleShift('afternoon')" matTooltip="Apply Coaching Afternoon Timings">
+                  <button type="button" class="mfb-shift-pill afternoon" [class.active]="singleActiveShift === 'afternoon'" (click)="setSingleShift('afternoon')" matTooltip="Apply Coaching Afternoon Timings" matButton="filled">
                     <span>🕒 Afternoon</span>
                   </button>
                 }
                 @if (showSingleSchoolShift) {
-                  <button type="button" class="mfb-shift-pill school" [class.active]="singleActiveShift === 'school'" (click)="setSingleShift('school')" matTooltip="Apply School Day Timings">
+                  <button type="button" class="mfb-shift-pill school" [class.active]="singleActiveShift === 'school'" (click)="setSingleShift('school')" matTooltip="Apply School Day Timings" matButton="filled">
                     <span>🏫 School</span>
                   </button>
                 }
                 @if (showSingleEveningShift) {
-                  <button type="button" class="mfb-shift-pill evening" [class.active]="singleActiveShift === 'evening'" (click)="setSingleShift('evening')" matTooltip="Apply Coaching Evening Timings">
+                  <button type="button" class="mfb-shift-pill evening" [class.active]="singleActiveShift === 'evening'" (click)="setSingleShift('evening')" matTooltip="Apply Coaching Evening Timings" matButton="filled">
                     <span>🌆 Evening</span>
                   </button>
                 }
@@ -901,7 +900,7 @@ interface CalendarDay {
             <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
           </div>
           <div class="mfb-right">
-            <button type="button" class="mfb-save-btn" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()">
+            <button type="button" class="mfb-save-btn app-button-save" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()" matButton="filled">
               @if (!batchSavingDates) {
                 <mat-icon>save</mat-icon>
               }
@@ -910,7 +909,7 @@ interface CalendarDay {
               }
               <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
             </button>
-            <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection">
+            <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -984,9 +983,9 @@ interface CalendarDay {
                   </td>
                   <td class="remarks-cell">{{ record.remarks || '—' }}</td>
                   <td class="actions-col">
-                    <button mat-icon-button color="accent" (click)="openApplyRegularization(selectedStudent, record.attendanceDate)" matTooltip="Request Regularization for this date"><mat-icon>edit_calendar</mat-icon></button>
-                    <button mat-icon-button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record"><mat-icon>edit</mat-icon></button>
-                    <button mat-icon-button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record"><mat-icon>delete_outline</mat-icon></button>
+                    <button color="accent" (click)="openApplyRegularization(selectedStudent, record.attendanceDate)" matTooltip="Request Regularization for this date" mat-icon-button><mat-icon>edit_calendar</mat-icon></button>
+                    <button color="primary" (click)="editRecord(record)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Edit record" mat-icon-button><mat-icon>edit</mat-icon></button>
+                    <button color="warn" (click)="deleteRecord(record.id)" [disabled]="!attendancePermissions.canCorrectAttendance || attendanceMode === 'Biometric' || (isPublicHolidayOrSunday(record.attendanceDate) && !canEditPublicHolidayOrSunday)" matTooltip="Delete record" mat-icon-button><mat-icon>delete_outline</mat-icon></button>
                   </td>
                 </tr>
               }
@@ -1061,18 +1060,18 @@ interface CalendarDay {
       <div class="reg-controls-row">
         <!-- Status Filter Pills -->
         <div class="status-filter-pills">
-          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Pending'" (click)="setRegStatusFilter('Pending')">
+          <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Pending'" (click)="setRegStatusFilter('Pending')" matButton="filled">
             Pending @if (regularizationStats.pendingRequests > 0) {
             <span class="badge">{{ regularizationStats.pendingRequests }}</span>
           }
         </button>
-        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Approved'" (click)="setRegStatusFilter('Approved')">
+        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Approved'" (click)="setRegStatusFilter('Approved')" matButton="filled">
           Approved
         </button>
-        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Rejected'" (click)="setRegStatusFilter('Rejected')">
+        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'Rejected'" (click)="setRegStatusFilter('Rejected')" matButton="filled">
           Rejected
         </button>
-        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'All'" (click)="setRegStatusFilter('All')">
+        <button type="button" class="pill-btn" [class.active]="regFilterStatus === 'All'" (click)="setRegStatusFilter('All')" matButton="filled">
           All
         </button>
       </div>
@@ -1082,18 +1081,18 @@ interface CalendarDay {
         <input matInput [(ngModel)]="regSearchQuery" (keyup.enter)="loadRegularizations()" placeholder="Type & press Enter...">
         <mat-icon matPrefix>search</mat-icon>
         @if (regSearchQuery) {
-          <button mat-icon-button matSuffix (click)="regSearchQuery = ''; loadRegularizations()">
+          <button matSuffix (click)="regSearchQuery = ''; loadRegularizations()" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         }
       </mat-form-field>
       <div class="reg-action-btns">
-        <button mat-stroked-button class="reg-refresh-btn" (click)="loadRegularizations()" [disabled]="regularizationLoading" matTooltip="Refresh Requests">
+        <button class="reg-refresh-btn" (click)="loadRegularizations()" [disabled]="regularizationLoading" matTooltip="Refresh Requests" matButton="filled">
           <mat-icon [class.spin]="regularizationLoading">refresh</mat-icon>
           <span>Refresh</span>
         </button>
         @if (!isTeacher) {
-          <button mat-stroked-button class="reg-apply-btn secondary" (click)="openApplyRegularization()" matTooltip="Submit Attendance Regularization">
+          <button class="reg-apply-btn secondary" (click)="openApplyRegularization()" matTooltip="Submit Attendance Regularization" matButton="filled">
             <mat-icon>add_circle_outline</mat-icon>
             <span>Apply Regularization</span>
           </button>
@@ -1109,7 +1108,7 @@ interface CalendarDay {
         <h4>{{ isTeacher ? 'No Pending Student Requests to Review' : ('No ' + (regFilterStatus === 'All' ? '' : regFilterStatus) + ' Regularization Requests') }}</h4>
         <p>{{ isTeacher ? 'All student attendance regularization requests for your assigned class have been reviewed. New requests from students or parents will appear here.' : (regFilterStatus === 'Pending' ? 'All student attendance regularization requests have been reviewed.' : 'No records match the current filter criteria.') }}</p>
         @if (!isTeacher) {
-          <button mat-stroked-button color="primary" (click)="openApplyRegularization()">
+          <button color="primary" (click)="openApplyRegularization()" matButton="filled">
             <mat-icon>add</mat-icon> Submit New Request
           </button>
         }
@@ -1209,13 +1208,13 @@ interface CalendarDay {
                   <div class="action-cell">
                     <!-- Class Teacher or Admin can Review if Pending -->
                     @if (reg.status === 'Pending') {
-                      <button mat-raised-button color="primary" class="review-btn" (click)="openReviewRegularization(reg)" matTooltip="Review and Approve/Reject">
+                      <button color="primary" class="review-btn" (click)="openReviewRegularization(reg)" matTooltip="Review and Approve/Reject" matButton="filled">
                         <mat-icon>fact_check</mat-icon> Review
                       </button>
                     }
                     <!-- Cancel button -->
                     @if (reg.status === 'Pending') {
-                      <button mat-icon-button color="warn" (click)="deleteRegularization(reg)" matTooltip="Cancel Request">
+                      <button color="warn" (click)="deleteRegularization(reg)" matTooltip="Cancel Request" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     }
@@ -1239,7 +1238,8 @@ interface CalendarDay {
 `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
-    .page-container { display: flex; flex-direction: column; gap: 16px; position: relative; }
+    :host { display: block; width: 100%; min-width: 0; }
+    .page-container { display: flex; flex-direction: column; gap: 16px; position: relative; width: 100%; min-width: 0; box-sizing: border-box; }
     .global-page-loader {
       position: sticky;
       top: -16px;
@@ -1371,14 +1371,25 @@ interface CalendarDay {
     /* View Mode Tabs */
     .view-mode-tabs { display: flex; gap: 12px; margin-bottom: 4px; width: 100%; }
     .tab-btn {
-      flex: 1; display: flex; align-items: center; gap: 12px;
+      flex: 1; display: flex; align-items: center; justify-content: flex-start; gap: 12px;
       padding: 12px 18px; border: 1.5px solid #cbd5e1; border-radius: 12px;
       background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;
+      height: auto !important; min-height: 64px; white-space: normal;
       text-align: left; color: #475569;
     }
-    .tab-btn mat-icon { font-size: 28px; width: 28px; height: 28px; color: #64748b; }
-    .tab-text strong { display: block; font-size: 0.95rem; color: #1e293b; }
-    .tab-text small { font-size: 0.75rem; color: #64748b; }
+    :host ::ng-deep .tab-btn .mdc-button__label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-width: 0;
+      white-space: normal;
+      text-align: left;
+    }
+    .tab-btn mat-icon { flex: 0 0 28px; font-size: 28px; width: 28px; height: 28px; color: #64748b; }
+    .tab-text { flex: 1 1 auto; min-width: 0; white-space: normal; }
+    .tab-text strong { display: block; font-size: 0.95rem; line-height: 1.25; color: #1e293b; white-space: normal; }
+    .tab-text small { display: block; font-size: 0.75rem; line-height: 1.3; color: #64748b; white-space: normal; overflow-wrap: anywhere; }
     .tab-btn.active {
       border-color: #2563eb; background: #eff6ff; color: #1d4ed8;
       box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
@@ -1388,17 +1399,28 @@ interface CalendarDay {
 
     /* Scope Toggle Bar */
     .roll-call-scope-bar {
-      display: flex; gap: 12px; margin-bottom: 4px;
+      display: flex; gap: 12px; margin-bottom: 4px; width: 100%;
     }
     .scope-pill-btn {
-      flex: 1; max-width: 320px; display: flex; align-items: center; gap: 12px;
-      padding: 10px 16px; border: 1.5px solid #cbd5e1; border-radius: 10px;
+      flex: 1 1 0; min-width: 0; min-height: 64px; height: auto !important;
+      display: flex; align-items: center; justify-content: flex-start; gap: 12px;
+      padding: 12px 18px; border: 1.5px solid #cbd5e1; border-radius: 12px;
       background: #ffffff; cursor: pointer; transition: all 0.2s ease;
-      text-align: left; color: #475569;
+      text-align: left; color: #475569; white-space: normal;
     }
-    .scope-pill-btn mat-icon { font-size: 26px; width: 26px; height: 26px; color: #64748b; }
-    .scope-btn-text strong { display: block; font-size: 0.92rem; color: #1e293b; }
-    .scope-btn-text small { font-size: 0.72rem; color: #64748b; }
+    :host ::ng-deep .scope-pill-btn .mdc-button__label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-width: 0;
+      white-space: normal;
+      text-align: left;
+    }
+    .scope-pill-btn mat-icon { flex: 0 0 26px; font-size: 26px; width: 26px; height: 26px; color: #64748b; }
+    .scope-btn-text { flex: 1 1 auto; min-width: 0; white-space: normal; }
+    .scope-btn-text strong { display: block; font-size: 0.92rem; line-height: 1.25; color: #1e293b; white-space: normal; }
+    .scope-btn-text small { display: block; font-size: 0.72rem; line-height: 1.3; color: #64748b; white-space: normal; overflow-wrap: anywhere; }
     .scope-pill-btn.active {
       border-color: #2563eb; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       color: #1d4ed8; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
@@ -1478,15 +1500,21 @@ interface CalendarDay {
 
     .fast-actions { display: flex; gap: 10px; }
     .btn-bulk-present {
-      color: #15803d !important; border-color: #86efac !important; background: #f0fdf4 !important;
-      font-weight: 600; border-radius: 8px;
+      --mat-button-filled-container-color: #f0fdf4;
+      --mat-button-filled-label-text-color: #15803d;
+      --mat-button-filled-state-layer-color: #15803d;
+      --mat-button-filled-ripple-color: rgba(21, 128, 61, 0.16);
+      font-weight: 600;
     }
-    .btn-bulk-present:hover { background: #dcfce7 !important; }
+    .btn-bulk-present:hover { --mat-button-filled-container-color: #dcfce7; }
     .btn-bulk-absent {
-      color: #b91c1c !important; border-color: #fca5a5 !important; background: #fef2f2 !important;
-      font-weight: 600; border-radius: 8px;
+      --mat-button-filled-container-color: #fef2f2;
+      --mat-button-filled-label-text-color: #b91c1c;
+      --mat-button-filled-state-layer-color: #b91c1c;
+      --mat-button-filled-ripple-color: rgba(185, 28, 28, 0.16);
+      font-weight: 600;
     }
-    .btn-bulk-absent:hover { background: #fee2e2 !important; }
+    .btn-bulk-absent:hover { --mat-button-filled-container-color: #fee2e2; }
 
     /* Roll Call Default Timings Strip & Shift Switcher */
     .roll-call-timings-bar {
@@ -1657,7 +1685,8 @@ interface CalendarDay {
 
     /* Roll Call Table */
     .roll-call-card { padding: 0; border-radius: 12px; overflow: hidden; background: #ffffff; }
-    .table-responsive { overflow-x: auto; width: 100%; box-sizing: border-box; }
+    .table-responsive { overflow-x: auto; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
+    .roll-call-mobile-hint { display: none; }
     .roll-call-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     .roll-call-table th {
       background: #f8fafc; color: #475569; font-weight: 700; text-align: left;
@@ -1675,7 +1704,10 @@ interface CalendarDay {
     .roll-call-table td:last-child {
       padding-right: 32px !important;
     }
-    .roll-call-table tr:hover { background: #f8fafc; }
+    .roll-call-table tbody tr:hover > td {
+      background-color: #eff6ff !important;
+      transition: background-color 0.15s ease;
+    }
     .roll-call-table tr.row-absent { background: #fff5f5; }
     .roll-call-table tr.row-present { background: #fcfdfc; }
 
@@ -2507,6 +2539,34 @@ interface CalendarDay {
       .table-scroll-hint { display: inline-flex !important; }
     }
     @media (max-width: 768px) {
+      .page-container,
+      .batch-view,
+      .single-view,
+      .regularization-view,
+      .page-header,
+      .batch-controls-card,
+      .roll-call-card,
+      .selector-card,
+      .period-card {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      .roll-call-card { width: 100%; }
+      .roll-call-mobile-hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        color: #0369a1;
+        background: #f0f9ff;
+        border-bottom: 1px solid #bae6fd;
+        font-size: 0.76rem;
+        font-weight: 600;
+      }
+      .roll-call-mobile-hint mat-icon { width: 18px; height: 18px; font-size: 18px; }
+      .table-responsive { width: 100%; min-width: 0; max-width: 100%; }
+      .roll-call-table { min-width: 1120px; }
       /* Period card — wrap on tablet */
       .period-card {
         flex-wrap: wrap !important;
@@ -2608,8 +2668,8 @@ interface CalendarDay {
         width: 100%;
         box-sizing: border-box;
         padding: 10px 14px;
-        gap: 10px;
-        mat-icon { font-size: 24px; width: 24px; height: 24px; }
+        min-height: 60px;
+        mat-icon { flex-basis: 24px; font-size: 24px; width: 24px; height: 24px; }
         .tab-text strong { font-size: 0.88rem; }
         .tab-text small { font-size: 0.72rem; line-height: 1.2; }
       }
@@ -2623,9 +2683,9 @@ interface CalendarDay {
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+        min-height: 60px;
         padding: 10px 14px;
-        gap: 12px;
-        mat-icon { font-size: 24px; width: 24px; height: 24px; flex-shrink: 0; }
+        mat-icon { flex-basis: 24px; font-size: 24px; width: 24px; height: 24px; }
         .scope-btn-text {
           flex: 1;
           min-width: 0;
@@ -2639,8 +2699,10 @@ interface CalendarDay {
         gap: 10px;
       }
       .class-select, .section-select, .batch-select, .search-input {
+        flex: 0 0 auto !important;
         width: 100% !important;
         min-width: 100% !important;
+        height: auto !important;
       }
       .selector-card {
         flex-direction: column !important;
@@ -2801,6 +2863,7 @@ interface CalendarDay {
       }
     }
     @media (max-width: 600px) {
+      .page-container { gap: 12px; }
       .page-header, .selector-card {
         align-items: stretch !important;
         flex-direction: column !important;
@@ -2830,6 +2893,16 @@ interface CalendarDay {
         max-width: 100% !important;
         height: auto !important;
         margin: 0 !important;
+      }
+      .roll-call-scope-bar,
+      .controls-row,
+      .stats-and-actions,
+      .roll-call-timings-bar,
+      .save-bar,
+      .save-actions {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
       }
       .period-student { flex-basis: auto; }
       .calendar-grid { gap: 4px; }
@@ -2864,6 +2937,14 @@ interface CalendarDay {
       .roll-call-table td, .roll-call-table th { padding: 8px 8px; }
       .roll-call-table th:first-child, .roll-call-table td:first-child { padding-left: 10px !important; }
       .roll-call-table th:last-child, .roll-call-table td:last-child { padding-right: 10px !important; }
+      .status-pill .label { display: inline !important; }
+      .status-pill { padding: 5px 7px; font-size: 0.68rem; }
+      .status-btn-group { max-width: 100%; }
+      .roll-call-table td { white-space: nowrap; }
+      .save-bar { padding: 12px; }
+      .wa-checkbox-label { font-size: 0.82rem; line-height: 1.35; }
+      .save-actions { width: 100%; }
+      .batch-locked-badge { white-space: normal; text-align: center; }
       /* Matrix floating bar fully stacked */
       .matrix-floating-bar { padding: 10px; }
       .mfb-pill { padding: 4px 8px; font-size: 0.7rem; }
@@ -2889,8 +2970,7 @@ interface CalendarDay {
       .day-cell .day-num { font-size: 0.74rem; }
       .day-cell .day-name { font-size: 0.52rem; }
       .day-cell .day-tag { display: none; }
-      /* Status pills in roll-call table go icon-only on tiny screens */
-      .status-pill .label { display: none; }
+      .status-pill .label { display: inline !important; }
       .status-pill { padding: 6px 10px; }
       /* Reg KPI 2-col */
       .reg-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }

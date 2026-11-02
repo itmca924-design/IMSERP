@@ -21,6 +21,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule, MatExpansionPanel } from '@angular/material/expansion';
 import { CoachingService } from '../../core/services/coaching.service';
 import { BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
@@ -74,7 +75,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     MatCheckboxModule,
     MatDialogModule,
     MatMenuModule,
-    MatDividerModule
+    MatDividerModule,
+    MatExpansionModule
   ],
   template: `
     <div class="students-wrapper">
@@ -93,14 +95,14 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         </div>
         <div class="header-btns">
           @if (authService.hasSchoolModule() && !authService.isTeacher()) {
-            <a mat-stroked-button routerLink="/students/promotion" class="promotion-link-btn">
+            <a matButton="filled" routerLink="/students/promotion" class="promotion-link-btn">
               <mat-icon>trending_up</mat-icon>
               <span>Promote Students</span>
             </a>
           }
     
           <!-- Quick Operations Dropdown -->
-          <button mat-stroked-button [matMenuTriggerFor]="quickActionsMenu" class="more-actions-btn" matTooltip="Student Leaves, Gate Passes, Classes &amp; Roll Sequencer">
+          <button [matMenuTriggerFor]="quickActionsMenu" class="more-actions-btn" matTooltip="Student Leaves, Gate Passes, Classes &amp; Roll Sequencer" matButton="filled">
             <mat-icon style="color:#0284c7;">tune</mat-icon>
             <span>More Actions</span>
             <mat-icon style="font-size:18px; width:18px; height:18px; margin-left:2px;">arrow_drop_down</mat-icon>
@@ -132,7 +134,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
           </mat-menu>
     
           @if (!authService.isTeacher()) {
-            <button mat-raised-button color="primary" class="add-btn" (click)="toggleForm()">
+            <button color="primary" class="add-btn app-button-update" (click)="toggleForm()" matButton="filled">
               <mat-icon>{{ showForm ? 'close' : 'person_add' }}</mat-icon>
               <span>{{ showForm ? 'Cancel' : (isEditMode ? 'Edit Student' : 'New Admission') }}</span>
             </button>
@@ -164,11 +166,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     }
                   </div>
                   <div class="photo-actions">
-                    <button mat-stroked-button type="button" color="primary" (click)="triggerFileInput()">
+                    <button type="button" color="primary" (click)="triggerFileInput()" matButton="filled">
                       <mat-icon>upload</mat-icon> {{ photoPreview ? 'Change Photo' : 'Upload Photo' }}
                     </button>
                     @if (photoPreview) {
-                      <button mat-icon-button type="button" color="warn" (click)="removePhoto()" matTooltip="Remove photo">
+                      <button type="button" color="warn" (click)="removePhoto()" matTooltip="Remove photo" mat-icon-button>
                         <mat-icon>delete</mat-icon>
                       </button>
                     }
@@ -216,12 +218,18 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                   </div>
                 }
               </div>
+              <mat-accordion class="admission-sections" [multi]="false">
               <!-- School Section Details (if School is checked) -->
               @if (studentForm.value.isSchoolStudent) {
-                <div class="section-divider-box full-span school-sect">
-                  <mat-icon>domain</mat-icon>
-                  <span>School Academic Assignment</span>
-                </div>
+                <mat-expansion-panel #schoolAdmissionPanel class="enrollment-panel full-span school-panel">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      <mat-icon>domain</mat-icon>
+                      <span>School Academic Assignment</span>
+                    </mat-panel-title>
+                    <mat-panel-description>Class, section &amp; admission details</mat-panel-description>
+                  </mat-expansion-panel-header>
+                  <div class="enrollment-panel-fields">
                 <mat-form-field appearance="outline">
                   <mat-label>Admission / SR Number</mat-label>
                   <input matInput formControlName="admissionNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
@@ -282,13 +290,20 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     <mat-hint>Auto-generated when class is selected (starts from 1 per class)</mat-hint>
                   }
                 </mat-form-field>
+                  </div>
+                </mat-expansion-panel>
               }
               <!-- Coaching Section Details (if Coaching is checked) -->
               @if (studentForm.value.isCoachingStudent) {
-                <div class="section-divider-box full-span coaching-sect">
-                  <mat-icon>school</mat-icon>
-                  <span>Coaching Batch &amp; Fee Assignment</span>
-                </div>
+                <mat-expansion-panel #coachingAdmissionPanel class="enrollment-panel full-span coaching-panel">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      <mat-icon>school</mat-icon>
+                      <span>Coaching Batch &amp; Fee Assignment</span>
+                    </mat-panel-title>
+                    <mat-panel-description>Academic class, batch &amp; fee details</mat-panel-description>
+                  </mat-expansion-panel-header>
+                  <div class="enrollment-panel-fields">
                 @if (!studentForm.value.isSchoolStudent) {
                   <mat-form-field appearance="outline">
                     <mat-label>Coaching / Joining Date</mat-label>
@@ -392,13 +407,20 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     </div>
                   </div>
                 </div>
+                  </div>
+                </mat-expansion-panel>
               }
               <!-- Hostel Residential Details (if Hostel is checked) -->
               @if (studentForm.value.isHostelStudent) {
-                <div class="section-divider-box full-span hostel-sect">
-                  <mat-icon>apartment</mat-icon>
-                  <span>Hostel Residential &amp; Bed Assignment (Optional Facility)</span>
-                </div>
+                <mat-expansion-panel #hostelAdmissionPanel class="enrollment-panel full-span hostel-panel">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      <mat-icon>apartment</mat-icon>
+                      <span>Hostel Residential &amp; Bed Assignment</span>
+                    </mat-panel-title>
+                    <mat-panel-description>Optional facility</mat-panel-description>
+                  </mat-expansion-panel-header>
+                  <div class="enrollment-panel-fields">
                 <mat-form-field appearance="outline">
                   <mat-label>Hostel Building / Block</mat-label>
                   <mat-select formControlName="hostelId" (selectionChange)="onHostelBuildingChange($event.value)" panelClass="batch-filter-panel">
@@ -422,13 +444,20 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     <mat-hint>Monthly Bed Rent: ₹{{ selectedBedRent | number }}</mat-hint>
                   }
                 </mat-form-field>
+                  </div>
+                </mat-expansion-panel>
               }
               <!-- Transport Facility Details (if Transport is checked) -->
               @if (studentForm.value.isTransportStudent) {
-                <div class="section-divider-box full-span transport-sect">
-                  <mat-icon>directions_bus</mat-icon>
-                  <span>Transport Route &amp; Stop Assignment (Optional Facility)</span>
-                </div>
+                <mat-expansion-panel #transportAdmissionPanel class="enrollment-panel full-span transport-panel">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      <mat-icon>directions_bus</mat-icon>
+                      <span>Transport Route &amp; Stop Assignment</span>
+                    </mat-panel-title>
+                    <mat-panel-description>Optional facility</mat-panel-description>
+                  </mat-expansion-panel-header>
+                  <div class="enrollment-panel-fields">
                 <mat-form-field appearance="outline">
                   <mat-label>Transport Route</mat-label>
                   <mat-select formControlName="transportRouteId" (selectionChange)="onTransportRouteChange($event.value)" panelClass="batch-filter-panel">
@@ -469,13 +498,20 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                   <input matInput type="number" formControlName="monthlyTransportFare" min="0" />
                   <mat-hint>Auto-filled from stop; adjust if custom fare applies</mat-hint>
                 </mat-form-field>
+                  </div>
+                </mat-expansion-panel>
               }
               <!-- Library Membership Details (if Library is checked) -->
               @if (studentForm.value.isLibraryMember) {
-                <div class="section-divider-box full-span library-sect">
-                  <mat-icon>local_library</mat-icon>
-                  <span>Library Facility &amp; Reading Room Details (Optional Facility)</span>
-                </div>
+                <mat-expansion-panel #libraryAdmissionPanel class="enrollment-panel full-span library-panel">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      <mat-icon>local_library</mat-icon>
+                      <span>Library Facility &amp; Reading Room Details</span>
+                    </mat-panel-title>
+                    <mat-panel-description>Optional facility</mat-panel-description>
+                  </mat-expansion-panel-header>
+                  <div class="enrollment-panel-fields">
                 <mat-form-field appearance="outline">
                   <mat-label>Membership Type / Shift</mat-label>
                   <mat-select formControlName="libraryMembershipType" (selectionChange)="onLibraryPlanSelectionChange($event.value)" panelClass="batch-filter-panel">
@@ -485,10 +521,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                       </mat-option>
                     }
                   </mat-select>
-                  <button mat-icon-button matSuffix type="button" (click)="openManagePlansModal(); $event.stopPropagation()" matTooltip="Configure Shifts & Pricing">
+                  <button matSuffix type="button" (click)="openManagePlansModal(); $event.stopPropagation()" matTooltip="Configure Shifts & Pricing" mat-icon-button>
                     <mat-icon color="primary" style="font-size: 20px; width: 20px; height: 20px;">settings</mat-icon>
                   </button>
-                  <button mat-icon-button matSuffix type="button" (click)="loadLibraryPlans(); $event.stopPropagation()" matTooltip="Refresh Shifts List">
+                  <button matSuffix type="button" (click)="loadLibraryPlans(); $event.stopPropagation()" matTooltip="Refresh Shifts List" mat-icon-button>
                     <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #64748b;">refresh</mat-icon>
                   </button>
                   <mat-hint>Select lending or coaching self-study shift</mat-hint>
@@ -496,7 +532,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <mat-form-field appearance="outline">
                   <mat-label>Library Card / Barcode No.</mat-label>
                   <input matInput formControlName="libraryCardNumber" placeholder="e.g. LIB-2026-1045" />
-                  <button mat-icon-button matSuffix type="button" (click)="autoGenerateLibraryCard()" matTooltip="Auto-generate Library Card Number">
+                  <button matSuffix type="button" (click)="autoGenerateLibraryCard()" matTooltip="Auto-generate Library Card Number" mat-icon-button>
                     <mat-icon color="primary">autorenew</mat-icon>
                   </button>
                   <mat-hint>Library card or barcode identifier</mat-hint>
@@ -511,12 +547,19 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                   <input matInput type="number" formControlName="monthlyLibraryFee" min="0" />
                   <mat-hint>Keep ₹0 for free lending, or set monthly reading fee</mat-hint>
                 </mat-form-field>
+                  </div>
+                </mat-expansion-panel>
               }
               <!-- Personal Information Section -->
-              <div class="section-divider-box full-span info-sect">
-                <mat-icon>person</mat-icon>
-                <span>Student Personal &amp; Family Information</span>
-              </div>
+              <mat-expansion-panel #personalAdmissionPanel class="enrollment-panel full-span personal-panel">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    <mat-icon>person</mat-icon>
+                    <span>Student Personal &amp; Family Information</span>
+                  </mat-panel-title>
+                  <mat-panel-description>Identity, contact &amp; family details</mat-panel-description>
+                </mat-expansion-panel-header>
+                <div class="enrollment-panel-fields">
               <mat-form-field appearance="outline">
                 <mat-label>Student Full Name</mat-label>
                 <input matInput formControlName="studentName" placeholder="e.g. Rahul Sharma" />
@@ -658,7 +701,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                                 <!-- Quick Action if Parent Name differs -->
                                 @if (!isParentNameMatching && siblingInfo.parentName) {
                                   <div class="sibling-action-row">
-                                    <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedParentName()">
+                                    <button type="button" class="btn-copy-parent" (click)="useLinkedParentName()" matButton="filled">
                                       <mat-icon>how_to_reg</mat-icon> Set Parent as "{{ siblingInfo.parentName }}"
                                     </button>
                                     <span class="differ-note">If {{ currentEnteredParentName }} is a guardian/relative or shared phone, you can still save.</span>
@@ -667,7 +710,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                                 <!-- Quick Action if Address differs or can be copied -->
                                 @if (siblingInfo.address && studentForm.get('address')?.value !== siblingInfo.address) {
                                   <div class="sibling-action-row">
-                                    <button type="button" mat-stroked-button class="btn-copy-parent" (click)="useLinkedAddress()">
+                                    <button type="button" class="btn-copy-parent" (click)="useLinkedAddress()" matButton="filled">
                                       <mat-icon>home</mat-icon> Set Address from Sibling
                                     </button>
                                   </div>
@@ -761,11 +804,18 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                         <input matInput formControlName="address" placeholder="e.g. Flat 302, Green Park Apartments, New Delhi" />
                       </mat-form-field>
                     </div>
+                </div>
                     <!-- Government Compliance & Student Identifiers (UDISE+ / NEP 2020) -->
-                    <div class="section-divider-box full-span compliance-sect">
-                      <mat-icon>verified_user</mat-icon>
-                      <span>Government Compliance &amp; Student Identifiers (UDISE+ / NEP)</span>
-                    </div>
+                    </mat-expansion-panel>
+                    <mat-expansion-panel #complianceAdmissionPanel class="enrollment-panel full-span compliance-panel">
+                      <mat-expansion-panel-header>
+                        <mat-panel-title>
+                          <mat-icon>verified_user</mat-icon>
+                          <span>Government Compliance &amp; Student Identifiers</span>
+                        </mat-panel-title>
+                        <mat-panel-description>UDISE+ / NEP identifiers</mat-panel-description>
+                      </mat-expansion-panel-header>
+                      <div class="enrollment-panel-fields">
                     <mat-form-field appearance="outline">
                       <mat-label>Social Category / Quota</mat-label>
                       <mat-select formControlName="category">
@@ -809,10 +859,17 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                       </mat-select>
                     </mat-form-field>
                     <!-- Previous School & Emergency Contacts -->
-                    <div class="section-divider-box full-span history-sect">
-                      <mat-icon>history_edu</mat-icon>
-                      <span>Previous Academic History &amp; Emergency Contact</span>
-                    </div>
+                      </div>
+                    </mat-expansion-panel>
+                    <mat-expansion-panel #historyAdmissionPanel class="enrollment-panel full-span history-panel">
+                      <mat-expansion-panel-header>
+                        <mat-panel-title>
+                          <mat-icon>history_edu</mat-icon>
+                          <span>Previous Academic History &amp; Emergency Contact</span>
+                        </mat-panel-title>
+                        <mat-panel-description>Transfer &amp; emergency details</mat-panel-description>
+                      </mat-expansion-panel-header>
+                      <div class="enrollment-panel-fields">
                     <mat-form-field appearance="outline">
                       <mat-label>Previous School Name</mat-label>
                       <input matInput formControlName="previousSchoolName" placeholder="e.g. St. Xavier High School" />
@@ -840,6 +897,9 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                       <input matInput type="tel" formControlName="emergencyContactPhone" placeholder="10-digit mobile number" maxlength="15" />
                       <mat-icon matSuffix style="color:#64748b">phone</mat-icon>
                     </mat-form-field>
+                      </div>
+                    </mat-expansion-panel>
+                    </mat-accordion>
                     <!-- Live Form Validation Summary Banner -->
                     @if (getFormValidationErrorsList().length > 0 && (studentForm.dirty || studentForm.touched)) {
                       <div class="form-validation-notice full-span">
@@ -855,8 +915,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                       </div>
                     }
                     <div class="form-actions full-span">
-                      <button mat-button type="button" (click)="toggleForm()" [disabled]="saving">Cancel</button>
-                      <button mat-raised-button color="primary" type="submit" [disabled]="saving || phoneCheckLoading">
+                      <button type="button" (click)="toggleForm()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+                      <button color="primary" type="submit" [disabled]="saving || phoneCheckLoading" matButton="filled" [class.app-button-update]="isEditMode" [class.app-button-save]="!(isEditMode)">
                         <span>{{ isEditMode ? 'Update Student Record' : 'Confirm Admission' }}</span>
                       </button>
                     </div>
@@ -870,37 +930,37 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               <div class="directory-container">
                 <!-- Stream Switcher Tabs -->
                 <div class="stream-switcher-bar">
-                  <button type="button" class="stream-tab" [class.active]="selectedStreamFilter === 'all'" (click)="setStreamFilter('all')">
+                  <button type="button" class="stream-tab" [class.active]="selectedStreamFilter === 'all'" (click)="setStreamFilter('all')" matButton="filled">
                     <mat-icon>dashboard</mat-icon>
                     <span>All Enrolled</span>
                     <span class="tab-count">{{ totalCount }}</span>
                   </button>
                   @if (authService.hasSchoolModule()) {
-                    <button type="button" class="stream-tab school-tab" [class.active]="selectedStreamFilter === 'school'" (click)="setStreamFilter('school')">
+                    <button type="button" class="stream-tab school-tab" [class.active]="selectedStreamFilter === 'school'" (click)="setStreamFilter('school')" matButton="filled">
                       <mat-icon>domain</mat-icon>
                       <span>School Students</span>
                     </button>
                   }
                   @if (authService.hasCoachingModule()) {
-                    <button type="button" class="stream-tab coaching-tab" [class.active]="selectedStreamFilter === 'coaching'" (click)="setStreamFilter('coaching')">
+                    <button type="button" class="stream-tab coaching-tab" [class.active]="selectedStreamFilter === 'coaching'" (click)="setStreamFilter('coaching')" matButton="filled">
                       <mat-icon>school</mat-icon>
                       <span>Coaching Batches</span>
                     </button>
                   }
                   @if (authService.hasHostelModule()) {
-                    <button type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')">
+                    <button type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')" matButton="filled">
                       <mat-icon>apartment</mat-icon>
                       <span>Hostel Residents</span>
                     </button>
                   }
                   @if (authService.hasLibraryModule()) {
-                    <button type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')">
+                    <button type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')" matButton="filled">
                       <mat-icon>local_library</mat-icon>
                       <span>Library Members</span>
                     </button>
                   }
                   @if (authService.hasHostelModule()) {
-                    <button type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')">
+                    <button type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')" matButton="filled">
                       <mat-icon>directions_walk</mat-icon>
                       <span>Day Scholars</span>
                     </button>
@@ -917,7 +977,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                         (keyup.enter)="onSearch()"
                         placeholder="Search by Roll No, Name, Phone, SR No, Lib Card..."
                         />
-                        <button mat-icon-button matSuffix (click)="onSearch()" aria-label="Search">
+                        <button matSuffix (click)="onSearch()" aria-label="Search" mat-icon-button>
                           <mat-icon>search</mat-icon>
                         </button>
                       </mat-form-field>
@@ -1192,18 +1252,17 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                             <div class="action-buttons">
                               <!-- Primary 1: Student 360° Profile & KYC Dossier -->
                               <button
-                                mat-icon-button
                                 class="btn-profile-360"
                                 (click)="openStudent360(s)"
-                                matTooltip="Student 360° Dossier &amp; KYC Vault">
+                                matTooltip="Student 360° Dossier &amp; KYC Vault" mat-icon-button>
                                 <mat-icon>account_circle</mat-icon>
                               </button>
                               <!-- Primary 2: Edit Student Record -->
-                              <button mat-icon-button color="primary" (click)="editStudent(s)" matTooltip="Edit Student">
+                              <button color="primary" (click)="editStudent(s)" matTooltip="Edit Student" mat-icon-button>
                                 <mat-icon>edit</mat-icon>
                               </button>
                               <!-- Primary 3: More Actions Dropdown Menu (⋮) -->
-                              <button mat-icon-button [matMenuTriggerFor]="studentActionMenu" matTooltip="More Actions">
+                              <button [matMenuTriggerFor]="studentActionMenu" matTooltip="More Actions" mat-icon-button>
                                 <mat-icon>more_vert</mat-icon>
                               </button>
                               <mat-menu #studentActionMenu="matMenu" xPosition="before" class="student-actions-dropdown">
@@ -1342,7 +1401,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                           <p>Instantly enroll <strong>{{ enrollingStudent?.studentName }}</strong> into an evening coaching batch.</p>
                         </div>
                       </div>
-                      <button mat-icon-button class="close-btn" (click)="closeEnrollCoachingModal()"><mat-icon>close</mat-icon></button>
+                      <button class="close-btn" (click)="closeEnrollCoachingModal()" mat-icon-button><mat-icon>close</mat-icon></button>
                     </div>
                     <div class="ecc-body">
                       <div class="student-pill-banner">
@@ -1398,8 +1457,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                       </div>
                     </div>
                     <div class="ecc-actions">
-                      <button mat-button type="button" (click)="closeEnrollCoachingModal()" [disabled]="enrollingLoading">Cancel</button>
-                      <button mat-raised-button color="primary" (click)="confirmEnrollCoaching()" [disabled]="!enrollingBatchId || enrollingLoading">
+                      <button type="button" (click)="closeEnrollCoachingModal()" [disabled]="enrollingLoading" matButton="filled" class="app-button-cancel">Cancel</button>
+                      <button color="primary" (click)="confirmEnrollCoaching()" [disabled]="!enrollingBatchId || enrollingLoading" matButton="filled">
                         @if (enrollingLoading) {
                           <mat-spinner diameter="18" style="display:inline-block; margin-right:6px;"></mat-spinner>
                         }
@@ -1578,6 +1637,47 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       }
     }
 
+    @media (max-width: 600px) {
+      .stream-switcher-bar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        overflow: visible;
+        padding-bottom: 0;
+      }
+
+      .stream-tab {
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        box-sizing: border-box;
+        justify-content: flex-start;
+        gap: 5px;
+        padding: 7px 9px;
+        font-size: 0.74rem;
+        text-align: left;
+
+        mat-icon {
+          flex: 0 0 16px;
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        > span:not(.tab-count) {
+          min-width: 0;
+          line-height: 1.2;
+        }
+
+        .tab-count {
+          flex-shrink: 0;
+          margin-left: auto;
+          font-size: 0.68rem;
+          padding: 2px 5px;
+        }
+      }
+    }
+
     /* Form Styles */
     .form-card {
       border-radius: 10px;
@@ -1599,6 +1699,57 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       align-items: start;
     }
     .full-span { grid-column: span 2; }
+    .admission-sections {
+      display: block;
+      grid-column: span 2;
+      min-width: 0;
+      width: 100%;
+    }
+    .enrollment-panel {
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 8px;
+      border: 1px solid #dbeafe;
+      border-radius: 10px !important;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      mat-panel-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      mat-panel-title mat-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 32px;
+        border-radius: 9px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-size: 19px;
+        transition: transform 180ms ease, background-color 180ms ease, color 180ms ease;
+      }
+
+      &:hover mat-panel-title mat-icon {
+        transform: translateY(-1px) scale(1.04);
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+    }
+    .enrollment-panel-fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: start;
+      padding-top: 12px;
+    }
 
     /* Stream Selector Box inside Form */
     .stream-selector-box {
@@ -3042,6 +3193,12 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       .form-grid {
         grid-template-columns: 1fr !important;
       }
+      .enrollment-panel-fields {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .admission-sections {
+        grid-column: span 1 !important;
+      }
       .full-span {
         grid-column: span 1 !important;
       }
@@ -3301,6 +3458,14 @@ export class StudentsComponent implements OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
   @ViewChild('fileInput') fileInput: any;
+  @ViewChild('schoolAdmissionPanel') schoolAdmissionPanel?: MatExpansionPanel;
+  @ViewChild('coachingAdmissionPanel') coachingAdmissionPanel?: MatExpansionPanel;
+  @ViewChild('hostelAdmissionPanel') hostelAdmissionPanel?: MatExpansionPanel;
+  @ViewChild('transportAdmissionPanel') transportAdmissionPanel?: MatExpansionPanel;
+  @ViewChild('libraryAdmissionPanel') libraryAdmissionPanel?: MatExpansionPanel;
+  @ViewChild('personalAdmissionPanel') personalAdmissionPanel?: MatExpansionPanel;
+  @ViewChild('complianceAdmissionPanel') complianceAdmissionPanel?: MatExpansionPanel;
+  @ViewChild('historyAdmissionPanel') historyAdmissionPanel?: MatExpansionPanel;
 
   /**
    * Auto cursor focus on mouse enter for all editable textboxes and textareas
@@ -4948,13 +5113,45 @@ export class StudentsComponent implements OnInit, OnDestroy {
   highlightInvalidFields(): void {
     if (typeof document === 'undefined') return;
     setTimeout(() => {
-      const firstInvalid = document.querySelector('.mat-form-field.mat-form-field-invalid, .mat-form-field.ng-invalid, input.ng-invalid');
+      const expandedPanel = document.querySelector('.admission-sections .mat-expansion-panel.mat-expanded');
+      const firstInvalid = expandedPanel?.querySelector(
+        '.mat-mdc-form-field.mat-form-field-invalid, .mat-form-field.mat-form-field-invalid, input.ng-invalid, mat-select.ng-invalid'
+      ) as HTMLElement | null;
       if (firstInvalid) {
         firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const input = firstInvalid.querySelector('input, select, mat-select') as HTMLElement;
+        const input = firstInvalid.matches('input, select, mat-select')
+          ? firstInvalid
+          : firstInvalid.querySelector('input, select, mat-select') as HTMLElement | null;
         input?.focus();
       }
-    }, 100);
+    }, 300);
+  }
+
+  private expandPanelForValidation(): void {
+    const invalid = (controlName: string): boolean => !!this.studentForm.get(controlName)?.invalid;
+    const dateConflict = this.studentForm.hasError('dojBeforeDob')
+      || this.studentForm.get('joiningDate')?.hasError('dojBeforeDob')
+      || this.studentForm.get('dateOfBirth')?.hasError('dojBeforeDob');
+
+    const panel = invalid('studentName') || invalid('parentName') || invalid('dateOfBirth') || this.phoneDuplicateError
+      ? this.personalAdmissionPanel
+      : (this.studentForm.value.isSchoolStudent && (invalid('classId') || invalid('joiningDate') || dateConflict))
+        ? this.schoolAdmissionPanel
+        : (this.studentForm.value.isCoachingStudent && (invalid('batchId') || invalid('rollNumber') || (!this.studentForm.value.isSchoolStudent && (invalid('classId') || invalid('joiningDate'))) || dateConflict))
+          ? this.coachingAdmissionPanel
+          : (this.studentForm.value.isHostelStudent && (invalid('hostelId') || invalid('hostelBedId')))
+            ? this.hostelAdmissionPanel
+            : (this.studentForm.value.isTransportStudent && (invalid('transportRouteId') || invalid('transportRouteStopId')))
+              ? this.transportAdmissionPanel
+              : (this.studentForm.value.isLibraryMember && invalid('libraryMembershipType'))
+                ? this.libraryAdmissionPanel
+                : invalid('category') || invalid('penNumber') || invalid('apaarId') || invalid('aadhaarNumber')
+                  ? this.complianceAdmissionPanel
+                  : invalid('previousSchoolName') || invalid('previousBoard') || invalid('emergencyContactName') || invalid('emergencyContactPhone')
+                    ? this.historyAdmissionPanel
+                    : undefined;
+
+    panel?.open();
   }
 
   onSubmitStudent(): void {
@@ -4966,20 +5163,21 @@ export class StudentsComponent implements OnInit, OnDestroy {
         'Date Range Conflict',
         `<div><strong>${dateLabel} (${doj || 'not set'}) must be strictly after Date of Birth (${dob || 'not set'}).</strong></div><ul><li>Please adjust the Date of Birth to be before the ${dateLabel}.</li></ul>`,
         'warning'
-      );
-      this.highlightInvalidFields();
+      ).subscribe(() => this.highlightInvalidFields());
+      this.expandPanelForValidation();
       return;
     }
 
     if (this.studentForm.invalid) {
       this.studentForm.markAllAsTouched();
+      this.expandPanelForValidation();
       const errorList = this.getFormValidationErrorsList();
       const bulletListHtml = errorList.map(err => `<li>${err}</li>`).join('');
       const message = errorList.length > 0
         ? `<div><strong>Please resolve the following required fields / validation errors:</strong></div><ul>${bulletListHtml}</ul>`
         : 'Please check the highlighted fields and date validations.';
-      this.confirmDialog.alert('Form Validation Required', message, 'warning');
-      this.highlightInvalidFields();
+      this.confirmDialog.alert('Form Validation Required', message, 'warning')
+        .subscribe(() => this.highlightInvalidFields());
       return;
     }
     const formVal = this.studentForm.value;

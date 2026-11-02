@@ -53,11 +53,11 @@ import { CoachingService } from '../../core/services/coaching.service';
           <p class="page-subtitle">Manage coaching batches, schedules, fee structures, and assigned students.</p>
         </div>
         <div class="header-btns">
-          <button mat-stroked-button color="primary" class="sequence-btn" (click)="openRollSequencer()">
+          <button color="primary" class="sequence-btn" (click)="openRollSequencer()" matButton="filled">
             <mat-icon>format_list_numbered</mat-icon>
             <span>Sequence Roll Nos</span>
           </button>
-          <button mat-raised-button color="primary" class="add-btn" (click)="openBatchModal()">
+          <button color="primary" class="add-btn" (click)="openBatchModal()" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Create New Batch</span>
           </button>
@@ -70,11 +70,11 @@ import { CoachingService } from '../../core/services/coaching.service';
             <mat-label>Search Batches...</mat-label>
             <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Search by batch name, subject or session" />
             @if (searchTerm) {
-              <button matSuffix mat-icon-button aria-label="Clear" (click)="clearSearch()">
+              <button matSuffix aria-label="Clear" (click)="clearSearch()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
-            <button matSuffix mat-icon-button (click)="onSearch()">
+            <button matSuffix (click)="onSearch()" mat-icon-button>
               <mat-icon>search</mat-icon>
             </button>
           </mat-form-field>
@@ -93,7 +93,7 @@ import { CoachingService } from '../../core/services/coaching.service';
             <button type="button"
               class="scope-filter-btn"
               [class.active]="batchScopeFilter === 'all'"
-              (click)="batchScopeFilter = 'all'">
+              (click)="batchScopeFilter = 'all'" matButton="filled">
               <mat-icon>apps</mat-icon>
               <span>All</span>
               <span class="scope-pill">{{ batches.length }}</span>
@@ -101,7 +101,7 @@ import { CoachingService } from '../../core/services/coaching.service';
             <button type="button"
               class="scope-filter-btn"
               [class.active]="batchScopeFilter === 'single'"
-              (click)="batchScopeFilter = 'single'">
+              (click)="batchScopeFilter = 'single'" matButton="filled">
               <mat-icon>school</mat-icon>
               <span>Single Class</span>
               <span class="scope-pill">{{ singleClassBatchCount }}</span>
@@ -109,7 +109,7 @@ import { CoachingService } from '../../core/services/coaching.service';
             <button type="button"
               class="scope-filter-btn"
               [class.active]="batchScopeFilter === 'combined'"
-              (click)="batchScopeFilter = 'combined'">
+              (click)="batchScopeFilter = 'combined'" matButton="filled">
               <mat-icon>layers</mat-icon>
               <span>Multi-Class</span>
               <span class="scope-pill">{{ combinedBatchCount }}</span>
@@ -122,7 +122,7 @@ import { CoachingService } from '../../core/services/coaching.service';
         }
     
         <div class="table-responsive">
-          <table mat-table [dataSource]="filteredBatchView" matSort (matSortChange)="onSortChange($event)" class="mat-elevation-z0 full-width-table">
+          <table mat-table [dataSource]="filteredBatchView" matSort (matSortChange)="onSortChange($event)" class="mat-elevation-z0 full-width-table batch-directory-table">
     
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="name"> Batch Name </th>
@@ -166,13 +166,13 @@ import { CoachingService } from '../../core/services/coaching.service';
                         <span class="mentor-sub">{{ element.mentorTeacherPhone }}</span>
                       }
                     </div>
-                    <button mat-icon-button class="quick-assign-btn" (click)="openQuickMentorModal(element)" matTooltip="Change Batch Mentor">
+                    <button class="quick-assign-btn" (click)="openQuickMentorModal(element)" matTooltip="Change Batch Mentor" mat-icon-button>
                       <mat-icon>edit</mat-icon>
                     </button>
                   </div>
                 }
                 @if (!element.mentorTeacherName) {
-                  <button mat-stroked-button class="assign-mentor-btn" (click)="openQuickMentorModal(element)" matTooltip="Assign designated mentor for this batch">
+                  <button class="assign-mentor-btn" (click)="openQuickMentorModal(element)" matTooltip="Assign designated mentor for this batch" matButton="filled">
                     <mat-icon>person_add</mat-icon>
                     <span>Assign Mentor</span>
                   </button>
@@ -250,16 +250,16 @@ import { CoachingService } from '../../core/services/coaching.service';
               </th>
               <td mat-cell *matCellDef="let element" class="text-right action-td-col">
                 <div class="row-actions-group">
-                  <button mat-icon-button class="quick-action-btn edit-btn" (click)="openBatchModal(element)" matTooltip="Edit Batch & Timing (बैच विवरण व टाइमिंग बदलें)">
+                  <button class="quick-action-btn edit-btn" (click)="openBatchModal(element)" matTooltip="Edit Batch & Timing (बैच विवरण व टाइमिंग बदलें)" mat-icon-button>
                     <mat-icon>edit</mat-icon>
                   </button>
-                  <button mat-icon-button class="quick-action-btn routine-btn" (click)="openBatchRoutine(element)" matTooltip="Configure Timetable & Lecture Routine (रूटीन व टाइमिंग)">
+                  <button class="quick-action-btn routine-btn" (click)="openBatchRoutine(element)" matTooltip="Configure Timetable & Lecture Routine (रूटीन व टाइमिंग)" mat-icon-button>
                     <mat-icon>calendar_view_week</mat-icon>
                   </button>
-                  <button mat-icon-button class="quick-action-btn roll-btn" (click)="openRollSequencer(element)" matTooltip="Sequence Roll Numbers (रोल नंबर क्रमबद्ध करें)">
+                  <button class="quick-action-btn roll-btn" (click)="openRollSequencer(element)" matTooltip="Sequence Roll Numbers (रोल नंबर क्रमबद्ध करें)" mat-icon-button>
                     <mat-icon>format_list_numbered</mat-icon>
                   </button>
-                  <button mat-icon-button [matMenuTriggerFor]="batchMenu" class="action-menu-btn" matTooltip="More Actions">
+                  <button [matMenuTriggerFor]="batchMenu" class="action-menu-btn" matTooltip="More Actions" mat-icon-button>
                     <mat-icon>more_vert</mat-icon>
                   </button>
                 </div>
@@ -431,9 +431,31 @@ import { CoachingService } from '../../core/services/coaching.service';
     .full-width-table {
       width: 100%;
     }
+    .batch-directory-table {
+      min-width: 1555px;
+      table-layout: fixed;
+
+      .mat-column-name { width: 190px; }
+      .mat-column-className { width: 150px; }
+      .mat-column-mentor { width: 230px; }
+      .mat-column-branchName { width: 170px; }
+      .mat-column-roomName { width: 130px; }
+      .mat-column-subject { width: 210px; }
+      .mat-column-academicYear { width: 150px; }
+      .mat-column-studentCount { width: 170px; }
+      .mat-column-actions { width: 155px; }
+
+      .mat-mdc-cell {
+        vertical-align: middle;
+      }
+    }
     .batch-name-cell {
+      display: block;
       font-weight: 600;
       color: #2c3e50;
+      line-height: 1.45;
+      overflow-wrap: break-word;
+      word-break: normal;
     }
     .subject-badge-chip {
       font-size: 0.75rem;
@@ -695,6 +717,47 @@ import { CoachingService } from '../../core/services/coaching.service';
       white-space: nowrap;
       mat-icon { font-size: 15px; width: 15px; height: 15px; }
       &:hover { background: #dbeafe !important; }
+    }
+    @media (max-width: 768px) {
+      .page-header {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .page-header .header-btns {
+        align-items: stretch;
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .page-header .header-btns button {
+        justify-content: center;
+        width: 100%;
+      }
+
+      .filter-toolbar {
+        align-items: stretch;
+        padding: 12px 12px 0;
+      }
+
+      .filter-toolbar .search-field,
+      .filter-toolbar .session-filter {
+        flex: 1 1 100%;
+        min-width: 0;
+        width: 100%;
+      }
+
+      .scope-filter-toggle {
+        flex-wrap: wrap;
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .scope-filter-toggle .scope-filter-btn {
+        flex: 1 1 auto;
+        justify-content: center;
+      }
     }
   `]
 })

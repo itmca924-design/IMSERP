@@ -39,14 +39,14 @@ export interface PayslipDialogData {
           </div>
         </div>
         <div class="btn-group">
-          <button mat-stroked-button class="whatsapp-btn" [disabled]="sendingWhatsApp" (click)="sendWhatsApp()" matTooltip="Send Payslip on WhatsApp">
+          <button class="whatsapp-btn" [disabled]="sendingWhatsApp" (click)="sendWhatsApp()" matTooltip="Send Payslip on WhatsApp" matButton="filled">
             <mat-icon>send</mat-icon>
             <span>{{ sendingWhatsApp ? 'Sending...' : 'Send WhatsApp' }}</span>
           </button>
-          <button mat-raised-button color="primary" class="print-btn" (click)="printPayslip()" matTooltip="Print Payslip">
+          <button color="primary" class="print-btn" (click)="printPayslip()" matTooltip="Print Payslip" matButton="filled">
             <mat-icon>print</mat-icon> <span>Print / PDF</span>
           </button>
-          <button mat-icon-button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close">
+          <button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>

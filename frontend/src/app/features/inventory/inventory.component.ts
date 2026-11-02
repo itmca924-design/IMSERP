@@ -92,23 +92,23 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
         </div>
     
         <div class="action-btn-group">
-          <button mat-stroked-button color="primary" (click)="openInwardDialog()" class="erp-btn">
+          <button color="primary" (click)="openInwardDialog()" class="erp-btn" matButton="filled">
             <mat-icon>add_shopping_cart</mat-icon>
             <span>Inward Stock (GRN)</span>
           </button>
-          <button mat-stroked-button color="accent" (click)="openOutwardDialog()" class="erp-btn">
+          <button color="accent" (click)="openOutwardDialog()" class="erp-btn" matButton="filled">
             <mat-icon>outbox</mat-icon>
             <span>Issue Stock / Kit Sale</span>
           </button>
-          <button mat-stroked-button (click)="openCategoryDialog()" class="erp-btn" matTooltip="Create a new Inventory Classification / Category">
+          <button (click)="openCategoryDialog()" class="erp-btn" matTooltip="Create a new Inventory Classification / Category" matButton="filled">
             <mat-icon>category</mat-icon>
             <span>Add Category</span>
           </button>
-          <button mat-flat-button color="primary" (click)="openItemDialog()" class="erp-btn">
+          <button color="primary" (click)="openItemDialog()" class="erp-btn" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Add Item</span>
           </button>
-          <button mat-icon-button (click)="refreshAll()" matTooltip="Refresh All Data" class="refresh-btn">
+          <button (click)="refreshAll()" matTooltip="Refresh All Data" class="refresh-btn" mat-icon-button>
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
@@ -116,16 +116,16 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
     
       <!-- Module Sub-Nav Bar -->
       <div class="module-nav-bar">
-        <a mat-button [routerLink]="['/inventory']" class="nav-tab active-tab">
+        <a matButton="filled" [routerLink]="['/inventory']" class="nav-tab active-tab">
           <mat-icon>inventory_2</mat-icon> Store &amp; Catalog
         </a>
-        <a mat-button [routerLink]="['/inventory/purchase-returns']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory/purchase-returns']" class="nav-tab">
           <mat-icon>assignment_return</mat-icon> Purchase Returns
         </a>
-        <a mat-button [routerLink]="['/inventory/sale-returns']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory/sale-returns']" class="nav-tab">
           <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns
         </a>
-        <a mat-button [routerLink]="['/inventory/vendors']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory/vendors']" class="nav-tab">
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
         </a>
       </div>
@@ -213,7 +213,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
             <mat-label>Search Items / SKU / Rack</mat-label>
             <input matInput formControlName="searchTerm" placeholder="Search by name, SKU, or rack..." />
             @if (filterForm.get('searchTerm')?.value) {
-              <button mat-icon-button matSuffix (click)="clearSearch()" type="button">
+              <button matSuffix (click)="clearSearch()" type="button" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -350,7 +350,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         </td>
                         <!-- Actions 3-Dots Menu -->
                         <td class="text-right action-cell">
-                          <button mat-icon-button [matMenuTriggerFor]="itemMenu" class="action-menu-trigger" matTooltip="Item Actions">
+                          <button [matMenuTriggerFor]="itemMenu" class="action-menu-trigger" matTooltip="Item Actions" mat-icon-button>
                             <mat-icon>more_vert</mat-icon>
                           </button>
                           <mat-menu #itemMenu="matMenu" xPosition="before" class="erp-action-menu">
@@ -376,7 +376,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         <td colspan="11" class="empty-cell">
                           <mat-icon class="empty-icon">inventory_2</mat-icon>
                           <p class="empty-text">No inventory items found matching your filters.</p>
-                          <button mat-stroked-button color="primary" (click)="openItemDialog()">
+                          <button color="primary" (click)="openItemDialog()" matButton="filled">
                             <mat-icon>add</mat-icon>
                             <span>Add Your First Item</span>
                           </button>
@@ -413,13 +413,13 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     <mat-icon matPrefix>search</mat-icon>
                     <input matInput [formControl]="inwardsSearchCtrl" placeholder="Search Inward #, invoice, supplier, items..." />
                     @if (inwardsSearchCtrl.value) {
-                      <button mat-icon-button matSuffix (click)="inwardsSearchCtrl.setValue('')" type="button">
+                      <button matSuffix (click)="inwardsSearchCtrl.setValue('')" type="button" mat-icon-button>
                         <mat-icon>close</mat-icon>
                       </button>
                     }
                   </mat-form-field>
                 </div>
-                <button mat-flat-button color="primary" (click)="openInwardDialog()">
+                <button color="primary" (click)="openInwardDialog()" matButton="filled">
                   <mat-icon>add</mat-icon>
                   <span>New Inward Entry</span>
                 </button>
@@ -471,7 +471,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         </td>
                         <td>{{ inw.paymentMode }}</td>
                         <td class="text-center action-cell">
-                          <button mat-icon-button class="print-row-btn" (click)="printInwardSlip(inw)" matTooltip="Print / View GRN Receipt Slip" type="button">
+                          <button class="print-row-btn" (click)="printInwardSlip(inw)" matTooltip="Print / View GRN Receipt Slip" type="button" mat-icon-button>
                             <mat-icon>print</mat-icon>
                           </button>
                         </td>
@@ -483,7 +483,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         <td colspan="10" class="empty-cell">
                           <mat-icon class="empty-icon">shopping_bag</mat-icon>
                           <p class="empty-text">No stock inward records found.</p>
-                          <button mat-stroked-button color="primary" (click)="openInwardDialog()">Record First Stock Inward</button>
+                          <button color="primary" (click)="openInwardDialog()" matButton="filled">Record First Stock Inward</button>
                         </td>
                       </tr>
                     }
@@ -517,13 +517,13 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     <mat-icon matPrefix>search</mat-icon>
                     <input matInput [formControl]="outwardsSearchCtrl" placeholder="Search Issue #, recipient, class, remarks..." />
                     @if (outwardsSearchCtrl.value) {
-                      <button mat-icon-button matSuffix (click)="outwardsSearchCtrl.setValue('')" type="button">
+                      <button matSuffix (click)="outwardsSearchCtrl.setValue('')" type="button" mat-icon-button>
                         <mat-icon>close</mat-icon>
                       </button>
                     }
                   </mat-form-field>
                 </div>
-                <button mat-flat-button color="accent" (click)="openOutwardDialog()">
+                <button color="accent" (click)="openOutwardDialog()" matButton="filled">
                   <mat-icon>add</mat-icon>
                   <span>Issue Stock / Kit</span>
                 </button>
@@ -589,12 +589,12 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         <td style="text-align: center;">
                           <div class="row-actions-group">
                             @if (out.paymentStatus !== 'Cancelled') {
-                              <button mat-icon-button class="print-row-btn" (click)="printOutwardSlip(out)" matTooltip="Print Store Issue Slip / Bill" type="button">
+                              <button class="print-row-btn" (click)="printOutwardSlip(out)" matTooltip="Print Store Issue Slip / Bill" type="button" mat-icon-button>
                                 <mat-icon>print</mat-icon>
                               </button>
                             }
                             @if (out.paymentStatus !== 'Cancelled') {
-                              <button mat-icon-button color="warn" (click)="cancelOutward(out)" matTooltip="Cancel Issue & Return Stock to Inventory" type="button">
+                              <button color="warn" (click)="cancelOutward(out)" matTooltip="Cancel Issue & Return Stock to Inventory" type="button" mat-icon-button>
                                 <mat-icon>undo</mat-icon>
                               </button>
                             }
@@ -611,7 +611,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         <td colspan="9" class="empty-cell">
                           <mat-icon class="empty-icon">outbox</mat-icon>
                           <p class="empty-text">No outward issues recorded yet.</p>
-                          <button mat-stroked-button color="primary" (click)="openOutwardDialog()">Issue First Stock</button>
+                          <button color="primary" (click)="openOutwardDialog()" matButton="filled">Issue First Stock</button>
                         </td>
                       </tr>
                     }
@@ -645,13 +645,13 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                     <mat-icon matPrefix>search</mat-icon>
                     <input matInput [formControl]="vendorsSearchCtrl" placeholder="Search supplier, contact, GST, phone..." />
                     @if (vendorsSearchCtrl.value) {
-                      <button mat-icon-button matSuffix (click)="vendorsSearchCtrl.setValue('')" type="button">
+                      <button matSuffix (click)="vendorsSearchCtrl.setValue('')" type="button" mat-icon-button>
                         <mat-icon>close</mat-icon>
                       </button>
                     }
                   </mat-form-field>
                 </div>
-                <button mat-flat-button color="primary" (click)="openVendorDialog()">
+                <button color="primary" (click)="openVendorDialog()" matButton="filled">
                   <mat-icon>add_business</mat-icon>
                   <span>Add Vendor</span>
                 </button>
@@ -707,7 +707,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         <td>{{ v.paymentTerms || '—' }}</td>
                         <td><span class="address-text">{{ v.address || '—' }}</span></td>
                         <td class="text-right action-cell">
-                          <button mat-icon-button [matMenuTriggerFor]="vendorMenu" class="action-menu-trigger" matTooltip="Vendor Actions">
+                          <button [matMenuTriggerFor]="vendorMenu" class="action-menu-trigger" matTooltip="Vendor Actions" mat-icon-button>
                             <mat-icon>more_vert</mat-icon>
                           </button>
                           <mat-menu #vendorMenu="matMenu" xPosition="before" class="erp-action-menu">
@@ -729,7 +729,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         <td colspan="8" class="empty-cell">
                           <mat-icon class="empty-icon">storefront</mat-icon>
                           <p class="empty-text">No registered suppliers yet.</p>
-                          <button mat-stroked-button color="primary" (click)="openVendorDialog()">
+                          <button color="primary" (click)="openVendorDialog()" matButton="filled">
                             <mat-icon>add_business</mat-icon>
                             <span>Add First Supplier</span>
                           </button>
@@ -762,7 +762,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
             <div class="tab-body">
               <div class="tab-toolbar">
                 <span class="tab-info-text">Stock Categories Master: Classification for consumables, kits, uniforms, books & fixed assets</span>
-                <button mat-flat-button color="primary" (click)="openCategoryDialog()">
+                <button color="primary" (click)="openCategoryDialog()" matButton="filled">
                   <mat-icon>add</mat-icon>
                   <span>Add Category</span>
                 </button>
@@ -799,7 +799,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                           </span>
                         </td>
                         <td class="text-right action-cell">
-                          <button mat-icon-button [matMenuTriggerFor]="catMenu" class="action-menu-trigger" matTooltip="Category Actions">
+                          <button [matMenuTriggerFor]="catMenu" class="action-menu-trigger" matTooltip="Category Actions" mat-icon-button>
                             <mat-icon>more_vert</mat-icon>
                           </button>
                           <mat-menu #catMenu="matMenu" xPosition="before" class="erp-action-menu">
@@ -821,7 +821,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         <td colspan="6" class="empty-cell">
                           <mat-icon class="empty-icon">category</mat-icon>
                           <p class="empty-text">No inventory categories found.</p>
-                          <button mat-stroked-button color="primary" (click)="openCategoryDialog()">
+                          <button color="primary" (click)="openCategoryDialog()" matButton="filled">
                             <mat-icon>add</mat-icon>
                             <span>Add First Category</span>
                           </button>
@@ -889,7 +889,7 @@ import { InventoryInwardReceiptDialogComponent } from './dialogs/inventory-inwar
                         <td>₹{{ itm.purchasePrice | number:'1.2-2' }}</td>
                         <td>{{ itm.rackOrLocation || '—' }}</td>
                         <td class="text-right">
-                          <button mat-stroked-button color="primary" (click)="reorderItem(itm)">
+                          <button color="primary" (click)="reorderItem(itm)" matButton="filled">
                             <mat-icon>add_shopping_cart</mat-icon>
                             <span>Reorder Now</span>
                           </button>

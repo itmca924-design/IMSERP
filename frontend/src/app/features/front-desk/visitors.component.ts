@@ -109,7 +109,7 @@ export interface StudentItem {
           <h2 class="fd-dialog-title">Visitor Check-In</h2>
           <span class="fd-dialog-sub">Register a new visitor arriving at campus &bull; <strong style="color:#1e40af">Front Desk Entry</strong></span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()" matTooltip="Close"><mat-icon>close</mat-icon></button>
+        <button class="fd-dialog-close" (click)="cancel()" matTooltip="Close" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
     
       <div class="fd-dialog-body">
@@ -248,8 +248,8 @@ export interface StudentItem {
       </div>
     
       <div class="fd-dialog-footer">
-        <button mat-button class="cancel-btn" (click)="cancel()">Cancel</button>
-        <button mat-raised-button class="submit-btn" (click)="save()" [disabled]="saving || !form.visitorName || !form.purpose">
+        <button class="cancel-btn app-button-cancel" (click)="cancel()" matButton="filled">Cancel</button>
+        <button class="submit-btn" (click)="save()" [disabled]="saving || !form.visitorName || !form.purpose" matButton="filled">
           <mat-icon>{{saving ? 'hourglass_empty' : 'how_to_reg'}}</mat-icon>
           <span>{{saving ? 'Checking In...' : 'Check In Visitor'}}</span>
         </button>
@@ -478,7 +478,7 @@ export class VisitorCheckInDialogComponent {
           <h2 class="fd-dialog-title">Issue Student Gate Pass</h2>
           <span class="fd-dialog-sub">Authorize a student to leave campus early</span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
+        <button class="fd-dialog-close" (click)="cancel()" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
     
       <div class="fd-dialog-body">
@@ -570,8 +570,8 @@ export class VisitorCheckInDialogComponent {
     </div>
     
     <div class="fd-dialog-footer">
-      <button mat-stroked-button (click)="cancel()">Cancel</button>
-      <button mat-flat-button color="primary" (click)="save()" [disabled]="saving || !form.studentId || !form.reason">
+      <button (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
+      <button color="primary" (click)="save()" [disabled]="saving || !form.studentId || !form.reason" matButton="filled">
         <mat-icon>{{saving ? 'hourglass_empty' : 'exit_to_app'}}</mat-icon>
         {{saving ? 'Issuing...' : 'Issue Gate Pass'}}
       </button>
@@ -731,7 +731,7 @@ export class GatePassDialogComponent implements OnInit {
           <h2 class="fd-dialog-title">{{data.action === 'Approve' ? 'Approve Gate Pass' : 'Reject Gate Pass Request'}}</h2>
           <span class="fd-dialog-sub">{{data.gatePassNumber}} — <strong>{{data.studentName}}</strong></span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
+        <button class="fd-dialog-close" (click)="cancel()" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
     
       <div class="fd-dialog-body">
@@ -750,16 +750,16 @@ export class GatePassDialogComponent implements OnInit {
           <div class="quick-causes">
             <div class="quick-causes-label">Common Rejection Causes:</div>
             <div class="causes-chips">
-              <button type="button" class="cause-chip" (click)="setCause('Parent / Guardian unverified or not answering phone')">
+              <button type="button" class="cause-chip" (click)="setCause('Parent / Guardian unverified or not answering phone')" matButton="filled">
                 📞 Parent Unverified
               </button>
-              <button type="button" class="cause-chip" (click)="setCause('Exam / Class test scheduled at this time')">
+              <button type="button" class="cause-chip" (click)="setCause('Exam / Class test scheduled at thistime')" matButton="filled">
                 📝 Exam in Progress
               </button>
-              <button type="button" class="cause-chip" (click)="setCause('Unauthorized escort or guardian')">
+              <button type="button" class="cause-chip" (click)="setCause('Unauthorized escort or guardian')" matButton="filled">
                 🚫 Unauthorized Guardian
               </button>
-              <button type="button" class="cause-chip" (click)="setCause('Invalid or insufficient reason provided')">
+              <button type="button" class="cause-chip" (click)="setCause('Invalid or insufficient reason provided')" matButton="filled">
                 ⚠️ Insufficient Reason
               </button>
             </div>
@@ -779,10 +779,10 @@ export class GatePassDialogComponent implements OnInit {
       </div>
     
       <div class="fd-dialog-footer">
-        <button mat-stroked-button (click)="cancel()">Cancel</button>
-        <button mat-flat-button [color]="data.action === 'Approve' ? 'primary' : 'warn'"
+        <button (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button [color]="data.action === 'Approve' ? 'primary' : 'warn'"
           (click)="confirm()"
-          [disabled]="saving || (data.action === 'Reject' && !remarks.trim())">
+          [disabled]="saving || (data.action === 'Reject' && !remarks.trim())" matButton="filled">
           <mat-icon>{{data.action === 'Approve' ? 'check' : 'block'}}</mat-icon>
           {{saving ? 'Processing...' : (data.action === 'Approve' ? 'Approve Gate Pass' : 'Reject Gate Pass')}}
         </button>
@@ -985,20 +985,20 @@ export class ApproveGatePassDialogComponent {
           </div>
         </div>
         <div class="header-actions">
-          <a mat-stroked-button class="refresh-btn" routerLink="/students/gate-pass" style="color:#2563eb; border-color:#bfdbfe;">
+          <a matButton="filled" class="refresh-btn" routerLink="/students/gate-pass" style="color:#2563eb; border-color:#bfdbfe;">
             <mat-icon>badge</mat-icon>
             <span>Student Portal</span>
           </a>
-          <button mat-stroked-button class="refresh-btn" (click)="loadAll()" [disabled]="loading">
+          <button class="refresh-btn" (click)="loadAll()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
           @if (!isStudentOrParent) {
-            <button mat-flat-button class="btn-visitor" (click)="openVisitorDialog()">
+            <button class="btn-visitor" (click)="openVisitorDialog()" matButton="filled">
               <mat-icon>how_to_reg</mat-icon>
               <span>Check In Visitor</span>
             </button>
-            <button mat-flat-button class="btn-gatepass" (click)="openGatePassDialog()">
+            <button class="btn-gatepass" (click)="openGatePassDialog()" matButton="filled">
               <mat-icon>exit_to_app</mat-icon>
               <span>Issue Gate Pass</span>
             </button>
@@ -1093,7 +1093,7 @@ export class ApproveGatePassDialogComponent {
                 <mat-icon matPrefix class="filter-icon">search</mat-icon>
                 <input matInput [(ngModel)]="visitorSearch" (input)="loadVisitors()" placeholder="Search by name, org, pass no..." />
                 @if (visitorSearch) {
-                  <button mat-icon-button matSuffix (click)="visitorSearch=''; loadVisitors()" style="color:#94a3b8;">
+                  <button matSuffix (click)="visitorSearch=''; loadVisitors()" style="color:#94a3b8;" mat-icon-button>
                     <mat-icon style="font-size:18px;">close</mat-icon>
                   </button>
                 }
@@ -1175,12 +1175,12 @@ export class ApproveGatePassDialogComponent {
                         </td>
                         <td>
                           <div class="action-btns">
-                            <button mat-icon-button color="primary" [disabled]="v.status === 'CheckedOut'"
-                              (click)="checkOutVisitor(v)" matTooltip="Check Out Visitor">
+                            <button color="primary" [disabled]="v.status === 'CheckedOut'"
+                              (click)="checkOutVisitor(v)" matTooltip="Check Out Visitor" mat-icon-button>
                               <mat-icon>logout</mat-icon>
                             </button>
-                            <button mat-icon-button color="warn"
-                              (click)="deleteVisitor(v)" matTooltip="Delete Record">
+                            <button color="warn"
+                              (click)="deleteVisitor(v)" matTooltip="Delete Record" mat-icon-button>
                               <mat-icon>delete</mat-icon>
                             </button>
                           </div>
@@ -1194,7 +1194,7 @@ export class ApproveGatePassDialogComponent {
               <div class="empty-state">
                 <mat-icon>badge</mat-icon>
                 <p>No visitors found for the selected criteria.</p>
-                <button mat-stroked-button (click)="openVisitorDialog()">
+                <button (click)="openVisitorDialog()" matButton="filled">
                   <mat-icon>add</mat-icon> Check In First Visitor
                 </button>
               </div>
@@ -1233,7 +1233,7 @@ export class ApproveGatePassDialogComponent {
               <mat-icon matPrefix class="filter-icon">search</mat-icon>
               <input matInput [(ngModel)]="gatePassSearch" (input)="loadGatePasses()" placeholder="Search by student name, pass no..." />
               @if (gatePassSearch) {
-                <button mat-icon-button matSuffix (click)="gatePassSearch=''; loadGatePasses()" style="color:#94a3b8;">
+                <button matSuffix (click)="gatePassSearch=''; loadGatePasses()" style="color:#94a3b8;" mat-icon-button>
                   <mat-icon style="font-size:18px;">close</mat-icon>
                 </button>
               }
@@ -1333,32 +1333,32 @@ export class ApproveGatePassDialogComponent {
                           <!-- Approve / Reject / Return: ONLY for Admin / Staff / Wardens -->
                           @if (canApproveGatePass) {
                             @if (g.status === 'Pending') {
-                              <button mat-icon-button style="color:#16a34a;"
-                                (click)="approveGatePass(g, 'Approve')" matTooltip="Approve">
+                              <button style="color:#16a34a;"
+                                (click)="approveGatePass(g, 'Approve')" matTooltip="Approve" mat-icon-button>
                                 <mat-icon>check_circle</mat-icon>
                               </button>
                             }
                             @if (g.status === 'Pending') {
-                              <button mat-icon-button color="warn"
-                                (click)="approveGatePass(g, 'Reject')" matTooltip="Reject">
+                              <button color="warn"
+                                (click)="approveGatePass(g, 'Reject')" matTooltip="Reject" mat-icon-button>
                                 <mat-icon>cancel</mat-icon>
                               </button>
                             }
                             @if (g.status === 'Approved') {
-                              <button mat-icon-button style="color:#2563eb;"
-                                (click)="markReturn(g)" matTooltip="Mark Student Returned">
+                              <button style="color:#2563eb;"
+                                (click)="markReturn(g)" matTooltip="Mark Student Returned" mat-icon-button>
                                 <mat-icon>keyboard_return</mat-icon>
                               </button>
                             }
-                            <button mat-icon-button color="warn"
-                              (click)="deleteGatePass(g)" matTooltip="Delete">
+                            <button color="warn"
+                              (click)="deleteGatePass(g)" matTooltip="Delete" mat-icon-button>
                               <mat-icon>delete</mat-icon>
                             </button>
                           }
                           <!-- If Student or Parent: They can only cancel their own pending request -->
                           @if (isStudentOrParent && g.status === 'Pending') {
-                            <button mat-icon-button color="warn"
-                              (click)="deleteGatePass(g)" matTooltip="Cancel Request">
+                            <button color="warn"
+                              (click)="deleteGatePass(g)" matTooltip="Cancel Request" mat-icon-button>
                               <mat-icon>close</mat-icon>
                             </button>
                           }
@@ -1373,7 +1373,7 @@ export class ApproveGatePassDialogComponent {
             <div class="empty-state">
               <mat-icon>exit_to_app</mat-icon>
               <p>No gate passes found for the selected criteria.</p>
-              <button mat-stroked-button (click)="openGatePassDialog()">
+              <button (click)="openGatePassDialog()" matButton="filled">
                 <mat-icon>add</mat-icon> Issue First Gate Pass
               </button>
             </div>
@@ -1392,7 +1392,10 @@ export class ApproveGatePassDialogComponent {
       display: flex;
       flex-direction: column;
       gap: 20px;
+      width: 100%;
+      min-width: 0;
       padding-bottom: 40px;
+      box-sizing: border-box;
     }
 
     /* ── Page Header ── */
@@ -1404,8 +1407,12 @@ export class ApproveGatePassDialogComponent {
       box-shadow: 0 1px 3px rgba(0,0,0,.05);
       flex-wrap: wrap;
       gap: 16px;
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
-    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-left { display: flex; align-items: center; gap: 16px; min-width: 0; flex: 1 1 320px; }
+    .header-left > div:last-child { min-width: 0; }
     .header-icon-box {
       width: 48px; height: 48px; border-radius: 12px;
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
@@ -1425,42 +1432,35 @@ export class ApproveGatePassDialogComponent {
     /* ── Stats ── */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 16px;
       width: 100%;
+      min-width: 0;
     }
     .stats-grid.stats-student {
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     @media (max-width: 1100px) {
       .stats-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
       .stats-grid.stats-student {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
     }
     @media (max-width: 700px) {
       .stats-grid, .stats-grid.stats-student {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
-      }
-      .stat-card {
-        padding: 12px 14px;
-        gap: 10px;
-      }
-      .stat-num {
-        font-size: 1.4rem;
-      }
-      .stat-icon {
-        font-size: 26px;
-        width: 32px;
-        height: 32px;
-        line-height: 32px;
-        overflow: visible !important;
       }
     }
     @media (max-width: 420px) {
+      .stats-grid, .stats-grid.stats-student {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+    }
+    @media (max-width: 340px) {
       .stats-grid, .stats-grid.stats-student {
         grid-template-columns: 1fr;
       }
@@ -1490,6 +1490,39 @@ export class ApproveGatePassDialogComponent {
     .stat-orange .stat-icon { color: #ea580c; } .stat-orange .stat-num { color: #ea580c; }
     .stat-amber .stat-icon  { color: #d97706; } .stat-amber .stat-num  { color: #d97706; }
     .stat-teal .stat-icon   { color: #0891b2; } .stat-teal .stat-num   { color: #0891b2; }
+    @media (max-width: 700px) {
+      .stat-card {
+        min-width: 0;
+        padding: 12px 14px;
+        gap: 10px;
+      }
+      .stat-body {
+        min-width: 0;
+      }
+      .stat-num {
+        font-size: 1.4rem;
+      }
+      .stat-icon {
+        font-size: 26px;
+        width: 32px;
+        height: 32px;
+        line-height: 32px;
+      }
+    }
+    @media (max-width: 420px) {
+      .stat-card {
+        padding: 10px;
+        gap: 8px;
+      }
+      .stat-num {
+        font-size: 1.25rem;
+      }
+      .stat-label {
+        font-size: 0.62rem;
+        line-height: 1.25;
+        letter-spacing: 0.15px;
+      }
+    }
 
     /* ── Tabs ── */
     .fd-tabs {
@@ -1559,14 +1592,27 @@ export class ApproveGatePassDialogComponent {
         min-width: 100%;
       }
       .page-header {
-        padding: 14px 16px;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-content: start;
+        padding: 14px;
+        gap: 8px;
+      }
+      .header-left {
+        flex: none;
+        width: 100%;
       }
       .header-actions {
         width: 100%;
-        justify-content: flex-start;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .header-actions > * {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        justify-content: center;
       }
     }
 

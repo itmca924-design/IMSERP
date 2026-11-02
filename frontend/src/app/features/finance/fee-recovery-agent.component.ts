@@ -77,12 +77,12 @@ import { environment } from '../../../environments/environment';
         </div>
     
         <div class="header-action-buttons">
-          <button mat-stroked-button class="run-analysis-btn" (click)="triggerAnalysis()" [disabled]="loading" matTooltip="Scan all student accounts & generate tailored recovery plans">
+          <button class="run-analysis-btn" (click)="triggerAnalysis()" [disabled]="loading" matTooltip="Scan all student accounts & generate tailored recovery plans" matButton="filled">
             <mat-icon>auto_awesome</mat-icon>
             <span>Run AI Analysis</span>
           </button>
     
-          <button mat-flat-button class="batch-dispatch-btn" (click)="batchDispatchSelected()" [disabled]="loading || selectedPlanIds.size === 0" matTooltip="Send AI nudges to all selected students">
+          <button class="batch-dispatch-btn" (click)="batchDispatchSelected()" [disabled]="loading || selectedPlanIds.size === 0" matTooltip="Send AI nudges to all selected students" matButton="filled">
             <mat-icon>send</mat-icon>
             <span>Batch Dispatch ({{ selectedPlanIds.size }})</span>
           </button>
@@ -357,7 +357,7 @@ import { environment } from '../../../environments/environment';
                           </div>
                         </td>
                         <td class="text-center actions-col">
-                          <button type="button" [matMenuTriggerFor]="planActionMenu" class="action-more-btn" matTooltip="Action Menu">
+                          <button type="button" [matMenuTriggerFor]="planActionMenu" class="action-more-btn" matTooltip="Action Menu" mat-icon-button>
                             <mat-icon>more_vert</mat-icon>
                           </button>
                           <mat-menu #planActionMenu="matMenu" xPosition="before" class="plan-actions-dropdown">
@@ -415,12 +415,12 @@ import { environment } from '../../../environments/environment';
                 }
                 <div class="empty-actions" style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center;">
                   @if (totalCount === 0 && (summary?.totalDefaultersCount || 0) > 0) {
-                    <button mat-stroked-button color="primary" (click)="filterByRisk('')">
+                    <button color="primary" (click)="filterByRisk('')" matButton="filled">
                       <mat-icon>clear_all</mat-icon>
                       <span>Show All Defaulters ({{ summary?.totalDefaultersCount }})</span>
                     </button>
                   }
-                  <button mat-flat-button color="primary" (click)="triggerAnalysis()">
+                  <button color="primary" (click)="triggerAnalysis()" matButton="filled">
                     <mat-icon>auto_awesome</mat-icon>
                     <span>Run Real-Time AI Analysis</span>
                   </button>
@@ -500,12 +500,12 @@ import { environment } from '../../../environments/environment';
                         </td>
                         <td class="text-right actions-col">
                           @if (!prom.isKept) {
-                            <button mat-stroked-button class="mini-btn kept-btn" (click)="resolvePromise(prom, true)" matTooltip="Mark as payment received">
+                            <button class="mini-btn kept-btn" (click)="resolvePromise(prom, true)" matTooltip="Mark as payment received" matButton="filled">
                               Kept
                             </button>
                           }
                           @if (!prom.isKept && !prom.isBroken) {
-                            <button mat-stroked-button class="mini-btn broken-btn" (click)="resolvePromise(prom, false)" matTooltip="Mark as promise broken">
+                            <button class="mini-btn broken-btn" (click)="resolvePromise(prom, false)" matTooltip="Mark as promise broken" matButton="filled">
                               Broken
                             </button>
                           }

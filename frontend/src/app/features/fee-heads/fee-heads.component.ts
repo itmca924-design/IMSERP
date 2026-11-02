@@ -55,15 +55,15 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
           </p>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button class="report-btn catalog-btn" (click)="openFeeHeadsReport()" matTooltip="Print or export official master fee heads catalog">
+          <button class="report-btn catalog-btn" (click)="openFeeHeadsReport()" matTooltip="Print or export official master fee heads catalog" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Master Catalog (कैटलॉग)</span>
           </button>
-          <button mat-stroked-button class="report-btn matrix-btn" (click)="openClassFeeMatrixReport()" matTooltip="Print or export class-wise fee structure matrix">
+          <button class="report-btn matrix-btn" (click)="openClassFeeMatrixReport()" matTooltip="Print or export class-wise fee structure matrix" matButton="filled">
             <mat-icon>grid_view</mat-icon>
             <span>Class Fee Matrix (कक्षा-वार फ़ीस)</span>
           </button>
-          <button mat-raised-button color="primary" class="add-head-btn" (click)="openAddHeadDrawer()">
+          <button color="primary" class="add-head-btn" (click)="openAddHeadDrawer()" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Create Fee Head</span>
           </button>
@@ -116,7 +116,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
                 <small>{{ isEditMode ? 'Update properties for ' + editingHead?.name : 'Add a new billing head with short code, category & frequency' }}</small>
               </div>
             </div>
-            <button mat-icon-button (click)="closeDrawer()"><mat-icon>close</mat-icon></button>
+            <button (click)="closeDrawer()" mat-icon-button><mat-icon>close</mat-icon></button>
           </div>
           <form [formGroup]="headForm" (ngSubmit)="onSubmitHead()" class="drawer-form">
             <div class="form-row">
@@ -196,8 +196,8 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
               </div>
             }
             <div class="drawer-footer">
-              <button mat-button type="button" (click)="closeDrawer()" [disabled]="saving">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="headForm.invalid || saving">
+              <button type="button" (click)="closeDrawer()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+              <button color="primary" type="submit" [disabled]="headForm.invalid || saving" matButton="filled" [class.app-button-update]="isEditMode" [class.app-button-save]="!(isEditMode)">
                 <mat-icon>{{ isEditMode ? 'check' : 'save' }}</mat-icon>
                 <span>{{ isEditMode ? 'Update Fee Head' : 'Save Fee Head' }}</span>
               </button>
@@ -214,7 +214,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
             <mat-form-field appearance="outline" class="search-field">
               <mat-label>Search Fee Head, Code or Description...</mat-label>
               <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Type and hit Enter..." />
-              <button mat-icon-button matSuffix (click)="onSearch()"><mat-icon>search</mat-icon></button>
+              <button matSuffix (click)="onSearch()" mat-icon-button><mat-icon>search</mat-icon></button>
             </mat-form-field>
             <mat-form-field appearance="outline" class="filter-select">
               <mat-label>Category</mat-label>
@@ -254,7 +254,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
               </mat-select>
             </mat-form-field>
             <div class="toolbar-actions">
-              <button mat-stroked-button (click)="resetFilters()" matTooltip="Reset search & filters">
+              <button (click)="resetFilters()" matTooltip="Reset search & filters" matButton="filled" class="app-button-cancel">
                 <mat-icon>refresh</mat-icon>
                 <span>Reset</span>
               </button>
@@ -332,14 +332,14 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef class="text-center actions-header"> Actions </th>
                 <td mat-cell *matCellDef="let head" class="text-center action-buttons">
-                  <button mat-icon-button color="primary" (click)="openEditHeadDrawer(head)" matTooltip="Edit Fee Head">
+                  <button color="primary" (click)="openEditHeadDrawer(head)" matTooltip="Edit Fee Head" mat-icon-button>
                     <mat-icon>edit</mat-icon>
                   </button>
-                  <button mat-icon-button [color]="head.isActive ? 'warn' : 'accent'" (click)="onToggleStatus(head)" [matTooltip]="head.isActive ? 'Deactivate' : 'Activate'">
+                  <button [color]="head.isActive ? 'warn' : 'accent'" (click)="onToggleStatus(head)" [matTooltip]="head.isActive ? 'Deactivate' : 'Activate'" mat-icon-button>
                     <mat-icon>{{ head.isActive ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
                   </button>
                   @if (!head.isDefault) {
-                    <button mat-icon-button color="warn" (click)="onDeleteHead(head)" matTooltip="Delete Fee Head">
+                    <button color="warn" (click)="onDeleteHead(head)" matTooltip="Delete Fee Head" mat-icon-button>
                       <mat-icon>delete_outline</mat-icon>
                     </button>
                   }

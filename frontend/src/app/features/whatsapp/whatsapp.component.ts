@@ -14,6 +14,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CoachingService } from '../../core/services/coaching.service';
+import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 @Component({
   selector: 'app-whatsapp',
@@ -32,7 +33,8 @@ import { CoachingService } from '../../core/services/coaching.service';
     MatSelectModule,
     MatProgressBarModule,
     MatChipsModule,
-    MatTooltipModule
+    MatTooltipModule,
+    IstDatetimeDirective
   ],
   template: `
     <div class="whatsapp-wrapper">
@@ -53,7 +55,7 @@ import { CoachingService } from '../../core/services/coaching.service';
               (keyup.enter)="onSearch()"
               placeholder="Search by Student, Phone, Content..."
               />
-            <button mat-icon-button matSuffix (click)="onSearch()" aria-label="Search">
+            <button matSuffix (click)="onSearch()" aria-label="Search" mat-icon-button>
               <mat-icon>search</mat-icon>
             </button>
           </mat-form-field>
@@ -76,10 +78,13 @@ import { CoachingService } from '../../core/services/coaching.service';
             <ng-container matColumnDef="sentAt">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="sentAt">Time Dispatched (IST)</th>
               <td mat-cell *matCellDef="let log" class="time-cell">
-                <span class="ist-time-text">
-                  <mat-icon class="clock-icon">schedule</mat-icon>
-                  {{ log.sentAt | date:'MMM d, y, hh:mm:ss a':'+0530' }}
-                </span>
+                <div class="ist-time-text">
+                  <span class="dispatch-date" [appIstDatetime]="log.sentAt" format="date"></span>
+                  <span class="dispatch-time">
+                    <mat-icon class="clock-icon">schedule</mat-icon>
+                    <span [appIstDatetime]="log.sentAt" format="time"></span>
+                  </span>
+                </div>
               </td>
             </ng-container>
     
@@ -192,16 +197,30 @@ import { CoachingService } from '../../core/services/coaching.service';
     }
     .ist-time-text {
       display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.85rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
       color: #334155;
       font-weight: 500;
 
+      .dispatch-date {
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      .dispatch-time {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        color: #64748b;
+        font-size: 0.72rem;
+        line-height: 1.2;
+      }
+
       .clock-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
         color: #0284c7;
       }
     }

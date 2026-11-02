@@ -52,17 +52,17 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
             </div>
             <div class="bar-actions">
               @if (receipt.remainingDue > 0) {
-                <button mat-flat-button class="action-btn upi-pay-btn" (click)="openUpiPayment()">
+                <button class="action-btn upi-pay-btn" (click)="openUpiPayment()" matButton="filled">
                   <mat-icon>qr_code_2</mat-icon>
                   <span>Pay Due via UPI</span>
                 </button>
               }
-              <button mat-flat-button color="primary" class="action-btn download-btn" (click)="printReceipt()">
+              <button color="primary" class="action-btn download-btn" (click)="printReceipt()" matButton="filled">
                 <mat-icon>download</mat-icon>
                 <span>Download PDF / Print</span>
               </button>
               @if (receipt.parentPhone) {
-                <button mat-stroked-button class="action-btn wa-share-btn" (click)="shareWhatsApp()">
+                <button class="action-btn wa-share-btn" (click)="shareWhatsApp()" matButton="filled">
                   <mat-icon class="wa-icon">chat</mat-icon>
                   <span>WhatsApp</span>
                 </button>
@@ -285,7 +285,7 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
               </div>
               @if (receipt.remainingDue > 0) {
                 <div class="due-actions-box no-print">
-                  <button mat-flat-button class="pay-now-action-btn" (click)="openUpiPayment()">
+                  <button class="pay-now-action-btn" (click)="openUpiPayment()" matButton="filled">
                     <mat-icon>qr_code_scanner</mat-icon>
                     <span>Pay Now</span>
                   </button>

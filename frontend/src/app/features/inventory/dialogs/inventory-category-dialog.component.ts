@@ -42,7 +42,7 @@ export interface InventoryCategoryDialogData {
             <p>{{ data.isEdit ? 'Update category name, code, or description' : 'Define an inventory classification (Stationery, Uniforms, Books, Labs, Sports)' }}</p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onCancel()" type="button">
+        <button class="close-btn" (click)="onCancel()" type="button" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -89,10 +89,10 @@ export interface InventoryCategoryDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
+          <button type="button" (click)="onCancel()" [disabled]="submitting" matButton="filled" class="app-button-cancel">
             Cancel
           </button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
+          <button color="primary" type="submit" [disabled]="form.invalid || submitting" matButton="filled" [class.app-button-update]="data.isEdit" [class.app-button-save]="!(data.isEdit)">
             @if (submitting) {
               <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
             }

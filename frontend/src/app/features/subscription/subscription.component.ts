@@ -51,11 +51,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     
         @if (isSuperAdmin) {
           <div class="header-actions">
-            <button mat-raised-button color="primary" class="superadmin-manage-btn" (click)="openSuperAdminManageDialog()">
+            <button color="primary" class="superadmin-manage-btn" (click)="openSuperAdminManageDialog()" matButton="filled">
               <mat-icon>verified</mat-icon>
               <span>Manage &amp; Extend Plan</span>
             </button>
-            <a mat-stroked-button color="primary" routerLink="/admin/tenants" class="manage-tenants-btn">
+            <a matButton="filled" color="primary" routerLink="/admin/tenants" class="manage-tenants-btn">
               <mat-icon>corporate_fare</mat-icon>
               <span>Tenants Grid</span>
             </a>
@@ -108,7 +108,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   Your institute's trial period or subscription has ended. Routine operations and feature access are currently locked. Renew your plan or select an upgraded edition to resume immediate access.
                 </p>
               </div>
-              <button mat-raised-button color="warn" class="upgrade-btn danger" (click)="openRenewalDialog()">
+              <button color="warn" class="upgrade-btn danger" (click)="openRenewalDialog()" matButton="filled">
                 <mat-icon>credit_score</mat-icon>
                 <span>Renew Plan Now</span>
               </button>
@@ -131,7 +131,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   Your institute is currently enjoying full access to provisioned modules under the complimentary trial period. Upgrade to a permanent tier to guarantee uninterrupted student management, fee records, and biometric integrations.
                 </p>
               </div>
-              <button mat-raised-button color="accent" class="upgrade-btn" (click)="contactForUpgrade()">
+              <button color="accent" class="upgrade-btn" (click)="contactForUpgrade()" matButton="filled">
                 <mat-icon>upgrade</mat-icon>
                 <span>Upgrade to Premium</span>
               </button>
@@ -184,7 +184,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </div>
               @if (isSuperAdmin) {
                 <div class="countdown-footer">
-                  <button mat-button color="primary" class="quick-extend-link" (click)="openSuperAdminManageDialog()">
+                  <button color="primary" class="quick-extend-link" (click)="openSuperAdminManageDialog()" matButton="filled">
                     <mat-icon>add_alarm</mat-icon>
                     <span>Extend (+15d / +1m / +2m)</span>
                   </button>
@@ -335,7 +335,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <li><mat-icon>check</mat-icon> Staff Attendance &amp; Payroll</li>
                   <li class="disabled"><mat-icon>close</mat-icon> Hostel &amp; Transport</li>
                 </ul>
-                <button mat-stroked-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Starter')">
+                <button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Starter')" matButton="filled">
                   Select Starter Plan
                 </button>
               </mat-card>
@@ -354,7 +354,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <li><mat-icon>check</mat-icon> WhatsApp Cloud Messaging</li>
                   <li><mat-icon>check</mat-icon> Full Accounting &amp; P&amp;L</li>
                 </ul>
-                <button mat-raised-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Growth')">
+                <button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Growth')" matButton="filled">
                   Upgrade to Growth
                 </button>
               </mat-card>
@@ -372,7 +372,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <li><mat-icon>check</mat-icon> Fleet &amp; Bus Route Tracking</li>
                   <li><mat-icon>check</mat-icon> Dedicated Support &amp; SLA</li>
                 </ul>
-                <button mat-stroked-button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Enterprise')">
+                <button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Enterprise')" matButton="filled">
                   Contact for Enterprise
                 </button>
               </mat-card>

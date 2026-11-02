@@ -62,10 +62,10 @@ interface MappingPerson {
       <p>Seamless real-time synchronization with Hikvision DS-K1A802AEF (Fingerprint + 125kHz EM RFID) terminals.</p>
     </div>
     <div class="header-actions">
-      <button mat-stroked-button color="primary" (click)="prefillHikvision(); showForm = true">
+      <button color="primary" (click)="prefillHikvision(); showForm = true" matButton="filled">
         <mat-icon>settings_suggest</mat-icon> Add Hikvision Device
       </button>
-      <button mat-raised-button color="primary" (click)="showForm = !showForm">
+      <button color="primary" (click)="showForm = !showForm" matButton="filled">
         <mat-icon>add</mat-icon> {{ showForm ? 'Close Form' : 'Register Custom Device' }}
       </button>
     </div>
@@ -96,7 +96,7 @@ interface MappingPerson {
       </div>
       <div class="webhook-code-row">
         <code>{{ webhookUrl }}</code>
-        <button mat-flat-button color="primary" (click)="copyWebhookUrl()" matTooltip="Copy Webhook URL">
+        <button color="primary" (click)="copyWebhookUrl()" matTooltip="Copy Webhook URL" matButton="filled">
           <mat-icon>content_copy</mat-icon> Copy URL
         </button>
       </div>
@@ -140,13 +140,13 @@ interface MappingPerson {
         <h2>Biometric &amp; RFID User Mapping</h2>
         <p>Select Coaching Student, School Student, or Teacher to map terminal IDs and RFID cards.</p>
       </div>
-      <button mat-stroked-button (click)="loadMappings()"><mat-icon>refresh</mat-icon> Refresh People</button>
+      <button (click)="loadMappings()" matButton="filled"><mat-icon>refresh</mat-icon> Refresh People</button>
     </div>
 
     <!-- 3 Clear Category Tabs: Coaching, School, Teacher -->
     <div class="category-tabs-container">
       <div class="category-pills">
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Coaching'" (click)="setCategory('Coaching')">
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Coaching'" (click)="setCategory('Coaching')" matButton="filled">
           <mat-icon class="pill-icon">menu_book</mat-icon>
           <div class="pill-info">
             <span class="pill-title">Coaching Students</span>
@@ -157,7 +157,7 @@ interface MappingPerson {
           }
         </button>
 
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'School'" (click)="setCategory('School')">
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'School'" (click)="setCategory('School')" matButton="filled">
           <mat-icon class="pill-icon">school</mat-icon>
           <div class="pill-info">
             <span class="pill-title">School Students</span>
@@ -168,7 +168,7 @@ interface MappingPerson {
           }
         </button>
 
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Teacher'" (click)="setCategory('Teacher')">
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Teacher'" (click)="setCategory('Teacher')" matButton="filled">
           <mat-icon class="pill-icon">badge</mat-icon>
           <div class="pill-info">
             <span class="pill-title">Teachers &amp; Faculty</span>
@@ -219,7 +219,7 @@ interface MappingPerson {
       }
 
       @if (!showManualEdit) {
-        <button mat-stroked-button color="primary" class="toggle-edit-btn" (click)="toggleManualEdit()">
+        <button color="primary" class="toggle-edit-btn" (click)="toggleManualEdit()" matButton="filled">
           <mat-icon>edit_note</mat-icon> Custom / RFID Card Entry
         </button>
       }
@@ -236,7 +236,7 @@ interface MappingPerson {
               <small>Type numeric ID or scan/tap 125kHz RFID card. Save button activates when ID is typed.</small>
             </div>
           </div>
-          <button mat-icon-button (click)="closeManualEdit()" matTooltip="Close editor">
+          <button (click)="closeManualEdit()" matTooltip="Close editor" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -266,12 +266,12 @@ interface MappingPerson {
           <!-- Save Button (Red Mark): ONLY VISIBLE & ACTIVE WHEN TEXT IS IN THE GREEN BOX! -->
           <div class="edit-actions">
             @if (mapping.personId && mapping.biometricUserId.trim()) {
-              <button mat-raised-button color="primary" class="save-mapping-btn"
-                (click)="saveMapping()">
+              <button color="primary" class="save-mapping-btn app-button-save"
+                (click)="saveMapping()" matButton="filled">
                 <mat-icon>save</mat-icon> Save Mapping
               </button>
             }
-            <button mat-stroked-button (click)="closeManualEdit()">
+            <button (click)="closeManualEdit()" matButton="filled" class="app-button-cancel">
               Cancel
             </button>
           </div>
@@ -289,11 +289,11 @@ interface MappingPerson {
         <p>Pre-calculated unique biometric device IDs for Hikvision DS-K1A802AEF enrollment and 125kHz RFID card assignment.</p>
       </div>
       <div class="toolbar-actions">
-        <button mat-flat-button color="accent" class="toolbar-action-btn" (click)="autoGenerateIds(false)" [disabled]="autoGenerating" matTooltip="Auto-generate and save unique device IDs in database for all unmapped people in this category">
+        <button color="accent" class="toolbar-action-btn" (click)="autoGenerateIds(false)" [disabled]="autoGenerating" matTooltip="Auto-generate and save unique device IDs in database for all unmapped people in this category" matButton="filled">
           <mat-icon>{{ autoGenerating ? 'hourglass_top' : 'auto_fix_high' }}</mat-icon>
           {{ autoGenerating ? 'Generating...' : '⚡ Auto-Generate All IDs' }}
         </button>
-        <button mat-stroked-button color="primary" class="toolbar-action-btn" (click)="printEnrollmentSheet()" matTooltip="Print physical checklist to carry to the biometric machine">
+        <button color="primary" class="toolbar-action-btn" (click)="printEnrollmentSheet()" matTooltip="Print physical checklist to carry to the biometric machine" matButton="filled">
           <mat-icon>print</mat-icon> Print Enrollment Sheet
         </button>
       </div>
@@ -356,11 +356,11 @@ interface MappingPerson {
               </td>
               <td class="col-action">
                 @if (!p.biometricUserId && p.suggestedBiometricId) {
-                  <button mat-stroked-button color="accent" class="btn-xs" (click)="quickAssignSuggested(p)" matTooltip="Assign this ID in DB now">
+                  <button color="accent" class="btn-xs" (click)="quickAssignSuggested(p)" matTooltip="Assign this ID in DB now" matButton="filled">
                     <mat-icon>check_circle</mat-icon> Apply {{ p.suggestedBiometricId }}
                   </button>
                 }
-                <button mat-icon-button class="btn-icon-xs" (click)="selectPersonForEdit(p)" matTooltip="Select for Edit">
+                <button class="btn-icon-xs" (click)="selectPersonForEdit(p)" matTooltip="Select for Edit" mat-icon-button>
                   <mat-icon>edit</mat-icon>
                 </button>
               </td>
@@ -381,7 +381,7 @@ interface MappingPerson {
       <div class="form-card-header">
         <h2>{{ editingId ? 'Edit Device Configuration' : 'Register Biometric / RFID Terminal' }}</h2>
         @if (!editingId) {
-          <button mat-stroked-button color="accent" (click)="prefillHikvision()">
+          <button color="accent" (click)="prefillHikvision()" matButton="filled">
             <mat-icon>auto_fix_high</mat-icon> Auto-Fill DS-K1A802AEF Defaults
           </button>
         }
@@ -413,8 +413,8 @@ interface MappingPerson {
         </mat-form-field>
       </div>
       <div class="actions">
-        <button mat-button (click)="cancelForm()">Cancel</button>
-        <button mat-raised-button color="primary" (click)="saveDevice()" [disabled]="!form.name">Save Device</button>
+        <button (click)="cancelForm()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button color="primary" (click)="saveDevice()" [disabled]="!form.name" matButton="filled" class="app-button-save">Save Device</button>
       </div>
     </mat-card>
   }
@@ -438,10 +438,10 @@ interface MappingPerson {
           <small class="error">{{device.lastError}}</small>
         }
         <div class="actions">
-          <button mat-stroked-button color="primary" (click)="testConnection(device)">
+          <button color="primary" (click)="testConnection(device)" matButton="filled">
             <mat-icon>sync</mat-icon> Test Socket Connection
           </button>
-          <button mat-icon-button (click)="editDevice(device)" matTooltip="Edit device">
+          <button (click)="editDevice(device)" matTooltip="Edit device" mat-icon-button>
             <mat-icon>edit</mat-icon>
           </button>
         </div>
@@ -461,7 +461,7 @@ interface MappingPerson {
         <h2>Test Punch Simulation</h2>
         <p>Instantly test fingerprint or RFID punches to verify live Check-In &amp; Check-Out behavior in IST.</p>
       </div>
-      <button mat-stroked-button (click)="loadEvents()" [disabled]="eventsLoading">
+      <button (click)="loadEvents()" [disabled]="eventsLoading" matButton="filled">
         <mat-icon>{{eventsLoading ? 'sync' : 'refresh'}}</mat-icon> {{eventsLoading ? 'Refreshing...' : 'Refresh Events'}}
       </button>
     </div>
@@ -493,7 +493,7 @@ interface MappingPerson {
       </mat-form-field>
     </div>
     <div class="actions">
-      <button mat-raised-button color="primary" (click)="simulatePunch()" [disabled]="!simulation.biometricUserId || simulating">
+      <button color="primary" (click)="simulatePunch()" [disabled]="!simulation.biometricUserId || simulating" matButton="filled">
         <mat-icon>fingerprint</mat-icon> Trigger Live Punch
       </button>
       @if (message) {
@@ -509,11 +509,11 @@ interface MappingPerson {
         <p>Live stream of attendance punches (Auto-polling every 5 seconds).</p>
       </div>
       <div class="events-actions">
-        <button mat-stroked-button (click)="toggleLiveSync()" [class.live-active]="isLiveSync" matTooltip="Toggle 5-second automatic polling">
+        <button (click)="toggleLiveSync()" [class.live-active]="isLiveSync" matTooltip="Toggle 5-second automatic polling" matButton="filled">
           <mat-icon>{{ isLiveSync ? 'sync' : 'sync_disabled' }}</mat-icon>
           {{ isLiveSync ? 'Live Sync Active (5s)' : 'Live Sync Paused' }}
         </button>
-        <button mat-stroked-button (click)="loadEvents()" [disabled]="eventsLoading">
+        <button (click)="loadEvents()" [disabled]="eventsLoading" matButton="filled">
           <mat-icon>{{eventsLoading ? 'sync' : 'refresh'}}</mat-icon> Refresh
         </button>
       </div>
@@ -530,7 +530,7 @@ interface MappingPerson {
         </div>
         <span class="event-status" [class.processed]="event.status === 'Processed'" [class.failed]="event.status === 'Failed'">{{event.status}}</span>
         @if (event.status === 'Failed') {
-          <button mat-icon-button (click)="retryEvent(event)" matTooltip="Retry failed event">
+          <button (click)="retryEvent(event)" matTooltip="Retry failed event" mat-icon-button>
             <mat-icon>replay</mat-icon>
           </button>
         }

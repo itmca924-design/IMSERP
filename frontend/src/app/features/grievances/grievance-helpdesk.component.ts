@@ -49,7 +49,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span class="dialog-subtitle">Parent, Student & Staff Redressal &bull; <strong>Front Desk Helpdesk</strong></span>
           </div>
         </div>
-        <button mat-icon-button class="dialog-close-btn" (click)="dialogRef.close()">
+        <button class="dialog-close-btn" (click)="dialogRef.close()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -164,8 +164,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
     
         <div class="dialog-actions">
-          <button mat-button type="button" (click)="dialogRef.close()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isSaving">
+          <button type="button" (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="form.invalid || isSaving" matButton="filled">
             <mat-icon>{{ isSaving ? 'hourglass_top' : 'send' }}</mat-icon>
             Log Grievance Ticket
           </button>
@@ -348,7 +348,7 @@ export class LogGrievanceDialogComponent implements OnInit {
             <span class="dialog-subtitle">Status: <strong [style.color]="getStatusColor(ticket.status)">{{ ticket.status }}</strong> &bull; Priority: <strong>{{ ticket.priority }}</strong></span>
           </div>
         </div>
-        <button mat-icon-button class="dialog-close-btn" (click)="dialogRef.close()">
+        <button class="dialog-close-btn" (click)="dialogRef.close()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -420,7 +420,7 @@ export class LogGrievanceDialogComponent implements OnInit {
           </div>
     
           <div class="status-btn-row">
-            <button mat-flat-button color="primary" type="submit" [disabled]="statusForm.invalid || isUpdatingStatus">
+            <button color="primary" type="submit" [disabled]="statusForm.invalid || isUpdatingStatus" matButton="filled" class="app-button-save app-button-update">
               <mat-icon>{{ isUpdatingStatus ? 'hourglass_top' : 'check_circle' }}</mat-icon>
               Save Status Update
             </button>
@@ -453,7 +453,7 @@ export class LogGrievanceDialogComponent implements OnInit {
             <mat-form-field appearance="outline" class="w-100">
               <mat-label>Add Note or Reply...</mat-label>
               <input matInput formControlName="comment" placeholder="Write an update, parent response, or staff note..." />
-              <button mat-icon-button matSuffix color="primary" type="submit" [disabled]="commentForm.invalid || isAddingComment">
+              <button matSuffix color="primary" type="submit" [disabled]="commentForm.invalid || isAddingComment" mat-icon-button>
                 <mat-icon>send</mat-icon>
               </button>
             </mat-form-field>
@@ -695,10 +695,10 @@ export class GrievanceDetailsDialogComponent implements OnInit {
           </div>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button color="primary" routerLink="/front-desk/visitors">
+          <button color="primary" routerLink="/front-desk/visitors" matButton="filled">
             <mat-icon>arrow_back</mat-icon> Front Desk
           </button>
-          <button mat-flat-button color="primary" (click)="openLogGrievanceDialog()">
+          <button color="primary" (click)="openLogGrievanceDialog()" matButton="filled">
             <mat-icon>add_circle</mat-icon> Log New Grievance
           </button>
         </div>
@@ -825,13 +825,13 @@ export class GrievanceDetailsDialogComponent implements OnInit {
             <mat-form-field appearance="outline" class="filter-field search-field">
               <mat-label>Search Tickets</mat-label>
               <input matInput formControlName="searchTerm" placeholder="Search ticket #, subject, student, phone..." (keyup.enter)="onFilterChanged()" />
-              <button mat-icon-button matSuffix type="button" (click)="onFilterChanged()">
+              <button matSuffix type="button" (click)="onFilterChanged()" mat-icon-button>
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
     
             <div class="filter-actions">
-              <button mat-stroked-button type="button" (click)="resetFilters()">
+              <button type="button" (click)="resetFilters()" matButton="filled" class="app-button-cancel">
                 <mat-icon>refresh</mat-icon> Reset
               </button>
             </div>
@@ -945,10 +945,10 @@ export class GrievanceDetailsDialogComponent implements OnInit {
                   <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
                   <td mat-cell *matCellDef="let t" class="text-right">
                     <div class="action-buttons">
-                      <button mat-stroked-button color="primary" class="btn-compact" (click)="openTicketDetails(t)">
+                      <button color="primary" class="btn-compact" (click)="openTicketDetails(t)" matButton="filled">
                         <mat-icon>visibility</mat-icon> View & Resolve
                       </button>
-                      <button mat-icon-button color="warn" (click)="deleteTicket(t)" matTooltip="Delete Ticket">
+                      <button color="warn" (click)="deleteTicket(t)" matTooltip="Delete Ticket" mat-icon-button>
                         <mat-icon>delete</mat-icon>
                       </button>
                     </div>
@@ -983,11 +983,14 @@ export class GrievanceDetailsDialogComponent implements OnInit {
       align-items: center;
       flex-wrap: wrap;
       gap: 16px;
+      min-width: 0;
     }
     .header-content {
       display: flex;
       align-items: center;
       gap: 16px;
+      min-width: 0;
+      flex: 1 1 320px;
     }
     .header-icon {
       background: #2563eb;
@@ -1015,19 +1018,61 @@ export class GrievanceDetailsDialogComponent implements OnInit {
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-wrap: wrap;
     }
 
     /* KPI Grid */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 16px;
+      min-width: 0;
     }
     @media (max-width: 1024px) {
-      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 640px) {
-      .kpi-grid { grid-template-columns: 1fr; }
+      .page-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        justify-content: stretch;
+        gap: 10px;
+      }
+      .header-content {
+        flex: none;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .header-content > div:last-child {
+        min-width: 0;
+      }
+      .header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+      }
+      .header-actions > button {
+        min-width: 0;
+        width: 100%;
+        height: auto;
+        min-height: 40px;
+        padding: 6px 8px;
+        white-space: normal;
+        line-height: 1.2;
+      }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .kpi-card { min-width: 0; padding: 12px; box-sizing: border-box; }
+      .kpi-content { min-width: 0; gap: 8px; }
+      .kpi-info { min-width: 0; }
+      .kpi-label { font-size: 0.68rem; letter-spacing: 0.25px; }
+      .kpi-value { font-size: 1.5rem; }
+      .kpi-meta { font-size: 0.68rem; }
+      .kpi-icon-wrapper { width: 36px; height: 36px; flex: 0 0 36px; }
+    }
+    @media (max-width: 360px) {
+      .kpi-grid { grid-template-columns: minmax(0, 1fr); }
+      .header-actions { grid-template-columns: minmax(0, 1fr); }
     }
     .kpi-card {
       border-radius: 12px;

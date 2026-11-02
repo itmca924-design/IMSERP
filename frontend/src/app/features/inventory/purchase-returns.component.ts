@@ -65,14 +65,13 @@ import {
     
         <div class="action-btn-group">
           <button
-            mat-flat-button
             color="warn"
             (click)="toggleCreateForm()"
-            class="erp-btn">
+            class="erp-btn" matButton="filled">
             <mat-icon>{{ showCreateForm ? 'close' : 'add' }}</mat-icon>
             <span>{{ showCreateForm ? 'Close Return Form' : 'New Purchase Return (PR)' }}</span>
           </button>
-          <button mat-icon-button (click)="loadAllData()" matTooltip="Refresh Data" class="refresh-btn">
+          <button (click)="loadAllData()" matTooltip="Refresh Data" class="refresh-btn" mat-icon-button>
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
@@ -80,16 +79,16 @@ import {
     
       <!-- Module Sub-Nav Bar -->
       <div class="module-nav-bar">
-        <a mat-button [routerLink]="['/inventory']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory']" class="nav-tab">
           <mat-icon>inventory_2</mat-icon> Store &amp; Catalog
         </a>
-        <a mat-button [routerLink]="['/inventory/purchase-returns']" class="nav-tab active-tab">
+        <a matButton="filled" [routerLink]="['/inventory/purchase-returns']" class="nav-tab active-tab">
           <mat-icon>assignment_return</mat-icon> Purchase Returns
         </a>
-        <a mat-button [routerLink]="['/inventory/sale-returns']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory/sale-returns']" class="nav-tab">
           <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns
         </a>
-        <a mat-button [routerLink]="['/inventory/vendors']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory/vendors']" class="nav-tab">
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
         </a>
       </div>
@@ -165,7 +164,7 @@ import {
                 <p class="f-sub">Select vendor and items to return. Stock will be deducted and vendor ledger credited immediately.</p>
               </div>
             </div>
-            <button mat-icon-button (click)="toggleCreateForm()" class="f-close-btn" matTooltip="Cancel & Close">
+            <button (click)="toggleCreateForm()" class="f-close-btn" matTooltip="Cancel & Close" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -193,7 +192,7 @@ import {
               <mat-icon matPrefix class="prefix-icon">calendar_today</mat-icon>
             </mat-form-field>
             <div class="add-row-action">
-              <button mat-stroked-button color="primary" type="button" (click)="addItemRow()" class="erp-btn">
+              <button color="primary" type="button" (click)="addItemRow()" class="erp-btn" matButton="filled">
                 <mat-icon>add</mat-icon>
                 <span>Add Item Line</span>
               </button>
@@ -242,13 +241,12 @@ import {
                     <input matInput formControlName="reason" placeholder="e.g. Torn cover, Misprint, Wrong supply" />
                   </mat-form-field>
                   <button
-                    mat-icon-button
                     type="button"
                     (click)="removeItemRow(i)"
                     [disabled]="itemRows.length === 1"
                     color="warn"
                     matTooltip="Remove line"
-                    class="del-btn">
+                    class="del-btn" mat-icon-button>
                     <mat-icon>delete_outline</mat-icon>
                   </button>
                 </div>
@@ -286,15 +284,14 @@ import {
                 <strong class="text-danger">₹{{ formGrandTotal | number:'1.2-2' }}</strong>
               </div>
               <div class="btn-group">
-                <button mat-button type="button" (click)="toggleCreateForm()" [disabled]="submitting">
+                <button type="button" (click)="toggleCreateForm()" [disabled]="submitting" matButton="filled" class="app-button-cancel">
                   Cancel
                 </button>
                 <button
-                  mat-flat-button
                   color="warn"
                   type="submit"
                   [disabled]="form.invalid || submitting || hasStockErrors() || formGrandTotal <= 0"
-                  class="save-btn">
+                  class="save-btn" matButton="filled">
                   <mat-icon>assignment_return</mat-icon>
                   <span>{{ submitting ? 'Generating Debit Note...' : 'Confirm & Generate Debit Note' }}</span>
                 </button>
@@ -317,10 +314,9 @@ import {
           <mat-icon matPrefix class="prefix-icon">search</mat-icon>
           @if (filterSearchCtrl.value) {
             <button
-              mat-icon-button
               matSuffix
               (click)="filterSearchCtrl.setValue('')"
-              matTooltip="Clear">
+              matTooltip="Clear" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           }

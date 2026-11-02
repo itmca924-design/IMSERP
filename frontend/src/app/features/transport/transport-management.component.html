@@ -23,7 +23,7 @@
         class="action-btn"
         [class.action-btn-active]="activeTopAction === 'student'"
         [class.action-btn-secondary]="activeTopAction !== 'student'"
-        (click)="onTopActionClick('student')">
+        (click)="onTopActionClick('student')" matButton="filled">
         <mat-icon>school</mat-icon>
         <span>Assign Student</span>
       </button>
@@ -33,7 +33,7 @@
         class="action-btn"
         [class.action-btn-active]="activeTopAction === 'faculty'"
         [class.action-btn-secondary]="activeTopAction !== 'faculty'"
-        (click)="onTopActionClick('faculty')">
+        (click)="onTopActionClick('faculty')" matButton="filled">
         <mat-icon>co_present</mat-icon>
         <span>Assign Faculty</span>
       </button>
@@ -43,7 +43,7 @@
         class="action-btn"
         [class.action-btn-active]="activeTopAction === 'gatePass'"
         [class.action-btn-secondary]="activeTopAction !== 'gatePass'"
-        (click)="onTopActionClick('gatePass')">
+        (click)="onTopActionClick('gatePass')" matButton="filled">
         <mat-icon>meeting_room</mat-icon>
         <span>Gate Pass Desk</span>
       </button>
@@ -53,35 +53,35 @@
   <!-- Navigation Tabs -->
   <div class="nav-tabs-wrapper">
     <div class="custom-tabs">
-      <button class="tab-btn" [class.active]="activeTab === 0" (click)="selectTab(0)">
+      <button class="tab-btn" [class.active]="activeTab === 0" (click)="selectTab(0)" matButton="filled">
         <mat-icon>dashboard</mat-icon>
         <span>Overview</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 1" (click)="selectTab(1)">
+      <button class="tab-btn" [class.active]="activeTab === 1" (click)="selectTab(1)" matButton="filled">
         <mat-icon>directions_bus</mat-icon>
         <span>Vehicles &amp; Fleet ({{ vehicles.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 2" (click)="selectTab(2)">
+      <button class="tab-btn" [class.active]="activeTab === 2" (click)="selectTab(2)" matButton="filled">
         <mat-icon>airline_seat_recline_normal</mat-icon>
         <span>Drivers &amp; Staff ({{ drivers.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 3" (click)="selectTab(3)">
+      <button class="tab-btn" [class.active]="activeTab === 3" (click)="selectTab(3)" matButton="filled">
         <mat-icon>alt_route</mat-icon>
         <span>Routes &amp; Stops ({{ routes.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 4" (click)="selectTab(4)">
+      <button class="tab-btn" [class.active]="activeTab === 4" (click)="selectTab(4)" matButton="filled">
         <mat-icon>school</mat-icon>
         <span>Student Passes ({{ studentPassTotalCount || studentAllocations.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 5" (click)="selectTab(5)">
+      <button class="tab-btn" [class.active]="activeTab === 5" (click)="selectTab(5)" matButton="filled">
         <mat-icon>co_present</mat-icon>
         <span>Faculty Passes ({{ teacherAllocations.length }})</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 6" (click)="selectTab(6)">
+      <button class="tab-btn" [class.active]="activeTab === 6" (click)="selectTab(6)" matButton="filled">
         <mat-icon>fact_check</mat-icon>
         <span>Live Boarding Tracker</span>
       </button>
-      <button class="tab-btn" [class.active]="activeTab === 7" (click)="selectTab(7)">
+      <button class="tab-btn" [class.active]="activeTab === 7" (click)="selectTab(7)" matButton="filled">
         <mat-icon>meeting_room</mat-icon>
         <span>Gate Passes ({{ gatePasses.length }})</span>
       </button>
@@ -203,7 +203,7 @@
           <h3>Institutional Fleet</h3>
           <p>Manage buses, vans and staff cabs with driver assignments</p>
         </div>
-        <button mat-flat-button color="primary" (click)="openAddVehicle()">
+        <button color="primary" (click)="openAddVehicle()" matButton="filled">
           <mat-icon>add</mat-icon> Add Vehicle
         </button>
       </div>
@@ -262,10 +262,10 @@
               </div>
             </div>
             <div class="fleet-footer">
-              <button mat-button color="primary" (click)="openEditVehicle(v)">
+              <button color="primary" (click)="openEditVehicle(v)" matButton="filled" class="app-button-update">
                 <mat-icon>edit</mat-icon> Edit
               </button>
-              <button mat-button [color]="v.isActive ? 'warn' : 'accent'" (click)="toggleVehicle(v)">
+              <button [color]="v.isActive ? 'warn' : 'accent'" (click)="toggleVehicle(v)" matButton="filled">
                 <mat-icon>{{ v.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
                 {{ v.isActive ? 'Deactivate' : 'Activate' }}
               </button>
@@ -284,7 +284,7 @@
           <h3>Drivers &amp; Transport Crew</h3>
           <p>Verified drivers with statutory license and Aadhaar records</p>
         </div>
-        <button mat-flat-button color="primary" (click)="openAddDriver()">
+        <button color="primary" (click)="openAddDriver()" matButton="filled">
           <mat-icon>person_add</mat-icon> Add Driver
         </button>
       </div>
@@ -337,10 +337,10 @@
               }
             </div>
             <div class="fleet-footer">
-              <button mat-button color="primary" (click)="openEditDriver(d)">
+              <button color="primary" (click)="openEditDriver(d)" matButton="filled" class="app-button-update">
                 <mat-icon>edit</mat-icon> Edit
               </button>
-              <button mat-button [color]="d.isActive ? 'warn' : 'accent'" (click)="toggleDriver(d)">
+              <button [color]="d.isActive ? 'warn' : 'accent'" (click)="toggleDriver(d)" matButton="filled">
                 <mat-icon>{{ d.isActive ? 'block' : 'check_circle' }}</mat-icon>
                 {{ d.isActive ? 'Suspend' : 'Activate' }}
               </button>
@@ -359,7 +359,7 @@
           <h3>Transit Routes &amp; Stop Fare Matrix</h3>
           <p>Pick-up paths, scheduled morning/evening timings, and distance-based fee heads</p>
         </div>
-        <button mat-flat-button color="primary" (click)="openAddRoute()">
+        <button color="primary" (click)="openAddRoute()" matButton="filled">
           <mat-icon>add_road</mat-icon> Create Route
         </button>
       </div>
@@ -391,13 +391,13 @@
                 <span class="badge-riders">{{ r.allocatedStudentsCount || 0 }} Riders</span>
               </div>
               <div class="rh-actions">
-                <button mat-stroked-button color="primary" (click)="manageStops(r)">
+                <button color="primary" (click)="manageStops(r)" matButton="filled">
                   <mat-icon>add_location_alt</mat-icon> Add Stop
                 </button>
-                <button mat-icon-button color="primary" (click)="openEditRoute(r)" matTooltip="Edit Route">
+                <button color="primary" (click)="openEditRoute(r)" matTooltip="Edit Route" mat-icon-button>
                   <mat-icon>edit</mat-icon>
                 </button>
-                <button mat-icon-button [color]="r.isActive ? 'warn' : 'accent'" (click)="toggleRoute(r)" [matTooltip]="r.isActive ? 'Deactivate' : 'Activate'">
+                <button [color]="r.isActive ? 'warn' : 'accent'" (click)="toggleRoute(r)" [matTooltip]="r.isActive ? 'Deactivate' : 'Activate'" mat-icon-button>
                   <mat-icon>{{ r.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
                 </button>
               </div>
@@ -438,10 +438,10 @@
                         <td>₹{{ (s.annualFare || s.monthlyFare * 11) | number }}</td>
                         <td><span class="riders-count-pill">{{ s.allocatedStudentsCount || 0 }}</span></td>
                         <td style="text-align: right;">
-                          <button mat-icon-button color="primary" (click)="openEditStop(r, s)" matTooltip="Edit Stop &amp; Fares">
+                          <button color="primary" (click)="openEditStop(r, s)" matTooltip="Edit Stop &amp; Fares" mat-icon-button>
                             <mat-icon>edit</mat-icon>
                           </button>
-                          <button mat-icon-button color="warn" (click)="deleteStop(s)" matTooltip="Remove Stop">
+                          <button color="warn" (click)="deleteStop(s)" matTooltip="Remove Stop" mat-icon-button>
                             <mat-icon>delete_outline</mat-icon>
                           </button>
                         </td>
@@ -474,15 +474,15 @@
         <!-- Scope Switcher Pill Tabs -->
         <div class="scope-nav-container">
           <div class="scope-pills">
-            <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'ALL'" (click)="setStudentPassScope('ALL')">
+            <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'ALL'" (click)="setStudentPassScope('ALL')" matButton="filled">
               <mat-icon>directions_bus</mat-icon>
               <span>All Commuters (सभी छात्र)</span>
             </button>
-            <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'school'" (click)="setStudentPassScope('school')">
+            <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'school'" (click)="setStudentPassScope('school')" matButton="filled">
               <mat-icon>school</mat-icon>
               <span>School Classes (स्कूल)</span>
             </button>
-            <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'coaching'" (click)="setStudentPassScope('coaching')">
+            <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'coaching'" (click)="setStudentPassScope('coaching')" matButton="filled">
               <mat-icon>groups</mat-icon>
               <span>Coaching Batches (कोचिंग)</span>
             </button>
@@ -530,18 +530,18 @@
           <mat-form-field appearance="outline" class="filter-field search-filter-field">
             <mat-label>Search student, roll, route...</mat-label>
             <input matInput [(ngModel)]="studentPassSearch" (keyup.enter)="onStudentPassSearchChange()" placeholder="Type and press enter..." />
-            <button mat-icon-button matSuffix (click)="onStudentPassSearchChange()" title="Search" class="search-suffix-btn">
+            <button matSuffix (click)="onStudentPassSearchChange()" title="Search" class="search-suffix-btn" mat-icon-button>
               <mat-icon>search</mat-icon>
             </button>
           </mat-form-field>
           <!-- Reset Button -->
           @if (studentPassSearch || studentPassFilterClass !== 'ALL' || studentPassFilterRoute !== 'ALL') {
-            <button mat-stroked-button class="btn-reset-filters" (click)="resetStudentPassFilters()" title="Reset Filters">
+            <button class="btn-reset-filters app-button-cancel" (click)="resetStudentPassFilters()" title="Reset Filters" matButton="filled">
               <mat-icon>filter_alt_off</mat-icon> Reset
             </button>
           }
           <!-- Action Button -->
-          <button mat-flat-button color="primary" class="btn-issue-pass" (click)="openAddAllocation('Student')">
+          <button color="primary" class="btn-issue-pass" (click)="openAddAllocation('Student')" matButton="filled">
             <mat-icon>add</mat-icon> Issue Student Pass
           </button>
         </div>
@@ -690,13 +690,13 @@
                   <td><span class="status-pill active">{{ a.status }}</span></td>
                   <td class="actions-cell">
                     <div class="table-actions-row">
-                      <button mat-icon-button class="action-icon-btn edit-btn" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare">
+                      <button class="action-icon-btn edit-btn" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare" mat-icon-button>
                         <mat-icon>edit</mat-icon>
                       </button>
-                      <button mat-icon-button class="action-icon-btn pass-btn" (click)="viewBusPass(a.id)" matTooltip="View / Print Bus Pass">
+                      <button class="action-icon-btn pass-btn" (click)="viewBusPass(a.id)" matTooltip="View / Print Bus Pass" mat-icon-button>
                         <mat-icon>badge</mat-icon>
                       </button>
-                      <button mat-icon-button class="action-icon-btn remove-btn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service">
+                      <button class="action-icon-btn remove-btn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service" mat-icon-button>
                         <mat-icon>person_remove</mat-icon>
                       </button>
                     </div>
@@ -796,13 +796,13 @@
                 </div>
                 <!-- Card Footer Actions: 3 Clean Tap Buttons -->
                 <div class="mpc-actions">
-                  <button type="button" class="mpc-btn mpc-btn-pass" (click)="viewBusPass(a.id)">
+                  <button type="button" class="mpc-btn mpc-btn-pass" (click)="viewBusPass(a.id)" matButton="filled">
                     <mat-icon>badge</mat-icon> <span>Bus Pass</span>
                   </button>
-                  <button type="button" class="mpc-btn mpc-btn-edit" (click)="openEditAllocation(a)">
+                  <button type="button" class="mpc-btn mpc-btn-edit app-button-update" (click)="openEditAllocation(a)" matButton="filled">
                     <mat-icon>edit</mat-icon> <span>Edit</span>
                   </button>
-                  <button type="button" class="mpc-btn mpc-btn-remove" (click)="discontinueAllocation(a)">
+                  <button type="button" class="mpc-btn mpc-btn-remove" (click)="discontinueAllocation(a)" matButton="filled">
                     <mat-icon>person_remove</mat-icon> <span>Discontinue</span>
                   </button>
                 </div>
@@ -826,23 +826,23 @@
               </div>
             </div>
             <div class="pagination-controls">
-              <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === 1 || isStudentPassesLoading" (click)="onStudentPassPageChange(1)" title="First Page">
+              <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === 1 || isStudentPassesLoading" (click)="onStudentPassPageChange(1)" title="First Page" mat-icon-button>
                 <mat-icon>first_page</mat-icon>
               </button>
-              <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === 1 || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassPageNumber - 1)" title="Previous Page">
+              <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === 1 || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassPageNumber - 1)" title="Previous Page" mat-icon-button>
                 <mat-icon>chevron_left</mat-icon>
               </button>
               <div class="page-numbers-list">
                 @for (p of getStudentPassPagesArray(); track p) {
-                  <button type="button" class="page-num-btn" [class.active]="p === studentPassPageNumber" [disabled]="isStudentPassesLoading" (click)="onStudentPassPageChange(p)">
+                  <button type="button" class="page-num-btn" [class.active]="p === studentPassPageNumber" [disabled]="isStudentPassesLoading" (click)="onStudentPassPageChange(p)" matButton="filled">
                     {{ p }}
                   </button>
                 }
               </div>
-              <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === studentPassTotalPages || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassPageNumber + 1)" title="Next Page">
+              <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === studentPassTotalPages || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassPageNumber + 1)" title="Next Page" mat-icon-button>
                 <mat-icon>chevron_right</mat-icon>
               </button>
-              <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === studentPassTotalPages || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassTotalPages)" title="Last Page">
+              <button type="button" class="page-nav-btn" [disabled]="studentPassPageNumber === studentPassTotalPages || isStudentPassesLoading" (click)="onStudentPassPageChange(studentPassTotalPages)" title="Last Page" mat-icon-button>
                 <mat-icon>last_page</mat-icon>
               </button>
             </div>
@@ -860,7 +860,7 @@
           <h3>Staff &amp; Teacher Transit Allocations</h3>
           <p>Faculty members utilizing campus transport facility</p>
         </div>
-        <button mat-flat-button color="primary" (click)="openAddAllocation('Teacher')">
+        <button color="primary" (click)="openAddAllocation('Teacher')" matButton="filled">
           <mat-icon>add</mat-icon> Issue Faculty Pass
         </button>
       </div>
@@ -902,13 +902,13 @@
                   <td><span class="status-pill active">{{ a.status }}</span></td>
                   <td class="actions-cell">
                     <div class="table-actions-row">
-                      <button mat-icon-button class="action-icon-btn edit-btn" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare">
+                      <button class="action-icon-btn edit-btn" (click)="openEditAllocation(a)" matTooltip="Edit Pass / Fare" mat-icon-button>
                         <mat-icon>edit</mat-icon>
                       </button>
-                      <button mat-icon-button class="action-icon-btn pass-btn" (click)="viewBusPass(a.id)" matTooltip="View / Print Faculty Pass">
+                      <button class="action-icon-btn pass-btn" (click)="viewBusPass(a.id)" matTooltip="View / Print Faculty Pass" mat-icon-button>
                         <mat-icon>badge</mat-icon>
                       </button>
-                      <button mat-icon-button class="action-icon-btn remove-btn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service">
+                      <button class="action-icon-btn remove-btn" (click)="discontinueAllocation(a)" matTooltip="Discontinue Service" mat-icon-button>
                         <mat-icon>person_remove</mat-icon>
                       </button>
                     </div>
@@ -979,13 +979,13 @@
                 </div>
                 <!-- Card Footer Actions: 3 Clean Tap Buttons -->
                 <div class="mpc-actions">
-                  <button type="button" class="mpc-btn mpc-btn-pass" (click)="viewBusPass(a.id)">
+                  <button type="button" class="mpc-btn mpc-btn-pass" (click)="viewBusPass(a.id)" matButton="filled">
                     <mat-icon>badge</mat-icon> <span>Faculty Pass</span>
                   </button>
-                  <button type="button" class="mpc-btn mpc-btn-edit" (click)="openEditAllocation(a)">
+                  <button type="button" class="mpc-btn mpc-btn-edit app-button-update" (click)="openEditAllocation(a)" matButton="filled">
                     <mat-icon>edit</mat-icon> <span>Edit</span>
                   </button>
-                  <button type="button" class="mpc-btn mpc-btn-remove" (click)="discontinueAllocation(a)">
+                  <button type="button" class="mpc-btn mpc-btn-remove" (click)="discontinueAllocation(a)" matButton="filled">
                     <mat-icon>person_remove</mat-icon> <span>Discontinue</span>
                   </button>
                 </div>
@@ -1015,7 +1015,7 @@
               type="button"
               class="mode-btn"
               [class.active]="manifestViewMode === 'driver'"
-              (click)="manifestViewMode = 'driver'">
+              (click)="manifestViewMode = 'driver'" matButton="filled">
               <mat-icon>touch_app</mat-icon>
               <span>Driver / Tap Console</span>
             </button>
@@ -1023,7 +1023,7 @@
               type="button"
               class="mode-btn"
               [class.active]="manifestViewMode === 'admin'"
-              (click)="manifestViewMode = 'admin'; loadLiveTracker()">
+              (click)="manifestViewMode = 'admin'; loadLiveTracker()" matButton="filled">
               <mat-icon>radar</mat-icon>
               <span>Admin Fleet Radar</span>
             </button>
@@ -1067,19 +1067,19 @@
                   <mat-icon matSuffix>search</mat-icon>
                 }
                 @if (manifestSearchTerm) {
-                  <button mat-icon-button matSuffix (click)="manifestSearchTerm = ''">
+                  <button matSuffix (click)="manifestSearchTerm = ''" mat-icon-button>
                     <mat-icon>close</mat-icon>
                   </button>
                 }
               </mat-form-field>
               <div class="console-top-actions">
-                <button mat-flat-button class="btn-scan-qr" (click)="openQrScanModal()">
+                <button class="btn-scan-qr" (click)="openQrScanModal()" matButton="filled">
                   <mat-icon>qr_code_scanner</mat-icon> <span>Scan QR</span>
                 </button>
-                <button mat-stroked-button class="btn-notify-parents" [disabled]="isNotifyingParents || !manifest" (click)="notifyBoardedParents()">
+                <button class="btn-notify-parents" [disabled]="isNotifyingParents || !manifest" (click)="notifyBoardedParents()" matButton="filled">
                   <mat-icon>sms</mat-icon> <span>Notify All</span>
                 </button>
-                <button mat-stroked-button color="primary" class="btn-print" (click)="printManifest()">
+                <button color="primary" class="btn-print" (click)="printManifest()" matButton="filled">
                   <mat-icon>print</mat-icon> <span>Print Sheet</span>
                 </button>
               </div>
@@ -1145,7 +1145,7 @@
                     type="button"
                     class="stop-chip"
                     [class.active]="manifestSelectedStop === 'ALL'"
-                    (click)="manifestSelectedStop = 'ALL'">
+                    (click)="manifestSelectedStop = 'ALL'" matButton="filled">
                     All Stops ({{ manifest.passengers.length }})
                   </button>
                   @for (s of getUniqueManifestStops(); track s) {
@@ -1153,7 +1153,7 @@
                       type="button"
                       class="stop-chip"
                       [class.active]="manifestSelectedStop === s.name"
-                      (click)="manifestSelectedStop = s.name">
+                      (click)="manifestSelectedStop =s.name" matButton="filled">
                       {{ s.name }} ({{ s.count }})
                     </button>
                   }
@@ -1255,7 +1255,7 @@
                         type="button"
                         class="tap-btn tap-board"
                         [class.active]="p.status === 'Boarded' || p.isBoarded"
-                        (click)="tapPassenger(p, 'Boarded')">
+                        (click)="tapPassenger(p, 'Boarded')" matButton="filled">
                         <mat-icon>done</mat-icon>
                         <span>Tap to Board</span>
                       </button>
@@ -1263,7 +1263,7 @@
                         type="button"
                         class="tap-btn tap-absent"
                         [class.active]="p.status === 'Absent'"
-                        (click)="tapPassenger(p, 'Absent')">
+                        (click)="tapPassenger(p, 'Absent')" matButton="filled">
                         <mat-icon>close</mat-icon>
                         <span>Absent</span>
                       </button>
@@ -1272,7 +1272,7 @@
                           type="button"
                           class="tap-btn tap-reset"
                           title="Reset to Pending"
-                          (click)="tapPassenger(p, 'Pending')">
+                          (click)="tapPassenger(p, 'Pending')" mat-icon-button>
                           <mat-icon>undo</mat-icon>
                         </button>
                       }
@@ -1283,7 +1283,7 @@
                         type="button"
                         class="tap-btn tap-board"
                         [class.active]="p.status === 'Boarded'"
-                        (click)="tapPassenger(p, 'Boarded')">
+                        (click)="tapPassenger(p, 'Boarded')" matButton="filled">
                         <mat-icon>login</mat-icon>
                         <span>Board at Campus</span>
                       </button>
@@ -1291,7 +1291,7 @@
                         type="button"
                         class="tap-btn tap-drop"
                         [class.active]="p.status === 'Dropped'"
-                        (click)="tapPassenger(p, 'Dropped')">
+                        (click)="tapPassenger(p, 'Dropped')" matButton="filled">
                         <mat-icon>check_circle</mat-icon>
                         <span>Safely Dropped</span>
                       </button>
@@ -1299,7 +1299,7 @@
                         type="button"
                         class="tap-btn tap-absent"
                         [class.active]="p.status === 'Absent'"
-                        (click)="tapPassenger(p, 'Absent')">
+                        (click)="tapPassenger(p, 'Absent')" matButton="filled">
                         <mat-icon>close</mat-icon>
                         <span>Absent</span>
                       </button>
@@ -1308,7 +1308,7 @@
                           type="button"
                           class="tap-btn tap-reset"
                           title="Reset to Pending"
-                          (click)="tapPassenger(p, 'Pending')">
+                          (click)="tapPassenger(p, 'Pending')" mat-icon-button>
                           <mat-icon>undo</mat-icon>
                         </button>
                       }
@@ -1438,7 +1438,7 @@
                 <mat-icon>alt_route</mat-icon>
                 <h4>Active Fleet Routes &amp; Live Trip Progress</h4>
               </div>
-              <button mat-stroked-button color="primary" class="btn-sm" (click)="loadLiveTracker()">
+              <button color="primary" class="btn-sm" (click)="loadLiveTracker()" matButton="filled">
                 <mat-icon>refresh</mat-icon> Refresh Radar
               </button>
             </div>
@@ -1495,7 +1495,7 @@
                           <span class="text-muted">No taps recorded yet today</span>
                         }
                       </div>
-                      <button mat-button color="primary" class="btn-open-console" (click)="quickSwitchRouteFromLiveTracker(r.routeId)">
+                      <button color="primary" class="btn-open-console" (click)="quickSwitchRouteFromLiveTracker(r.routeId)" matButton="filled">
                         <mat-icon>touch_app</mat-icon> Open Tap Console
                       </button>
                     </div>
@@ -1519,7 +1519,7 @@
                   <mat-icon class="pulse-icon">sensors</mat-icon>
                   <h4>Live Boarding Stream &amp; Tap Ticker</h4>
                 </div>
-                <button mat-icon-button (click)="loadLiveTracker()" title="Refresh Feed">
+                <button (click)="loadLiveTracker()" title="Refresh Feed" mat-icon-button>
                   <mat-icon>refresh</mat-icon>
                 </button>
               </div>
@@ -1566,7 +1566,7 @@
                 <mat-form-field appearance="outline" class="w-100">
                   <mat-label>Search Student (Name, Roll No, Admission No)</mat-label>
                   <input matInput [(ngModel)]="lookupStudentQuery" (keyup.enter)="searchStudentTransitLive()" placeholder="Type student name or roll..." />
-                  <button mat-flat-button color="primary" matSuffix (click)="searchStudentTransitLive()" [disabled]="isSearchingStudentStatus || !lookupStudentQuery.trim()">
+                  <button color="primary" matSuffix (click)="searchStudentTransitLive()" [disabled]="isSearchingStudentStatus || !lookupStudentQuery.trim()" matButton="filled">
                     <mat-icon>search</mat-icon> Search
                   </button>
                 </mat-form-field>
@@ -1665,7 +1665,7 @@
           <h3>Campus Gate Pass Security Desk</h3>
           <p>Real-time tracking of early student exits, bus departures, teacher movements &amp; campus visitors</p>
         </div>
-        <button mat-flat-button color="primary" (click)="openAddGatePass()">
+        <button color="primary" (click)="openAddGatePass()" matButton="filled">
           <mat-icon>add_moderator</mat-icon> Issue Gate Pass
         </button>
       </div>
@@ -1729,7 +1729,7 @@
                   </td>
                   <td style="text-align: right;">
                     @if (g.status === 'Issued') {
-                      <button mat-flat-button color="accent" class="btn-sm" (click)="openCloseGatePass(g)">
+                      <button color="accent" class="btn-sm" (click)="openCloseGatePass(g)" matButton="filled">
                         <mat-icon>login</mat-icon> Mark Return
                       </button>
                     }
@@ -1770,7 +1770,7 @@
             <p class="modal-subtitle">Configure registration number, seating capacity &amp; crew assignment</p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showVehicleModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showVehicleModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <form [formGroup]="vehicleForm" (ngSubmit)="saveVehicle()">
         <div class="modal-body">
@@ -1830,8 +1830,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button mat-stroked-button type="button" (click)="showVehicleModal = false">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="vehicleForm.invalid">
+          <button type="button" (click)="showVehicleModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="vehicleForm.invalid" matButton="filled" class="app-button-save">
             <mat-icon>save</mat-icon> Save Vehicle
           </button>
         </div>
@@ -1856,7 +1856,7 @@
             <p class="modal-subtitle">Statutory compliance and contact information</p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showDriverModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showDriverModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <form [formGroup]="driverForm" (ngSubmit)="saveDriver()">
         <div class="modal-body">
@@ -1892,8 +1892,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button mat-stroked-button type="button" (click)="showDriverModal = false">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="driverForm.invalid">
+          <button type="button" (click)="showDriverModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="driverForm.invalid" matButton="filled" class="app-button-save">
             <mat-icon>save</mat-icon> Save Driver
           </button>
         </div>
@@ -1918,7 +1918,7 @@
             <p class="modal-subtitle">Define route code, origin, destination and scheduled shift timings</p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showRouteModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showRouteModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <form [formGroup]="routeForm" (ngSubmit)="saveRoute()">
         <div class="modal-body">
@@ -1965,8 +1965,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button mat-stroked-button type="button" (click)="showRouteModal = false">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="routeForm.invalid">
+          <button type="button" (click)="showRouteModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="routeForm.invalid" matButton="filled" class="app-button-save">
             <mat-icon>save</mat-icon> Save Route
           </button>
         </div>
@@ -1991,7 +1991,7 @@
             <p class="modal-subtitle">{{ editingStopId ? 'Update stop timings, distance, and distance-based fare heads' : 'Specify pickup time and distance-based fare heads' }}</p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showStopModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showStopModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <form [formGroup]="stopForm" (ngSubmit)="saveStop()">
         <div class="modal-body">
@@ -2055,8 +2055,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button mat-stroked-button type="button" (click)="showStopModal = false">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="stopForm.invalid">
+          <button type="button" (click)="showStopModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="stopForm.invalid" matButton="filled" [class.app-button-update]="editingStopId" [class.app-button-save]="!(editingStopId)">
             <mat-icon>save</mat-icon> {{ editingStopId ? 'Update Stop' : 'Save Stop' }}
           </button>
         </div>
@@ -2085,16 +2085,16 @@
             </p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showAllocationModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showAllocationModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <form [formGroup]="allocationForm" (ngSubmit)="saveAllocation()">
         <div class="modal-body">
           <!-- Member Type Pill Switcher -->
           <div class="commuter-type-switcher">
-            <button type="button" class="type-pill-btn" [class.selected]="allocationForm.get('memberType')?.value === 'Student'" (click)="allocationForm.patchValue({memberType: 'Student'}); activeTopAction = 'student'">
+            <button type="button" class="type-pill-btn" [class.selected]="allocationForm.get('memberType')?.value === 'Student'" (click)="allocationForm.patchValue({memberType: 'Student'}); activeTopAction = 'student'" matButton="filled">
               <mat-icon>school</mat-icon> Student
             </button>
-            <button type="button" class="type-pill-btn teacher-pill" [class.selected]="allocationForm.get('memberType')?.value === 'Teacher'" (click)="allocationForm.patchValue({memberType: 'Teacher'}); activeTopAction = 'faculty'">
+            <button type="button" class="type-pill-btn teacher-pill" [class.selected]="allocationForm.get('memberType')?.value === 'Teacher'" (click)="allocationForm.patchValue({memberType: 'Teacher'}); activeTopAction = 'faculty'" matButton="filled">
               <mat-icon>co_present</mat-icon> Teacher / Staff
             </button>
           </div>
@@ -2134,15 +2134,15 @@
                   <span>Student Pass Status:</span>
                 </div>
                 <div class="af-pills-container">
-                  <button type="button" class="af-pill-btn needs-pass" [class.active]="allocationAssignmentFilter === 'Unassigned'" (click)="setAllocationAssignmentFilter('Unassigned')">
+                  <button type="button" class="af-pill-btn needs-pass" [class.active]="allocationAssignmentFilter === 'Unassigned'" (click)="setAllocationAssignmentFilter('Unassigned')" matButton="filled">
                     <mat-icon>star</mat-icon>
                     <span>Needs Pass ({{ getUnassignedStudentsCount() }})</span>
                   </button>
-                  <button type="button" class="af-pill-btn assigned" [class.active]="allocationAssignmentFilter === 'Assigned'" (click)="setAllocationAssignmentFilter('Assigned')">
+                  <button type="button" class="af-pill-btn assigned" [class.active]="allocationAssignmentFilter === 'Assigned'" (click)="setAllocationAssignmentFilter('Assigned')" matButton="filled">
                     <mat-icon>directions_bus</mat-icon>
                     <span>Already Assigned ({{ getAssignedStudentsCount() }})</span>
                   </button>
-                  <button type="button" class="af-pill-btn all" [class.active]="allocationAssignmentFilter === 'All'" (click)="setAllocationAssignmentFilter('All')">
+                  <button type="button" class="af-pill-btn all" [class.active]="allocationAssignmentFilter === 'All'" (click)="setAllocationAssignmentFilter('All')" matButton="filled">
                     <mat-icon>people</mat-icon>
                     <span>All Students ({{ getAllStudentsCount() }})</span>
                   </button>
@@ -2160,11 +2160,11 @@
                   </div>
                 </div>
                 <div class="multi-select-actions">
-                  <button type="button" class="btn-action-text" (click)="selectAllVisibleAllocationStudents()" [title]="'Select all visible students'">
+                  <button type="button" class="btn-action-text" (click)="selectAllVisibleAllocationStudents()" [title]="'Select all visible students'" matButton="filled">
                     <mat-icon>select_all</mat-icon> Select All ({{ getVisibleAllocationStudentsCount() }})
                   </button>
                   @if (selectedStudentIds.length > 0) {
-                    <button type="button" class="btn-action-text clear-btn" (click)="clearSelectedAllocationStudents()">
+                    <button type="button" class="btn-action-text clear-btn" (click)="clearSelectedAllocationStudents()" matButton="filled">
                       <mat-icon>clear_all</mat-icon> Clear All
                     </button>
                   }
@@ -2242,14 +2242,14 @@
                   <span class="pills-count-tag">
                     <mat-icon>check_circle</mat-icon> {{ selectedStudentIds.length }} Student{{ selectedStudentIds.length > 1 ? 's' : '' }} Selected for this Boarding Stop:
                   </span>
-                  <button type="button" class="btn-clear-pills" (click)="clearSelectedAllocationStudents()">Deselect All</button>
+                  <button type="button" class="btn-clear-pills" (click)="clearSelectedAllocationStudents()" matButton="filled">Deselect All</button>
                 </div>
                 <div class="pills-list">
                   @for (st of getSelectedStudentObjects(); track st) {
                     <span class="student-pill">
                       <span class="pill-name">{{ st.studentName }}</span>
                       <span class="pill-meta">(Roll: {{ st.schoolRollNumber || st.rollNumber || 'N/A' }})</span>
-                      <button type="button" class="pill-remove-btn" (click)="removeSelectedStudent(st.id)" title="Remove student">
+                      <button type="button" class="pill-remove-btn" (click)="removeSelectedStudent(st.id)" title="Remove student" mat-icon-button>
                         <mat-icon>close</mat-icon>
                       </button>
                     </span>
@@ -2306,15 +2306,15 @@
                   <span>Staff Pass Status:</span>
                 </div>
                 <div class="af-pills-container">
-                  <button type="button" class="af-pill-btn needs-pass" [class.active]="teacherAssignmentFilter === 'Unassigned'" (click)="setTeacherAssignmentFilter('Unassigned')">
+                  <button type="button" class="af-pill-btn needs-pass" [class.active]="teacherAssignmentFilter === 'Unassigned'" (click)="setTeacherAssignmentFilter('Unassigned')" matButton="filled">
                     <mat-icon>star</mat-icon>
                     <span>Needs Pass ({{ getUnassignedTeachersCount() }})</span>
                   </button>
-                  <button type="button" class="af-pill-btn assigned" [class.active]="teacherAssignmentFilter === 'Assigned'" (click)="setTeacherAssignmentFilter('Assigned')">
+                  <button type="button" class="af-pill-btn assigned" [class.active]="teacherAssignmentFilter === 'Assigned'" (click)="setTeacherAssignmentFilter('Assigned')" matButton="filled">
                     <mat-icon>directions_bus</mat-icon>
                     <span>Already Assigned ({{ getAssignedTeachersCount() }})</span>
                   </button>
-                  <button type="button" class="af-pill-btn all" [class.active]="teacherAssignmentFilter === 'All'" (click)="setTeacherAssignmentFilter('All')">
+                  <button type="button" class="af-pill-btn all" [class.active]="teacherAssignmentFilter === 'All'" (click)="setTeacherAssignmentFilter('All')" matButton="filled">
                     <mat-icon>people</mat-icon>
                     <span>All Staff ({{ getAllTeachersCount() }})</span>
                   </button>
@@ -2404,7 +2404,7 @@
                   </div>
                 </div>
                 <div class="plan-pills-grid">
-                  <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Monthly'" (click)="selectBillingPlan('Monthly')">
+                  <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Monthly'" (click)="selectBillingPlan('Monthly')" matButton="filled">
                     <div class="plan-pill-top">
                       <mat-icon>{{ selectedBillingPlan === 'Monthly' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
                       <span class="plan-name">Monthly</span>
@@ -2412,7 +2412,7 @@
                     <div class="plan-amount">₹{{ getStopFareForPlan('Monthly') | number }}<span class="plan-unit">/mo</span></div>
                     <span class="plan-sub">1 Month</span>
                   </button>
-                  <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Quarterly'" (click)="selectBillingPlan('Quarterly')">
+                  <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Quarterly'" (click)="selectBillingPlan('Quarterly')" matButton="filled">
                     <div class="plan-pill-top">
                       <mat-icon>{{ selectedBillingPlan === 'Quarterly' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
                       <span class="plan-name">Quarterly</span>
@@ -2420,7 +2420,7 @@
                     <div class="plan-amount">₹{{ getStopFareForPlan('Quarterly') | number }}</div>
                     <span class="plan-sub">3 Months</span>
                   </button>
-                  <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'HalfYearly'" (click)="selectBillingPlan('HalfYearly')">
+                  <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'HalfYearly'" (click)="selectBillingPlan('HalfYearly')" matButton="filled">
                     <div class="plan-pill-top">
                       <mat-icon>{{ selectedBillingPlan === 'HalfYearly' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
                       <span class="plan-name">Half-Yearly</span>
@@ -2428,7 +2428,7 @@
                     <div class="plan-amount">₹{{ getStopFareForPlan('HalfYearly') | number }}</div>
                     <span class="plan-sub">6 Months</span>
                   </button>
-                  <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Annual'" (click)="selectBillingPlan('Annual')">
+                  <button type="button" class="plan-pill-btn" [class.active]="selectedBillingPlan === 'Annual'" (click)="selectBillingPlan('Annual')" matButton="filled">
                     <div class="plan-pill-top">
                       <mat-icon>{{ selectedBillingPlan === 'Annual' ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
                       <span class="plan-name">Annual</span>
@@ -2481,8 +2481,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button mat-stroked-button type="button" (click)="showAllocationModal = false">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="isSaveAllocationDisabled() || isSavingAllocation">
+          <button type="button" (click)="showAllocationModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="isSaveAllocationDisabled() || isSavingAllocation" matButton="filled">
             <mat-icon>{{ isSavingAllocation ? 'hourglass_top' : (editingAllocationId ? 'save' : 'verified') }}</mat-icon>
             {{ getSubmitButtonLabel() }}
           </button>
@@ -2508,22 +2508,22 @@
             <p class="modal-subtitle">Security checkpoint authorization for campus departures &amp; visitor entries</p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showGatePassModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showGatePassModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <form [formGroup]="gatePassForm" (ngSubmit)="saveGatePass()">
         <div class="modal-body">
           <!-- Pass Category Quick Selector -->
           <div class="pass-category-switcher">
-            <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'StudentEarlyExit'" (click)="gatePassForm.patchValue({passType: 'StudentEarlyExit'})">
+            <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'StudentEarlyExit'" (click)="gatePassForm.patchValue({passType: 'StudentEarlyExit'})" matButton="filled">
               <mat-icon>school</mat-icon> <span>Student Early Exit</span>
             </button>
-            <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'BusDeparture'" (click)="gatePassForm.patchValue({passType: 'BusDeparture'})">
+            <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'BusDeparture'" (click)="gatePassForm.patchValue({passType: 'BusDeparture'})" matButton="filled">
               <mat-icon>directions_bus</mat-icon> <span>Bus Departure</span>
             </button>
-            <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'TeacherMovement'" (click)="gatePassForm.patchValue({passType: 'TeacherMovement'})">
+            <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'TeacherMovement'" (click)="gatePassForm.patchValue({passType: 'TeacherMovement'})" matButton="filled">
               <mat-icon>co_present</mat-icon> <span>Faculty Movement</span>
             </button>
-            <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'Visitor'" (click)="gatePassForm.patchValue({passType: 'Visitor'})">
+            <button type="button" class="category-pill-btn" [class.selected]="gatePassForm.get('passType')?.value === 'Visitor'" (click)="gatePassForm.patchValue({passType: 'Visitor'})" matButton="filled">
               <mat-icon>person_pin</mat-icon> <span>Visitor / Vendor</span>
             </button>
           </div>
@@ -2651,8 +2651,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button mat-stroked-button type="button" (click)="showGatePassModal = false">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="gatePassForm.invalid">
+          <button type="button" (click)="showGatePassModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="gatePassForm.invalid" matButton="filled">
             <mat-icon>security</mat-icon> Issue Gate Pass
           </button>
         </div>
@@ -2677,7 +2677,7 @@
             <p class="modal-subtitle">Record return check-in at main campus turnstile</p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showClosePassModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showClosePassModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <form [formGroup]="closePassForm" (ngSubmit)="confirmCloseGatePass()">
         <div class="modal-body">
@@ -2692,8 +2692,8 @@
           </mat-form-field>
         </div>
         <div class="modal-footer">
-          <button mat-stroked-button type="button" (click)="showClosePassModal = false">Cancel</button>
-          <button mat-flat-button color="accent" type="submit">
+          <button type="button" (click)="showClosePassModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="accent" type="submit" matButton="filled">
             <mat-icon>check_circle</mat-icon> Confirm Return
           </button>
         </div>
@@ -2718,7 +2718,7 @@
             <p class="modal-subtitle">Printable smart pass with route &amp; stop verification</p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showBusPassModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showBusPassModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       @if (selectedBusPass) {
         <div class="modal-body">
@@ -2772,8 +2772,8 @@
         </div>
       }
       <div class="modal-footer">
-        <button mat-stroked-button type="button" (click)="showBusPassModal = false">Close</button>
-        <button mat-flat-button color="primary" (click)="printBusPass()">
+        <button type="button" (click)="showBusPassModal = false" matButton="filled" class="app-button-cancel">Close</button>
+        <button color="primary" (click)="printBusPass()" matButton="filled">
           <mat-icon>print</mat-icon> Print Bus Pass
         </button>
       </div>
@@ -2797,7 +2797,7 @@
             <p class="modal-subtitle">Instant QR Barcode Scanner &amp; Roll/Code Boarding Verification</p>
           </div>
         </div>
-        <button class="modal-close-btn" (click)="showQrScanModal = false"><mat-icon>close</mat-icon></button>
+        <button class="modal-close-btn" (click)="showQrScanModal = false" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
       <div class="modal-body qr-scanner-modal-body">
         <div class="qr-scanner-viewfinder">
@@ -2819,7 +2819,7 @@
             <mat-icon matSuffix>center_focus_strong</mat-icon>
             <mat-hint>Press Enter or click Verify to confirm boarding</mat-hint>
           </mat-form-field>
-          <button mat-flat-button color="primary" class="btn-verify-qr" (click)="processQrScan()">
+          <button color="primary" class="btn-verify-qr" (click)="processQrScan()" matButton="filled">
             <mat-icon>verified</mat-icon> Verify &amp; Board
           </button>
         </div>
@@ -2845,7 +2845,7 @@
         }
       </div>
       <div class="modal-footer">
-        <button mat-stroked-button type="button" (click)="showQrScanModal = false">Close</button>
+        <button type="button" (click)="showQrScanModal = false" matButton="filled" class="app-button-cancel">Close</button>
       </div>
     </div>
   </div>

@@ -115,7 +115,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </a>
                   <span class="unit-sub">Direct Voice &bull; Mon &ndash; Sat: 9 AM &ndash; 8 PM IST</span>
                 </div>
-                <button mat-icon-button color="primary" (click)="copyToClipboard('8088377282', 'Phone Number')" matTooltip="Copy Phone Number">
+                <button color="primary" (click)="copyToClipboard('8088377282', 'Phone Number')" matTooltip="Copy Phone Number" mat-icon-button>
                   <mat-icon>content_copy</mat-icon>
                 </button>
               </div>
@@ -149,7 +149,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </strong>
                   <span class="unit-sub">Tech Development Operations &amp; Cloud Infrastructure Center</span>
                 </div>
-                <button mat-icon-button color="primary" (click)="copyToClipboard('JP Nagar, Bangalore, Karnataka - 560078', 'Address')" matTooltip="Copy Full Address">
+                <button color="primary" (click)="copyToClipboard('JP Nagar, Bangalore, Karnataka - 560078', 'Address')" matTooltip="Copy Full Address" mat-icon-button>
                   <mat-icon>content_copy</mat-icon>
                 </button>
               </div>
@@ -157,17 +157,17 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
             <!-- Quick Action Buttons -->
             <div class="cta-row">
-              <a mat-raised-button color="primary" href="tel:+918088377282" class="cta-btn primary-btn">
+              <a matButton="filled" color="primary" href="tel:+918088377282" class="cta-btn primary-btn">
                 <mat-icon>call</mat-icon>
                 <span>Call Developer</span>
               </a>
 
-              <a mat-raised-button class="cta-btn whatsapp-btn" href="https://wa.me/919540553975?text=Hello%20Developer%2C%20I%20need%20support%20with%20IMSERP" target="_blank" rel="noopener noreferrer">
+              <a matButton="filled" class="cta-btn whatsapp-btn" href="https://wa.me/919540553975?text=Hello%20Developer%2C%20I%20need%20support%20with%20IMSERP" target="_blank" rel="noopener noreferrer">
                 <mat-icon>chat</mat-icon>
                 <span>Chat on WhatsApp</span>
               </a>
 
-              <button mat-stroked-button color="primary" class="cta-btn copy-all-btn" (click)="copyAllDetails()">
+              <button color="primary" class="cta-btn copy-all-btn" (click)="copyAllDetails()" matButton="filled">
                 <mat-icon>assignment</mat-icon>
                 <span>Copy Full Contact Card</span>
               </button>

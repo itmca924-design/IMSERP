@@ -12,7 +12,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { API_BASE, TeacherIdCardDto } from './teacher.models';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../../environments/environment';
-import * as QRCode from 'qrcode';
+import * as QRCode from '../../shared/utils/qr-code';
 
 export interface TeacherIdCardDialogData {
   teacherId?: string;
@@ -42,19 +42,19 @@ export interface TeacherIdCardDialogData {
         </div>
       </div>
 
-      <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
+      <button (click)="dialogRef.close()" class="close-btn" matTooltip="Close" mat-icon-button>
         <mat-icon>close</mat-icon>
       </button>
     </div>
 
     <div class="header-controls">
       <div class="side-selector">
-        <button mat-stroked-button [class.active-btn]="cardSide === 'both'" (click)="cardSide = 'both'">Both Sides</button>
-        <button mat-stroked-button [class.active-btn]="cardSide === 'front'" (click)="cardSide = 'front'">Front Only</button>
-        <button mat-stroked-button [class.active-btn]="cardSide === 'back'" (click)="cardSide = 'back'">Back Only</button>
+        <button [class.active-btn]="cardSide === 'both'" (click)="cardSide = 'both'" matButton="filled">Both Sides</button>
+        <button [class.active-btn]="cardSide === 'front'" (click)="cardSide = 'front'" matButton="filled">Front Only</button>
+        <button [class.active-btn]="cardSide === 'back'" (click)="cardSide = 'back'" matButton="filled">Back Only</button>
       </div>
 
-      <button mat-raised-button color="primary" class="print-btn" (click)="printCards()">
+      <button color="primary" class="print-btn" (click)="printCards()" matButton="filled">
         <mat-icon>print</mat-icon> Print ID Cards
       </button>
     </div>

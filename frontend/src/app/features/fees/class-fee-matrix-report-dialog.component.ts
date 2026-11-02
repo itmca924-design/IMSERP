@@ -77,22 +77,22 @@ interface ConsolidatedMatrixRow {
             </div>
           </div>
           <!-- Close button on Mobile sits in the top row -->
-          <button mat-icon-button class="close-btn close-btn-mobile" (click)="dialogRef.close()" matTooltip="Close Window">
+          <button class="close-btn close-btn-mobile" (click)="dialogRef.close()" matTooltip="Close Window" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
     
         <div class="top-actions">
-          <button mat-flat-button color="primary" class="action-btn print-btn" (click)="printReport()">
+          <button color="primary" class="action-btn print-btn" (click)="printReport()" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Report</span>
           </button>
-          <button mat-stroked-button class="action-btn excel-btn" (click)="exportToCsv()" matTooltip="Download as Excel/CSV">
+          <button class="action-btn excel-btn" (click)="exportToCsv()" matTooltip="Download as Excel/CSV" matButton="filled">
             <mat-icon>download</mat-icon>
             <span>Export CSV</span>
           </button>
           <!-- Close button on Desktop sits with action buttons -->
-          <button mat-icon-button class="close-btn close-btn-desktop" (click)="dialogRef.close()" matTooltip="Close Window">
+          <button class="close-btn close-btn-desktop" (click)="dialogRef.close()" matTooltip="Close Window" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -107,7 +107,7 @@ interface ConsolidatedMatrixRow {
               <button type="button"
                 class="scope-pill"
                 [class.active]="targetType === 'class'"
-                (click)="setTargetType('class')">
+                (click)="setTargetType('class')" matButton="filled">
                 <mat-icon>school</mat-icon>
                 <span>School Classes</span>
                 <span class="badge">{{ schoolClasses.length }}</span>
@@ -115,7 +115,7 @@ interface ConsolidatedMatrixRow {
               <button type="button"
                 class="scope-pill"
                 [class.active]="targetType === 'batch'"
-                (click)="setTargetType('batch')">
+                (click)="setTargetType('batch')" matButton="filled">
                 <mat-icon>groups</mat-icon>
                 <span>Coaching Batches</span>
                 <span class="badge">{{ coachingBatches.length }}</span>
@@ -128,7 +128,7 @@ interface ConsolidatedMatrixRow {
             <button type="button"
               class="view-pill"
               [class.active]="viewMode === 'consolidated'"
-              (click)="viewMode = 'consolidated'">
+              (click)="viewMode = 'consolidated'" matButton="filled">
               <mat-icon>table_chart</mat-icon>
               <span class="desktop-text">Consolidated Matrix (पूरा स्कूल तालिका)</span>
               <span class="mobile-text">Matrix Grid (तालिका)</span>
@@ -136,7 +136,7 @@ interface ConsolidatedMatrixRow {
             <button type="button"
               class="view-pill"
               [class.active]="viewMode === 'single'"
-              (click)="viewMode = 'single'">
+              (click)="viewMode = 'single'" matButton="filled">
               <mat-icon>receipt_long</mat-icon>
               <span class="desktop-text">Class Fee Notice (कक्षा फ़ीस नोटिस)</span>
               <span class="mobile-text">Class Notice (नोटिस)</span>

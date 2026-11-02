@@ -125,17 +125,17 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
       <!-- Action Buttons -->
       <div class="deck-actions">
-        <button mat-button class="smart-btn refresh-btn" (click)="loadDayBook()" matTooltip="Reload Day Book" [disabled]="loading">
+        <button class="smart-btn refresh-btn" (click)="loadDayBook()" matTooltip="Reload Day Book" [disabled]="loading" matButton="filled">
           <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
           <span class="btn-text">Refresh</span>
         </button>
 
-        <button mat-flat-button color="primary" class="smart-btn print-btn" (click)="printDayBook()" matTooltip="Print Daily Journal Sheet" [disabled]="loading || !report">
+        <button color="primary" class="smart-btn print-btn" (click)="printDayBook()" matTooltip="Print Daily Journal Sheet" [disabled]="loading || !report" matButton="filled">
           <mat-icon>print</mat-icon>
           <span class="btn-text">Print Day Book</span>
         </button>
 
-        <button mat-stroked-button class="smart-btn export-btn" (click)="exportToCSV()" matTooltip="Export to CSV / Excel" [disabled]="loading || !filteredTransactions.length">
+        <button class="smart-btn export-btn" (click)="exportToCSV()" matTooltip="Export to CSV / Excel" [disabled]="loading || !filteredTransactions.length" matButton="filled">
           <mat-icon>download</mat-icon>
           <span class="btn-text">Export CSV</span>
         </button>
@@ -153,7 +153,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
     <div class="error-banner no-print">
       <mat-icon>error_outline</mat-icon>
       <span>{{ error }}</span>
-      <button mat-button (click)="loadDayBook()">Try Again</button>
+      <button (click)="loadDayBook()" matButton="filled">Try Again</button>
     </div>
   }
 
@@ -161,11 +161,11 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
   <div class="filters-strip no-print">
     <div class="presets-group">
       <span class="strip-label">Quick Jump:</span>
-      @for (p of quickDatePresets; track p) {
+      @for (p of quickDatePresets; track p.id) {
         <button
           class="preset-pill"
           [class.active]="isPresetDateActive(p.date)"
-          (click)="setPresetDate(p.date)">
+          (click)="setPresetDate(p.date)" matButton="filled">
           {{ p.label }}
         </button>
       }
@@ -173,20 +173,20 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 
     <div class="type-filter-group">
       <span class="strip-label">Voucher:</span>
-      <button class="filter-pill" [class.active]="voucherTypeFilter === 'All'" (click)="setVoucherFilter('All')">All ({{ report?.totalTransactions || 0 }})</button>
-      <button class="filter-pill green-pill" [class.active]="voucherTypeFilter === 'Receipt'" (click)="setVoucherFilter('Receipt')">
+      <button class="filter-pill" [class.active]="voucherTypeFilter === 'All'" (click)="setVoucherFilter('All')" matButton="filled">All ({{ report?.totalTransactions || 0 }})</button>
+      <button class="filter-pill green-pill" [class.active]="voucherTypeFilter === 'Receipt'" (click)="setVoucherFilter('Receipt')" matButton="filled">
         <mat-icon class="pill-icon">south_west</mat-icon> Receipts ({{ report?.receiptCount || 0 }})
       </button>
-      <button class="filter-pill red-pill" [class.active]="voucherTypeFilter === 'Payment'" (click)="setVoucherFilter('Payment')">
+      <button class="filter-pill red-pill" [class.active]="voucherTypeFilter === 'Payment'" (click)="setVoucherFilter('Payment')" matButton="filled">
         <mat-icon class="pill-icon">north_east</mat-icon> Payments ({{ report?.paymentCount || 0 }})
       </button>
     </div>
 
     <div class="mode-filter-group">
       <span class="strip-label">Mode:</span>
-      <button class="mode-pill" [class.active]="paymentModeFilter === 'All'" (click)="setModeFilter('All')">All</button>
-      <button class="mode-pill" [class.active]="paymentModeFilter === 'Cash'" (click)="setModeFilter('Cash')">Cash Only</button>
-      <button class="mode-pill" [class.active]="paymentModeFilter === 'Online'" (click)="setModeFilter('Online')">UPI / Bank Only</button>
+      <button class="mode-pill" [class.active]="paymentModeFilter === 'All'" (click)="setModeFilter('All')" matButton="filled">All</button>
+      <button class="mode-pill" [class.active]="paymentModeFilter === 'Cash'" (click)="setModeFilter('Cash')" matButton="filled">Cash Only</button>
+      <button class="mode-pill" [class.active]="paymentModeFilter === 'Online'" (click)="setModeFilter('Online')" matButton="filled">UPI / Bank Only</button>
     </div>
 
     <!-- Search Box -->
@@ -407,10 +407,10 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
             <h3>No Transactions Found For This Date</h3>
             <p>No fee receipts, expense vouchers, or payroll entries were recorded on {{ selectedDate | date:'mediumDate' }}.</p>
             <div class="empty-actions">
-              <button mat-flat-button color="primary" (click)="setPreset('today')">
+              <button color="primary" (click)="setPreset('today')" matButton="filled">
                 <mat-icon>today</mat-icon> Go to Today
               </button>
-              <button mat-stroked-button (click)="setPreset('yesterday')">
+              <button (click)="setPreset('yesterday')" matButton="filled">
                 <mat-icon>history</mat-icon> View Yesterday
               </button>
             </div>
@@ -1611,6 +1611,7 @@ export class DayBookComponent implements OnInit, OnDestroy {
   sortDescending = false;
 
   private searchSub?: Subscription;
+  quickDatePresets: { id: string; label: string; date: Date }[] = [];
 
   filterForm = new FormGroup({
     date: new FormControl<Date>(new Date(), { nonNullable: true }),
@@ -1655,6 +1656,8 @@ export class DayBookComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.quickDatePresets = this.createQuickDatePresets();
+
     const activeBranch = this.authService.selectedBranchId();
     if (activeBranch) {
       this.filterForm.patchValue({ branchId: activeBranch }, { emitEvent: false });
@@ -1780,7 +1783,7 @@ export class DayBookComponent implements OnInit, OnDestroy {
   }
 
   // Dynamic Quick Relative Date Presets
-  get quickDatePresets(): { id: string; label: string; date: Date }[] {
+  private createQuickDatePresets(): { id: string; label: string; date: Date }[] {
     const today = new Date();
     const y = new Date();
     y.setDate(today.getDate() - 1);

@@ -42,7 +42,7 @@ export interface EditNudgeDialogData {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
+        <button (click)="dialogRef.close()" class="close-btn" matTooltip="Close" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -87,10 +87,10 @@ export interface EditNudgeDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-stroked-button type="button" (click)="dialogRef.close()" class="cancel-btn">
+          <button type="button" (click)="dialogRef.close()" class="cancel-btn app-button-cancel" matButton="filled">
             Cancel
           </button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || !data.plan.parentPhone" class="dispatch-btn">
+          <button color="primary" type="submit" [disabled]="form.invalid || !data.plan.parentPhone" class="dispatch-btn" matButton="filled">
             <mat-icon>send</mat-icon>
             <span>Send via WhatsApp (Free)</span>
           </button>

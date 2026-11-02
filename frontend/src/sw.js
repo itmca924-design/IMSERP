@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imserp-cache-v9';
+const CACHE_NAME = 'imserp-cache-v10';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -244,7 +244,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 7. Static assets (JS, CSS, images, fonts): Cache-first with network fallback
+  // 7. Static assets (JS, CSS, images, fonts): Network-first so installed apps receive updates.
   const isStatic =
     url.pathname.endsWith('.js') ||
     url.pathname.endsWith('.css') ||
@@ -256,30 +256,19 @@ self.addEventListener('fetch', (event) => {
 
   if (isStatic) {
     event.respondWith(
-      caches.match(req).then((cached) => {
-        if (cached) {
-          fetch(req).then((networkRes) => {
-            if (networkRes && networkRes.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(req, networkRes));
-            }
-          }).catch(() => {});
-          return cached;
-        }
-
-        return fetch(req)
-          .then((networkRes) => {
-            if (networkRes && networkRes.status === 200) {
-              const clone = networkRes.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-            }
-            return networkRes;
-          })
-          .catch(async () => {
-            const fallback = await caches.match(req);
-            if (fallback) return fallback;
-            return new Response('', { status: 404, statusText: 'Not Found' });
-          });
-      })
+      fetch(req)
+        .then((networkRes) => {
+          if (networkRes && networkRes.status === 200) {
+            const clone = networkRes.clone();
+            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(req, clone)));
+          }
+          return networkRes;
+        })
+        .catch(async () => {
+          const cached = await caches.match(req);
+          if (cached) return cached;
+          return new Response('', { status: 404, statusText: 'Not Found' });
+        })
     );
     return;
   }

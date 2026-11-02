@@ -11,7 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../../environments/environment';
-import * as QRCode from 'qrcode';
+import * as QRCode from '../../shared/utils/qr-code';
 
 const API_BASE = environment.apiUrl;
 
@@ -50,9 +50,9 @@ export interface StudentIdCardDialogData {
       </div>
       <div class="header-controls">
         <div class="side-selector">
-          <button mat-stroked-button [class.active-btn]="cardSide==='both'" (click)="cardSide='both'">Both</button>
-          <button mat-stroked-button [class.active-btn]="cardSide==='front'" (click)="cardSide='front'">Front</button>
-          <button mat-stroked-button [class.active-btn]="cardSide==='back'" (click)="cardSide='back'">Back</button>
+          <button [class.active-btn]="cardSide==='both'" (click)="cardSide='both'" matButton="filled">Both</button>
+          <button [class.active-btn]="cardSide==='front'" (click)="cardSide='front'" matButton="filled">Front</button>
+          <button [class.active-btn]="cardSide==='back'" (click)="cardSide='back'" matButton="filled" class="app-button-cancel">Back</button>
         </div>
         @if (!data?.studentId && (schoolClasses?.length ?? 0)>0) {
           <mat-form-field appearance="outline" class="class-filter no-print">
@@ -65,10 +65,10 @@ export interface StudentIdCardDialogData {
             </mat-select>
           </mat-form-field>
         }
-        <button mat-raised-button class="print-btn" (click)="printCards()" [disabled]="cards.length===0">
+        <button class="print-btn" (click)="printCards()" [disabled]="cards.length===0" matButton="filled">
           <mat-icon>print</mat-icon> Print {{cards.length}} Card{{cards.length!==1?'s':''}}
         </button>
-        <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
+        <button (click)="dialogRef.close()" class="close-btn" matTooltip="Close" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>

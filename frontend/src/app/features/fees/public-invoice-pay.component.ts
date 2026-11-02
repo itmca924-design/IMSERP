@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import * as QRCode from 'qrcode';
+import * as QRCode from '../../shared/utils/qr-code';
 import { FeesService, UpiIntentResponse } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -113,6 +113,7 @@ import { AuthService } from '../../core/services/auth.service';
                     (click)="onAppClick('Google Pay', upiIntent.gpayUri || upiIntent.upiIntentUri, $event)"
                     class="app-btn gpay"
                     target="_self"
+                    matButton="filled"
                     >
                     <span class="app-name">Google Pay</span>
                   </a>
@@ -121,6 +122,7 @@ import { AuthService } from '../../core/services/auth.service';
                     (click)="onAppClick('PhonePe', upiIntent.phonepeUri || upiIntent.upiIntentUri, $event)"
                     class="app-btn phonepe"
                     target="_self"
+                    matButton="filled"
                     >
                     <span class="app-name">PhonePe</span>
                   </a>
@@ -129,6 +131,7 @@ import { AuthService } from '../../core/services/auth.service';
                     (click)="onAppClick('Paytm', upiIntent.paytmUri || upiIntent.upiIntentUri, $event)"
                     class="app-btn paytm"
                     target="_self"
+                    matButton="filled"
                     >
                     <span class="app-name">Paytm</span>
                   </a>
@@ -137,6 +140,7 @@ import { AuthService } from '../../core/services/auth.service';
                     (click)="onAppClick('Any UPI App', upiIntent.upiIntentUri, $event)"
                     class="app-btn any-upi"
                     target="_self"
+                    matButton="filled"
                     >
                     <span class="app-name">Any UPI App</span>
                   </a>

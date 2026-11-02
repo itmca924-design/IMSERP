@@ -67,14 +67,14 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                   <span class="clock-time">{{ liveClockTime }}</span>
                 </div>
               </div>
-              <button mat-stroked-button class="header-btn" (click)="toggleViewMode()">
+              <button class="header-btn" (click)="toggleViewMode()" matButton="filled">
                 <mat-icon>{{ viewMode === 'daily' ? 'grid_view' : 'view_day' }}</mat-icon>
                 {{ viewMode === 'daily' ? 'Weekly Matrix Grid' : 'Daily Timeline View' }}
               </button>
-              <button mat-stroked-button class="header-btn" (click)="showFacultyModal = true">
+              <button class="header-btn" (click)="showFacultyModal = true" matButton="filled">
                 <mat-icon>groups</mat-icon> Faculty Directory ({{ timetableData.facultyContacts.length || 0 }})
               </button>
-              <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
+              <button color="primary" class="primary-gradient-btn" (click)="triggerPrint()" matButton="filled">
                 <mat-icon>print</mat-icon> Print Routine
               </button>
             </div>
@@ -89,7 +89,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                 type="button"
                 class="scope-pill-btn"
                 [class.active]="targetScope === 'school'"
-                (click)="setScope('school')">
+                (click)="setScope('school')" matButton="filled">
                 <mat-icon class="pill-icon">account_balance</mat-icon>
                 <span>School Classes (स्कूल कक्षाएं)</span>
               </button>
@@ -97,7 +97,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                 type="button"
                 class="scope-pill-btn"
                 [class.active]="targetScope === 'coaching'"
-                (click)="setScope('coaching')">
+                (click)="setScope('coaching')" matButton="filled">
                 <mat-icon class="pill-icon">groups</mat-icon>
                 <span>Coaching Batches (कोचिंग बैचेस)</span>
               </button>
@@ -142,7 +142,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
               }
             </div>
             <div class="selector-right">
-              <button type="button" class="setup-routine-btn" (click)="openConfigureRoutineDialog()" matTooltip="Add / edit periods and assign teachers for this section">
+              <button type="button" class="setup-routine-btn" (click)="openConfigureRoutineDialog()" matTooltip="Add / edit periods and assign teachers for this section" matButton="filled">
                 <mat-icon>edit_calendar</mat-icon>
                 <span>Configure Section Routine</span>
               </button>
@@ -184,7 +184,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
               </div>
             </div>
             <div class="selector-right">
-              <button type="button" class="setup-routine-btn coaching-routine-btn" (click)="openConfigureBatchRoutineDialog()" [disabled]="!selectedBatchId" matTooltip="Add / edit lectures and assign faculty for this batch">
+              <button type="button" class="setup-routine-btn coaching-routine-btn" (click)="openConfigureBatchRoutineDialog()" [disabled]="!selectedBatchId" matTooltip="Add / edit lectures and assign faculty for this batch" matButton="filled">
                 <mat-icon>edit_calendar</mat-icon>
                 <span>Configure Batch Routine</span>
               </button>
@@ -199,7 +199,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
             <mat-icon class="err-icon">error_outline</mat-icon>
             <h3>Unable to Load Timetable</h3>
             <p>{{ errorMessage }}</p>
-            <button mat-stroked-button color="primary" (click)="loadTimetable()">
+            <button color="primary" (click)="loadTimetable()" matButton="filled">
               <mat-icon>refresh</mat-icon> Retry Loading
             </button>
           </div>
@@ -218,7 +218,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                     <p>Configure weekly routine, subjects, and period timings for {{ targetScope === 'coaching' ? 'this coaching batch' : 'this section' }}.</p>
                   </div>
                 </div>
-                <button type="button" class="btn-create-routine" (click)="targetScope === 'coaching' ? openConfigureBatchRoutineDialog() : openConfigureRoutineDialog()">
+                <button type="button" class="btn-create-routine" (click)="targetScope === 'coaching' ? openConfigureBatchRoutineDialog() : openConfigureRoutineDialog()" matButton="filled">
                   <mat-icon>add_circle_outline</mat-icon> Setup Weekly Routine
                 </button>
               </div>
@@ -318,7 +318,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                   type="button"
                   class="day-pill-btn today-highlight-btn"
                   [class.active]="selectedDay === timetableData.todayDayOfWeek"
-                  (click)="selectDay(timetableData.todayDayOfWeek)">
+                  (click)="selectDay(timetableData.todayDayOfWeek)" matButton="filled">
                   <mat-icon>bolt</mat-icon>
                   <span>Today ({{ timetableData.todayDayOfWeek }})</span>
                   <span class="period-count-badge">{{ (timetableData.weeklySchedule[timetableData.todayDayOfWeek] || []).length }}</span>
@@ -329,7 +329,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                     class="day-pill-btn"
                     [class.active]="selectedDay === day"
                     [class.today-day]="day === timetableData.todayDayOfWeek"
-                    (click)="selectDay(day)">
+                    (click)="selectDay(day)" matButton="filled">
                     <span>{{ day }}</span>
                     <span class="period-count-badge">{{ (timetableData.weeklySchedule[day] || []).length }}</span>
                   </button>
@@ -341,7 +341,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                   class="mode-btn"
                   [class.active]="viewMode === 'daily'"
                   (click)="viewMode = 'daily'"
-                  matTooltip="Daily Timeline View">
+                  matTooltip="Daily Timeline View" matButton="filled">
                   <mat-icon>view_day</mat-icon> Daily Timeline
                 </button>
                 <button
@@ -349,7 +349,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                   class="mode-btn"
                   [class.active]="viewMode === 'weekly'"
                   (click)="viewMode = 'weekly'"
-                  matTooltip="Weekly Full Routine Matrix">
+                  matTooltip="Weekly Full RoutineMatrix" matButton="filled">
                   <mat-icon>grid_view</mat-icon> Full Week Grid
                 </button>
               </div>
@@ -384,7 +384,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                     </div>
                     <h4>No Classes Scheduled on {{ selectedDay }}</h4>
                     <p>Enjoy your break or use this time for self-study and pending homework assignments!</p>
-                    <a routerLink="/school/homework" class="view-hw-btn">
+                    <a routerLink="/school/homework" class="view-hw-btn" matButton="filled">
                       <mat-icon>auto_stories</mat-icon> Check Homework &amp; Diary
                     </a>
                   </div>
@@ -458,10 +458,10 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                             </div>
                             @if (slot.teacherPhone) {
                               <div class="fac-quick-actions">
-                                <a [href]="'tel:' + slot.teacherPhone" class="action-circle-btn" matTooltip="Call Teacher">
+                                <a [href]="'tel:' + slot.teacherPhone" class="action-circle-btn" matTooltip="Call Teacher" mat-icon-button>
                                   <mat-icon>phone</mat-icon>
                                 </a>
-                                <a [href]="'https://wa.me/' + cleanPhone(slot.teacherPhone)" target="_blank" class="action-circle-btn wa" matTooltip="WhatsApp Faculty">
+                                <a [href]="'https://wa.me/' + cleanPhone(slot.teacherPhone)" target="_blank" class="action-circle-btn wa" matTooltip="WhatsApp Faculty" mat-icon-button>
                                   <mat-icon>chat</mat-icon>
                                 </a>
                               </div>
@@ -536,7 +536,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                       </div>
                     }
                     <div class="matrix-actions">
-                      <button mat-stroked-button class="matrix-print-btn" (click)="triggerPrint()">
+                      <button class="matrix-print-btn" (click)="triggerPrint()" matButton="filled">
                         <mat-icon>print</mat-icon> Print Grid
                       </button>
                     </div>
@@ -683,7 +683,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                   <h3 class="modal-title">Assigned Faculty &amp; Teacher Directory</h3>
                   <p class="modal-sub">Direct contact coordinates for class teachers and subject instructors</p>
                 </div>
-                <button mat-icon-button class="modal-close-btn" (click)="showFacultyModal = false">
+                <button class="modal-close-btn" (click)="showFacultyModal = false" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               </div>
@@ -733,10 +733,10 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                         </div>
                         @if (fac.phone) {
                           <div class="f-footer">
-                            <a [href]="'tel:' + fac.phone" mat-stroked-button class="f-call-btn">
+                            <a [href]="'tel:' + fac.phone" matButton="filled" class="f-call-btn">
                               <mat-icon>call</mat-icon> Call Teacher
                             </a>
-                            <a [href]="'https://wa.me/' + cleanPhone(fac.phone)" target="_blank" mat-stroked-button class="f-wa-btn">
+                            <a [href]="'https://wa.me/' + cleanPhone(fac.phone)" target="_blank" matButton="filled" class="f-wa-btn">
                               <mat-icon>chat</mat-icon> WhatsApp
                             </a>
                           </div>

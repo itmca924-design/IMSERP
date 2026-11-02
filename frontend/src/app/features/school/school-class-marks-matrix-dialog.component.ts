@@ -76,7 +76,7 @@ interface EditableStudentRow {
             <p class="modal-subtitle">कक्षावार सभी विषयों के अंक एक साथ प्रविष्ट व सुरक्षित करें (Multi-Subject Row Entry)।</p>
           </div>
         </div>
-        <button mat-icon-button (click)="onClose()" class="close-btn" matTooltip="Close">
+        <button (click)="onClose()" class="close-btn" matTooltip="Close" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -123,7 +123,7 @@ interface EditableStudentRow {
           </mat-select>
         </mat-form-field>
     
-        <button mat-stroked-button color="primary" class="reload-btn" (click)="loadMatrix()" [disabled]="loading" matTooltip="Refresh data from server">
+        <button color="primary" class="reload-btn" (click)="loadMatrix()" [disabled]="loading" matTooltip="Refresh data from server" matButton="filled">
           <mat-icon>refresh</mat-icon>
           <span>Reload</span>
         </button>
@@ -136,7 +136,7 @@ interface EditableStudentRow {
             <mat-icon>search</mat-icon>
             <input type="text" [(ngModel)]="searchStudentText" placeholder="Search student by name or roll number...">
             @if (searchStudentText) {
-              <button (click)="searchStudentText = ''" class="clear-btn">
+              <button (click)="searchStudentText = ''" class="clear-btn" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -148,7 +148,7 @@ interface EditableStudentRow {
             <span class="info-pill">
               <mat-icon>groups</mat-icon> {{ students.length }} Students
             </span>
-            <button mat-button color="primary" (click)="markAllPresent()" matTooltip="Clear absent flag for all students">
+            <button color="primary" (click)="markAllPresent()" matTooltip="Clear absent flag for all students" matButton="filled">
               <mat-icon>done_all</mat-icon> Mark All Present
             </button>
           </div>
@@ -227,7 +227,7 @@ interface EditableStudentRow {
                             class="btn-absent-toggle"
                             [class.active-absent]="s.marks[sub.examId].isAbsent"
                             (click)="toggleAbsent(s, sub.examId)"
-                            [matTooltip]="s.marks[sub.examId].isAbsent ? 'Student is Absent. Click to mark Present.' : 'Mark Absent'">
+                            [matTooltip]="s.marks[sub.examId].isAbsent ? 'Student is Absent. Click to mark Present.' : 'Mark Absent'" matButton="filled">
                             {{ s.marks[sub.examId].isAbsent ? 'ABS' : 'P' }}
                           </button>
                           <!-- Number Input for Marks -->
@@ -281,15 +281,14 @@ interface EditableStudentRow {
         </div>
     
         <div class="footer-right">
-          <button mat-stroked-button type="button" class="btn-cancel" (click)="onClose()">
+          <button type="button" class="btn-cancel app-button-cancel" (click)="onClose()" matButton="filled">
             Cancel
           </button>
           <button
-            mat-flat-button
             color="primary"
-            class="btn-save-all"
+            class="btn-save-all app-button-save"
             (click)="saveAllMarks()"
-            [disabled]="saving || loading || students.length === 0 || subjects.length === 0">
+            [disabled]="saving || loading || students.length === 0 || subjects.length === 0" matButton="filled">
             @if (!saving) {
               <mat-icon>save</mat-icon>
             }

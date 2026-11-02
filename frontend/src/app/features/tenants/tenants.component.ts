@@ -51,7 +51,7 @@ import { environment } from '../../../environments/environment';
           <p class="page-subtitle">{{ isSuperAdmin ? 'Platform SaaS provisioning, multi-tenant instances, subscription tiers, student quotas, and module licensing.' : 'Manage your institute profile, contact branding, campus branches, and view subscription entitlements.' }}</p>
         </div>
         @if (isSuperAdmin) {
-          <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()">
+          <button color="primary" class="add-btn" (click)="openCreateModal()" matButton="filled">
             <mat-icon>add_business</mat-icon>
             <span>Provision New Institute</span>
           </button>
@@ -165,7 +165,7 @@ import { environment } from '../../../environments/environment';
             <mat-icon class="search-icon">search</mat-icon>
             <input type="text" placeholder="Search institute name or code..." [(ngModel)]="searchQuery" (input)="filterTenants()">
           </div>
-          <button mat-stroked-button (click)="loadTenants()" class="refresh-btn" matTooltip="Refresh institutes list">
+          <button (click)="loadTenants()" class="refresh-btn" matTooltip="Refresh institutes list" matButton="filled">
             <mat-icon [class.spin]="loading">sync</mat-icon>
             <span>Refresh</span>
           </button>
@@ -308,16 +308,16 @@ import { environment } from '../../../environments/environment';
                 }
               </div>
               <div class="card-actions">
-                <button mat-stroked-button color="primary" class="edit-btn" (click)="openEditModal(t)">
+                <button color="primary" class="edit-btn app-button-update" (click)="openEditModal(t)" matButton="filled">
                   <mat-icon>edit</mat-icon>
                   <span>{{ isSuperAdmin ? 'Configure Institute' : 'Edit Profile' }}</span>
                 </button>
-                <button mat-stroked-button class="upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Zero-Fee Dynamic UPI QR &amp; VPA">
+                <button class="upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Zero-Fee Dynamic UPI QR &amp; VPA" matButton="filled">
                   <mat-icon class="upi-btn-icon">qr_code_2</mat-icon>
                   <span>UPI Gateway</span>
                 </button>
                 @if (isSuperAdmin) {
-                  <button mat-button [color]="t.isActive ? 'warn' : 'accent'" (click)="toggleStatus(t)">
+                  <button [color]="t.isActive ? 'warn' : 'accent'" (click)="toggleStatus(t)" matButton="filled">
                     <mat-icon>{{ t.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
                     <span>{{ t.isActive ? 'Deactivate' : 'Activate' }}</span>
                   </button>
@@ -331,7 +331,7 @@ import { environment } from '../../../environments/environment';
               <h3>No Coaching Institutes Found</h3>
               <p>No institutes match your search or no tenants have been provisioned yet.</p>
               @if (isSuperAdmin) {
-                <button mat-raised-button color="primary" (click)="openCreateModal()">Provision First Institute</button>
+                <button color="primary" (click)="openCreateModal()" matButton="filled">Provision First Institute</button>
               }
             </div>
           }
@@ -398,15 +398,14 @@ import { environment } from '../../../environments/environment';
                 @if (isEditing && activeModalTab !== 'profile') {
                   <button
                     type="button"
-                    mat-stroked-button
-                    class="header-back-btn"
+                    class="header-back-btn app-button-cancel"
                     (click)="activeModalTab = 'profile'"
-                    matTooltip="Return to Institute Profile">
+                    matTooltip="Return to Institute Profile" matButton="filled">
                     <mat-icon>arrow_back</mat-icon>
                     <span class="back-text">Back</span>
                   </button>
                 }
-                <button mat-icon-button (click)="closeModal()" class="close-btn" matTooltip="Close dialog">
+                <button (click)="closeModal()" class="close-btn" matTooltip="Close dialog" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               </div>
@@ -418,7 +417,7 @@ import { environment } from '../../../environments/environment';
                   type="button"
                   class="modal-tab-btn"
                   [class.active]="activeModalTab === 'profile'"
-                  (click)="activeModalTab = 'profile'">
+                  (click)="activeModalTab = 'profile'" matButton="filled">
                   <mat-icon>business</mat-icon>
                   <span>Profile &amp; Contact</span>
                 </button>
@@ -426,7 +425,7 @@ import { environment } from '../../../environments/environment';
                   type="button"
                   class="modal-tab-btn upi-tab"
                   [class.active]="activeModalTab === 'upi'"
-                  (click)="activeModalTab = 'upi'">
+                  (click)="activeModalTab = 'upi'" matButton="filled">
                   <mat-icon class="tab-upi-icon">qr_code_2</mat-icon>
                   <span>Dynamic UPI Gateway</span>
                   @if (tenantForm.get('upiId')?.value) {
@@ -440,7 +439,7 @@ import { environment } from '../../../environments/environment';
                   type="button"
                   class="modal-tab-btn"
                   [class.active]="activeModalTab === 'whatsapp'"
-                  (click)="activeModalTab = 'whatsapp'">
+                  (click)="activeModalTab = 'whatsapp'" matButton="filled">
                   <mat-icon>chat</mat-icon>
                   <span>WhatsApp Alerts</span>
                   @if (tenantForm.get('whatsAppPhoneId')?.value) {
@@ -451,7 +450,7 @@ import { environment } from '../../../environments/environment';
                   type="button"
                   class="modal-tab-btn"
                   [class.active]="activeModalTab === 'modules'"
-                  (click)="activeModalTab = 'modules'">
+                  (click)="activeModalTab = 'modules'" matButton="filled">
                   <mat-icon>hub</mat-icon>
                   <span>Modules &amp; Licensing</span>
                 </button>
@@ -485,7 +484,7 @@ import { environment } from '../../../environments/environment';
                             <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none;">
                           </label>
                           @if (profilePhotoPreview) {
-                            <button type="button" mat-button color="warn" class="remove-asset-btn" (click)="removePhoto()">
+                            <button type="button" color="warn" class="remove-asset-btn app-button-delete" (click)="removePhoto()" matButton="filled">
                               <mat-icon>delete_outline</mat-icon>
                               <span>Remove</span>
                             </button>
@@ -498,7 +497,7 @@ import { environment } from '../../../environments/environment';
                     <div class="asset-card seal-card">
                       <div class="asset-header">
                         <span class="asset-title">Official Seal (मुहर / Stamp)</span>
-                        <button type="button" class="library-toggle-pill seal-pill" (click)="showSealsLibrary = !showSealsLibrary" [matTooltip]="'View & Manage all saved seals (' + savedSeals.length + ')'">
+                        <button type="button" class="library-toggle-pill seal-pill" (click)="showSealsLibrary = !showSealsLibrary" [matTooltip]="'View & Manage all saved seals (' + savedSeals.length + ')'" matButton="filled">
                           <mat-icon class="pill-icon">collections_bookmark</mat-icon>
                           <span>Vault ({{ savedSeals.length }})</span>
                           <mat-icon class="pill-arrow">{{ showSealsLibrary ? 'expand_less' : 'expand_more' }}</mat-icon>
@@ -514,7 +513,7 @@ import { environment } from '../../../environments/environment';
                           }
                         </div>
                         <div class="asset-actions">
-                          <button type="button" mat-stroked-button color="primary" class="generator-btn seal-gen-btn" (click)="openStampMaker()" matTooltip="Create circular/oval digital rubber stamp in real-time">
+                          <button type="button" color="primary" class="generator-btn seal-gen-btn" (click)="openStampMaker()" matTooltip="Create circular/oval digital rubber stamp in real-time" matButton="filled">
                             <mat-icon>auto_awesome</mat-icon>
                             <span>Generate (मुहर बनाएं)</span>
                           </button>
@@ -524,7 +523,7 @@ import { environment } from '../../../environments/environment';
                             <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onSealSelected($event)" style="display:none;">
                           </label>
                           @if (officialSealPreview) {
-                            <button type="button" mat-button color="warn" class="remove-asset-btn" (click)="removeSeal()">
+                            <button type="button" color="warn" class="remove-asset-btn app-button-delete" (click)="removeSeal()" matButton="filled">
                               <mat-icon>delete_outline</mat-icon>
                               <span>Remove</span>
                             </button>
@@ -537,7 +536,7 @@ import { environment } from '../../../environments/environment';
                         <div class="asset-vault-tray">
                           <div class="vault-tray-header">
                             <span class="tray-title">Saved Seals Library (मुहरें):</span>
-                            <button type="button" mat-button class="tray-add-btn" (click)="openStampMaker()">
+                            <button type="button" class="tray-add-btn" (click)="openStampMaker()" matButton="filled">
                               <mat-icon>add</mat-icon> New Seal
                             </button>
                           </div>
@@ -562,7 +561,7 @@ import { environment } from '../../../environments/environment';
                                       {{ (s.isDefault || s.url === officialSealPreview) ? '★ Default (लागू)' : 'Click to Apply' }}
                                     </span>
                                   </div>
-                                  <button type="button" class="vault-del-btn" (click)="deleteSeal(s, $event)" matTooltip="Delete from library" aria-label="Delete">
+                                  <button type="button" class="vault-del-btn" (click)="deleteSeal(s, $event)" matTooltip="Delete from library" aria-label="Delete" mat-icon-button>
                                     <mat-icon>close</mat-icon>
                                   </button>
                                 </div>
@@ -579,7 +578,7 @@ import { environment } from '../../../environments/environment';
                     <div class="asset-card sign-card">
                       <div class="asset-header">
                         <span class="asset-title">Principal / Controller Sign</span>
-                        <button type="button" class="library-toggle-pill sign-pill" (click)="showSignaturesLibrary = !showSignaturesLibrary" [matTooltip]="'View & Manage all saved signatures (' + savedSignatures.length + ')'">
+                        <button type="button" class="library-toggle-pill sign-pill" (click)="showSignaturesLibrary = !showSignaturesLibrary" [matTooltip]="'View & Manage all saved signatures (' + savedSignatures.length + ')'" matButton="filled">
                           <mat-icon class="pill-icon">collections_bookmark</mat-icon>
                           <span>Vault ({{ savedSignatures.length }})</span>
                           <mat-icon class="pill-arrow">{{ showSignaturesLibrary ? 'expand_less' : 'expand_more' }}</mat-icon>
@@ -595,7 +594,7 @@ import { environment } from '../../../environments/environment';
                           }
                         </div>
                         <div class="asset-actions">
-                          <button type="button" mat-stroked-button color="primary" class="generator-btn sign-gen-btn" (click)="openSignatureStudio()" matTooltip="Draw or generate cursive digital signature in real-time">
+                          <button type="button" color="primary" class="generator-btn sign-gen-btn" (click)="openSignatureStudio()" matTooltip="Draw or generate cursive digital signature in real-time" matButton="filled">
                             <mat-icon>draw</mat-icon>
                             <span>Create / Draw (साइन बनाएं)</span>
                           </button>
@@ -605,7 +604,7 @@ import { environment } from '../../../environments/environment';
                             <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onSignatureSelected($event)" style="display:none;">
                           </label>
                           @if (digitalSignaturePreview) {
-                            <button type="button" mat-button color="warn" class="remove-asset-btn" (click)="removeSignature()">
+                            <button type="button" color="warn" class="remove-asset-btn app-button-delete" (click)="removeSignature()" matButton="filled">
                               <mat-icon>delete_outline</mat-icon>
                               <span>Remove</span>
                             </button>
@@ -618,7 +617,7 @@ import { environment } from '../../../environments/environment';
                         <div class="asset-vault-tray">
                           <div class="vault-tray-header">
                             <span class="tray-title">Saved Signatures Library (हस्ताक्षर):</span>
-                            <button type="button" mat-button class="tray-add-btn" (click)="openSignatureStudio()">
+                            <button type="button" class="tray-add-btn" (click)="openSignatureStudio()" matButton="filled">
                               <mat-icon>add</mat-icon> New Sign
                             </button>
                           </div>
@@ -643,7 +642,7 @@ import { environment } from '../../../environments/environment';
                                       {{ (sg.isDefault || sg.url === digitalSignaturePreview) ? '★ Default (लागू)' : 'Click to Apply' }}
                                     </span>
                                   </div>
-                                  <button type="button" class="vault-del-btn" (click)="deleteSignature(sg, $event)" matTooltip="Delete from library" aria-label="Delete">
+                                  <button type="button" class="vault-del-btn" (click)="deleteSignature(sg, $event)" matTooltip="Delete from library" aria-label="Delete" mat-icon-button>
                                     <mat-icon>close</mat-icon>
                                   </button>
                                 </div>
@@ -1185,7 +1184,7 @@ import { environment } from '../../../environments/environment';
                                         <mat-icon>store</mat-icon>
                                         <span>Institute Branches (Multi-Branch Setup)</span>
                                       </h4>
-                                      <button type="button" mat-stroked-button color="primary" class="add-branch-btn" (click)="addBranchRow(false)">
+                                      <button type="button" color="primary" class="add-branch-btn" (click)="addBranchRow(false)" matButton="filled">
                                         <mat-icon>add</mat-icon>
                                         <span>Add Branch</span>
                                       </button>
@@ -1200,7 +1199,7 @@ import { environment } from '../../../environments/environment';
                                               {{ br.get('isMainBranch')?.value ? 'Main Branch (HQ)' : 'Branch #' + (i + 1) }}
                                             </span>
                                             @if (branchesFormArray.length > 1) {
-                                              <button type="button" mat-icon-button color="warn" (click)="removeBranchRow(i)" matTooltip="Remove branch">
+                                              <button type="button" color="warn" (click)="removeBranchRow(i)" matTooltip="Remove branch" mat-icon-button>
                                                 <mat-icon>delete_outline</mat-icon>
                                               </button>
                                             }
@@ -1252,17 +1251,16 @@ import { environment } from '../../../environments/environment';
                                   @if (isEditing && activeModalTab !== 'profile') {
                                     <button
                                       type="button"
-                                      mat-stroked-button
                                       color="primary"
                                       class="back-to-profile-btn"
-                                      (click)="activeModalTab = 'profile'">
+                                      (click)="activeModalTab = 'profile'" matButton="filled">
                                       <mat-icon>arrow_back</mat-icon>
                                       <span>Back to Profile</span>
                                     </button>
                                   }
                                   <div class="footer-right-actions">
-                                    <button type="button" mat-button (click)="onCancel()">{{ (isEditing && activeModalTab !== 'profile') ? 'Back' : 'Cancel' }}</button>
-                                    <button type="submit" mat-raised-button color="primary" [disabled]="tenantForm.invalid || formSaving" (click)="saveTenant()">
+                                    <button type="button" (click)="onCancel()" matButton="filled">{{ (isEditing && activeModalTab !== 'profile') ? 'Back' : 'Cancel' }}</button>
+                                    <button type="submit" color="primary" [disabled]="tenantForm.invalid || formSaving" (click)="saveTenant()" matButton="filled" [class.app-button-update]="isEditing">
                                       @if (formSaving) {
                                         <mat-spinner diameter="18" style="display:inline-block; margin-right:6px;"></mat-spinner>
                                       }

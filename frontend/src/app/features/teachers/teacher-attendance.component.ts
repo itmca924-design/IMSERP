@@ -94,11 +94,11 @@ export interface CalendarDayItem {
         </div>
         <div class="toolbar-right">
           @if (canManageAttendance && attendancePermissions.canChangeMode) {
-            <button mat-stroked-button color="primary" class="settings-toolbar-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Faculty and Students">
+            <button color="primary" class="settings-toolbar-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Attendance Policies for Faculty and Students" matButton="filled">
               <mat-icon>settings</mat-icon> Shift &amp; Policies
             </button>
           }
-          <button mat-stroked-button class="regularize-toolbar-btn" (click)="openRegularizationDialog()" matTooltip="Request Attendance Regularization for missed punches or duty tour">
+          <button class="regularize-toolbar-btn" (click)="openRegularizationDialog()" matTooltip="Request Attendance Regularization for missed punches or duty tour" matButton="filled">
             <mat-icon>build_circle</mat-icon> Regularize
           </button>
         </div>
@@ -192,18 +192,18 @@ export interface CalendarDayItem {
           <div class="multi-select-toolbar">
             <div class="mst-left">
               <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
-              <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month">
+              <button type="button" class="mst-btn" (click)="selectAllWorkingDays()" matTooltip="Select all working days in this month" matButton="filled">
                 <mat-icon>fact_check</mat-icon> Select All Working Days
               </button>
-              <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days">
+              <button type="button" class="mst-btn" (click)="selectAllAbsentDays()" matTooltip="Select all unmarked / absent days" matButton="filled">
                 <mat-icon>rule</mat-icon> Select Unmarked / Absent
               </button>
-              <button type="button" class="mst-btn save-month" (click)="saveFacultyMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Auto-fill entire month: Checked days as Present, Unchecked working days as Absent">
+              <button type="button" class="mst-btn save-month" (click)="saveFacultyMonthlyRegister()" [disabled]="batchSavingDates" matTooltip="Auto-fill entire month: Checked days as Present, Unchecked working days asAbsent" matButton="filled">
                 <mat-icon>{{ batchSavingDates ? 'hourglass_empty' : 'save_as' }}</mat-icon>
                 <span>{{ batchSavingDates ? 'Saving...' : 'Auto-Fill Full Month Register' }}</span>
               </button>
               @if (selectedMatrixDates.size > 0) {
-                <button type="button" class="mst-btn clear" (click)="clearDateSelection()">
+                <button type="button" class="mst-btn clear" (click)="clearDateSelection()" matButton="filled">
                   <mat-icon>clear_all</mat-icon> Clear Selection ({{ selectedMatrixDates.size }})
                 </button>
               }
@@ -258,31 +258,31 @@ export interface CalendarDayItem {
               </div>
             </div>
             <div class="mfb-center">
-              <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'">
+              <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'" matButton="filled">
                 <mat-icon>check_circle</mat-icon> Present
               </button>
-              <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'">
+              <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'" matButton="filled">
                 <mat-icon>cancel</mat-icon> Absent
               </button>
-              <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus = 'Late'">
+              <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus ='Late'" matButton="filled">
                 <mat-icon>schedule</mat-icon> Late
               </button>
-              <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'">
+              <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'" matButton="filled">
                 <mat-icon>hourglass_bottom</mat-icon> Half Day
               </button>
-              <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'">
+              <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'" matButton="filled">
                 <mat-icon>event_busy</mat-icon> Leave
               </button>
               <!-- Quick Shift Presets (School Day Shift vs Coaching Morning vs Coaching Evening) -->
               @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
                 <div class="mfb-shift-presets">
-                  <button type="button" class="mfb-shift-btn" [class.active]="activeShiftType === 'school'" (click)="setShiftType('school')" matTooltip="Standard School / Day Shift">
+                  <button type="button" class="mfb-shift-btn" [class.active]="activeShiftType === 'school'" (click)="setShiftType('school')" matTooltip="Standard School / Day Shift" matButton="filled">
                     <mat-icon>school</mat-icon> Day Shift
                   </button>
-                  <button type="button" class="mfb-shift-btn morning" [class.active]="activeShiftType === 'coaching_morning'" (click)="setShiftType('coaching_morning')" matTooltip="Coaching Morning Shift">
+                  <button type="button" class="mfb-shift-btn morning" [class.active]="activeShiftType === 'coaching_morning'" (click)="setShiftType('coaching_morning')" matTooltip="Coaching Morning Shift" matButton="filled">
                     <mat-icon>wb_sunny</mat-icon> Morn
                   </button>
-                  <button type="button" class="mfb-shift-btn evening" [class.active]="activeShiftType === 'coaching_evening'" (click)="setShiftType('coaching_evening')" matTooltip="Coaching Evening Shift">
+                  <button type="button" class="mfb-shift-btn evening" [class.active]="activeShiftType === 'coaching_evening'" (click)="setShiftType('coaching_evening')" matTooltip="Coaching Evening Shift" matButton="filled">
                     <mat-icon>nights_stay</mat-icon> Eve
                   </button>
                 </div>
@@ -303,7 +303,7 @@ export interface CalendarDayItem {
               <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
             </div>
             <div class="mfb-right">
-              <button type="button" class="mfb-save-btn" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()">
+              <button type="button" class="mfb-save-btn app-button-save" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()" matButton="filled">
                 @if (!batchSavingDates) {
                   <mat-icon>save</mat-icon>
                 }
@@ -312,7 +312,7 @@ export interface CalendarDayItem {
                 }
                 <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
               </button>
-              <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection">
+              <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -390,12 +390,12 @@ export interface CalendarDayItem {
                     @if (canManageAttendance) {
                       <td class="actions-col">
                         <span class="action-btn-wrapper" [class.is-disabled]="isEditDisabled(a)" [matTooltip]="getEditTooltip(a)" (click)="isEditDisabled(a) ? editRecord(a) : null">
-                          <button mat-icon-button color="primary" (click)="editRecord(a)" [disabled]="isEditDisabled(a)">
+                          <button color="primary" (click)="editRecord(a)" [disabled]="isEditDisabled(a)" mat-icon-button>
                             <mat-icon>edit</mat-icon>
                           </button>
                         </span>
                         <span class="action-btn-wrapper" [class.is-disabled]="isDeleteDisabled(a)" [matTooltip]="getDeleteTooltip(a)" (click)="isDeleteDisabled(a) ? deleteRecord(a.id) : null">
-                          <button mat-icon-button color="warn" (click)="deleteRecord(a.id)" [disabled]="isDeleteDisabled(a)">
+                          <button color="warn" (click)="deleteRecord(a.id)" [disabled]="isDeleteDisabled(a)" mat-icon-button>
                             <mat-icon>delete_outline</mat-icon>
                           </button>
                         </span>
@@ -404,7 +404,7 @@ export interface CalendarDayItem {
                     @if (!canManageAttendance) {
                       <td class="actions-col">
                         @if (canRegularizeRecord(a)) {
-                          <button mat-stroked-button class="reg-btn-row" (click)="openRegularizationDialog(a.attendanceDate.split('T')[0])" matTooltip="Request Attendance Regularization for this date">
+                          <button class="reg-btn-row" (click)="openRegularizationDialog(a.attendanceDate.split('T')[0])" matTooltip="Request Attendance Regularization for this date" matButton="filled">
                             <mat-icon style="font-size:14px;width:14px;height:14px;">build_circle</mat-icon> Regularize
                           </button>
                         }

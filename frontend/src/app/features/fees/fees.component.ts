@@ -81,11 +81,11 @@ export interface UpcomingBillingCycleInfo {
           <p>Record fee payments with FIFO auto-settlement, issue digital WhatsApp receipts, and track student ledger passbooks.</p>
         </div>
         <div class="header-action-buttons">
-          <button mat-stroked-button class="fee-master-btn" (click)="openFeeMasterModal()">
+          <button class="fee-master-btn" (click)="openFeeMasterModal()" matButton="filled">
             <mat-icon color="primary">tune</mat-icon>
             <span>Fee Heads & Structure</span>
           </button>
-          <button mat-raised-button color="primary" class="generate-btn" (click)="openGenerateInvoicesModal()">
+          <button color="primary" class="generate-btn" (click)="openGenerateInvoicesModal()" matButton="filled">
             <mat-icon>post_add</mat-icon>
             <span>Generate Monthly Invoices</span>
             @if (settingsService.autoPilotInvoicing()) {
@@ -101,7 +101,7 @@ export interface UpcomingBillingCycleInfo {
           type="button"
           class="fees-nav-tab"
           [class.active]="currentActiveTab === 'invoices'"
-          (click)="switchTab('invoices')">
+          (click)="switchTab('invoices')" matButton="filled">
           <mat-icon>receipt_long</mat-icon>
           <span>Fee Invoices &amp; Counter Dues</span>
           @if (totalCount > 0) {
@@ -113,7 +113,7 @@ export interface UpcomingBillingCycleInfo {
           type="button"
           class="fees-nav-tab upi-nav-tab"
           [class.active]="currentActiveTab === 'upi'"
-          (click)="switchTab('upi')">
+          (click)="switchTab('upi')" matButton="filled">
           <mat-icon class="upi-nav-icon">qr_code_2</mat-icon>
           <span>Online UPI Collections &amp; Audit</span>
           @if (upiTotalCount > 0) {
@@ -152,14 +152,14 @@ export interface UpcomingBillingCycleInfo {
             </div>
           </div>
           <div class="banner-actions">
-            <button mat-raised-button color="accent" class="quick-gen-btn"
+            <button color="accent" class="quick-gen-btn"
               (click)="pendingStudents.length === 1 ? generateForPendingStudent(pendingStudents[0]) : openGenerateInvoicesModal()"
-              matTooltip="Open invoice generator for pending new admissions">
+              matTooltip="Open invoice generator for pending new admissions" matButton="filled">
               <mat-icon>post_add</mat-icon>
               <span>Generate Invoices ({{ pendingStudents.length }})</span>
             </button>
             @if (pendingStudents.length > 1) {
-              <button mat-stroked-button class="btn-pick-single" [matMenuTriggerFor]="pendingStudentsMenu" matTooltip="Select a specific student to invoice">
+              <button class="btn-pick-single" [matMenuTriggerFor]="pendingStudentsMenu" matTooltip="Select a specific student to invoice" matButton="filled">
                 <span>Select Student</span>
                 <mat-icon>expand_more</mat-icon>
               </button>
@@ -183,8 +183,7 @@ export interface UpcomingBillingCycleInfo {
                     class="clear-mini-btn"
                     (click)="pendingStudentSearchQuery = ''; $event.stopPropagation()"
                     (mousedown)="$event.stopPropagation()"
-                    matTooltip="Clear search"
-                    >
+                    matTooltip="Clear search" mat-icon-button>
                     <mat-icon>close</mat-icon>
                   </button>
                 }
@@ -205,7 +204,7 @@ export interface UpcomingBillingCycleInfo {
                 }
               </div>
             </mat-menu>
-            <button mat-icon-button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now">
+            <button class="dismiss-btn" (click)="dismissBanner()" matTooltip="Hide alert for now" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -246,11 +245,11 @@ export interface UpcomingBillingCycleInfo {
             </div>
           </div>
           <div class="banner-actions">
-            <button mat-raised-button color="primary" class="quick-gen-btn" (click)="openGenerateInvoicesForUpcomingCycle()">
+            <button color="primary" class="quick-gen-btn" (click)="openGenerateInvoicesForUpcomingCycle()" matButton="filled">
               <mat-icon>bolt</mat-icon>
               <span>Generate {{ upcomingCycle.monthName }} Invoices (1-Click)</span>
             </button>
-            <button mat-icon-button class="dismiss-btn" (click)="dismissUpcomingBanner()" matTooltip="Hide alert for now">
+            <button class="dismiss-btn" (click)="dismissUpcomingBanner()" matTooltip="Hide alert for now" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -272,7 +271,7 @@ export interface UpcomingBillingCycleInfo {
                 placeholder="e.g. Mantosh, INV-2026, 95405..."
                 />
               @if (searchTerm) {
-                <button mat-icon-button matSuffix (click)="searchTerm = ''; onSearch()" aria-label="Clear">
+                <button matSuffix (click)="searchTerm = ''; onSearch()" aria-label="Clear" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               }
@@ -413,7 +412,7 @@ export interface UpcomingBillingCycleInfo {
                             <button
                               type="button"
                               class="mini-head-breakdown-btn more-heads-pill"
-                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
+                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()" matButton="filled">
                               <mat-icon class="more-ic">receipt_long</mat-icon>
                               <span>+{{ sortedItems.length - 2 }} More &bull; Breakdown</span>
                             </button>
@@ -422,7 +421,7 @@ export interface UpcomingBillingCycleInfo {
                             <button
                               type="button"
                               class="mini-head-breakdown-btn"
-                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
+                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()" matButton="filled">
                               <mat-icon class="more-ic">receipt_long</mat-icon>
                               <span>Breakdown</span>
                             </button>
@@ -498,12 +497,11 @@ export interface UpcomingBillingCycleInfo {
                   <div class="smart-action-group">
                     <!-- 3-Dots Action Menu Trigger -->
                     <button
-                      mat-icon-button
                       disableRipple
                       [matMenuTriggerFor]="actionMenu"
                       class="btn-more-dots"
                       matTooltip="Options & Actions"
-                      aria-label="Actions Menu">
+                      aria-label="Actions Menu" mat-icon-button>
                       <mat-icon>more_vert</mat-icon>
                     </button>
                     <!-- 3-Dots Menu (Lazy rendered by Angular Material) -->
@@ -661,12 +659,12 @@ export interface UpcomingBillingCycleInfo {
                 placeholder="e.g. 529384920194, Mantosh, RCPT-2026..."
                 />
               @if (upiSearchTerm) {
-                <button mat-icon-button matSuffix (click)="upiSearchTerm = ''; onUpiSearch()" aria-label="Clear">
+                <button matSuffix (click)="upiSearchTerm = ''; onUpiSearch()" aria-label="Clear" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               }
             </mat-form-field>
-            <button mat-stroked-button class="btn-refresh-upi" (click)="loadOnlineUpiTransactions()" [disabled]="upiLoading">
+            <button class="btn-refresh-upi" (click)="loadOnlineUpiTransactions()" [disabled]="upiLoading" matButton="filled">
               <mat-icon [class.spin-icon]="upiLoading">refresh</mat-icon>
               <span>Refresh</span>
             </button>
@@ -723,7 +721,7 @@ export interface UpcomingBillingCycleInfo {
                   @if (txn.upiRrn) {
                     <div class="utr-pill-wrap">
                       <code class="utr-code">{{ txn.upiRrn }}</code>
-                      <button mat-icon-button disableRipple class="utr-copy-btn" (click)="copyToClipboard(txn.upiRrn)" matTooltip="Copy UTR">
+                      <button disableRipple class="utr-copy-btn" (click)="copyToClipboard(txn.upiRrn)" matTooltip="Copy UTR" mat-icon-button>
                         <mat-icon>content_copy</mat-icon>
                       </button>
                     </div>
@@ -767,12 +765,11 @@ export interface UpcomingBillingCycleInfo {
                 <td mat-cell *matCellDef="let txn" class="text-center col-actions">
                   <div class="smart-action-group">
                     <button
-                      mat-icon-button
                       disableRipple
                       [matMenuTriggerFor]="upiActionMenu"
                       class="btn-more-dots"
                       matTooltip="Options &amp; Actions"
-                      aria-label="UPI Actions Menu">
+                      aria-label="UPI Actions Menu" mat-icon-button>
                       <mat-icon>more_vert</mat-icon>
                     </button>
                     <mat-menu #upiActionMenu="matMenu" xPosition="before" class="smart-fees-menu">
@@ -846,15 +843,15 @@ export interface UpcomingBillingCycleInfo {
             </div>
           </div>
           <div class="bar-actions-section">
-            <button mat-button class="btn-clear" (click)="clearSelection()" matTooltip="Clear selected invoices">
+            <button class="btn-clear app-button-cancel" (click)="clearSelection()" matTooltip="Clear selected invoices" matButton="filled">
               <mat-icon class="clear-icon">close</mat-icon>
               <span class="clear-text">Clear</span>
             </button>
-            <button mat-raised-button class="btn-upi-multi" (click)="openMultiCollectUpiModal()" matTooltip="Collect payment via Dynamic UPI QR Code">
+            <button class="btn-upi-multi" (click)="openMultiCollectUpiModal()" matTooltip="Collect payment via Dynamic UPI QR Code" matButton="filled">
               <mat-icon class="action-btn-icon">qr_code_2</mat-icon>
               <span class="action-btn-text">Pay via UPI QR</span>
             </button>
-            <button mat-raised-button class="btn-collect-multi" (click)="openMultiCollectModal()" matTooltip="Collect settlement payment for selected invoices">
+            <button class="btn-collect-multi" (click)="openMultiCollectModal()" matTooltip="Collect settlement payment for selected invoices" matButton="filled">
               <mat-icon class="action-btn-icon">payments</mat-icon>
               <span class="action-btn-text">Collect Fees</span>
               <span class="action-btn-amount">₹{{ totalSelectedDue | number:'1.2-2' }}</span>

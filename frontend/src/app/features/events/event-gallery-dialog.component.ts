@@ -36,7 +36,7 @@ export interface EventGalleryDialogData {
             Capture, celebrate & preserve unforgettable event moments ({{ photos.length }} Photos)
           </p>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onClose()">
+        <button class="close-btn" (click)="onClose()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -58,7 +58,7 @@ export interface EventGalleryDialogData {
             <div class="pending-section">
               <div class="pending-header">
                 <span>Ready to upload ({{ pendingBase64Photos.length }} selected):</span>
-                <button mat-raised-button color="primary" (click)="uploadPendingPhotos()" [disabled]="uploading" class="upload-btn">
+                <button color="primary" (click)="uploadPendingPhotos()" [disabled]="uploading" class="upload-btn" matButton="filled">
                   @if (uploading) {
                     <mat-spinner diameter="16"></mat-spinner>
                   }
@@ -72,7 +72,7 @@ export interface EventGalleryDialogData {
                 @for (p of pendingBase64Photos; track p; let i = $index) {
                   <div class="pending-thumb">
                     <img [src]="p" alt="Pending upload" />
-                    <button type="button" class="remove-thumb-btn" (click)="removePending(i)">
+                    <button type="button" class="remove-thumb-btn" (click)="removePending(i)" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   </div>
@@ -112,7 +112,7 @@ export interface EventGalleryDialogData {
                   </div>
                   <div class="photo-footer">
                     <span class="photo-caption">{{ photo.caption || 'Event Memory' }}</span>
-                    <button type="button" class="delete-btn" (click)="deletePhoto(photo.id)" [disabled]="deletingId === photo.id" title="Delete Photo">
+                    <button type="button" class="delete-btn" (click)="deletePhoto(photo.id)" [disabled]="deletingId === photo.id" title="Delete Photo" mat-icon-button>
                       <mat-icon>delete</mat-icon>
                     </button>
                   </div>
@@ -127,7 +127,7 @@ export interface EventGalleryDialogData {
           <div class="fullscreen-overlay" (click)="fullPreviewUrl = null">
             <div class="fullscreen-content" (click)="$event.stopPropagation()">
               <img [src]="fullPreviewUrl" alt="Full Preview" />
-              <button class="close-full-btn" (click)="fullPreviewUrl = null">
+              <button class="close-full-btn" (click)="fullPreviewUrl= null" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -136,7 +136,7 @@ export interface EventGalleryDialogData {
       </mat-dialog-content>
     
       <mat-dialog-actions align="end" class="dialog-actions">
-        <button mat-button type="button" (click)="onClose()">Close Gallery</button>
+        <button type="button" (click)="onClose()" matButton="filled">Close Gallery</button>
       </mat-dialog-actions>
     </div>
     `,

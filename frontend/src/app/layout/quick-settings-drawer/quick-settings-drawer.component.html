@@ -7,7 +7,7 @@
       type="button"
       class="floating-settings-btn"
       (click)="onToggleDrawer()"
-      aria-label="Open ERP Quick Settings">
+      aria-label="Open ERP Quick Settings" mat-icon-button>
       <span class="pulse-ring"></span>
       <mat-icon class="gear-icon">settings</mat-icon>
     </button>
@@ -48,18 +48,16 @@
     <div class="header-actions">
       <button
         type="button"
-        mat-icon-button
         class="header-btn reset-btn"
         (click)="resetDefaults()"
-        matTooltip="Reset all settings to system defaults">
+        matTooltip="Reset all settings to system defaults" mat-icon-button>
         <mat-icon>restart_alt</mat-icon>
       </button>
       <button
         type="button"
-        mat-icon-button
         class="header-btn close-btn"
         (click)="onCloseDrawer()"
-        matTooltip="Close settings panel">
+        matTooltip="Close settings panel" mat-icon-button>
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -72,7 +70,8 @@
         type="button"
         class="tab-btn"
         [class.active]="activeTab === 'general'"
-        (click)="activeTab = 'general'">
+        [attr.aria-pressed]="activeTab === 'general'"
+        (click)="activeTab = 'general'" matButton="filled">
         <mat-icon>school</mat-icon>
         <span>General</span>
       </button>
@@ -82,7 +81,8 @@
         type="button"
         class="tab-btn"
         [class.active]="activeTab === 'modules'"
-        (click)="activeTab = 'modules'">
+        [attr.aria-pressed]="activeTab === 'modules'"
+        (click)="activeTab = 'modules'" matButton="filled">
         <mat-icon>hub</mat-icon>
         <span>Modules</span>
         <span class="tab-badge" style="background:#2563eb; color:#fff;">SaaS</span>
@@ -93,7 +93,8 @@
         type="button"
         class="tab-btn"
         [class.active]="activeTab === 'automation'"
-        (click)="activeTab = 'automation'">
+        [attr.aria-pressed]="activeTab === 'automation'"
+        (click)="activeTab = 'automation'" matButton="filled">
         <mat-icon>bolt</mat-icon>
         <span>Automation</span>
         <span class="tab-badge">Pro</span>
@@ -104,7 +105,8 @@
         type="button"
         class="tab-btn"
         [class.active]="activeTab === 'appearance'"
-        (click)="activeTab = 'appearance'">
+        [attr.aria-pressed]="activeTab === 'appearance'"
+        (click)="activeTab = 'appearance'" matButton="filled">
         <mat-icon>palette</mat-icon>
         <span>Theme &amp; Layout</span>
       </button>
@@ -114,7 +116,8 @@
         type="button"
         class="tab-btn"
         [class.active]="activeTab === 'shortcuts'"
-        (click)="activeTab = 'shortcuts'">
+        [attr.aria-pressed]="activeTab === 'shortcuts'"
+        (click)="activeTab = 'shortcuts'" matButton="filled">
         <mat-icon>grid_view</mat-icon>
         <span>Shortcuts</span>
       </button>
@@ -142,7 +145,7 @@
                 type="button"
                 class="session-card"
                 [class.selected]="settingsService.academicSession() === s"
-                (click)="setAcademicSession(s)">
+                (click)="setAcademicSession(s)" matButton="filled">
                 <div class="session-info">
                   <span class="session-label">{{ s }}</span>
                   @if (s === '2026-2027') {
@@ -207,7 +210,8 @@
                 type="button"
                 class="lang-opt-btn"
                 [class.active]="translationService.isEnglish()"
-                (click)="setLanguage('en')">
+                [attr.aria-pressed]="translationService.isEnglish()"
+                (click)="setLanguage('en')" matButton="filled">
                 <span class="lang-flag">🇬🇧</span>
                 <div class="lang-opt-text">
                   <span class="lang-primary">English</span>
@@ -221,7 +225,8 @@
                 type="button"
                 class="lang-opt-btn"
                 [class.active]="translationService.isHindi()"
-                (click)="setLanguage('hi')">
+                [attr.aria-pressed]="translationService.isHindi()"
+                (click)="setLanguage('hi')" matButton="filled">
                 <span class="lang-flag">🇮🇳</span>
                 <div class="lang-opt-text">
                   <span class="lang-primary">हिन्दी</span>
@@ -497,7 +502,7 @@
                             class="run-test-btn"
                             (click)="onRunJob('whatsapp-receipts', $event)"
                             [disabled]="runningJob === 'whatsapp-receipts' || !settingsService.whatsappFeeAlerts()"
-                            [matTooltip]="!settingsService.whatsappFeeAlerts() ? 'Enable toggle above to test WhatsApp gateway' : 'Test WhatsApp Gateway'">
+                            [matTooltip]="!settingsService.whatsappFeeAlerts() ? 'Enable toggle above to test WhatsApp gateway' : 'Test WhatsApp Gateway'" matButton="filled">
                             <mat-icon [class.spinning]="runningJob === 'whatsapp-receipts'">{{ runningJob === 'whatsapp-receipts' ? 'sync' : 'bolt' }}</mat-icon>
                             <span>{{ runningJob === 'whatsapp-receipts' ? 'Testing Gateway...' : 'Test WhatsApp Gateway' }}</span>
                           </button>
@@ -530,7 +535,7 @@
                               class="run-test-btn"
                               (click)="onRunJob('absentee-alerts', $event)"
                               [disabled]="runningJob === 'absentee-alerts' || !settingsService.absentSmsAlerts()"
-                              [matTooltip]="!settingsService.absentSmsAlerts() ? 'Enable toggle above to run absentee alert' : 'Run Absentee Alert Now'">
+                              [matTooltip]="!settingsService.absentSmsAlerts() ? 'Enable toggle above to run absentee alert' : 'Run Absentee Alert Now'" matButton="filled">
                               <mat-icon [class.spinning]="runningJob === 'absentee-alerts'">{{ runningJob === 'absentee-alerts' ? 'sync' : 'play_arrow' }}</mat-icon>
                               <span>{{ runningJob === 'absentee-alerts' ? 'Checking Absences...' : 'Run Absentee Alert Now' }}</span>
                             </button>
@@ -563,7 +568,7 @@
                                 class="run-test-btn"
                                 (click)="onRunJob('fee-reminders', $event)"
                                 [disabled]="runningJob === 'fee-reminders' || !settingsService.dueFeeReminders()"
-                                [matTooltip]="!settingsService.dueFeeReminders() ? 'Enable toggle above to dispatch fee reminders' : 'Dispatch Due Reminders Now'">
+                                [matTooltip]="!settingsService.dueFeeReminders() ? 'Enable toggle above to dispatch fee reminders' : 'Dispatch Due Reminders Now'" matButton="filled">
                                 <mat-icon [class.spinning]="runningJob === 'fee-reminders'">{{ runningJob === 'fee-reminders' ? 'sync' : 'send' }}</mat-icon>
                                 <span>{{ runningJob === 'fee-reminders' ? 'Scanning Invoices...' : 'Dispatch Due Reminders Now' }}</span>
                               </button>
@@ -596,7 +601,7 @@
                                   class="run-test-btn"
                                   (click)="onRunJob('autopilot', $event)"
                                   [disabled]="runningJob === 'autopilot' || !settingsService.autoPilotInvoicing()"
-                                  [matTooltip]="!settingsService.autoPilotInvoicing() ? 'Please enable toggle above first to run Auto-Pilot' : 'Trigger Auto-Pilot invoice generation now'">
+                                  [matTooltip]="!settingsService.autoPilotInvoicing() ? 'Please enable toggle above first to run Auto-Pilot' : 'Trigger Auto-Pilot invoice generation now'" matButton="filled">
                                   <mat-icon [class.spinning]="runningJob === 'autopilot'">{{ runningJob === 'autopilot' ? 'sync' : 'bolt' }}</mat-icon>
                                   <span>{{ runningJob === 'autopilot' ? 'Generating Invoices...' : 'Run Auto-Pilot Invoicing Now' }}</span>
                                 </button>
@@ -629,7 +634,7 @@
                                     class="run-test-btn"
                                     (click)="onRunJob('biometric-sync', $event)"
                                     [disabled]="runningJob === 'biometric-sync' || !settingsService.biometricSync()"
-                                    [matTooltip]="!settingsService.biometricSync() ? 'Enable toggle above to sync biometric devices' : 'Sync Biometric Gate Now'">
+                                    [matTooltip]="!settingsService.biometricSync() ? 'Enable toggle above to sync biometric devices' : 'Sync Biometric Gate Now'" matButton="filled">
                                     <mat-icon [class.spinning]="runningJob === 'biometric-sync'">{{ runningJob === 'biometric-sync' ? 'sync' : 'cached' }}</mat-icon>
                                     <span>{{ runningJob === 'biometric-sync' ? 'Syncing Devices...' : 'Sync Biometric Gate Now' }}</span>
                                   </button>
@@ -662,7 +667,7 @@
                                       class="run-test-btn"
                                       (click)="onRunJob('late-fee', $event)"
                                       [disabled]="runningJob === 'late-fee' || !settingsService.lateFeeCalc()"
-                                      [matTooltip]="!settingsService.lateFeeCalc() ? 'Enable toggle above to run late fee calculation' : 'Run Late Fee Auto-Compute'">
+                                      [matTooltip]="!settingsService.lateFeeCalc() ? 'Enable toggle above to run late fee calculation' : 'Run Late Fee Auto-Compute'" matButton="filled">
                                       <mat-icon [class.spinning]="runningJob === 'late-fee'">{{ runningJob === 'late-fee' ? 'sync' : 'calculate' }}</mat-icon>
                                       <span>{{ runningJob === 'late-fee' ? 'Applying Penalties...' : 'Run Late Fee Auto-Compute' }}</span>
                                     </button>
@@ -684,7 +689,7 @@
                                   <div class="toggle-details">
                                     <div class="toggle-title-row">
                                       <span class="toggle-title">POS Audio Feedback Chimes</span>
-                                      <button type="button" class="test-chime-link" (click)="playTestChime()">Test Sound</button>
+                                      <button type="button" class="test-chime-link" (click)="playTestChime()" matButton="filled">Test Sound</button>
                                     </div>
                                     <p class="toggle-desc">Plays a confirmation audio chime whenever fees are settled or attendance is registered.</p>
                                   </div>
@@ -702,7 +707,7 @@
 
                             <!-- ═══════════ TAB 3: APPEARANCE & THEME ═══════════ -->
                             @if (activeTab === 'appearance' && canViewAppearance()) {
-                              <div class="tab-content">
+                              <div class="tab-content appearance-content">
                                 <!-- Theme Mode -->
                                 <section class="settings-section">
                                   <h4 class="section-title">Color Scheme / Mode</h4>
@@ -712,7 +717,8 @@
                                       type="button"
                                       class="mode-btn"
                                       [class.active]="settingsService.theme() === 'light'"
-                                      (click)="setTheme('light')">
+                                      [attr.aria-pressed]="settingsService.theme() === 'light'"
+                                      (click)="setTheme('light')" matButton="filled">
                                       <mat-icon>light_mode</mat-icon>
                                       <span>Light Mode</span>
                                       @if (settingsService.theme() === 'light') {
@@ -723,7 +729,8 @@
                                       type="button"
                                       class="mode-btn"
                                       [class.active]="settingsService.theme() === 'dark'"
-                                      (click)="setTheme('dark')">
+                                      [attr.aria-pressed]="settingsService.theme() === 'dark'"
+                                      (click)="setTheme('dark')" matButton="filled">
                                       <mat-icon>dark_mode</mat-icon>
                                       <span>Dark Slate</span>
                                       @if (settingsService.theme() === 'dark') {
@@ -734,7 +741,8 @@
                                       type="button"
                                       class="mode-btn"
                                       [class.active]="settingsService.theme() === 'auto'"
-                                      (click)="setTheme('auto')">
+                                      [attr.aria-pressed]="settingsService.theme() === 'auto'"
+                                      (click)="setTheme('auto')" matButton="filled">
                                       <mat-icon>brightness_auto</mat-icon>
                                       <span>System Auto</span>
                                       @if (settingsService.theme() === 'auto') {
@@ -753,7 +761,7 @@
                                         type="button"
                                         class="accent-pill-btn"
                                         [class.selected]="settingsService.accent() === acc.id"
-                                        (click)="setAccent(acc.id)">
+                                        (click)="setAccent(acc.id)" matButton="filled">
                                         <span class="color-swatch" [style.background-color]="acc.hex">
                                           @if (settingsService.accent() === acc.id) {
                                             <mat-icon>check</mat-icon>
@@ -768,7 +776,7 @@
                                     type="button"
                                     class="default-color-featured-radio"
                                     [class.active]="settingsService.accent() === 'default'"
-                                    (click)="setAccent('default')">
+                                    (click)="setAccent('default')" matButton="filled">
                                   <div class="radio-content">
                                     <span class="color-swatch-gradient">
                                       @if (settingsService.accent() === 'default') {
@@ -792,7 +800,8 @@
                                     type="button"
                                     class="mode-btn"
                                     [class.active]="settingsService.headerTheme() === 'accent'"
-                                    (click)="setHeaderTheme('accent')">
+                                    [attr.aria-pressed]="settingsService.headerTheme() === 'accent'"
+                                    (click)="setHeaderTheme('accent')" matButton="filled">
                                     <mat-icon>palette</mat-icon>
                                     <span>Brand Accent</span>
                                     @if (settingsService.headerTheme() === 'accent') {
@@ -803,7 +812,8 @@
                                     type="button"
                                     class="mode-btn"
                                     [class.active]="settingsService.headerTheme() === 'light'"
-                                    (click)="setHeaderTheme('light')">
+                                    [attr.aria-pressed]="settingsService.headerTheme() === 'light'"
+                                    (click)="setHeaderTheme('light')" matButton="filled">
                                     <mat-icon>light_mode</mat-icon>
                                     <span>Crisp Light</span>
                                     @if (settingsService.headerTheme() === 'light') {
@@ -814,7 +824,8 @@
                                     type="button"
                                     class="mode-btn"
                                     [class.active]="settingsService.headerTheme() === 'dark'"
-                                    (click)="setHeaderTheme('dark')">
+                                    [attr.aria-pressed]="settingsService.headerTheme() === 'dark'"
+                                    (click)="setHeaderTheme('dark')" matButton="filled">
                                     <mat-icon>dark_mode</mat-icon>
                                     <span>Dark Slate</span>
                                     @if (settingsService.headerTheme() === 'dark') {
@@ -832,23 +843,31 @@
                                     type="button"
                                     class="density-btn"
                                     [class.active]="settingsService.density() === 'comfortable'"
-                                    (click)="setDensity('comfortable')">
+                                    [attr.aria-pressed]="settingsService.density() === 'comfortable'"
+                                    (click)="setDensity('comfortable')" matButton="filled">
                                     <mat-icon>density_medium</mat-icon>
-                                    <div>
+                                    <div class="density-copy">
                                       <strong>Comfortable</strong>
                                       <span>Default spacious card and table padding</span>
                                     </div>
+                                    @if (settingsService.density() === 'comfortable') {
+                                      <mat-icon class="density-check">check_circle</mat-icon>
+                                    }
                                   </button>
                                   <button
                                     type="button"
                                     class="density-btn"
                                     [class.active]="settingsService.density() === 'compact'"
-                                    (click)="setDensity('compact')">
+                                    [attr.aria-pressed]="settingsService.density() === 'compact'"
+                                    (click)="setDensity('compact')" matButton="filled">
                                     <mat-icon>density_small</mat-icon>
-                                    <div>
+                                    <div class="density-copy">
                                       <strong>Compact Mode</strong>
                                       <span>High data density, condensed table rows</span>
                                     </div>
+                                    @if (settingsService.density() === 'compact') {
+                                      <mat-icon class="density-check">check_circle</mat-icon>
+                                    }
                                   </button>
                                 </div>
                               </section>
@@ -948,7 +967,7 @@
                                     <button
                                       type="button"
                                       class="clear-cache-btn"
-                                      (click)="clearCacheAndReload()">
+                                      (click)="clearCacheAndReload()" matButton="filled">
                                       <mat-icon>delete_sweep</mat-icon>
                                       <span>Clear ERP Cache &amp; Refresh</span>
                                     </button>
@@ -969,7 +988,7 @@
                           <button
                             type="button"
                             class="done-btn"
-                            (click)="onCloseDrawer()">
+                            (click)="onCloseDrawer()" matButton="filled">
                             Done
                           </button>
                         </div>

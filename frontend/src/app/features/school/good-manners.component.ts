@@ -99,21 +99,21 @@ export interface DailyBehaviourReportHeader {
         <div class="header-actions">
           <!-- 3-Way Feature Navigation Switcher -->
           <div class="module-nav-pills notranslate" translate="no">
-            <a mat-button routerLink="/school/homework" class="nav-pill-btn">
+            <a matButton="filled" routerLink="/school/homework" class="nav-pill-btn">
               <mat-icon>menu_book</mat-icon>
               <span>1. CW &amp; HW Diary</span>
             </a>
-            <a mat-button routerLink="/school/good-manners" class="nav-pill-btn active">
+            <a matButton="filled" routerLink="/school/good-manners" class="nav-pill-btn active">
               <mat-icon>hotel_class</mat-icon>
               <span>2. Good Manners &amp; Behaviour</span>
             </a>
-            <a mat-button routerLink="/school/monthly-performance" class="nav-pill-btn">
+            <a matButton="filled" routerLink="/school/monthly-performance" class="nav-pill-btn">
               <mat-icon>insights</mat-icon>
               <span>3. Monthly Performance</span>
             </a>
           </div>
     
-          <button mat-stroked-button class="refresh-btn" (click)="loadBehaviourList()" [disabled]="loading">
+          <button class="refresh-btn" (click)="loadBehaviourList()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
@@ -127,7 +127,7 @@ export interface DailyBehaviourReportHeader {
             type="button"
             class="scope-pill-btn"
             [class.active]="targetScope === 'school'"
-            (click)="setScope('school')">
+            (click)="setScope('school')" matButton="filled">
             <mat-icon>school</mat-icon>
             <span>School Classes (स्कूल कक्षाएं)</span>
           </button>
@@ -136,7 +136,7 @@ export interface DailyBehaviourReportHeader {
             type="button"
             class="scope-pill-btn"
             [class.active]="targetScope === 'coaching'"
-            (click)="setScope('coaching')">
+            (click)="setScope('coaching')" matButton="filled">
             <mat-icon>groups</mat-icon>
             <span>Coaching Batches (कोचिंग बैचेस)</span>
           </button>
@@ -217,17 +217,17 @@ export interface DailyBehaviourReportHeader {
         }
     
         <div class="deck-actions-group">
-          <button mat-stroked-button class="quick-all-good-btn" type="button" (click)="setAllGoodManners()" [disabled]="students.length === 0">
+          <button class="quick-all-good-btn" type="button" (click)="setAllGoodManners()" [disabled]="students.length === 0" matButton="filled">
             <mat-icon>done_all</mat-icon>
             <span>1-Click All 5-Star ⭐</span>
           </button>
     
-          <button mat-stroked-button class="print-report-btn" type="button" (click)="openReportDialog()" [disabled]="students.length === 0">
+          <button class="print-report-btn" type="button" (click)="openReportDialog()" [disabled]="students.length === 0" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print / WhatsApp Report</span>
           </button>
     
-          <button mat-raised-button class="save-btn" type="button" (click)="saveDailyBehaviour()" [disabled]="saving || students.length === 0">
+          <button class="save-btn app-button-save" type="button" (click)="saveDailyBehaviour()" [disabled]="saving || students.length === 0" matButton="filled">
             @if (!saving) {
               <mat-icon>save</mat-icon>
             }
@@ -381,7 +381,7 @@ export interface DailyBehaviourReportHeader {
                   </td>
                   <!-- Actions 3-dots -->
                   <td class="col-action text-center">
-                    <button mat-icon-button [matMenuTriggerFor]="mannersRowMenu" class="row-3dots-btn" matTooltip="More Actions">
+                    <button [matMenuTriggerFor]="mannersRowMenu" class="row-3dots-btn" matTooltip="More Actions" mat-icon-button>
                       <mat-icon>more_vert</mat-icon>
                     </button>
                     <mat-menu #mannersRowMenu="matMenu" class="smart-action-menu">
@@ -1433,7 +1433,7 @@ export class GoodMannersComponent implements OnInit {
           </div>
     
           <div class="header-actions">
-            <button mat-flat-button class="auto-wa-btn" (click)="sendWhatsAppAll()" [disabled]="sendingWhatsApp || rows.length === 0">
+            <button class="auto-wa-btn" (click)="sendWhatsAppAll()" [disabled]="sendingWhatsApp || rows.length === 0" matButton="filled">
               @if (!sendingWhatsApp) {
                 <mat-icon>bolt</mat-icon>
               }
@@ -1443,17 +1443,17 @@ export class GoodMannersComponent implements OnInit {
               <span>{{ sendingWhatsApp ? 'Sending...' : '⚡ Auto Send Parents' }}</span>
             </button>
     
-            <button mat-flat-button class="group-wa-btn" (click)="shareClassGroupWhatsApp()">
+            <button class="group-wa-btn" (click)="shareClassGroupWhatsApp()" matButton="filled">
               <mat-icon>send</mat-icon>
               <span>📲 Send Group</span>
             </button>
     
-            <button mat-flat-button class="print-btn" (click)="printReport()">
+            <button class="print-btn" (click)="printReport()" matButton="filled">
               <mat-icon>print</mat-icon>
               <span>Print (A4)</span>
             </button>
     
-            <button mat-icon-button class="close-btn" (click)="dialogRef.close()">
+            <button class="close-btn" (click)="dialogRef.close()" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -1519,7 +1519,7 @@ export class GoodMannersComponent implements OnInit {
                   <td>
                     <div class="name-box">
                       <span class="name-bold">{{ row.studentName }}</span>
-                      <button type="button" class="row-wa-btn hide-on-print" (click)="sendSingleWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName">
+                      <button type="button" class="row-wa-btn hide-on-print" (click)="sendSingleWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName" matButton="filled">
                         <mat-icon>chat</mat-icon>
                         <span>WhatsApp</span>
                       </button>

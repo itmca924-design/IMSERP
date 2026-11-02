@@ -60,28 +60,25 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
     
         <div class="header-action-buttons">
           <button
-            mat-stroked-button
             class="datesheet-slip-btn"
             (click)="printDatesheet()"
-            matTooltip="Print or download exam datesheet timetable as PDF">
+            matTooltip="Print or download exam datesheet timetable as PDF" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Datesheet</span>
           </button>
     
           <button
-            mat-stroked-button
             class="admit-card-btn"
             (click)="openAdmitCardDialog()"
-            matTooltip="View and print candidate admit card / hall ticket">
+            matTooltip="View and print candidate admit card / hall ticket" matButton="filled">
             <mat-icon>badge</mat-icon>
             <span>Admit Card (प्रवेश पत्र)</span>
           </button>
     
           <button
-            mat-raised-button
             class="report-card-btn"
             (click)="openReportCardDialog()"
-            matTooltip="View full formal marksheet / report card">
+            matTooltip="View full formal marksheet / report card" matButton="filled">
             <mat-icon>assessment</mat-icon>
             <span>{{ isCoachingOnly ? 'View Scorecard (अंक-तालिका)' : 'View Marksheet (अंक-तालिका)' }}</span>
           </button>
@@ -223,7 +220,7 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
                     type="button"
                     class="cat-pill-btn"
                     [class.active]="selectedCategory === 'all'"
-                    (click)="setCategory('all')">
+                    (click)="setCategory('all')" matButton="filled">
                     <mat-icon>dashboard</mat-icon>
                     <span>All Papers</span>
                   </button>
@@ -231,7 +228,7 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
                     type="button"
                     class="cat-pill-btn"
                     [class.active]="selectedCategory === 'school'"
-                    (click)="setCategory('school')">
+                    (click)="setCategory('school')" matButton="filled">
                     <mat-icon>domain</mat-icon>
                     <span>School Exams</span>
                   </button>
@@ -239,7 +236,7 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
                     type="button"
                     class="cat-pill-btn"
                     [class.active]="selectedCategory === 'coaching'"
-                    (click)="setCategory('coaching')">
+                    (click)="setCategory('coaching')" matButton="filled">
                     <mat-icon>groups</mat-icon>
                     <span>Coaching Tests</span>
                   </button>
@@ -292,7 +289,7 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
                       <h4>Official Examination Timetable &amp; Schedule</h4>
                       <p>All exams are scheduled according to Indian Standard Time (IST). Please arrive at the examination hall at least 15 minutes before paper commencement with your official Admit Card.</p>
                     </div>
-                    <button mat-raised-button color="primary" class="datesheet-action-btn" (click)="printDatesheet()">
+                    <button color="primary" class="datesheet-action-btn" (click)="printDatesheet()" matButton="filled">
                       <mat-icon>print</mat-icon>
                       <span>Print Datesheet</span>
                     </button>
@@ -397,7 +394,7 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
                       <span class="res-label">Grade:</span>
                       <strong class="grade-chip">{{ myData.summary.overallGrade }}</strong>
                     </div>
-                    <button mat-raised-button color="primary" class="print-result-btn" (click)="openReportCardDialog()">
+                    <button color="primary" class="print-result-btn" (click)="openReportCardDialog()" matButton="filled">
                       <mat-icon>print</mat-icon>
                       <span>Print Formal Marksheet</span>
                     </button>
@@ -627,7 +624,7 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
               </div>
             </div>
             <div class="admit-bottom-actions">
-              <button mat-raised-button color="primary" class="print-admit-btn" (click)="openAdmitCardDialog()">
+              <button color="primary" class="print-admit-btn" (click)="openAdmitCardDialog()" matButton="filled">
                 <mat-icon>print</mat-icon>
                 <span>Print Official Admit Card</span>
               </button>

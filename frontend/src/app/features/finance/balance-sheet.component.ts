@@ -112,12 +112,12 @@ import { AuthService } from '../../core/services/auth.service';
 
       <!-- Action Buttons -->
       <div class="deck-actions">
-        <button mat-button class="smart-btn refresh-btn" (click)="loadReport()" matTooltip="Recalculate Balance Sheet" [disabled]="loading">
+        <button class="smart-btn refresh-btn" (click)="loadReport()" matTooltip="Recalculate Balance Sheet" [disabled]="loading" matButton="filled">
           <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
           <span>Recalculate</span>
         </button>
 
-        <button mat-flat-button class="smart-btn print-btn" (click)="printReport()" matTooltip="Print or Export Financial Statement">
+        <button class="smart-btn print-btn" (click)="printReport()" matTooltip="Print or Export Financial Statement" matButton="filled">
           <mat-icon>print</mat-icon>
           <span>Print Statement</span>
         </button>
@@ -184,11 +184,11 @@ import { AuthService } from '../../core/services/auth.service';
 
   <!-- Format Presentation Mode (T-Format vs Vertical) -->
   <div class="format-tabs-wrap no-print">
-    <button class="view-btn" [class.active]="viewMode === 't_format'" (click)="viewMode = 't_format'">
+    <button class="view-btn" [class.active]="viewMode === 't_format'" (click)="viewMode = 't_format'" matButton="filled">
       <mat-icon>view_column</mat-icon>
       <span>T-Format (Double Entry)</span>
     </button>
-    <button class="view-btn" [class.active]="viewMode === 'vertical'" (click)="viewMode = 'vertical'">
+    <button class="view-btn" [class.active]="viewMode === 'vertical'" (click)="viewMode = 'vertical'" matButton="filled">
       <mat-icon>view_agenda</mat-icon>
       <span>Vertical Format (Corporate)</span>
     </button>

@@ -52,7 +52,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
             <p class="sub-title">{{ dialogSubtitle }}</p>
           </div>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onClose()">
+        <button type="button" class="close-btn" (click)="onClose()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -70,7 +70,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
             <div class="add-head-box">
               <div class="box-header">
                 <strong><mat-icon>add_circle</mat-icon> Create / Update Fee Head</strong>
-                <button mat-stroked-button type="button" class="preset-btn" (click)="seedStandardHeads()" [disabled]="seedingPresets">
+                <button type="button" class="preset-btn" (click)="seedStandardHeads()" [disabled]="seedingPresets" matButton="filled">
                   @if (seedingPresets) {
                     <mat-spinner diameter="16" class="btn-spinner"></mat-spinner>
                   }
@@ -261,7 +261,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                 </mat-form-field>
     
                 <div class="form-action-col">
-                  <button mat-raised-button color="primary" type="submit" [disabled]="headForm.invalid || savingHead">
+                  <button color="primary" type="submit" [disabled]="headForm.invalid || savingHead" matButton="filled" class="app-button-save">
                     @if (savingHead) {
                       <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
                     }
@@ -271,7 +271,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     <span>Save Fee Head</span>
                   </button>
                   @if (headForm.dirty) {
-                    <button mat-button type="button" (click)="resetHeadForm()">Cancel</button>
+                    <button type="button" (click)="resetHeadForm()" matButton="filled" class="app-button-cancel">Cancel</button>
                   }
                 </div>
               </form>
@@ -289,7 +289,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     (input)="filterFeeHeadsMaster()"
                     />
                   @if (headSearchQuery) {
-                    <button mat-icon-button type="button" class="clear-search-btn" (click)="clearHeadSearch()">
+                    <button type="button" class="clear-search-btn" (click)="clearHeadSearch()" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   }
@@ -300,7 +300,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       <span>{{ filteredFeeHeads.length }} of {{ feeHeads.length }} Heads</span>
                     </div>
                   }
-                  <button type="button" mat-stroked-button color="primary" class="tab-report-btn" (click)="openFeeHeadsReport()" matTooltip="Print or export official master fee heads catalog">
+                  <button type="button" color="primary" class="tab-report-btn" (click)="openFeeHeadsReport()" matTooltip="Print or export official master fee heads catalog" matButton="filled">
                     <mat-icon>print</mat-icon>
                     <span>Print Catalog</span>
                   </button>
@@ -340,7 +340,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                         <td class="desc-cell">{{ h.description || '—' }}</td>
                         <td class="text-center">
                           @if (!h.isDefault) {
-                            <button mat-icon-button color="warn" (click)="onDeactivateHead(h)" matTooltip="Deactivate this Fee Head">
+                            <button color="warn" (click)="onDeactivateHead(h)" matTooltip="Deactivate this Fee Head" mat-icon-button>
                               <mat-icon>delete_outline</mat-icon>
                             </button>
                           }
@@ -385,7 +385,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     <button type="button"
                       class="toggle-btn"
                       [class.active]="targetType === 'class'"
-                      (click)="setTargetType('class')">
+                      (click)="setTargetType('class')" matButton="filled">
                       <mat-icon>school</mat-icon>
                       <span>School Class</span>
                       <span class="count-pill">{{ schoolOnlyClasses.length }}</span>
@@ -393,7 +393,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     <button type="button"
                       class="toggle-btn"
                       [class.active]="targetType === 'batch'"
-                      (click)="setTargetType('batch')">
+                      (click)="setTargetType('batch')" matButton="filled">
                       <mat-icon>groups</mat-icon>
                       <span>Coaching Batch</span>
                       <span class="count-pill">{{ batches.length }}</span>
@@ -412,7 +412,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       <span class="sum-label">Annual / One-Time Extras:</span>
                       <strong class="sum-val">₹{{ totalAnnualExtras | number:'1.2-2' }}</strong>
                     </div>
-                    <button type="button" mat-stroked-button color="primary" class="tab-matrix-report-btn" (click)="openClassFeeMatrixReport()" matTooltip="Print or export class-wise fee structure matrix">
+                    <button type="button" color="primary" class="tab-matrix-report-btn" (click)="openClassFeeMatrixReport()" matTooltip="Print or export class-wise fee structure matrix" matButton="filled">
                       <mat-icon>print</mat-icon>
                       <span>Class Fee Report</span>
                     </button>
@@ -445,7 +445,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       <button type="button"
                         class="scope-btn"
                         [class.active]="coachingScope === 'single'"
-                        (click)="setCoachingScope('single')">
+                        (click)="setCoachingScope('single')" matButton="filled">
                         <mat-icon>school</mat-icon>
                         <div class="scope-btn-text">
                           <span class="scope-btn-title">Single Class Batch</span>
@@ -456,7 +456,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       <button type="button"
                         class="scope-btn"
                         [class.active]="coachingScope === 'combined'"
-                        (click)="setCoachingScope('combined')">
+                        (click)="setCoachingScope('combined')" matButton="filled">
                         <mat-icon>layers</mat-icon>
                         <div class="scope-btn-text">
                           <span class="scope-btn-title">Combined / Multi-Class</span>
@@ -587,7 +587,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                 </div>
                 <div class="matrix-save-bar">
                   <span class="save-hint">💡 Changes will apply to generated invoices for this {{ targetType === 'class' ? 'School Class' : 'Coaching Batch' }}.</span>
-                  <button mat-raised-button color="primary" class="save-matrix-btn" (click)="onSaveMatrix()" [disabled]="savingMatrix">
+                  <button color="primary" class="save-matrix-btn app-button-save" (click)="onSaveMatrix()" [disabled]="savingMatrix" matButton="filled">
                     @if (savingMatrix) {
                       <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
                     }
@@ -724,7 +724,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
     
               <!-- Save Policy Actions Bar -->
               <div class="policy-save-bar">
-                <button mat-raised-button color="primary" type="submit" class="save-policy-btn" [disabled]="savingPolicy || policyForm.invalid">
+                <button color="primary" type="submit" class="save-policy-btn app-button-save" [disabled]="savingPolicy || policyForm.invalid" matButton="filled">
                   @if (savingPolicy) {
                     <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
                   }

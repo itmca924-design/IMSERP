@@ -48,13 +48,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </p>
         </div>
         <div class="header-actions">
-          <a mat-stroked-button routerLink="/library/books" class="link-btn">
+          <a matButton="filled" routerLink="/library/books" class="link-btn">
             <mat-icon>local_library</mat-icon> Books Catalog
           </a>
-          <a mat-stroked-button routerLink="/library/circulation" class="link-btn">
+          <a matButton="filled" routerLink="/library/circulation" class="link-btn">
             <mat-icon>sync_alt</mat-icon> Circulation Counter
           </a>
-          <button mat-raised-button color="primary" class="action-btn" (click)="openAddModal()">
+          <button color="primary" class="action-btn" (click)="openAddModal()" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Add New Shift / Plan</span>
           </button>
@@ -165,10 +165,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef style="text-align: right;">Actions</th>
               <td mat-cell *matCellDef="let p" style="text-align: right;">
-                <button mat-icon-button color="primary" matTooltip="Edit Shift / Plan" (click)="openEditModal(p)">
+                <button color="primary" matTooltip="Edit Shift / Plan" (click)="openEditModal(p)" mat-icon-button>
                   <mat-icon>edit</mat-icon>
                 </button>
-                <button mat-icon-button color="warn" matTooltip="Delete Shift / Plan" (click)="deletePlan(p)">
+                <button color="warn" matTooltip="Delete Shift / Plan" (click)="deletePlan(p)" mat-icon-button>
                   <mat-icon>delete</mat-icon>
                 </button>
               </td>
@@ -207,7 +207,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </p>
                 </div>
               </div>
-              <button type="button" class="close-btn" (click)="closeModal()" matTooltip="Close">
+              <button type="button" class="close-btn" (click)="closeModal()" matTooltip="Close" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -252,8 +252,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </div>
               <!-- Modal Action Buttons -->
               <div class="modal-footer-actions">
-                <button mat-button type="button" (click)="closeModal()" class="cancel-btn">Cancel</button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="planForm.invalid || saving" class="submit-btn">
+                <button type="button" (click)="closeModal()" class="cancel-btn app-button-cancel" matButton="filled">Cancel</button>
+                <button color="primary" type="submit" [disabled]="planForm.invalid || saving" class="submit-btn" matButton="filled" [class.app-button-update]="isEditMode" [class.app-button-save]="!(isEditMode)">
                   <mat-icon>{{ saving ? 'hourglass_top' : 'check' }}</mat-icon>
                   <span>{{ saving ? 'Saving Plan...' : (isEditMode ? 'Update Shift' : 'Create Shift') }}</span>
                 </button>

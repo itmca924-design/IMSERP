@@ -18,7 +18,7 @@ import { TenantService, TenantDto } from '../../core/services/tenant.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { environment } from '../../../environments/environment';
 import { POSTER_ASSETS } from './poster-assets';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas/dist/html2canvas.esm.js';
 
 const API_BASE = environment.apiUrl;
 
@@ -81,11 +81,11 @@ export interface NoticeStatsDto {
         </div>
     
         <div class="header-actions">
-          <button mat-raised-button class="create-btn" (click)="openNoticeDialog()">
+          <button class="create-btn" (click)="openNoticeDialog()" matButton="filled">
             <mat-icon>post_add</mat-icon>
             <span>Publish Circular</span>
           </button>
-          <button mat-stroked-button class="refresh-btn" (click)="loadNotices()" [disabled]="loading">
+          <button class="refresh-btn" (click)="loadNotices()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
@@ -201,13 +201,13 @@ export interface NoticeStatsDto {
           <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadNotices()">
         </mat-form-field>
     
-        <button mat-button class="chip-filter" [class.active-chip]="filterPinnedOnly" (click)="togglePinnedFilter()">
+        <button class="chip-filter" [class.active-chip]="filterPinnedOnly" (click)="togglePinnedFilter()" matButton="filled">
           <mat-icon>{{filterPinnedOnly ? 'push_pin' : 'push_pin'}}</mat-icon>
           <span>Pinned Only</span>
         </button>
     
         <div class="view-toggle">
-          <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Notice Board Grid">
+          <button type="button" class="toggle-btn" [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Notice Board Grid" mat-icon-button>
             <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <rect x="3" y="3" width="8" height="8" rx="1.5" />
               <rect x="13" y="3" width="8" height="8" rx="1.5" />
@@ -215,7 +215,7 @@ export interface NoticeStatsDto {
               <rect x="13" y="13" width="8" height="8" rx="1.5" />
             </svg>
           </button>
-          <button type="button" class="toggle-btn" [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List">
+          <button type="button" class="toggle-btn" [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List" mat-icon-button>
             <svg class="toggle-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="9" y1="6" x2="21" y2="6"></line>
               <line x1="9" y1="12" x2="21" y2="12"></line>
@@ -239,7 +239,7 @@ export interface NoticeStatsDto {
             <span>Unable to reach backend API. If the server is restarting, please retry in a moment.</span>
           </div>
         </div>
-        <button mat-raised-button class="retry-btn" (click)="loadNotices()">
+        <button class="retry-btn" (click)="loadNotices()" matButton="filled">
           <mat-icon>refresh</mat-icon> Reconnect Now
         </button>
       </div>
@@ -251,7 +251,7 @@ export interface NoticeStatsDto {
         <div class="empty-icon-wrap"><mat-icon>campaign</mat-icon></div>
         <h3>No Notices or Circulars Found</h3>
         <p>No circulars match your current filters. Click "Publish Circular" to issue your first official announcement.</p>
-        <button mat-raised-button class="create-btn" (click)="openNoticeDialog()">
+        <button class="create-btn" (click)="openNoticeDialog()" matButton="filled">
           <mat-icon>post_add</mat-icon> Issue First Notice
         </button>
       </div>
@@ -311,23 +311,23 @@ export interface NoticeStatsDto {
             <!-- Card Action Footer -->
             <div class="card-footer">
               <div class="card-footer-btns">
-                <button mat-stroked-button class="view-btn" (click)="viewNotice(n)">
+                <button class="view-btn" (click)="viewNotice(n)" matButton="filled">
                   <mat-icon>visibility</mat-icon>
                   <span>View Circular</span>
                 </button>
-                <button mat-stroked-button class="wa-btn" (click)="shareNoticeWhatsApp(n)" matTooltip="Share on WhatsApp">
+                <button class="wa-btn" (click)="shareNoticeWhatsApp(n)" matTooltip="Share on WhatsApp" matButton="filled">
                   <mat-icon class="wa-icon">chat</mat-icon>
                   <span>WhatsApp</span>
                 </button>
               </div>
               <div class="card-actions">
-                <button mat-icon-button (click)="togglePin(n)" [matTooltip]="n.isPinned ? 'Unpin Notice' : 'Pin to Top'" [class.pinned-active]="n.isPinned">
+                <button (click)="togglePin(n)" [matTooltip]="n.isPinned ? 'Unpin Notice' : 'Pin to Top'" [class.pinned-active]="n.isPinned" mat-icon-button>
                   <mat-icon class="card-action-ic">{{n.isPinned ? 'push_pin' : 'push_pin'}}</mat-icon>
                 </button>
-                <button mat-icon-button (click)="openNoticeDialog(n)" matTooltip="Edit Circular">
+                <button (click)="openNoticeDialog(n)" matTooltip="Edit Circular" mat-icon-button>
                   <mat-icon class="card-action-ic edit">edit</mat-icon>
                 </button>
-                <button mat-icon-button (click)="deleteNotice(n)" matTooltip="Delete">
+                <button (click)="deleteNotice(n)" matTooltip="Delete" mat-icon-button>
                   <mat-icon class="card-action-ic delete">delete</mat-icon>
                 </button>
               </div>
@@ -381,19 +381,19 @@ export interface NoticeStatsDto {
                 </td>
                 <td>
                   <div class="tbl-actions">
-                    <button mat-icon-button (click)="viewNotice(n)" matTooltip="View Full Circular">
+                    <button (click)="viewNotice(n)" matTooltip="View Full Circular" mat-icon-button>
                       <mat-icon class="card-action-ic view">visibility</mat-icon>
                     </button>
-                    <button mat-icon-button (click)="shareNoticeWhatsApp(n)" matTooltip="Share on WhatsApp" class="wa-tbl-btn">
+                    <button (click)="shareNoticeWhatsApp(n)" matTooltip="Share on WhatsApp" class="wa-tbl-btn" mat-icon-button>
                       <mat-icon class="card-action-ic wa-ic">chat</mat-icon>
                     </button>
-                    <button mat-icon-button (click)="togglePin(n)" [matTooltip]="n.isPinned ? 'Unpin' : 'Pin to Top'">
+                    <button (click)="togglePin(n)" [matTooltip]="n.isPinned ? 'Unpin' : 'Pin to Top'" mat-icon-button>
                       <mat-icon class="card-action-ic" [style.color]="n.isPinned ? '#d97706' : '#64748b'">push_pin</mat-icon>
                     </button>
-                    <button mat-icon-button (click)="openNoticeDialog(n)" matTooltip="Edit">
+                    <button (click)="openNoticeDialog(n)" matTooltip="Edit" mat-icon-button>
                       <mat-icon class="card-action-ic edit">edit</mat-icon>
                     </button>
-                    <button mat-icon-button (click)="deleteNotice(n)" matTooltip="Delete">
+                    <button (click)="deleteNotice(n)" matTooltip="Delete" mat-icon-button>
                       <mat-icon class="card-action-ic delete">delete</mat-icon>
                     </button>
                   </div>
@@ -1004,7 +1004,7 @@ export class SchoolNoticesComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn" type="button" matTooltip="Close (Esc)">
+        <button (click)="dialogRef.close(false)" class="close-btn" type="button" matTooltip="Close (Esc)" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -1089,8 +1089,7 @@ export class SchoolNoticesComponent implements OnInit {
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'single'"
-                  (click)="setBatchScope('single')"
-                  >
+                  (click)="setBatchScope('single')" matButton="filled">
                   <mat-icon>school</mat-icon>
                   <div class="pill-texts">
                     <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
@@ -1101,8 +1100,7 @@ export class SchoolNoticesComponent implements OnInit {
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'combined'"
-                  (click)="setBatchScope('combined')"
-                  >
+                  (click)="setBatchScope('combined')" matButton="filled">
                   <mat-icon>layers</mat-icon>
                   <div class="pill-texts">
                     <span class="pill-main">Combined / Multi-Class (संयुक्त कक्षा)</span>
@@ -1113,8 +1111,7 @@ export class SchoolNoticesComponent implements OnInit {
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'all'"
-                  (click)="setBatchScope('all')"
-                  >
+                  (click)="setBatchScope('all')" matButton="filled">
                   <mat-icon>view_list</mat-icon>
                   <div class="pill-texts">
                     <span class="pill-main">All Batches (सभी बैच)</span>
@@ -1304,8 +1301,8 @@ export class SchoolNoticesComponent implements OnInit {
     
         <!-- Footer -->
         <div class="modal-footer">
-          <button mat-button type="button" (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" class="save-btn" [disabled]="saving || form.invalid || !!dateError">
+          <button type="button" (click)="dialogRef.close(false)" class="cancel-btn app-button-cancel" matButton="filled">Cancel</button>
+          <button color="primary" type="submit" class="save-btn" [disabled]="saving || form.invalid || !!dateError" matButton="filled" [class.app-button-update]="isEdit" [class.app-button-save]="!(isEdit)">
             <mat-icon>{{ isEdit ? 'save' : 'send' }}</mat-icon>
             <span>{{ isEdit ? 'Save Changes' : 'Publish Notice' }}</span>
           </button>
@@ -2112,7 +2109,7 @@ export class NoticeFormDialogComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close (Esc)">
+        <button (click)="dialogRef.close()" class="close-btn" matTooltip="Close (Esc)" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -2128,8 +2125,7 @@ export class NoticeFormDialogComponent implements OnInit {
               (click)="previewMode = 'poster'"
               role="tab"
               [attr.aria-selected]="previewMode === 'poster'"
-              matTooltip="View full colorful WhatsApp notice card"
-              >
+              matTooltip="View full colorful WhatsApp notice card" matButton="filled">
               <mat-icon>palette</mat-icon>
               <span>WhatsApp Poster</span>
             </button>
@@ -2140,8 +2136,7 @@ export class NoticeFormDialogComponent implements OnInit {
               (click)="previewMode = 'letterhead'"
               role="tab"
               [attr.aria-selected]="previewMode === 'letterhead'"
-              matTooltip="View official letterhead circular document"
-              >
+              matTooltip="View official letterhead circular document" matButton="filled">
               <mat-icon>description</mat-icon>
               <span>Official Letterhead</span>
             </button>
@@ -2150,7 +2145,7 @@ export class NoticeFormDialogComponent implements OnInit {
     
         <div class="toolbar-right">
           <!-- 1-Click WhatsApp Share with Visual Poster Image -->
-          <button mat-raised-button class="wa-action-btn" (click)="shareOnWhatsApp()" [disabled]="sharingWhatsApp" matTooltip="Copy &amp; share visual poster on WhatsApp">
+          <button class="wa-action-btn" (click)="shareOnWhatsApp()" [disabled]="sharingWhatsApp" matTooltip="Copy &amp; share visual poster on WhatsApp" matButton="filled">
             @if (!sharingWhatsApp) {
               <mat-icon class="wa-btn-icon">chat</mat-icon>
             }
@@ -2161,7 +2156,7 @@ export class NoticeFormDialogComponent implements OnInit {
           </button>
     
           <!-- Explicit Save Image Button (Optional Manual Download) -->
-          <button mat-stroked-button class="save-img-btn" (click)="downloadPosterImage()" [disabled]="downloadingPoster" matTooltip="Save HD Poster Image (PNG)">
+          <button class="save-img-btn app-button-save" (click)="downloadPosterImage()" [disabled]="downloadingPoster" matTooltip="Save HD Poster Image (PNG)" matButton="filled">
             @if (!downloadingPoster) {
               <mat-icon class="save-icon">file_download</mat-icon>
             }
@@ -2171,7 +2166,7 @@ export class NoticeFormDialogComponent implements OnInit {
             <span>{{ downloadingPoster ? 'Saving...' : 'Save Poster' }}</span>
           </button>
     
-          <button mat-stroked-button class="print-btn" (click)="printNotice()" matTooltip="Print or Save as PDF">
+          <button class="print-btn" (click)="printNotice()" matTooltip="Print or Save as PDF" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Circular</span>
           </button>
@@ -2191,11 +2186,11 @@ export class NoticeFormDialogComponent implements OnInit {
               <span class="ready-title">🎨 पोस्टर इमेज क्लिपबोर्ड पर कॉपी हो गई है! (Poster Copied)</span>
               <span class="ready-desc">WhatsApp चैट में जाकर सिर्फ <strong>Ctrl + V</strong> (Paste) दबाएँ — पूरा रंगीन पोस्टर तुरंत अटैच हो जाएगा!</span>
             </div>
-            <button mat-flat-button class="open-wa-strip-btn" (click)="openWhatsAppChat()" matTooltip="Open WhatsApp Web">
+            <button class="open-wa-strip-btn" (click)="openWhatsAppChat()" matTooltip="Open WhatsApp Web" matButton="filled">
               <mat-icon>launch</mat-icon>
               <span>Open WhatsApp Web</span>
             </button>
-            <button mat-icon-button (click)="posterCopied = false" class="dismiss-strip-btn" matTooltip="Dismiss">
+            <button (click)="posterCopied = false" class="dismiss-strip-btn" matTooltip="Dismiss" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>

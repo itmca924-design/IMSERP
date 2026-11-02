@@ -51,7 +51,7 @@ import { LeavePolicySettingsDialogComponent } from './leave-policy-settings-dial
           <h2 class="fd-dialog-title">Reject Faculty Leave Request</h2>
           <span class="fd-dialog-sub">{{data.teacherName}} ({{data.employeeCode}}) — <strong>{{data.leaveType}}</strong></span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
+        <button class="fd-dialog-close" (click)="cancel()" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
     
       <div class="fd-dialog-body">
@@ -65,16 +65,16 @@ import { LeavePolicySettingsDialogComponent } from './leave-policy-settings-dial
         <div class="quick-causes">
           <div class="quick-causes-label">Common Rejection Reasons:</div>
           <div class="causes-chips">
-            <button type="button" class="cause-chip" (click)="setReason('No substitute faculty available for assigned lectures')">
+            <button type="button" class="cause-chip" (click)="setReason('No substitute faculty available for assigned lectures')" matButton="filled">
               👨‍🏫 No Substitute Available
             </button>
-            <button type="button" class="cause-chip" (click)="setReason('Scheduled school examination / assessment duty')">
+            <button type="button" class="cause-chip" (click)="setReason('Scheduled school examination / assessmentduty')" matButton="filled">
               📝 Exam Duty Scheduled
             </button>
-            <button type="button" class="cause-chip" (click)="setReason('Exceeded permissible casual / medical leave limit')">
+            <button type="button" class="cause-chip" (click)="setReason('Exceeded permissible casual / medical leave limit')" matButton="filled">
               ⚠️ Leave Quota Exceeded
             </button>
-            <button type="button" class="cause-chip" (click)="setReason('Short notice / Prior approval required')">
+            <button type="button" class="cause-chip" (click)="setReason('Short notice / Prior approval required')" matButton="filled">
               ⏱️ Short Notice
             </button>
           </div>
@@ -92,8 +92,8 @@ import { LeavePolicySettingsDialogComponent } from './leave-policy-settings-dial
       </div>
     
       <div class="fd-dialog-footer">
-        <button mat-stroked-button (click)="cancel()">Cancel</button>
-        <button mat-flat-button color="warn" (click)="confirm()" [disabled]="saving || !reason.trim()">
+        <button (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button color="warn" (click)="confirm()" [disabled]="saving || !reason.trim()" matButton="filled">
           <mat-icon>block</mat-icon>
           {{saving ? 'Rejecting...' : 'Reject Leave Application'}}
         </button>
@@ -196,7 +196,7 @@ export class RejectTeacherLeaveDialogComponent {
           <h2 class="fd-dialog-title">{{dialogTitle}}</h2>
           <span class="fd-dialog-sub">{{dialogSub}}</span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()"><mat-icon>close</mat-icon></button>
+        <button class="fd-dialog-close" (click)="cancel()" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
     
       <form [formGroup]="form" (ngSubmit)="submit()">
@@ -205,11 +205,11 @@ export class RejectTeacherLeaveDialogComponent {
           <!-- Option B: Smart Mode Switcher for HR & Staff Managers -->
           @if (hasLinkedProfile && !isTeacherSelf) {
             <div class="apply-mode-switcher">
-              <button type="button" class="mode-btn" [class.active]="applyMode === 'self'" (click)="setMode('self')">
+              <button type="button" class="mode-btn" [class.active]="applyMode === 'self'" (click)="setMode('self')" matButton="filled">
                 <mat-icon>person</mat-icon>
                 <span>Apply for Myself ({{myProfile?.fullName?.split(' ')?.[0] || 'Self'}})</span>
               </button>
-              <button type="button" class="mode-btn" [class.active]="applyMode === 'behalf'" (click)="setMode('behalf')">
+              <button type="button" class="mode-btn" [class.active]="applyMode === 'behalf'" (click)="setMode('behalf')" matButton="filled">
                 <mat-icon>groups</mat-icon>
                 <span>On Behalf of Faculty Member</span>
               </button>
@@ -412,7 +412,7 @@ export class RejectTeacherLeaveDialogComponent {
                 </div>
               </div>
               <div class="banner-actions">
-                <button type="button" class="btn-switch-unpaid" (click)="switchToUnpaid()">
+                <button type="button" class="btn-switch-unpaid" (click)="switchToUnpaid()" matButton="filled">
                   <mat-icon>swap_horiz</mat-icon>
                   <span>Switch to Unpaid Leave (LWP)</span>
                 </button>
@@ -428,8 +428,8 @@ export class RejectTeacherLeaveDialogComponent {
         </div>
     
         <div class="fd-dialog-footer">
-          <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isInsufficientBalance || saving">
+          <button type="button" (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="form.invalid || isInsufficientBalance || saving" matButton="filled">
             <mat-icon>{{isInsufficientBalance ? 'block' : 'send'}}</mat-icon>
             {{saving ? 'Submitting...' : (isInsufficientBalance ? 'Insufficient Balance' : 'Submit Application')}}
           </button>
@@ -1057,21 +1057,21 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
         </div>
     
         <div class="header-actions">
-          <button mat-stroked-button class="refresh-btn" (click)="loadAll()" [disabled]="loading">
+          <button class="refresh-btn" (click)="loadAll()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
           @if (canApproveLeave) {
-            <button mat-stroked-button class="policy-btn" (click)="openPolicySettingsDialog()" matTooltip="Configure institutional leave quotas, monthly accruals & conflict rules">
+            <button class="policy-btn" (click)="openPolicySettingsDialog()" matTooltip="Configure institutional leave quotas, monthly accruals & conflict rules" matButton="filled">
               <mat-icon>tune</mat-icon>
               <span>Policy & Quotas</span>
             </button>
           }
-          <button mat-stroked-button class="reg-btn" (click)="openRegularizationDialog()">
+          <button class="reg-btn" (click)="openRegularizationDialog()" matButton="filled">
             <mat-icon>build_circle</mat-icon>
             <span>Request Regularization</span>
           </button>
-          <button mat-flat-button class="btn-primary" (click)="openApplyDialog()">
+          <button class="btn-primary" (click)="openApplyDialog()" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Apply Leave</span>
           </button>
@@ -1084,11 +1084,11 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     
       <!-- ── Sub Navigation Tabs ── -->
       <div class="tabs-nav-strip">
-        <button type="button" class="tab-pill" [class.active]="activeTab === 'leaves'" (click)="activeTab = 'leaves'">
+        <button type="button" class="tab-pill" [class.active]="activeTab === 'leaves'" (click)="activeTab = 'leaves'" matButton="filled">
           <mat-icon>beach_access</mat-icon>
           <span>Leave Applications ({{leaves.length}})</span>
         </button>
-        <button type="button" class="tab-pill" [class.active]="activeTab === 'regularizations'" (click)="activeTab = 'regularizations'; loadRegularizations()">
+        <button type="button" class="tab-pill" [class.active]="activeTab === 'regularizations'" (click)="activeTab = 'regularizations'; loadRegularizations()" matButton="filled">
           <mat-icon>build_circle</mat-icon>
           <span>Attendance Regularizations ({{regularizations.length}})</span>
           @if (pendingRegCount > 0) {
@@ -1182,7 +1182,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
             </div>
             @if (currentTeacherBalances) {
               <div class="ledger-header-right">
-                <button mat-stroked-button class="ledger-refresh-btn" (click)="loadTeacherBalances()" [disabled]="loadingBalances" matTooltip="Refresh Balance">
+                <button class="ledger-refresh-btn" (click)="loadTeacherBalances()" [disabled]="loadingBalances" matTooltip="Refresh Balance" matButton="filled">
                   <mat-icon [class.spin-icon]="loadingBalances">sync</mat-icon>
                   <span>Refresh Balance</span>
                 </button>
@@ -1269,7 +1269,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                   Available: <strong>{{currentTeacherBalances.maxRegularizationsAllowedPerMonth - currentTeacherBalances.regularizationsUsedThisMonth}}</strong>.
                 </span>
               </div>
-              <button mat-button class="rq-action-btn" (click)="openRegularizationDialog()">
+              <button class="rq-action-btn" (click)="openRegularizationDialog()" matButton="filled">
                 <mat-icon>build_circle</mat-icon> Request Regularization
               </button>
             </div>
@@ -1347,7 +1347,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
               <mat-icon matPrefix class="filter-icon">search</mat-icon>
               <input matInput [(ngModel)]="searchQuery" (input)="loadLeaves()" placeholder="Search faculty name, code, reason..." />
               @if (searchQuery) {
-                <button mat-icon-button matSuffix (click)="searchQuery=''; loadLeaves()" style="color:#94a3b8;">
+                <button matSuffix (click)="searchQuery=''; loadLeaves()" style="color:#94a3b8;" mat-icon-button>
                   <mat-icon style="font-size:18px;">close</mat-icon>
                 </button>
               }
@@ -1497,34 +1497,34 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                           <!-- ADMIN / HR ACTIONS (Approving other staff's leaves) -->
                           @if (canApproveLeave && !isSelfLeave(l)) {
                             @if (l.status === 'Pending') {
-                              <button mat-icon-button class="btn-approve"
-                                (click)="quickApprove(l)" matTooltip="Approve Leave (Syncs Attendance)">
+                              <button class="btn-approve"
+                                (click)="quickApprove(l)" matTooltip="Approve Leave (Syncs Attendance)" mat-icon-button>
                                 <mat-icon>check_circle</mat-icon>
                               </button>
                             }
                             @if (l.status === 'Pending') {
-                              <button mat-icon-button class="btn-reject"
-                                (click)="openRejectDialog(l)" matTooltip="Reject Leave Application">
+                              <button class="btn-reject"
+                                (click)="openRejectDialog(l)" matTooltip="Reject Leave Application" mat-icon-button>
                                 <mat-icon>cancel</mat-icon>
                               </button>
                             }
                             @if (l.status === 'Pending') {
-                              <button mat-icon-button color="warn" (click)="deleteLeave(l)" matTooltip="Delete Application">
+                              <button color="warn" (click)="deleteLeave(l)" matTooltip="Delete Application" mat-icon-button>
                                 <mat-icon>delete</mat-icon>
                               </button>
                             }
                             <!-- Review Cancellation Request (Admin/HR for other staff) -->
                             @if (l.status === 'CancellationRequested' || l.isCancellationRequested) {
-                              <button mat-stroked-button class="btn-review-cancel"
-                                (click)="openReviewCancellationDialog(l)" matTooltip="Review cancellation request submitted by employee">
+                              <button class="btn-review-cancel"
+                                (click)="openReviewCancellationDialog(l)" matTooltip="Review cancellation request submitted by employee" matButton="filled">
                                 <mat-icon>fact_check</mat-icon> Review Cancel
                               </button>
                             }
                           }
                           <!-- Request Cancellation Button (Available for approved leaves) -->
                           @if ((l.status === 'Approved' || l.status === 'PartiallyCancelled') && !l.isCancellationRequested) {
-                            <button mat-icon-button class="btn-cancel-req"
-                              (click)="openRequestCancellationDialog(l)" matTooltip="Request Full or Partial Cancellation for this Leave">
+                            <button class="btn-cancel-req"
+                              (click)="openRequestCancellationDialog(l)" matTooltip="Request Full or Partial Cancellation for this Leave" mat-icon-button>
                               <mat-icon>event_busy</mat-icon>
                             </button>
                           }
@@ -1541,16 +1541,16 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                               </span>
                             }
                             @if (l.status === 'Pending') {
-                              <button mat-icon-button color="warn"
-                                (click)="deleteLeave(l)" matTooltip="Cancel My Application">
+                              <button color="warn"
+                                (click)="deleteLeave(l)" matTooltip="Cancel My Application" mat-icon-button>
                                 <mat-icon>close</mat-icon>
                               </button>
                             }
                           }
                           <!-- TEACHER ACTIONS -->
                           @if (isTeacher && !isSelfLeave(l) && l.status === 'Pending') {
-                            <button mat-icon-button color="warn"
-                              (click)="deleteLeave(l)" matTooltip="Cancel Leave Application">
+                            <button color="warn"
+                              (click)="deleteLeave(l)" matTooltip="Cancel Leave Application" mat-icon-button>
                               <mat-icon>close</mat-icon>
                             </button>
                           }
@@ -1569,7 +1569,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
             <div class="empty-state">
               <mat-icon>beach_access</mat-icon>
               <p>No faculty leave records found for the selected criteria.</p>
-              <button mat-stroked-button (click)="openApplyDialog()">
+              <button (click)="openApplyDialog()" matButton="filled">
                 <mat-icon>add</mat-icon> Apply First Leave
               </button>
             </div>
@@ -1606,7 +1606,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
               <mat-icon matPrefix class="filter-icon">search</mat-icon>
               <input matInput [(ngModel)]="regSearchQuery" placeholder="Search teacher, employee code, reason..." />
               @if (regSearchQuery) {
-                <button mat-icon-button matSuffix (click)="regSearchQuery=''" style="color:#94a3b8;">
+                <button matSuffix (click)="regSearchQuery=''" style="color:#94a3b8;" mat-icon-button>
                   <mat-icon style="font-size:18px;">close</mat-icon>
                 </button>
               }
@@ -1716,14 +1716,14 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                           <!-- Admin / HR Review Actions -->
                           @if (canApproveLeave && !isSelfReg(r)) {
                             @if (r.status === 'Pending') {
-                              <button mat-icon-button class="btn-approve"
-                                (click)="openReviewRegularizationDialog(r, true)" matTooltip="Approve Regularization">
+                              <button class="btn-approve"
+                                (click)="openReviewRegularizationDialog(r, true)" matTooltip="Approve Regularization" mat-icon-button>
                                 <mat-icon>check_circle</mat-icon>
                               </button>
                             }
                             @if (r.status === 'Pending') {
-                              <button mat-icon-button class="btn-reject"
-                                (click)="openReviewRegularizationDialog(r, false)" matTooltip="Reject Regularization">
+                              <button class="btn-reject"
+                                (click)="openReviewRegularizationDialog(r, false)" matTooltip="Reject Regularization" mat-icon-button>
                                 <mat-icon>cancel</mat-icon>
                               </button>
                             }
@@ -1747,7 +1747,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
             <div class="empty-state">
               <mat-icon>build_circle</mat-icon>
               <p>No attendance regularization records found.</p>
-              <button mat-stroked-button (click)="openRegularizationDialog()">
+              <button (click)="openRegularizationDialog()" matButton="filled">
                 <mat-icon>add</mat-icon> Request Regularization
               </button>
             </div>

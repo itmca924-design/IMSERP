@@ -45,7 +45,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
           <h1 class="page-title"><mat-icon>event</mat-icon> Holiday Master & Academic Calendar</h1>
           <p class="page-subtitle">Configure institutional holidays, national festivals, and recess days mapped directly to faculty attendance and student schedules.</p>
         </div>
-        <button mat-raised-button color="primary" class="add-btn" (click)="openAddForm()">
+        <button color="primary" class="add-btn" (click)="openAddForm()" matButton="filled">
           <mat-icon>add</mat-icon>
           <span>Add New Holiday</span>
         </button>
@@ -97,7 +97,7 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
                 <p>Holidays automatically synchronize with the faculty attendance register and payroll engine.</p>
               </div>
             </div>
-            <button mat-icon-button (click)="closeForm()">
+            <button (click)="closeForm()" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -133,8 +133,8 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
               Active Holiday
             </mat-slide-toggle>
             <div class="btn-group">
-              <button mat-button (click)="closeForm()">Cancel</button>
-              <button mat-raised-button color="primary" (click)="saveHoliday()" [disabled]="!formData.title || !formData.startDate || !formData.endDate || saving">
+              <button (click)="closeForm()" matButton="filled" class="app-button-cancel">Cancel</button>
+              <button color="primary" (click)="saveHoliday()" [disabled]="!formData.title || !formData.startDate || !formData.endDate || saving" matButton="filled" [class.app-button-update]="isEditing" [class.app-button-save]="!(isEditing)">
                 <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
                 {{ isEditing ? 'Update Holiday' : 'Save Holiday' }}
               </button>
@@ -185,11 +185,11 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
               <mat-label>Search holidays...</mat-label>
               <input matInput [(ngModel)]="searchKeyword" (keyup.enter)="onSearch()" (ngModelChange)="onSearchInput()" placeholder="Search by title or description" />
               @if (searchKeyword) {
-                <button mat-icon-button matSuffix (click)="clearSearch()">
+                <button matSuffix (click)="clearSearch()" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               }
-              <button mat-icon-button matSuffix (click)="onSearch()" matTooltip="Search">
+              <button matSuffix (click)="onSearch()" matTooltip="Search" mat-icon-button>
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
@@ -253,10 +253,10 @@ import { API_BASE, HolidayDto } from '../teachers/teacher.models';
                       </span>
                     </td>
                     <td class="actions-cell">
-                      <button mat-icon-button color="primary" matTooltip="Edit Holiday" (click)="editHoliday(item)">
+                      <button color="primary" matTooltip="Edit Holiday" (click)="editHoliday(item)" mat-icon-button>
                         <mat-icon>edit</mat-icon>
                       </button>
-                      <button mat-icon-button color="warn" matTooltip="Delete Holiday" (click)="deleteHoliday(item)">
+                      <button color="warn" matTooltip="Delete Holiday" (click)="deleteHoliday(item)" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     </td>

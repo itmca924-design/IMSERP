@@ -43,7 +43,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
             </p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onCancel()" type="button" [disabled]="submitting">
+        <button class="close-btn" (click)="onCancel()" type="button" [disabled]="submitting" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -207,7 +207,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
             <mat-form-field appearance="outline" class="col-4">
               <mat-label>Admin Password</mat-label>
               <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="adminPassword">
-              <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
+              <button matSuffix (click)="hidePassword = !hidePassword" type="button" mat-icon-button>
                 <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
               </button>
               @if (regForm.get('adminPassword')?.hasError('required')) {
@@ -235,10 +235,10 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
     
           <!-- Action Buttons -->
           <div class="dialog-actions">
-            <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
+            <button type="button" (click)="onCancel()" [disabled]="submitting" matButton="filled" class="app-button-cancel">
               Cancel
             </button>
-            <button mat-raised-button color="primary" type="submit" class="submit-action-btn" [disabled]="regForm.invalid || submitting || codeStatus === 'taken'">
+            <button color="primary" type="submit" class="submit-action-btn" [disabled]="regForm.invalid || submitting || codeStatus === 'taken'" matButton="filled">
               @if (submitting) {
                 <mat-spinner diameter="20" style="display:inline-block; margin-right:8px;"></mat-spinner>
               }

@@ -67,7 +67,7 @@ export interface ConfirmDialogData {
                 class="lang-pill-btn"
                 [class.active]="activeLang === 'hi'"
                 (click)="setLang('hi')"
-                matTooltip="हिन्दी भाषा में देखें">
+                matTooltip="हिन्दी भाषा में देखें" matButton="filled">
                 HIN
               </button>
               <button
@@ -75,13 +75,13 @@ export interface ConfirmDialogData {
                 class="lang-pill-btn"
                 [class.active]="activeLang === 'en'"
                 (click)="setLang('en')"
-                matTooltip="View in English">
+                matTooltip="View in English" matButton="filled">
                 EN
               </button>
             </div>
           }
     
-          <button type="button" class="close-btn" (click)="onCancel()" aria-label="Close dialog">
+          <button type="button" class="close-btn" (click)="onCancel()" aria-label="Closedialog" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -102,14 +102,14 @@ export interface ConfirmDialogData {
                   type="button"
                   class="inline-pill"
                   [class.active]="activeLang === 'hi'"
-                  (click)="setLang('hi')">
+                  (click)="setLang('hi')" matButton="filled">
                   हिन्दी (HIN)
                 </button>
                 <button
                   type="button"
                   class="inline-pill"
                   [class.active]="activeLang === 'en'"
-                  (click)="setLang('en')">
+                  (click)="setLang('en')" matButton="filled">
                   English (EN)
                 </button>
               </div>
@@ -148,21 +148,19 @@ export interface ConfirmDialogData {
       <mat-dialog-actions align="end" class="dialog-actions">
         @if (!data.isAlert) {
           <button
-            mat-stroked-button
             type="button"
             class="cancel-btn"
-            (click)="onCancel()">
+            (click)="onCancel()" matButton="filled">
             {{ currentCancelText }}
           </button>
         }
     
         <button
-          mat-raised-button
           [color]="getButtonColor()"
           type="button"
           class="confirm-btn"
           [ngClass]="data.type || 'info'"
-          (click)="onConfirm()">
+          (click)="onConfirm()" matButton="filled">
           @if (data.type === 'danger') {
             <mat-icon>delete_outline</mat-icon>
           }

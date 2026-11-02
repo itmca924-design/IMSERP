@@ -55,7 +55,7 @@ export interface InventoryOutwardDialogData {
             <p>Issue stationery, uniforms, books, or lab consumables with live stock deduction</p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onCancel()" type="button">
+        <button class="close-btn" (click)="onCancel()" type="button" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -141,7 +141,7 @@ export interface InventoryOutwardDialogData {
                     <mat-spinner matSuffix diameter="18"></mat-spinner>
                   }
                   @if (studentSearchCtrl.value && !searchingStudents) {
-                    <button type="button" matSuffix (click)="clearStudentSearchInput($event)" class="clear-search-btn" matTooltip="Clear search">
+                    <button type="button" matSuffix (click)="clearStudentSearchInput($event)" class="clear-search-btn" matTooltip="Clearsearch" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   }
@@ -163,7 +163,7 @@ export interface InventoryOutwardDialogData {
                   <span class="st-name">{{ selectedStudent.fullName }}</span>
                   <span class="st-meta">Roll No: <strong>{{ selectedStudent.rollNumber }}</strong> | Class: <strong>{{ selectedStudent.className || 'N/A' }} {{ selectedStudent.sectionName || '' }}</strong></span>
                 </div>
-                <button mat-icon-button type="button" (click)="clearSelectedStudent()" class="clear-st-btn" matTooltip="Deselect Student">
+                <button type="button" (click)="clearSelectedStudent()" class="clear-st-btn" matTooltip="Deselect Student" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               </div>
@@ -288,7 +288,7 @@ export interface InventoryOutwardDialogData {
               </span>
             }
           </div>
-          <button mat-icon-button type="button" (click)="clearSelectedStaff()" class="clear-st-btn" matTooltip="Clear Selection">
+          <button type="button" (click)="clearSelectedStaff()" class="clear-st-btn" matTooltip="Clear Selection" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -331,7 +331,7 @@ export interface InventoryOutwardDialogData {
         <mat-icon>inventory_2</mat-icon>
         <span>Items to Issue</span>
       </div>
-      <button mat-stroked-button color="primary" type="button" (click)="addItemRow()" class="add-row-btn">
+      <button color="primary" type="button" (click)="addItemRow()" class="add-row-btn" matButton="filled">
         <mat-icon>add</mat-icon>
         <span>Add Item</span>
       </button>
@@ -386,7 +386,7 @@ export interface InventoryOutwardDialogData {
             <span class="val">₹{{ getLineTotal(i) | number:'1.2-2' }}</span>
           </div>
           <!-- Remove button -->
-          <button mat-icon-button color="warn" type="button" (click)="removeItemRow(i)" [disabled]="itemRows.length === 1" matTooltip="Remove Line">
+          <button color="warn" type="button" (click)="removeItemRow(i)" [disabled]="itemRows.length === 1" matTooltip="Remove Line" mat-icon-button>
             <mat-icon>delete_outline</mat-icon>
           </button>
         </div>
@@ -414,10 +414,10 @@ export interface InventoryOutwardDialogData {
     </mat-dialog-content>
     
     <mat-dialog-actions align="end" class="dialog-actions">
-      <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
+      <button type="button" (click)="onCancel()" [disabled]="submitting" matButton="filled" class="app-button-cancel">
         Cancel
       </button>
-      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting || hasStockErrors() || itemRows.length === 0">
+      <button color="primary" type="submit" [disabled]="form.invalid || submitting || hasStockErrors() || itemRows.length === 0" matButton="filled">
         @if (submitting) {
           <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
         }

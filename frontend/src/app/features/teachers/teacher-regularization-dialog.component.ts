@@ -50,7 +50,7 @@ import {
             Rectify missed punches, device offline events, or official duty records
           </span>
         </div>
-        <button mat-icon-button class="reg-dialog-close" (click)="cancel()">
+        <button class="reg-dialog-close" (click)="cancel()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -159,19 +159,19 @@ import {
           <!-- Reason & Notes -->
           <div class="quick-reasons-label">Quick Reason Shortcuts:</div>
           <div class="chips-row">
-            <button type="button" class="quick-chip" (click)="setReason('Forgot to punch in / out')">
+            <button type="button" class="quick-chip" (click)="setReason('Forgot to punch in / out')" matButton="filled">
               ⏱️ Forgot to Punch
             </button>
-            <button type="button" class="quick-chip" (click)="setReason('Biometric device offline / Fingerprint read failure')">
+            <button type="button" class="quick-chip" (click)="setReason('Biometric device offline / Fingerprint read failure')" matButton="filled">
               ⚠️ Biometric Machine Failure
             </button>
-            <button type="button" class="quick-chip" (click)="setReason('Official School Tour / Field Duty (OD)')">
+            <button type="button" class="quick-chip" (click)="setReason('Official School Tour / Field Duty(OD)')" matButton="filled">
               🚌 Official Duty / Tour
             </button>
-            <button type="button" class="quick-chip" (click)="setReason('Board / University Examination Duty')">
+            <button type="button" class="quick-chip" (click)="setReason('Board / University ExaminationDuty')" matButton="filled">
               📝 Exam Duty
             </button>
-            <button type="button" class="quick-chip" (click)="setReason('Marked absent erroneously in manual roll-call')">
+            <button type="button" class="quick-chip" (click)="setReason('Marked absent erroneously in manual roll-call')" matButton="filled">
               📋 Manual Roll-Call Error
             </button>
           </div>
@@ -190,10 +190,10 @@ import {
     
         <!-- Strict Light Blue Header / Footer styling -->
         <div class="reg-dialog-footer">
-          <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-          <button mat-flat-button class="btn-submit" type="submit"
+          <button type="button" (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button class="btn-submit" type="submit"
             [disabled]="saving || form.invalid || isSundaySelected"
-            [matTooltip]="isSundaySelected ? 'Cannot submit regularization on a Sunday / Weekly Off' : ''">
+            [matTooltip]="isSundaySelected ? 'Cannot submit regularization on a Sunday / Weekly Off' : ''" matButton="filled">
             <mat-icon>{{saving ? 'hourglass_empty' : 'send'}}</mat-icon>
             {{saving ? 'Submitting...' : 'Submit Regularization Request'}}
           </button>
@@ -643,7 +643,7 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
             <strong>{{data.regularization.attendanceDate | date:'dd MMM yyyy'}}</strong>
           </span>
         </div>
-        <button mat-icon-button class="reg-dialog-close" (click)="cancel()">
+        <button class="reg-dialog-close" (click)="cancel()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -699,9 +699,9 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
       </div>
     
       <div class="reg-dialog-footer">
-        <button mat-stroked-button (click)="cancel()">Cancel</button>
-        <button mat-flat-button [color]="data.approve ? 'primary' : 'warn'"
-          (click)="confirm()" [disabled]="saving || (!data.approve && !remarks.trim())">
+        <button (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button [color]="data.approve ? 'primary' : 'warn'"
+          (click)="confirm()" [disabled]="saving || (!data.approve && !remarks.trim())" matButton="filled" [class.app-button-update]="data.approve">
           <mat-icon>{{data.approve ? 'done_all' : 'block'}}</mat-icon>
           {{saving ? 'Processing...' : (data.approve ? 'Approve & Update Attendance' : 'Reject Request')}}
         </button>

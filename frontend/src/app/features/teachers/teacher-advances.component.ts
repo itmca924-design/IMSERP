@@ -48,7 +48,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     <div>
       <div class="section-header">
         <h3>{{selectedTeacher.fullName}} — Salary Advance Ledger</h3>
-        <button mat-raised-button color="primary" (click)="showForm = !showForm" [disabled]="loading">
+        <button color="primary" (click)="showForm = !showForm" [disabled]="loading" matButton="filled">
           <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
           {{showForm ? 'Cancel' : 'Request Salary Advance'}}
         </button>
@@ -84,9 +84,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </div>
           }
           <div class="form-actions">
-            <button mat-button (click)="showForm = false; resetForm()">Cancel</button>
-            <button mat-raised-button color="primary" (click)="requestAdvance()"
-              [disabled]="!newAdvance.amount || newAdvance.amount <= 0 || !(newAdvance.reason || '').trim() || submitting">
+            <button (click)="showForm = false; resetForm()" matButton="filled" class="app-button-cancel">Cancel</button>
+            <button color="primary" (click)="requestAdvance()"
+              [disabled]="!newAdvance.amount || newAdvance.amount <= 0 || !(newAdvance.reason || '').trim() || submitting" matButton="filled">
               <mat-icon>{{submitting ? 'hourglass_empty' : 'send'}}</mat-icon>
               {{submitting ? 'Submitting...' : 'Submit Advance Request'}}
             </button>
@@ -179,14 +179,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <td class="text-center">
                     <div class="action-btns">
                       @if (a.status === 'Pending') {
-                        <button mat-icon-button color="primary"
-                          (click)="approve(a.id, true)" matTooltip="Approve request">
+                        <button color="primary"
+                          (click)="approve(a.id, true)" matTooltip="Approve request" mat-icon-button>
                           <mat-icon>check_circle</mat-icon>
                         </button>
                       }
                       @if (a.status === 'Pending') {
-                        <button mat-icon-button color="warn"
-                          (click)="approve(a.id, false)" matTooltip="Reject request">
+                        <button color="warn"
+                          (click)="approve(a.id, false)" matTooltip="Reject request" mat-icon-button>
                           <mat-icon>cancel</mat-icon>
                         </button>
                       }

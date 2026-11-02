@@ -185,8 +185,8 @@ function sectionsOf(classes: any[], classId: string): any[] {
           @for (d of dates; track d) {
             <button type="button" class="hwc-date-chip"
               [class.active]="isSelectedDate(d.date)"
-              [class.has-pending]="d.pendingPoints > 0"
-              (click)="selectDate(d.date)">
+              [class.has-pending]="d.pendingPoints> 0"
+              (click)="selectDate(d.date)" matButton="filled">
               <span class="dc-day">{{ weekdayOf(d.date) }} {{ formatDate(d.date) }}</span>
               <span class="dc-count">{{ d.checkedPoints }}/{{ d.totalPoints }} checked</span>
             </button>
@@ -204,7 +204,7 @@ function sectionsOf(classes: any[], classId: string): any[] {
               <span>Looking for unchecked H.W.? Earlier date <strong>{{ weekdayOf(op.date) }} {{ formatDate(op.date) }}</strong> has <strong>{{ op.pendingPoints }} unchecked points</strong> (Hindi, Mathematics, etc.).</span>
             </div>
           </div>
-          <button mat-raised-button class="pnb-btn" type="button" (click)="selectDate(op.date)">
+          <button class="pnb-btn" type="button" (click)="selectDate(op.date)" matButton="filled">
             <mat-icon>arrow_forward</mat-icon> Open {{ formatDate(op.date) }} ({{ op.pendingPoints }} Unchecked)
           </button>
         </div>
@@ -222,24 +222,24 @@ function sectionsOf(classes: any[], classId: string): any[] {
     
       @if (students.length > 0) {
         <div class="hwc-actions">
-          <button mat-stroked-button type="button" (click)="markAll('Completed')">
+          <button type="button" (click)="markAll('Completed')" matButton="filled">
             <mat-icon>done_all</mat-icon> Mark All Present Students ✔
           </button>
-          <button mat-stroked-button type="button" (click)="markAllPendingAs('Completed')" matTooltip="Marks only the unchecked points as Completed">
+          <button type="button" (click)="markAllPendingAs('Completed')" matTooltip="Marks only the unchecked points as Completed" matButton="filled">
             <mat-icon>playlist_add_check</mat-icon> Unchecked → ✔
           </button>
-          <button mat-stroked-button type="button" (click)="resetChanges()" [disabled]="changedCount === 0">
+          <button type="button" (click)="resetChanges()" [disabled]="changedCount === 0" matButton="filled">
             <mat-icon>undo</mat-icon> Undo Changes
           </button>
           <span class="spacer"></span>
           @if (changedCount > 0) {
             <span class="hwc-dirty">{{ changedCount }} unsaved change(s)</span>
           }
-          <button mat-stroked-button class="hwc-print" type="button" (click)="openReportDialog()" matTooltip="Print or WhatsApp Share Report (with ticks & verification)">
+          <button class="hwc-print" type="button" (click)="openReportDialog()" matTooltip="Print or WhatsApp Share Report (with ticks & verification)" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print / WhatsApp Report</span>
           </button>
-          <button mat-raised-button class="hwc-save" type="button" (click)="save()" [disabled]="saving || changedCount === 0">
+          <button class="hwc-save app-button-save" type="button" (click)="save()" [disabled]="saving || changedCount === 0" matButton="filled">
             <mat-icon>save</mat-icon> {{ saving ? 'Saving...' : 'Save H.W. Status' }}
           </button>
         </div>
@@ -270,8 +270,8 @@ function sectionsOf(classes: any[], classId: string): any[] {
               </div>
               @if (!s.isAbsent) {
                 <div class="hs-quick">
-                  <button type="button" class="q-btn ok" (click)="setStudent(s, 'Completed')" matTooltip="All points Completed">✔ All</button>
-                  <button type="button" class="q-btn bad" (click)="setStudent(s, 'NotDone')" matTooltip="All points Not Done">✘ All</button>
+                  <button type="button" class="q-btn ok" (click)="setStudent(s, 'Completed')" matTooltip="All points Completed" matButton="filled">✔ All</button>
+                  <button type="button" class="q-btn bad" (click)="setStudent(s, 'NotDone')" matTooltip="All points Not Done" matButton="filled">✘ All</button>
                 </div>
               }
             </div>
@@ -292,11 +292,11 @@ function sectionsOf(classes: any[], classId: string): any[] {
                 </div>
                 <div class="hp-controls">
                   <button type="button" class="st-btn ok" [class.on]="p.status === 'Completed'" [disabled]="s.isAbsent"
-                  (click)="toggle(p, 'Completed')" matTooltip="Completed">✔</button>
+                  (click)="toggle(p, 'Completed')" matTooltip="Completed" matButton="filled">✔</button>
                   <button type="button" class="st-btn mid" [class.on]="p.status === 'Partial'" [disabled]="s.isAbsent"
-                  (click)="toggle(p, 'Partial')" matTooltip="Partial">◐</button>
+                  (click)="toggle(p, 'Partial')" matTooltip="Partial" matButton="filled">◐</button>
                   <button type="button" class="st-btn bad" [class.on]="p.status === 'NotDone'" [disabled]="s.isAbsent"
-                  (click)="toggle(p, 'NotDone')" matTooltip="Not Done">✘</button>
+                  (click)="toggle(p, 'NotDone')" matTooltip="Not Done" matButton="filled">✘</button>
                   @if (p.status === 'Partial' || p.status === 'NotDone') {
                     <div class="hp-remark-group">
                       <div class="hw-badges-wrap">
@@ -305,7 +305,7 @@ function sectionsOf(classes: any[], classId: string): any[] {
                             class="hw-badge-chip"
                             [class.active-bad]="p.status === 'NotDone' && isBadgeActive(p, b.label)"
                             [class.active-mid]="p.status === 'Partial' && isBadgeActive(p, b.label)"
-                            (click)="selectBadgeRemark(p, b.label)">
+                            (click)="selectBadgeRemark(p, b.label)" matButton="filled">
                             <span class="b-icon">{{ b.icon }}</span>
                             <span class="b-text">{{ b.label }}</span>
                           </button>
@@ -947,11 +947,11 @@ export class HwCheckPanelComponent implements OnInit, OnChanges, OnDestroy {
       </form>
     
       <div class="hwa-presets">
-        <button mat-stroked-button type="button" (click)="preset(7)">Last 7 days</button>
-        <button mat-stroked-button type="button" (click)="preset(30)">Last 30 days</button>
-        <button mat-stroked-button type="button" (click)="presetMonth()">This month</button>
+        <button type="button" (click)="preset(7)" matButton="filled">Last 7 days</button>
+        <button type="button" (click)="preset(30)" matButton="filled">Last 30 days</button>
+        <button type="button" (click)="presetMonth()" matButton="filled">This month</button>
         <span class="spacer"></span>
-        <button mat-stroked-button type="button" (click)="exportCsv()" [disabled]="!data || data.students.length === 0">
+        <button type="button" (click)="exportCsv()" [disabled]="!data || data.students.length === 0" matButton="filled">
           <mat-icon>download</mat-icon> Export CSV
         </button>
       </div>

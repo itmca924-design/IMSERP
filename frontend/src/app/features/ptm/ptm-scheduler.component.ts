@@ -49,7 +49,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span class="dialog-subtitle">Parent-Teacher Meeting &bull; <strong>Front Desk Conference Desk</strong></span>
           </div>
         </div>
-        <button mat-icon-button class="dialog-close-btn" (click)="dialogRef.close()">
+        <button class="dialog-close-btn" (click)="dialogRef.close()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -175,8 +175,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
     
         <div class="dialog-actions">
-          <button mat-button type="button" (click)="dialogRef.close()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isSaving">
+          <button type="button" (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="form.invalid || isSaving" matButton="filled" [class.app-button-update]="data.isEdit" [class.app-button-save]="!(data.isEdit)">
             <mat-icon>{{ isSaving ? 'hourglass_top' : 'check' }}</mat-icon>
             {{ data.isEdit ? 'Update Session' : 'Schedule Session' }}
           </button>
@@ -355,7 +355,7 @@ export class CreatePtmSessionDialogComponent implements OnInit {
             <span class="dialog-subtitle">Student: <strong>{{ data.booking.studentName }}</strong> &bull; Class: <strong>{{ data.booking.className }}</strong></span>
           </div>
         </div>
-        <button mat-icon-button class="dialog-close-btn" (click)="dialogRef.close()">
+        <button class="dialog-close-btn" (click)="dialogRef.close()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -424,8 +424,8 @@ export class CreatePtmSessionDialogComponent implements OnInit {
         </div>
 
         <div class="dialog-actions">
-          <button mat-button type="button" (click)="dialogRef.close()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isSaving">
+          <button type="button" (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="form.invalid || isSaving" matButton="filled" class="app-button-save">
             <mat-icon>{{ isSaving ? 'hourglass_top' : 'save' }}</mat-icon>
             Save & Sync to Student Profile
           </button>
@@ -435,7 +435,7 @@ export class CreatePtmSessionDialogComponent implements OnInit {
   `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
-    .dialog-container { display: flex; flex-direction: column; width: 620px; max-width: 95vw; }
+    .dialog-container { display: flex; flex-direction: column; width: 100%; max-width: 100%; box-sizing: border-box; }
     .dialog-header {
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
@@ -540,7 +540,7 @@ export class RecordPtmFeedbackDialogComponent implements OnInit {
             <span class="dialog-subtitle">Session: <strong>{{ data.session.title }}</strong></span>
           </div>
         </div>
-        <button mat-icon-button class="dialog-close-btn" (click)="dialogRef.close()">
+        <button class="dialog-close-btn" (click)="dialogRef.close()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -584,8 +584,8 @@ export class RecordPtmFeedbackDialogComponent implements OnInit {
         </div>
     
         <div class="dialog-actions">
-          <button mat-button type="button" (click)="dialogRef.close()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="!selectedStudent || isSaving">
+          <button type="button" (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="!selectedStudent || isSaving" matButton="filled">
             <mat-icon>{{ isSaving ? 'hourglass_top' : 'check' }}</mat-icon>
             Enroll Student
           </button>
@@ -729,10 +729,10 @@ export class AddPtmBookingDialogComponent implements OnInit {
           </div>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button color="primary" routerLink="/front-desk/visitors">
+          <button color="primary" routerLink="/front-desk/visitors" matButton="filled">
             <mat-icon>arrow_back</mat-icon> Front Desk
           </button>
-          <button mat-flat-button color="primary" (click)="openScheduleSessionDialog()">
+          <button color="primary" (click)="openScheduleSessionDialog()" matButton="filled">
             <mat-icon>add_circle</mat-icon> Schedule PTM Session
           </button>
         </div>
@@ -864,13 +864,13 @@ export class AddPtmBookingDialogComponent implements OnInit {
             <mat-form-field appearance="outline" class="filter-field search-field">
               <mat-label>Search Session or Class</mat-label>
               <input matInput formControlName="searchTerm" placeholder="Search title, class, batch, organizer..." (keyup.enter)="onFilterChanged()" />
-              <button mat-icon-button matSuffix type="button" (click)="onFilterChanged()">
+              <button matSuffix type="button" (click)="onFilterChanged()" mat-icon-button>
                 <mat-icon>search</mat-icon>
               </button>
             </mat-form-field>
     
             <div class="filter-actions">
-              <button mat-stroked-button type="button" (click)="resetFilters()">
+              <button type="button" (click)="resetFilters()" matButton="filled" class="app-button-cancel">
                 <mat-icon>refresh</mat-icon> Reset
               </button>
             </div>
@@ -964,16 +964,16 @@ export class AddPtmBookingDialogComponent implements OnInit {
                         <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
                         <td mat-cell *matCellDef="let s" class="text-right">
                           <div class="action-buttons">
-                            <button mat-stroked-button color="primary" class="btn-compact" (click)="openSessionBookings(s)" matTooltip="Manage Attendance & Slot Desk">
+                            <button color="primary" class="btn-compact" (click)="openSessionBookings(s)" matTooltip="Manage Attendance & Slot Desk" matButton="filled">
                               <mat-icon>groups</mat-icon> Desk
                             </button>
-                            <button mat-icon-button color="accent" (click)="bulkEnrollClass(s)" matTooltip="Bulk Enroll Class Students">
+                            <button color="accent" (click)="bulkEnrollClass(s)" matTooltip="Bulk Enroll Class Students" mat-icon-button>
                               <mat-icon>group_add</mat-icon>
                             </button>
-                            <button mat-icon-button (click)="openEditSessionDialog(s)" matTooltip="Edit Session">
+                            <button (click)="openEditSessionDialog(s)" matTooltip="Edit Session" mat-icon-button>
                               <mat-icon>edit</mat-icon>
                             </button>
-                            <button mat-icon-button color="warn" (click)="deleteSession(s)" matTooltip="Delete Session">
+                            <button color="warn" (click)="deleteSession(s)" matTooltip="Delete Session" mat-icon-button>
                               <mat-icon>delete</mat-icon>
                             </button>
                           </div>
@@ -1004,10 +1004,10 @@ export class AddPtmBookingDialogComponent implements OnInit {
                   </div>
                   @if (activeSession) {
                     <div class="desk-actions">
-                      <button mat-stroked-button color="accent" (click)="bulkEnrollClass(activeSession)">
+                      <button color="accent" (click)="bulkEnrollClass(activeSession)" matButton="filled">
                         <mat-icon>group_add</mat-icon> Bulk Enroll All Class Students
                       </button>
-                      <button mat-flat-button color="primary" (click)="openAddBookingDialog()">
+                      <button color="primary" (click)="openAddBookingDialog()" matButton="filled">
                         <mat-icon>person_add</mat-icon> Enroll Student / Walk-in
                       </button>
                     </div>
@@ -1088,10 +1088,10 @@ export class AddPtmBookingDialogComponent implements OnInit {
                         <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
                         <td mat-cell *matCellDef="let b" class="text-right">
                           <div class="action-buttons">
-                            <button mat-flat-button color="primary" class="btn-compact" (click)="openRecordFeedbackDialog(b)">
+                            <button color="primary" class="btn-compact" (click)="openRecordFeedbackDialog(b)" matButton="filled">
                               <mat-icon>fact_check</mat-icon> Record
                             </button>
-                            <button mat-icon-button color="warn" (click)="deleteBooking(b)" matTooltip="Remove Booking">
+                            <button color="warn" (click)="deleteBooking(b)" matTooltip="Remove Booking" mat-icon-button>
                               <mat-icon>close</mat-icon>
                             </button>
                           </div>
@@ -1129,11 +1129,14 @@ export class AddPtmBookingDialogComponent implements OnInit {
       align-items: center;
       flex-wrap: wrap;
       gap: 16px;
+      min-width: 0;
     }
     .header-content {
       display: flex;
       align-items: center;
       gap: 16px;
+      min-width: 0;
+      flex: 1 1 320px;
     }
     .header-icon {
       background: #2563eb;
@@ -1161,19 +1164,61 @@ export class AddPtmBookingDialogComponent implements OnInit {
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-wrap: wrap;
     }
 
     /* KPI Grid */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 16px;
+      min-width: 0;
     }
     @media (max-width: 1024px) {
-      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 640px) {
-      .kpi-grid { grid-template-columns: 1fr; }
+      .page-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        justify-content: stretch;
+        gap: 10px;
+      }
+      .header-content {
+        flex: none;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .header-content > div:last-child {
+        min-width: 0;
+      }
+      .header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+      }
+      .header-actions > button {
+        min-width: 0;
+        width: 100%;
+        height: auto;
+        min-height: 40px;
+        padding: 6px 8px;
+        white-space: normal;
+        line-height: 1.2;
+      }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .kpi-card { min-width: 0; padding: 12px; box-sizing: border-box; }
+      .kpi-content { min-width: 0; gap: 8px; }
+      .kpi-info { min-width: 0; }
+      .kpi-label { font-size: 0.68rem; letter-spacing: 0.25px; }
+      .kpi-value { font-size: 1.5rem; }
+      .kpi-meta { font-size: 0.68rem; }
+      .kpi-icon-wrapper { width: 36px; height: 36px; flex: 0 0 36px; }
+    }
+    @media (max-width: 360px) {
+      .kpi-grid { grid-template-columns: minmax(0, 1fr); }
+      .header-actions { grid-template-columns: minmax(0, 1fr); }
     }
     .kpi-card {
       border-radius: 12px;

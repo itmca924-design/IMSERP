@@ -38,10 +38,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       </div>
     </div>
     <div class="header-actions">
-      <a mat-stroked-button routerLink="/teachers" class="back-btn">
+      <a matButton="filled" routerLink="/teachers" class="back-btn">
         <mat-icon>arrow_back</mat-icon> Teachers
       </a>
-      <button mat-raised-button color="primary" class="primary-btn" (click)="openCreateModal()">
+      <button color="primary" class="primary-btn" (click)="openCreateModal()" matButton="filled">
         <mat-icon>add_task</mat-icon> Assign Proxy Teacher
       </button>
     </div>
@@ -94,7 +94,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </mat-select>
       </mat-form-field>
 
-      <button mat-button color="primary" (click)="resetFilters()">
+      <button color="primary" (click)="resetFilters()" matButton="filled">
         <mat-icon>refresh</mat-icon> Reset Today
       </button>
     </div>
@@ -184,16 +184,16 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <span class="date-text"><mat-icon>calendar_today</mat-icon> {{s.substitutionDate | date:'dd MMM yyyy'}}</span>
             <div class="action-btns">
               @if (s.status === 'Assigned') {
-                <button mat-stroked-button color="primary" size="small" (click)="updateStatus(s, 'Completed')">
+                <button color="primary" size="small" (click)="updateStatus(s, 'Completed')" matButton="filled">
                   <mat-icon>check_circle</mat-icon> Done
                 </button>
               }
               @if (s.status === 'Assigned') {
-                <button mat-icon-button color="warn" matTooltip="Cancel Proxy" (click)="updateStatus(s, 'Cancelled')">
+                <button color="warn" matTooltip="Cancel Proxy" (click)="updateStatus(s, 'Cancelled')" mat-icon-button>
                   <mat-icon>cancel</mat-icon>
                 </button>
               }
-              <button mat-icon-button color="warn" matTooltip="Delete Record" (click)="deleteSubstitution(s.id)">
+              <button color="warn" matTooltip="Delete Record" (click)="deleteSubstitution(s.id)" mat-icon-button>
                 <mat-icon>delete</mat-icon>
               </button>
             </div>
@@ -209,7 +209,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <mat-icon class="empty-icon">event_available</mat-icon>
       <h3>No Substitutions for this Date</h3>
       <p>No proxy teacher substitutions recorded for the selected date. Click below to assign a substitute teacher.</p>
-      <button mat-stroked-button color="primary" (click)="openCreateModal()">
+      <button color="primary" (click)="openCreateModal()" matButton="filled">
         <mat-icon>add_task</mat-icon> Assign Proxy Now
       </button>
     </mat-card>
@@ -233,7 +233,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <p class="modal-subtitle">शिक्षक प्रतिस्थापन — अनुपस्थित क्लास के लिए प्रॉक्सी असाइन करें।</p>
           </div>
         </div>
-        <button mat-icon-button (click)="closeCreateModal()" class="close-btn">
+        <button (click)="closeCreateModal()" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -270,10 +270,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <div class="col-full target-toggle-box">
             <label class="toggle-label">क्लास या बैच चुनें (Class or Batch Stream):</label>
             <div class="toggle-pills">
-              <button type="button" class="pill-btn" [class.active]="streamType === 'School'" (click)="setStreamType('School')">
+              <button type="button" class="pill-btn" [class.active]="streamType === 'School'" (click)="setStreamType('School')" matButton="filled">
                 <mat-icon>school</mat-icon> School Class &amp; Section
               </button>
-              <button type="button" class="pill-btn" [class.active]="streamType === 'Coaching'" (click)="setStreamType('Coaching')">
+              <button type="button" class="pill-btn" [class.active]="streamType === 'Coaching'" (click)="setStreamType('Coaching')" matButton="filled">
                 <mat-icon>class</mat-icon> Coaching Batch
               </button>
             </div>
@@ -394,8 +394,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       </div>
     </div>
     <div class="modal-footer">
-      <button mat-button (click)="closeCreateModal()">Cancel</button>
-      <button mat-raised-button color="primary" class="primary-btn" [disabled]="saving || !newForm.originalTeacherId || !newForm.substituteTeacherId || !newForm.timeSlot" (click)="saveSubstitution()">
+      <button (click)="closeCreateModal()" matButton="filled" class="app-button-cancel">Cancel</button>
+      <button color="primary" class="primary-btn" [disabled]="saving || !newForm.originalTeacherId || !newForm.substituteTeacherId || !newForm.timeSlot" (click)="saveSubstitution()" matButton="filled">
         @if (!saving) {
           <mat-icon>check</mat-icon>
         }

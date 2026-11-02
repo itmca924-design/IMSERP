@@ -19,6 +19,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CoachingService } from '../../core/services/coaching.service';
@@ -39,7 +40,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatCheckboxModule, MatProgressBarModule, MatProgressSpinnerModule,
     MatTooltipModule, MatChipsModule, MatDividerModule,
-    MatDialogModule, IstDatetimeDirective
+    MatDialogModule, MatMenuModule, IstDatetimeDirective
   ],
   template: `
     <div class="tests-wrapper">
@@ -66,11 +67,11 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           <p>Bulk-schedule exams with date &amp; time, enter marks, and send WhatsApp report cards.</p>
         </div>
         <div class="header-buttons-row">
-          <button mat-stroked-button class="print-schedule-btn" (click)="printSchedule()" matTooltip="Print Exam Schedule Timetable">
+          <button class="print-schedule-btn" (click)="printSchedule()" matTooltip="Print Exam Schedule Timetable" matButton="filled">
             <mat-icon>print</mat-icon> Print Schedule
           </button>
           @if (isUserAdmin) {
-            <button mat-raised-button color="primary" class="add-btn" (click)="toggleBulkPlanner()">
+            <button color="primary" class="add-btn" (click)="toggleBulkPlanner()" matButton="filled">
               <mat-icon>{{ showBulkPlanner ? 'close' : 'add_circle' }}</mat-icon>
               {{ showBulkPlanner ? 'Close Scheduler' : 'Schedule Exam Session' }}
             </button>
@@ -97,10 +98,10 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <!-- Type Switcher (Visible only for Hybrid Institutes) -->
                 @if (isHybridInstitute) {
                   <div class="planner-type-switcher">
-                    <button type="button" class="type-pill-btn" [class.active]="plannerCategory === 'school'" (click)="setPlannerCategory('school')">
+                    <button type="button" class="type-pill-btn" [class.active]="plannerCategory === 'school'" (click)="setPlannerCategory('school')" matButton="filled">
                       <mat-icon>school</mat-icon> <span>School Class Exam</span>
                     </button>
-                    <button type="button" class="type-pill-btn" [class.active]="plannerCategory === 'coaching'" (click)="setPlannerCategory('coaching')">
+                    <button type="button" class="type-pill-btn" [class.active]="plannerCategory === 'coaching'" (click)="setPlannerCategory('coaching')" matButton="filled">
                       <mat-icon>groups</mat-icon> <span>Coaching Batch Test</span>
                     </button>
                   </div>
@@ -150,8 +151,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                     type="button"
                     class="scope-pill-btn"
                     [class.active]="plannerBatchScope === 'single'"
-                    (click)="setPlannerBatchScope('single')"
-                    >
+                    (click)="setPlannerBatchScope('single')" matButton="filled">
                     <mat-icon>school</mat-icon>
                     <div class="pill-texts">
                       <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
@@ -162,8 +162,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                     type="button"
                     class="scope-pill-btn"
                     [class.active]="plannerBatchScope === 'combined'"
-                    (click)="setPlannerBatchScope('combined')"
-                    >
+                    (click)="setPlannerBatchScope('combined')" matButton="filled">
                     <mat-icon>layers</mat-icon>
                     <div class="pill-texts">
                       <span class="pill-main">Combined / Multi-Class (संयुक्त कक्षा)</span>
@@ -174,8 +173,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                     type="button"
                     class="scope-pill-btn"
                     [class.active]="plannerBatchScope === 'all'"
-                    (click)="setPlannerBatchScope('all')"
-                    >
+                    (click)="setPlannerBatchScope('all')" matButton="filled">
                     <mat-icon>view_list</mat-icon>
                     <div class="pill-texts">
                       <span class="pill-main">All Batches (सभी बैच)</span>
@@ -269,8 +267,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                         <span class="row-num">{{ i + 1 }}</span>
                         <span class="mobile-row-title">Exam Plan #{{ i + 1 }}</span>
                       </div>
-                      <button mat-icon-button color="warn" type="button" class="mobile-del-btn" (click)="removeRow(i)"
-                        [disabled]="examRows.length === 1" matTooltip="Remove row">
+                      <button color="warn" type="button" class="mobile-del-btn" (click)="removeRow(i)"
+                        [disabled]="examRows.length === 1" matTooltip="Remove row" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     </div>
@@ -340,8 +338,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                                 (keydown)="$event.stopPropagation()"
                                 (keyup)="$event.stopPropagation()">
                               @if (subjectSearchTexts[i]) {
-                                <button mat-icon-button type="button" class="clear-search-btn"
-                                  (click)="clearSubjectSearch(i, $event)" (mousedown)="$event.stopPropagation()">
+                                <button type="button" class="clear-search-btn"
+                                  (click)="clearSubjectSearch(i, $event)" (mousedown)="$event.stopPropagation()" mat-icon-button>
                                   <mat-icon>close</mat-icon>
                                 </button>
                               }
@@ -418,8 +416,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                     </div>
                     <!-- Delete -->
                     <div class="cell-del">
-                      <button mat-icon-button color="warn" (click)="removeRow(i)"
-                        [disabled]="examRows.length === 1" matTooltip="Remove row">
+                      <button color="warn" (click)="removeRow(i)"
+                        [disabled]="examRows.length === 1" matTooltip="Remove row" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     </div>
@@ -429,7 +427,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             </div>
             <!-- Planner Footer -->
             <div class="planner-footer">
-              <button mat-stroked-button color="primary" (click)="addRow()" [disabled]="examRows.length >= 20">
+              <button color="primary" (click)="addRow()" [disabled]="examRows.length>= 20" matButton="filled">
                 <mat-icon>add</mat-icon>
                 Add Another Exam Row
                 @if (examRows.length >= 20) {
@@ -437,8 +435,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 }
               </button>
               <div class="planner-actions">
-                <button mat-button (click)="toggleBulkPlanner()" [disabled]="saving">Cancel</button>
-                <button mat-raised-button color="primary" (click)="saveBulkPlanner()" [disabled]="saving">
+                <button (click)="toggleBulkPlanner()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" (click)="saveBulkPlanner()" [disabled]="saving" matButton="filled">
                   <mat-icon>{{ saving ? 'hourglass_empty' : 'rocket_launch' }}</mat-icon>
                   {{ saving ? 'Scheduling...' : 'Schedule All ' + examRows.length + ' Exam' + (examRows.length !== 1 ? 's' : '') }}
                 </button>
@@ -468,11 +466,11 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 </div>
                 <div class="marks-header-right">
                   @if (canViewResults(selectedTest)) {
-                    <button mat-stroked-button class="result-btn" (click)="openResults(selectedTest)" matTooltip="View Leaderboard &amp; Student Result Cards">
+                    <button class="result-btn" (click)="openResults(selectedTest)" matTooltip="View Leaderboard &amp; Student Result Cards" matButton="filled">
                       <mat-icon>emoji_events</mat-icon> Results &amp; Cards
                     </button>
                   }
-                  <button mat-icon-button color="warn" class="close-btn" (click)="selectedTest = null" matTooltip="Close Marks Entry">
+                  <button color="warn" class="close-btn" (click)="selectedTest = null" matTooltip="Close Marks Entry" mat-icon-button>
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
@@ -538,7 +536,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 </div>
               </div>
               @if (isUserAdmin) {
-                <button mat-stroked-button color="warn" class="unlock-btn" (click)="unlockMarks(selectedTest)">
+                <button color="warn" class="unlock-btn" (click)="unlockMarks(selectedTest)" matButton="filled">
                   <mat-icon>lock_open</mat-icon> Unlock Marks (Admin Override)
                 </button>
               }
@@ -713,10 +711,10 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 </div>
               }
               <div class="marks-submit-actions">
-                <button mat-stroked-button (click)="selectedTest = null">Cancel / Back</button>
+                <button (click)="selectedTest = null" matButton="filled">Cancel / Back</button>
                 <!-- TEACHER ACTIONS (For Faculty/Teachers submitting marks) -->
                 @if (!selectedTest.isMarksLocked && !isUserAdmin) {
-                  <button mat-stroked-button color="primary" class="draft-marks-btn" (click)="saveMarks(false)" [disabled]="savingMarks || approvingMarks">
+                  <button color="primary" class="draft-marks-btn app-button-save" (click)="saveMarks(false)" [disabled]="savingMarks || approvingMarks" matButton="filled">
                     @if (savingMarks) {
                       <mat-progress-spinner diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
                     }
@@ -727,7 +725,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   </button>
                 }
                 @if (!selectedTest.isMarksLocked && !isUserAdmin) {
-                  <button mat-raised-button color="primary" class="save-marks-btn" (click)="saveMarks(true)" [disabled]="savingMarks || approvingMarks">
+                  <button color="primary" class="save-marks-btn app-button-save" (click)="saveMarks(true)" [disabled]="savingMarks || approvingMarks" matButton="filled">
                     @if (savingMarks) {
                       <mat-progress-spinner diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
                     }
@@ -739,7 +737,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 }
                 <!-- ADMIN / PRINCIPAL ACTIONS (For Admin reviewing & moderating marks) -->
                 @if (isUserAdmin && !selectedTest.isMarksLocked) {
-                  <button mat-stroked-button color="primary" class="draft-marks-btn" (click)="saveMarks(false)" [disabled]="savingMarks || approvingMarks" matTooltip="Save any moderation corrections before approving">
+                  <button color="primary" class="draft-marks-btn app-button-save" (click)="saveMarks(false)" [disabled]="savingMarks || approvingMarks" matTooltip="Save any moderation corrections before approving" matButton="filled">
                     @if (savingMarks) {
                       <mat-progress-spinner diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
                     }
@@ -750,14 +748,12 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   </button>
                 }
                 @if (isUserAdmin && !selectedTest.isMarksLocked && (selectedTest.evaluationStatus === 'SubmittedForApproval' || selectedTest.evaluationStatus === 'MarksEntered')) {
-                  <button
-                    mat-stroked-button color="warn" (click)="rejectForRevisionDirect(selectedTest)" [disabled]="savingMarks || approvingMarks" matTooltip="Send back to teacher with notes for re-checking">
+                  <button color="warn" (click)="rejectForRevisionDirect(selectedTest)" [disabled]="savingMarks || approvingMarks" matTooltip="Send back to teacher with notes for re-checking" matButton="filled">
                     <mat-icon>replay</mat-icon> Send Back for Revision
                   </button>
                 }
                 @if (isUserAdmin && !selectedTest.isMarksLocked) {
-                  <button
-                    mat-raised-button color="accent" class="approve-marks-direct-btn" (click)="openApprovalModal(selectedTest)" [disabled]="savingMarks || approvingMarks" matTooltip="Review summary & officially approve and freeze marks">
+                  <button color="accent" class="approve-marks-direct-btn" (click)="openApprovalModal(selectedTest)" [disabled]="savingMarks || approvingMarks" matTooltip="Review summary & officially approve and freeze marks" matButton="filled">
                     @if (approvingMarks) {
                       <mat-progress-spinner diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
                     }
@@ -768,7 +764,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   </button>
                 }
                 @if (isUserAdmin && selectedTest.isMarksLocked) {
-                  <button mat-stroked-button color="warn" (click)="unlockMarks(selectedTest)">
+                  <button color="warn" (click)="unlockMarks(selectedTest)" matButton="filled">
                     <mat-icon>lock_open</mat-icon> Unlock Marks
                   </button>
                 }
@@ -788,13 +784,13 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             <!-- Hybrid Module Category Tabs (Only if institute has both School & Coaching) -->
             @if (isHybridInstitute) {
               <div class="category-tabs-bar">
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'all'" (click)="setCategoryFilter('all')">
+                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'all'" (click)="setCategoryFilter('all')" matButton="filled">
                   <mat-icon>grid_view</mat-icon> All Exams
                 </button>
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'school'" (click)="setCategoryFilter('school')">
+                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'school'" (click)="setCategoryFilter('school')" matButton="filled">
                   <mat-icon>school</mat-icon> School Classes
                 </button>
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'coaching'" (click)="setCategoryFilter('coaching')">
+                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'coaching'" (click)="setCategoryFilter('coaching')" matButton="filled">
                   <mat-icon>groups</mat-icon> Coaching Batches
                 </button>
               </div>
@@ -806,7 +802,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <button type="button"
                     class="scope-filter-btn"
                     [class.active]="batchScopeFilter === 'all'"
-                    (click)="setBatchScopeFilter('all')">
+                    (click)="setBatchScopeFilter('all')" matButton="filled">
                     <mat-icon>apps</mat-icon>
                     <span>All Batches (सभी बैच)</span>
                     <span class="scope-pill">{{ batches.length }}</span>
@@ -814,7 +810,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <button type="button"
                     class="scope-filter-btn"
                     [class.active]="batchScopeFilter === 'single'"
-                    (click)="setBatchScopeFilter('single')">
+                    (click)="setBatchScopeFilter('single')" matButton="filled">
                     <mat-icon>school</mat-icon>
                     <span>Single Class (एकल कक्षा)</span>
                     <span class="scope-pill">{{ singleClassBatchCount }}</span>
@@ -822,7 +818,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <button type="button"
                     class="scope-filter-btn"
                     [class.active]="batchScopeFilter === 'combined'"
-                    (click)="setBatchScopeFilter('combined')">
+                    (click)="setBatchScopeFilter('combined')" matButton="filled">
                     <mat-icon>layers</mat-icon>
                     <span>Multi-Class Combined (संयुक्त कक्षा)</span>
                     <span class="scope-pill">{{ combinedBatchCount }}</span>
@@ -841,7 +837,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <mat-label>Search Tests / Subject / Title...</mat-label>
                 <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" />
                 <mat-icon matPrefix>search</mat-icon>
-                <button mat-icon-button matSuffix (click)="onSearch()" matTooltip="Search">
+                <button matSuffix (click)="onSearch()" matTooltip="Search" mat-icon-button>
                   <mat-icon>arrow_forward</mat-icon>
                 </button>
               </mat-form-field>
@@ -888,7 +884,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           </div>
           <mat-card-content class="table-container">
             <div class="responsive-table-wrap">
-              <table mat-table [dataSource]="tests" matSort (matSortChange)="onSortChange($event)" class="full-width">
+              <table mat-table [dataSource]="tests" matSort (matSortChange)="onSortChange($event)" class="full-width tests-directory-table">
                 <!-- Title Column -->
                 <ng-container matColumnDef="title">
                   <th mat-header-cell *matHeaderCellDef mat-sort-header="title">Test Title &amp; Status</th>
@@ -997,60 +993,70 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 </ng-container>
                 <!-- Actions Column -->
                 <ng-container matColumnDef="actions">
-                  <th mat-header-cell *matHeaderCellDef class="text-right no-print">Actions</th>
-                  <td mat-cell *matCellDef="let t" class="text-right no-print">
+                  <th mat-header-cell *matHeaderCellDef class="text-center action-column-heading no-print">
+                    <mat-icon aria-label="Actions">more_vert</mat-icon>
+                  </th>
+                  <td mat-cell *matCellDef="let t" class="text-center no-print">
                     <div class="action-buttons no-print">
+                      <button
+                        type="button"
+                        class="action-menu-trigger"
+                        [matMenuTriggerFor]="testActionsMenu"
+                        [matTooltip]="'Actions for ' + t.title"
+                        aria-label="Test actions"
+                        mat-icon-button>
+                        <mat-icon>more_vert</mat-icon>
+                      </button>
+                      <mat-menu #testActionsMenu="matMenu">
                       <!-- Admin Only: Bundle Handover / Tracking -->
                       @if (isUserAdmin && !t.isMarksLocked) {
-                        <button mat-stroked-button class="bundle-btn" (click)="openBundleModal(t)" matTooltip="Assign / Track Physical Copy Bundle Handover">
-                          <mat-icon>inventory_2</mat-icon> {{ t.evaluatorTeacherId ? 'Bundle' : 'Assign Bundle' }}
+                        <button type="button" (click)="openBundleModal(t)" mat-menu-item>
+                          <mat-icon>inventory_2</mat-icon><span>{{ t.evaluatorTeacherId ? 'Track Bundle' : 'Assign Bundle' }}</span>
                         </button>
                       }
                       <!-- Marking Foil / Award Sheet: Admin OR Assigned Teacher (Only before exam is officially locked) -->
                       @if ((isUserAdmin || isMyBundle(t)) && !t.isMarksLocked) {
-                        <button mat-stroked-button class="foil-btn" (click)="openAwardSheetModal(t)" matTooltip="Print Blank Award Sheet (Marking Foil)">
-                          <mat-icon>receipt_long</mat-icon> Foil
+                        <button type="button" (click)="openAwardSheetModal(t)" mat-menu-item>
+                          <mat-icon>receipt_long</mat-icon><span>Print Marking Foil</span>
                         </button>
                       }
                       <!-- Enter / Review / View Marks Button (If permitted) -->
                       @if (canEnterMarks(t)) {
-                        <button mat-raised-button color="primary" (click)="openMarksGrid(t)"
-                          class="enter-marks-btn"
-                          [matTooltip]="t.isMarksLocked ? 'View Officially Locked Marks' : (t.evaluationStatus === 'SubmittedForApproval' ? 'Review & Verify Evaluated Marks' : 'Enter / Update Marks')">
+                        <button type="button" (click)="openMarksGrid(t)" mat-menu-item>
                           <mat-icon>{{ t.isMarksLocked ? 'lock' : (t.evaluationStatus === 'SubmittedForApproval' ? 'rate_review' : 'edit_note') }}</mat-icon>
-                          {{ t.isMarksLocked ? 'Marks 🔒' : (t.evaluationStatus === 'SubmittedForApproval' ? 'Review Marks' : 'Enter Marks') }}
+                          <span>{{ t.isMarksLocked ? 'View Official Marks' : (t.evaluationStatus === 'SubmittedForApproval' ? 'Review Marks' : 'Enter Marks') }}</span>
                         </button>
                       }
                       <!-- If Teacher but bundle is not assigned yet and exam is not locked -->
                       @if (!isUserAdmin && !canEnterMarks(t) && !t.isMarksLocked) {
-                        <button mat-stroked-button class="enter-marks-disabled-btn" disabled
-                          [matTooltip]="!t.evaluatorTeacherId ? 'Bundle not yet assigned by Admin / Exam Cell' : 'Bundle assigned to ' + (t.evaluatorTeacherName || 'another evaluator')">
-                          <mat-icon>lock</mat-icon> Enter Marks
+                        <button type="button" disabled mat-menu-item>
+                          <mat-icon>lock</mat-icon><span>Enter Marks (Not Assigned)</span>
                         </button>
                       }
                       <!-- Quick Unlock for Admin if locked -->
                       @if (isUserAdmin && t.isMarksLocked) {
-                        <button mat-icon-button color="warn" (click)="unlockMarks(t)" matTooltip="Unlock Marks (Admin Override)">
-                          <mat-icon>lock_open</mat-icon>
+                        <button type="button" (click)="unlockMarks(t)" mat-menu-item>
+                          <mat-icon>lock_open</mat-icon><span>Unlock Marks</span>
                         </button>
                       }
                       <!-- Results Button: Only visible once enter marks is officially locked & approved -->
                       @if (canViewResults(t)) {
-                        <button mat-stroked-button class="result-btn" (click)="openResults(t)" matTooltip="View Leaderboard &amp; Student Result Cards">
-                          <mat-icon>emoji_events</mat-icon> Results
+                        <button type="button" (click)="openResults(t)" mat-menu-item>
+                          <mat-icon>emoji_events</mat-icon><span>View Results</span>
                         </button>
                       }
                       <!-- Admin Only Actions: Admit Cards and Delete (Hidden when exam results are officially locked) -->
                       @if (isUserAdmin && !t.isMarksLocked) {
-                        <button mat-stroked-button class="admit-card-btn" (click)="openAdmitCards(t)" matTooltip="Generate &amp; Print Admit Cards / Hall Tickets">
-                          <mat-icon>confirmation_number</mat-icon>
+                        <button type="button" (click)="openAdmitCards(t)" mat-menu-item>
+                          <mat-icon>confirmation_number</mat-icon><span>Generate Admit Cards</span>
                         </button>
                       }
                       @if (isUserAdmin && !t.isMarksLocked) {
-                        <button mat-icon-button color="warn" (click)="deleteTest(t)" matTooltip="Delete Test">
-                          <mat-icon>delete_outline</mat-icon>
+                        <button type="button" (click)="deleteTest(t)" mat-menu-item>
+                          <mat-icon>delete_outline</mat-icon><span>Delete Test</span>
                         </button>
                       }
+                      </mat-menu>
                     </div>
                   </td>
                 </ng-container>
@@ -1111,7 +1117,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <h3>Assign Copy Bundle to Evaluator Teacher</h3>
                 <p>Physical paper bundles handover &amp; checking tracking for <strong>{{ bundleTest?.title }}</strong></p>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="closeBundleModal()" matTooltip="Close">
+              <button class="modal-close-btn" (click)="closeBundleModal()" matTooltip="Close" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -1216,8 +1222,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                           (keydown)="$event.stopPropagation()"
                           (keyup)="$event.stopPropagation()">
                         @if (teacherSearchText) {
-                          <button mat-icon-button type="button" class="clear-search-btn"
-                            (click)="clearTeacherSearch($event)" (mousedown)="$event.stopPropagation()">
+                          <button type="button" class="clear-search-btn"
+                            (click)="clearTeacherSearch($event)" (mousedown)="$event.stopPropagation()" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
@@ -1317,12 +1323,12 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             </div>
             <!-- Modal Footer -->
             <div class="modal-dialog-footer">
-              <button mat-stroked-button (click)="openAwardSheetModal(bundleTest)" type="button">
+              <button (click)="openAwardSheetModal(bundleTest)" type="button" matButton="filled">
                 <mat-icon>print</mat-icon> Print Blank Award Foil
               </button>
               <div class="footer-spacer"></div>
-              <button mat-stroked-button (click)="closeBundleModal()" type="button">Cancel</button>
-              <button mat-raised-button color="primary" (click)="saveBundleAssignment()" [disabled]="savingBundle || bundleForm.invalid">
+              <button (click)="closeBundleModal()" type="button" matButton="filled" class="app-button-cancel">Cancel</button>
+              <button color="primary" (click)="saveBundleAssignment()" [disabled]="savingBundle || bundleForm.invalid" matButton="filled" class="app-button-save">
                 <mat-icon>{{ savingBundle ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
                 {{ savingBundle ? 'Saving...' : 'Save & Assign Bundle' }}
               </button>
@@ -1346,7 +1352,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <h3>Principal Final Approval &amp; Official Seal</h3>
                 <p>Review &amp; finalize results for <strong>{{ approvalTest?.title }}</strong> ({{ approvalTest?.subject }})</p>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="closeApprovalModal()" matTooltip="Close">
+              <button class="modal-close-btn" (click)="closeApprovalModal()" matTooltip="Close" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -1395,12 +1401,12 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             </div>
             <!-- Modal Footer -->
             <div class="modal-dialog-footer">
-              <button mat-stroked-button color="warn" (click)="promptRejectRevision()" [disabled]="approvingMarks">
+              <button color="warn" (click)="promptRejectRevision()" [disabled]="approvingMarks" matButton="filled">
                 <mat-icon>replay</mat-icon> Send Back for Revision
               </button>
               <div class="footer-spacer"></div>
-              <button mat-stroked-button (click)="closeApprovalModal()">Cancel</button>
-              <button mat-raised-button color="primary" class="approve-seal-btn" (click)="confirmApproveAndLock()" [disabled]="approvingMarks">
+              <button (click)="closeApprovalModal()" matButton="filled" class="app-button-cancel">Cancel</button>
+              <button color="primary" class="approve-seal-btn" (click)="confirmApproveAndLock()" [disabled]="approvingMarks" matButton="filled">
                 @if (approvingMarks) {
                   <mat-progress-spinner diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
                 }
@@ -1429,7 +1435,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <h3>Official Marking Foil / Blank Award Sheet</h3>
                 <p>Physical answer sheet checking &amp; manual tabulation sheet</p>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="closeAwardSheetModal()" matTooltip="Close">
+              <button class="modal-close-btn" (click)="closeAwardSheetModal()" matTooltip="Close" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -1517,9 +1523,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             </div>
             <!-- Modal Footer (no-print) -->
             <div class="modal-dialog-footer no-print">
-              <button mat-stroked-button (click)="closeAwardSheetModal()">Close</button>
+              <button (click)="closeAwardSheetModal()" matButton="filled" class="app-button-cancel">Close</button>
               <div class="footer-spacer"></div>
-              <button mat-raised-button color="primary" (click)="printAwardSheet()">
+              <button color="primary" (click)="printAwardSheet()" matButton="filled">
                 <mat-icon>print</mat-icon> Print Award Sheet
               </button>
             </div>
@@ -2665,17 +2671,68 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     }
     .full-width { width: 100%; }
 
+    .tests-directory-table {
+      min-width: 1040px;
+      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: #ffffff;
+
+      .mat-column-title { width: 250px; }
+      .mat-column-batchName { width: 240px; }
+      .mat-column-subject { width: 155px; }
+      .mat-column-maxMarks { width: 95px; }
+      .mat-column-testDate { width: 150px; }
+      .mat-column-actions { width: 80px; }
+
+      th.mat-mdc-header-cell {
+        padding: 13px 14px;
+        background: #f8fafc;
+        color: #475569;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.035em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      td.mat-mdc-cell {
+        padding: 12px 14px;
+        border-bottom: 1px solid #edf2f7;
+        color: #334155;
+        transition: background-color 140ms ease;
+      }
+
+      tbody tr {
+        background: #ffffff;
+        transition: box-shadow 140ms ease;
+
+        &:nth-child(even) { background: #fbfdff; }
+
+        &:hover {
+          background: #eff6ff;
+          box-shadow: inset 3px 0 #60a5fa;
+
+          > td { background: #eff6ff; }
+        }
+      }
+    }
+
     .test-title-cell {
       display: flex;
       flex-direction: column;
       gap: 4px;
       padding: 6px 0;
+      min-width: 0;
     }
     .title-heading {
       color: #0f172a;
       font-size: 0.95rem;
       font-weight: 700;
+      line-height: 1.35;
     }
+    .title-and-badge { min-width: 0; }
     .marks-count {
       display: inline-flex;
       align-items: center;
@@ -2692,6 +2749,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
+      max-width: 100%;
+      box-sizing: border-box;
       font-size: 0.82rem;
       font-weight: 600;
       color: #047857;
@@ -2730,6 +2790,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       display: inline-flex;
       align-items: center;
       gap: 5px;
+      flex-wrap: wrap;
+      max-width: 100%;
+      box-sizing: border-box;
       font-size: 0.82rem;
       font-weight: 600;
       color: #0284c7;
@@ -2749,6 +2812,9 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       display: inline-flex;
       align-items: center;
       gap: 5px;
+      flex-wrap: wrap;
+      max-width: 100%;
+      box-sizing: border-box;
       font-size: 0.82rem;
       font-weight: 600;
       color: #15803d;
@@ -2787,6 +2853,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       font-size: 0.82rem;
       font-weight: 600;
       color: #475569;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
     }
     .max-marks-badge {
       display: inline-block;
@@ -2802,6 +2870,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       display: flex;
       flex-direction: column;
       gap: 2px;
+      white-space: nowrap;
     }
     .date-text {
       color: #0f172a;
@@ -2820,11 +2889,32 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     .text-right  { text-align: right; }
     .text-center { text-align: center; }
     .action-buttons {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      white-space: nowrap;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .action-menu-trigger {
+      color: #475569 !important;
+      background: #ffffff !important;
+      border-radius: 50% !important;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+      transition: box-shadow 140ms ease, color 140ms ease;
+
+      &:hover {
+        color: #1d4ed8 !important;
+        background: #ffffff !important;
+        box-shadow: 0 3px 10px rgba(37, 99, 235, 0.2);
+      }
+    }
+
+    .action-column-heading mat-icon {
+      width: 20px;
+      height: 20px;
+      font-size: 20px;
+      vertical-align: middle;
+      color: #64748b;
     }
     .enter-marks-btn {
       font-size: 0.82rem;
@@ -3602,21 +3692,45 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
     /* ─── Award Sheet Marking Foil Layout ─── */
     .award-sheet-dialog {
-      max-width: 900px;
+      max-width: 1120px;
       width: 96vw;
     }
     .award-sheet-scrollable {
       max-height: 75vh;
-      overflow-y: auto;
+      overflow: auto;
       background: #f8fafc;
       padding: 24px;
     }
     .award-sheet-paper {
       background: #ffffff;
       border: 1px solid #cbd5e1;
-      padding: 32px 36px;
+      padding: 28px;
       box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06);
       border-radius: 4px;
+    }
+    .award-sheet-paper .uploaded-official-seal-img {
+      display: block;
+      width: 72px;
+      height: 72px;
+      max-width: 100%;
+      object-fit: contain;
+      margin: 0 auto 6px;
+    }
+    .award-sheet-paper .sig-space-img {
+      width: 100%;
+      height: 42px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      overflow: hidden;
+      margin-bottom: 2px;
+    }
+    .award-sheet-paper .digital-sign-img {
+      display: block;
+      max-width: 145px;
+      max-height: 42px;
+      object-fit: contain;
+      margin: 0 auto;
     }
     .award-sheet-inst-header {
       text-align: center;
@@ -3675,10 +3789,14 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     .award-foil-signatures {
       display: flex;
       justify-content: space-between;
+      align-items: flex-end;
+      gap: 20px;
       margin-top: 54px;
       padding-top: 10px;
       .foil-sig-box {
-        width: 220px;
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: 240px;
         text-align: center;
         display: flex;
         flex-direction: column;
@@ -3774,6 +3892,24 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 8px !important;
+      }
+
+      .award-sheet-dialog {
+        width: min(96vw, 680px) !important;
+        max-width: 96vw !important;
+      }
+
+      .award-sheet-scrollable { padding: 12px !important; }
+      .award-sheet-paper { padding: 16px !important; }
+
+      .award-foil-signatures {
+        gap: 10px;
+        margin-top: 32px;
+      }
+
+      .award-foil-signatures .foil-sig-box {
+        flex-basis: 0;
+        font-size: 0.72rem;
       }
       .scope-filter-toggle {
         width: 100% !important;

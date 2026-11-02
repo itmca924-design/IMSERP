@@ -45,7 +45,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </p>
           </div>
         </div>
-        <button type="button" class="close-btn" (click)="closeDialog()" matTooltip="Close">
+        <button type="button" class="close-btn" (click)="closeDialog()" matTooltip="Close" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -58,7 +58,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-icon color="primary">{{ isEditMode ? 'edit_note' : 'add_circle' }}</mat-icon>
             <strong>{{ isEditMode ? 'Edit Selected Shift' : 'Add New Shift / Plan' }}</strong>
             @if (isEditMode) {
-              <button mat-button color="warn" type="button" (click)="resetForm()" class="cancel-edit-btn">
+              <button color="warn" type="button" (click)="resetForm()" class="cancel-edit-btn app-button-update" matButton="filled">
                 Cancel Edit
               </button>
             }
@@ -92,7 +92,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </mat-form-field>
     
               <div class="submit-col">
-                <button mat-raised-button color="primary" type="submit" [disabled]="planForm.invalid || saving" class="save-plan-btn">
+                <button color="primary" type="submit" [disabled]="planForm.invalid || saving" class="save-plan-btn" matButton="filled" [class.app-button-update]="isEditMode" [class.app-button-save]="!(isEditMode)">
                   <mat-icon>{{ saving ? 'hourglass_top' : (isEditMode ? 'save' : 'add') }}</mat-icon>
                   <span>{{ isEditMode ? 'Update' : 'Add' }}</span>
                 </button>
@@ -158,10 +158,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef style="text-align: right;">Actions</th>
               <td mat-cell *matCellDef="let p" style="text-align: right;">
-                <button mat-icon-button color="primary" matTooltip="Edit Plan" (click)="startEdit(p)">
+                <button color="primary" matTooltip="Edit Plan" (click)="startEdit(p)" mat-icon-button>
                   <mat-icon>edit</mat-icon>
                 </button>
-                <button mat-icon-button color="warn" matTooltip="Delete Plan" (click)="deletePlan(p)">
+                <button color="warn" matTooltip="Delete Plan" (click)="deletePlan(p)" mat-icon-button>
                   <mat-icon>delete</mat-icon>
                 </button>
               </td>
@@ -185,7 +185,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <mat-icon>lightbulb</mat-icon>
           Changes here update all admission dropdowns instantly.
         </span>
-        <button mat-flat-button color="primary" (click)="closeDialog()" class="done-btn">
+        <button color="primary" (click)="closeDialog()" class="done-btn" matButton="filled">
           <mat-icon>check</mat-icon> Done &amp; Apply
         </button>
       </div>

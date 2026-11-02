@@ -53,7 +53,7 @@ export interface BonafideDialogData {
         </p>
       </div>
     </div>
-    <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
+    <button (click)="dialogRef.close()" class="close-btn" matTooltip="Close" mat-icon-button>
       <mat-icon>close</mat-icon>
     </button>
   </div>
@@ -61,20 +61,20 @@ export interface BonafideDialogData {
   <!-- Certificate Selection & Print Toolbar -->
   <div class="cert-toolbar no-print">
     <div class="cert-type-btns">
-      <button mat-stroked-button [class.active-btn]="certType==='Bonafide'" (click)="setCertType('Bonafide')">
+      <button [class.active-btn]="certType==='Bonafide'" (click)="setCertType('Bonafide')" matButton="filled">
         <mat-icon>verified</mat-icon> Bonafide
       </button>
-      <button mat-stroked-button [class.active-btn]="certType==='Character'" (click)="setCertType('Character')">
+      <button [class.active-btn]="certType==='Character'" (click)="setCertType('Character')" matButton="filled">
         <mat-icon>psychology</mat-icon> Character
       </button>
-      <button mat-stroked-button [class.active-btn]="certType==='StudyCertificate'" (click)="setCertType('StudyCertificate')">
+      <button [class.active-btn]="certType==='StudyCertificate'" (click)="setCertType('StudyCertificate')" matButton="filled">
         <mat-icon>school</mat-icon> Study Cert.
       </button>
-      <button mat-stroked-button [class.active-btn]="certType==='NoDues'" (click)="setCertType('NoDues')">
+      <button [class.active-btn]="certType==='NoDues'" (click)="setCertType('NoDues')" matButton="filled">
         <mat-icon>task_alt</mat-icon> No-Dues Slip
       </button>
     </div>
-    <button mat-raised-button class="print-btn" (click)="printCert()" [disabled]="loading||!cert">
+    <button class="print-btn" (click)="printCert()" [disabled]="loading||!cert" matButton="filled">
       <mat-icon>print</mat-icon> Print
     </button>
   </div>
@@ -86,13 +86,13 @@ export interface BonafideDialogData {
         <mat-icon class="p-icon" style="color: #7c3aed;">verified_user</mat-icon>
         <span class="p-label">Conduct Evaluation (चारित्रिक मूल्यांकन):</span>
         <div class="conduct-ratings">
-          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='EXEMPLARY'" (click)="conductRating='EXEMPLARY'">
+          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='EXEMPLARY'" (click)="conductRating='EXEMPLARY'" matButton="filled">
             ⭐ Exemplary (उत्कृष्ट)
           </button>
-          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='VERY GOOD'" (click)="conductRating='VERY GOOD'">
+          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='VERY GOOD'" (click)="conductRating='VERY GOOD'" matButton="filled">
             👍 Very Good (अति उत्तम)
           </button>
-          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='GOOD'" (click)="conductRating='GOOD'">
+          <button type="button" class="rating-btn" [class.active-rating]="conductRating==='GOOD'" (click)="conductRating='GOOD'" matButton="filled">
             👌 Good (उत्तम)
           </button>
         </div>
@@ -111,7 +111,7 @@ export interface BonafideDialogData {
         <div class="p-input-wrap">
           <input type="text" [(ngModel)]="certPurpose" placeholder="Type custom purpose or click a quick option below..." class="p-input" />
           @if (certPurpose) {
-            <button class="p-clear-btn" (click)="certPurpose=''" title="Clear Purpose">✕</button>
+            <button class="p-clear-btn" (click)="certPurpose=''" title="Clear Purpose" matButton="filled">✕</button>
           }
         </div>
       </div>

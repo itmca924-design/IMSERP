@@ -67,7 +67,7 @@ import { AuthService } from '../../core/services/auth.service';
                         class="clear-search-btn"
                         (click)="clearSearch($event)"
                         (mousedown)="$event.stopPropagation()"
-                        matTooltip="Clear search">
+                        matTooltip="Clearsearch" mat-icon-button>
                         <mat-icon>close</mat-icon>
                       </button>
                     }
@@ -93,7 +93,7 @@ import { AuthService } from '../../core/services/auth.service';
                   <div class="no-teachers-box">
                     <mat-icon>search_off</mat-icon>
                     <p>No faculty or staff found matching "<strong>{{ searchQuery }}</strong>"</p>
-                    <button type="button" class="reset-filter-btn" (click)="clearSearch($event)" (mousedown)="$event.stopPropagation()">
+                    <button type="button" class="reset-filter-btn" (click)="clearSearch($event)" (mousedown)="$event.stopPropagation()" matButton="filled">
                       <mat-icon>refresh</mat-icon> Show All Teachers
                     </button>
                   </div>

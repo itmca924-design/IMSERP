@@ -63,7 +63,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
         </div>
         <div class="header-actions">
-          <button mat-raised-button color="primary" class="log-visit-btn" (click)="openLogVisitDialog()">
+          <button color="primary" class="log-visit-btn" (click)="openLogVisitDialog()" matButton="filled">
             <mat-icon>add</mat-icon> Log Clinic Visit
           </button>
         </div>
@@ -169,7 +169,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
     
-          <button mat-stroked-button color="warn" type="button" class="reset-btn" (click)="resetFilters()">
+          <button color="warn" type="button" class="reset-btn app-button-cancel" (click)="resetFilters()" matButton="filled">
             <mat-icon>restart_alt</mat-icon> Reset
           </button>
         </form>
@@ -311,15 +311,15 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <!-- Actions -->
                   <td style="text-align: center;">
                     <div class="action-buttons">
-                      <button mat-icon-button color="primary" (click)="viewSlip(v)" matTooltip="View / Print Clinic Slip">
+                      <button color="primary" (click)="viewSlip(v)" matTooltip="View / Print Clinic Slip" mat-icon-button>
                         <mat-icon>receipt_long</mat-icon>
                       </button>
                       @if (v.bedRestRequired && v.bedStatus === 'Occupied') {
-                        <button mat-icon-button color="accent" (click)="dischargePatient(v)" matTooltip="Discharge from Sick Bay">
+                        <button color="accent" (click)="dischargePatient(v)" matTooltip="Discharge from Sick Bay" mat-icon-button>
                           <mat-icon>exit_to_app</mat-icon>
                         </button>
                       }
-                      <button mat-icon-button color="warn" (click)="deleteVisit(v)" matTooltip="Delete Record">
+                      <button color="warn" (click)="deleteVisit(v)" matTooltip="Delete Record" mat-icon-button>
                         <mat-icon>delete</mat-icon>
                       </button>
                     </div>
@@ -967,7 +967,7 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
             <p class="modal-subtitle">Record patient symptoms, vitals, sick bay bed & store medicine dispensation</p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn">
+        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -1115,7 +1115,7 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
               <input matInput [formControl]="medDosageControl" placeholder="e.g. 1 Tab SOS after meal" />
             </mat-form-field>
     
-            <button mat-raised-button color="primary" type="button" class="add-med-btn" (click)="addMedicineItem()" [disabled]="!selectedMedItemControl.value">
+            <button color="primary" type="button" class="add-med-btn" (click)="addMedicineItem()" [disabled]="!selectedMedItemControl.value" matButton="filled">
               <mat-icon>add</mat-icon> Add
             </button>
           </div>
@@ -1128,7 +1128,7 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
                   <span class="d-name">💊 {{ d.itemName }}</span>
                   <span class="d-qty">Qty: <strong>{{ d.quantity }} {{ d.unit }}</strong></span>
                   <span class="d-dosage">{{ d.dosage }}</span>
-                  <button mat-icon-button color="warn" (click)="removeMedicineItem(i)">
+                  <button color="warn" (click)="removeMedicineItem(i)" mat-icon-button>
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
@@ -1163,8 +1163,8 @@ export class InfirmaryComponent implements OnInit, OnDestroy {
         </div>
     
         <div class="modal-footer">
-          <button mat-button type="button" (click)="dialogRef.close(false)">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="saving || visitForm.invalid">
+          <button type="button" (click)="dialogRef.close(false)" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="saving || visitForm.invalid" matButton="filled">
             <mat-icon>save</mat-icon> Log Clinical Visit
           </button>
         </div>
@@ -1430,7 +1430,7 @@ export class LogInfirmaryVisitDialogComponent implements OnInit {
             <p class="modal-subtitle">Patient: <strong>{{ data.visit.patientName }}</strong> (Bed: {{ data.visit.bedNumber }})</p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn"><mat-icon>close</mat-icon></button>
+        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button><mat-icon>close</mat-icon></button>
       </div>
 
       <div class="modal-body">
@@ -1444,8 +1444,8 @@ export class LogInfirmaryVisitDialogComponent implements OnInit {
         </mat-form-field>
 
         <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
-          <button mat-button (click)="dialogRef.close(false)">Cancel</button>
-          <button mat-raised-button color="primary" (click)="confirmDischarge()">
+          <button (click)="dialogRef.close(false)" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" (click)="confirmDischarge()" matButton="filled">
             <mat-icon>check_circle</mat-icon> Confirm Discharge
           </button>
         </div>
@@ -1505,8 +1505,8 @@ export class DischargePatientDialogComponent {
           </div>
         </div>
         <div>
-          <button mat-icon-button (click)="printSlip()"><mat-icon>print</mat-icon></button>
-          <button mat-icon-button (click)="dialogRef.close()"><mat-icon>close</mat-icon></button>
+          <button (click)="printSlip()" mat-icon-button><mat-icon>print</mat-icon></button>
+          <button (click)="dialogRef.close()" mat-icon-button><mat-icon>close</mat-icon></button>
         </div>
       </div>
     
@@ -1587,7 +1587,7 @@ export class DischargePatientDialogComponent {
       </div>
     
       <div class="modal-footer no-print">
-        <button mat-raised-button color="primary" (click)="printSlip()"><mat-icon>print</mat-icon> Print Slip</button>
+        <button color="primary" (click)="printSlip()" matButton="filled"><mat-icon>print</mat-icon> Print Slip</button>
       </div>
     </div>
     `,

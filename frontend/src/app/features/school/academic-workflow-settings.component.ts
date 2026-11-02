@@ -44,7 +44,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </div>
         </div>
         <div class="header-actions">
-          <button mat-flat-button color="primary" class="save-master-btn" (click)="saveSettings()" [disabled]="saving || loading">
+          <button color="primary" class="save-master-btn app-button-save" (click)="saveSettings()" [disabled]="saving || loading" matButton="filled">
             @if (saving) {
               <mat-spinner diameter="18"></mat-spinner>
             }
@@ -96,11 +96,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <!-- Scope Switcher: School vs Coaching Workflows -->
           <div class="scope-nav-container">
             <div class="scope-pills">
-              <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'school'" (click)="setWorkflowScope('school')">
+              <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'school'" (click)="setWorkflowScope('school')" matButton="filled">
                 <mat-icon>school</mat-icon>
                 <span>School Examination Workflows (CBSE / State Board)</span>
               </button>
-              <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'coaching'" (click)="setWorkflowScope('coaching')">
+              <button type="button" class="scope-pill-btn" [class.active]="activeWorkflowScope === 'coaching'" (click)="setWorkflowScope('coaching')" matButton="filled">
                 <mat-icon>groups</mat-icon>
                 <span>Coaching Test Workflows (JEE / NEET / Foundation)</span>
               </button>
@@ -154,7 +154,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                           <span class="active-badge">ACTIVE</span>
                         }
                         @if (s !== activeAcademicYear) {
-                          <button type="button" class="chip-del-btn" (click)="removeSession(s)" matTooltip="Remove Session">
+                          <button type="button" class="chip-del-btn" (click)="removeSession(s)" matTooltip="Remove Session" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
@@ -166,7 +166,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                       <mat-label>Add New Session (e.g. 2026-2027, 2027-2028)</mat-label>
                       <input matInput [(ngModel)]="newSessionInput" placeholder="YYYY-YYYY" (keyup.enter)="addSession()">
                     </mat-form-field>
-                    <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addSession()" [disabled]="!newSessionInput">
+                    <button color="primary" class="inline-add-btn" (click)="addSession()" [disabled]="!newSessionInput" matButton="filled">
                       <mat-icon>add</mat-icon> Add Session
                     </button>
                   </div>
@@ -195,7 +195,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                           <mat-icon class="type-icon">task_alt</mat-icon>
                           <span class="chip-text">{{ t }}</span>
                           @if (examTypesList.length > 1) {
-                            <button type="button" class="chip-del-btn" (click)="removeExamType(t)" matTooltip="Remove Exam Type">
+                            <button type="button" class="chip-del-btn" (click)="removeExamType(t)" matTooltip="Remove Exam Type" mat-icon-button>
                               <mat-icon>close</mat-icon>
                             </button>
                           }
@@ -207,7 +207,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                         <mat-label>Add Custom Exam Type (e.g. Pre-Board 2, Periodic Test 3)</mat-label>
                         <input matInput [(ngModel)]="newExamTypeInput" placeholder="Exam Type Name" (keyup.enter)="addExamType()">
                       </mat-form-field>
-                      <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addExamType()" [disabled]="!newExamTypeInput">
+                      <button color="primary" class="inline-add-btn" (click)="addExamType()" [disabled]="!newExamTypeInput" matButton="filled">
                         <mat-icon>add</mat-icon> Add Exam Type
                       </button>
                     </div>
@@ -320,7 +320,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                           <mat-icon class="type-icon">task_alt</mat-icon>
                           <span class="chip-text">{{ t }}</span>
                           @if (coachingExamTypesList.length > 1) {
-                            <button type="button" class="chip-del-btn" (click)="removeCoachingExamType(t)" matTooltip="Remove Test Type">
+                            <button type="button" class="chip-del-btn" (click)="removeCoachingExamType(t)" matTooltip="Remove Test Type" mat-icon-button>
                               <mat-icon>close</mat-icon>
                             </button>
                           }
@@ -332,7 +332,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                         <mat-label>Add Custom Coaching Test Type (e.g. JEE Advanced Full Mock, NEET Booster)</mat-label>
                         <input matInput [(ngModel)]="newCoachingExamTypeInput" placeholder="Test Type Name" (keyup.enter)="addCoachingExamType()">
                       </mat-form-field>
-                      <button mat-stroked-button color="primary" class="inline-add-btn" (click)="addCoachingExamType()" [disabled]="!newCoachingExamTypeInput">
+                      <button color="primary" class="inline-add-btn" (click)="addCoachingExamType()" [disabled]="!newCoachingExamTypeInput" matButton="filled">
                         <mat-icon>add</mat-icon> Add Test Type
                       </button>
                     </div>

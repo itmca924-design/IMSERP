@@ -56,11 +56,11 @@ import { AuthService } from '../../core/services/auth.service';
       <p class="page-subtitle">Comprehensive institutional insights on teacher workload, monthly attendance, payroll registers, and master weekly routine.</p>
     </div>
     <div class="header-actions">
-      <button mat-stroked-button class="action-btn" (click)="exportActiveTabToCsv()" matTooltip="Export current tab data to CSV">
+      <button class="action-btn" (click)="exportActiveTabToCsv()" matTooltip="Export current tab data to CSV" matButton="filled">
         <mat-icon>download</mat-icon>
         <span class="btn-text">Export CSV</span>
       </button>
-      <button mat-raised-button color="primary" class="action-btn" (click)="printReport()" matTooltip="Print or Save PDF">
+      <button color="primary" class="action-btn" (click)="printReport()" matTooltip="Print or Save PDF" matButton="filled">
         <mat-icon>print</mat-icon>
         <span class="btn-text">Print Report</span>
       </button>
@@ -70,19 +70,19 @@ import { AuthService } from '../../core/services/auth.service';
   <!-- Report Tabs -->
   <div class="report-tabs-wrapper mat-elevation-z1">
     <div class="custom-tab-nav">
-      <button type="button" class="tab-pill" [class.active]="selectedTab === 'workload'" (click)="setTab('workload')">
+      <button type="button" class="tab-pill" [class.active]="selectedTab === 'workload'" (click)="setTab('workload')" matButton="filled">
         <mat-icon>work_outline</mat-icon>
         <span>Workload Analysis</span>
       </button>
-      <button type="button" class="tab-pill" [class.active]="selectedTab === 'attendance'" (click)="setTab('attendance')">
+      <button type="button" class="tab-pill" [class.active]="selectedTab === 'attendance'" (click)="setTab('attendance')" matButton="filled">
         <mat-icon>fact_check</mat-icon>
         <span>Attendance Sheet</span>
       </button>
-      <button type="button" class="tab-pill" [class.active]="selectedTab === 'payroll'" (click)="setTab('payroll')">
+      <button type="button" class="tab-pill" [class.active]="selectedTab === 'payroll'" (click)="setTab('payroll')" matButton="filled">
         <mat-icon>account_balance</mat-icon>
         <span>Payroll Register</span>
       </button>
-      <button type="button" class="tab-pill" [class.active]="selectedTab === 'master_timetable'" (click)="setTab('master_timetable')">
+      <button type="button" class="tab-pill" [class.active]="selectedTab === 'master_timetable'" (click)="setTab('master_timetable')" matButton="filled">
         <mat-icon>schedule</mat-icon>
         <span>Master Routine Matrix</span>
       </button>
@@ -137,7 +137,7 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-icon>search</mat-icon>
             <input type="text" placeholder="Search by faculty name or employee code..." [(ngModel)]="workloadSearch" (ngModelChange)="onWorkloadSearchChange()">
             @if (workloadSearch) {
-              <button type="button" class="clear-search-btn" (click)="clearWorkloadSearch()" matTooltip="Clear search">
+              <button type="button" class="clear-search-btn" (click)="clearWorkloadSearch()" matTooltip="Clearsearch" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -152,7 +152,7 @@ import { AuthService } from '../../core/services/auth.service';
               <option value="heavy">Heavy Load (&gt; 25 hrs/wk)</option>
             </select>
           </div>
-          <button mat-stroked-button class="refresh-workload-btn" (click)="loadWorkloadReport(workloadPage)" matTooltip="Refresh report">
+          <button class="refresh-workload-btn" (click)="loadWorkloadReport(workloadPage)" matTooltip="Refresh report" matButton="filled">
             <mat-icon>refresh</mat-icon> Refresh
           </button>
         </div>
@@ -301,11 +301,9 @@ import { AuthService } from '../../core/services/auth.service';
                   </td>
                   <td class="text-center actions-td" (click)="$event.stopPropagation()">
                     <button
-                      mat-icon-button
                       [matMenuTriggerFor]="routineMenu"
                       class="action-menu-btn"
-                      matTooltip="Actions"
-                      >
+                      matTooltip="Actions" mat-icon-button>
                       <mat-icon>more_vert</mat-icon>
                     </button>
                     <mat-menu #routineMenu="matMenu" xPosition="before" class="compact-action-menu">
@@ -335,19 +333,19 @@ import { AuthService } from '../../core/services/auth.service';
               <div class="page-size-wrap">
                 <label>Rows per page:</label>
                 <div class="size-btn-group">
-                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 10" (click)="setWorkloadPageSize(10)">10</button>
-                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 25" (click)="setWorkloadPageSize(25)">25</button>
-                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 50" (click)="setWorkloadPageSize(50)">50</button>
-                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 100" (click)="setWorkloadPageSize(100)">100</button>
+                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 10" (click)="setWorkloadPageSize(10)" matButton="filled">10</button>
+                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 25" (click)="setWorkloadPageSize(25)" matButton="filled">25</button>
+                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 50" (click)="setWorkloadPageSize(50)" matButton="filled">50</button>
+                  <button type="button" class="size-pill" [class.active]="workloadPageSize === 100" (click)="setWorkloadPageSize(100)" matButton="filled">100</button>
                 </div>
               </div>
             </div>
             @if (totalWorkloadPages > 1) {
               <div class="pagination-right">
-                <button type="button" class="nav-page-btn" [disabled]="workloadPage === 1 || loadingWorkload" (click)="setWorkloadPage(1)" matTooltip="First Page">
+                <button type="button" class="nav-page-btn" [disabled]="workloadPage === 1 || loadingWorkload" (click)="setWorkloadPage(1)" matTooltip="First Page" mat-icon-button>
                   <mat-icon>first_page</mat-icon>
                 </button>
-                <button type="button" class="nav-page-btn" [disabled]="workloadPage === 1 || loadingWorkload" (click)="setWorkloadPage(workloadPage - 1)" matTooltip="Previous Page">
+                <button type="button" class="nav-page-btn" [disabled]="workloadPage === 1 || loadingWorkload" (click)="setWorkloadPage(workloadPage - 1)" matTooltip="Previous Page" mat-icon-button>
                   <mat-icon>chevron_left</mat-icon>
                 </button>
                 <div class="page-current-badge">
@@ -356,10 +354,10 @@ import { AuthService } from '../../core/services/auth.service';
                   <span>of</span>
                   <strong>{{totalWorkloadPages}}</strong>
                 </div>
-                <button type="button" class="nav-page-btn" [disabled]="workloadPage >= totalWorkloadPages || loadingWorkload" (click)="setWorkloadPage(workloadPage + 1)" matTooltip="Next Page">
+                <button type="button" class="nav-page-btn" [disabled]="workloadPage>= totalWorkloadPages || loadingWorkload" (click)="setWorkloadPage(workloadPage + 1)" matTooltip="Next Page" matButton="filled">
                   <mat-icon>chevron_right</mat-icon>
                 </button>
-                <button type="button" class="nav-page-btn" [disabled]="workloadPage >= totalWorkloadPages || loadingWorkload" (click)="setWorkloadPage(totalWorkloadPages)" matTooltip="Last Page">
+                <button type="button" class="nav-page-btn" [disabled]="workloadPage>= totalWorkloadPages || loadingWorkload" (click)="setWorkloadPage(totalWorkloadPages)" matTooltip="Last Page" matButton="filled">
                   <mat-icon>last_page</mat-icon>
                 </button>
               </div>
@@ -396,7 +394,7 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-icon>search</mat-icon>
             <input type="text" placeholder="Search faculty by name or code..." [(ngModel)]="attendanceSearch" (ngModelChange)="onAttendanceSearchChange()">
             @if (attendanceSearch) {
-              <button type="button" class="clear-search-btn" (click)="clearAttendanceSearch()" matTooltip="Clear search">
+              <button type="button" class="clear-search-btn" (click)="clearAttendanceSearch()" matTooltip="Clearsearch" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -412,10 +410,10 @@ import { AuthService } from '../../core/services/auth.service';
             </select>
           </div>
           <div class="matrix-toggle-group">
-            <button mat-stroked-button class="refresh-workload-btn" (click)="loadAttendanceReport(attendancePage)" matTooltip="Refresh attendance register">
+            <button class="refresh-workload-btn" (click)="loadAttendanceReport(attendancePage)" matTooltip="Refresh attendance register" matButton="filled">
               <mat-icon>refresh</mat-icon> Refresh
             </button>
-            <button mat-stroked-button class="matrix-bulk-btn" (click)="toggleExpandAll()">
+            <button class="matrix-bulk-btn" (click)="toggleExpandAll()" matButton="filled">
               <mat-icon>{{expandAllDays ? 'unfold_less' : 'calendar_view_month'}}</mat-icon>
               <span>{{expandAllDays ? 'Collapse Matrices' : 'Expand 30-Day'}}</span>
             </button>
@@ -630,9 +628,9 @@ import { AuthService } from '../../core/services/auth.service';
                       </div>
                     </td>
                     <td class="text-center">
-                      <button mat-stroked-button class="matrix-action-btn"
+                      <button class="matrix-action-btn"
                         [class.matrix-open]="isExpanded(row.personId)"
-                        (click)="toggleTeacherCalendar(row.personId)">
+                        (click)="toggleTeacherCalendar(row.personId)" matButton="filled">
                         <mat-icon>{{isExpanded(row.personId) ? 'expand_less' : 'calendar_month'}}</mat-icon>
                         <span>{{isExpanded(row.personId) ? 'Hide Matrix' : 'Daily Matrix'}}</span>
                       </button>
@@ -707,27 +705,27 @@ import { AuthService } from '../../core/services/auth.service';
               <div class="page-size-wrap">
                 <label>Rows per page:</label>
                 <div class="size-btn-group">
-                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 10" (click)="setAttendancePageSize(10)">10</button>
-                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 25" (click)="setAttendancePageSize(25)">25</button>
-                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 50" (click)="setAttendancePageSize(50)">50</button>
-                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 100" (click)="setAttendancePageSize(100)">100</button>
+                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 10" (click)="setAttendancePageSize(10)" matButton="filled">10</button>
+                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 25" (click)="setAttendancePageSize(25)" matButton="filled">25</button>
+                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 50" (click)="setAttendancePageSize(50)" matButton="filled">50</button>
+                  <button type="button" class="size-pill" [class.active]="attendancePageSize === 100" (click)="setAttendancePageSize(100)" matButton="filled">100</button>
                 </div>
               </div>
             </div>
             <div class="pagination-right">
-              <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(1)" matTooltip="First Page">
+              <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(1)" matTooltip="First Page" mat-icon-button>
                 <mat-icon>first_page</mat-icon>
               </button>
-              <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(attendancePage - 1)" matTooltip="Previous Page">
+              <button type="button" class="nav-page-btn" [disabled]="attendancePage === 1 || loadingAttendance" (click)="setAttendancePage(attendancePage - 1)" matTooltip="Previous Page" mat-icon-button>
                 <mat-icon>chevron_left</mat-icon>
               </button>
               <div class="page-current-badge">
                 Page <strong>{{attendancePage}}</strong> of <strong>{{totalAttendancePages}}</strong>
               </div>
-              <button type="button" class="nav-page-btn" [disabled]="attendancePage >= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(attendancePage + 1)" matTooltip="Next Page">
+              <button type="button" class="nav-page-btn" [disabled]="attendancePage>= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(attendancePage + 1)" matTooltip="Next Page" matButton="filled">
                 <mat-icon>chevron_right</mat-icon>
               </button>
-              <button type="button" class="nav-page-btn" [disabled]="attendancePage >= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(totalAttendancePages)" matTooltip="Last Page">
+              <button type="button" class="nav-page-btn" [disabled]="attendancePage>= totalAttendancePages || loadingAttendance" (click)="setAttendancePage(totalAttendancePages)" matTooltip="Last Page" matButton="filled">
                 <mat-icon>last_page</mat-icon>
               </button>
             </div>
@@ -763,7 +761,7 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-icon>search</mat-icon>
             <input type="text" placeholder="Search by faculty, code, receipt #..." [(ngModel)]="payrollSearch" (ngModelChange)="onPayrollSearchChange()">
             @if (payrollSearch) {
-              <button type="button" class="clear-search-btn" (click)="clearPayrollSearch()" matTooltip="Clear search">
+              <button type="button" class="clear-search-btn" (click)="clearPayrollSearch()" matTooltip="Clearsearch" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -778,7 +776,7 @@ import { AuthService } from '../../core/services/auth.service';
               <option value="UPI">UPI</option>
             </select>
           </div>
-          <button mat-stroked-button class="refresh-workload-btn" (click)="loadPayrollReport(payrollPage)" matTooltip="Refresh payroll register">
+          <button class="refresh-workload-btn" (click)="loadPayrollReport(payrollPage)" matTooltip="Refresh payroll register" matButton="filled">
             <mat-icon>refresh</mat-icon> Refresh
           </button>
         </div>
@@ -985,19 +983,19 @@ import { AuthService } from '../../core/services/auth.service';
               <div class="page-size-wrap">
                 <label>Rows per page:</label>
                 <div class="size-btn-group">
-                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 10" (click)="setPayrollPageSize(10)">10</button>
-                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 25" (click)="setPayrollPageSize(25)">25</button>
-                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 50" (click)="setPayrollPageSize(50)">50</button>
-                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 100" (click)="setPayrollPageSize(100)">100</button>
+                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 10" (click)="setPayrollPageSize(10)" matButton="filled">10</button>
+                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 25" (click)="setPayrollPageSize(25)" matButton="filled">25</button>
+                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 50" (click)="setPayrollPageSize(50)" matButton="filled">50</button>
+                  <button type="button" class="size-pill" [class.active]="payrollPageSize === 100" (click)="setPayrollPageSize(100)" matButton="filled">100</button>
                 </div>
               </div>
             </div>
             @if (totalPayrollPages > 1) {
               <div class="pagination-right">
-                <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(1)" matTooltip="First Page">
+                <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(1)" matTooltip="First Page" mat-icon-button>
                   <mat-icon>first_page</mat-icon>
                 </button>
-                <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(payrollPage - 1)" matTooltip="Previous Page">
+                <button type="button" class="nav-page-btn" [disabled]="payrollPage === 1 || loadingPayroll" (click)="setPayrollPage(payrollPage - 1)" matTooltip="Previous Page" mat-icon-button>
                   <mat-icon>chevron_left</mat-icon>
                 </button>
                 <div class="page-current-badge">
@@ -1006,10 +1004,10 @@ import { AuthService } from '../../core/services/auth.service';
                   <span>of</span>
                   <strong>{{totalPayrollPages}}</strong>
                 </div>
-                <button type="button" class="nav-page-btn" [disabled]="payrollPage >= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(payrollPage + 1)" matTooltip="Next Page">
+                <button type="button" class="nav-page-btn" [disabled]="payrollPage>= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(payrollPage + 1)" matTooltip="Next Page" matButton="filled">
                   <mat-icon>chevron_right</mat-icon>
                 </button>
-                <button type="button" class="nav-page-btn" [disabled]="payrollPage >= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(totalPayrollPages)" matTooltip="Last Page">
+                <button type="button" class="nav-page-btn" [disabled]="payrollPage>= totalPayrollPages || loadingPayroll" (click)="setPayrollPage(totalPayrollPages)" matTooltip="Last Page" matButton="filled">
                   <mat-icon>last_page</mat-icon>
                 </button>
               </div>
@@ -1059,7 +1057,7 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-icon>search</mat-icon>
             <input type="text" placeholder="Search faculty, batch, subject, room..." [(ngModel)]="masterSearch" (ngModelChange)="onMasterSearchChange()">
             @if (masterSearch) {
-              <button type="button" class="clear-search-btn" (click)="clearMasterSearch()" matTooltip="Clear search">
+              <button type="button" class="clear-search-btn" (click)="clearMasterSearch()" matTooltip="Clearsearch" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -1073,18 +1071,18 @@ import { AuthService } from '../../core/services/auth.service';
               }
             </select>
           </div>
-          <button mat-stroked-button class="quick-today-btn" (click)="filterByToday()" matTooltip="Quick filter today's scheduled classes">
+          <button class="quick-today-btn" (click)="filterByToday()" matTooltip="Quick filter today's scheduled classes" matButton="filled">
             <mat-icon>today</mat-icon> Today ({{todayDayName}})
           </button>
           <div class="view-mode-toggle-group">
-            <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'list'" (click)="masterViewMode = 'list'" matTooltip="Tabular List View">
+            <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'list'" (click)="masterViewMode = 'list'" matTooltip="Tabular List View" matButton="filled">
               <mat-icon>format_list_bulleted</mat-icon> List
             </button>
-            <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'matrix'" (click)="masterViewMode = 'matrix'" matTooltip="Weekly Schedule Matrix">
+            <button type="button" class="view-mode-btn" [class.active]="masterViewMode === 'matrix'" (click)="masterViewMode = 'matrix'" matTooltip="Weekly ScheduleMatrix" matButton="filled">
               <mat-icon>calendar_view_week</mat-icon> Matrix
             </button>
           </div>
-          <button mat-stroked-button class="refresh-workload-btn" (click)="loadMasterTimetable(masterPage)" matTooltip="Refresh master routine">
+          <button class="refresh-workload-btn" (click)="loadMasterTimetable(masterPage)" matTooltip="Refresh master routine" matButton="filled">
             <mat-icon>refresh</mat-icon> Refresh
           </button>
         </div>
@@ -1239,27 +1237,27 @@ import { AuthService } from '../../core/services/auth.service';
               <div class="page-size-wrap">
                 <label>Rows per page:</label>
                 <div class="size-btn-group">
-                  <button type="button" class="size-pill" [class.active]="masterPageSize === 10" (click)="setMasterPageSize(10)">10</button>
-                  <button type="button" class="size-pill" [class.active]="masterPageSize === 25" (click)="setMasterPageSize(25)">25</button>
-                  <button type="button" class="size-pill" [class.active]="masterPageSize === 50" (click)="setMasterPageSize(50)">50</button>
-                  <button type="button" class="size-pill" [class.active]="masterPageSize === 100" (click)="setMasterPageSize(100)">100</button>
+                  <button type="button" class="size-pill" [class.active]="masterPageSize === 10" (click)="setMasterPageSize(10)" matButton="filled">10</button>
+                  <button type="button" class="size-pill" [class.active]="masterPageSize === 25" (click)="setMasterPageSize(25)" matButton="filled">25</button>
+                  <button type="button" class="size-pill" [class.active]="masterPageSize === 50" (click)="setMasterPageSize(50)" matButton="filled">50</button>
+                  <button type="button" class="size-pill" [class.active]="masterPageSize === 100" (click)="setMasterPageSize(100)" matButton="filled">100</button>
                 </div>
               </div>
             </div>
             <div class="pagination-right">
-              <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(1)" matTooltip="First Page">
+              <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(1)" matTooltip="First Page" mat-icon-button>
                 <mat-icon>first_page</mat-icon>
               </button>
-              <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(masterPage - 1)" matTooltip="Previous Page">
+              <button type="button" class="nav-page-btn" [disabled]="masterPage === 1 || loadingMasterTimetable" (click)="setMasterPage(masterPage - 1)" matTooltip="Previous Page" mat-icon-button>
                 <mat-icon>chevron_left</mat-icon>
               </button>
               <div class="page-current-badge">
                 Page <strong>{{masterPage}}</strong> of <strong>{{totalMasterPages}}</strong>
               </div>
-              <button type="button" class="nav-page-btn" [disabled]="masterPage >= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(masterPage + 1)" matTooltip="Next Page">
+              <button type="button" class="nav-page-btn" [disabled]="masterPage>= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(masterPage + 1)" matTooltip="Next Page" matButton="filled">
                 <mat-icon>chevron_right</mat-icon>
               </button>
-              <button type="button" class="nav-page-btn" [disabled]="masterPage >= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(totalMasterPages)" matTooltip="Last Page">
+              <button type="button" class="nav-page-btn" [disabled]="masterPage>= totalMasterPages || loadingMasterTimetable" (click)="setMasterPage(totalMasterPages)" matTooltip="Last Page" matButton="filled">
                 <mat-icon>last_page</mat-icon>
               </button>
             </div>
@@ -1353,7 +1351,7 @@ import { AuthService } from '../../core/services/auth.service';
               <p><strong>{{selectedTeacherDetails.employeeCode}}</strong> • {{selectedTeacherDetails.qualification}}</p>
             </div>
           </div>
-          <button mat-icon-button class="modal-close-btn" (click)="selectedTeacherDetails = null">
+          <button class="modal-close-btn" (click)="selectedTeacherDetails = null" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>

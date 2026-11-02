@@ -41,7 +41,7 @@ export interface InventoryAdjustDialogData {
             <p>{{ data.item.itemName }} ({{ data.item.itemCode }})</p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onCancel()" type="button">
+        <button class="close-btn" (click)="onCancel()" type="button" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -109,10 +109,10 @@ export interface InventoryAdjustDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="submitting">
+          <button type="button" (click)="onCancel()" [disabled]="submitting" matButton="filled" class="app-button-cancel">
             Cancel
           </button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting || newStock < 0">
+          <button color="primary" type="submit" [disabled]="form.invalid || submitting || newStock < 0" matButton="filled">
             @if (submitting) {
               <mat-spinner diameter="18" class="spinner-btn"></mat-spinner>
             }

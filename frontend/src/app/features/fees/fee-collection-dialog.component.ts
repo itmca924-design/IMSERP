@@ -1,7 +1,7 @@
 import { Component, Inject, OnInit, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import * as QRCode from 'qrcode';
+import * as QRCode from '../../shared/utils/qr-code';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -85,7 +85,7 @@ export interface AdvanceMonthOption {
         <h2 mat-dialog-title class="dialog-header">Collect Fee &amp; Settle Dues</h2>
         <p class="dialog-sub">Itemized Fee Heads Settlement &amp; Official Receipt Generation</p>
       </div>
-      <button mat-icon-button type="button" class="close-x-btn" (click)="onCancel()" [disabled]="saving" matTooltip="Close">
+      <button type="button" class="close-x-btn" (click)="onCancel()" [disabled]="saving" matTooltip="Close" mat-icon-button>
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -271,7 +271,7 @@ export interface AdvanceMonthOption {
                 type="button"
                 class="adv-option-btn"
                 [class.active]="selectedAdvanceOption?.monthCount === opt.monthCount"
-                (click)="onSelectAdvanceOption(opt)">
+                (click)="onSelectAdvanceOption(opt)" matButton="filled">
                 <div class="btn-top">
                   <span class="opt-label">{{ opt.label }}</span>
                   @if (selectedAdvanceOption?.monthCount === opt.monthCount) {
@@ -401,7 +401,7 @@ export interface AdvanceMonthOption {
                   <div class="scan-corner bottom-left"></div>
                   <div class="scan-corner bottom-right"></div>
                 </div>
-                <button mat-button type="button" class="btn-refresh-mini" (click)="generateCounterQr()" matTooltip="Regenerate QR">
+                <button type="button" class="btn-refresh-mini" (click)="generateCounterQr()" matTooltip="Regenerate QR" matButton="filled">
                   <mat-icon>refresh</mat-icon>
                   <span>Refresh QR</span>
                 </button>
@@ -430,7 +430,7 @@ export interface AdvanceMonthOption {
                         <span class="vpa-payee">({{ merchantName }})</span>
                       }
                     </div>
-                    <button mat-icon-button type="button" class="copy-vpa-btn" (click)="copyVpa()" matTooltip="Copy UPI ID">
+                    <button type="button" class="copy-vpa-btn" (click)="copyVpa()" matTooltip="Copy UPI ID" mat-icon-button>
                       <mat-icon>content_copy</mat-icon>
                     </button>
                   </div>
@@ -483,8 +483,8 @@ export interface AdvanceMonthOption {
     </mat-dialog-content>
     
     <mat-dialog-actions align="end" class="dialog-actions">
-      <button mat-stroked-button type="button" class="btn-cancel" (click)="onCancel()" [disabled]="saving">Cancel</button>
-      <button mat-raised-button color="primary" type="submit" class="btn-confirm" [disabled]="feeForm.invalid || saving || (feeForm.get('amountPaid')?.value || 0) <= 0">
+      <button type="button" class="btn-cancel app-button-cancel" (click)="onCancel()" [disabled]="saving" matButton="filled">Cancel</button>
+      <button color="primary" type="submit" class="btn-confirm" [disabled]="feeForm.invalid || saving || (feeForm.get('amountPaid')?.value || 0) <= 0" matButton="filled">
         @if (saving) {
           <mat-spinner diameter="18" class="spinner"></mat-spinner>
         }

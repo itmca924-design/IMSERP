@@ -41,7 +41,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="dialogRef.close()" aria-label="Close dialog">
+        <button class="close-btn" (click)="dialogRef.close()" aria-label="Close dialog" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </header>
@@ -134,16 +134,14 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
     
         <div class="dialog-actions">
-          <button mat-stroked-button type="button" (click)="dialogRef.close()" [disabled]="saving">
+          <button type="button" (click)="dialogRef.close()" [disabled]="saving" matButton="filled" class="app-button-cancel">
             Cancel
           </button>
           <button
-            mat-flat-button
             color="primary"
             type="submit"
-            class="save-btn"
-            [disabled]="settingsForm.invalid || saving || loading"
-            >
+            class="save-btn app-button-save"
+            [disabled]="settingsForm.invalid || saving || loading" matButton="filled">
             @if (!saving) {
               <mat-icon>save</mat-icon>
             }

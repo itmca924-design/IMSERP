@@ -57,7 +57,7 @@ export interface BatchTimingRow {
           <h2 mat-dialog-title class="main-title">Attendance Shift & Policy Settings</h2>
           <p class="subtitle">Configure shift start/end times, grace cutoff, half-day duration, and free late quotas.</p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onClose()" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="onClose()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -92,13 +92,13 @@ export interface BatchTimingRow {
                 <!-- Quick Shift Presets -->
                 <div class="preset-strip">
                   <span class="preset-label">Quick Timings Presets:</span>
-                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('08:00', '17:00')">
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('08:00', '17:00')" matButton="filled">
                     08:00 AM – 05:00 PM (9 hrs)
                   </button>
-                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('09:00', '17:00')">
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('09:00', '17:00')" matButton="filled">
                     09:00 AM – 05:00 PM (8 hrs)
                   </button>
-                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('10:00', '17:00')">
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('10:00', '17:00')" matButton="filled">
                     10:00 AM – 05:00 PM (7 hrs)
                   </button>
                 </div>
@@ -182,13 +182,13 @@ export interface BatchTimingRow {
                 <!-- Quick Student Shift Presets -->
                 <div class="preset-strip">
                   <span class="preset-label">Quick Class Presets:</span>
-                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:00', '14:00')">
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:00', '14:00')" matButton="filled">
                     08:00 AM – 02:00 PM (6 hrs)
                   </button>
-                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:30', '14:30')">
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:30', '14:30')" matButton="filled">
                     08:30 AM – 02:30 PM (6 hrs)
                   </button>
-                  <button type="button" class="preset-chip" (click)="applyStudentPreset('09:00', '15:00')">
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('09:00', '15:00')" matButton="filled">
                     09:00 AM – 03:00 PM (6 hrs)
                   </button>
                 </div>
@@ -380,13 +380,13 @@ export interface BatchTimingRow {
                     <!-- Quick Presets -->
                     <div class="preset-strip">
                       <span class="preset-label">Presets:</span>
-                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('06:30', '09:30')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('06:30', '09:30')" matButton="filled">
                         06:30 – 09:30 AM
                       </button>
-                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('07:00', '10:00')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('07:00', '10:00')" matButton="filled">
                         07:00 – 10:00 AM
                       </button>
-                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('08:00', '11:00')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('08:00', '11:00')" matButton="filled">
                         08:00 – 11:00 AM
                       </button>
                     </div>
@@ -423,13 +423,13 @@ export interface BatchTimingRow {
                     <!-- Quick Presets -->
                     <div class="preset-strip">
                       <span class="preset-label">Presets:</span>
-                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('15:30', '18:30')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('15:30', '18:30')" matButton="filled">
                         03:30 – 06:30 PM
                       </button>
-                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('16:00', '19:00')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('16:00', '19:00')" matButton="filled">
                         04:00 – 07:00 PM
                       </button>
-                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('17:00', '20:00')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('17:00', '20:00')" matButton="filled">
                         05:00 – 08:00 PM
                       </button>
                     </div>
@@ -468,7 +468,7 @@ export interface BatchTimingRow {
                     <mat-icon class="search-icon">search</mat-icon>
                     <input type="text" class="quick-batch-search-full" placeholder="Search batch or class (बैच या क्लास सर्च करें)..." [(ngModel)]="batchSearchTerm">
                     @if (batchSearchTerm) {
-                      <button type="button" class="clear-search-btn" (click)="batchSearchTerm = ''" title="Clear Search">
+                      <button type="button" class="clear-search-btn" (click)="batchSearchTerm = ''" title="ClearSearch" mat-icon-button>
                         <mat-icon>close</mat-icon>
                       </button>
                     }
@@ -538,10 +538,10 @@ export interface BatchTimingRow {
       }
     
       <div class="dialog-actions">
-        <button mat-button type="button" (click)="onClose()" [disabled]="saving">
+        <button type="button" (click)="onClose()" [disabled]="saving" matButton="filled" class="app-button-cancel">
           Cancel
         </button>
-        <button mat-raised-button color="primary" class="save-btn" (click)="saveSettings()" [disabled]="saving || loading">
+        <button color="primary" class="save-btn app-button-save" (click)="saveSettings()" [disabled]="saving || loading" matButton="filled">
           @if (saving) {
             <mat-spinner diameter="18"></mat-spinner>
           }

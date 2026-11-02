@@ -45,7 +45,7 @@ export interface EventFormDialogData {
             Capture school functions, festivals, sports meet, national celebrations & guidelines
           </p>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onCancel()" [disabled]="saving">
+        <button class="close-btn" (click)="onCancel()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -57,12 +57,12 @@ export interface EventFormDialogData {
             <div class="preset-row">
               <span class="preset-label">Quick Presets:</span>
               <div class="preset-chips">
-                <button type="button" class="preset-chip national" (click)="applyPreset('15th August - Independence Day', 'National', 'Flag hoisting, march-past & cultural patriotic events in school ground.', 'School Ground')">🇮🇳 15 Aug</button>
-                <button type="button" class="preset-chip national" (click)="applyPreset('26th January - Republic Day', 'National', 'Patriotic assembly, unfurling of Tricolour, speech & sweet distribution.', 'School Assembly Area')">🇮🇳 26 Jan</button>
-                <button type="button" class="preset-chip cultural" (click)="applyPreset('Farewell Ceremony 2026', 'Cultural', 'Grand farewell celebration, memento distribution & blessings for graduating seniors.', 'School Auditorium')">🎓 Farewell Party</button>
-                <button type="button" class="preset-chip sports" (click)="applyPreset('Annual Sports Meet', 'Sports', 'Track & field athletics, march-past, inter-house trophy tournaments.', 'Sports Arena')">🏆 Sports Day</button>
-                <button type="button" class="preset-chip academic" (click)="applyPreset('Parent-Teacher Meeting (PTM)', 'PTM', 'Comprehensive review of student academic progress, attendance & term feedback.', 'Respective Classrooms')">🤝 PTM</button>
-                <button type="button" class="preset-chip celebration" (click)="applyPreset('Teachers Day Celebration', 'Celebration', 'Special tribute performance by students honoring our esteemed educators.', 'School Auditorium')">💐 Teachers Day</button>
+                <button type="button" class="preset-chip national" (click)="applyPreset('15th August - Independence Day', 'National', 'Flag hoisting, march-past & cultural patriotic events in school ground.', 'School Ground')" matButton="filled">🇮🇳 15 Aug</button>
+                <button type="button" class="preset-chip national" (click)="applyPreset('26th January - Republic Day', 'National', 'Patriotic assembly, unfurling of Tricolour, speech & sweet distribution.', 'School AssemblyArea')" matButton="filled">🇮🇳 26 Jan</button>
+                <button type="button" class="preset-chip cultural" (click)="applyPreset('Farewell Ceremony 2026', 'Cultural', 'Grand farewell celebration, memento distribution & blessings for graduating seniors.', 'School Auditorium')" matButton="filled">🎓 Farewell Party</button>
+                <button type="button" class="preset-chip sports" (click)="applyPreset('Annual Sports Meet', 'Sports', 'Track & field athletics, march-past, inter-house trophy tournaments.', 'Sports Arena')" matButton="filled">🏆 Sports Day</button>
+                <button type="button" class="preset-chip academic" (click)="applyPreset('Parent-Teacher Meeting (PTM)', 'PTM', 'Comprehensive review of student academic progress, attendance & term feedback.', 'Respective Classrooms')" matButton="filled">🤝 PTM</button>
+                <button type="button" class="preset-chip celebration" (click)="applyPreset('Teachers Day Celebration', 'Celebration', 'Special tribute performance by students honoring our esteemed educators.', 'School Auditorium')" matButton="filled">💐 Teachers Day</button>
               </div>
             </div>
           }
@@ -216,7 +216,7 @@ export interface EventFormDialogData {
                 @if (bannerPreviewUrl) {
                   <div class="preview-area">
                     <img [src]="bannerPreviewUrl" alt="Banner Preview" class="banner-img" />
-                    <button type="button" class="remove-btn" (click)="removeBanner()">
+                    <button type="button" class="remove-btn app-button-delete" (click)="removeBanner()" matButton="filled">
                       <mat-icon>close</mat-icon> Remove
                     </button>
                   </div>
@@ -247,7 +247,7 @@ export interface EventFormDialogData {
                       <mat-icon class="pdf-file-icon">picture_as_pdf</mat-icon>
                       <span class="pdf-name" [title]="circularFileName">{{ circularFileName }}</span>
                     </div>
-                    <button type="button" class="remove-btn" (click)="removeCircular()">
+                    <button type="button" class="remove-btn app-button-delete" (click)="removeCircular()" matButton="filled">
                       <mat-icon>close</mat-icon> Remove
                     </button>
                   </div>
@@ -278,8 +278,8 @@ export interface EventFormDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn">
+          <button type="button" (click)="onCancel()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="form.invalid || saving" class="submit-btn" matButton="filled" [class.app-button-update]="isEdit" [class.app-button-save]="!(isEdit)">
             @if (saving) {
               <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
             }

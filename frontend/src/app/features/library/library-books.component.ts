@@ -47,13 +47,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           </p>
         </div>
         <div class="header-actions">
-          <a mat-stroked-button routerLink="/library/plans" class="circ-link-btn">
+          <a matButton="filled" routerLink="/library/plans" class="circ-link-btn">
             <mat-icon>schedule</mat-icon> Shifts &amp; Plans
           </a>
-          <a mat-stroked-button routerLink="/library/circulation" class="circ-link-btn">
+          <a matButton="filled" routerLink="/library/circulation" class="circ-link-btn">
             <mat-icon>sync_alt</mat-icon> Issue &amp; Return Counter
           </a>
-          <button mat-raised-button color="primary" class="action-btn" (click)="openAddBookDrawer()">
+          <button color="primary" class="action-btn" (click)="openAddBookDrawer()" matButton="filled">
             <mat-icon>add</mat-icon>
             <span>Add New Title</span>
           </button>
@@ -103,7 +103,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <small>{{ isEditMode ? 'Update metadata for ' + selectedBook?.title : 'Add title with initial physical copies' }}</small>
               </div>
             </div>
-            <button mat-icon-button (click)="closeBookDrawer()"><mat-icon>close</mat-icon></button>
+            <button (click)="closeBookDrawer()" mat-icon-button><mat-icon>close</mat-icon></button>
           </div>
           <form [formGroup]="bookForm" (ngSubmit)="onSubmitBook()" class="drawer-form">
             <div class="form-row">
@@ -192,8 +192,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <textarea matInput formControlName="description" rows="2" placeholder="Syllabus coverage, volume details, etc."></textarea>
             </mat-form-field>
             <div class="drawer-footer">
-              <button mat-button type="button" (click)="closeBookDrawer()" [disabled]="saving">Cancel</button>
-              <button mat-raised-button color="primary" type="submit" [disabled]="bookForm.invalid || saving">
+              <button type="button" (click)="closeBookDrawer()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+              <button color="primary" type="submit" [disabled]="bookForm.invalid || saving" matButton="filled" [class.app-button-update]="isEditMode" [class.app-button-save]="!(isEditMode)">
                 <span>{{ isEditMode ? 'Update Book Title' : 'Save &amp; Generate Copies' }}</span>
               </button>
             </div>
@@ -212,7 +212,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <small>{{ selectedBookForCopies?.title }} &bull; {{ selectedBookForCopies?.copies?.length || 0 }} Copies</small>
               </div>
             </div>
-            <button mat-icon-button (click)="closeCopiesDrawer()"><mat-icon>close</mat-icon></button>
+            <button (click)="closeCopiesDrawer()" mat-icon-button><mat-icon>close</mat-icon></button>
           </div>
           <!-- Add Copy Inline Form -->
           <div class="add-copy-panel">
@@ -230,7 +230,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <mat-label>Price (₹)</mat-label>
                 <input matInput type="number" [(ngModel)]="newCopyPrice" placeholder="350" />
               </mat-form-field>
-              <button mat-raised-button color="primary" class="btn-add-copy" (click)="onAddSingleCopy()" [disabled]="!newCopyAccession || copySaving">
+              <button color="primary" class="btn-add-copy" (click)="onAddSingleCopy()" [disabled]="!newCopyAccession || copySaving" matButton="filled">
                 <mat-icon>add</mat-icon>
                 <span>Add Copy</span>
               </button>
@@ -262,7 +262,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                       </span>
                     </td>
                     <td>
-                      <button mat-icon-button color="warn" (click)="deleteCopy(c)" [disabled]="c.status === 'Issued'" matTooltip="Delete Copy">
+                      <button color="warn" (click)="deleteCopy(c)" [disabled]="c.status === 'Issued'" matTooltip="Delete Copy" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     </td>
@@ -286,7 +286,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <mat-form-field appearance="outline" class="search-field">
               <mat-label>Search Title, Author, ISBN, Accession...</mat-label>
               <input matInput [(ngModel)]="searchTerm" (keyup.enter)="loadBooks()" placeholder="Search..." />
-              <button mat-icon-button matSuffix (click)="loadBooks()"><mat-icon>search</mat-icon></button>
+              <button matSuffix (click)="loadBooks()" mat-icon-button><mat-icon>search</mat-icon></button>
             </mat-form-field>
             <mat-form-field appearance="outline" class="filter-select">
               <mat-label>Category / Stream</mat-label>
@@ -346,15 +346,15 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     }
                   </div>
                   <div class="book-card-actions">
-                    <button mat-stroked-button color="primary" class="copies-btn" (click)="openCopiesDrawer(b)">
+                    <button color="primary" class="copies-btn" (click)="openCopiesDrawer(b)" matButton="filled">
                       <mat-icon>inventory_2</mat-icon>
                       <span>Manage Copies ({{ b.totalCopies }})</span>
                     </button>
                     <div class="btn-group">
-                      <button mat-icon-button (click)="editBook(b)" matTooltip="Edit Book Details">
+                      <button (click)="editBook(b)" matTooltip="Edit Book Details" mat-icon-button>
                         <mat-icon>edit</mat-icon>
                       </button>
-                      <button mat-icon-button color="warn" (click)="deleteBook(b)" matTooltip="Delete Title">
+                      <button color="warn" (click)="deleteBook(b)" matTooltip="Delete Title" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     </div>
@@ -366,11 +366,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <!-- Empty State -->
           @if (!loading && books.length === 0) {
             <div class="empty-state">
-              <mat-icon>local_library</mat-icon>
+              <mat-icon class="empty-state-icon">local_library</mat-icon>
               <h3>No Books Found in Catalog</h3>
               <p>Start building your institute's library catalog by adding your first textbook or coaching study material.</p>
-              <button mat-raised-button color="primary" (click)="openAddBookDrawer()">
-                <mat-icon>add</mat-icon>
+              <button color="primary" class="empty-state-add-btn" (click)="openAddBookDrawer()" matButton="filled">
+                <mat-icon class="empty-state-add-icon">add</mat-icon>
                 <span>Add Book Title</span>
               </button>
             </div>
@@ -395,8 +395,16 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     }
 
     /* Stats Grid */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      width: 100%;
+      min-width: 0;
+    }
     .stat-card {
+      min-width: 0;
+      box-sizing: border-box;
       background: #ffffff; border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; gap: 14px;
       border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
       .stat-icon {
@@ -412,7 +420,6 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       &.available .stat-icon { background: #f0fdf4; color: #16a34a; }
       &.issued .stat-icon { background: #fff7ed; color: #ea580c; }
     }
-
     /* Drawers */
     .form-drawer {
       padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; background: #ffffff;
@@ -518,9 +525,94 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
     .empty-state {
       display: flex; flex-direction: column; align-items: center; text-align: center; padding: 60px 20px;
-      mat-icon { font-size: 56px; width: 56px; height: 56px; color: #cbd5e1; margin-bottom: 12px; }
+      .empty-state-icon { font-size: 56px; width: 56px; height: 56px; color: #cbd5e1; margin-bottom: 12px; }
       h3 { font-size: 1.2rem; color: #1e293b; margin: 0 0 6px; }
       p { color: #64748b; font-size: 0.88rem; max-width: 440px; margin: 0 0 16px; }
+      .empty-state-add-btn .empty-state-add-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        margin: 0;
+        flex: 0 0 18px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 639px) {
+      .page-header { align-items: stretch; }
+      .header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 8px;
+
+        .circ-link-btn,
+        .action-btn {
+          width: 100%;
+          min-width: 0;
+          margin: 0;
+          justify-content: center;
+          white-space: normal;
+          text-align: center;
+        }
+
+        .action-btn { grid-column: 1 / -1; }
+      }
+
+      :host ::ng-deep .header-actions .mdc-button__label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        white-space: normal;
+        line-height: 1.2;
+        text-align: center;
+      }
+
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .stat-card {
+        padding: 10px;
+        gap: 8px;
+        align-items: flex-start;
+
+        .stat-icon {
+          width: 34px;
+          height: 34px;
+          flex: 0 0 34px;
+
+          mat-icon { font-size: 20px; width: 20px; height: 20px; }
+        }
+
+        .stat-info { min-width: 0; }
+        .stat-info .stat-val { font-size: 1.25rem; }
+        .stat-info .stat-lbl { display: block; font-size: 0.68rem; line-height: 1.2; }
+      }
+
+      .filter-toolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+        padding: 12px;
+
+        .search-field,
+        .filter-select,
+        mat-form-field {
+          width: 100%;
+          min-width: 0;
+          margin: 0;
+        }
+
+        ::ng-deep .mat-mdc-form-field-infix { min-width: 0; }
+      }
+    }
+
+    @media (max-width: 360px) {
+      .stats-grid { grid-template-columns: minmax(0, 1fr); }
+      .stat-card { align-items: center; }
     }
   `]
 })

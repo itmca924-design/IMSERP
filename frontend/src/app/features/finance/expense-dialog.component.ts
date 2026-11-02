@@ -46,7 +46,7 @@ export interface ExpenseDialogData {
         <p class="modal-subtitle">खर्च वाउचर प्रविष्टि &bull; <strong>{{ isEdit ? data.voucher?.voucherNo : 'New General / Operating Expense' }}</strong></p>
       </div>
     </div>
-    <button mat-icon-button (click)="dialogRef.close()" class="close-btn">
+    <button (click)="dialogRef.close()" class="close-btn" mat-icon-button>
       <mat-icon>close</mat-icon>
     </button>
   </div>
@@ -158,8 +158,8 @@ export interface ExpenseDialogData {
   </div>
 
   <div class="modal-footer">
-    <button mat-button (click)="dialogRef.close()" [disabled]="loading">Cancel</button>
-    <button mat-raised-button color="primary" (click)="saveExpense()" [disabled]="loading || !isValid()">
+    <button (click)="dialogRef.close()" [disabled]="loading" matButton="filled" class="app-button-cancel">Cancel</button>
+    <button color="primary" (click)="saveExpense()" [disabled]="loading || !isValid()" matButton="filled" [class.app-button-update]="isEdit" [class.app-button-save]="!(isEdit)">
       <mat-icon>{{ isEdit ? 'save' : 'check_circle' }}</mat-icon>
       <span>{{ isEdit ? 'Save Changes' : 'Save Expense Voucher' }}</span>
     </button>

@@ -83,13 +83,13 @@ const API_BASE = environment.apiBaseUrl;
         </div>
     
         <div class="header-right-actions">
-          <button mat-flat-button color="primary" class="action-btn" (click)="openAddHostelModal()">
+          <button color="primary" class="action-btn" (click)="openAddHostelModal()" matButton="filled">
             <mat-icon>add_business</mat-icon> Add Hostel Block
           </button>
-          <button mat-stroked-button color="primary" class="action-btn" (click)="openAddRoomModal()">
+          <button color="primary" class="action-btn" (click)="openAddRoomModal()" matButton="filled">
             <mat-icon>meeting_room</mat-icon> Add Room
           </button>
-          <button mat-stroked-button class="action-btn" (click)="openGatePassModal()">
+          <button class="action-btn" (click)="openGatePassModal()" matButton="filled">
             <mat-icon>badge</mat-icon> Issue Gate Pass
           </button>
         </div>
@@ -158,23 +158,23 @@ const API_BASE = environment.apiBaseUrl;
       <!-- Main Navigation Tabs -->
       <mat-card class="main-content-card">
         <div class="tabs-nav-bar">
-          <button class="nav-tab-btn" [class.active]="activeTab === 'matrix'" (click)="setTab('matrix')">
+          <button class="nav-tab-btn" [class.active]="activeTab === 'matrix'" (click)="setTab('matrix')" matButton="filled">
             <mat-icon>grid_view</mat-icon>
             <span>Visual Bed Matrix</span>
           </button>
-          <button class="nav-tab-btn" [class.active]="activeTab === 'hostels'" (click)="setTab('hostels')">
+          <button class="nav-tab-btn" [class.active]="activeTab === 'hostels'" (click)="setTab('hostels')" matButton="filled">
             <mat-icon>apartment</mat-icon>
             <span>Hostels &amp; Rooms Master</span>
           </button>
-          <button class="nav-tab-btn" [class.active]="activeTab === 'residents'" (click)="setTab('residents')">
+          <button class="nav-tab-btn" [class.active]="activeTab === 'residents'" (click)="setTab('residents')" matButton="filled">
             <mat-icon>people</mat-icon>
             <span>Residents &amp; Allocations</span>
           </button>
-          <button class="nav-tab-btn" [class.active]="activeTab === 'gatepass'" (click)="setTab('gatepass')">
+          <button class="nav-tab-btn" [class.active]="activeTab === 'gatepass'" (click)="setTab('gatepass')" matButton="filled">
             <mat-icon>assignment_ind</mat-icon>
             <span>Gate Passes &amp; Outings</span>
           </button>
-          <button class="nav-tab-btn" [class.active]="activeTab === 'rollcall'" (click)="setTab('rollcall')">
+          <button class="nav-tab-btn" [class.active]="activeTab === 'rollcall'" (click)="setTab('rollcall')" matButton="filled">
             <mat-icon>nightlight_round</mat-icon>
             <span>Night Roll Call</span>
           </button>
@@ -215,7 +215,7 @@ const API_BASE = environment.apiBaseUrl;
                   </mat-select>
                 </mat-form-field>
                 @if (isMatrixFilterActive) {
-                  <button mat-stroked-button class="reset-filter-btn" (click)="resetMatrixFilters()" matTooltip="Reset all filters to view all beds">
+                  <button class="reset-filter-btn app-button-cancel" (click)="resetMatrixFilters()" matTooltip="Reset all filters to view all beds" matButton="filled">
                     <mat-icon>refresh</mat-icon> Clear Filters
                   </button>
                 }
@@ -298,7 +298,7 @@ const API_BASE = environment.apiBaseUrl;
                           @if (bed.status === 'Available') {
                             <div class="bed-body available-body">
                               <span class="rent-tag">₹{{ bed.monthlyRent | number }}/mo</span>
-                              <button mat-stroked-button color="primary" class="allocate-btn" (click)="openQuickAllocateModal(room, bed)">
+                              <button color="primary" class="allocate-btn" (click)="openQuickAllocateModal(room, bed)" matButton="filled">
                                 <mat-icon>add</mat-icon> Allocate
                               </button>
                             </div>
@@ -344,11 +344,11 @@ const API_BASE = environment.apiBaseUrl;
                                 </div>
                               </div>
                               <div class="bed-actions">
-                                <button mat-icon-button color="warn" [matTooltip]="bed.memberType === 'Teacher' ? 'Vacate Staff Quarter' : 'Vacate Bed'" (click)="vacateStudentBed(bed)">
+                                <button color="warn" [matTooltip]="bed.memberType === 'Teacher' ? 'Vacate Staff Quarter' : 'Vacate Bed'" (click)="vacateStudentBed(bed)" mat-icon-button>
                                   <mat-icon>logout</mat-icon>
                                 </button>
                                 @if (bed.memberType !== 'Teacher') {
-                                  <button mat-icon-button color="primary" matTooltip="Issue Gate Pass" (click)="openGatePassForStudent(bed)">
+                                  <button color="primary" matTooltip="Issue Gate Pass" (click)="openGatePassForStudent(bed)" mat-icon-button>
                                     <mat-icon>badge</mat-icon>
                                   </button>
                                 }
@@ -370,7 +370,7 @@ const API_BASE = environment.apiBaseUrl;
                     No beds match your filter criteria (<strong>{{ getActiveFilterSummary() }}</strong>).
                     Reset your filters to view all rooms and beds.
                   </p>
-                  <button mat-raised-button color="primary" (click)="resetMatrixFilters()">
+                  <button color="primary" (click)="resetMatrixFilters()" matButton="filled">
                     <mat-icon>refresh</mat-icon> Clear All Filters &amp; View All Beds
                   </button>
                 </div>
@@ -380,7 +380,7 @@ const API_BASE = environment.apiBaseUrl;
                   <mat-icon class="empty-icon">hotel</mat-icon>
                   <h3>No Rooms or Beds Found</h3>
                   <p>Configure your hostel buildings and rooms to start allocating beds to boarding students.</p>
-                  <button mat-raised-button color="primary" (click)="openAddRoomModal()">
+                  <button color="primary" (click)="openAddRoomModal()" matButton="filled">
                     <mat-icon>add</mat-icon> Add First Room
                   </button>
                 </div>
@@ -427,7 +427,7 @@ const API_BASE = environment.apiBaseUrl;
                     </div>
                   </div>
                   <div class="block-card-footer">
-                    <button mat-stroked-button color="primary" (click)="openAddRoomForHostel(h)">
+                    <button color="primary" (click)="openAddRoomForHostel(h)" matButton="filled">
                       <mat-icon>add</mat-icon> Add Room to Block
                     </button>
                   </div>
@@ -442,9 +442,9 @@ const API_BASE = environment.apiBaseUrl;
           <div class="tab-pane">
             <div class="residents-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
               <div style="display: flex; gap: 8px;">
-                <button type="button" [style.background]="residentMemberTypeFilter === 'All' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'All' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'All'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">All Residents</button>
-                <button type="button" [style.background]="residentMemberTypeFilter === 'Student' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Student' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Student'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Students</button>
-                <button type="button" [style.background]="residentMemberTypeFilter === 'Teacher' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Teacher' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Teacher'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Faculty / Staff Quarters</button>
+                <button type="button" [style.background]="residentMemberTypeFilter === 'All' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'All' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'All'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;" matButton="filled">All Residents</button>
+                <button type="button" [style.background]="residentMemberTypeFilter === 'Student' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Student' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Student'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;" matButton="filled">Students</button>
+                <button type="button" [style.background]="residentMemberTypeFilter === 'Teacher' ? '#1e3a8a' : '#fff'" [style.color]="residentMemberTypeFilter === 'Teacher' ? '#fff' : '#475569'" (click)="residentMemberTypeFilter = 'Teacher'" style="padding: 6px 14px; border-radius: 16px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; font-size: 0.85rem;" matButton="filled">Faculty / Staff Quarters</button>
               </div>
               <mat-form-field appearance="outline" class="search-field" style="margin-bottom: -16px;">
                 <mat-label>Search Residents...</mat-label>
@@ -502,11 +502,9 @@ const API_BASE = environment.apiBaseUrl;
                         <td class="action-cell">
                           @if (a.status === 'Active') {
                             <button
-                              mat-stroked-button
                               color="warn"
                               class="sm-btn"
-                              (click)="vacateAllocation(a)"
-                              >
+                              (click)="vacateAllocation(a)" matButton="filled">
                               <mat-icon>logout</mat-icon> Vacate
                             </button>
                           }
@@ -540,7 +538,7 @@ const API_BASE = environment.apiBaseUrl;
                   </div>
                 </div>
                 <div class="gp-actions">
-                  <button mat-flat-button color="primary" class="issue-gp-btn" (click)="openGatePassModal()">
+                  <button color="primary" class="issue-gp-btn" (click)="openGatePassModal()" matButton="filled">
                     <mat-icon>add_circle</mat-icon> Issue New Gate Pass
                   </button>
                 </div>
@@ -548,16 +546,16 @@ const API_BASE = environment.apiBaseUrl;
               <!-- Filter Pills Bar & Search -->
               <div class="gp-filter-row">
                 <div class="gp-status-pills">
-                  <button type="button" class="gp-pill" [class.active]="gatePassStatusFilter === 'all'" (click)="setGatePassStatusFilter('all')">
+                  <button type="button" class="gp-pill" [class.active]="gatePassStatusFilter === 'all'" (click)="setGatePassStatusFilter('all')" matButton="filled">
                     All Passes <span class="pill-count">{{ gatePassTotalCount }}</span>
                   </button>
-                  <button type="button" class="gp-pill pill-out" [class.active]="gatePassStatusFilter === 'out'" (click)="setGatePassStatusFilter('out')">
+                  <button type="button" class="gp-pill pill-out" [class.active]="gatePassStatusFilter === 'out'" (click)="setGatePassStatusFilter('out')" matButton="filled">
                     <span class="live-dot"></span> Currently Out <span class="pill-count">{{ gatePassActiveOutCount }}</span>
                   </button>
-                  <button type="button" class="gp-pill pill-returned" [class.active]="gatePassStatusFilter === 'returned'" (click)="setGatePassStatusFilter('returned')">
+                  <button type="button" class="gp-pill pill-returned" [class.active]="gatePassStatusFilter === 'returned'" (click)="setGatePassStatusFilter('returned')" matButton="filled">
                     <mat-icon class="pill-icon">task_alt</mat-icon> Safely Returned <span class="pill-count">{{ gatePassCompletedCount }}</span>
                   </button>
-                  <button type="button" class="gp-pill pill-overdue" [class.active]="gatePassStatusFilter === 'overdue'" (click)="setGatePassStatusFilter('overdue')">
+                  <button type="button" class="gp-pill pill-overdue" [class.active]="gatePassStatusFilter === 'overdue'" (click)="setGatePassStatusFilter('overdue')" matButton="filled">
                     <mat-icon class="pill-icon">warning</mat-icon> Overdue / Late <span class="pill-count" [class.warn-alert]="gatePassOverdueCount > 0">{{ gatePassOverdueCount }}</span>
                   </button>
                 </div>
@@ -568,7 +566,7 @@ const API_BASE = environment.apiBaseUrl;
                     <input matInput [(ngModel)]="gatePassSearchQuery" [ngModelOptions]="{standalone: true}" (ngModelChange)="onGatePassSearchChanged($event)" placeholder="Search student, roll, pass #, purpose, room, phone..." autocomplete="off" />
                     <mat-icon matPrefix>search</mat-icon>
                     @if (gatePassSearchQuery) {
-                      <button mat-icon-button matSuffix (click)="clearGatePassSearch()" type="button" matTooltip="Clear search">
+                      <button matSuffix (click)="clearGatePassSearch()" type="button" matTooltip="Clear search" mat-icon-button>
                         <mat-icon>close</mat-icon>
                       </button>
                     }
@@ -706,12 +704,10 @@ const API_BASE = environment.apiBaseUrl;
                     <td mat-cell *matCellDef="let g" class="col-action text-right">
                       @if (g.wardenApprovalStatus !== 'Completed') {
                         <button
-                          mat-flat-button
                           color="primary"
                           class="smart-return-btn"
                           (click)="markGatePassReturned(g)"
-                          matTooltip="Confirm student returned to hostel campus"
-                          >
+                          matTooltip="Confirm student returned to hostel campus" matButton="filled">
                           <mat-icon>login</mat-icon> Mark Return
                         </button>
                       }
@@ -742,7 +738,7 @@ const API_BASE = environment.apiBaseUrl;
                           </p>
                         }
                         @if (gatePassSearchQuery || gatePassStatusFilter !== 'all') {
-                          <button mat-stroked-button color="primary" (click)="clearGatePassSearch(); setGatePassStatusFilter('all')">
+                          <button color="primary" (click)="clearGatePassSearch(); setGatePassStatusFilter('all')" matButton="filled">
                             Reset All Filters
                           </button>
                         }
@@ -812,41 +808,33 @@ const API_BASE = environment.apiBaseUrl;
               </div>
               <div class="rollcall-actions-right">
                 <button
-                  mat-stroked-button
                   color="accent"
                   class="action-btn"
                   (click)="openBiometricSimulator()"
                   [disabled]="hostelAttendanceMode === 'Manual'"
-                  matTooltip="Simulate turnstile biometric punch for a student"
-                  >
+                  matTooltip="Simulate turnstile biometric punch for a student" matButton="filled">
                   <mat-icon>fingerprint</mat-icon> Simulate Biometric Punch
                 </button>
                 <button
-                  mat-stroked-button
                   class="action-btn"
                   (click)="openBiometricMappings()"
-                  matTooltip="View and update Biometric User IDs for residents"
-                  >
+                  matTooltip="View and update Biometric User IDs for residents" matButton="filled">
                   <mat-icon>badge</mat-icon> Biometric IDs
                 </button>
                 <button
-                  mat-stroked-button
                   color="primary"
                   class="action-btn"
                   (click)="markAllPresent()"
                   [disabled]="hostelAttendanceMode === 'Biometric'"
-                  matTooltip="Mark all active residents as Present"
-                  >
+                  matTooltip="Mark all active residents as Present" matButton="filled">
                   <mat-icon>done_all</mat-icon> All Present
                 </button>
                 <button
-                  mat-raised-button
                   color="primary"
-                  class="action-btn"
+                  class="action-btn app-button-save"
                   (click)="saveRollCall()"
                   [disabled]="hostelAttendanceMode === 'Biometric' || rollCallStudents.length === 0"
-                  matTooltip="Save manual roll call records"
-                  >
+                  matTooltip="Save manual roll call records" matButton="filled">
                   <mat-icon>save</mat-icon> Save Roll Call
                 </button>
               </div>
@@ -925,12 +913,10 @@ const API_BASE = environment.apiBaseUrl;
                       @if (hostelAttendanceMode !== 'Manual') {
                         <button
                           type="button"
-                          mat-stroked-button
                           color="accent"
                           class="quick-punch-btn"
                           (click)="quickPunchResident(s)"
-                          matTooltip="Test 1-click Biometric Punch for {{ s.studentName }}"
-                          >
+                          matTooltip="Test 1-click Biometric Punch for {{ s.studentName }}" matButton="filled">
                           <mat-icon>fingerprint</mat-icon> Punch Now
                         </button>
                       }
@@ -941,8 +927,7 @@ const API_BASE = environment.apiBaseUrl;
                           class="status-toggle-btn present"
                           [class.active]="s.status === 'Present'"
                           (click)="setStudentStatus(s, 'Present')"
-                          [disabled]="hostelAttendanceMode === 'Biometric'"
-                          >
+                          [disabled]="hostelAttendanceMode === 'Biometric'" matButton="filled">
                           Present
                         </button>
                         <button
@@ -950,8 +935,7 @@ const API_BASE = environment.apiBaseUrl;
                           class="status-toggle-btn absent"
                           [class.active]="s.status === 'Absent'"
                           (click)="setStudentStatus(s, 'Absent')"
-                          [disabled]="hostelAttendanceMode === 'Biometric'"
-                          >
+                          [disabled]="hostelAttendanceMode === 'Biometric'" matButton="filled">
                           Absent
                         </button>
                         <button
@@ -959,8 +943,7 @@ const API_BASE = environment.apiBaseUrl;
                           class="status-toggle-btn leave"
                           [class.active]="s.status === 'OnLeave'"
                           (click)="setStudentStatus(s, 'OnLeave')"
-                          [disabled]="hostelAttendanceMode === 'Biometric'"
-                          >
+                          [disabled]="hostelAttendanceMode === 'Biometric'" matButton="filled">
                           On Leave
                         </button>
                         <button
@@ -968,8 +951,7 @@ const API_BASE = environment.apiBaseUrl;
                           class="status-toggle-btn gatepass"
                           [class.active]="s.status === 'GatePass'"
                           (click)="setStudentStatus(s, 'GatePass')"
-                          [disabled]="hostelAttendanceMode === 'Biometric'"
-                          >
+                          [disabled]="hostelAttendanceMode === 'Biometric'" matButton="filled">
                           Gate Pass
                         </button>
                         <button
@@ -977,8 +959,7 @@ const API_BASE = environment.apiBaseUrl;
                           class="status-toggle-btn late"
                           [class.active]="s.status === 'Late'"
                           (click)="setStudentStatus(s, 'Late')"
-                          [disabled]="hostelAttendanceMode === 'Biometric'"
-                          >
+                          [disabled]="hostelAttendanceMode === 'Biometric'" matButton="filled">
                           Late
                         </button>
                       </div>
@@ -1011,7 +992,7 @@ const API_BASE = environment.apiBaseUrl;
                 <h3>Add New Hostel Block</h3>
                 <span class="modal-sub">Create residential wing &amp; block details</span>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="showAddHostelModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+              <button class="modal-close-btn" (click)="showAddHostelModal = false" matTooltip="Close" mat-icon-button><mat-icon>close</mat-icon></button>
             </div>
             <form [formGroup]="hostelForm" (ngSubmit)="submitAddHostel()">
               <div class="modal-body-form">
@@ -1050,8 +1031,8 @@ const API_BASE = environment.apiBaseUrl;
                 </mat-form-field>
               </div>
               <div class="modal-footer">
-                <button mat-button type="button" (click)="showAddHostelModal = false">Cancel</button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="hostelForm.invalid">
+                <button type="button" (click)="showAddHostelModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" type="submit" [disabled]="hostelForm.invalid" matButton="filled" class="app-button-save">
                   Save Hostel Block
                 </button>
               </div>
@@ -1072,7 +1053,7 @@ const API_BASE = environment.apiBaseUrl;
                 <h3>Add New Room &amp; Beds</h3>
                 <span class="modal-sub">Configure room type, capacity &amp; auto-generated bed codes</span>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="showAddRoomModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+              <button class="modal-close-btn" (click)="showAddRoomModal = false" matTooltip="Close" mat-icon-button><mat-icon>close</mat-icon></button>
             </div>
             <form [formGroup]="roomForm" (ngSubmit)="submitAddRoom()">
               <div class="modal-body-form">
@@ -1137,8 +1118,8 @@ const API_BASE = environment.apiBaseUrl;
                 </div>
               </div>
               <div class="modal-footer">
-                <button mat-button type="button" (click)="showAddRoomModal = false">Cancel</button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="roomForm.invalid">
+                <button type="button" (click)="showAddRoomModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" type="submit" [disabled]="roomForm.invalid" matButton="filled">
                   Create Room &amp; Beds
                 </button>
               </div>
@@ -1159,7 +1140,7 @@ const API_BASE = environment.apiBaseUrl;
                 <h3>Allocate Bed: {{ allocatingBed?.bedCode }}</h3>
                 <span class="modal-sub">Room <strong>{{ allocatingRoom?.roomNumber }}</strong> &bull; <strong>{{ allocatingRoom?.hostelName }}</strong> (Floor {{ allocatingRoom?.floor }})</span>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="closeAllocateModal()" matTooltip="Close"><mat-icon>close</mat-icon></button>
+              <button class="modal-close-btn" (click)="closeAllocateModal()" matTooltip="Close" mat-icon-button><mat-icon>close</mat-icon></button>
             </div>
             <form [formGroup]="allocateForm" (ngSubmit)="submitAllocateBed()">
               <div class="modal-body-form">
@@ -1167,10 +1148,10 @@ const API_BASE = environment.apiBaseUrl;
                 <div class="member-type-toggle-bar">
                   <span class="mtt-label"><mat-icon>how_to_reg</mat-icon> Resident Category:</span>
                   <div class="mtt-pills">
-                    <button type="button" class="mtt-pill" [class.active]="allocateMemberType === 'Student'" (click)="setAllocateMemberType('Student')">
+                    <button type="button" class="mtt-pill" [class.active]="allocateMemberType === 'Student'" (click)="setAllocateMemberType('Student')" matButton="filled">
                       <mat-icon>school</mat-icon> Student Resident
                     </button>
-                    <button type="button" class="mtt-pill pill-faculty" [class.active]="allocateMemberType === 'Teacher'" (click)="setAllocateMemberType('Teacher')">
+                    <button type="button" class="mtt-pill pill-faculty" [class.active]="allocateMemberType === 'Teacher'" (click)="setAllocateMemberType('Teacher')" matButton="filled">
                       <mat-icon>co_present</mat-icon> Faculty / Staff Quarters
                     </button>
                   </div>
@@ -1182,13 +1163,13 @@ const API_BASE = environment.apiBaseUrl;
                     <div class="filter-pills-container">
                       <span class="filter-title"><mat-icon>filter_list</mat-icon> Student Source:</span>
                       <div class="filter-pills-list">
-                        <button type="button" class="type-pill" [class.active]="studentFilterType === 'all'" (click)="setStudentFilterType('all')">
+                        <button type="button" class="type-pill" [class.active]="studentFilterType === 'all'" (click)="setStudentFilterType('all')" matButton="filled">
                           <mat-icon>groups</mat-icon> All Students
                         </button>
-                        <button type="button" class="type-pill pill-school" [class.active]="studentFilterType === 'school'" (click)="setStudentFilterType('school')">
+                        <button type="button" class="type-pill pill-school" [class.active]="studentFilterType === 'school'" (click)="setStudentFilterType('school')" matButton="filled">
                           <mat-icon>school</mat-icon> School Only (Class-wise)
                         </button>
-                        <button type="button" class="type-pill pill-coaching" [class.active]="studentFilterType === 'coaching'" (click)="setStudentFilterType('coaching')">
+                        <button type="button" class="type-pill pill-coaching" [class.active]="studentFilterType === 'coaching'" (click)="setStudentFilterType('coaching')" matButton="filled">
                           <mat-icon>menu_book</mat-icon> Coaching Only (Batch-wise)
                         </button>
                       </div>
@@ -1200,7 +1181,7 @@ const API_BASE = environment.apiBaseUrl;
                         <input matInput [(ngModel)]="studentSearchQuery" [ngModelOptions]="{standalone: true}" (ngModelChange)="onStudentSearchChanged($event)" placeholder="Type name, roll, class (e.g. 10th A) or coaching batch..." autocomplete="off" />
                         <mat-icon matPrefix>search</mat-icon>
                         @if (studentSearchQuery) {
-                          <button mat-icon-button matSuffix (click)="clearStudentSearch()" type="button" matTooltip="Clear search">
+                          <button matSuffix (click)="clearStudentSearch()" type="button" matTooltip="Clear search" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
@@ -1406,8 +1387,8 @@ const API_BASE = environment.apiBaseUrl;
                 </mat-form-field>
               </div>
               <div class="modal-footer">
-                <button mat-button type="button" (click)="closeAllocateModal()">Cancel</button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="allocateForm.invalid || loading">
+                <button type="button" (click)="closeAllocateModal()" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" type="submit" [disabled]="allocateForm.invalid || loading" matButton="filled">
                   <mat-icon>check_circle</mat-icon> Confirm Bed Allocation
                 </button>
               </div>
@@ -1428,7 +1409,7 @@ const API_BASE = environment.apiBaseUrl;
                 <h3>Issue Hostel Gate Pass / Outing</h3>
                 <span class="modal-sub">Authorize residential student early exit / day-out</span>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="showGatePassModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+              <button class="modal-close-btn" (click)="showGatePassModal = false" matTooltip="Close" mat-icon-button><mat-icon>close</mat-icon></button>
             </div>
             <form [formGroup]="gatePassForm" (ngSubmit)="submitGatePass()">
               <div class="modal-body-form">
@@ -1475,8 +1456,8 @@ const API_BASE = environment.apiBaseUrl;
                 </div>
               </div>
               <div class="modal-footer">
-                <button mat-button type="button" (click)="showGatePassModal = false">Cancel</button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="gatePassForm.invalid">
+                <button type="button" (click)="showGatePassModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" type="submit" [disabled]="gatePassForm.invalid" matButton="filled">
                   Print &amp; Issue Gate Pass
                 </button>
               </div>
@@ -1497,7 +1478,7 @@ const API_BASE = environment.apiBaseUrl;
                 <h3>Simulate Biometric Turnstile Punch</h3>
                 <span class="modal-sub">Test hardware turnstile machine live entry / exit event</span>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="showBiometricSimulatorModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+              <button class="modal-close-btn" (click)="showBiometricSimulatorModal = false" matTooltip="Close" mat-icon-button><mat-icon>close</mat-icon></button>
             </div>
             <div class="modal-body-form">
               <p class="auto-beds-hint">
@@ -1528,8 +1509,8 @@ const API_BASE = environment.apiBaseUrl;
               </div>
             </div>
             <div class="modal-footer">
-              <button mat-button type="button" (click)="showBiometricSimulatorModal = false">Cancel</button>
-              <button mat-raised-button color="accent" type="button" (click)="executeBiometricPunch()" [disabled]="!simulatingStudentId">
+              <button type="button" (click)="showBiometricSimulatorModal = false" matButton="filled" class="app-button-cancel">Cancel</button>
+              <button color="accent" type="button" (click)="executeBiometricPunch()" [disabled]="!simulatingStudentId" matButton="filled">
                 <mat-icon>fingerprint</mat-icon> Trigger Punch
               </button>
             </div>
@@ -1549,7 +1530,7 @@ const API_BASE = environment.apiBaseUrl;
                 <h3>Hostel Residents Biometric ID Mappings</h3>
                 <span class="modal-sub">Enroll and configure turnstile device IDs for residents</span>
               </div>
-              <button mat-icon-button class="modal-close-btn" (click)="showBiometricMappingModal = false" matTooltip="Close"><mat-icon>close</mat-icon></button>
+              <button class="modal-close-btn" (click)="showBiometricMappingModal = false" matTooltip="Close" mat-icon-button><mat-icon>close</mat-icon></button>
             </div>
             <div class="modal-body-form mappings-table-container">
               <p class="auto-beds-hint">
@@ -1584,12 +1565,10 @@ const API_BASE = environment.apiBaseUrl;
                       </td>
                       <td>
                         <button
-                          mat-flat-button
                           color="primary"
-                          class="sm-btn"
+                          class="sm-btn app-button-save"
                           (click)="saveBiometricMapping(m)"
-                          [disabled]="!m.biometricUserId"
-                          >
+                          [disabled]="!m.biometricUserId" matButton="filled">
                           Save ID
                         </button>
                       </td>
@@ -1599,7 +1578,7 @@ const API_BASE = environment.apiBaseUrl;
               </table>
             </div>
             <div class="modal-footer">
-              <button mat-button type="button" (click)="showBiometricMappingModal = false">Close</button>
+              <button type="button" (click)="showBiometricMappingModal = false" matButton="filled" class="app-button-cancel">Close</button>
             </div>
           </div>
         </div>
@@ -1935,12 +1914,17 @@ const API_BASE = environment.apiBaseUrl;
         border-bottom: 1px solid #e2e8f0;
         background: #f8fafc;
         overflow-x: auto;
+        overflow-y: hidden;
         white-space: nowrap;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
+        scrollbar-width: none;
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+
+        &::-webkit-scrollbar {
+          display: none;
+        }
 
         .nav-tab-btn {
           display: flex;

@@ -40,7 +40,7 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
             Configure dynamic institutional quotas, monthly accrual rates, and conflict rules
           </span>
         </div>
-        <button mat-icon-button class="policy-dialog-close" (click)="cancel()">
+        <button class="policy-dialog-close" (click)="cancel()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -159,8 +159,8 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
             }
           </div>
           <div class="policy-dialog-footer">
-            <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-            <button mat-flat-button class="btn-save" type="submit" [disabled]="saving || form.invalid">
+            <button type="button" (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
+            <button class="btn-save app-button-save" type="submit" [disabled]="saving || form.invalid" matButton="filled">
               <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
               {{saving ? 'Saving...' : 'Save Policy Settings'}}
             </button>

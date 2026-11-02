@@ -54,12 +54,12 @@ import { environment } from '../../../environments/environment';
         </div>
     
         <div class="header-actions">
-          <button mat-stroked-button class="btn-action" (click)="refresh()" [disabled]="loading" matTooltip="Reload Fee Card Data">
+          <button class="btn-action" (click)="refresh()" [disabled]="loading" matTooltip="Reload Fee Card Data" matButton="filled">
             <mat-icon [class.spin]="loading">sync</mat-icon>
             <span>Refresh</span>
           </button>
     
-          <button mat-flat-button color="primary" class="btn-print" (click)="printCard()" [disabled]="loading || !currentCard">
+          <button color="primary" class="btn-print" (click)="printCard()" [disabled]="loading || !currentCard" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Fee Card</span>
           </button>
@@ -77,7 +77,7 @@ import { environment } from '../../../environments/environment';
                 type="button"
                 class="stream-pill"
                 [class.active]="activeStream === 'school'"
-                (click)="switchStream('school')">
+                (click)="switchStream('school')" matButton="filled">
                 <mat-icon>school</mat-icon>
                 <span>School Classes</span>
               </button>
@@ -85,7 +85,7 @@ import { environment } from '../../../environments/environment';
                 type="button"
                 class="stream-pill"
                 [class.active]="activeStream === 'coaching'"
-                (click)="switchStream('coaching')">
+                (click)="switchStream('coaching')" matButton="filled">
                 <mat-icon>menu_book</mat-icon>
                 <span>Coaching Batches</span>
               </button>
@@ -219,8 +219,7 @@ import { environment } from '../../../environments/environment';
                       class="clear-mini-btn"
                       (click)="clearStudentSearch($event)"
                       (mousedown)="$event.stopPropagation()"
-                      matTooltip="Clear search"
-                      >
+                      matTooltip="Clear search" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   }
@@ -258,7 +257,7 @@ import { environment } from '../../../environments/environment';
           <button
             class="toggle-chip"
             [class.active]="viewMode === 'single'"
-            (click)="switchViewMode('single')">
+            (click)="switchViewMode('single')" matButton="filled">
             <mat-icon>person</mat-icon>
             <span>Single Student View</span>
           </button>
@@ -266,7 +265,7 @@ import { environment } from '../../../environments/environment';
             class="toggle-chip"
             [class.active]="viewMode === 'class'"
             (click)="switchViewMode('class')"
-            [disabled]="activeStream === 'school' ? !selectedClassId : !selectedBatchId">
+            [disabled]="activeStream === 'school' ? !selectedClassId : !selectedBatchId" matButton="filled">
             <mat-icon>groups</mat-icon>
             <span>{{ activeStream === 'coaching' ? 'Coaching Batch View' : 'Class Batch View' }} ({{ classCards.length }})</span>
           </button>
@@ -274,7 +273,7 @@ import { environment } from '../../../environments/environment';
     
         <div class="quick-helpers">
           @if (currentCard) {
-            <button mat-button class="btn-whatsapp" (click)="openWhatsAppShareDialog()" matTooltip="Share Fee Passbook on WhatsApp (Popup)">
+            <button class="btn-whatsapp" (click)="openWhatsAppShareDialog()" matTooltip="Share Fee Passbook on WhatsApp (Popup)" matButton="filled">
               <mat-icon>share</mat-icon>
               <span>Share via WhatsApp</span>
             </button>
@@ -613,7 +612,7 @@ import { environment } from '../../../environments/environment';
             <h3>{{ activeStream === 'coaching' ? 'Coaching Batch Fee Cards Roster' : 'Class Fee Cards Roster' }} ({{ classCards.length }} Students)</h3>
             <p>Showing full 12-month passbooks for all active students in this {{ activeStream === 'coaching' ? 'coaching batch' : 'class' }}.</p>
           </div>
-          <button mat-flat-button color="primary" (click)="printCard()" [disabled]="classCards.length === 0">
+          <button color="primary" (click)="printCard()" [disabled]="classCards.length === 0" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print All {{ activeStream === 'coaching' ? 'Batch Cards' : 'Class Cards' }} (A4 Pages)</span>
           </button>

@@ -58,7 +58,7 @@ export interface CancelInvoiceDialogData {
             : 'Select reason for marking this unpaid invoice as cancelled & voiding dues' }}
           </p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onClose()" [disabled]="submitting">
+        <button type="button" class="close-btn" (click)="onClose()" [disabled]="submitting" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -273,16 +273,14 @@ export interface CancelInvoiceDialogData {
     
         <!-- ACTION BUTTONS -->
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" class="btn-cancel" (click)="onClose()" [disabled]="submitting">
+          <button type="button" class="btn-cancel app-button-cancel" (click)="onClose()" [disabled]="submitting" matButton="filled">
             Go Back
           </button>
     
           <button
-            mat-raised-button
             [class]="getSubmitButtonClass()"
             type="submit"
-            [disabled]="cancelForm.invalid || submitting"
-            >
+            [disabled]="cancelForm.invalid || submitting" matButton="filled">
             @if (submitting) {
               <mat-spinner diameter="18" class="spinner"></mat-spinner>
             }

@@ -143,7 +143,7 @@ const API_BASE = environment.apiBaseUrl;
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close()" class="close-btn" aria-label="Close">
+        <button (click)="dialogRef.close()" class="close-btn" aria-label="Close" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -257,16 +257,16 @@ const API_BASE = environment.apiBaseUrl;
             </div>
           </div>
           <div class="banner-quick-actions">
-            <button mat-button class="action-btn" (click)="activeTabIndex = 3">
+            <button class="action-btn" (click)="activeTabIndex = 3" matButton="filled">
               <mat-icon>assignment</mat-icon> Exams
             </button>
-            <button mat-button class="action-btn" (click)="activeTabIndex = 8">
+            <button class="action-btn" (click)="activeTabIndex = 8" matButton="filled">
               <mat-icon>gavel</mat-icon> Conduct
             </button>
-            <button mat-button class="action-btn" (click)="activeTabIndex = 9">
+            <button class="action-btn" (click)="activeTabIndex = 9" matButton="filled">
               <mat-icon>record_voice_over</mat-icon> PTM Desk
             </button>
-            <button mat-button class="action-btn" (click)="activeTabIndex = 11">
+            <button class="action-btn" (click)="activeTabIndex = 11" matButton="filled">
               <mat-icon>diversity_3</mat-icon> Siblings ({{ siblingsList.length || (data360?.siblings?.length ?? 0) }})
             </button>
           </div>
@@ -492,7 +492,7 @@ const API_BASE = environment.apiBaseUrl;
                         <mat-icon class="sect-icon sibling-icon">family_restroom</mat-icon>
                         <h3>Linked Siblings / Family Members ({{ siblingsList.length || data360.siblings.length || 0 }})</h3>
                       </div>
-                      <button mat-stroked-button color="primary" class="manage-sibs-btn" (click)="activeTabIndex = 11" style="height:28px; line-height:28px; font-size:11px;">
+                      <button color="primary" class="manage-sibs-btn" (click)="activeTabIndex = 11" style="height:28px; line-height:28px; font-size:11px;" matButton="filled">
                         <mat-icon style="font-size:14px; width:14px; height:14px;">diversity_3</mat-icon> Manage / Link Sibling
                       </button>
                     </div>
@@ -789,7 +789,7 @@ const API_BASE = environment.apiBaseUrl;
                               <span style="font-weight: 700; color: #1e40af; font-size: 0.76rem; display: flex; align-items: center; gap: 4px;">
                                 <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #2563eb;">sensors</mat-icon> Today's Live Transit Status
                               </span>
-                              <button type="button" mat-icon-button (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" title="Refresh Live Status" style="width: 24px; height: 24px; line-height: 24px;">
+                              <button type="button" (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" title="Refresh Live Status" style="width: 24px; height: 24px; line-height: 24px;" mat-icon-button>
                                 <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #3b82f6;">refresh</mat-icon>
                               </button>
                             </div>
@@ -986,7 +986,7 @@ const API_BASE = environment.apiBaseUrl;
                     <mat-icon>verified_user</mat-icon>
                     <span>{{ data360.documents.length || 0 }} Official KYC Documents Stored</span>
                   </div>
-                  <button mat-raised-button color="primary" (click)="showUploadForm = !showUploadForm" class="upload-btn">
+                  <button color="primary" (click)="showUploadForm = !showUploadForm" class="upload-btn" matButton="filled">
                     <mat-icon>{{ showUploadForm ? 'close' : 'cloud_upload' }}</mat-icon>
                     {{ showUploadForm ? 'Cancel Upload' : 'Upload New Document' }}
                   </button>
@@ -1032,8 +1032,8 @@ const API_BASE = environment.apiBaseUrl;
                         <input matInput [(ngModel)]="newDoc.remarks" placeholder="Verified from original by admission desk">
                       </mat-form-field>
                       <div class="form-actions-bar col-span-2">
-                        <button mat-button (click)="showUploadForm = false">Cancel</button>
-                        <button mat-raised-button color="primary" (click)="saveDocument()" [disabled]="uploading || !newDoc.documentType || !newDoc.title">
+                        <button (click)="showUploadForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                        <button color="primary" (click)="saveDocument()" [disabled]="uploading || !newDoc.documentType || !newDoc.title" matButton="filled" class="app-button-save">
                           @if (!uploading) {
                             <mat-icon>check</mat-icon>
                           }
@@ -1077,7 +1077,7 @@ const API_BASE = environment.apiBaseUrl;
                               <mat-icon>visibility</mat-icon>
                             </a>
                           }
-                          <button mat-icon-button color="warn" (click)="deleteDocument(doc)" matTooltip="Delete Document">
+                          <button color="warn" (click)="deleteDocument(doc)" matTooltip="Delete Document" mat-icon-button>
                             <mat-icon>delete</mat-icon>
                           </button>
                         </div>
@@ -1089,7 +1089,7 @@ const API_BASE = environment.apiBaseUrl;
                   <div class="empty-state-box">
                     <mat-icon>folder_open</mat-icon>
                     <p>No KYC documents uploaded for this student yet.</p>
-                    <button mat-stroked-button color="primary" (click)="showUploadForm = true">
+                    <button color="primary" (click)="showUploadForm = true" matButton="filled">
                       <mat-icon>upload</mat-icon> Upload First Document
                     </button>
                   </div>
@@ -1108,7 +1108,7 @@ const API_BASE = environment.apiBaseUrl;
                     <p class="tab-action-sub">Recognitions, badges, Olympiads, sports &amp; co-curricular achievements</p>
                   </div>
                   @if (!isReadOnly) {
-                    <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="showAddAchievementForm = !showAddAchievementForm">
+                    <button color="primary" class="primary-gradient-btn" (click)="showAddAchievementForm = !showAddAchievementForm" matButton="filled">
                       <mat-icon>{{ showAddAchievementForm ? 'close' : 'add_task' }}</mat-icon>
                       {{ showAddAchievementForm ? 'Cancel' : 'Record Achievement' }}
                     </button>
@@ -1170,8 +1170,8 @@ const API_BASE = environment.apiBaseUrl;
                       </div>
                     </div>
                     <div class="form-actions">
-                      <button mat-button (click)="showAddAchievementForm = false">Cancel</button>
-                      <button mat-raised-button color="primary" [disabled]="savingAchievement" (click)="saveAchievement()">
+                      <button (click)="showAddAchievementForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                      <button color="primary" [disabled]="savingAchievement" (click)="saveAchievement()" matButton="filled" class="app-button-save">
                         <mat-icon>check_circle</mat-icon> {{ savingAchievement ? 'Saving...' : 'Save Achievement' }}
                       </button>
                     </div>
@@ -1221,11 +1221,11 @@ const API_BASE = environment.apiBaseUrl;
                           }
                         </div>
                         <div class="honor-footer">
-                          <button mat-stroked-button class="print-cert-btn" (click)="printCertificate(ach)" matTooltip="Generate &amp; Print Official Certificate of Merit">
+                          <button class="print-cert-btn" (click)="printCertificate(ach)" matTooltip="Generate &amp; Print Official Certificate of Merit" matButton="filled">
                             <mat-icon>print</mat-icon> Print Certificate
                           </button>
                           @if (!isReadOnly) {
-                            <button mat-icon-button color="warn" (click)="deleteAchievement(ach)" matTooltip="Delete record">
+                            <button color="warn" (click)="deleteAchievement(ach)" matTooltip="Delete record" mat-icon-button>
                               <mat-icon>delete</mat-icon>
                             </button>
                           }
@@ -1238,7 +1238,7 @@ const API_BASE = environment.apiBaseUrl;
                   <div class="empty-state-box">
                     <mat-icon>workspace_premium</mat-icon>
                     <p>No honors or awards recorded yet. Click above to celebrate this student's milestone!</p>
-                    <button mat-stroked-button color="primary" (click)="showAddAchievementForm = true">
+                    <button color="primary" (click)="showAddAchievementForm = true" matButton="filled">
                       <mat-icon>add</mat-icon> Add First Achievement
                     </button>
                   </div>
@@ -1257,7 +1257,7 @@ const API_BASE = environment.apiBaseUrl;
                     <p class="tab-action-sub">Institutional incident tracking, positive commendations, and corrective actions</p>
                   </div>
                   @if (!isReadOnly) {
-                    <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="showAddDisciplineForm = !showAddDisciplineForm">
+                    <button color="primary" class="primary-gradient-btn" (click)="showAddDisciplineForm = !showAddDisciplineForm" matButton="filled">
                       <mat-icon>{{ showAddDisciplineForm ? 'close' : 'add_moderator' }}</mat-icon>
                       {{ showAddDisciplineForm ? 'Cancel' : 'Log Incident / Commendation' }}
                     </button>
@@ -1309,7 +1309,7 @@ const API_BASE = environment.apiBaseUrl;
                             placeholder="Select faculty or type name..."
                             autocomplete="off"
                             />
-                            <button type="button" class="combobox-toggle-btn" (click)="showDisciplineFacultyDropdown = !showDisciplineFacultyDropdown" tabindex="-1">
+                            <button type="button" class="combobox-toggle-btn" (click)="showDisciplineFacultyDropdown = !showDisciplineFacultyDropdown" tabindex="-1" mat-icon-button>
                               <mat-icon>{{ showDisciplineFacultyDropdown ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
                             </button>
                             <!-- Custom Positioned Floating Dropdown Panel Directly Below Input -->
@@ -1388,8 +1388,8 @@ const API_BASE = environment.apiBaseUrl;
                         </div>
                       </div>
                       <div class="form-actions">
-                        <button mat-button (click)="showAddDisciplineForm = false">Cancel</button>
-                        <button mat-raised-button color="primary" [disabled]="savingDiscipline" (click)="saveDiscipline()">
+                        <button (click)="showAddDisciplineForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                        <button color="primary" [disabled]="savingDiscipline" (click)="saveDiscipline()" matButton="filled" class="app-button-save">
                           <mat-icon>check_circle</mat-icon> {{ savingDiscipline ? 'Saving...' : 'Save Entry' }}
                         </button>
                       </div>
@@ -1437,7 +1437,7 @@ const API_BASE = environment.apiBaseUrl;
                           </div>
                           @if (!isReadOnly) {
                             <div class="conduct-actions-col">
-                              <button mat-icon-button color="warn" (click)="deleteDiscipline(rec)" matTooltip="Delete entry">
+                              <button color="warn" (click)="deleteDiscipline(rec)" matTooltip="Delete entry" mat-icon-button>
                                 <mat-icon>delete</mat-icon>
                               </button>
                             </div>
@@ -1450,7 +1450,7 @@ const API_BASE = environment.apiBaseUrl;
                     <div class="empty-state-box">
                       <mat-icon>verified</mat-icon>
                       <p>Clean conduct sheet! No disciplinary incidents or infractions logged.</p>
-                      <button mat-stroked-button color="primary" (click)="showAddDisciplineForm = true">
+                      <button color="primary" (click)="showAddDisciplineForm = true" matButton="filled">
                         <mat-icon>add</mat-icon> Log New Record
                       </button>
                     </div>
@@ -1469,7 +1469,7 @@ const API_BASE = environment.apiBaseUrl;
                       <p class="tab-action-sub">Record discussions, guardian feedback, pedagogical counsel, and agreed action plans</p>
                     </div>
                     @if (!isReadOnly) {
-                      <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="showAddPtmForm = !showAddPtmForm">
+                      <button color="primary" class="primary-gradient-btn" (click)="showAddPtmForm = !showAddPtmForm" matButton="filled">
                         <mat-icon>{{ showAddPtmForm ? 'close' : 'contact_phone' }}</mat-icon>
                         {{ showAddPtmForm ? 'Cancel' : 'Record PTM Interaction' }}
                       </button>
@@ -1502,7 +1502,7 @@ const API_BASE = environment.apiBaseUrl;
                               placeholder="Select faculty or type name..."
                               autocomplete="off"
                               />
-                              <button type="button" class="combobox-toggle-btn" (click)="showPtmFacultyDropdown = !showPtmFacultyDropdown" tabindex="-1">
+                              <button type="button" class="combobox-toggle-btn" (click)="showPtmFacultyDropdown = !showPtmFacultyDropdown" tabindex="-1" mat-icon-button>
                                 <mat-icon>{{ showPtmFacultyDropdown ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
                               </button>
                               <!-- Custom Positioned Floating Dropdown Panel Directly Below Input -->
@@ -1584,8 +1584,8 @@ const API_BASE = environment.apiBaseUrl;
                           </div>
                         </div>
                         <div class="form-actions">
-                          <button mat-button (click)="showAddPtmForm = false">Cancel</button>
-                          <button mat-raised-button color="primary" [disabled]="savingPtm" (click)="savePtm()">
+                          <button (click)="showAddPtmForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                          <button color="primary" [disabled]="savingPtm" (click)="savePtm()" matButton="filled" class="app-button-save">
                             <mat-icon>check_circle</mat-icon> {{ savingPtm ? 'Saving...' : 'Save PTM Record' }}
                           </button>
                         </div>
@@ -1614,7 +1614,7 @@ const API_BASE = environment.apiBaseUrl;
                                   {{ formatRating(ptm.satisfactionRating) }}
                                 </span>
                                 @if (!isReadOnly) {
-                                  <button mat-icon-button color="warn" (click)="deletePtm(ptm)" matTooltip="Delete PTM record">
+                                  <button color="warn" (click)="deletePtm(ptm)" matTooltip="Delete PTM record" mat-icon-button>
                                     <mat-icon>delete</mat-icon>
                                   </button>
                                 }
@@ -1656,7 +1656,7 @@ const API_BASE = environment.apiBaseUrl;
                       <div class="empty-state-box">
                         <mat-icon>groups</mat-icon>
                         <p>No PTM interactions recorded for this student yet.</p>
-                        <button mat-stroked-button color="primary" (click)="showAddPtmForm = true">
+                        <button color="primary" (click)="showAddPtmForm = true" matButton="filled">
                           <mat-icon>add</mat-icon> Log First PTM Interaction
                         </button>
                       </div>
@@ -1675,11 +1675,11 @@ const API_BASE = environment.apiBaseUrl;
                         <p class="tab-action-sub">Growth metrics, BMI tracker, allergies, emergency contacts &amp; pediatric history</p>
                       </div>
                       <div class="header-action-group">
-                        <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
+                        <button class="print-medical-btn" (click)="showPrintMedicalCard = true" matButton="filled">
                           <mat-icon>badge</mat-icon> Print Pocket Medical Card
                         </button>
                         @if (!isReadOnly) {
-                          <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="toggleEditHealth()">
+                          <button color="primary" class="primary-gradient-btn" (click)="toggleEditHealth()" matButton="filled" [class.app-button-update]="!(showEditHealthForm)">
                             <mat-icon>{{ showEditHealthForm ? 'close' : 'edit' }}</mat-icon>
                             {{ showEditHealthForm ? 'Cancel Edit' : 'Update Health Record' }}
                           </button>
@@ -1754,8 +1754,8 @@ const API_BASE = environment.apiBaseUrl;
                           </div>
                         </div>
                         <div class="form-actions">
-                          <button mat-button (click)="showEditHealthForm = false">Cancel</button>
-                          <button mat-raised-button color="primary" [disabled]="savingHealth" (click)="saveHealth()">
+                          <button (click)="showEditHealthForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                          <button color="primary" [disabled]="savingHealth" (click)="saveHealth()" matButton="filled" class="app-button-save">
                             <mat-icon>check_circle</mat-icon> {{ savingHealth ? 'Saving...' : 'Save Health Vitals' }}
                           </button>
                         </div>
@@ -1877,7 +1877,7 @@ const API_BASE = environment.apiBaseUrl;
                         <p class="tab-action-sub">Link brother/sister profiles, set sibling fee discount, and track family ledger</p>
                       </div>
                       @if (!isReadOnly) {
-                        <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="showAddSiblingForm = !showAddSiblingForm">
+                        <button color="primary" class="primary-gradient-btn" (click)="showAddSiblingForm = !showAddSiblingForm" matButton="filled">
                           <mat-icon>{{ showAddSiblingForm ? 'close' : 'person_add' }}</mat-icon>
                           {{ showAddSiblingForm ? 'Cancel' : 'Link New Sibling' }}
                         </button>
@@ -1929,7 +1929,7 @@ const API_BASE = environment.apiBaseUrl;
                                           }
                                         </div>
                                       </div>
-                                      <button type="button" class="cand-select-btn">Select</button>
+                                      <button type="button" class="cand-select-btn" matButton="filled">Select</button>
                                     </div>
                                   }
                                 </div>
@@ -1949,7 +1949,7 @@ const API_BASE = environment.apiBaseUrl;
                                     </span>
                                   </div>
                                 </div>
-                                <button type="button" class="clear-cand-btn" (click)="selectedSiblingCandidate = null" title="Change selection">
+                                <button type="button" class="clear-cand-btn" (click)="selectedSiblingCandidate = null" title="Change selection" mat-icon-button>
                                   <mat-icon style="font-size: 16px; width: 16px; height: 16px;">close</mat-icon>
                                 </button>
                               </div>
@@ -1974,8 +1974,8 @@ const API_BASE = environment.apiBaseUrl;
                           </div>
                         </div>
                         <div class="form-actions">
-                          <button mat-button type="button" (click)="showAddSiblingForm = false">Cancel</button>
-                          <button mat-raised-button color="primary" class="primary-gradient-btn" [disabled]="savingSibling || !selectedSiblingCandidate" (click)="saveSiblingLink()">
+                          <button type="button" (click)="showAddSiblingForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                          <button color="primary" class="primary-gradient-btn" [disabled]="savingSibling || !selectedSiblingCandidate" (click)="saveSiblingLink()" matButton="filled">
                             <mat-icon>link</mat-icon> {{ savingSibling ? 'Linking...' : 'Confirm & Link Sibling' }}
                           </button>
                         </div>
@@ -2013,7 +2013,7 @@ const API_BASE = environment.apiBaseUrl;
                                 </div>
                               </div>
                               @if (!isReadOnly) {
-                                <button mat-icon-button color="warn" (click)="deleteSiblingLink(sib)" matTooltip="Remove sibling link">
+                                <button color="warn" (click)="deleteSiblingLink(sib)" matTooltip="Remove sibling link" mat-icon-button>
                                   <mat-icon>link_off</mat-icon>
                                 </button>
                               }
@@ -2052,7 +2052,7 @@ const API_BASE = environment.apiBaseUrl;
                         <h5>No Siblings Linked Yet</h5>
                         <p>Link brothers or sisters studying in this institution to enable unified parent portal view and sibling fee concessions.</p>
                         @if (!isReadOnly) {
-                          <button mat-stroked-button color="primary" (click)="showAddSiblingForm = true">
+                          <button color="primary" (click)="showAddSiblingForm = true" matButton="filled">
                             <mat-icon>person_add</mat-icon> Link First Sibling
                           </button>
                         }
@@ -2071,7 +2071,7 @@ const API_BASE = environment.apiBaseUrl;
                         <h4 class="tab-action-title">Student Inventory &amp; Kit Distribution Dossier</h4>
                         <p class="tab-action-sub">Track all uniform, book kits, and store materials issued to the student with payment status and returns</p>
                       </div>
-                      <button mat-stroked-button color="primary" (click)="openSaleReturnsForStudent()">
+                      <button color="primary" (click)="openSaleReturnsForStudent()" matButton="filled">
                         <mat-icon>assignment_return</mat-icon> Kit Return / Exchange (SR)
                       </button>
                     </div>
@@ -2154,7 +2154,7 @@ const API_BASE = environment.apiBaseUrl;
               }
             </div>
             <div class="footer-btns">
-              <button mat-button (click)="dialogRef.close()">Close</button>
+              <button (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Close</button>
             </div>
           </div>
     
@@ -2165,10 +2165,10 @@ const API_BASE = environment.apiBaseUrl;
                 <div class="cert-modal-top-bar">
                   <span>Certificate of Merit &amp; Excellence Preview</span>
                   <div class="top-bar-actions">
-                    <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
+                    <button color="primary" class="primary-gradient-btn" (click)="triggerPrint()" matButton="filled">
                       <mat-icon>print</mat-icon> Print Certificate
                     </button>
-                    <button mat-icon-button (click)="activeCertificateModal = null">
+                    <button (click)="activeCertificateModal = null" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   </div>
@@ -2228,10 +2228,10 @@ const API_BASE = environment.apiBaseUrl;
                 <div class="cert-modal-top-bar">
                   <span>Student Emergency Medical Pocket Card Preview</span>
                   <div class="top-bar-actions">
-                    <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="triggerPrint()">
+                    <button color="primary" class="primary-gradient-btn" (click)="triggerPrint()" matButton="filled">
                       <mat-icon>print</mat-icon> Print ID Card
                     </button>
-                    <button mat-icon-button (click)="showPrintMedicalCard = false">
+                    <button (click)="showPrintMedicalCard = false" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   </div>

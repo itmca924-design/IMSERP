@@ -83,15 +83,15 @@ export interface StudentGatePassItem {
           </div>
         </div>
         <div class="sgp-header-actions">
-          <button mat-stroked-button class="sgp-secondary-btn" routerLink="/students/leaves">
+          <button class="sgp-secondary-btn" routerLink="/students/leaves" matButton="filled">
             <mat-icon>event_busy</mat-icon> Leave Requests
           </button>
           @if (!isStudentOrParent) {
-            <button mat-stroked-button class="sgp-secondary-btn" routerLink="/front-desk/visitors">
+            <button class="sgp-secondary-btn" routerLink="/front-desk/visitors" matButton="filled">
               <mat-icon>transfer_within_a_station</mat-icon> Front Desk
             </button>
           }
-          <button mat-raised-button class="sgp-primary-btn" (click)="openRequestModal()">
+          <button class="sgp-primary-btn" (click)="openRequestModal()" matButton="filled">
             <mat-icon>add_circle</mat-icon> Request Gate Pass
           </button>
         </div>
@@ -194,7 +194,7 @@ export interface StudentGatePassItem {
               placeholder="Search by Pass #, student, reason..."
               class="search-input" />
             @if (searchQuery) {
-              <button mat-icon-button (click)="searchQuery = ''; loadGatePasses()">
+              <button (click)="searchQuery = ''; loadGatePasses()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -224,16 +224,16 @@ export interface StudentGatePassItem {
           </mat-form-field>
     
           <!-- Refresh Button -->
-          <button mat-stroked-button class="filter-btn" (click)="loadGatePasses()" [disabled]="loading">
+          <button class="filter-btn" (click)="loadGatePasses()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spinning]="loading">refresh</mat-icon> Refresh
           </button>
     
           <!-- View Toggle -->
           <div class="view-toggle">
-            <button mat-icon-button [class.active-mode]="viewMode === 'grid'" (click)="viewMode = 'grid'" matTooltip="Card View">
+            <button [class.active-mode]="viewMode === 'grid'" (click)="viewMode = 'grid'" matTooltip="Card View" mat-icon-button>
               <mat-icon>grid_view</mat-icon>
             </button>
-            <button mat-icon-button [class.active-mode]="viewMode === 'table'" (click)="viewMode = 'table'" matTooltip="Table View">
+            <button [class.active-mode]="viewMode === 'table'" (click)="viewMode = 'table'" matTooltip="Table View" mat-icon-button>
               <mat-icon>view_list</mat-icon>
             </button>
           </div>
@@ -265,7 +265,7 @@ export interface StudentGatePassItem {
               {{ isStudentOrParent ? "You have not submitted any gate pass requests yet." : "No gate pass requests recorded in the system yet." }}
             </p>
           }
-          <button mat-raised-button class="sgp-primary-btn" (click)="openRequestModal()">
+          <button class="sgp-primary-btn" (click)="openRequestModal()" matButton="filled">
             <mat-icon>add_circle</mat-icon> Submit New Request
           </button>
         </div>
@@ -369,38 +369,38 @@ export interface StudentGatePassItem {
               }
               <!-- Card Actions -->
               <div class="pass-card-footer">
-                <button mat-button class="view-slip-btn" (click)="viewDigitalPass(p)">
+                <button class="view-slip-btn" (click)="viewDigitalPass(p)" matButton="filled">
                   <mat-icon>visibility</mat-icon> View / Print Slip
                 </button>
                 <div class="footer-right-actions">
                   <!-- Student: Cancel Pending Request -->
                   @if (p.status === 'Pending' && isStudentOrParent) {
-                    <button mat-button color="warn" class="cancel-pass-btn"
-                      (click)="cancelPass(p)">
+                    <button color="warn" class="cancel-pass-btn app-button-cancel"
+                      (click)="cancelPass(p)" matButton="filled">
                       <mat-icon>close</mat-icon> Cancel
                     </button>
                   }
                   <!-- Admin/Staff: Quick Actions -->
                   @if (!isStudentOrParent) {
                     @if (p.status === 'Pending') {
-                      <button mat-icon-button style="color:#16a34a;"
-                        (click)="reviewPass(p, 'Approve')" matTooltip="Approve Gate Pass">
+                      <button style="color:#16a34a;"
+                        (click)="reviewPass(p, 'Approve')" matTooltip="Approve Gate Pass" mat-icon-button>
                         <mat-icon>check_circle</mat-icon>
                       </button>
                     }
                     @if (p.status === 'Pending') {
-                      <button mat-icon-button color="warn"
-                        (click)="reviewPass(p, 'Reject')" matTooltip="Reject Request">
+                      <button color="warn"
+                        (click)="reviewPass(p, 'Reject')" matTooltip="Reject Request" mat-icon-button>
                         <mat-icon>cancel</mat-icon>
                       </button>
                     }
                     @if (p.status === 'Approved') {
-                      <button mat-icon-button style="color:#2563eb;"
-                        (click)="markStudentReturned(p)" matTooltip="Mark Returned">
+                      <button style="color:#2563eb;"
+                        (click)="markStudentReturned(p)" matTooltip="Mark Returned" mat-icon-button>
                         <mat-icon>keyboard_return</mat-icon>
                       </button>
                     }
-                    <button mat-icon-button color="warn" (click)="deletePass(p)" matTooltip="Delete">
+                    <button color="warn" (click)="deletePass(p)" matTooltip="Delete" mat-icon-button>
                       <mat-icon>delete</mat-icon>
                     </button>
                   }
@@ -502,35 +502,35 @@ export interface StudentGatePassItem {
                     </td>
                     <td style="text-align: right;">
                       <div class="tbl-actions">
-                        <button mat-icon-button (click)="viewDigitalPass(p)" matTooltip="View / Print Slip">
+                        <button (click)="viewDigitalPass(p)" matTooltip="View / Print Slip" mat-icon-button>
                           <mat-icon>visibility</mat-icon>
                         </button>
                         @if (p.status === 'Pending' && isStudentOrParent) {
-                          <button mat-icon-button color="warn"
-                            (click)="cancelPass(p)" matTooltip="Cancel Request">
+                          <button color="warn"
+                            (click)="cancelPass(p)" matTooltip="Cancel Request" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
                         @if (!isStudentOrParent) {
                           @if (p.status === 'Pending') {
-                            <button mat-icon-button style="color:#16a34a;"
-                              (click)="reviewPass(p, 'Approve')" matTooltip="Approve">
+                            <button style="color:#16a34a;"
+                              (click)="reviewPass(p, 'Approve')" matTooltip="Approve" mat-icon-button>
                               <mat-icon>check_circle</mat-icon>
                             </button>
                           }
                           @if (p.status === 'Pending') {
-                            <button mat-icon-button color="warn"
-                              (click)="reviewPass(p, 'Reject')" matTooltip="Reject">
+                            <button color="warn"
+                              (click)="reviewPass(p, 'Reject')" matTooltip="Reject" mat-icon-button>
                               <mat-icon>cancel</mat-icon>
                             </button>
                           }
                           @if (p.status === 'Approved') {
-                            <button mat-icon-button style="color:#2563eb;"
-                              (click)="markStudentReturned(p)" matTooltip="Mark Returned">
+                            <button style="color:#2563eb;"
+                              (click)="markStudentReturned(p)" matTooltip="Mark Returned" mat-icon-button>
                               <mat-icon>keyboard_return</mat-icon>
                             </button>
                           }
-                          <button mat-icon-button color="warn" (click)="deletePass(p)" matTooltip="Delete">
+                          <button color="warn" (click)="deletePass(p)" matTooltip="Delete" mat-icon-button>
                             <mat-icon>delete</mat-icon>
                           </button>
                         }
@@ -560,7 +560,7 @@ export interface StudentGatePassItem {
               Fill early-exit details for review by administration & security.
             </p>
           </div>
-          <button mat-icon-button class="sgp-modal-close" (click)="dialogRef.close()">
+          <button class="sgp-modal-close" (click)="dialogRef.close()" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -684,10 +684,10 @@ export interface StudentGatePassItem {
       </div>
     
       <div class="sgp-modal-footer">
-        <button mat-button (click)="dialogRef.close()" [disabled]="submitting">Cancel</button>
-        <button mat-raised-button class="sgp-primary-btn"
+        <button (click)="dialogRef.close()" [disabled]="submitting" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button class="sgp-primary-btn"
           (click)="submitGatePass(dialogRef)"
-          [disabled]="submitting || !requestForm.reason || (!isStudentOrParent && !requestForm.studentId)">
+          [disabled]="submitting || !requestForm.reason || (!isStudentOrParent && !requestForm.studentId)" matButton="filled">
           @if (!submitting) {
             <mat-icon>check</mat-icon>
           }
@@ -716,7 +716,7 @@ export interface StudentGatePassItem {
                 Pass No: <strong>{{ selectedPass.gatePassNumber }}</strong> · {{ selectedPass.studentName }}
               </p>
             </div>
-            <button mat-icon-button class="sgp-modal-close" (click)="dialogRef.close()">
+            <button class="sgp-modal-close" (click)="dialogRef.close()" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -830,8 +830,8 @@ export interface StudentGatePassItem {
             </div>
           </div>
           <div class="sgp-modal-footer no-print">
-            <button mat-button (click)="dialogRef.close()">Close</button>
-            <button mat-raised-button class="sgp-primary-btn" (click)="printSlip()">
+            <button (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Close</button>
+            <button class="sgp-primary-btn" (click)="printSlip()" matButton="filled">
               <mat-icon>print</mat-icon> Print Gate Pass
             </button>
           </div>
@@ -855,7 +855,7 @@ export interface StudentGatePassItem {
                 Pass: <strong>{{ reviewingPass.gatePassNumber }}</strong> · {{ reviewingPass.studentName }}
               </p>
             </div>
-            <button mat-icon-button class="sgp-modal-close" (click)="dialogRef.close()">
+            <button class="sgp-modal-close" (click)="dialogRef.close()" mat-icon-button>
               <mat-icon>close</mat-icon>
             </button>
           </div>
@@ -870,12 +870,12 @@ export interface StudentGatePassItem {
             </mat-form-field>
           </div>
           <div class="sgp-modal-footer">
-            <button mat-button (click)="dialogRef.close()" [disabled]="submitting">Cancel</button>
-            <button mat-raised-button
+            <button (click)="dialogRef.close()" [disabled]="submitting" matButton="filled" class="app-button-cancel">Cancel</button>
+            <button
               [style.background]="reviewAction === 'Approve' ? '#16a34a' : '#dc2626'"
               style="color:#fff;"
               (click)="confirmReview(dialogRef)"
-              [disabled]="submitting">
+              [disabled]="submitting" matButton="filled">
               <mat-icon>{{ reviewAction === 'Approve' ? 'check' : 'close' }}</mat-icon>
               Confirm {{ reviewAction }}
             </button>

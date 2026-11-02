@@ -3530,7 +3530,7 @@ mat-hint {
         width: 100% !important;
         margin-top: 4px !important;
 
-        button[mat-stroked-button] {
+        button.mat-mdc-outlined-button {
           flex: 1 !important;
           height: 38px !important;
           border-radius: 8px !important;
@@ -5560,6 +5560,5 @@ mat-hint {
     }
   }
 }
-
 
 

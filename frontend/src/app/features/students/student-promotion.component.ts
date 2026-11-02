@@ -78,7 +78,7 @@ interface CandidateRow extends PromotionCandidateDto {
           </div>
         </div>
         <div class="header-actions">
-          <a mat-stroked-button color="primary" routerLink="/students" class="back-link-btn">
+          <a matButton="filled" color="primary" routerLink="/students" class="back-link-btn">
             <mat-icon>arrow_back</mat-icon>
             <span>Back to Students</span>
           </a>
@@ -99,11 +99,11 @@ interface CandidateRow extends PromotionCandidateDto {
             <!-- Dual-Mode Scope Switcher (School Class Promotion vs. Coaching Batch Migration) -->
             <div class="scope-nav-container">
               <div class="scope-pills">
-                <button type="button" class="scope-pill-btn" [class.active]="currentScope === 'school'" (click)="setScope('school')">
+                <button type="button" class="scope-pill-btn" [class.active]="currentScope === 'school'" (click)="setScope('school')" matButton="filled">
                   <mat-icon>school</mat-icon>
                   <span>School Class Promotion</span>
                 </button>
-                <button type="button" class="scope-pill-btn" [class.active]="currentScope === 'coaching'" (click)="setScope('coaching')">
+                <button type="button" class="scope-pill-btn" [class.active]="currentScope === 'coaching'" (click)="setScope('coaching')" matButton="filled">
                   <mat-icon>menu_book</mat-icon>
                   <span>Coaching Batch Migration / Roll-over</span>
                 </button>
@@ -323,7 +323,7 @@ interface CandidateRow extends PromotionCandidateDto {
               </div>
     
               <div class="matrix-footer">
-                <button mat-raised-button color="primary" class="load-candidates-btn" (click)="loadCandidates()" [disabled]="(currentScope === 'school' && !fromClassId) || (currentScope === 'coaching' && !fromBatchId) || loadingCandidates">
+                <button color="primary" class="load-candidates-btn" (click)="loadCandidates()" [disabled]="(currentScope === 'school' && !fromClassId) || (currentScope === 'coaching' && !fromBatchId) || loadingCandidates" matButton="filled">
                   @if (loadingCandidates) {
                     <mat-spinner diameter="18" class="inline-spinner"></mat-spinner>
                   }
@@ -351,7 +351,7 @@ interface CandidateRow extends PromotionCandidateDto {
                   </div>
                   <div class="tb-right">
                     <!-- Roll number automation menu -->
-                    <button mat-stroked-button [matMenuTriggerFor]="rollMenu" class="tool-btn">
+                    <button [matMenuTriggerFor]="rollMenu" class="tool-btn" matButton="filled">
                       <mat-icon>format_list_numbered</mat-icon>
                       <span>Auto-Assign Roll Numbers</span>
                       <mat-icon>arrow_drop_down</mat-icon>
@@ -371,7 +371,7 @@ interface CandidateRow extends PromotionCandidateDto {
                       </button>
                     </mat-menu>
                     <!-- Set all status menu -->
-                    <button mat-stroked-button [matMenuTriggerFor]="statusMenu" class="tool-btn">
+                    <button [matMenuTriggerFor]="statusMenu" class="tool-btn" matButton="filled">
                       <mat-icon>checklist</mat-icon>
                       <span>Bulk Status</span>
                       <mat-icon>arrow_drop_down</mat-icon>
@@ -572,8 +572,8 @@ interface CandidateRow extends PromotionCandidateDto {
                       <span class="dock-stat detained">{{ currentScope === 'school' ? 'Detained' : 'Retained' }}: <strong>{{ getDetainedCount() }}</strong></span>
                     </div>
                     <div class="dock-btns">
-                      <button mat-button type="button" (click)="candidatesLoaded = false" [disabled]="executing">Reset Selection</button>
-                      <button mat-raised-button color="primary" class="execute-btn" (click)="confirmAndExecutePromotion()" [disabled]="getSelectedCount() === 0 || (currentScope === 'school' ? !toClassId : !toBatchId) || executing">
+                      <button type="button" (click)="candidatesLoaded = false" [disabled]="executing" matButton="filled">Reset Selection</button>
+                      <button color="primary" class="execute-btn" (click)="confirmAndExecutePromotion()" [disabled]="getSelectedCount() === 0 || (currentScope === 'school' ? !toClassId : !toBatchId) || executing" matButton="filled">
                         @if (executing) {
                           <mat-spinner diameter="18" class="inline-spinner"></mat-spinner>
                         }
@@ -659,7 +659,7 @@ interface CandidateRow extends PromotionCandidateDto {
                     <input matInput [(ngModel)]="historyFilterYear" (keyup.enter)="loadHistory()" placeholder="e.g. 2026-2027" />
                   </mat-form-field>
     
-                  <button mat-stroked-button color="primary" (click)="loadHistory()" class="refresh-btn">
+                  <button color="primary" (click)="loadHistory()" class="refresh-btn" matButton="filled">
                     <mat-icon>refresh</mat-icon>
                     <span>Filter Logs</span>
                   </button>
@@ -737,11 +737,11 @@ interface CandidateRow extends PromotionCandidateDto {
                         </td>
                         <td class="text-right">
                           @if (h.scope !== 'Coaching') {
-                            <button mat-icon-button color="primary" (click)="printPromotionCertificate(h)" matTooltip="Print Official Promotion Certificate">
+                            <button color="primary" (click)="printPromotionCertificate(h)" matTooltip="Print Official Promotion Certificate" mat-icon-button>
                               <mat-icon>workspace_premium</mat-icon>
                             </button>
                           }
-                          <button mat-icon-button color="warn" (click)="revertSingleHistory(h)" [matTooltip]="h.scope === 'Coaching' ? 'Rollback this batch migration' : 'Rollback this promotion'">
+                          <button color="warn" (click)="revertSingleHistory(h)" [matTooltip]="h.scope === 'Coaching' ? 'Rollback this batch migration' : 'Rollback this promotion'" mat-icon-button>
                             <mat-icon>undo</mat-icon>
                           </button>
                         </td>

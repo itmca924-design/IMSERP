@@ -44,7 +44,7 @@ import { BranchDialogComponent } from './branch-dialog.component';
           <p class="page-subtitle">Manage multi-branch operations, campus locations, codes, and branch-level statistics.</p>
         </div>
         @if (canManageBranches) {
-          <button mat-raised-button color="primary" class="add-btn" (click)="openCreateModal()">
+          <button color="primary" class="add-btn" (click)="openCreateModal()" matButton="filled">
             <mat-icon>add_business</mat-icon>
             <span>Add New Branch</span>
           </button>
@@ -115,7 +115,7 @@ import { BranchDialogComponent } from './branch-dialog.component';
               (ngModelChange)="filterBranches()"
               />
             @if (searchQuery) {
-              <button mat-icon-button (click)="searchQuery = ''; filterBranches()">
+              <button (click)="searchQuery = ''; filterBranches()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -218,17 +218,15 @@ import { BranchDialogComponent } from './branch-dialog.component';
                 <td mat-cell *matCellDef="let b" class="text-right">
                   <div class="actions-row">
                     @if (canManageBranches) {
-                      <button mat-icon-button color="primary" (click)="openEditModal(b)" matTooltip="Edit Branch Details">
+                      <button color="primary" (click)="openEditModal(b)" matTooltip="Edit Branch Details" mat-icon-button>
                         <mat-icon>edit</mat-icon>
                       </button>
                     }
                     @if (canManageBranches && !b.isMainBranch) {
                       <button
-                        mat-icon-button
                         color="warn"
                         (click)="deleteBranch(b)"
-                        matTooltip="Delete Branch"
-                        >
+                        matTooltip="Delete Branch" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     }

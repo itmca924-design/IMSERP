@@ -61,11 +61,11 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
       </div>
     </div>
     <div class="header-actions">
-      <button mat-raised-button color="primary" class="add-btn" (click)="openCreateDialog()">
+      <button color="primary" class="add-btn" (click)="openCreateDialog()" matButton="filled">
         <mat-icon>add_circle</mat-icon>
         <span>Record Expense Voucher</span>
       </button>
-      <button mat-stroked-button color="primary" (click)="loadExpenses()" [disabled]="loading" class="refresh-btn">
+      <button color="primary" (click)="loadExpenses()" [disabled]="loading" class="refresh-btn" matButton="filled">
         <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
         <span>Refresh</span>
       </button>
@@ -120,7 +120,7 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
         <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearchInput($event)" (keyup.enter)="applyFilters()" placeholder="e.g. Electricity, Fuel, EXP-2026...">
         <mat-icon matPrefix>search</mat-icon>
         @if (searchTerm) {
-          <button mat-icon-button matSuffix (click)="clearSearch()">
+          <button matSuffix (click)="clearSearch()" mat-icon-button>
             <mat-icon>clear</mat-icon>
           </button>
         }
@@ -295,10 +295,10 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
           <th mat-header-cell *matHeaderCellDef class="text-center col-actions">ACTIONS</th>
           <td mat-cell *matCellDef="let v" class="text-center col-actions">
             <div class="action-btn-group">
-              <button mat-icon-button color="primary" matTooltip="Edit Voucher" (click)="openEditDialog(v)">
+              <button color="primary" matTooltip="Edit Voucher" (click)="openEditDialog(v)" mat-icon-button>
                 <mat-icon>edit</mat-icon>
               </button>
-              <button mat-icon-button color="warn" matTooltip="Delete Voucher" (click)="deleteVoucher(v)">
+              <button color="warn" matTooltip="Delete Voucher" (click)="deleteVoucher(v)" mat-icon-button>
                 <mat-icon>delete_outline</mat-icon>
               </button>
             </div>
@@ -320,8 +320,8 @@ import { ExpenseDialogComponent } from './expense-dialog.component';
         <h3>No Expense Vouchers Found</h3>
         <p>No expense vouchers match your active filters and search query.</p>
         <div class="empty-actions">
-          <button mat-stroked-button (click)="resetFilters()">Clear Filters</button>
-          <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <button (click)="resetFilters()" matButton="filled" class="app-button-cancel">Clear Filters</button>
+          <button color="primary" (click)="openCreateDialog()" matButton="filled">
             <mat-icon>add_circle</mat-icon>
             <span>Record New Expense</span>
           </button>

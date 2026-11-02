@@ -55,7 +55,7 @@ interface Stroke {
           <h2 mat-dialog-title class="main-title">Digital Signature Studio (डिजिटल हस्ताक्षर स्टूडियो)</h2>
           <p class="subtitle">Draw signature on screen or generate elegant calligraphic signatures in real-time.</p>
         </div>
-        <button mat-icon-button (click)="onClose()" class="close-btn" aria-label="Close dialog">
+        <button (click)="onClose()" class="close-btn" aria-label="Close dialog" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -82,7 +82,7 @@ interface Stroke {
                         [style.background]="c.hex"
                         [class.active]="currentDrawColor === c.hex"
                         (click)="setDrawColor(c.hex)"
-                        [matTooltip]="c.name">
+                        [matTooltip]="c.name" mat-icon-button>
                       </button>
                     }
                   </div>
@@ -91,18 +91,18 @@ interface Stroke {
                 <div class="toolbar-group">
                   <span class="tool-label">Stroke:</span>
                   <div class="size-buttons">
-                    <button type="button" class="size-btn" [class.active]="currentStrokeWidth === 1.8" (click)="currentStrokeWidth = 1.8">Fine</button>
-                    <button type="button" class="size-btn" [class.active]="currentStrokeWidth === 2.8" (click)="currentStrokeWidth = 2.8">Medium</button>
-                    <button type="button" class="size-btn" [class.active]="currentStrokeWidth === 4.0" (click)="currentStrokeWidth = 4.0">Bold</button>
+                    <button type="button" class="size-btn" [class.active]="currentStrokeWidth === 1.8" (click)="currentStrokeWidth = 1.8" matButton="filled">Fine</button>
+                    <button type="button" class="size-btn" [class.active]="currentStrokeWidth === 2.8" (click)="currentStrokeWidth = 2.8" matButton="filled">Medium</button>
+                    <button type="button" class="size-btn" [class.active]="currentStrokeWidth === 4.0" (click)="currentStrokeWidth = 4.0" matButton="filled">Bold</button>
                   </div>
                 </div>
     
                 <div class="toolbar-actions">
-                  <button mat-stroked-button (click)="undoStroke()" [disabled]="strokes.length === 0" class="btn-tool">
+                  <button (click)="undoStroke()" [disabled]="strokes.length === 0" class="btn-tool" matButton="filled">
                     <mat-icon>undo</mat-icon>
                     <span>Undo</span>
                   </button>
-                  <button mat-stroked-button color="warn" (click)="clearPad()" class="btn-tool">
+                  <button color="warn" (click)="clearPad()" class="btn-tool app-button-cancel" matButton="filled">
                     <mat-icon>delete_sweep</mat-icon>
                     <span>Clear</span>
                   </button>
@@ -173,7 +173,7 @@ interface Stroke {
                       [style.background]="c.hex"
                       [class.active]="typeColor === c.hex"
                       (click)="typeColor = c.hex; renderTypeSignature()"
-                      [matTooltip]="c.name">
+                      [matTooltip]="c.name" mat-icon-button>
                     </button>
                   }
                 </div>
@@ -202,10 +202,10 @@ interface Stroke {
     
       <!-- Footer Actions -->
       <div class="dialog-actions">
-        <button mat-stroked-button (click)="onClose()" [disabled]="uploading">
+        <button (click)="onClose()" [disabled]="uploading" matButton="filled" class="app-button-cancel">
           Cancel
         </button>
-        <button mat-raised-button color="primary" class="apply-btn" (click)="applyAndUpload()" [disabled]="uploading">
+        <button color="primary" class="apply-btn app-button-save" (click)="applyAndUpload()" [disabled]="uploading" matButton="filled">
           @if (!uploading) {
             <mat-icon>verified</mat-icon>
           }

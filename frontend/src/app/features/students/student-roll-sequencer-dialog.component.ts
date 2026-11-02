@@ -63,7 +63,7 @@ export interface RollSequencerDialogData {
       </div>
     </div>
     <div class="header-actions">
-      <button mat-icon-button (click)="dialogRef.close(hasAppliedChanges)" class="close-btn" matTooltip="Close">
+      <button (click)="dialogRef.close(hasAppliedChanges)" class="close-btn" matTooltip="Close" mat-icon-button>
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -81,7 +81,7 @@ export interface RollSequencerDialogData {
           type="button"
           class="scope-pill-btn"
           [class.active]="targetScope === 'school'"
-          (click)="setScope('school')">
+          (click)="setScope('school')" matButton="filled">
           <mat-icon class="pill-icon">account_balance</mat-icon>
           <span>School Classes (स्कूल कक्षाएं)</span>
         </button>
@@ -90,7 +90,7 @@ export interface RollSequencerDialogData {
           type="button"
           class="scope-pill-btn"
           [class.active]="targetScope === 'coaching'"
-          (click)="setScope('coaching')">
+          (click)="setScope('coaching')" matButton="filled">
           <mat-icon class="pill-icon">groups</mat-icon>
           <span>Coaching Batches (कोचिंग बैचेस)</span>
         </button>
@@ -197,7 +197,7 @@ export interface RollSequencerDialogData {
             placeholder="e.g. {BATCH}- or B1- or NEET26-"
             (input)="clearPreview()" />
           @if (prefix) {
-            <button matSuffix mat-icon-button (click)="prefix = ''; clearPreview()" matTooltip="Clear Prefix">
+            <button matSuffix (click)="prefix = ''; clearPreview()" matTooltip="Clear Prefix" mat-icon-button>
               <mat-icon>clear</mat-icon>
             </button>
           }
@@ -212,8 +212,7 @@ export interface RollSequencerDialogData {
                 type="button"
                 class="token-chip-btn"
                 (click)="insertToken('{BATCH}')"
-                matTooltip="Inserts dynamic Batch Name/Code into Prefix"
-                >
+                matTooltip="Inserts dynamic Batch Name/Code into Prefix" matButton="filled">
                 +&#123;BATCH&#125;
               </button>
             }
@@ -222,8 +221,7 @@ export interface RollSequencerDialogData {
                 type="button"
                 class="token-chip-btn"
                 (click)="insertToken('{CLASS}')"
-                matTooltip="Inserts dynamic Class Name into Prefix"
-                >
+                matTooltip="Inserts dynamic Class Name into Prefix" matButton="filled">
                 +&#123;CLASS&#125;
               </button>
             }
@@ -231,14 +229,14 @@ export interface RollSequencerDialogData {
               type="button"
               class="token-chip-btn"
               (click)="insertToken('{BRANCH}')"
-              matTooltip="Inserts active Branch Code into Prefix">
+              matTooltip="Inserts active Branch Code intoPrefix" matButton="filled">
               +&#123;BRANCH&#125;
             </button>
             <button
               type="button"
               class="token-chip-btn"
               (click)="insertToken('{YEAR}')"
-              matTooltip="Inserts Session Year into Prefix">
+              matTooltip="Inserts Session Year intoPrefix" matButton="filled">
               +&#123;YEAR&#125;
             </button>
           </div>
@@ -310,21 +308,19 @@ export interface RollSequencerDialogData {
       <!-- Action Buttons -->
       <div class="config-actions">
         <button
-          mat-stroked-button
           color="primary"
           class="preview-btn"
           (click)="loadPreview()"
-          [disabled]="isGenerateDisabled() || loading">
+          [disabled]="isGenerateDisabled() || loading" matButton="filled">
           <mat-icon>visibility</mat-icon>
           <span>Generate Preview (पूर्वावलोकन)</span>
         </button>
 
         <button
-          mat-raised-button
           color="primary"
-          class="apply-btn"
+          class="apply-btn app-button-save"
           (click)="applySequencing()"
-          [disabled]="!previewResult || previewResult.students.length === 0 || loading || applying">
+          [disabled]="!previewResult || previewResult.students.length === 0 || loading || applying" matButton="filled">
           <mat-icon>{{ applying ? 'hourglass_top' : 'check_circle' }}</mat-icon>
           <span>{{ applying ? 'Applying to Database...' : 'Apply & Save Roll Numbers (' + (previewResult?.students?.length || 0) + ' Students)' }}</span>
         </button>

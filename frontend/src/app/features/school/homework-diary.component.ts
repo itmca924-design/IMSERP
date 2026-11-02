@@ -174,24 +174,24 @@ export interface DailyDiaryReportHeader {
           <!-- View switcher tab for admins/teachers -->
           @if (!isStudentOrParent) {
             <div class="role-view-switch">
-              <button class="switch-pill" [class.active]="activeTab === 'teacher'" (click)="setTab('teacher')">
+              <button class="switch-pill" [class.active]="activeTab === 'teacher'" (click)="setTab('teacher')" matButton="filled">
                 <mat-icon>co_present</mat-icon>
                 <span>Teacher / Admin View</span>
               </button>
-              <button class="switch-pill" [class.active]="activeTab === 'student'" (click)="setTab('student')">
+              <button class="switch-pill" [class.active]="activeTab === 'student'" (click)="setTab('student')" matButton="filled">
                 <mat-icon>school</mat-icon>
                 <span>Student Portal View</span>
               </button>
             </div>
           }
     
-          <button mat-stroked-button class="refresh-btn" (click)="refreshCurrentView()" [disabled]="loading">
+          <button class="refresh-btn" (click)="refreshCurrentView()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
     
           @if (activeTab === 'teacher' && diarySubTab === 'worksheets') {
-            <button mat-raised-button class="create-btn" (click)="openHomeworkDialog()">
+            <button class="create-btn" (click)="openHomeworkDialog()" matButton="filled">
               <mat-icon>add_circle</mat-icon>
               <span>Assign Homework</span>
             </button>
@@ -203,7 +203,7 @@ export interface DailyDiaryReportHeader {
       @if (activeTab === 'teacher') {
         <!-- Sub-Navigation Bar: Daily Diary Sheet vs Check HW vs Analytics vs Worksheets -->
         <div class="diary-subtabs-nav notranslate" translate="no">
-          <button class="subtab-pill" [class.active]="diarySubTab === 'daily-diary'" (click)="setDiarySubTab('daily-diary')">
+          <button class="subtab-pill" [class.active]="diarySubTab === 'daily-diary'" (click)="setDiarySubTab('daily-diary')" matButton="filled">
             <div class="subtab-icon-wrap"><mat-icon>menu_book</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">Daily CW &amp; HW Diary</span>
@@ -211,7 +211,7 @@ export interface DailyDiaryReportHeader {
             </div>
             <span class="pill-badge">Daily Report</span>
           </button>
-          <button class="subtab-pill" [class.active]="diarySubTab === 'check-hw'" (click)="setDiarySubTab('check-hw')">
+          <button class="subtab-pill" [class.active]="diarySubTab === 'check-hw'" (click)="setDiarySubTab('check-hw')" matButton="filled">
             <div class="subtab-icon-wrap"><mat-icon>fact_check</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">Check H.W.</span>
@@ -219,14 +219,14 @@ export interface DailyDiaryReportHeader {
             </div>
             <span class="pill-badge">Verify Ticks</span>
           </button>
-          <button class="subtab-pill" [class.active]="diarySubTab === 'hw-analytics'" (click)="setDiarySubTab('hw-analytics')">
+          <button class="subtab-pill" [class.active]="diarySubTab === 'hw-analytics'" (click)="setDiarySubTab('hw-analytics')" matButton="filled">
             <div class="subtab-icon-wrap"><mat-icon>insights</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">H.W. Analytics</span>
               <span class="pill-desc">Student &amp; Subject Wise Defaulter Analysis</span>
             </div>
           </button>
-          <button class="subtab-pill" [class.active]="diarySubTab === 'worksheets'" (click)="setDiarySubTab('worksheets')">
+          <button class="subtab-pill" [class.active]="diarySubTab === 'worksheets'" (click)="setDiarySubTab('worksheets')" matButton="filled">
             <div class="subtab-icon-wrap"><mat-icon>assignment</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">Worksheets &amp; Copy Submissions</span>
@@ -261,7 +261,7 @@ export interface DailyDiaryReportHeader {
                 type="button"
                 class="scope-pill-btn"
                 [class.active]="diaryScope === 'school'"
-                (click)="setDiaryScope('school')">
+                (click)="setDiaryScope('school')" matButton="filled">
                 <mat-icon>school</mat-icon>
                 <span>School Classes (स्कूल कक्षाएं)</span>
               </button>
@@ -269,7 +269,7 @@ export interface DailyDiaryReportHeader {
                 type="button"
                 class="scope-pill-btn"
                 [class.active]="diaryScope === 'coaching'"
-                (click)="setDiaryScope('coaching')">
+                (click)="setDiaryScope('coaching')" matButton="filled">
                 <mat-icon>groups</mat-icon>
                 <span>Coaching Batches (कोचिंग बैचेस)</span>
               </button>
@@ -362,15 +362,15 @@ export interface DailyDiaryReportHeader {
             </mat-form-field>
           }
           <div class="dd-action-buttons">
-            <button mat-stroked-button class="quickfill-toggle-btn" (click)="commonQuickFill.isOpen = !commonQuickFill.isOpen" [disabled]="diaryScope === 'school' ? !diaryClassId : !diaryBatchId">
+            <button class="quickfill-toggle-btn" (click)="commonQuickFill.isOpen = !commonQuickFill.isOpen" [disabled]="diaryScope === 'school' ? !diaryClassId : !diaryBatchId" matButton="filled">
               <mat-icon>{{commonQuickFill.isOpen ? 'expand_less' : 'bolt'}}</mat-icon>
               <span>{{commonQuickFill.isOpen ? 'Hide Quick Fill' : 'Quick Fill Common Work'}}</span>
             </button>
-            <button mat-stroked-button class="print-report-btn" (click)="openDailyDiaryReportDialog()" [disabled]="diaryStudents.length === 0">
+            <button class="print-report-btn" (click)="openDailyDiaryReportDialog()" [disabled]="diaryStudents.length === 0" matButton="filled">
               <mat-icon>print</mat-icon>
               <span>Print / WhatsApp Report</span>
             </button>
-            <button mat-raised-button class="save-diary-btn" (click)="saveDailyDiary()" [disabled]="savingDiary || diaryStudents.length === 0">
+            <button class="save-diary-btn app-button-save" (click)="saveDailyDiary()" [disabled]="savingDiary || diaryStudents.length === 0" matButton="filled">
               @if (!savingDiary) {
                 <mat-icon>save</mat-icon>
               }
@@ -412,17 +412,15 @@ export interface DailyDiaryReportHeader {
             </div>
             <div class="qf-actions-wrap">
               <button
-                mat-stroked-button
                 type="button"
                 class="qf-ai-btn"
                 (click)="generateDiaryWithAI()"
                 [disabled]="loadingAiGeneration || (diaryScope === 'school' ? !diaryClassId : !diaryBatchId)"
-                matTooltip="Agentic AI analyzes curriculum & class level to auto-fill today's C.W. & H.W. in 1 click"
-                >
+                matTooltip="Agentic AI analyzes curriculum & class level to auto-fill today's C.W. & H.W. in 1 click" matButton="filled">
                 <mat-icon class="ai-spark-icon">{{ loadingAiGeneration ? 'sync' : 'auto_awesome' }}</mat-icon>
                 <span>{{ loadingAiGeneration ? 'AI Generating...' : '✨ AI Auto-Fill Diary' }}</span>
               </button>
-              <button mat-flat-button class="apply-all-btn" [class.student-mode]="!!selectedDiaryStudent" (click)="applyCommonToAllPresent()" [disabled]="diaryStudents.length === 0">
+              <button class="apply-all-btn" [class.student-mode]="!!selectedDiaryStudent" (click)="applyCommonToAllPresent()" [disabled]="diaryStudents.length === 0" matButton="filled">
                 <mat-icon>{{selectedDiaryStudent ? 'person_add' : 'done_all'}}</mat-icon>
                 @if (!selectedDiaryStudent) {
                   <span>Apply to All Present ({{diaryEligibleForWorkCount}})</span>
@@ -432,7 +430,7 @@ export interface DailyDiaryReportHeader {
                 }
               </button>
               @if (selectedDiaryStudent) {
-                <button mat-stroked-button class="qf-switch-all-btn" (click)="selectedDiaryStudentId = ''">
+                <button class="qf-switch-all-btn" (click)="selectedDiaryStudentId = ''" matButton="filled">
                   <mat-icon>groups</mat-icon>
                   <span>Show All Class</span>
                 </button>
@@ -447,7 +445,7 @@ export interface DailyDiaryReportHeader {
                   <mat-icon>edit_note</mat-icon>
                   <span>CLASS WORK (C.W.)</span>
                 </div>
-                <button mat-button class="qf-add-btn" (click)="addSubjectTask(commonQuickFill.classWork)">
+                <button class="qf-add-btn" (click)="addSubjectTask(commonQuickFill.classWork)" matButton="filled">
                   <mat-icon>add</mat-icon> Add Subject
                 </button>
               </div>
@@ -477,7 +475,7 @@ export interface DailyDiaryReportHeader {
                             translate="no"
                             [class.active]="isHindiActive(item)"
                             (click)="toggleHindiMode(item)"
-                            [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
+                            [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'" matButton="filled">
                             <span class="notranslate" translate="no">{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
                           </button>
                           @if (isHindiActive(item) && hasEnglish(item.task)) {
@@ -485,7 +483,7 @@ export interface DailyDiaryReportHeader {
                               type="button"
                               class="convert-pill"
                               (click)="convertTaskToHindi(item)"
-                              matTooltip="Convert typed English text into Hindi (हिन्दी में बदलें)">
+                              matTooltip="Convert typed English text into Hindi (हिन्दी मेंबदलें)" matButton="filled">
                               <mat-icon>translate</mat-icon>
                               <span>बदलें</span>
                             </button>
@@ -493,7 +491,7 @@ export interface DailyDiaryReportHeader {
                         </div>
                       </div>
                       @if (commonQuickFill.classWork.length > 1) {
-                        <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.classWork, i)">
+                        <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.classWork, i)" mat-icon-button>
                           <mat-icon>close</mat-icon>
                         </button>
                       }
@@ -504,7 +502,7 @@ export interface DailyDiaryReportHeader {
                         <span class="preset-label">⚡ त्वरित कार्य:</span>
                         <div class="preset-chips-scroll">
                           @for (preset of hindiPresets; track preset) {
-                            <button type="button" class="preset-chip" (click)="applyHindiPreset(item, preset)">
+                            <button type="button" class="preset-chip" (click)="applyHindiPreset(item, preset)" matButton="filled">
                               {{preset}}
                             </button>
                           }
@@ -522,7 +520,7 @@ export interface DailyDiaryReportHeader {
                   <mat-icon>home</mat-icon>
                   <span>HOME WORK (H.W.)</span>
                 </div>
-                <button mat-button class="qf-add-btn" (click)="addSubjectTask(commonQuickFill.homeWork)">
+                <button class="qf-add-btn" (click)="addSubjectTask(commonQuickFill.homeWork)" matButton="filled">
                   <mat-icon>add</mat-icon> Add Subject
                 </button>
               </div>
@@ -552,7 +550,7 @@ export interface DailyDiaryReportHeader {
                             translate="no"
                             [class.active]="isHindiActive(item)"
                             (click)="toggleHindiMode(item)"
-                            [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
+                            [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'" matButton="filled">
                             <span class="notranslate" translate="no">{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
                           </button>
                           @if (isHindiActive(item) && hasEnglish(item.task)) {
@@ -560,7 +558,7 @@ export interface DailyDiaryReportHeader {
                               type="button"
                               class="convert-pill"
                               (click)="convertTaskToHindi(item)"
-                              matTooltip="Convert typed English text into Hindi (हिन्दी में बदलें)">
+                              matTooltip="Convert typed English text into Hindi (हिन्दी मेंबदलें)" matButton="filled">
                               <mat-icon>translate</mat-icon>
                               <span>बदलें</span>
                             </button>
@@ -568,7 +566,7 @@ export interface DailyDiaryReportHeader {
                         </div>
                       </div>
                       @if (commonQuickFill.homeWork.length > 1) {
-                        <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.homeWork, i)">
+                        <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.homeWork, i)" mat-icon-button>
                           <mat-icon>close</mat-icon>
                         </button>
                       }
@@ -579,7 +577,7 @@ export interface DailyDiaryReportHeader {
                         <span class="preset-label">⚡ त्वरित कार्य:</span>
                         <div class="preset-chips-scroll">
                           @for (preset of hindiPresets; track preset) {
-                            <button type="button" class="preset-chip" (click)="applyHindiPreset(item, preset)">
+                            <button type="button" class="preset-chip" (click)="applyHindiPreset(item, preset)" matButton="filled">
                               {{preset}}
                             </button>
                           }
@@ -639,15 +637,15 @@ export interface DailyDiaryReportHeader {
                     <span>(Roll: {{selectedDiaryStudent.rollNumber}})</span>
                   }
                 </span>
-                <button mat-button class="view-all-pill-btn" (click)="selectedDiaryStudentId = ''">
+                <button class="view-all-pill-btn" (click)="selectedDiaryStudentId = ''" matButton="filled">
                   <mat-icon>groups</mat-icon>
                   <span>View All Class ({{diaryStudents.length}})</span>
                 </button>
                 <div class="student-stepper-btns">
-                  <button mat-button class="step-student-btn" (click)="prevDiaryStudent()" [disabled]="!canPrevStudent" matTooltip="Previous Student">
+                  <button class="step-student-btn" (click)="prevDiaryStudent()" [disabled]="!canPrevStudent" matTooltip="Previous Student" matButton="filled">
                     <mat-icon>chevron_left</mat-icon> Prev
                   </button>
-                  <button mat-button class="step-student-btn" (click)="nextDiaryStudent()" [disabled]="!canNextStudent" matTooltip="Next Student">
+                  <button class="step-student-btn" (click)="nextDiaryStudent()" [disabled]="!canNextStudent" matTooltip="Next Student" matButton="filled">
                     Next <mat-icon>chevron_right</mat-icon>
                   </button>
                 </div>
@@ -682,10 +680,10 @@ export interface DailyDiaryReportHeader {
                       <div class="student-info-header">
                         <div class="student-name-text">{{s.studentName}}</div>
                         <div class="student-actions-cluster">
-                          <button type="button" class="st-main-wa-btn" (click)="sendStudentWhatsAppFromMain(s)" [matTooltip]="'Open WhatsApp for ' + s.studentName">
+                          <button type="button" class="st-main-wa-btn" (click)="sendStudentWhatsAppFromMain(s)" [matTooltip]="'Open WhatsApp for ' + s.studentName" mat-icon-button>
                             <mat-icon>chat</mat-icon>
                           </button>
-                          <button mat-icon-button class="student-action-dots-btn" [matMenuTriggerFor]="studentActionMenu" matTooltip="Student actions">
+                          <button class="student-action-dots-btn" [matMenuTriggerFor]="studentActionMenu" matTooltip="Student actions" mat-icon-button>
                             <mat-icon>more_vert</mat-icon>
                           </button>
                         </div>
@@ -792,7 +790,7 @@ export interface DailyDiaryReportHeader {
                                     translate="no"
                                     [class.active]="isHindiActive(cw)"
                                     (click)="toggleHindiMode(cw)"
-                                    [matTooltip]="isHindiActive(cw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
+                                    [matTooltip]="isHindiActive(cw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'" matButton="filled">
                                     <span class="notranslate" translate="no">{{isHindiActive(cw) ? '🇮🇳' : 'EN'}}</span>
                                   </button>
                                   @if (isHindiActive(cw) && hasEnglish(cw.task)) {
@@ -800,7 +798,7 @@ export interface DailyDiaryReportHeader {
                                       type="button"
                                       class="row-convert-pill"
                                       (click)="convertTaskToHindi(cw)"
-                                      matTooltip="Convert to Hindi (हिन्दी में बदलें)">
+                                      matTooltip="Convert to Hindi (हिन्दी मेंबदलें)" matButton="filled">
                                       अ
                                     </button>
                                   }
@@ -812,7 +810,7 @@ export interface DailyDiaryReportHeader {
                                   [class.has-note]="cw.statusRemark"
                                   [ngClass]="getCwNoteBadgeClass(cw.statusRemark)"
                                   [matMenuTriggerFor]="cwRowNoteMenu"
-                                  matTooltip="Click to set subject-wise C.W. note (Checked, Remember, etc.)">
+                                  matTooltip="Click to set subject-wise C.W. note (Checked, Remember, etc.)" matButton="filled">
                                   <span class="note-btn-label">{{ cw.statusRemark || '+ Note' }}</span>
                                   <mat-icon class="note-btn-caret">arrow_drop_down</mat-icon>
                                 </button>
@@ -847,21 +845,21 @@ export interface DailyDiaryReportHeader {
                                     </button>
                                   }
                                 </mat-menu>
-                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.classWork, cIdx)">
+                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.classWork, cIdx)" mat-icon-button>
                                   <mat-icon>close</mat-icon>
                                 </button>
                               </div>
                               @if (isHindiActive(cw) && !cw.task) {
                                 <div class="row-mini-presets">
                                   @for (p of hindiMiniPresets; track p) {
-                                    <button type="button" class="mini-chip" (click)="applyHindiPreset(cw, p)">{{p}}</button>
+                                    <button type="button" class="mini-chip" (click)="applyHindiPreset(cw, p)" matButton="filled">{{p}}</button>
                                   }
                                 </div>
                               }
                             </div>
                           }
                         </div>
-                        <button type="button" class="add-sub-link-btn" (click)="addSubjectTask(s.classWork)">
+                        <button type="button" class="add-sub-link-btn" (click)="addSubjectTask(s.classWork)" matButton="filled">
                           <mat-icon>add</mat-icon>
                           <span>Add Subject</span>
                         </button>
@@ -894,7 +892,7 @@ export interface DailyDiaryReportHeader {
                                     translate="no"
                                     [class.active]="isHindiActive(hw)"
                                     (click)="toggleHindiMode(hw)"
-                                    [matTooltip]="isHindiActive(hw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
+                                    [matTooltip]="isHindiActive(hw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'" matButton="filled">
                                     <span class="notranslate" translate="no">{{isHindiActive(hw) ? '🇮🇳' : 'EN'}}</span>
                                   </button>
                                   @if (isHindiActive(hw) && hasEnglish(hw.task)) {
@@ -902,12 +900,12 @@ export interface DailyDiaryReportHeader {
                                       type="button"
                                       class="row-convert-pill"
                                       (click)="convertTaskToHindi(hw)"
-                                      matTooltip="Convert to Hindi (हिन्दी में बदलें)">
+                                      matTooltip="Convert to Hindi (हिन्दी मेंबदलें)" matButton="filled">
                                       अ
                                     </button>
                                   }
                                 </div>
-                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.homeWork, hIdx)">
+                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.homeWork, hIdx)" mat-icon-button>
                                   <mat-icon>close</mat-icon>
                                 </button>
                               </div>
@@ -919,14 +917,14 @@ export interface DailyDiaryReportHeader {
                               @if (isHindiActive(hw) && !hw.task) {
                                 <div class="row-mini-presets">
                                   @for (p of hindiMiniPresets; track p) {
-                                    <button type="button" class="mini-chip" (click)="applyHindiPreset(hw, p)">{{p}}</button>
+                                    <button type="button" class="mini-chip" (click)="applyHindiPreset(hw, p)" matButton="filled">{{p}}</button>
                                   }
                                 </div>
                               }
                             </div>
                           }
                         </div>
-                        <button type="button" class="add-sub-link-btn" (click)="addSubjectTask(s.homeWork)">
+                        <button type="button" class="add-sub-link-btn" (click)="addSubjectTask(s.homeWork)" matButton="filled">
                           <mat-icon>add</mat-icon>
                           <span>Add Subject</span>
                         </button>
@@ -964,11 +962,11 @@ export interface DailyDiaryReportHeader {
               }
             </div>
             <div class="bottom-right-actions">
-              <button mat-stroked-button class="print-report-btn" (click)="openDailyDiaryReportDialog()">
+              <button class="print-report-btn" (click)="openDailyDiaryReportDialog()" matButton="filled">
                 <mat-icon>print</mat-icon>
                 <span>Print / WhatsApp Report</span>
               </button>
-              <button mat-raised-button class="save-diary-btn" (click)="saveDailyDiary()" [disabled]="savingDiary">
+              <button class="save-diary-btn app-button-save" (click)="saveDailyDiary()" [disabled]="savingDiary" matButton="filled">
                 @if (!savingDiary) {
                   <mat-icon>save</mat-icon>
                 }
@@ -1050,7 +1048,7 @@ export interface DailyDiaryReportHeader {
             type="button"
             class="scope-pill-btn"
             [class.active]="worksheetScope === 'school'"
-            (click)="setWorksheetScope('school')">
+            (click)="setWorksheetScope('school')" matButton="filled">
             <mat-icon>school</mat-icon>
             <span>School Classes (स्कूल कक्षाएं)</span>
           </button>
@@ -1058,7 +1056,7 @@ export interface DailyDiaryReportHeader {
             type="button"
             class="scope-pill-btn"
             [class.active]="worksheetScope === 'coaching'"
-            (click)="setWorksheetScope('coaching')">
+            (click)="setWorksheetScope('coaching')" matButton="filled">
             <mat-icon>groups</mat-icon>
             <span>Coaching Batches (कोचिंग बैचेस)</span>
           </button>
@@ -1132,10 +1130,10 @@ export interface DailyDiaryReportHeader {
             <input matInput [(ngModel)]="searchTerm" placeholder="Search..." (keyup.enter)="loadHomework()">
           </mat-form-field>
           <div class="view-toggle">
-            <button mat-icon-button [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Grid View">
+            <button [class.active-view]="viewMode==='grid'" (click)="viewMode='grid'" matTooltip="Grid View" mat-icon-button>
               <mat-icon>grid_view</mat-icon>
             </button>
-            <button mat-icon-button [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table View">
+            <button [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table View" mat-icon-button>
               <mat-icon>format_list_bulleted</mat-icon>
             </button>
           </div>
@@ -1147,7 +1145,7 @@ export interface DailyDiaryReportHeader {
           <div class="empty-icon-wrap"><mat-icon>menu_book</mat-icon></div>
           <h3>No Homework Assigned</h3>
           <p>No homework tasks found matching the selected filters. Click "Assign Homework" to post a new worksheet or assignment.</p>
-          <button mat-raised-button class="create-btn" (click)="openHomeworkDialog()">
+          <button class="create-btn" (click)="openHomeworkDialog()" matButton="filled">
             <mat-icon>add</mat-icon> Assign First Homework
           </button>
         </div>
@@ -1218,20 +1216,20 @@ export interface DailyDiaryReportHeader {
                 </div>
               </div>
               <div class="hw-actions-bar">
-                <button mat-stroked-button class="view-submissions-btn" (click)="openSubmissionsRoster(h)" matTooltip="Review Student Solutions">
+                <button class="view-submissions-btn" (click)="openSubmissionsRoster(h)" matTooltip="Review Student Solutions" matButton="filled">
                   <mat-icon>fact_check</mat-icon>
                   <span>Review ({{h.totalSubmissions || 0}})</span>
                 </button>
                 <div class="action-btns-right">
-                  <button mat-icon-button (click)="openHomeworkDialog(h)" matTooltip="Edit Assignment">
+                  <button (click)="openHomeworkDialog(h)" matTooltip="Edit Assignment" mat-icon-button>
                     <mat-icon class="action-ic edit">edit</mat-icon>
                   </button>
-                  <button mat-icon-button (click)="toggleComplete(h)" [matTooltip]="h.status==='Completed'?'Mark Active':'Mark Complete'">
+                  <button (click)="toggleComplete(h)" [matTooltip]="h.status==='Completed'?'Mark Active':'Mark Complete'" mat-icon-button>
                     <mat-icon class="action-ic complete" [class.done]="h.status==='Completed'">
                       {{h.status==='Completed' ? 'check_circle' : 'check_circle_outline'}}
                     </mat-icon>
                   </button>
-                  <button mat-icon-button (click)="deleteHomework(h)" matTooltip="Delete">
+                  <button (click)="deleteHomework(h)" matTooltip="Delete" mat-icon-button>
                     <mat-icon class="action-ic delete">delete</mat-icon>
                   </button>
                 </div>
@@ -1292,7 +1290,7 @@ export interface DailyDiaryReportHeader {
                   }
                 </td>
                 <td>
-                  <button mat-stroked-button class="tbl-submissions-btn" (click)="openSubmissionsRoster(h)">
+                  <button class="tbl-submissions-btn" (click)="openSubmissionsRoster(h)" matButton="filled">
                     <mat-icon>how_to_reg</mat-icon>
                     <span>{{h.totalSubmissions || 0}} Submissions</span>
                   </button>
@@ -1306,13 +1304,13 @@ export interface DailyDiaryReportHeader {
                 </td>
                 <td>
                   <div class="tbl-actions">
-                    <button mat-icon-button (click)="openHomeworkDialog(h)" matTooltip="Edit">
+                    <button (click)="openHomeworkDialog(h)" matTooltip="Edit" mat-icon-button>
                       <mat-icon class="action-ic edit">edit</mat-icon>
                     </button>
-                    <button mat-icon-button (click)="toggleComplete(h)" matTooltip="Toggle Status">
+                    <button (click)="toggleComplete(h)" matTooltip="Toggle Status" mat-icon-button>
                       <mat-icon class="action-ic complete">{{h.status==='Completed'?'check_circle':'check_circle_outline'}}</mat-icon>
                     </button>
-                    <button mat-icon-button (click)="deleteHomework(h)" matTooltip="Delete">
+                    <button (click)="deleteHomework(h)" matTooltip="Delete" mat-icon-button>
                       <mat-icon class="action-ic delete">delete</mat-icon>
                     </button>
                   </div>
@@ -1344,11 +1342,11 @@ export interface DailyDiaryReportHeader {
               <span>Student Preview:</span>
             </div>
             <div class="scope-pills" style="background:#dbeafe;padding:3px;border-radius:8px;display:inline-flex;gap:3px;">
-              <button type="button" class="scope-pill-btn" [class.active]="previewScope === 'school'" (click)="setPreviewScope('school')" style="padding:4px 10px;font-size:12px;">
+              <button type="button" class="scope-pill-btn" [class.active]="previewScope === 'school'" (click)="setPreviewScope('school')" style="padding:4px 10px;font-size:12px;" matButton="filled">
                 <mat-icon style="font-size:15px;width:15px;height:15px;">domain</mat-icon>
                 <span>School</span>
               </button>
-              <button type="button" class="scope-pill-btn" [class.active]="previewScope === 'coaching'" (click)="setPreviewScope('coaching')" style="padding:4px 10px;font-size:12px;">
+              <button type="button" class="scope-pill-btn" [class.active]="previewScope === 'coaching'" (click)="setPreviewScope('coaching')" style="padding:4px 10px;font-size:12px;" matButton="filled">
                 <mat-icon style="font-size:15px;width:15px;height:15px;">groups</mat-icon>
                 <span>Coaching</span>
               </button>
@@ -1425,15 +1423,15 @@ export interface DailyDiaryReportHeader {
     @if (studentHomeworks.length > 0) {
       <div class="student-tabs-bar">
         <div class="filter-pills">
-          <button class="filter-tab-pill" [class.active]="studentFilterStatus === 'all'" (click)="studentFilterStatus = 'all'">
+          <button class="filter-tab-pill" [class.active]="studentFilterStatus === 'all'" (click)="studentFilterStatus = 'all'" matButton="filled">
             <mat-icon>assignment</mat-icon>
             <span>All Homework ({{studentHomeworks.length}})</span>
           </button>
-          <button class="filter-tab-pill pending" [class.active]="studentFilterStatus === 'pending'" (click)="studentFilterStatus = 'pending'">
+          <button class="filter-tab-pill pending" [class.active]="studentFilterStatus === 'pending'" (click)="studentFilterStatus = 'pending'" matButton="filled">
             <mat-icon>pending_actions</mat-icon>
             <span>Pending Submission ({{pendingHomeworkCount}})</span>
           </button>
-          <button class="filter-tab-pill submitted" [class.active]="studentFilterStatus === 'submitted'" (click)="studentFilterStatus = 'submitted'">
+          <button class="filter-tab-pill submitted" [class.active]="studentFilterStatus === 'submitted'" (click)="studentFilterStatus = 'submitted'" matButton="filled">
             <mat-icon>check_circle</mat-icon>
             <span>Submitted ({{submittedHomeworkCount}})</span>
           </button>
@@ -1540,7 +1538,7 @@ export interface DailyDiaryReportHeader {
                 <span class="due-val" [appIstDatetime]="sh.dueDate"></span>
               </div>
               <div class="student-action">
-                <button mat-raised-button class="submit-solution-btn" (click)="openStudentSubmitDialog(sh)">
+                <button class="submit-solution-btn" (click)="openStudentSubmitDialog(sh)" matButton="filled" [class.app-button-update]="sh.isSubmitted" [class.app-button-save]="!(sh.isSubmitted)">
                   <mat-icon>{{sh.isSubmitted ? 'edit' : 'upload_file'}}</mat-icon>
                   <span>{{sh.isSubmitted ? 'Re-upload / Update Solution' : 'Upload & Submit Solution'}}</span>
                 </button>
@@ -5374,7 +5372,7 @@ export class HomeworkDiaryComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn">
+        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -5389,7 +5387,7 @@ export class HomeworkDiaryComponent implements OnInit {
                 type="button"
                 class="scope-pill-btn"
                 [class.active]="targetScope === 'school'"
-                (click)="targetScope = 'school'">
+                (click)="targetScope = 'school'" matButton="filled">
                 <mat-icon>school</mat-icon>
                 <span>School Class</span>
               </button>
@@ -5397,7 +5395,7 @@ export class HomeworkDiaryComponent implements OnInit {
                 type="button"
                 class="scope-pill-btn"
                 [class.active]="targetScope === 'coaching'"
-                (click)="targetScope = 'coaching'">
+                (click)="targetScope = 'coaching'" matButton="filled">
                 <mat-icon>groups</mat-icon>
                 <span>Coaching Batch</span>
               </button>
@@ -5550,7 +5548,7 @@ export class HomeworkDiaryComponent implements OnInit {
       @if (!model.attachmentUrl) {
         <div class="upload-box">
           <input type="file" #fileInput (change)="onFileSelected($event)" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none" />
-          <button mat-stroked-button type="button" class="choose-file-btn" (click)="fileInput.click()" [disabled]="uploading">
+          <button type="button" class="choose-file-btn" (click)="fileInput.click()" [disabled]="uploading" matButton="filled">
             <mat-icon>upload_file</mat-icon>
             <span>{{uploading ? 'Uploading File...' : 'Choose Worksheet / File'}}</span>
           </button>
@@ -5567,7 +5565,7 @@ export class HomeworkDiaryComponent implements OnInit {
               Preview Attached File <mat-icon>open_in_new</mat-icon>
             </a>
           </div>
-          <button mat-icon-button type="button" (click)="removeAttachment()" matTooltip="Remove File" class="remove-btn">
+          <button type="button" (click)="removeAttachment()" matTooltip="Remove File" class="remove-btn" mat-icon-button>
             <mat-icon>delete_outline</mat-icon>
           </button>
         </div>
@@ -5581,8 +5579,8 @@ export class HomeworkDiaryComponent implements OnInit {
     
     <!-- Footer -->
     <div class="modal-footer">
-      <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
-      <button mat-raised-button class="save-btn" (click)="saveHomework()" [disabled]="saving || !model.title || !model.description || uploading">
+      <button (click)="dialogRef.close(false)" class="cancel-btn app-button-cancel" matButton="filled">Cancel</button>
+      <button class="save-btn" (click)="saveHomework()" [disabled]="saving || !model.title || !model.description || uploading" matButton="filled" [class.app-button-update]="isEdit" [class.app-button-save]="!(isEdit)">
         <mat-icon>{{isEdit ? 'save' : 'send'}}</mat-icon>
         <span>{{isEdit ? 'Save Changes' : 'Assign Homework'}}</span>
       </button>
@@ -6021,7 +6019,7 @@ export class HomeworkFormDialogComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn">
+        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -6047,9 +6045,9 @@ export class HomeworkFormDialogComponent implements OnInit {
     
         <!-- Filter Toggle -->
         <div class="filter-toggle">
-          <button class="toggle-btn" [class.active]="filterRoster==='all'" (click)="filterRoster='all'">All ({{roster.length}})</button>
-          <button class="toggle-btn" [class.active]="filterRoster==='submitted'" (click)="filterRoster='submitted'">Submitted ({{submittedCount}})</button>
-          <button class="toggle-btn" [class.active]="filterRoster==='pending'" (click)="filterRoster='pending'">Pending ({{roster.length - submittedCount}})</button>
+          <button class="toggle-btn" [class.active]="filterRoster==='all'" (click)="filterRoster='all'" matButton="filled">All ({{roster.length}})</button>
+          <button class="toggle-btn" [class.active]="filterRoster==='submitted'" (click)="filterRoster='submitted'" matButton="filled">Submitted ({{submittedCount}})</button>
+          <button class="toggle-btn" [class.active]="filterRoster==='pending'" (click)="filterRoster='pending'" matButton="filled">Pending ({{roster.length - submittedCount}})</button>
         </div>
       </div>
     
@@ -6115,7 +6113,7 @@ export class HomeworkFormDialogComponent implements OnInit {
               <!-- Review / Grading Action Button -->
               @if (item.hasSubmitted && item.submission) {
                 <div>
-                  <button mat-stroked-button class="review-btn" (click)="toggleReviewForm(item)">
+                  <button class="review-btn" (click)="toggleReviewForm(item)" matButton="filled" [class.app-button-update]="item.submission.reviewedAt">
                     <mat-icon>rate_review</mat-icon>
                     <span>{{item.submission.reviewedAt ? 'Update Grade' : 'Grade & Review'}}</span>
                   </button>
@@ -6142,7 +6140,7 @@ export class HomeworkFormDialogComponent implements OnInit {
                     <mat-label>Teacher Remarks / Feedback</mat-label>
                     <input matInput [(ngModel)]="reviewModels[item.studentId].teacherRemarks" placeholder="e.g. Well done! Neat work, check question 3 formula." />
                   </mat-form-field>
-                  <button mat-raised-button class="save-review-btn" (click)="submitReview(item)" [disabled]="reviewSaving">
+                  <button class="save-review-btn app-button-save" (click)="submitReview(item)" [disabled]="reviewSaving" matButton="filled">
                     <mat-icon>check</mat-icon>
                     <span>Save Grade</span>
                   </button>
@@ -6154,7 +6152,7 @@ export class HomeworkFormDialogComponent implements OnInit {
       </div>
     
       <div class="modal-footer">
-        <button mat-button (click)="dialogRef.close(false)" class="close-modal-btn">Done</button>
+        <button (click)="dialogRef.close(false)" class="close-modal-btn" matButton="filled">Done</button>
       </div>
     </div>
     `,
@@ -6354,7 +6352,7 @@ export class HomeworkSubmissionsDialogComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn">
+        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -6377,7 +6375,7 @@ export class HomeworkSubmissionsDialogComponent implements OnInit {
               <mat-icon class="drop-icon">cloud_upload</mat-icon>
               <div class="drop-title">Select or Take Photo of Your Completed Copy</div>
               <div class="drop-sub">PDF, PNG, JPG, or DOC (Max: 30 MB)</div>
-              <button mat-raised-button type="button" class="choose-sol-btn" (click)="solFileInput.click()" [disabled]="uploading">
+              <button type="button" class="choose-sol-btn" (click)="solFileInput.click()" [disabled]="uploading" matButton="filled">
                 <mat-icon>attach_file</mat-icon>
                 <span>{{uploading ? 'Uploading Copy...' : 'Choose / Take Photo'}}</span>
               </button>
@@ -6393,7 +6391,7 @@ export class HomeworkSubmissionsDialogComponent implements OnInit {
                   Verify Uploaded File <mat-icon>open_in_new</mat-icon>
                 </a>
               </div>
-              <button mat-icon-button (click)="removeFile()" matTooltip="Change File" class="remove-btn">
+              <button (click)="removeFile()" matTooltip="Change File" class="remove-btn" mat-icon-button>
                 <mat-icon>delete_outline</mat-icon>
               </button>
             </div>
@@ -6411,8 +6409,8 @@ export class HomeworkSubmissionsDialogComponent implements OnInit {
       </div>
     
       <div class="modal-footer">
-        <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
-        <button mat-raised-button class="submit-btn" (click)="submitHomework()" [disabled]="submitting || !submissionFileUrl || uploading">
+        <button (click)="dialogRef.close(false)" class="cancel-btn app-button-cancel" matButton="filled">Cancel</button>
+        <button class="submit-btn" (click)="submitHomework()" [disabled]="submitting || !submissionFileUrl || uploading" matButton="filled">
           <mat-icon>send</mat-icon>
           <span>{{homework.isSubmitted ? 'Re-submit Solution' : 'Submit Homework'}}</span>
         </button>
@@ -6598,7 +6596,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
           <!-- Top-Right Primary Action Buttons -->
           <div class="header-primary-actions">
             <!-- 1-Click Automated Send to All Parents -->
-            <button mat-flat-button class="auto-wa-parents-btn" (click)="sendAutomatedWhatsAppToAllParents()" [disabled]="sendingWhatsApp || rows.length === 0" matTooltip="Automatically dispatch personalized daily diary to all parents via WhatsApp">
+            <button class="auto-wa-parents-btn" (click)="sendAutomatedWhatsAppToAllParents()" [disabled]="sendingWhatsApp || rows.length === 0" matTooltip="Automatically dispatch personalized daily diary to all parents via WhatsApp" matButton="filled">
               @if (!sendingWhatsApp) {
                 <mat-icon>bolt</mat-icon>
               }
@@ -6609,13 +6607,13 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
             </button>
     
             <!-- 1-Click Direct WhatsApp Share to Class Group -->
-            <button mat-flat-button class="group-wa-btn" (click)="shareToClassGroupWhatsApp()" matTooltip="Directly open WhatsApp to share summary with class group">
+            <button class="group-wa-btn" (click)="shareToClassGroupWhatsApp()" matTooltip="Directly open WhatsApp to share summary with class group" matButton="filled">
               <mat-icon>send</mat-icon>
               <span>📲 Send to Group</span>
             </button>
     
             <!-- 1-Click Send to Individual Student via WhatsApp -->
-            <button mat-flat-button class="individual-wa-header-btn" [matMenuTriggerFor]="individualStudentSendMenu" matTooltip="Open WhatsApp for individual student parent">
+            <button class="individual-wa-header-btn" [matMenuTriggerFor]="individualStudentSendMenu" matTooltip="Open WhatsApp for individual student parent" matButton="filled">
               <mat-icon>chat</mat-icon>
               <span>💬 Send Individual</span>
               <mat-icon class="drop-arrow-icon">arrow_drop_down</mat-icon>
@@ -6641,13 +6639,13 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
           </mat-menu>
     
           <!-- Print Report A4 -->
-          <button mat-flat-button class="print-action-btn" (click)="printReport()" matTooltip="A4 Printable Landscape Sheet">
+          <button class="print-action-btn" (click)="printReport()" matTooltip="A4 Printable Landscape Sheet" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print (A4)</span>
           </button>
     
           <!-- Close Dialog -->
-          <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
+          <button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -6658,10 +6656,10 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         <div class="sub-toolbar-left">
           <!-- Previous H.W. Included Toggle Pill -->
           @if (reportHeader?.previousHw && reportHeader!.previousHw!.length > 0) {
-            <button mat-stroked-button class="toggle-prev-hw-btn"
+            <button class="toggle-prev-hw-btn"
               [class.active]="includePreviousHw"
               (click)="includePreviousHw = !includePreviousHw"
-              matTooltip="Click to include or exclude previous day homework verification from print and WhatsApp">
+              matTooltip="Click to include or exclude previous day homework verification from print and WhatsApp" matButton="filled">
               <mat-icon>{{ includePreviousHw ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
               <span>Previous H.W. ({{ includePreviousHw ? 'Included' : 'Excluded' }})</span>
             </button>
@@ -6676,12 +6674,12 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
     
         <div class="sub-toolbar-right">
           <span class="manual-copy-label">Manual Copy:</span>
-          <button mat-stroked-button class="copy-pill-btn" (click)="copyClassSummaryWhatsApp()" matTooltip="Copy compact Class Summary">
+          <button class="copy-pill-btn" (click)="copyClassSummaryWhatsApp()" matTooltip="Copy compact Class Summary" matButton="filled">
             <mat-icon>forum</mat-icon>
             <span>Copy Group</span>
           </button>
     
-          <button mat-stroked-button class="copy-pill-btn" (click)="copyWhatsAppText()" matTooltip="Copy full student-by-student diary">
+          <button class="copy-pill-btn" (click)="copyWhatsAppText()" matTooltip="Copy full student-by-student diary" matButton="filled">
             <mat-icon>format_list_numbered</mat-icon>
             <span>Copy Student-wise</span>
           </button>
@@ -6752,7 +6750,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                   @if (row.rollNumber) {
                     <span class="sub-roll">Roll: {{row.rollNumber}}</span>
                   }
-                  <button type="button" class="row-wa-badge-btn hide-on-print" (click)="sendIndividualStudentWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName">
+                  <button type="button" class="row-wa-badge-btn hide-on-print" (click)="sendIndividualStudentWhatsApp(row)" [matTooltip]="'Open WhatsApp for ' + row.studentName" matButton="filled">
                     <mat-icon>chat</mat-icon>
                     <span>WhatsApp</span>
                   </button>
@@ -8755,7 +8753,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             </div>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)">
+        <button class="close-btn" (click)="dialogRef.close()" matTooltip="Close (Esc)" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -8765,7 +8763,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
           <span class="preset-title">⚡ Quick Presets:</span>
           <div class="preset-chips">
             @for (p of quickPresets; track p) {
-              <button type="button" class="preset-chip" (click)="applyPreset(p)">
+              <button type="button" class="preset-chip" (click)="applyPreset(p)" matButton="filled">
                 {{ p }}
               </button>
             }
@@ -8790,13 +8788,13 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     
       <div class="dialog-actions">
         @if (remarkText) {
-          <button mat-button class="clear-btn" (click)="remarkText = ''">
+          <button class="clear-btn" (click)="remarkText = ''" matButton="filled">
             <mat-icon>backspace</mat-icon> Clear Note
           </button>
         }
         <span class="spacer"></span>
-        <button mat-stroked-button (click)="dialogRef.close()">Cancel</button>
-        <button mat-raised-button class="save-btn" (click)="save()">
+        <button (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button class="save-btn app-button-save" (click)="save()" matButton="filled">
           <mat-icon>check</mat-icon> Save Remark
         </button>
       </div>

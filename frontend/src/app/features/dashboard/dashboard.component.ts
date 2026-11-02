@@ -196,7 +196,7 @@ import ApexCharts from 'apexcharts';
               </div>
             </div>
             <div class="hero-actions">
-              <a mat-raised-button color="primary" class="hero-action-btn" routerLink="/students/my-profile">
+              <a matButton="filled" color="primary" class="hero-action-btn" routerLink="/students/my-profile">
                 <mat-icon>workspace_premium</mat-icon>
                 <span>My 360° Profile &amp; Wall of Fame</span>
               </a>
@@ -265,7 +265,7 @@ import ApexCharts from 'apexcharts';
                     <p class="widget-sub">Teacher assignments and submissions</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/school/homework" class="hub-link-btn">
+                <a matButton="filled" color="primary" routerLink="/school/homework" class="hub-link-btn">
                   <span>View All</span>
                   <mat-icon>arrow_forward</mat-icon>
                 </a>
@@ -315,7 +315,7 @@ import ApexCharts from 'apexcharts';
                     <p class="widget-sub">Tests scheduled for your classroom</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/school/exams" class="hub-link-btn">
+                <a matButton="filled" color="primary" routerLink="/school/exams" class="hub-link-btn">
                   <span>Exam Desk</span>
                   <mat-icon>arrow_forward</mat-icon>
                 </a>
@@ -420,7 +420,7 @@ import ApexCharts from 'apexcharts';
                     <p class="widget-sub">School administration announcements</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/school-notices" class="hub-link-btn">
+                <a matButton="filled" color="primary" routerLink="/school-notices" class="hub-link-btn">
                   <span>Notice Board</span>
                   <mat-icon>arrow_forward</mat-icon>
                 </a>
@@ -509,7 +509,7 @@ import ApexCharts from 'apexcharts';
             </div>
             <h3>Student Academic Hub</h3>
             <p>Unable to retrieve student profile or academic records. Please click below to refresh.</p>
-            <button mat-raised-button color="primary" (click)="loadSummary()">
+            <button color="primary" (click)="loadSummary()" matButton="filled">
               <mat-icon>refresh</mat-icon> Refresh
             </button>
           </div>
@@ -662,7 +662,7 @@ import ApexCharts from 'apexcharts';
               </div>
             </div>
             <div class="hero-actions">
-              <a mat-raised-button color="primary" class="hero-action-btn" routerLink="/students/attendance">
+              <a matButton="filled" color="primary" class="hero-action-btn" routerLink="/students/attendance">
                 <mat-icon>how_to_reg</mat-icon>
                 <span>Take Roll Call</span>
               </a>
@@ -729,7 +729,7 @@ import ApexCharts from 'apexcharts';
                     <p class="widget-sub">Grade your students to update progress reports</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/tests" class="hub-link-btn">
+                <a matButton="filled" color="primary" routerLink="/tests" class="hub-link-btn">
                   <span>Exams Desk</span>
                   <mat-icon>arrow_forward</mat-icon>
                 </a>
@@ -751,7 +751,7 @@ import ApexCharts from 'apexcharts';
                           <span class="test-subj"><mat-icon>groups</mat-icon> {{ pt.batchOrClass }} • {{ pt.subject }}</span>
                           <div class="test-eval-row">
                             <span class="eval-stat">Pending Marks Entry</span>
-                            <a mat-flat-button color="primary" class="enter-marks-mini-btn" [routerLink]="['/tests']" [queryParams]="{ examId: pt.testId }" (click)="$event.stopPropagation()">
+                            <a matButton="filled" color="primary" class="enter-marks-mini-btn" [routerLink]="['/tests']" [queryParams]="{ examId: pt.testId }" (click)="$event.stopPropagation()">
                               Enter Marks
                             </a>
                           </div>
@@ -851,11 +851,9 @@ import ApexCharts from 'apexcharts';
                         </div>
                         @if (b.whatsAppPhone) {
                           <button
-                            mat-flat-button
                             class="wa-wish-btn"
                             (click)="sendWhatsAppWish(b)"
-                            [matTooltip]="'Send Birthday Greeting via WhatsApp'"
-                            >
+                            [matTooltip]="'Send Birthday Greeting via WhatsApp'" matButton="filled">
                             <mat-icon class="wa-icon">chat</mat-icon>
                             <span>Wish</span>
                           </button>
@@ -881,7 +879,7 @@ import ApexCharts from 'apexcharts';
             </div>
             <h3>Faculty Operations Desk</h3>
             <p>Unable to retrieve faculty timetable or class records. Please click below to refresh.</p>
-            <button mat-raised-button color="primary" (click)="loadSummary()">
+            <button color="primary" (click)="loadSummary()" matButton="filled">
               <mat-icon>refresh</mat-icon> Refresh
             </button>
           </div>
@@ -1039,12 +1037,24 @@ import ApexCharts from 'apexcharts';
                   </div>
                 </div>
                 <div class="chart-header-actions">
-                  <div class="chart-type-toggle">
-                    <button type="button" class="type-btn" [class.active]="revenueChartType === 'area'" (click)="toggleRevenueChartType('area')">
-                      <mat-icon>show_chart</mat-icon> Wave
+                  <div class="chart-type-toggle" role="group" aria-label="Revenue chart type">
+                    <button
+                      type="button"
+                      class="chart-type-button"
+                      [class.chart-type-selected]="revenueChartType === 'area'"
+                      [attr.aria-pressed]="revenueChartType === 'area'"
+                      (click)="toggleRevenueChartType('area')" matButton="filled">
+                      <mat-icon>show_chart</mat-icon>
+                      Trend
                     </button>
-                    <button type="button" class="type-btn" [class.active]="revenueChartType === 'bar'" (click)="toggleRevenueChartType('bar')">
-                      <mat-icon>bar_chart</mat-icon> Bars
+                    <button
+                      type="button"
+                      class="chart-type-button"
+                      [class.chart-type-selected]="revenueChartType === 'bar'"
+                      [attr.aria-pressed]="revenueChartType === 'bar'"
+                      (click)="toggleRevenueChartType('bar')" matButton="filled">
+                      <mat-icon>bar_chart</mat-icon>
+                      Bars
                     </button>
                   </div>
                   <div class="chart-legend-pills">
@@ -1128,13 +1138,13 @@ import ApexCharts from 'apexcharts';
                 </div>
                 <div class="chart-header-right">
                   <div class="batch-filter-toggle">
-                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'top10'" (click)="setBatchViewFilter('top10')">
+                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'top10'" (click)="setBatchViewFilter('top10')" matButton="filled">
                       Top 10 Batches
                     </button>
-                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'active'" (click)="setBatchViewFilter('active')">
+                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'active'" (click)="setBatchViewFilter('active')" matButton="filled">
                       Active (With Students)
                     </button>
-                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'all'" (click)="setBatchViewFilter('all')">
+                    <button type="button" class="toggle-btn" [class.active]="batchViewFilter === 'all'" (click)="setBatchViewFilter('all')" matButton="filled">
                       All Batches ({{ summary.batchDistributions.length }})
                     </button>
                   </div>
@@ -1161,11 +1171,11 @@ import ApexCharts from 'apexcharts';
                   </div>
                 </div>
                 <div class="radar-actions">
-                  <a mat-stroked-button routerLink="/events" class="view-events-btn">
+                  <a matButton="filled" color="primary" routerLink="/events" class="view-events-btn">
                     <span>View All</span>
                     <mat-icon>arrow_forward</mat-icon>
                   </a>
-                  <button mat-raised-button color="primary" class="new-event-btn" (click)="openCreateEventDialog()">
+                  <button color="primary" class="new-event-btn" (click)="openCreateEventDialog()" matButton="filled">
                     <mat-icon>add</mat-icon>
                     <span>New Event</span>
                   </button>
@@ -1206,7 +1216,7 @@ import ApexCharts from 'apexcharts';
                                 <mat-icon>picture_as_pdf</mat-icon> Circular
                               </a>
                             }
-                            <button class="memories-tag" (click)="openEventGallery(ev)">
+                            <button class="memories-tag" (click)="openEventGallery(ev)" matButton="filled">
                               <mat-icon>photo_camera</mat-icon> {{ ev.photosCount }} Memories
                             </button>
                           </div>
@@ -1221,7 +1231,7 @@ import ApexCharts from 'apexcharts';
                     </div>
                     <p class="empty-main">No Upcoming Events Scheduled</p>
                     <p class="empty-desc">Schedule your annual day, 15 Aug, sports meet, or cultural celebration to keep everyone informed.</p>
-                    <button mat-flat-button color="primary" (click)="openCreateEventDialog()">
+                    <button color="primary" (click)="openCreateEventDialog()" matButton="filled">
                       <mat-icon>add</mat-icon> Schedule First Event
                     </button>
                   </div>
@@ -1275,11 +1285,9 @@ import ApexCharts from 'apexcharts';
                         </div>
                         @if (b.whatsAppPhone) {
                           <button
-                            mat-flat-button
                             class="wa-wish-btn"
                             (click)="sendWhatsAppWish(b)"
-                            [matTooltip]="'Send Birthday Greeting via WhatsApp'"
-                            >
+                            [matTooltip]="'Send Birthday Greeting via WhatsApp'" matButton="filled">
                             <mat-icon class="wa-icon">chat</mat-icon>
                             <span>Wish</span>
                           </button>
@@ -1331,7 +1339,7 @@ import ApexCharts from 'apexcharts';
                     <p>Students with overdue fee invoices</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="warn" routerLink="/fees" class="view-all-btn">
+                <a matButton="filled" color="warn" routerLink="/fees" class="view-all-btn">
                   View All <mat-icon>arrow_forward</mat-icon>
                 </a>
               </div>
@@ -1370,7 +1378,7 @@ import ApexCharts from 'apexcharts';
                   <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef class="text-right">WhatsApp</th>
                     <td mat-cell *matCellDef="let el" class="text-right">
-                      <button mat-flat-button class="wa-remind-btn" (click)="sendReminder(el)" matTooltip="Send Fee Reminder on WhatsApp">
+                      <button class="wa-remind-btn" (click)="sendReminder(el)" matTooltip="Send Fee Reminder on WhatsApp" matButton="filled">
                         <mat-icon>chat</mat-icon> Remind
                       </button>
                     </td>
@@ -1401,7 +1409,7 @@ import ApexCharts from 'apexcharts';
                     <p>Last 5 exams conducted</p>
                   </div>
                 </div>
-                <a mat-stroked-button color="primary" routerLink="/tests" class="view-all-btn">
+                <a matButton="filled" color="primary" routerLink="/tests" class="view-all-btn">
                   View All <mat-icon>arrow_forward</mat-icon>
                 </a>
               </div>
@@ -1470,7 +1478,7 @@ import ApexCharts from 'apexcharts';
             </div>
             <h3>Institute Analytics Overview</h3>
             <p>Unable to load institutional analytics. Please make sure the backend is connected and click below to refresh.</p>
-            <button mat-raised-button color="primary" (click)="loadSummary()">
+            <button color="primary" (click)="loadSummary()" matButton="filled">
               <mat-icon>refresh</mat-icon> Refresh
             </button>
           </div>
@@ -1726,20 +1734,35 @@ import ApexCharts from 'apexcharts';
     }
 
     .chart-card {
-      border-radius: 12px;
+      border-radius: 18px;
       background: #ffffff;
-      border: 1px solid #e2e8f0;
+      border: 1px solid #e6ebf2;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        border-color: #d5deeb;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.09) !important;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: box-shadow 180ms ease, border-color 180ms ease;
+
+        &:hover { transform: none; }
+      }
     }
 
     .chart-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 20px;
-      border-bottom: 1px solid #f1f5f9;
+      padding: 18px 20px;
+      border-bottom: 1px solid #edf1f6;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
       flex-wrap: wrap;
       gap: 12px;
 
@@ -1750,9 +1773,9 @@ import ApexCharts from 'apexcharts';
       }
 
       .chart-icon-box {
-        width: 38px;
-        height: 38px;
-        border-radius: 8px;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1766,14 +1789,16 @@ import ApexCharts from 'apexcharts';
 
       .chart-title {
         margin: 0;
-        font-size: 1.05rem;
+        font-size: 1.02rem;
         font-weight: 700;
         color: #0f172a;
+        letter-spacing: -0.02em;
       }
       .chart-subtitle {
         margin: 2px 0 0;
         font-size: 0.78rem;
         color: #64748b;
+        line-height: 1.45;
       }
     }
 
@@ -1787,37 +1812,31 @@ import ApexCharts from 'apexcharts';
     .chart-type-toggle {
       display: inline-flex;
       align-items: center;
-      background: #f1f5f9;
-      padding: 2px;
-      border-radius: 8px;
-      gap: 2px;
-      border: 1px solid #e2e8f0;
+      gap: 4px;
 
-      .type-btn {
-        border: none;
-        background: transparent;
-        color: #64748b;
-        font-size: 11px;
-        font-weight: 600;
-        padding: 4px 8px;
-        border-radius: 6px;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        transition: all 0.15s ease;
+      .chart-type-button {
+        min-width: 0;
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 8px;
+        font-size: 0.74rem;
+        font-weight: 650;
+        letter-spacing: 0;
+        --mat-button-filled-container-color: #e2e8f0;
+        --mat-button-filled-label-text-color: #475569;
+      }
 
-        mat-icon {
-          font-size: 14px;
-          width: 14px;
-          height: 14px;
-        }
+      .chart-type-button.chart-type-selected {
+        --mat-button-filled-container-color: #2563eb;
+        --mat-button-filled-label-text-color: #ffffff;
+      }
 
-        &.active {
-          background: #ffffff;
-          color: #2563eb;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-        }
+      mat-icon {
+        width: 16px;
+        height: 16px;
+        margin-right: 4px;
+        font-size: 16px;
+        vertical-align: middle;
       }
     }
 
@@ -1882,9 +1901,9 @@ import ApexCharts from 'apexcharts';
     }
 
     .chart-canvas-box {
-      padding: 16px 20px 20px;
+      padding: 14px 18px 18px;
       position: relative;
-      height: 270px;
+      height: 290px;
       width: 100%;
       box-sizing: border-box;
     }
@@ -2299,15 +2318,11 @@ import ApexCharts from 'apexcharts';
         .view-events-btn {
           font-size: 0.76rem;
           height: 32px;
-          color: #2563eb;
-          border-color: #bfdbfe;
         }
 
         .new-event-btn {
           font-size: 0.76rem;
           height: 32px;
-          background: #2563eb;
-          color: #ffffff;
           font-weight: 600;
           display: inline-flex;
           align-items: center;
@@ -3844,30 +3859,42 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         ],
         chart: {
           type: 'area',
-          height: 250,
+          height: 270,
           toolbar: { show: false },
           zoom: { enabled: false },
-          fontFamily: 'Inter, system-ui, sans-serif'
+          fontFamily: 'inherit',
+          foreColor: '#64748b',
+          parentHeightOffset: 0,
+          animations: {
+            enabled: true,
+            easing: 'easeinout',
+            speed: 650,
+            animateGradually: { enabled: true, delay: 90 },
+            dynamicAnimation: { enabled: true, speed: 300 }
+          },
+          dropShadow: { enabled: true, top: 5, left: 0, blur: 6, opacity: 0.08 }
         },
-        colors: ['#6366f1', '#10b981'],
+        colors: ['#4f46e5', '#10b981'],
         stroke: {
           curve: 'smooth',
-          width: [3, 3]
+          width: [3.5, 3]
         },
         fill: {
           type: 'gradient',
           gradient: {
-            shadeIntensity: 1,
-            opacityFrom: 0.45,
-            opacityTo: 0.04,
-            stops: [0, 90, 100]
+            type: 'vertical',
+            shadeIntensity: 0.25,
+            opacityFrom: 0.34,
+            opacityTo: 0.035,
+            stops: [0, 85, 100]
           }
         },
         markers: {
-          size: 4,
+          size: 3,
+          colors: ['#4f46e5', '#10b981'],
           strokeColors: '#ffffff',
-          strokeWidth: 2,
-          hover: { size: 6 }
+          strokeWidth: 3,
+          hover: { size: 7, sizeOffset: 2 }
         },
         dataLabels: { enabled: false },
         xaxis: {
@@ -3875,27 +3902,53 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           axisBorder: { show: false },
           axisTicks: { show: false },
           labels: {
-            style: { colors: '#64748b', fontSize: '12px', fontWeight: 600 }
+            rotate: 0,
+            hideOverlappingLabels: true,
+            trim: true,
+            style: { colors: '#64748b', fontSize: '11px', fontWeight: 600 }
+          },
+          crosshairs: {
+            show: true,
+            position: 'back',
+            stroke: { color: '#94a3b8', width: 1, dashArray: 4 }
           }
         },
         yaxis: {
+          min: 0,
+          tickAmount: 4,
           labels: {
-            style: { colors: '#64748b', fontSize: '11px' },
+            style: { colors: '#718096', fontSize: '11px', fontWeight: 500 },
             formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
           }
         },
         grid: {
-          borderColor: '#f1f5f9',
-          strokeDashArray: 4,
-          padding: { top: 0, right: 10, bottom: 0, left: 10 }
+          borderColor: '#e9eef5',
+          strokeDashArray: 5,
+          padding: { top: 8, right: 12, bottom: 2, left: 8 }
         },
         tooltip: {
-          theme: 'dark',
+          theme: 'light',
+          shared: true,
+          intersect: false,
+          marker: { show: true },
           y: {
-            formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
+            formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN'),
+            title: { formatter: (seriesName: string) => `${seriesName}:` }
           }
         },
-        legend: { show: false }
+        legend: { show: false },
+        states: {
+          hover: { filter: { type: 'lighten', value: 0.08 } },
+          active: { filter: { type: 'none' } }
+        },
+        responsive: [{
+          breakpoint: 640,
+          options: {
+            chart: { height: 240 },
+            xaxis: { labels: { style: { fontSize: '9px' } } },
+            grid: { padding: { left: 2, right: 2 } }
+          }
+        }]
       };
     } else {
       options = {
@@ -3905,16 +3958,19 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         ],
         chart: {
           type: 'bar',
-          height: 250,
+          height: 270,
           toolbar: { show: false },
-          fontFamily: 'Inter, system-ui, sans-serif'
+          fontFamily: 'inherit',
+          foreColor: '#64748b',
+          parentHeightOffset: 0,
+          animations: { enabled: true, easing: 'easeinout', speed: 450 }
         },
-        colors: ['#6366f1', '#10b981'],
+        colors: ['#4f46e5', '#10b981'],
         plotOptions: {
           bar: {
             horizontal: false,
-            columnWidth: '46%',
-            borderRadius: 6,
+            columnWidth: '42%',
+            borderRadius: 7,
             borderRadiusApplication: 'end'
           }
         },
@@ -3925,28 +3981,43 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           axisBorder: { show: false },
           axisTicks: { show: false },
           labels: {
-            style: { colors: '#64748b', fontSize: '12px', fontWeight: 600 }
+            rotate: 0,
+            hideOverlappingLabels: true,
+            style: { colors: '#64748b', fontSize: '11px', fontWeight: 600 }
           }
         },
         yaxis: {
           labels: {
-            style: { colors: '#64748b', fontSize: '11px' },
+            style: { colors: '#718096', fontSize: '11px', fontWeight: 500 },
             formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
           }
         },
         grid: {
-          borderColor: '#f1f5f9',
-          strokeDashArray: 4,
-          padding: { top: 0, right: 10, bottom: 0, left: 10 }
+          borderColor: '#e9eef5',
+          strokeDashArray: 5,
+          padding: { top: 8, right: 12, bottom: 2, left: 8 }
         },
-        fill: { opacity: 1 },
+        fill: {
+          opacity: 0.95,
+          type: 'gradient',
+          gradient: { shadeIntensity: 0.2, opacityFrom: 1, opacityTo: 0.78, stops: [0, 100] }
+        },
         tooltip: {
-          theme: 'dark',
+          theme: 'light',
+          marker: { show: true },
           y: {
             formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
           }
         },
-        legend: { show: false }
+        legend: { show: false },
+        responsive: [{
+          breakpoint: 640,
+          options: {
+            chart: { height: 240 },
+            xaxis: { labels: { style: { fontSize: '9px' } } },
+            grid: { padding: { left: 2, right: 2 } }
+          }
+        }]
       };
     }
 
@@ -3974,10 +4045,24 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       colors: colors,
       chart: {
         type: 'donut',
-        height: 195,
-        fontFamily: 'Inter, system-ui, sans-serif'
+        height: 210,
+        fontFamily: 'inherit',
+        foreColor: '#64748b',
+        animations: { enabled: true, easing: 'easeinout', speed: 500 },
+        dropShadow: { enabled: true, top: 3, left: 0, blur: 5, opacity: 0.1 }
       },
-      stroke: { width: 3, colors: ['#ffffff'] },
+      stroke: { width: 4, colors: ['#ffffff'] },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          shade: 'light',
+          type: 'horizontal',
+          shadeIntensity: 0.2,
+          opacityFrom: 1,
+          opacityTo: 0.86,
+          stops: [0, 100]
+        }
+      },
       dataLabels: { enabled: false },
       legend: { show: false },
       plotOptions: {
@@ -4017,11 +4102,18 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       },
       tooltip: {
-        theme: 'dark',
+        theme: 'light',
         y: {
           formatter: (val: number) => hasData ? '₹' + Number(val || 0).toLocaleString('en-IN') : 'N/A'
         }
-      }
+      },
+      responsive: [{
+        breakpoint: 640,
+        options: {
+          chart: { height: 190 },
+          plotOptions: { pie: { donut: { size: '72%' } } }
+        }
+      }]
     };
 
     this.feeBreakdownChart = new ApexCharts(this.feeBreakdownChartRef.nativeElement, options);
@@ -4081,14 +4173,15 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         height: 340,
         type: 'bar',
         toolbar: { show: false },
-        fontFamily: 'Inter, system-ui, sans-serif'
+        fontFamily: 'Inter, system-ui, sans-serif',
+        dropShadow: { enabled: true, top: 3, left: 0, blur: 5, opacity: 0.08 }
       },
       colors: ['#2563eb', '#8b5cf6'],
       plotOptions: {
         bar: {
           horizontal: false,
-          columnWidth: batches.length <= 6 ? '32%' : (batches.length <= 10 ? '42%' : '60%'),
-          borderRadius: 5,
+          columnWidth: batches.length <= 6 ? '36%' : (batches.length <= 10 ? '46%' : '60%'),
+          borderRadius: 7,
           borderRadiusApplication: 'end'
         }
       },
@@ -4101,17 +4194,20 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           rotateAlways: !isFewBatches,
           trim: true,
           maxHeight: 110,
-          style: { colors: '#475569', fontSize: '11px', fontWeight: 600 }
+          style: { colors: '#475569', fontSize: '11px', fontWeight: 600 },
+          formatter: (label: string) => label.length > 24 ? `${label.slice(0, 22)}…` : label
         },
         axisBorder: { color: '#e2e8f0' },
         axisTicks: { show: false }
       },
       yaxis: [
         {
+          seriesName: 'Enrolled Students',
           title: {
             text: 'Students',
             style: { color: '#2563eb', fontWeight: 700, fontSize: '11px' }
           },
+          tickAmount: 4,
           labels: {
             style: { colors: '#64748b' },
             formatter: (val: number) => Number(val).toFixed(0)
@@ -4119,10 +4215,12 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         {
           opposite: true,
+          seriesName: 'Monthly Fee Rate (₹)',
           title: {
             text: 'Fee Rate (₹)',
             style: { color: '#8b5cf6', fontWeight: 700, fontSize: '11px' }
           },
+          tickAmount: 4,
           labels: {
             style: { colors: '#64748b' },
             formatter: (val: number) => '₹' + Number(val || 0).toLocaleString('en-IN')
@@ -4142,16 +4240,35 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         strokeDashArray: 4,
         padding: { top: 0, right: 15, bottom: isFewBatches ? 15 : 35, left: 15 }
       },
+      fill: {
+        type: 'gradient',
+        opacity: 0.96,
+        gradient: {
+          shade: 'light',
+          type: 'vertical',
+          shadeIntensity: 0.18,
+          opacityFrom: 1,
+          opacityTo: 0.78,
+          stops: [0, 100]
+        }
+      },
       tooltip: {
-        theme: 'dark',
+        theme: 'light',
         shared: true,
         intersect: false,
+        x: {
+          formatter: (_value: string, opts: any) => labels[opts?.dataPointIndex] || _value
+        },
         y: {
           formatter: (val: number, opts: any) =>
             opts?.seriesIndex === 0
               ? `${val} students`
               : '₹' + Number(val || 0).toLocaleString('en-IN') + '/mo'
         }
+      },
+      states: {
+        hover: { filter: { type: 'lighten', value: 0.1 } },
+        active: { filter: { type: 'none' } }
       }
     };
 
@@ -4257,4 +4374,3 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 }
-

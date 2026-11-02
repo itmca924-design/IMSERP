@@ -57,16 +57,16 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
         </div>
         <div class="header-actions">
           @if (canManagePolicy) {
-            <button mat-stroked-button color="primary" class="action-btn" (click)="openPolicyModal()" matTooltip="Configure Minimum Service Tenure & Appraisal Guidelines (HR / Admin)">
+            <button color="primary" class="action-btn" (click)="openPolicyModal()" matTooltip="Configure Minimum Service Tenure & Appraisal Guidelines (HR / Admin)" matButton="filled">
               <mat-icon>tune</mat-icon>
               <span>Policy Rules</span>
             </button>
           }
-          <button mat-stroked-button color="primary" class="action-btn" (click)="openBulkModal()">
+          <button color="primary" class="action-btn" (click)="openBulkModal()" matButton="filled">
             <mat-icon>auto_graph</mat-icon>
             <span>Bulk Annual Hike</span>
           </button>
-          <button mat-raised-button color="primary" class="action-btn primary" (click)="openDrawer()">
+          <button color="primary" class="action-btn primary" (click)="openDrawer()" matButton="filled">
             <mat-icon>add_circle</mat-icon>
             <span>New Promotion / Increment</span>
           </button>
@@ -134,7 +134,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               (keyup.enter)="loadData()"
               />
             @if (searchQuery) {
-              <button type="button" class="clear-btn" (click)="clearSearch()">
+              <button type="button" class="clear-btn" (click)="clearSearch()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -184,8 +184,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                 class="view-toggle-btn"
                 [class.active]="viewMode === 'table'"
                 (click)="viewMode = 'table'"
-                matTooltip="Table View (Dense & Detailed)"
-                >
+                matTooltip="Table View (Dense & Detailed)" matButton="filled">
                 <mat-icon>table_chart</mat-icon>
                 <span>Table</span>
               </button>
@@ -194,8 +193,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                 class="view-toggle-btn"
                 [class.active]="viewMode === 'grid'"
                 (click)="viewMode = 'grid'"
-                matTooltip="Smart Card Grid View"
-                >
+                matTooltip="Smart Card Grid View" matButton="filled">
                 <mat-icon>grid_view</mat-icon>
                 <span>Cards</span>
               </button>
@@ -342,7 +340,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                         </span>
                       </td>
                       <td class="text-center actions-td" (click)="$event.stopPropagation()">
-                        <button mat-icon-button [matMenuTriggerFor]="rowMenu" class="action-menu-btn" matTooltip="More Actions">
+                        <button [matMenuTriggerFor]="rowMenu" class="action-menu-btn" matTooltip="More Actions" mat-icon-button>
                           <mat-icon>more_vert</mat-icon>
                         </button>
                         <mat-menu #rowMenu="matMenu" xPosition="before" class="appraisal-action-menu">
@@ -450,16 +448,16 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                     </div>
                   </div>
                   <div class="card-action-bar">
-                    <button mat-button class="card-btn inspect" (click)="openDetailDrawer(r)">
+                    <button class="card-btn inspect" (click)="openDetailDrawer(r)" matButton="filled">
                       <mat-icon>visibility</mat-icon>
                       <span>Details</span>
                     </button>
                     <div class="right-actions">
-                      <button mat-stroked-button class="card-btn letter" (click)="viewLetter(r)" matTooltip="View / Print Letter">
+                      <button class="card-btn letter" (click)="viewLetter(r)" matTooltip="View / Print Letter" matButton="filled">
                         <mat-icon>description</mat-icon>
                         <span>Letter</span>
                       </button>
-                      <button mat-icon-button class="card-icon-btn delete" (click)="deleteRecord(r)" matTooltip="Delete Record">
+                      <button class="card-icon-btn delete" (click)="deleteRecord(r)" matTooltip="Delete Record" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     </div>
@@ -491,8 +489,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                     class="page-nav-btn"
                     [disabled]="currentPage === 1 || loading"
                     (click)="prevPage()"
-                    matTooltip="Previous Page"
-                    >
+                    matTooltip="Previous Page" mat-icon-button>
                     <mat-icon>chevron_left</mat-icon>
                   </button>
                   <span class="page-counter">
@@ -501,10 +498,9 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <button
                     type="button"
                     class="page-nav-btn"
-                    [disabled]="currentPage >= totalPages || loading"
+                    [disabled]="currentPage>= totalPages || loading"
                     (click)="nextPage()"
-                    matTooltip="Next Page"
-                    >
+                    matTooltip="Next Page" matButton="filled">
                     <mat-icon>chevron_right</mat-icon>
                   </button>
                 </div>
@@ -522,7 +518,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
           </div>
           <h3>No Promotion or Appraisal Records Found</h3>
           <p>Record employee promotions and salary revisions with zero-gap historical audit tracking.</p>
-          <button mat-raised-button color="primary" class="primary-btn" (click)="openDrawer()">
+          <button color="primary" class="primary-btn" (click)="openDrawer()" matButton="filled">
             <mat-icon>add_circle</mat-icon>
             <span>Record First Promotion / Increment</span>
           </button>
@@ -544,7 +540,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <p class="modal-subtitle">Official Staff Appraisal, Cadre Upgrade &amp; CTC Revision</p>
                 </div>
               </div>
-              <button mat-icon-button class="close-btn" (click)="closeDrawer()" matTooltip="Close">
+              <button class="close-btn" (click)="closeDrawer()" matTooltip="Close" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -587,8 +583,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                             type="button"
                             class="clear-mini-btn"
                             (click)="clearStaffSearch($event)"
-                            (mousedown)="$event.stopPropagation()"
-                            >
+                            (mousedown)="$event.stopPropagation()" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
@@ -685,8 +680,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                     type="button"
                     class="mode-chip"
                     [class.active]="formData.type === 'PromotionAndIncrement'"
-                    (click)="setMode('PromotionAndIncrement')"
-                    >
+                    (click)="setMode('PromotionAndIncrement')" matButton="filled">
                     <mat-icon>auto_awesome</mat-icon>
                     <span>Promotion + Salary Increment</span>
                   </button>
@@ -694,8 +688,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                     type="button"
                     class="mode-chip"
                     [class.active]="formData.type === 'Increment'"
-                    (click)="setMode('Increment')"
-                    >
+                    (click)="setMode('Increment')" matButton="filled">
                     <mat-icon>payments</mat-icon>
                     <span>Salary Increment Only</span>
                   </button>
@@ -703,8 +696,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                     type="button"
                     class="mode-chip"
                     [class.active]="formData.type === 'Promotion'"
-                    (click)="setMode('Promotion')"
-                    >
+                    (click)="setMode('Promotion')" matButton="filled">
                     <mat-icon>trending_up</mat-icon>
                     <span>Promotion Only (Dry)</span>
                   </button>
@@ -788,8 +780,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                                 type="button"
                                 class="clear-mini-btn"
                                 (click)="clearDeptSearch($event)"
-                                (mousedown)="$event.stopPropagation()"
-                                >
+                                (mousedown)="$event.stopPropagation()" mat-icon-button>
                                 <mat-icon>close</mat-icon>
                               </button>
                             }
@@ -850,10 +841,10 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                       </div>
                     </div>
                     <div class="quick-pct-chips">
-                      <button type="button" (click)="hikePercent = 5; applyPercentHike()">+5%</button>
-                      <button type="button" (click)="hikePercent = 10; applyPercentHike()">+10%</button>
-                      <button type="button" (click)="hikePercent = 15; applyPercentHike()">+15%</button>
-                      <button type="button" (click)="hikePercent = 20; applyPercentHike()">+20%</button>
+                      <button type="button" (click)="hikePercent = 5; applyPercentHike()" matButton="filled">+5%</button>
+                      <button type="button" (click)="hikePercent = 10; applyPercentHike()" matButton="filled">+10%</button>
+                      <button type="button" (click)="hikePercent = 15; applyPercentHike()" matButton="filled">+15%</button>
+                      <button type="button" (click)="hikePercent = 20; applyPercentHike()" matButton="filled">+20%</button>
                     </div>
                   </div>
                   <div class="form-row three-cols">
@@ -902,7 +893,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                     <mat-label>Appraisal Cycle / Reason</mat-label>
                     <input matInput [(ngModel)]="formData.reason" placeholder="Type cycle name or choose from suggestions..." />
                     @if (formData.reason) {
-                      <button matSuffix mat-icon-button type="button" (click)="formData.reason = ''" matTooltip="Clear">
+                      <button matSuffix type="button" (click)="formData.reason = ''" matTooltip="Clear" mat-icon-button>
                         <mat-icon>close</mat-icon>
                       </button>
                     }
@@ -930,8 +921,8 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               </mat-form-field>
             </div>
             <div class="modal-footer">
-              <button mat-button class="btn-cancel" (click)="closeDrawer()" [disabled]="submitting">Cancel</button>
-              <button mat-flat-button color="primary" class="btn-save" (click)="savePromotion()" [disabled]="submitting || !formData.teacherId">
+              <button class="btn-cancel app-button-cancel" (click)="closeDrawer()" [disabled]="submitting" matButton="filled">Cancel</button>
+              <button color="primary" class="btn-save app-button-save" (click)="savePromotion()" [disabled]="submitting || !formData.teacherId" matButton="filled">
                 <mat-icon>{{ submitting ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
                 <span>{{ submitting ? 'Processing...' : 'Approve & Save Appraisal' }}</span>
               </button>
@@ -954,7 +945,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <p class="modal-subtitle">Apply mass percentage or flat increment across department/grade</p>
                 </div>
               </div>
-              <button mat-icon-button class="close-btn" (click)="closeBulkModal()">
+              <button class="close-btn" (click)="closeBulkModal()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -996,7 +987,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <mat-label>Appraisal Cycle / Reason Description</mat-label>
                   <input matInput [(ngModel)]="bulkData.reason" placeholder="Type cycle name or choose from suggestions..." />
                   @if (bulkData.reason) {
-                    <button matSuffix mat-icon-button type="button" (click)="bulkData.reason = ''" matTooltip="Clear">
+                    <button matSuffix type="button" (click)="bulkData.reason = ''" matTooltip="Clear" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   }
@@ -1019,8 +1010,8 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               </div>
             </div>
             <div class="modal-footer">
-              <button mat-button class="btn-cancel" (click)="closeBulkModal()" [disabled]="submitting">Cancel</button>
-              <button mat-flat-button color="primary" class="btn-save" (click)="executeBulkIncrement()" [disabled]="submitting || !bulkData.incrementValue">
+              <button class="btn-cancel app-button-cancel" (click)="closeBulkModal()" [disabled]="submitting" matButton="filled">Cancel</button>
+              <button color="primary" class="btn-save" (click)="executeBulkIncrement()" [disabled]="submitting || !bulkData.incrementValue" matButton="filled">
                 <mat-icon>{{ submitting ? 'hourglass_empty' : 'bolt' }}</mat-icon>
                 <span>{{ submitting ? 'Applying...' : 'Apply Bulk Increment' }}</span>
               </button>
@@ -1043,7 +1034,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <p class="modal-subtitle">Official Institute Letterhead Format</p>
                 </div>
               </div>
-              <button mat-icon-button class="close-btn" (click)="showLetterModal = false">
+              <button class="close-btn" (click)="showLetterModal = false" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -1140,8 +1131,8 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               </div>
             }
             <div class="modal-footer">
-              <button mat-button class="btn-cancel" (click)="showLetterModal = false">Close</button>
-              <button mat-flat-button color="primary" class="btn-save" (click)="printLetter()">
+              <button class="btn-cancel app-button-cancel" (click)="showLetterModal = false" matButton="filled">Close</button>
+              <button color="primary" class="btn-save" (click)="printLetter()" matButton="filled">
                 <mat-icon>print</mat-icon>
                 <span>Print Official Letter</span>
               </button>
@@ -1164,7 +1155,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <p class="modal-subtitle">Dynamic institute tenure guidelines (संस्थान पदोन्नति एवं वेतन वृद्धि नीति)</p>
                 </div>
               </div>
-              <button mat-icon-button class="close-btn" (click)="closePolicyModal()">
+              <button class="close-btn" (click)="closePolicyModal()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -1212,8 +1203,8 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
               </div>
             </div>
             <div class="modal-footer">
-              <button mat-button class="btn-cancel" (click)="closePolicyModal()" [disabled]="savingPolicy">Cancel</button>
-              <button mat-flat-button color="primary" class="btn-save" (click)="savePolicy()" [disabled]="savingPolicy">
+              <button class="btn-cancel app-button-cancel" (click)="closePolicyModal()" [disabled]="savingPolicy" matButton="filled">Cancel</button>
+              <button color="primary" class="btn-save" (click)="savePolicy()" [disabled]="savingPolicy" matButton="filled" [class.app-button-update]="!(savingPolicy)">
                 <mat-icon>{{ savingPolicy ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
                 <span>{{ savingPolicy ? 'Saving Rules...' : 'Save & Update Policy' }}</span>
               </button>
@@ -1239,7 +1230,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   </p>
                 </div>
               </div>
-              <button mat-icon-button class="close-btn" (click)="closeDetailDrawer()" matTooltip="Close">
+              <button class="close-btn" (click)="closeDetailDrawer()" matTooltip="Close" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -1391,13 +1382,13 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
             }
             @if (selectedRecordForDetails) {
               <div class="drawer-footer">
-                <button mat-stroked-button color="warn" (click)="deleteRecord(selectedRecordForDetails); closeDetailDrawer()">
+                <button color="warn" (click)="deleteRecord(selectedRecordForDetails); closeDetailDrawer()" matButton="filled" class="app-button-delete">
                   <mat-icon>delete_outline</mat-icon>
                   <span>Delete</span>
                 </button>
                 <div class="footer-right">
-                  <button mat-stroked-button (click)="closeDetailDrawer()">Close</button>
-                  <button mat-flat-button color="primary" (click)="viewLetter(selectedRecordForDetails)">
+                  <button (click)="closeDetailDrawer()" matButton="filled" class="app-button-cancel">Close</button>
+                  <button color="primary" (click)="viewLetter(selectedRecordForDetails)" matButton="filled">
                     <mat-icon>description</mat-icon>
                     <span>Official Letter</span>
                   </button>

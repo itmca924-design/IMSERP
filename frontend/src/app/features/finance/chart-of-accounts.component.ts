@@ -57,11 +57,11 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
       </div>
     </div>
     <div class="header-actions">
-      <button mat-raised-button color="primary" class="add-btn" (click)="openCreateDialog()">
+      <button color="primary" class="add-btn" (click)="openCreateDialog()" matButton="filled">
         <mat-icon>add_circle</mat-icon>
         <span>Add Account Ledger</span>
       </button>
-      <button mat-stroked-button color="primary" (click)="loadLedgers()" [disabled]="loading" class="refresh-btn">
+      <button color="primary" (click)="loadLedgers()" [disabled]="loading" class="refresh-btn" matButton="filled">
         <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
         <span>Refresh</span>
       </button>
@@ -107,7 +107,7 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
         <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearchInput($event)" (keyup.enter)="applyFilters()" placeholder="e.g. CASH-MAIN, Furniture, Loan...">
         <mat-icon matPrefix>search</mat-icon>
         @if (searchTerm) {
-          <button mat-icon-button matSuffix (click)="clearSearch()">
+          <button matSuffix (click)="clearSearch()" mat-icon-button>
             <mat-icon>clear</mat-icon>
           </button>
         }
@@ -250,11 +250,11 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
             <th mat-header-cell *matHeaderCellDef class="text-center col-actions">ACTIONS</th>
             <td mat-cell *matCellDef="let l" class="text-center col-actions">
               <div class="action-btn-group">
-                <button mat-icon-button color="primary" matTooltip="Edit Ledger" (click)="openEditDialog(l)">
+                <button color="primary" matTooltip="Edit Ledger" (click)="openEditDialog(l)" mat-icon-button>
                   <mat-icon>edit</mat-icon>
                 </button>
                 @if (!l.isDefault) {
-                  <button mat-icon-button color="warn" matTooltip="Delete Ledger" (click)="deleteLedger(l)">
+                  <button color="warn" matTooltip="Delete Ledger" (click)="deleteLedger(l)" mat-icon-button>
                     <mat-icon>delete_outline</mat-icon>
                   </button>
                 }
@@ -276,7 +276,7 @@ import { LedgerDialogComponent } from './ledger-dialog.component';
           </div>
           <h3>No Account Ledgers Found</h3>
           <p>No ledgers match your search and filter criteria.</p>
-          <button mat-raised-button color="primary" (click)="openCreateDialog()" style="margin-top: 12px;">
+          <button color="primary" (click)="openCreateDialog()" style="margin-top: 12px;" matButton="filled">
             <mat-icon>add_circle</mat-icon>
             <span>Create New Ledger</span>
           </button>

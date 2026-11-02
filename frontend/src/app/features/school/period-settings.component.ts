@@ -95,15 +95,15 @@ interface PeriodEditorRow {
             </mat-select>
           </div>
     
-          <button type="button" class="btn-header-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule">
+          <button type="button" class="btn-header-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule" matButton="filled">
             <mat-icon>file_download</mat-icon>
             <span>Export CSV</span>
           </button>
-          <button type="button" class="btn-header-action" (click)="printReport()" [disabled]="rows.length === 0" matTooltip="Print or Download Official Schedule PDF">
+          <button type="button" class="btn-header-action" (click)="printReport()" [disabled]="rows.length === 0" matTooltip="Print or Download Official Schedule PDF" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Schedule</span>
           </button>
-          <button mat-flat-button color="primary" class="btn-save-master" (click)="saveSlots()" [disabled]="saving || loading">
+          <button color="primary" class="btn-save-master app-button-save" (click)="saveSlots()" [disabled]="saving || loading" matButton="filled">
             <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
             {{ saving ? 'Saving...' : 'Save Schedule' }}
           </button>
@@ -122,9 +122,9 @@ interface PeriodEditorRow {
               </div>
               <div class="quick-presets">
                 <span class="preset-label">Season Presets:</span>
-                <button type="button" class="preset-btn" (click)="applyPreset('summer')">☀️ Summer (07:30 AM)</button>
-                <button type="button" class="preset-btn" (click)="applyPreset('standard')">🏫 Standard (08:00 AM)</button>
-                <button type="button" class="preset-btn" (click)="applyPreset('winter')">❄️ Winter (09:00 AM)</button>
+                <button type="button" class="preset-btn" (click)="applyPreset('summer')" matButton="filled">☀️ Summer (07:30 AM)</button>
+                <button type="button" class="preset-btn" (click)="applyPreset('standard')" matButton="filled">🏫 Standard (08:00 AM)</button>
+                <button type="button" class="preset-btn" (click)="applyPreset('winter')" matButton="filled">❄️ Winter (09:00 AM)</button>
               </div>
             </div>
             <div class="gen-inputs-grid">
@@ -221,7 +221,7 @@ interface PeriodEditorRow {
               }
               <div class="gen-action-col">
                 <label class="g-label">&nbsp;</label>
-                <button type="button" class="btn-run-generator" (click)="generateSchedule()">
+                <button type="button" class="btn-run-generator" (click)="generateSchedule()" matButton="filled">
                   <mat-icon>auto_awesome</mat-icon> Generate Schedule
                 </button>
               </div>
@@ -260,13 +260,13 @@ interface PeriodEditorRow {
                 <p class="table-subtitle">Review, fine-tune individual slot times, or add custom periods.</p>
               </div>
               <div class="table-header-actions">
-                <button type="button" class="btn-table-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule">
+                <button type="button" class="btn-table-action" (click)="exportToCsv()" [disabled]="rows.length === 0" matTooltip="Download CSV / Excel Schedule" matButton="filled">
                   <mat-icon>file_download</mat-icon> Export CSV
                 </button>
-                <button type="button" class="btn-table-action" (click)="printReport()" [disabled]="rows.length === 0" matTooltip="Print or Download PDF Schedule">
+                <button type="button" class="btn-table-action" (click)="printReport()" [disabled]="rows.length === 0" matTooltip="Print or Download PDF Schedule" matButton="filled">
                   <mat-icon>print</mat-icon> Print / PDF Report
                 </button>
-                <button type="button" class="btn-add-row" (click)="addNewRow()">
+                <button type="button" class="btn-add-row" (click)="addNewRow()" matButton="filled">
                   <mat-icon>add_circle_outline</mat-icon> Add Custom Slot (कस्टम स्लॉट जोड़ें)
                 </button>
               </div>
@@ -323,7 +323,7 @@ interface PeriodEditorRow {
                           class="type-pill-btn"
                           [ngClass]="getSlotBadgeClass(row.slotType)"
                           [matMenuTriggerFor]="slotTypeMenu"
-                          matTooltip="Click to change Slot Type">
+                          matTooltip="Click to change Slot Type" matButton="filled">
                           <mat-icon class="slot-badge-icon">{{ getSlotTypeIcon(row.slotType) }}</mat-icon>
                           <span class="slot-badge-label">{{ row.slotType || (row.isBreak ? 'Break' : 'Teaching') }}</span>
                           <mat-icon class="slot-badge-arrow">arrow_drop_down</mat-icon>
@@ -358,13 +358,13 @@ interface PeriodEditorRow {
                       </td>
                       <td style="text-align: center;">
                         <div class="action-btns">
-                          <button type="button" class="btn-icon-move" (click)="moveRow(i, -1)" [disabled]="i === 0" matTooltip="Move Up">
+                          <button type="button" class="btn-icon-move" (click)="moveRow(i, -1)" [disabled]="i === 0" matTooltip="Move Up" mat-icon-button>
                             <mat-icon>arrow_upward</mat-icon>
                           </button>
-                          <button type="button" class="btn-icon-move" (click)="moveRow(i, 1)" [disabled]="i === rows.length - 1" matTooltip="Move Down">
+                          <button type="button" class="btn-icon-move" (click)="moveRow(i, 1)" [disabled]="i === rows.length - 1" matTooltip="Move Down" mat-icon-button>
                             <mat-icon>arrow_downward</mat-icon>
                           </button>
-                          <button type="button" class="btn-icon-del" (click)="deleteRow(i)" matTooltip="Remove Slot">
+                          <button type="button" class="btn-icon-del" (click)="deleteRow(i)" matTooltip="Remove Slot" mat-icon-button>
                             <mat-icon>delete_outline</mat-icon>
                           </button>
                         </div>
@@ -384,17 +384,17 @@ interface PeriodEditorRow {
             </div>
             <div class="table-footer">
               <div class="footer-left-actions">
-                <button mat-button class="btn-reset" (click)="loadSlots()">
+                <button class="btn-reset" (click)="loadSlots()" matButton="filled">
                   <mat-icon>refresh</mat-icon> Reset / Reload
                 </button>
-                <button mat-button class="btn-footer-report" (click)="exportToCsv()" [disabled]="rows.length === 0">
+                <button class="btn-footer-report" (click)="exportToCsv()" [disabled]="rows.length === 0" matButton="filled">
                   <mat-icon>file_download</mat-icon> Export CSV
                 </button>
-                <button mat-button class="btn-footer-report" (click)="printReport()" [disabled]="rows.length === 0">
+                <button class="btn-footer-report" (click)="printReport()" [disabled]="rows.length === 0" matButton="filled">
                   <mat-icon>print</mat-icon> Print / PDF Report
                 </button>
               </div>
-              <button mat-flat-button color="primary" class="btn-save-master-bottom" (click)="saveSlots()" [disabled]="saving || rows.length === 0">
+              <button color="primary" class="btn-save-master-bottom app-button-save" (click)="saveSlots()" [disabled]="saving || rows.length === 0" matButton="filled">
                 <mat-icon>save</mat-icon> Save Bell Schedule
               </button>
             </div>

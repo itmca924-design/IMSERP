@@ -3,7 +3,9 @@ import { Routes, Router, CanActivateFn } from '@angular/router';
 import { LayoutComponent } from './layout/layout.component';
 import { authGuard } from './core/guards/auth.guard';
 import { AuthService } from './core/services/auth.service';
+import { MenuService } from './core/services/menu.service';
 import { PeriodSettingsComponent } from './features/school/period-settings.component';
+import { catchError, map, of } from 'rxjs';
 
 // Security Guards for Administrative Desks
 
@@ -25,6 +27,24 @@ export const adminExamDeskGuard: CanActivateFn = () => {
     return false;
   }
   return true;
+};
+
+export const menuManagementGuard: CanActivateFn = () => {
+  const router = inject(Router);
+  const menuService = inject(MenuService);
+  return menuService.getMyMenu().pipe(
+    map(menuItems => {
+      const hasMenuManagement = menuItems.some(item =>
+        item.routeUrl === '/admin/menu-management' ||
+        item.children?.some(child => child.routeUrl === '/admin/menu-management')
+      );
+      return hasMenuManagement || router.createUrlTree(['/dashboard']);
+    }),
+    catchError(error => {
+      console.error('Unable to verify menu management permissions.', error);
+      return of(router.createUrlTree(['/dashboard']));
+    })
+  );
 };
 
 export const routes: Routes = [
@@ -327,6 +347,11 @@ export const routes: Routes = [
       {
         path: 'roles',
         loadComponent: () => import('./features/roles/roles.component').then(m => m.RolesComponent)
+      },
+      {
+        path: 'admin/menu-management',
+        canActivate: [menuManagementGuard],
+        loadComponent: () => import('./features/menu-management/menu-management.component').then(m => m.MenuManagementComponent)
       },
       {
         path: 'users',

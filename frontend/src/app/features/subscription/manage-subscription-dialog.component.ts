@@ -43,7 +43,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             Institute: <strong>{{ data.instituteName }}</strong> &bull; Code: <strong>{{ data.tenantCode }}</strong>
           </p>
         </div>
-        <button mat-icon-button class="close-btn" (click)="dialogRef.close()" matTooltip="Close dialog">
+        <button class="close-btn" (click)="dialogRef.close()" matTooltip="Close dialog" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -76,19 +76,19 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <span>Quick Extension (Days / Months):</span>
             </label>
             <div class="quick-days-chips">
-              <button type="button" mat-stroked-button class="quick-btn" [class.active]="selectedDaysToAdd === 15" (click)="addDays(15)">
+              <button type="button" class="quick-btn" [class.active]="selectedDaysToAdd === 15" (click)="addDays(15)" matButton="filled">
                 +15 Days
               </button>
-              <button type="button" mat-stroked-button class="quick-btn" [class.active]="selectedDaysToAdd === 30" (click)="addDays(30)">
+              <button type="button" class="quick-btn" [class.active]="selectedDaysToAdd === 30" (click)="addDays(30)" matButton="filled">
                 +1 Month (30 Days)
               </button>
-              <button type="button" mat-stroked-button class="quick-btn" [class.active]="selectedDaysToAdd === 60" (click)="addDays(60)">
+              <button type="button" class="quick-btn" [class.active]="selectedDaysToAdd === 60" (click)="addDays(60)" matButton="filled">
                 +2 Months (60 Days)
               </button>
-              <button type="button" mat-stroked-button class="quick-btn" [class.active]="selectedDaysToAdd === 90" (click)="addDays(90)">
+              <button type="button" class="quick-btn" [class.active]="selectedDaysToAdd === 90" (click)="addDays(90)" matButton="filled">
                 +3 Months (90 Days)
               </button>
-              <button type="button" mat-stroked-button class="quick-btn" [class.active]="selectedDaysToAdd === 365" (click)="addDays(365)">
+              <button type="button" class="quick-btn" [class.active]="selectedDaysToAdd === 365" (click)="addDays(365)" matButton="filled">
                 +1 Year (365 Days)
               </button>
             </div>
@@ -149,8 +149,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </div>
     
         <div class="dialog-actions">
-          <button mat-stroked-button type="button" (click)="dialogRef.close()" [disabled]="saving">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="saving || form.invalid" class="save-btn">
+          <button type="button" (click)="dialogRef.close()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="saving || form.invalid" class="save-btn app-button-update" matButton="filled">
             @if (saving) {
               <mat-spinner diameter="18" style="display:inline-block; margin-right:6px;"></mat-spinner>
             }

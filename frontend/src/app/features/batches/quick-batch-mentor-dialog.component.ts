@@ -54,7 +54,7 @@ export interface QuickBatchMentorDialogData {
             </p>
           </div>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -117,8 +117,8 @@ export interface QuickBatchMentorDialogData {
           }
     
           <div class="modal-actions">
-            <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-            <button mat-raised-button color="primary" type="submit" [disabled]="saving || loading" class="save-btn">
+            <button type="button" (click)="onCancel()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+            <button color="primary" type="submit" [disabled]="saving || loading" class="save-btn app-button-save" matButton="filled">
               @if (!saving) {
                 <mat-icon>how_to_reg</mat-icon>
               }

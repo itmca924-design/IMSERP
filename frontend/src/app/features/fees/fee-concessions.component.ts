@@ -51,10 +51,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </div>
           </div>
           <div class="header-actions">
-            <button mat-stroked-button (click)="loadData()" [disabled]="loading" class="action-btn">
+            <button (click)="loadData()" [disabled]="loading" class="action-btn" matButton="filled">
               <mat-icon>refresh</mat-icon> Refresh
             </button>
-            <button mat-raised-button color="primary" (click)="openAddModal()" class="action-btn-primary">
+            <button color="primary" (click)="openAddModal()" class="action-btn-primary" matButton="filled">
               <mat-icon>add</mat-icon> Grant Concession
             </button>
           </div>
@@ -128,7 +128,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               <input matInput formControlName="searchTerm" placeholder="Search by name, roll, adm no..." />
               <mat-icon matPrefix>search</mat-icon>
               @if (filterForm.get('searchTerm')?.value) {
-                <button mat-icon-button matSuffix (click)="filterForm.get('searchTerm')?.setValue('')" type="button">
+                <button matSuffix (click)="filterForm.get('searchTerm')?.setValue('')" type="button" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               }
@@ -157,7 +157,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </mat-select>
             </mat-form-field>
     
-            <button mat-stroked-button (click)="resetFilters()" type="button" class="reset-btn">
+            <button (click)="resetFilters()" type="button" class="reset-btn app-button-cancel" matButton="filled">
               <mat-icon>clear_all</mat-icon> Reset
             </button>
           </div>
@@ -252,12 +252,12 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     </td>
                     <td style="text-align: right;">
                       <div class="row-actions">
-                        <button mat-icon-button (click)="toggleConcessionStatus(c)" [matTooltip]="c.status === 'Active' ? 'Suspend Concession' : 'Activate Concession'">
+                        <button (click)="toggleConcessionStatus(c)" [matTooltip]="c.status === 'Active' ? 'Suspend Concession' : 'Activate Concession'" mat-icon-button>
                           <mat-icon [color]="c.status === 'Active' ? 'warn' : 'primary'">
                             {{ c.status === 'Active' ? 'pause_circle_outline' : 'play_circle_outline' }}
                           </mat-icon>
                         </button>
-                        <button mat-icon-button color="warn" (click)="deleteConcession(c)" matTooltip="Delete Concession">
+                        <button color="warn" (click)="deleteConcession(c)" matTooltip="Delete Concession" mat-icon-button>
                           <mat-icon>delete</mat-icon>
                         </button>
                       </div>
@@ -272,7 +272,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <mat-icon class="empty-icon">card_giftcard</mat-icon>
                 <h3>No Fee Concessions Found</h3>
                 <p>No active scholarship policies or sibling discount records match your current filter selection.</p>
-                <button mat-raised-button color="primary" (click)="openAddModal()">
+                <button color="primary" (click)="openAddModal()" matButton="filled">
                   <mat-icon>add</mat-icon> Grant First Concession
                 </button>
               </div>
@@ -295,7 +295,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <h2 class="main-title">Grant Fee Concession / Scholarship</h2>
                 <p class="subtitle">Enroll a student into institutional sibling discounts, merit waivers, or scholarship schemes</p>
               </div>
-              <button mat-icon-button type="button" class="close-btn" (click)="closeAddModal()" [disabled]="saving">
+              <button type="button" class="close-btn" (click)="closeAddModal()" [disabled]="saving" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -337,7 +337,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                         <strong>{{ selectedStudent.studentName }}</strong>
                         <span class="sub">({{ selectedStudent.rollNumber }} &bull; {{ selectedStudent.className || selectedStudent.batchName }})</span>
                       </div>
-                      <button mat-button color="warn" type="button" (click)="clearSelectedStudent()" class="change-btn">Change</button>
+                      <button color="warn" type="button" (click)="clearSelectedStudent()" class="change-btn" matButton="filled">Change</button>
                     </div>
                   }
                 </div>
@@ -401,8 +401,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 </mat-form-field>
               </div>
               <div class="modal-footer">
-                <button mat-button type="button" (click)="closeAddModal()" [disabled]="saving">Cancel</button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="concessionForm.invalid || !selectedStudent || saving">
+                <button type="button" (click)="closeAddModal()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" type="submit" [disabled]="concessionForm.invalid || !selectedStudent || saving" matButton="filled">
                   <mat-icon>check</mat-icon> {{ saving ? 'Granting...' : 'Grant Concession' }}
                 </button>
               </div>

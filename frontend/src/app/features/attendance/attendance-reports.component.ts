@@ -180,15 +180,6 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     return weeks;
   }
 
-  trackByWeekIndex(index: number, _week: unknown): number {
-    return index;
-  }
-
-  trackByDayNum(_index: number, d: DailyDayItem | null): string {
-    return d ? `${d.day}-${d.status}-${d.remarks || ''}-${d.holidayTitle || ''}` : 'empty';
-  }
-
-
 
   getStatusBadgeName(status: string): string {
     switch (status) {

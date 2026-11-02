@@ -68,7 +68,7 @@ interface BillingCycleOption {
           </h2>
           <p class="subtitle">Bulk-bill {{ hasSchoolModule && hasCoachingModule ? 'class and batch' : (hasCoachingModule ? 'batch' : 'class') }} tuition fees across any billing cycle.</p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -190,8 +190,7 @@ interface BillingCycleOption {
                   [style.--cycle-color]="c.color"
                   [style.--cycle-bg]="c.bgColor"
                   [style.--cycle-border]="c.borderColor"
-                  (click)="selectCycle(c.value)"
-                  >
+                  (click)="selectCycle(c.value)" matButton="filled">
                   <mat-icon class="cycle-icon">{{ c.icon }}</mat-icon>
                   <span class="cycle-label">{{ c.label }}</span>
                   <span class="cycle-desc">{{ c.description }}</span>
@@ -264,7 +263,7 @@ interface BillingCycleOption {
                       type="button"
                       class="scope-pill-btn"
                       [class.active]="scopeMode === 'all'"
-                      (click)="setScopeMode('all')">
+                      (click)="setScopeMode('all')" matButton="filled">
                       <mat-icon class="pill-ic">public</mat-icon>
                       <span>All Students (Universal)</span>
                     </button>
@@ -273,7 +272,7 @@ interface BillingCycleOption {
                         type="button"
                         class="scope-pill-btn"
                         [class.active]="scopeMode === 'school'"
-                        (click)="setScopeMode('school')">
+                        (click)="setScopeMode('school')" matButton="filled">
                         <mat-icon class="pill-ic">school</mat-icon>
                         <span>By School Class</span>
                       </button>
@@ -283,7 +282,7 @@ interface BillingCycleOption {
                         type="button"
                         class="scope-pill-btn"
                         [class.active]="scopeMode === 'coaching'"
-                        (click)="setScopeMode('coaching')">
+                        (click)="setScopeMode('coaching')" matButton="filled">
                         <mat-icon class="pill-ic">groups</mat-icon>
                         <span>By Coaching Batch</span>
                       </button>
@@ -352,8 +351,7 @@ interface BillingCycleOption {
                             type="button"
                             class="clear-mini-btn"
                             (click)="studentSearchQuery = ''; $event.stopPropagation()"
-                            (mousedown)="$event.stopPropagation()"
-                            >
+                            (mousedown)="$event.stopPropagation()" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
@@ -456,8 +454,7 @@ interface BillingCycleOption {
                             type="button"
                             class="clear-mini-btn"
                             (click)="studentSearchQuery = ''; $event.stopPropagation()"
-                            (mousedown)="$event.stopPropagation()"
-                            >
+                            (mousedown)="$event.stopPropagation()" mat-icon-button>
                             <mat-icon>close</mat-icon>
                           </button>
                         }
@@ -592,11 +589,11 @@ interface BillingCycleOption {
           </mat-dialog-content>
     
           <mat-dialog-actions align="end" class="dialog-actions">
-            <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-            <button mat-raised-button color="primary" type="submit"
+            <button type="button" (click)="onCancel()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+            <button color="primary" type="submit"
               [disabled]="form.invalid || saving || isPreAdmissionMonthSelected()"
               [class.btn-blocked]="isPreAdmissionMonthSelected()"
-              class="submit-btn">
+              class="submit-btn" matButton="filled">
               @if (saving) {
                 <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
               }

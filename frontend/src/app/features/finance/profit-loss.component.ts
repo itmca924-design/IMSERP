@@ -105,12 +105,12 @@ import { AuthService } from '../../core/services/auth.service';
 
       <!-- Action Buttons -->
       <div class="deck-actions">
-        <button mat-button class="smart-btn refresh-btn" (click)="loadReport()" matTooltip="Recalculate Profit & Loss" [disabled]="loading">
+        <button class="smart-btn refresh-btn" (click)="loadReport()" matTooltip="Recalculate Profit & Loss" [disabled]="loading" matButton="filled">
           <mat-icon [class.spin-icon]="loading">refresh</mat-icon>
           <span>Recalculate</span>
         </button>
 
-        <button mat-flat-button class="smart-btn print-btn" (click)="printReport()" matTooltip="Print or Export Financial Statement">
+        <button class="smart-btn print-btn" (click)="printReport()" matTooltip="Print or Export Financial Statement" matButton="filled">
           <mat-icon>print</mat-icon>
           <span>Print Statement</span>
         </button>

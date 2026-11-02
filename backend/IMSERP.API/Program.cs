@@ -108,6 +108,23 @@ using (var scope = app.Services.CreateScope())
         
         context.Database.EnsureCreated();
 
+        context.Database.ExecuteSqlRaw(@"
+            IF COL_LENGTH('dbo.MenuItems', 'TenantId') IS NULL
+                ALTER TABLE dbo.MenuItems ADD TenantId UNIQUEIDENTIFIER NULL;
+            IF COL_LENGTH('dbo.MenuItems', 'BranchId') IS NULL
+                ALTER TABLE dbo.MenuItems ADD BranchId UNIQUEIDENTIFIER NULL;
+            IF OBJECT_ID('dbo.Tenants', 'U') IS NOT NULL AND
+               NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_MenuItems_Tenants_TenantId')
+                ALTER TABLE dbo.MenuItems WITH CHECK ADD CONSTRAINT FK_MenuItems_Tenants_TenantId
+                    FOREIGN KEY (TenantId) REFERENCES dbo.Tenants(Id);
+            IF OBJECT_ID('dbo.Branches', 'U') IS NOT NULL AND
+               NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_MenuItems_Branches_BranchId')
+                ALTER TABLE dbo.MenuItems WITH CHECK ADD CONSTRAINT FK_MenuItems_Branches_BranchId
+                    FOREIGN KEY (BranchId) REFERENCES dbo.Branches(Id);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_MenuItems_TenantId_BranchId' AND object_id = OBJECT_ID('dbo.MenuItems'))
+                CREATE INDEX IX_MenuItems_TenantId_BranchId ON dbo.MenuItems(TenantId, BranchId);
+        ");
+
         // Payslip snapshot columns on TeacherSalaryPayments
         try
         {
@@ -1934,6 +1951,37 @@ using (var scope = app.Services.CreateScope())
                 context.SaveChanges();
                 Console.WriteLine("[Database] Auto-seeded 'Academic & Exam Workflow' under Admin Settings.");
             }
+
+            var menuManagementItem = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/admin/menu-management");
+            if (menuManagementItem == null)
+            {
+                menuManagementItem = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Menu Management",
+                    RouteUrl = "/admin/menu-management",
+                    Icon = "account_tree",
+                    ParentId = adminSettingsParent.Id,
+                    SortOrder = 7,
+                    Module = "Admin",
+                    IsActive = true
+                };
+                context.MenuItems.Add(menuManagementItem);
+                context.SaveChanges();
+            }
+            else
+            {
+                menuManagementItem.Title = "Menu Management";
+                menuManagementItem.Icon = "account_tree";
+                menuManagementItem.ParentId = adminSettingsParent.Id;
+                menuManagementItem.SortOrder = 7;
+                menuManagementItem.Module = "Admin";
+                menuManagementItem.IsActive = true;
+                menuManagementItem.TenantId = null;
+                menuManagementItem.BranchId = null;
+            }
+
+            context.SaveChanges();
         }
 
         // Auto-seed 'Classes & Sections' MenuItem under Master Management

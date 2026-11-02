@@ -9,10 +9,10 @@
       <p>{{ (isStudentOrParent || (isTeacherSelfMode && reportType === 'teacher')) ? 'Your personal monthly attendance percentage, working days, and day-by-day status matrix.' : 'Comprehensive monthly attendance matrix, compliance tracking, and register analytics.' }}</p>
     </div>
     <div class="header-actions">
-      <button mat-stroked-button class="action-btn" (click)="exportCsv()">
+      <button class="action-btn" (click)="exportCsv()" matButton="filled">
         <mat-icon>download</mat-icon> Export CSV
       </button>
-      <button mat-raised-button color="primary" class="action-btn" (click)="printReport()">
+      <button color="primary" class="action-btn" (click)="printReport()" matButton="filled">
         <mat-icon>print</mat-icon> Print Report
       </button>
     </div>
@@ -20,14 +20,14 @@
 
   @if (!isStudentOrParent) {
     <div class="report-type-bar no-print">
-      <button type="button" class="type-btn" [class.active]="reportType === 'student'" (click)="changeReportType('student')">
+      <button type="button" class="type-btn" [class.active]="reportType === 'student'" (click)="changeReportType('student')" matButton="filled">
         <mat-icon>groups</mat-icon>
         <div class="type-text">
           <strong>{{ isTeacherSelfMode ? 'Assigned Students Register' : 'Student Attendance Register' }}</strong>
           <small>{{ isTeacherSelfMode ? 'Roll-call register for your assigned classes &amp; batches' : 'Batch-wise monthly registers, roll numbers &amp; daily matrix' }}</small>
         </div>
       </button>
-      <button type="button" class="type-btn" [class.active]="reportType === 'teacher'" (click)="changeReportType('teacher')">
+      <button type="button" class="type-btn" [class.active]="reportType === 'teacher'" (click)="changeReportType('teacher')" matButton="filled">
         <mat-icon>badge</mat-icon>
         <div class="type-text">
           <strong>{{ isTeacherSelfMode ? 'My Attendance Register' : 'Teacher / Faculty Register' }}</strong>
@@ -54,7 +54,7 @@
       </div>
 
       <div class="scope-pill-group">
-        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'all'" (click)="setScopeMode('all')">
+        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'all'" (click)="setScopeMode('all')" matButton="filled">
           <mat-icon class="pill-ico">hub</mat-icon>
           <div class="pill-body">
             <span class="pill-title">🌐 All / Combined (Hybrid)</span>
@@ -62,7 +62,7 @@
           </div>
         </button>
 
-        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'school'" (click)="setScopeMode('school')">
+        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'school'" (click)="setScopeMode('school')" matButton="filled">
           <mat-icon class="pill-ico">domain</mat-icon>
           <div class="pill-body">
             <span class="pill-title">🏫 School Division (Single)</span>
@@ -70,7 +70,7 @@
           </div>
         </button>
 
-        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'coaching'" (click)="setScopeMode('coaching')">
+        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'coaching'" (click)="setScopeMode('coaching')" matButton="filled">
           <mat-icon class="pill-ico">school</mat-icon>
           <div class="pill-body">
             <span class="pill-title">📚 Coaching Division (Single)</span>
@@ -90,7 +90,7 @@
           <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange($event)"
             [placeholder]="reportType === 'student' ? 'Search student by name, roll no, batch...' : (isTeacherSelfMode ? 'Search my attendance records...' : 'Search teacher by name, code...')">
           @if (searchQuery) {
-            <button class="clear-search-btn" (click)="clearSearch()">
+            <button class="clear-search-btn" (click)="clearSearch()" mat-icon-button>
               <mat-icon style="font-size:16px;width:16px;height:16px;">close</mat-icon>
             </button>
           }
@@ -119,13 +119,13 @@
         <div class="filter-stream-pill-wrap">
           <label>Stream:</label>
           <div class="stream-pill-group">
-            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'all'" (click)="setStudentStream('all')">
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'all'" (click)="setStudentStream('all')" matButton="filled">
               <mat-icon>hub</mat-icon><span>&#x1F310; All (Combined)</span>
             </button>
-            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'school'" (click)="setStudentStream('school')">
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'school'" (click)="setStudentStream('school')" matButton="filled">
               <mat-icon>domain</mat-icon><span>&#x1F3EB; School Class</span>
             </button>
-            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'coaching'" (click)="setStudentStream('coaching')">
+            <button type="button" class="stream-tab-btn" [class.active]="studentStreamMode === 'coaching'" (click)="setStudentStream('coaching')" matButton="filled">
               <mat-icon>school</mat-icon><span>&#x1F4DA; Coaching Batch</span>
             </button>
           </div>
@@ -190,7 +190,7 @@
         }
       }
 
-      <button mat-stroked-button class="matrix-bulk-btn" (click)="toggleExpandAll()">
+      <button class="matrix-bulk-btn" (click)="toggleExpandAll()" matButton="filled">
         <mat-icon>{{ expandAll ? 'unfold_less' : 'grid_view' }}</mat-icon>
         <span>{{ expandAll ? 'Collapse Matrix' : 'Expand 30-Day Matrix' }}</span>
       </button>
@@ -365,7 +365,7 @@
         <tbody>
           <!-- Skeleton rows -->
           @if (loading) {
-            @for (s of skeletonRows; track s) {
+            @for (s of skeletonRows; track $index) {
               <tr class="skeleton-row">
                 <td><div class="person-name-cell"><div class="skel-avatar"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px;"><div class="skel-line skel-md"></div><div class="skel-line skel-sm"></div></div></div></td>
                 <td><div class="skel-line skel-sm"></div></td>
@@ -472,10 +472,10 @@
                   </div>
                 </td>
                 <td class="text-center no-print">
-                  <button mat-stroked-button class="matrix-action-btn"
+                  <button class="matrix-action-btn"
                     [class.matrix-open]="isExpanded(row.personId)"
                     [class.matrix-loading]="loadingDaily.has(row.personId)"
-                    (click)="toggleCalendar(row.personId)">
+                    (click)="toggleCalendar(row.personId)" matButton="filled">
                     @if (!loadingDaily.has(row.personId)) {
                       <mat-icon>{{ isExpanded(row.personId) ? 'expand_less' : 'calendar_month' }}</mat-icon>
                     }
@@ -512,7 +512,7 @@
                       <!-- Skeleton day strip -->
                       @if (loadingDaily.has(row.personId)) {
                         <div class="daily-strip-container">
-                          @for (d of skeletonDays; track d) {
+                          @for (d of skeletonDays; track $index) {
                             <div class="day-card-skel"></div>
                           }
                         </div>
@@ -529,15 +529,15 @@
                                   <span class="cal-title-month-text">{{ months[selectedMonth - 1] }} {{ selectedYear }}</span>
                                 </div>
                                 <div class="cal-nav-group">
-                                  <button type="button" class="cal-nav-btn" (click)="navigateMonth(-1, row.personId); $event.stopPropagation()" matTooltip="Previous Month">
+                                  <button type="button" class="cal-nav-btn" (click)="navigateMonth(-1, row.personId); $event.stopPropagation()" matTooltip="Previous Month" mat-icon-button>
                                     <mat-icon>chevron_left</mat-icon>
                                   </button>
                                   @if (!isCurrentSelectedMonth()) {
-                                    <button type="button" class="cal-today-btn" (click)="goToCurrentMonth(row.personId); $event.stopPropagation()" matTooltip="Go to Current Month">
+                                    <button type="button" class="cal-today-btn" (click)="goToCurrentMonth(row.personId); $event.stopPropagation()" matTooltip="Go to Current Month" matButton="filled">
                                       Today
                                     </button>
                                   }
-                                  <button type="button" class="cal-nav-btn" (click)="navigateMonth(1, row.personId); $event.stopPropagation()" matTooltip="Next Month">
+                                  <button type="button" class="cal-nav-btn" (click)="navigateMonth(1, row.personId); $event.stopPropagation()" matTooltip="Next Month" mat-icon-button>
                                     <mat-icon>chevron_right</mat-icon>
                                   </button>
                                 </div>
@@ -551,8 +551,8 @@
                               @for (h of weekDayHeaders; track h) {
                                 <div class="cal-head-cell" [class.cal-sun]="h === 'Sun'">{{h}}</div>
                               }
-                              @for (week of getDailyMatrixCalendar(row); track trackByWeekIndex(weekIdx, week); let weekIdx = $index) {
-                                @for (d of week; track trackByDayNum(colIdx, d); let colIdx = $index) {
+                              @for (week of getDailyMatrixCalendar(row); track $index; let weekIdx = $index) {
+                                @for (d of week; track $index; let colIdx = $index) {
                                   <div
                                     class="cal-cell"
                                     [class.cal-empty]="!d"
@@ -887,7 +887,7 @@
                                       <span class="activity-click-hint">Tap any day to pin</span>
                                     }
                                     @if (selectedDayMap[row.personId]) {
-                                      <button type="button" class="btn-activity-reset" (click)="selectDay(row.personId, null); $event.stopPropagation()" matTooltip="Show latest activity">
+                                      <button type="button" class="btn-activity-reset" (click)="selectDay(row.personId, null); $event.stopPropagation()" matTooltip="Show latest activity" matButton="filled">
                                         <mat-icon>history</mat-icon> Show Latest
                                       </button>
                                     }
@@ -1004,15 +1004,15 @@
             {{ reportType === 'student' ? 'students' : 'teachers' }}
           </div>
           <div class="page-btns">
-            <button class="page-btn" (click)="goToPage(pageIndex - 1)" [disabled]="pageIndex === 0">
+            <button class="page-btn" (click)="goToPage(pageIndex - 1)" [disabled]="pageIndex === 0" mat-icon-button>
               <mat-icon>chevron_left</mat-icon>
             </button>
             @for (p of pageNumbers; track p) {
               <button class="page-btn page-num"
                 [class.active-page]="p === pageIndex + 1"
-              (click)="goToPage(p - 1)">{{ p }}</button>
+              (click)="goToPage(p - 1)" matButton="filled">{{ p }}</button>
             }
-            <button class="page-btn" (click)="goToPage(pageIndex + 1)" [disabled]="pageIndex >= totalPages - 1">
+            <button class="page-btn" (click)="goToPage(pageIndex + 1)" [disabled]="pageIndex>= totalPages - 1" matButton="filled">
               <mat-icon>chevron_right</mat-icon>
             </button>
           </div>
@@ -1021,5 +1021,3 @@
     </div>
   }
 </div>
-
-

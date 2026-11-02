@@ -85,7 +85,7 @@ const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
             }
           </span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="cancel()">
+        <button class="fd-dialog-close" (click)="cancel()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -261,11 +261,11 @@ const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     
         <!-- ── Footer Actions ── -->
         <div class="fd-dialog-actions">
-          <button mat-stroked-button type="button" (click)="cancel()">Dismiss</button>
-          <button mat-raised-button
+          <button type="button" (click)="cancel()" matButton="filled" class="app-button-cancel">Dismiss</button>
+          <button
             color="warn"
             type="submit"
-            [disabled]="form.invalid || submitting || (isPartialMode && cancelledCount === 0)">
+            [disabled]="form.invalid || submitting || (isPartialMode && cancelledCount === 0)" matButton="filled">
             <mat-icon>{{submitting ? 'hourglass_top' : 'send'}}</mat-icon>
             <span>{{submitting ? 'Submitting...' : 'Submit Cancellation Request'}}</span>
           </button>
@@ -846,7 +846,7 @@ export class RequestStudentLeaveCancellationDialogComponent implements OnInit {
             }
           </span>
         </div>
-        <button mat-icon-button class="fd-dialog-close" (click)="dialogRef.close()">
+        <button class="fd-dialog-close" (click)="dialogRef.close()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -907,12 +907,12 @@ export class RequestStudentLeaveCancellationDialogComponent implements OnInit {
     
       <!-- Action Buttons -->
       <div class="fd-dialog-actions space-between">
-        <button mat-stroked-button color="warn" [disabled]="submitting" (click)="review(false)">
+        <button color="warn" [disabled]="submitting" (click)="review(false)" matButton="filled">
           <mat-icon>cancel</mat-icon> Reject Cancellation
         </button>
         <div class="right-btns">
-          <button mat-stroked-button type="button" (click)="dialogRef.close()">Cancel</button>
-          <button mat-raised-button color="primary" [disabled]="submitting" (click)="review(true)" style="background:#16a34a;color:#fff;">
+          <button type="button" (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" [disabled]="submitting" (click)="review(true)" style="background:#16a34a;color:#fff;" matButton="filled">
             <mat-icon>check_circle</mat-icon> Approve Cancellation
           </button>
         </div>

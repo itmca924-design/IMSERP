@@ -38,10 +38,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       </div>
     </div>
     <div class="header-actions">
-      <a mat-stroked-button routerLink="/teachers" class="back-btn">
+      <a matButton="filled" routerLink="/teachers" class="back-btn">
         <mat-icon>arrow_back</mat-icon> Teachers
       </a>
-      <button mat-raised-button color="primary" class="primary-btn" (click)="openAddModal()">
+      <button color="primary" class="primary-btn" (click)="openAddModal()" matButton="filled">
         <mat-icon>edit_note</mat-icon> Log Daily Lesson
       </button>
     </div>
@@ -107,7 +107,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </mat-select>
       </mat-form-field>
 
-      <button mat-button color="primary" (click)="resetFilters()">
+      <button color="primary" (click)="resetFilters()" matButton="filled">
         <mat-icon>refresh</mat-icon> Reset Filters
       </button>
     </div>
@@ -171,10 +171,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <div class="plan-footer">
             <span class="created-at">Logged: {{p.createdAt | date:'shortTime'}}</span>
             <div class="card-actions">
-              <button mat-icon-button color="primary" matTooltip="Add Principal Feedback / Edit" (click)="openEditModal(p)">
+              <button color="primary" matTooltip="Add Principal Feedback / Edit" (click)="openEditModal(p)" mat-icon-button>
                 <mat-icon>rate_review</mat-icon>
               </button>
-              <button mat-icon-button color="warn" matTooltip="Delete Entry" (click)="deleteLessonPlan(p.id)">
+              <button color="warn" matTooltip="Delete Entry" (click)="deleteLessonPlan(p.id)" mat-icon-button>
                 <mat-icon>delete</mat-icon>
               </button>
             </div>
@@ -190,7 +190,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       <mat-icon class="empty-icon">menu_book</mat-icon>
       <h3>No Diary Entries Found</h3>
       <p>No lesson plans or diary entries match the selected criteria. Click below to log a new lesson entry.</p>
-      <button mat-stroked-button color="primary" (click)="openAddModal()">
+      <button color="primary" (click)="openAddModal()" matButton="filled">
         <mat-icon>edit_note</mat-icon> Log Daily Lesson
       </button>
     </mat-card>
@@ -214,7 +214,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             <p class="modal-subtitle">शिक्षक डायरी प्रविष्टि — टॉपिक, शिक्षण विधि, एवं दिया गया गृहकार्य।</p>
           </div>
         </div>
-        <button mat-icon-button (click)="closeAddModal()" class="close-btn">
+        <button (click)="closeAddModal()" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -254,10 +254,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         <div class="col-full target-toggle-box">
           <label class="toggle-label">क्लास या बैच चुनें (Class or Batch Stream):</label>
           <div class="toggle-pills">
-            <button type="button" class="pill-btn" [class.active]="streamType === 'School'" (click)="setStreamType('School')">
+            <button type="button" class="pill-btn" [class.active]="streamType === 'School'" (click)="setStreamType('School')" matButton="filled">
               <mat-icon>school</mat-icon> School Class &amp; Section
             </button>
-            <button type="button" class="pill-btn" [class.active]="streamType === 'Coaching'" (click)="setStreamType('Coaching')">
+            <button type="button" class="pill-btn" [class.active]="streamType === 'Coaching'" (click)="setStreamType('Coaching')" matButton="filled">
               <mat-icon>class</mat-icon> Coaching Batch
             </button>
           </div>
@@ -345,8 +345,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       </div>
     </div>
     <div class="modal-footer">
-      <button mat-button (click)="closeAddModal()">Cancel</button>
-      <button mat-raised-button color="primary" class="primary-btn" [disabled]="saving || !addForm.teacherId || !addForm.subjectName || !addForm.chapterTopic" (click)="saveLessonPlan()">
+      <button (click)="closeAddModal()" matButton="filled" class="app-button-cancel">Cancel</button>
+      <button color="primary" class="primary-btn" [disabled]="saving || !addForm.teacherId || !addForm.subjectName || !addForm.chapterTopic" (click)="saveLessonPlan()" matButton="filled" [class.app-button-update]="editingPlanId" [class.app-button-save]="!(editingPlanId)">
         @if (!saving) {
           <mat-icon>check</mat-icon>
         }

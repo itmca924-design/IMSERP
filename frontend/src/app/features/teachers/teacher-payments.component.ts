@@ -58,8 +58,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
         type="button"
         class="mode-pill"
         [class.active]="viewMode === 'single'"
-        (click)="switchViewMode('single')"
-        >
+        (click)="switchViewMode('single')" matButton="filled">
         <mat-icon>person</mat-icon>
         <span>Individual Staff View</span>
       </button>
@@ -67,8 +66,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
         type="button"
         class="mode-pill"
         [class.active]="viewMode === 'bulk'"
-        (click)="switchViewMode('bulk')"
-        >
+        (click)="switchViewMode('bulk')" matButton="filled">
         <mat-icon>groups</mat-icon>
         <span>Monthly Bulk Payroll Run</span>
         @if (bulkSummary && bulkSummary.pendingCount > 0) {
@@ -119,7 +117,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
                 </span>
               }
             </div>
-            <button mat-raised-button color="primary" [disabled]="!selectedTeacher.isActive" (click)="toggleForm()" [matTooltip]="!selectedTeacher.isActive ? 'Exited teacher cannot receive regular salary payments' : ''">
+            <button color="primary" [disabled]="!selectedTeacher.isActive" (click)="toggleForm()" [matTooltip]="!selectedTeacher.isActive ? 'Exited teacher cannot receive regular salary payments' : ''" matButton="filled">
               <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
               {{showForm ? 'Cancel' : 'Record Salary Payment'}}
             </button>
@@ -138,7 +136,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
                         <p>Per-day rate: ₹{{preview!.perDayRate | number}} ({{preview!.totalWorkingDays}} working days in month)</p>
                       </div>
                     </div>
-                    <button mat-flat-button type="button" class="autofill-btn" [class.applied]="calculationsApplied" (click)="applyPreviewToForm()">
+                    <button type="button" class="autofill-btn" [class.applied]="calculationsApplied" (click)="applyPreviewToForm()" matButton="filled">
                       <mat-icon>{{calculationsApplied ? 'check_circle' : 'auto_fix_high'}}</mat-icon>
                       {{calculationsApplied ? 'Calculations Verified &amp; Applied ✓' : 'Auto-Fill Calculated Deductions'}}
                     </button>
@@ -297,7 +295,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
                       Gross salary is <strong>₹0</strong>. Monthly salary payments cannot be recorded until a valid salary structure is configured.
                     </p>
                   </div>
-                  <button mat-raised-button color="primary" type="button" class="config-now-btn" (click)="goToSalaryStructure()">
+                  <button color="primary" type="button" class="config-now-btn" (click)="goToSalaryStructure()" matButton="filled">
                     <mat-icon>tune</mat-icon>
                     <span>Configure Salary Structure</span>
                   </button>
@@ -446,17 +444,17 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
                       <span>Calculations verified! You can now record the payment.</span>
                     </div>
                   }
-                  <button mat-button type="button" (click)="toggleForm()">Cancel</button>
+                  <button type="button" (click)="toggleForm()" matButton="filled" class="app-button-cancel">Cancel</button>
                   <!-- Configure Structure Shortcut Button when unconfigured -->
                   @if (!hasSalaryConfigured) {
-                    <button mat-stroked-button color="warn" type="button" (click)="goToSalaryStructure()">
+                    <button color="warn" type="button" (click)="goToSalaryStructure()" matButton="filled">
                       <mat-icon>tune</mat-icon>
                       <span>Configure Structure</span>
                     </button>
                   }
-                  <button mat-raised-button color="primary" type="submit"
+                  <button color="primary" type="submit"
                     [disabled]="paymentForm.invalid || !calculationsApplied || saving || !hasSalaryConfigured || isSelectedMonthOngoing || isSelectedMonthFuture"
-                    [matTooltip]="isSelectedMonthOngoing ? 'Cannot record payment for ongoing month until month-end' : (isSelectedMonthFuture ? 'Cannot record payment for future month' : (!hasSalaryConfigured ? 'Cannot record payment: Salary structure is not configured (Gross amount is ₹0)' : (!calculationsApplied ? 'Please click Auto-Fill above to apply deductions' : (paymentForm.invalid ? 'Please resolve validation errors in form' : ''))))">
+                    [matTooltip]="isSelectedMonthOngoing ? 'Cannot record payment for ongoing month until month-end' : (isSelectedMonthFuture ? 'Cannot record payment for future month' : (!hasSalaryConfigured ? 'Cannot record payment: Salary structure is not configured (Gross amount is ₹0)' : (!calculationsApplied ? 'Please click Auto-Fill above to apply deductions' : (paymentForm.invalid ? 'Please resolve validation errors in form' : ''))))" matButton="filled">
                     <mat-icon>{{saving ? 'hourglass_empty' : 'save'}}</mat-icon>
                     {{saving ? 'Saving...' : 'Record Payment'}}
                   </button>
@@ -507,10 +505,10 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
                       </td>
                       <td>{{p.paymentDate | date:'dd MMM yyyy'}}</td>
                       <td class="text-center" style="white-space:nowrap;">
-                        <button mat-flat-button color="primary" class="payslip-btn" (click)="openPayslip(p)" matTooltip="View &amp; Print Payslip">
+                        <button color="primary" class="payslip-btn" (click)="openPayslip(p)" matTooltip="View &amp; Print Payslip" matButton="filled">
                           <mat-icon>receipt_long</mat-icon> Payslip
                         </button>
-                        <button mat-icon-button color="warn" (click)="deletePayment(p)" matTooltip="Delete Voucher">
+                        <button color="warn" (click)="deletePayment(p)" matTooltip="Delete Voucher" mat-icon-button>
                           <mat-icon>delete_outline</mat-icon>
                         </button>
                       </td>
@@ -560,9 +558,9 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
             <mat-label>Payroll Year</mat-label>
             <input matInput type="number" [(ngModel)]="bulkYear" (change)="loadBulkPreview()" min="2020" max="2099">
           </mat-form-field>
-          <button mat-flat-button color="primary" class="refresh-preview-btn" (click)="loadBulkPreview()"
+          <button color="primary" class="refresh-preview-btn" (click)="loadBulkPreview()"
             [disabled]="bulkLoading || isBulkMonthOngoing || isBulkMonthFuture"
-            [matTooltip]="isBulkMonthOngoing ? 'Payroll calculation is locked until month-end' : (isBulkMonthFuture ? 'Cannot calculate payroll for future month' : 'Recalculate monthly payroll preview')">
+            [matTooltip]="isBulkMonthOngoing ? 'Payroll calculation is locked until month-end' : (isBulkMonthFuture ? 'Cannot calculate payroll for future month' : 'Recalculate monthly payroll preview')" matButton="filled">
             <mat-icon [class.spin-anim]="bulkLoading">{{ isBulkMonthOngoing ? 'lock' : 'refresh' }}</mat-icon>
             <span>{{ bulkLoading ? 'Calculating...' : (isBulkMonthOngoing ? 'Payroll Locked (In Progress)' : (isBulkMonthFuture ? 'Future Month (Locked)' : 'Load Payroll Preview')) }}</span>
           </button>
@@ -573,7 +571,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
             <mat-icon>search</mat-icon>
             <input type="text" [(ngModel)]="bulkSearchQuery" placeholder="Filter staff name, code, dept..." />
             @if (bulkSearchQuery) {
-              <button mat-icon-button (click)="bulkSearchQuery = ''"><mat-icon>close</mat-icon></button>
+              <button (click)="bulkSearchQuery = ''" mat-icon-button><mat-icon>close</mat-icon></button>
             }
           </div>
           <mat-form-field appearance="outline" class="bulk-status-filter" subscriptSizing="dynamic">
@@ -666,13 +664,11 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
             </div>
             <div class="batch-disburse-btn-wrap">
               <button
-                mat-raised-button
                 color="primary"
                 class="disburse-btn"
                 [disabled]="selectedBulkStaff.length === 0 || bulkDisbursing || isBulkMonthOngoing || isBulkMonthFuture"
                 [matTooltip]="isBulkMonthOngoing ? 'Cannot disburse salary for ongoing month until month-end' : (isBulkMonthFuture ? 'Cannot disburse salary for future month' : '')"
-                (click)="disburseBulkPayments()"
-                >
+                (click)="disburseBulkPayments()" matButton="filled">
                 <mat-icon>{{ bulkDisbursing ? 'hourglass_empty' : 'send_and_archive' }}</mat-icon>
                 <span>{{ bulkDisbursing ? 'Processing Disbursement...' : 'Disburse Salary for ' + selectedBulkStaff.length + ' Staff' }}</span>
               </button>
@@ -837,22 +833,18 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
                     <td class="text-center">
                       @if (item.isAlreadyPaid && item.paidPaymentId) {
                         <button
-                          mat-flat-button
                           color="primary"
                           class="payslip-btn"
                           (click)="openPayslipForStaff(item)"
-                          matTooltip="View &amp; Print Payslip"
-                          >
+                          matTooltip="View &amp; Print Payslip" matButton="filled">
                           <mat-icon>receipt_long</mat-icon> Payslip
                         </button>
                       }
                       @if (!item.isAlreadyPaid) {
                         <button
-                          mat-stroked-button
                           class="single-jump-btn"
                           (click)="quickSelectTeacher(item.teacherId)"
-                          matTooltip="Open individual staff payment workspace"
-                          >
+                          matTooltip="Open individual staff payment workspace" matButton="filled">
                           <mat-icon>edit_calendar</mat-icon> Individual
                         </button>
                       }

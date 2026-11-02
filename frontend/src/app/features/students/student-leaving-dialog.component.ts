@@ -67,7 +67,7 @@ export interface StudentLeavingDialogData {
           </div>
         </div>
         <div class="header-right">
-          <button mat-icon-button class="close-btn" (click)="closeDialog()" matTooltip="Close">
+          <button class="close-btn" (click)="closeDialog()" matTooltip="Close" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -75,11 +75,11 @@ export interface StudentLeavingDialogData {
     
       <!-- Navigation Tabs -->
       <div class="tc-nav-tabs">
-        <button type="button" class="tab-btn" [class.active]="activeTab === 'clearance'" (click)="activeTab = 'clearance'">
+        <button type="button" class="tab-btn" [class.active]="activeTab === 'clearance'" (click)="activeTab = 'clearance'" matButton="filled">
           <mat-icon>verified_user</mat-icon>
           <span>Clearance &amp; Workflow</span>
         </button>
-        <button type="button" class="tab-btn" [class.active]="activeTab === 'certificate'" (click)="activeTab = 'certificate'">
+        <button type="button" class="tab-btn" [class.active]="activeTab === 'certificate'" (click)="activeTab = 'certificate'" matButton="filled">
           <mat-icon>{{ isPassedOut ? 'workspace_premium' : 'description' }}</mat-icon>
           <span>{{ isPassedOut ? 'School Leaving Certificate (SLC)' : 'Transfer Certificate (TC)' }}</span>
           @if (student?.tcNumber || clearanceData?.existingTCNumber) {
@@ -235,12 +235,12 @@ export interface StudentLeavingDialogData {
                   </div>
                   <div class="slb-actions-container">
                     <div class="slb-buttons-row">
-                      <button mat-raised-button color="primary" class="btn-slb-print" (click)="activeTab = 'certificate'">
+                      <button color="primary" class="btn-slb-print" (click)="activeTab = 'certificate'" matButton="filled">
                         <mat-icon>print</mat-icon>
                         <span>View &amp; Print {{ isPassedOut ? 'School Leaving Certificate (SLC)' : 'Transfer Certificate (TC)' }}</span>
                       </button>
                       @if (!isPassedOut) {
-                        <button mat-stroked-button color="primary" class="btn-slb-readmit" (click)="onReAdmitStudent()" [disabled]="actionLoading">
+                        <button color="primary" class="btn-slb-readmit" (click)="onReAdmitStudent()" [disabled]="actionLoading" matButton="filled">
                           <mat-icon>replay</mat-icon>
                           <span>Re-Admit Student Workflow</span>
                         </button>
@@ -328,10 +328,10 @@ export interface StudentLeavingDialogData {
                   }
                   <!-- Actions Row -->
                   <div class="form-actions-row">
-                    <button mat-button type="button" (click)="closeDialog()" [disabled]="actionLoading">
+                    <button type="button" (click)="closeDialog()" [disabled]="actionLoading" matButton="filled" class="app-button-cancel">
                       Cancel
                     </button>
-                    <button mat-raised-button color="warn" type="submit" [disabled]="leavingForm.invalid || actionLoading" class="confirm-leave-btn">
+                    <button color="warn" type="submit" [disabled]="leavingForm.invalid || actionLoading" class="confirm-leave-btn" matButton="filled">
                       @if (actionLoading) {
                         <mat-spinner diameter="18" style="display:inline-block; margin-right:6px;"></mat-spinner>
                       }
@@ -355,7 +355,7 @@ export interface StudentLeavingDialogData {
                   <span>Transfer Certificate ready for official printing &amp; records.</span>
                 </div>
                 <div class="tc-action-btns">
-                  <button mat-raised-button color="primary" (click)="printCertificate()">
+                  <button color="primary" (click)="printCertificate()" matButton="filled">
                     <mat-icon>print</mat-icon> Print TC Document (A4)
                   </button>
                 </div>
@@ -522,7 +522,7 @@ export interface StudentLeavingDialogData {
       <!-- Footer for View Mode -->
       @if (activeTab === 'clearance' && !student?.isActive) {
         <div class="tc-dialog-footer">
-          <button mat-stroked-button (click)="closeDialog()">Close</button>
+          <button (click)="closeDialog()" matButton="filled" class="app-button-cancel">Close</button>
         </div>
       }
     

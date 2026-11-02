@@ -43,7 +43,7 @@ export interface RecordPromiseDialogData {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close()" class="close-btn" matTooltip="Close">
+        <button (click)="dialogRef.close()" class="close-btn" matTooltip="Close" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -97,10 +97,10 @@ export interface RecordPromiseDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-stroked-button type="button" (click)="dialogRef.close()" class="cancel-btn">
+          <button type="button" (click)="dialogRef.close()" class="cancel-btn app-button-cancel" matButton="filled">
             Cancel
           </button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid" class="save-btn">
+          <button color="primary" type="submit" [disabled]="form.invalid" class="save-btn app-button-save" matButton="filled">
             <mat-icon>check_circle</mat-icon>
             <span>Save Commitment</span>
           </button>

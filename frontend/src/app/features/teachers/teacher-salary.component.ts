@@ -62,8 +62,7 @@ interface ExperienceSlabRecommendation {
         type="button"
         class="mode-pill"
         [class.active]="viewMode === 'single'"
-        (click)="switchViewMode('single')"
-        >
+        (click)="switchViewMode('single')" matButton="filled">
         <mat-icon>person</mat-icon>
         <span>Individual Staff View</span>
       </button>
@@ -71,8 +70,7 @@ interface ExperienceSlabRecommendation {
         type="button"
         class="mode-pill"
         [class.active]="viewMode === 'batch'"
-        (click)="switchViewMode('batch')"
-        >
+        (click)="switchViewMode('batch')" matButton="filled">
         <mat-icon>groups</mat-icon>
         <span>Batch / Multiple Staff Setup</span>
         @if (unconfiguredCount > 0) {
@@ -165,7 +163,7 @@ interface ExperienceSlabRecommendation {
               </div>
             </div>
             <div class="banner-actions">
-              <button mat-stroked-button color="primary" class="action-btn" (click)="toggleForm()">
+              <button color="primary" class="action-btn app-button-update" (click)="toggleForm()" matButton="filled">
                 <mat-icon>{{ showForm ? 'close' : (salaryStructure ? 'edit' : 'add_circle') }}</mat-icon>
                 <span>{{ showForm ? 'Cancel' : (salaryStructure ? 'Modify Structure' : 'Set Salary Structure') }}</span>
               </button>
@@ -190,8 +188,7 @@ interface ExperienceSlabRecommendation {
                   type="button"
                   class="auto-fill-btn"
                   (click)="applyExperienceRecommendation(selectedTeacher)"
-                  matTooltip="Instantly fill Basic, HRA, Allowances, and PF according to experience slab"
-                  >
+                  matTooltip="Instantly fill Basic, HRA, Allowances, and PF according to experience slab" matButton="filled">
                   <mat-icon>bolt</mat-icon>
                   <span>Auto-Calculate by Exp ({{ selectedTeacher.experienceYears || 0 }}y)</span>
                 </button>
@@ -203,8 +200,7 @@ interface ExperienceSlabRecommendation {
                   <button
                     type="button"
                     class="slab-chip"
-                    (click)="applySlab(slab)"
-                    >
+                    (click)="applySlab(slab)" matButton="filled">
                     <span class="slab-chip-name">{{ slab.slabName }} ({{ slab.expRange }})</span>
                     <span class="slab-chip-val">₹{{ slab.grossSalary | number:'1.0-0' }}</span>
                   </button>
@@ -290,8 +286,8 @@ interface ExperienceSlabRecommendation {
                   </div>
                 </div>
                 <div class="form-actions">
-                  <button mat-button type="button" (click)="showForm = false" [disabled]="submitting">Cancel</button>
-                  <button mat-flat-button color="primary" type="submit" [disabled]="salaryForm.invalid || submitting" class="btn-save">
+                  <button type="button" (click)="showForm = false" [disabled]="submitting" matButton="filled" class="app-button-cancel">Cancel</button>
+                  <button color="primary" type="submit" [disabled]="salaryForm.invalid || submitting" class="btn-save app-button-save" matButton="filled">
                     <mat-icon>{{ submitting ? 'hourglass_empty' : 'save' }}</mat-icon>
                     <span>{{ submitting ? 'Saving...' : 'Save Salary Structure' }}</span>
                   </button>
@@ -378,7 +374,7 @@ interface ExperienceSlabRecommendation {
               </div>
               <h3>No Salary Structure Configured Yet</h3>
               <p>This faculty member does not have an active compensation package defined. Their appraisal records and payroll require a configured structure.</p>
-              <button mat-flat-button color="primary" class="primary-btn" (click)="toggleForm()">
+              <button color="primary" class="primary-btn" (click)="toggleForm()" matButton="filled">
                 <mat-icon>add_circle</mat-icon>
                 <span>Define Salary Structure Now</span>
               </button>
@@ -406,7 +402,7 @@ interface ExperienceSlabRecommendation {
               (ngModelChange)="onSearchChange($event)"
               />
             @if (batchSearchQuery) {
-              <button type="button" class="clear-btn" (click)="clearSearch()">
+              <button type="button" class="clear-btn" (click)="clearSearch()" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             }
@@ -441,18 +437,16 @@ interface ExperienceSlabRecommendation {
               >
               <strong>{{ selectedStaffCount }}</strong> Staff Selected
             </mat-checkbox>
-            <button type="button" class="quick-link-btn" (click)="selectAllMissing()">
+            <button type="button" class="quick-link-btn" (click)="selectAllMissing()" matButton="filled">
               Filter Missing Structure ({{ unconfiguredCount }})
             </button>
           </div>
           <div class="strip-right-actions">
             <button
-              mat-flat-button
               color="primary"
               class="batch-create-btn"
               [disabled]="selectedStaffCount === 0"
-              (click)="openBulkModal()"
-              >
+              (click)="openBulkModal()" matButton="filled">
               <mat-icon>auto_awesome</mat-icon>
               <span>Setup Salary for {{ selectedStaffCount }} Selected Staff</span>
             </button>
@@ -569,7 +563,7 @@ interface ExperienceSlabRecommendation {
                   }
                 </td>
                 <td class="text-right">
-                  <button mat-stroked-button class="mini-btn" (click)="configureSingleFromBatch(item.teacher)">
+                  <button class="mini-btn app-button-update" (click)="configureSingleFromBatch(item.teacher)" matButton="filled">
                     <mat-icon>{{ item.salary ? 'edit' : 'add' }}</mat-icon>
                     <span>{{ item.salary ? 'Edit' : 'Configure' }}</span>
                   </button>
@@ -626,7 +620,7 @@ interface ExperienceSlabRecommendation {
               <span>Exp: <strong>{{ item.teacher.experienceYears || 0 }} Yrs</strong> ({{ getExpBandName(item.teacher.experienceYears || 0) }})</span>
             </div>
             <div class="m-card-bottom">
-              <button mat-stroked-button class="m-config-btn" (click)="configureSingleFromBatch(item.teacher)">
+              <button class="m-config-btn app-button-update" (click)="configureSingleFromBatch(item.teacher)" matButton="filled">
                 <mat-icon>{{ item.salary ? 'edit' : 'add' }}</mat-icon>
                 <span>{{ item.salary ? 'Modify Structure' : 'Set Structure' }}</span>
               </button>
@@ -666,7 +660,7 @@ interface ExperienceSlabRecommendation {
               <p class="modal-subtitle">Applying compensation package for {{ selectedStaffCount }} selected staff members</p>
             </div>
           </div>
-          <button mat-icon-button class="close-btn" (click)="closeBulkModal()" matTooltip="Close">
+          <button class="close-btn" (click)="closeBulkModal()" matTooltip="Close" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -679,8 +673,7 @@ interface ExperienceSlabRecommendation {
                 type="button"
                 class="strategy-chip"
                 [class.active]="bulkStrategy === 'matrix'"
-                (click)="bulkStrategy = 'matrix'"
-                >
+                (click)="bulkStrategy = 'matrix'" matButton="filled">
                 <mat-icon>auto_awesome</mat-icon>
                 <div>
                   <strong>Smart Experience Matrix (अनुभव अनुसार स्वतः अलग-अलग गणना)</strong>
@@ -691,8 +684,7 @@ interface ExperienceSlabRecommendation {
                 type="button"
                 class="strategy-chip"
                 [class.active]="bulkStrategy === 'uniform'"
-                (click)="bulkStrategy = 'uniform'"
-                >
+                (click)="bulkStrategy = 'uniform'" matButton="filled">
                 <mat-icon>payments</mat-icon>
                 <div>
                   <strong>Uniform Pay Scale (समान वेतनमान)</strong>
@@ -780,14 +772,12 @@ interface ExperienceSlabRecommendation {
           </mat-form-field>
         </div>
         <div class="modal-footer">
-          <button mat-button (click)="closeBulkModal()" [disabled]="batchProcessing">Cancel</button>
+          <button (click)="closeBulkModal()" [disabled]="batchProcessing" matButton="filled" class="app-button-cancel">Cancel</button>
           <button
-            mat-flat-button
             color="primary"
-            class="btn-save"
+            class="btn-save app-button-save"
             [disabled]="batchProcessing || (bulkStrategy === 'uniform' && (!uniformData.basicSalary || uniformData.basicSalary <= 0))"
-            (click)="executeBulkSalarySetup()"
-            >
+            (click)="executeBulkSalarySetup()" matButton="filled">
             <mat-icon>{{ batchProcessing ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
             <span>{{ batchProcessing ? 'Applying (' + batchProgressCount + '/' + selectedStaffCount + ')...' : 'Apply & Save (' + selectedStaffCount + ' Staff)' }}</span>
           </button>

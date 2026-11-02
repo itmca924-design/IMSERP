@@ -39,7 +39,7 @@ export interface WhatsAppFeeCardDialogData {
             Send official fee status & 12-month passbook ledger directly to parent / guardian.
           </p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onClose()">
+        <button type="button" class="close-btn" (click)="onClose()" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -95,12 +95,10 @@ export interface WhatsAppFeeCardDialogData {
               <span>WhatsApp Message Preview (संदेश पूर्वावलोकन)</span>
             </div>
             <button
-              mat-stroked-button
               type="button"
               class="btn-copy-preview"
               (click)="copyMessage()"
-              [matTooltip]="copied ? 'Copied!' : 'Copy to Clipboard'"
-            >
+              [matTooltip]="copied ? 'Copied!' : 'Copy to Clipboard'" matButton="filled">
               <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
               <span>{{ copied ? 'Copied' : 'Copy' }}</span>
             </button>
@@ -114,21 +112,19 @@ export interface WhatsAppFeeCardDialogData {
 
       <!-- Standard Dialog Actions -->
       <mat-dialog-actions class="dialog-actions">
-        <button mat-button type="button" class="btn-cancel" (click)="onClose()">
+        <button type="button" class="btn-cancel app-button-cancel" (click)="onClose()" matButton="filled">
           Cancel
         </button>
 
-        <button mat-stroked-button type="button" class="btn-copy-action" (click)="copyMessage()">
+        <button type="button" class="btn-copy-action" (click)="copyMessage()" matButton="filled">
           <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
           <span>{{ copied ? 'Copied to Clipboard' : 'Copy Message Text' }}</span>
         </button>
 
         <button
-          mat-flat-button
           type="button"
           class="btn-send-wa"
-          (click)="sendOnWhatsApp()"
-        >
+          (click)="sendOnWhatsApp()" matButton="filled">
           <mat-icon>send</mat-icon>
           <span>Open & Send on WhatsApp</span>
         </button>

@@ -49,7 +49,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <h2 mat-dialog-title class="main-title">{{ isEditMode ? 'Edit Academic Batch' : 'Create New Academic Batch' }}</h2>
           <p class="subtitle">{{ isEditMode ? 'Modify batch curriculum, campus, room allocation and fee rate.' : 'Configure a new coaching batch with campus, room assignment and monthly fee.' }}</p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -84,8 +84,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'single'"
-                  (click)="setBatchScope('single')"
-                  >
+                  (click)="setBatchScope('single')" matButton="filled">
                   <mat-icon>school</mat-icon>
                   <div class="pill-texts">
                     <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
@@ -97,8 +96,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'combined'"
-                  (click)="setBatchScope('combined')"
-                  >
+                  (click)="setBatchScope('combined')" matButton="filled">
                   <mat-icon>layers</mat-icon>
                   <div class="pill-texts">
                     <span class="pill-main">Combined / Multi-Class Range (संयुक्त कक्षा)</span>
@@ -116,19 +114,18 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   class="quick-add-link-btn"
                   [class.active]="showQuickAddClass"
                   (click)="toggleQuickAddClass()"
-                  title="Quick Add Higher Class (6th to 12th) for Coaching"
-                  >
+                  title="Quick Add Higher Class (6th to 12th) for Coaching" matButton="filled">
                   <mat-icon>{{ showQuickAddClass ? 'close' : 'add_circle' }}</mat-icon>
                   <span>{{ showQuickAddClass ? 'Close Quick Add' : '+ Add Coaching Class (6th to 12th)' }}</span>
                 </button>
                 <span class="shift-title">Shift:</span>
-                <button type="button" class="shift-pill" [class.active]="selectedShift === 'Morning'" (click)="setBatchShift('Morning')">
+                <button type="button" class="shift-pill" [class.active]="selectedShift === 'Morning'" (click)="setBatchShift('Morning')" matButton="filled">
                   ☀️ Morning
                 </button>
-                <button type="button" class="shift-pill" [class.active]="selectedShift === 'Evening'" (click)="setBatchShift('Evening')">
+                <button type="button" class="shift-pill" [class.active]="selectedShift === 'Evening'" (click)="setBatchShift('Evening')" matButton="filled">
                   🌇 Evening
                 </button>
-                <button type="button" class="shift-pill" [class.active]="selectedShift === 'Afternoon'" (click)="setBatchShift('Afternoon')">
+                <button type="button" class="shift-pill" [class.active]="selectedShift === 'Afternoon'" (click)="setBatchShift('Afternoon')" matButton="filled">
                   🕒 Afternoon
                 </button>
               </div>
@@ -171,7 +168,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                       <span class="card-hint">Adds a coaching-eligible class (Scope: Coaching) instantly without leaving this dialog.</span>
                     </div>
                   </div>
-                  <button type="button" mat-icon-button class="mini-close" (click)="showQuickAddClass = false" [disabled]="quickClassSaving">
+                  <button type="button" class="mini-close" (click)="showQuickAddClass = false" [disabled]="quickClassSaving" mat-icon-button>
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
@@ -185,8 +182,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                           type="button"
                           class="sug-chip-btn"
                           [disabled]="quickClassSaving"
-                          (click)="quickCreateClass(sug)"
-                          >
+                          (click)="quickCreateClass(sug)" matButton="filled">
                           <mat-icon>add</mat-icon> {{ sug }}
                         </button>
                       }
@@ -212,12 +208,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </div>
                   <button
                     type="button"
-                    mat-raised-button
                     color="primary"
                     class="quick-submit-btn"
                     [disabled]="!quickClassName.trim() || quickClassSaving"
-                    (click)="quickCreateClass(quickClassName)"
-                    >
+                    (click)="quickCreateClass(quickClassName)" matButton="filled">
                     @if (quickClassSaving) {
                       <mat-spinner diameter="16"></mat-spinner>
                     }
@@ -280,7 +274,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                       <mat-icon class="empty-icon">search_off</mat-icon>
                       <div class="empty-col">
                         <span>No class found matching "{{ classSearchTerm }}"</span>
-                        <button type="button" class="empty-add-btn" (click)="quickCreateClassFromSearch(classSearchTerm); $event.stopPropagation()">
+                        <button type="button" class="empty-add-btn" (click)="quickCreateClassFromSearch(classSearchTerm); $event.stopPropagation()" matButton="filled">
                           <mat-icon>add</mat-icon> Quick Add "{{ getCleanClassSuggestion(classSearchTerm) }}" as Coaching Class
                         </button>
                       </div>
@@ -336,11 +330,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               @if (availableSubjects.length > 0) {
                 <div class="subject-quick-actions">
                   <span class="quick-title">Quick Selection:</span>
-                  <button type="button" class="quick-pill-btn" (click)="selectAllSubjectsOneClick()">
+                  <button type="button" class="quick-pill-btn" (click)="selectAllSubjectsOneClick()" matButton="filled">
                     <mat-icon>done_all</mat-icon> All Subjects (सभी विषय)
                   </button>
                   @if (getSelectedSubjects().length > 0) {
-                    <button type="button" class="quick-pill-btn clear" (click)="clearAllSubjectsOneClick()">
+                    <button type="button" class="quick-pill-btn clear" (click)="clearAllSubjectsOneClick()" matButton="filled">
                       <mat-icon>clear</mat-icon> Clear All
                     </button>
                   }
@@ -578,8 +572,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="batchForm.invalid || saving || loading" class="submit-btn">
+          <button type="button" (click)="onCancel()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="batchForm.invalid || saving || loading" class="submit-btn" matButton="filled" [class.app-button-update]="isEditMode" [class.app-button-save]="!(isEditMode)">
             @if (saving) {
               <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
             }

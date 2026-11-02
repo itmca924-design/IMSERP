@@ -86,7 +86,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Password</mat-label>
               <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password">
-              <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
+              <button matSuffix (click)="hidePassword = !hidePassword" type="button" mat-icon-button>
                 <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
               </button>
               @if (loginForm.get('password')?.hasError('required')) {
@@ -109,7 +109,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
               </div>
             }
     
-            <button mat-raised-button class="full-width submit-btn" type="submit" [disabled]="loginForm.invalid || loading">
+            <button class="full-width submit-btn" type="submit" [disabled]="loginForm.invalid || loading" matButton="filled">
               @if (loading) {
                 <mat-spinner diameter="20" style="display:inline-block; margin-right:8px;"></mat-spinner>
               }
@@ -128,12 +128,12 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     
             <!-- Demo and Registration Actions -->
             <div class="demo-actions-row">
-              <button type="button" mat-stroked-button class="create-tenant-btn" (click)="openRegisterTrialDialog()">
+              <button type="button" class="create-tenant-btn" (click)="openRegisterTrialDialog()" matButton="filled">
                 <mat-icon>rocket_launch</mat-icon>
                 <span>Create Institute (14-Day Free Demo)</span>
               </button>
     
-              <button type="button" class="quick-demo-link" (click)="fillDemoCredentials()">
+              <button type="button" class="quick-demo-link" (click)="fillDemoCredentials()" matButton="filled">
                 <mat-icon>flash_on</mat-icon>
                 <span>Try 1-Click Interactive Demo</span>
               </button>

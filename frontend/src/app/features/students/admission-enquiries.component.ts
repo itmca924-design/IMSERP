@@ -95,11 +95,11 @@ export interface EnquiryStatsDto {
         </div>
     
         <div class="header-actions">
-          <button mat-stroked-button class="refresh-btn" (click)="loadEnquiries()" [disabled]="loading">
+          <button class="refresh-btn" (click)="loadEnquiries()" [disabled]="loading" matButton="filled">
             <mat-icon [class.spin]="loading">refresh</mat-icon>
             <span>Refresh</span>
           </button>
-          <button mat-raised-button class="create-btn" (click)="openEnquiryDialog()">
+          <button class="create-btn" (click)="openEnquiryDialog()" matButton="filled">
             <mat-icon>person_add</mat-icon>
             <span>New Enquiry</span>
           </button>
@@ -189,10 +189,10 @@ export interface EnquiryStatsDto {
           </mat-form-field>
     
           <div class="view-toggle">
-            <button mat-icon-button [class.active-view]="viewMode==='kanban'" (click)="viewMode='kanban'" matTooltip="Pipeline Kanban">
+            <button [class.active-view]="viewMode==='kanban'" (click)="viewMode='kanban'" matTooltip="Pipeline Kanban" mat-icon-button>
               <mat-icon>view_column</mat-icon>
             </button>
-            <button mat-icon-button [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List">
+            <button [class.active-view]="viewMode==='table'" (click)="viewMode='table'" matTooltip="Table List" mat-icon-button>
               <mat-icon>format_list_bulleted</mat-icon>
             </button>
           </div>
@@ -209,7 +209,7 @@ export interface EnquiryStatsDto {
           <div class="empty-icon-wrap"><mat-icon>contact_phone</mat-icon></div>
           <h3>No Enquiries Found</h3>
           <p>No student admission enquiries match the current filters. Click "New Enquiry" to register a lead.</p>
-          <button mat-raised-button class="create-btn" (click)="openEnquiryDialog()">
+          <button class="create-btn" (click)="openEnquiryDialog()" matButton="filled">
             <mat-icon>add</mat-icon> Register First Enquiry
           </button>
         </div>
@@ -307,7 +307,7 @@ export interface EnquiryStatsDto {
           <a [href]="'tel:' + e.phone" class="phone-link">
             <mat-icon class="ic-inline">phone</mat-icon> {{e.phone}}
           </a>
-          <a [href]="'https://wa.me/91' + e.phone" target="_blank" class="wa-btn" matTooltip="Open WhatsApp">
+          <a [href]="'https://wa.me/91' + e.phone" target="_blank" class="wa-btn" matTooltip="Open WhatsApp" mat-icon-button>
             <mat-icon class="ic-wa">chat</mat-icon>
           </a>
         </div>
@@ -341,27 +341,27 @@ export interface EnquiryStatsDto {
           <div class="stage-flow-bar">
             <!-- If New: Quick advance to Contacted -->
             @if (e.status === 'New') {
-              <button mat-button class="stage-step-btn btn-contact" (click)="moveStage(e, 'Contacted')" matTooltip="Move to Contacted / Follow-up">
+              <button class="stage-step-btn btn-contact" (click)="moveStage(e, 'Contacted')" matTooltip="Move to Contacted / Follow-up" matButton="filled">
                 <mat-icon>phone_in_talk</mat-icon>
                 <span>Mark Contacted ➔</span>
               </button>
             }
             <!-- If Contacted: Quick advance to Demo / Visit -->
             @if (e.status === 'Contacted') {
-              <button mat-button class="stage-step-btn btn-demo" (click)="moveStage(e, 'Demo / Visit')" matTooltip="Move to Demo / Campus Visit">
+              <button class="stage-step-btn btn-demo" (click)="moveStage(e, 'Demo / Visit')" matTooltip="Move to Demo / Campus Visit" matButton="filled">
                 <mat-icon>school</mat-icon>
                 <span>Schedule Demo ➔</span>
               </button>
             }
             <!-- If Demo: Quick convert to Admission -->
             @if (e.status === 'Demo / Visit' || e.status === 'Demo') {
-              <button mat-button class="stage-step-btn btn-admit" (click)="openConvertDialog(e)" matTooltip="Complete Student Admission">
+              <button class="stage-step-btn btn-admit" (click)="openConvertDialog(e)" matTooltip="Complete Student Admission" matButton="filled">
                 <mat-icon>how_to_reg</mat-icon>
                 <span>Admit Student ➔</span>
               </button>
             }
             <!-- Change Stage Dropdown Button -->
-            <button mat-icon-button class="stage-menu-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Change Pipeline Stage">
+            <button class="stage-menu-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Change Pipeline Stage" mat-icon-button>
               <mat-icon>swap_horiz</mat-icon>
             </button>
           </div>
@@ -373,7 +373,7 @@ export interface EnquiryStatsDto {
               <mat-icon>verified</mat-icon>
               <span>Enrolled Student</span>
             </div>
-            <button mat-icon-button class="stage-menu-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Change Stage">
+            <button class="stage-menu-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Change Stage" mat-icon-button>
               <mat-icon>swap_horiz</mat-icon>
             </button>
           </div>
@@ -383,15 +383,15 @@ export interface EnquiryStatsDto {
           <span class="source-tag">{{e.source}}</span>
     
           <div class="card-actions">
-            <button mat-icon-button (click)="openEnquiryDialog(e)" matTooltip="Edit Enquiry">
+            <button (click)="openEnquiryDialog(e)" matTooltip="Edit Enquiry" mat-icon-button>
               <mat-icon class="card-action-ic edit">edit</mat-icon>
             </button>
             @if (e.status !== 'Admitted') {
-              <button mat-raised-button class="convert-mini-btn" (click)="openConvertDialog(e)" matTooltip="Convert to Student Admission">
+              <button class="convert-mini-btn" (click)="openConvertDialog(e)" matTooltip="Convert to Student Admission" matButton="filled">
                 <mat-icon>how_to_reg</mat-icon> Admit
               </button>
             }
-            <button mat-icon-button (click)="deleteEnquiry(e)" matTooltip="Delete">
+            <button (click)="deleteEnquiry(e)" matTooltip="Delete" mat-icon-button>
               <mat-icon class="card-action-ic delete">delete</mat-icon>
             </button>
           </div>
@@ -410,7 +410,7 @@ export interface EnquiryStatsDto {
             <mat-icon style="color:#d97706">phone_in_talk</mat-icon>
             <span>2. Contacted / Follow-up</span>
           </button>
-          <button mat-menu-item (click)="moveStage(item, 'Demo / Visit')" [disabled]="item.status === 'Demo / Visit' || item.status === 'Demo'">
+          <button mat-menu-item (click)="moveStage(item, 'Demo / Visit')" [disabled]="item.status === 'Demo / Visit' || item.status ==='Demo'">
             <mat-icon style="color:#7c3aed">school</mat-icon>
             <span>3. Demo / Campus Visit</span>
           </button>
@@ -420,7 +420,7 @@ export interface EnquiryStatsDto {
             <span>4. Admit / Enroll Student 🎓</span>
           </button>
           <mat-divider></mat-divider>
-          <button mat-menu-item (click)="moveStage(item, 'Lost')" [disabled]="item.status === 'Lost'">
+          <button mat-menu-item (click)="moveStage(item, 'Lost')" [disabled]="item.status ==='Lost'">
             <mat-icon style="color:#ef4444">cancel</mat-icon>
             <span>Mark as Lost / Dropped</span>
           </button>
@@ -467,7 +467,7 @@ export interface EnquiryStatsDto {
                   <td><span class="source-tag" [class.source-online]="e.source === 'Online Portal'">{{e.source === 'Online Portal' ? '🌐 Online Lead' : e.source}}</span></td>
                   <td><span class="prio-tag" [ngClass]="e.priority.toLowerCase()">{{e.priority}}</span></td>
                   <td>
-                    <button mat-button class="tbl-status-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Click to change pipeline stage">
+                    <button class="tbl-status-btn" [matMenuTriggerFor]="stageMenu" [matMenuTriggerData]="{ item: e }" matTooltip="Click to change pipeline stage" matButton="filled">
                       <span class="status-pill" [ngClass]="getStatusClass(e.status)">{{e.status}} ▾</span>
                     </button>
                   </td>
@@ -479,15 +479,15 @@ export interface EnquiryStatsDto {
                   </td>
                   <td>
                     <div class="tbl-actions">
-                      <button mat-icon-button (click)="openEnquiryDialog(e)" matTooltip="Edit">
+                      <button (click)="openEnquiryDialog(e)" matTooltip="Edit" mat-icon-button>
                         <mat-icon class="card-action-ic edit">edit</mat-icon>
                       </button>
                       @if (e.status !== 'Admitted') {
-                        <button mat-raised-button class="convert-mini-btn" (click)="openConvertDialog(e)" matTooltip="Convert to Admission">
+                        <button class="convert-mini-btn" (click)="openConvertDialog(e)" matTooltip="Convert to Admission" matButton="filled">
                           <mat-icon>how_to_reg</mat-icon> Admit
                         </button>
                       }
-                      <button mat-icon-button (click)="deleteEnquiry(e)" matTooltip="Delete">
+                      <button (click)="deleteEnquiry(e)" matTooltip="Delete" mat-icon-button>
                         <mat-icon class="card-action-ic delete">delete</mat-icon>
                       </button>
                     </div>
@@ -1014,7 +1014,7 @@ export class AdmissionEnquiriesComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn">
+        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -1120,8 +1120,8 @@ export class AdmissionEnquiriesComponent implements OnInit {
     
       <!-- Footer -->
       <div class="modal-footer">
-        <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
-        <button mat-raised-button class="save-btn" (click)="saveEnquiry()" [disabled]="saving || !model.studentName || !model.phone">
+        <button (click)="dialogRef.close(false)" class="cancel-btn app-button-cancel" matButton="filled">Cancel</button>
+        <button class="save-btn" (click)="saveEnquiry()" [disabled]="saving || !model.studentName || !model.phone" matButton="filled" [class.app-button-update]="isEdit">
           <mat-icon>{{isEdit ? 'save' : 'check'}}</mat-icon>
           <span>{{isEdit ? 'Save Changes' : 'Register Enquiry'}}</span>
         </button>
@@ -1279,7 +1279,7 @@ export class EnquiryFormDialogComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button mat-icon-button (click)="dialogRef.close(false)" class="close-btn">
+        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -1369,8 +1369,8 @@ export class EnquiryFormDialogComponent implements OnInit {
     </div>
     
     <div class="modal-footer">
-      <button mat-button (click)="dialogRef.close(false)" class="cancel-btn">Cancel</button>
-      <button mat-raised-button class="admit-btn" (click)="confirmConvert()" [disabled]="converting">
+      <button (click)="dialogRef.close(false)" class="cancel-btn app-button-cancel" matButton="filled">Cancel</button>
+      <button class="admit-btn" (click)="confirmConvert()" [disabled]="converting" matButton="filled">
         <mat-icon>check_circle</mat-icon>
         <span>Confirm Admission</span>
       </button>

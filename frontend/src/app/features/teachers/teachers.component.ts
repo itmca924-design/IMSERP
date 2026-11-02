@@ -84,7 +84,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
       <h1 class="page-title">Teacher Management</h1>
       <p class="page-subtitle">Faculty profiles, attendance, salary, leaves & batch assignments.</p>
     </div>
-    <button mat-raised-button color="primary" (click)="openAddTeacher()" *ngIf="!showForm && !selectedTeacher">
+    <button color="primary" (click)="openAddTeacher()" *ngIf="!showForm && !selectedTeacher" matButton="filled">
       <mat-icon>person_add</mat-icon> Add Teacher
     </button>
   </div>
@@ -97,7 +97,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
       <h2><mat-icon color="primary">{{editingId ? 'edit' : 'person_add'}}</mat-icon>
         {{editingId ? 'Edit Teacher' : 'Add New Teacher'}}
       </h2>
-      <button mat-icon-button (click)="cancelForm()"><mat-icon>close</mat-icon></button>
+      <button (click)="cancelForm()" mat-icon-button><mat-icon>close</mat-icon></button>
     </div>
     <form [formGroup]="teacherForm" (ngSubmit)="saveTeacher()">
       <div class="form-grid">
@@ -159,8 +159,8 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
         </mat-form-field>
       </div>
       <div class="form-actions">
-        <button mat-button type="button" (click)="cancelForm()">Cancel</button>
-        <button mat-raised-button color="primary" type="submit" [disabled]="teacherForm.invalid || saving">
+        <button type="button" (click)="cancelForm()" matButton="filled" class="app-button-cancel">Cancel</button>
+        <button color="primary" type="submit" [disabled]="teacherForm.invalid || saving" matButton="filled" [class.app-button-update]="editingId" [class.app-button-save]="!(editingId)">
           <mat-spinner diameter="18" *ngIf="saving" style="display:inline-block;margin-right:6px"></mat-spinner>
           <mat-icon *ngIf="!saving">save</mat-icon>
           {{saving ? 'Saving...' : (editingId ? 'Update Teacher' : 'Add Teacher')}}
@@ -194,9 +194,9 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
         <div class="stat-box"><span class="stat-val">{{pendingLeaveCount}}</span><span class="stat-lbl">Leaves Pending</span></div>
       </div>
       <div class="profile-actions">
-        <button mat-stroked-button color="primary" (click)="editTeacher(selectedTeacher)"><mat-icon>edit</mat-icon> Edit</button>
-        <button mat-stroked-button color="warn" (click)="deleteTeacher(selectedTeacher.id)"><mat-icon>delete</mat-icon> Remove</button>
-        <button mat-stroked-button (click)="selectedTeacher = null"><mat-icon>arrow_back</mat-icon> Back</button>
+        <button color="primary" (click)="editTeacher(selectedTeacher)" matButton="filled" class="app-button-update"><mat-icon>edit</mat-icon> Edit</button>
+        <button color="warn" (click)="deleteTeacher(selectedTeacher.id)" matButton="filled" class="app-button-delete"><mat-icon>delete</mat-icon> Remove</button>
+        <button (click)="selectedTeacher = null" matButton="filled" class="app-button-cancel"><mat-icon>arrow_back</mat-icon> Back</button>
       </div>
     </mat-card>
 
@@ -209,7 +209,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
           <div class="tab-content">
             <div class="tab-toolbar">
               <h3>Assigned Batches</h3>
-              <button mat-raised-button color="primary" size="small" (click)="showAssignForm = !showAssignForm">
+              <button color="primary" size="small" (click)="showAssignForm = !showAssignForm" matButton="filled">
                 <mat-icon>add</mat-icon> Assign Batch
               </button>
             </div>
@@ -233,8 +233,8 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
                 <input matInput [(ngModel)]="newAssignment.timeSlot" placeholder="08:00-09:30">
               </mat-form-field>
               <div class="assign-actions">
-                <button mat-button (click)="showAssignForm = false">Cancel</button>
-                <button mat-raised-button color="primary" (click)="assignBatch()">Assign</button>
+                <button (click)="showAssignForm = false" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" (click)="assignBatch()" matButton="filled">Assign</button>
               </div>
             </div>
             <div class="batch-assignment-grid">
@@ -250,7 +250,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
                 <div class="assignment-meta" *ngIf="a.timeSlot">
                   <mat-icon>schedule</mat-icon> {{a.timeSlot}}
                 </div>
-                <button mat-icon-button color="warn" class="remove-btn" (click)="removeBatchAssignment(a.id)" matTooltip="Remove Assignment">
+                <button color="warn" class="remove-btn" (click)="removeBatchAssignment(a.id)" matTooltip="Remove Assignment" mat-icon-button>
                   <mat-icon>remove_circle_outline</mat-icon>
                 </button>
               </div>
@@ -316,7 +316,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
             <!-- Salary Structure -->
             <div class="section-header">
               <h3>Salary Structure</h3>
-              <button mat-stroked-button color="primary" (click)="showSalaryForm = !showSalaryForm">
+              <button color="primary" (click)="showSalaryForm = !showSalaryForm" matButton="filled" [class.app-button-update]="salaryStructure">
                 <mat-icon>{{salaryStructure ? 'edit' : 'add'}}</mat-icon>
                 {{salaryStructure ? 'Update Structure' : 'Set Salary'}}
               </button>
@@ -332,8 +332,8 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
                 <mat-form-field appearance="outline"><mat-label>Effective From</mat-label><input matInput type="date" formControlName="effectiveFrom"></mat-form-field>
               </div>
               <div class="form-actions">
-                <button mat-button type="button" (click)="showSalaryForm=false">Cancel</button>
-                <button mat-raised-button color="primary" type="submit">Save Salary Structure</button>
+                <button type="button" (click)="showSalaryForm=false" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" type="submit" matButton="filled" class="app-button-save">Save Salary Structure</button>
               </div>
             </form>
             <div class="salary-structure-card" *ngIf="salaryStructure && !showSalaryForm">
@@ -351,7 +351,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
             <!-- Payment History -->
             <div class="section-header" style="margin-top:24px">
               <h3>Payment History</h3>
-              <button mat-stroked-button color="primary" (click)="showPaymentForm = !showPaymentForm">
+              <button color="primary" (click)="showPaymentForm = !showPaymentForm" matButton="filled">
                 <mat-icon>add</mat-icon> Record Payment
               </button>
             </div>
@@ -382,8 +382,8 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
                 <mat-form-field appearance="outline" class="remarks-col-4"><mat-label>Remarks</mat-label><input matInput formControlName="remarks" placeholder="Optional notes, deductions or calculation remarks..."><mat-icon matSuffix color="primary">notes</mat-icon></mat-form-field>
               </div>
               <div class="form-actions">
-                <button mat-button type="button" (click)="showPaymentForm=false">Cancel</button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="paymentForm.invalid">Record Payment</button>
+                <button type="button" (click)="showPaymentForm=false" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" type="submit" [disabled]="paymentForm.invalid" matButton="filled">Record Payment</button>
               </div>
             </form>
             <table class="att-table" *ngIf="salaryPayments.length > 0">
@@ -407,12 +407,12 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
             <!-- Advances -->
             <div class="section-header" style="margin-top:24px">
               <h3>Salary Advances</h3>
-              <button mat-stroked-button (click)="showAdvanceForm = !showAdvanceForm"><mat-icon>add</mat-icon> Request Advance</button>
+              <button (click)="showAdvanceForm = !showAdvanceForm" matButton="filled"><mat-icon>add</mat-icon> Request Advance</button>
             </div>
             <div class="advance-form" *ngIf="showAdvanceForm">
               <mat-form-field appearance="outline"><mat-label>Amount ₹</mat-label><input matInput type="number" [(ngModel)]="newAdvance.amount"></mat-form-field>
               <mat-form-field appearance="outline" style="flex:2"><mat-label>Reason</mat-label><input matInput [(ngModel)]="newAdvance.reason"></mat-form-field>
-              <button mat-raised-button color="primary" (click)="requestAdvance()">Submit</button>
+              <button color="primary" (click)="requestAdvance()" matButton="filled">Submit</button>
             </div>
             <table class="att-table" *ngIf="advances.length > 0">
               <thead><tr><th>Date</th><th>Amount</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
@@ -423,8 +423,8 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
                   <td>{{a.reason || '—'}}</td>
                   <td><span class="status-badge" [ngClass]="a.status.toLowerCase()">{{a.status}}</span></td>
                   <td>
-                    <button mat-icon-button color="primary" *ngIf="a.status==='Pending'" (click)="approveAdvance(a.id, true)" matTooltip="Approve"><mat-icon>check_circle</mat-icon></button>
-                    <button mat-icon-button color="warn" *ngIf="a.status==='Pending'" (click)="approveAdvance(a.id, false)" matTooltip="Reject"><mat-icon>cancel</mat-icon></button>
+                    <button color="primary" *ngIf="a.status==='Pending'" (click)="approveAdvance(a.id, true)" matTooltip="Approve" mat-icon-button><mat-icon>check_circle</mat-icon></button>
+                    <button color="warn" *ngIf="a.status==='Pending'" (click)="approveAdvance(a.id, false)" matTooltip="Reject" mat-icon-button><mat-icon>cancel</mat-icon></button>
                   </td>
                 </tr>
               </tbody>
@@ -440,7 +440,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
           <div class="tab-content">
             <div class="tab-toolbar">
               <h3>Leave Applications</h3>
-              <button mat-raised-button color="primary" (click)="showLeaveForm = !showLeaveForm"><mat-icon>add</mat-icon> Apply Leave</button>
+              <button color="primary" (click)="showLeaveForm = !showLeaveForm" matButton="filled"><mat-icon>add</mat-icon> Apply Leave</button>
             </div>
             <form [formGroup]="leaveForm" (ngSubmit)="applyLeave()" *ngIf="showLeaveForm">
               <div class="form-grid compact">
@@ -458,8 +458,8 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
                 <mat-form-field appearance="outline" class="full-width"><mat-label>Reason</mat-label><input matInput formControlName="reason"></mat-form-field>
               </div>
               <div class="form-actions">
-                <button mat-button type="button" (click)="showLeaveForm=false">Cancel</button>
-                <button mat-raised-button color="primary" type="submit" [disabled]="leaveForm.invalid">Apply Leave</button>
+                <button type="button" (click)="showLeaveForm=false" matButton="filled" class="app-button-cancel">Cancel</button>
+                <button color="primary" type="submit" [disabled]="leaveForm.invalid" matButton="filled">Apply Leave</button>
               </div>
             </form>
             <table class="att-table" *ngIf="leaves.length > 0">
@@ -473,8 +473,8 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
                   <td>{{l.reason || '—'}}</td>
                   <td><span class="status-badge" [ngClass]="l.status.toLowerCase()">{{l.status}}</span></td>
                   <td>
-                    <button mat-icon-button color="primary" *ngIf="l.status==='Pending'" (click)="approveLeave(l.id, true)" matTooltip="Approve"><mat-icon>check_circle</mat-icon></button>
-                    <button mat-icon-button color="warn" *ngIf="l.status==='Pending'" (click)="approveLeave(l.id, false)" matTooltip="Reject"><mat-icon>cancel</mat-icon></button>
+                    <button color="primary" *ngIf="l.status==='Pending'" (click)="approveLeave(l.id, true)" matTooltip="Approve" mat-icon-button><mat-icon>check_circle</mat-icon></button>
+                    <button color="warn" *ngIf="l.status==='Pending'" (click)="approveLeave(l.id, false)" matTooltip="Reject" mat-icon-button><mat-icon>cancel</mat-icon></button>
                   </td>
                 </tr>
               </tbody>
@@ -496,7 +496,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
         <mat-label>Search teachers...</mat-label>
         <mat-icon matPrefix>search</mat-icon>
         <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearch()" placeholder="Name, code, specialization...">
-        <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadTeachers()"><mat-icon>clear</mat-icon></button>
+        <button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; loadTeachers()" mat-icon-button><mat-icon>clear</mat-icon></button>
       </mat-form-field>
       <mat-form-field appearance="outline" style="width:160px">
         <mat-label>Status</mat-label>
@@ -535,9 +535,9 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
 
     <!-- Pagination -->
     <div class="pagination" *ngIf="totalCount > pageSize">
-      <button mat-icon-button [disabled]="pageNumber === 1" (click)="changePage(-1)"><mat-icon>chevron_left</mat-icon></button>
+      <button [disabled]="pageNumber === 1" (click)="changePage(-1)" mat-icon-button><mat-icon>chevron_left</mat-icon></button>
       <span>Page {{pageNumber}} of {{totalPages}}</span>
-      <button mat-icon-button [disabled]="pageNumber >= totalPages" (click)="changePage(1)"><mat-icon>chevron_right</mat-icon></button>
+      <button [disabled]="pageNumber>= totalPages" (click)="changePage(1)" mat-icon-button><mat-icon>chevron_right</mat-icon></button>
     </div>
   </div>
 </div>

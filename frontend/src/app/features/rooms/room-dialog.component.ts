@@ -43,7 +43,7 @@ export interface RoomDialogData {
           <h2 mat-dialog-title class="main-title">{{ data.isEditing ? 'Edit Classroom' : 'Create New Classroom' }}</h2>
           <p class="subtitle">{{ data.isEditing ? 'Modify room identifier, seating capacity, and building wing.' : 'Register a physical classroom with seating capacity and campus branch.' }}</p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -147,8 +147,8 @@ export interface RoomDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="roomForm.invalid || saving" class="submit-btn">
+          <button type="button" (click)="onCancel()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="roomForm.invalid || saving" class="submit-btn" matButton="filled" [class.app-button-update]="data.isEditing" [class.app-button-save]="!(data.isEditing)">
             @if (saving) {
               <mat-progress-spinner mode="indeterminate" diameter="18" class="btn-spinner"></mat-progress-spinner>
             }

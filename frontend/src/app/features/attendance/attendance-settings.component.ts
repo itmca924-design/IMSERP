@@ -68,13 +68,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <!-- Quick Presets -->
                 <div class="preset-strip">
                   <span class="preset-label">Quick Timings Presets:</span>
-                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('08:00', '17:00')">
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('08:00', '17:00')" matButton="filled">
                     08:00 AM – 05:00 PM (9 hrs)
                   </button>
-                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('09:00', '17:00')">
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('09:00', '17:00')" matButton="filled">
                     09:00 AM – 05:00 PM (8 hrs)
                   </button>
-                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('10:00', '17:00')">
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('10:00', '17:00')" matButton="filled">
                     10:00 AM – 05:00 PM (7 hrs)
                   </button>
                 </div>
@@ -146,13 +146,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <!-- Quick Student Presets -->
                 <div class="preset-strip">
                   <span class="preset-label">Quick Class Presets:</span>
-                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:00', '14:00')">
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:00', '14:00')" matButton="filled">
                     08:00 AM – 02:00 PM (6 hrs)
                   </button>
-                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:30', '14:30')">
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('08:30', '14:30')" matButton="filled">
                     08:30 AM – 02:30 PM (6 hrs)
                   </button>
-                  <button type="button" class="preset-chip" (click)="applyStudentPreset('09:00', '15:00')">
+                  <button type="button" class="preset-chip" (click)="applyStudentPreset('09:00', '15:00')" matButton="filled">
                     09:00 AM – 03:00 PM (6 hrs)
                   </button>
                 </div>
@@ -333,13 +333,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <!-- Quick Presets -->
                     <div class="preset-strip">
                       <span class="preset-label">Presets:</span>
-                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('06:30', '09:30')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('06:30', '09:30')" matButton="filled">
                         06:30 – 09:30 AM
                       </button>
-                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('07:00', '10:00')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('07:00', '10:00')" matButton="filled">
                         07:00 – 10:00 AM
                       </button>
-                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('08:00', '11:00')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingMorningPreset('08:00', '11:00')" matButton="filled">
                         08:00 – 11:00 AM
                       </button>
                     </div>
@@ -378,13 +378,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <!-- Quick Presets -->
                     <div class="preset-strip">
                       <span class="preset-label">Presets:</span>
-                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('15:30', '18:30')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('15:30', '18:30')" matButton="filled">
                         03:30 – 06:30 PM
                       </button>
-                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('16:00', '19:00')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('16:00', '19:00')" matButton="filled">
                         04:00 – 07:00 PM
                       </button>
-                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('17:00', '20:00')">
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('17:00', '20:00')" matButton="filled">
                         05:00 – 08:00 PM
                       </button>
                     </div>
@@ -414,7 +414,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             </mat-tab>
           </mat-tab-group>
           <div class="card-footer-actions">
-            <button mat-raised-button color="primary" class="save-btn" (click)="saveSettings()" [disabled]="saving">
+            <button color="primary" class="save-btn app-button-save" (click)="saveSettings()" [disabled]="saving" matButton="filled">
               @if (saving) {
                 <mat-spinner diameter="18"></mat-spinner>
               }

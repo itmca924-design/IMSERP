@@ -56,7 +56,7 @@ export interface SectionAssignmentRecord {
             </p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onClose()" matTooltip="Close">
+        <button class="close-btn" (click)="onClose()" matTooltip="Close" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -74,11 +74,10 @@ export interface SectionAssignmentRecord {
           @if (data.currentClassTeacherId) {
             <button
               type="button"
-              class="banner-remove-btn"
+              class="banner-remove-btn app-button-delete"
               (click)="unassignTeacher()"
               [disabled]="saving"
-              matTooltip="Remove current Class Teacher"
-              >
+              matTooltip="Remove current Class Teacher" matButton="filled">
               <mat-icon>person_remove</mat-icon>
               <span>Remove Teacher</span>
             </button>
@@ -158,7 +157,7 @@ export interface SectionAssignmentRecord {
                   placeholder="Type name, code, subject, or assigned class..."
                   />
                   @if (searchQuery) {
-                    <button type="button" class="dd-clear-btn" (click)="clearSearch()">
+                    <button type="button" class="dd-clear-btn" (click)="clearSearch()" mat-icon-button>
                       <mat-icon>close</mat-icon>
                     </button>
                   }
@@ -268,22 +267,22 @@ export interface SectionAssignmentRecord {
         <!-- Dialog Actions -->
         <div class="dialog-actions">
           @if (data.currentClassTeacherId) {
-            <button mat-flat-button color="warn" class="btn-unassign" (click)="unassignTeacher()" [disabled]="saving">
+            <button color="warn" class="btn-unassign app-button-delete" (click)="unassignTeacher()" [disabled]="saving" matButton="filled">
               <mat-icon>person_remove</mat-icon>
               <span>Remove Class Teacher</span>
             </button>
           }
           <span class="actions-spacer"></span>
           <div class="primary-actions">
-            <button mat-button class="btn-cancel" (click)="onClose()" [disabled]="saving">Cancel</button>
+            <button class="btn-cancel app-button-cancel" (click)="onClose()" [disabled]="saving" matButton="filled">Cancel</button>
             @if (!conflictNotice && !getSelectedTeacherOtherAssignmentText()) {
-              <button mat-flat-button color="primary" class="btn-save" (click)="saveAssignment(false)" [disabled]="saving || !hasChanged">
+              <button color="primary" class="btn-save app-button-save" (click)="saveAssignment(false)" [disabled]="saving || !hasChanged" matButton="filled">
                 <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
                 <span>Save Assignment</span>
               </button>
             }
             @if (conflictNotice || getSelectedTeacherOtherAssignmentText()) {
-              <button mat-flat-button color="accent" class="btn-confirm-transfer" (click)="saveAssignment(true)" [disabled]="saving || !hasChanged">
+              <button color="accent" class="btn-confirm-transfer" (click)="saveAssignment(true)" [disabled]="saving || !hasChanged" matButton="filled">
                 <mat-icon>swap_horiz</mat-icon>
                 <span>Confirm & Transfer</span>
               </button>

@@ -50,7 +50,7 @@ export interface InventoryInwardConfirmDialogData {
             <p>Review payment disbursement and inventory receipt before finalizing</p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="onCancel()" type="button">
+        <button class="close-btn" (click)="onCancel()" type="button" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -174,10 +174,10 @@ export interface InventoryInwardConfirmDialogData {
       </mat-dialog-content>
     
       <mat-dialog-actions align="end" class="dialog-actions">
-        <button mat-button type="button" (click)="onCancel()" class="btn-cancel">
+        <button type="button" (click)="onCancel()" class="btn-cancel app-button-update" matButton="filled">
           Back to Edit
         </button>
-        <button mat-flat-button color="primary" type="button" (click)="onConfirm()" class="btn-confirm">
+        <button color="primary" type="button" (click)="onConfirm()" class="btn-confirm" matButton="filled">
           <mat-icon>verified</mat-icon>
           <span>Confirm &amp; Receive Stock</span>
         </button>

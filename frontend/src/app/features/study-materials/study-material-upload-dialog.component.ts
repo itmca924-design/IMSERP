@@ -52,7 +52,7 @@ export interface StudyMaterialDialogData {
             Repository &bull; <strong>{{ form.materialType }}</strong> &bull; Target: <strong>{{ getScopeLabel(form.targetScope) }}</strong>
           </p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="dialogRef.close()" matTooltip="Close" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="dialogRef.close()" matTooltip="Close" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -67,7 +67,7 @@ export interface StudyMaterialDialogData {
     
           <div class="scope-toggle-row">
             @if (!data.isTeacher || (hasClasses && hasBatches)) {
-              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Both'" (click)="setScope('Both')">
+              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Both'" (click)="setScope('Both')" matButton="filled">
                 <mat-icon>public</mat-icon>
                 <div class="chip-text">
                   <strong>🌐 Open to All</strong>
@@ -76,7 +76,7 @@ export interface StudyMaterialDialogData {
               </button>
             }
             @if (!data.isTeacher || hasClasses) {
-              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'School'" (click)="setScope('School')">
+              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'School'" (click)="setScope('School')" matButton="filled">
                 <mat-icon>school</mat-icon>
                 <div class="chip-text">
                   <strong>🏫 School Classes</strong>
@@ -85,7 +85,7 @@ export interface StudyMaterialDialogData {
               </button>
             }
             @if (!data.isTeacher || hasBatches) {
-              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Coaching'" (click)="setScope('Coaching')">
+              <button type="button" class="scope-chip-btn" [class.active]="form.targetScope === 'Coaching'" (click)="setScope('Coaching')" matButton="filled">
                 <mat-icon>psychology</mat-icon>
                 <div class="chip-text">
                   <strong>🎯 Coaching Batches</strong>
@@ -269,7 +269,7 @@ export interface StudyMaterialDialogData {
                 <span class="status-ready">✅ Ready to save</span>
               </span>
             </div>
-            <button mat-icon-button color="warn" type="button" (click)="clearFile('file')" matTooltip="Remove file">
+            <button color="warn" type="button" (click)="clearFile('file')" matTooltip="Remove file" mat-icon-button>
               <mat-icon>delete</mat-icon>
             </button>
           </div>
@@ -296,7 +296,7 @@ export interface StudyMaterialDialogData {
           </div>
           @if (!form.solutionFileUrl) {
             <div class="sub-dropzone">
-              <button mat-stroked-button type="button" class="btn-sub-upload">
+              <button type="button" class="btn-sub-upload" matButton="filled">
                 <mat-icon>upload_file</mat-icon> Upload Solution PDF
                 <input type="file" class="hidden-file-input" (change)="onFileSelected($event, 'solution')" accept=".pdf,.doc,.docx" />
               </button>
@@ -307,7 +307,7 @@ export interface StudyMaterialDialogData {
             <div class="solution-file-tag">
               <mat-icon>check_circle</mat-icon>
               <span>{{ form.solutionFileName }}</span>
-              <button mat-icon-button color="warn" type="button" (click)="clearFile('solution')">
+              <button color="warn" type="button" (click)="clearFile('solution')" mat-icon-button>
                 <mat-icon>close</mat-icon>
               </button>
             </div>
@@ -338,8 +338,8 @@ export interface StudyMaterialDialogData {
     </mat-dialog-content>
     
     <mat-dialog-actions align="end" class="dialog-actions">
-      <button mat-button type="button" (click)="dialogRef.close()" [disabled]="saving">Cancel</button>
-      <button mat-flat-button color="primary" class="submit-btn" [disabled]="!isFormValid() || saving" (click)="save()">
+      <button type="button" (click)="dialogRef.close()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+      <button color="primary" class="submit-btn" [disabled]="!isFormValid() || saving" (click)="save()" matButton="filled" [class.app-button-update]="isEdit" [class.app-button-save]="!(isEdit)">
         @if (!saving) {
           <mat-icon>check_circle</mat-icon>
         }

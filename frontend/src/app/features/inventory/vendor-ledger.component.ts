@@ -72,15 +72,14 @@ import {
     
         <div class="action-btn-group">
           <button
-            mat-flat-button
             color="primary"
             (click)="openVendorDialog()"
-            class="erp-btn">
+            class="erp-btn" matButton="filled">
             <mat-icon>person_add</mat-icon>
             <span>New Vendor</span>
           </button>
     
-          <button mat-icon-button (click)="loadVendors()" matTooltip="Refresh Data" class="refresh-btn">
+          <button (click)="loadVendors()" matTooltip="Refresh Data" class="refresh-btn" mat-icon-button>
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
@@ -88,16 +87,16 @@ import {
     
       <!-- Module Sub-Nav Bar -->
       <div class="module-nav-bar no-print">
-        <a mat-button [routerLink]="['/inventory']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory']" class="nav-tab">
           <mat-icon>inventory_2</mat-icon> Store &amp; Catalog
         </a>
-        <a mat-button [routerLink]="['/inventory/purchase-returns']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory/purchase-returns']" class="nav-tab">
           <mat-icon>assignment_return</mat-icon> Purchase Returns
         </a>
-        <a mat-button [routerLink]="['/inventory/sale-returns']" class="nav-tab">
+        <a matButton="filled" [routerLink]="['/inventory/sale-returns']" class="nav-tab">
           <mat-icon>keyboard_return</mat-icon> Kit &amp; Sale Returns
         </a>
-        <a mat-button [routerLink]="['/inventory/vendors']" class="nav-tab active-tab">
+        <a matButton="filled" [routerLink]="['/inventory/vendors']" class="nav-tab active-tab">
           <mat-icon>account_balance_wallet</mat-icon> Vendors &amp; Ledger
         </a>
       </div>
@@ -180,20 +179,18 @@ import {
     
         <div class="view-mode-toggle-group">
           <button
-            mat-button
             type="button"
             class="toggle-mode-btn"
             [class.active-toggle]="viewMode === 'split'"
-            (click)="viewMode = 'split'">
+            (click)="viewMode = 'split'" matButton="filled">
             <mat-icon>view_sidebar</mat-icon>
             <span>Split Ledger View</span>
           </button>
           <button
-            mat-button
             type="button"
             class="toggle-mode-btn"
             [class.active-toggle]="viewMode === 'table'"
-            (click)="viewMode = 'table'">
+            (click)="viewMode = 'table'" matButton="filled">
             <mat-icon>table_chart</mat-icon>
             <span>All Suppliers Directory</span>
           </button>
@@ -213,7 +210,7 @@ import {
                   <span class="section-sub">{{ filteredVendors.length }} of {{ vendorsList.length }} suppliers</span>
                 </div>
               </div>
-              <button mat-icon-button (click)="openVendorDialog()" matTooltip="Add New Vendor" class="mini-add-btn" type="button">
+              <button (click)="openVendorDialog()" matTooltip="Add New Vendor" class="mini-add-btn" type="button" mat-icon-button>
                 <mat-icon>person_add</mat-icon>
               </button>
             </div>
@@ -224,7 +221,7 @@ import {
                   <mat-icon matPrefix>search</mat-icon>
                   <input matInput formControlName="search" placeholder="Search supplier, GST, phone...">
                   @if (filterForm.get('search')?.value) {
-                    <button mat-icon-button matSuffix (click)="filterForm.get('search')?.setValue('')" type="button">
+                    <button matSuffix (click)="filterForm.get('search')?.setValue('')" type="button" mat-icon-button>
                       <mat-icon class="icon-xs">close</mat-icon>
                     </button>
                   }
@@ -281,7 +278,7 @@ import {
                 <div class="empty-vendors-deck">
                   <mat-icon class="empty-deck-icon">search_off</mat-icon>
                   <p>No suppliers matching filter</p>
-                  <button mat-stroked-button color="primary" class="btn-xs" (click)="openVendorDialog()">
+                  <button color="primary" class="btn-xs" (click)="openVendorDialog()" matButton="filled">
                     <mat-icon>add</mat-icon> Add Vendor
                   </button>
                 </div>
@@ -309,11 +306,10 @@ import {
                       <div class="title-with-actions">
                         <h2 class="vendor-headline-name">{{ selectedVendor.vendorName || selectedVendor.name }}</h2>
                         <button
-                          mat-button
-                          class="edit-profile-btn"
+                          class="edit-profile-btn app-button-update"
                           (click)="openVendorDialog(selectedVendor)"
                           matTooltip="Edit Supplier Profile (Phone, GSTIN, Address, Payment Terms)"
-                          type="button">
+                          type="button" matButton="filled">
                           <mat-icon class="icon-xs">edit</mat-icon>
                           <span>Edit Profile</span>
                         </button>
@@ -366,16 +362,16 @@ import {
                     <div class="statement-actions-row">
                       <!-- If vendor owes refund (balanceDue < 0), show prominent 'Receive Refund' button! -->
                       @if ((selectedVendor.balanceDue ?? 0) < 0) {
-                        <button mat-flat-button class="btn-action btn-refund" (click)="quickRefundVendor(selectedVendor)">
+                        <button class="btn-action btn-refund" (click)="quickRefundVendor(selectedVendor)" matButton="filled">
                           <mat-icon class="icon-sm">call_received</mat-icon> Receive Refund
                         </button>
                       }
                       @if ((selectedVendor.balanceDue ?? 0) > 0) {
-                        <button mat-flat-button color="primary" class="btn-action" (click)="quickPayVendor(selectedVendor)">
+                        <button color="primary" class="btn-action" (click)="quickPayVendor(selectedVendor)" matButton="filled">
                           <mat-icon class="icon-sm">payment</mat-icon> Pay Now
                         </button>
                       }
-                      <button mat-stroked-button class="btn-action" (click)="printStatement()">
+                      <button class="btn-action" (click)="printStatement()" matButton="filled">
                         <mat-icon class="icon-sm">print</mat-icon> Print
                       </button>
                     </div>
@@ -425,7 +421,7 @@ import {
                         <mat-icon matPrefix>search</mat-icon>
                         <input matInput formControlName="search" placeholder="Search voucher #, bill #...">
                         @if (dateFilterForm.get('search')?.value) {
-                          <button mat-icon-button matSuffix (click)="clearSearch()" type="button" matTooltip="Clear Search">
+                          <button matSuffix (click)="clearSearch()" type="button" matTooltip="Clear Search" mat-icon-button>
                             <mat-icon class="icon-xs">close</mat-icon>
                           </button>
                         }
@@ -454,10 +450,10 @@ import {
                     <!-- Row 2: Preset Chips, Date Range, Filter & Reset -->
                     <div class="filter-secondary-row">
                       <div class="preset-chips-deck">
-                        <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'ALL'" (click)="setDatePreset('ALL')">All Dates</button>
-                        <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_MONTH'" (click)="setDatePreset('THIS_MONTH')">This Month</button>
-                        <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'LAST_MONTH'" (click)="setDatePreset('LAST_MONTH')">Last Month</button>
-                        <button type="button" mat-button class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_FY'" (click)="setDatePreset('THIS_FY')">Current FY</button>
+                        <button type="button" class="preset-btn" [class.active-preset]="activeDatePreset === 'ALL'" (click)="setDatePreset('ALL')" matButton="filled">All Dates</button>
+                        <button type="button" class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_MONTH'" (click)="setDatePreset('THIS_MONTH')" matButton="filled">This Month</button>
+                        <button type="button" class="preset-btn" [class.active-preset]="activeDatePreset === 'LAST_MONTH'" (click)="setDatePreset('LAST_MONTH')" matButton="filled">Last Month</button>
+                        <button type="button" class="preset-btn" [class.active-preset]="activeDatePreset === 'THIS_FY'" (click)="setDatePreset('THIS_FY')" matButton="filled">Current FY</button>
                       </div>
                       <div class="date-controls-line">
                         <div class="date-inputs-pair">
@@ -472,10 +468,10 @@ import {
                           </mat-form-field>
                         </div>
                         <div class="date-action-btns">
-                          <button mat-flat-button color="primary" type="submit" class="filter-submit-btn" [disabled]="$safeNavigationMigration(dateFilterForm.errors?.['dateRangeInvalid'])">
+                          <button color="primary" type="submit" class="filter-submit-btn" [disabled]="$safeNavigationMigration(dateFilterForm.errors?.['dateRangeInvalid'])" matButton="filled">
                             <mat-icon class="icon-sm">filter_list</mat-icon> Filter
                           </button>
-                          <button mat-button type="button" (click)="resetDateFilter()" class="reset-filter-btn">
+                          <button type="button" (click)="resetDateFilter()" class="reset-filter-btn app-button-cancel" matButton="filled">
                             Reset
                           </button>
                         </div>
@@ -589,7 +585,7 @@ import {
                             <div class="empty-state">
                               <mat-icon class="empty-icon">receipt</mat-icon>
                               <p>No transactions found for this supplier matching filter criteria</p>
-                              <button mat-stroked-button (click)="resetDateFilter()" class="mt-2" type="button">Reset Filters</button>
+                              <button (click)="resetDateFilter()" class="mt-2" type="button" matButton="filled">Reset Filters</button>
                             </div>
                           </td>
                         </tr>
@@ -638,7 +634,7 @@ import {
                   </mat-select>
                 </mat-form-field>
               </form>
-              <button mat-flat-button color="primary" (click)="openVendorDialog()" class="erp-btn">
+              <button color="primary" (click)="openVendorDialog()" class="erp-btn" matButton="filled">
                 <mat-icon>person_add</mat-icon>
                 <span>New Vendor</span>
               </button>
@@ -702,20 +698,20 @@ import {
                     </td>
                     <td class="text-center">
                       <div class="table-actions-group">
-                        <button mat-flat-button color="primary" class="btn-xs" (click)="viewVendorLedger(v)" matTooltip="Open Live Statement">
+                        <button color="primary" class="btn-xs" (click)="viewVendorLedger(v)" matTooltip="Open Live Statement" matButton="filled">
                           <mat-icon class="icon-xs">receipt_long</mat-icon> Ledger
                         </button>
                         @if ((v.balanceDue ?? 0) < 0) {
-                          <button mat-stroked-button class="btn-xs btn-refund-xs" (click)="quickRefundVendor(v)" matTooltip="Receive Refund from Supplier">
+                          <button class="btn-xs btn-refund-xs" (click)="quickRefundVendor(v)" matTooltip="Receive Refund from Supplier" matButton="filled">
                             <mat-icon class="icon-xs">call_received</mat-icon> Refund
                           </button>
                         }
                         @if ((v.balanceDue ?? 0) > 0) {
-                          <button mat-stroked-button color="accent" class="btn-xs" (click)="quickPayVendor(v)" matTooltip="Disburse Payment">
+                          <button color="accent" class="btn-xs" (click)="quickPayVendor(v)" matTooltip="Disburse Payment" matButton="filled">
                             <mat-icon class="icon-xs">payment</mat-icon> Pay
                           </button>
                         }
-                        <button mat-icon-button (click)="openVendorDialog(v)" matTooltip="Edit Profile" class="btn-icon-xs">
+                        <button (click)="openVendorDialog(v)" matTooltip="Edit Profile" class="btn-icon-xs" mat-icon-button>
                           <mat-icon>edit</mat-icon>
                         </button>
                       </div>

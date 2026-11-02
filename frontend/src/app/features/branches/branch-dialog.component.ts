@@ -42,7 +42,7 @@ export interface BranchDialogData {
           <h2 mat-dialog-title class="main-title">{{ isEditMode ? 'Edit Branch Details' : 'Add New Branch' }}</h2>
           <p class="subtitle">{{ isEditMode ? 'Update campus name, code, phone, or location details.' : 'Register a new campus or physical branch for this institute.' }}</p>
         </div>
-        <button mat-icon-button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving">
+        <button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -197,8 +197,8 @@ export interface BranchDialogData {
         </mat-dialog-content>
     
         <mat-dialog-actions align="end" class="dialog-actions">
-          <button mat-button type="button" (click)="onCancel()" [disabled]="saving">Cancel</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="branchForm.invalid || saving" class="submit-btn">
+          <button type="button" (click)="onCancel()" [disabled]="saving" matButton="filled" class="app-button-cancel">Cancel</button>
+          <button color="primary" type="submit" [disabled]="branchForm.invalid || saving" class="submit-btn" matButton="filled" [class.app-button-update]="isEditMode" [class.app-button-save]="!(isEditMode)">
             @if (saving) {
               <mat-spinner diameter="18" class="btn-spinner"></mat-spinner>
             }

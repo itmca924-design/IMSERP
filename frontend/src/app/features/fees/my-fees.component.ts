@@ -49,18 +49,18 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
         @if (ledger) {
           <div class="header-action-buttons">
             @if (ledger.totalOutstandingDue > 0) {
-              <button mat-flat-button class="pay-upi-btn" (click)="openUpiPaymentForTotal()" matTooltip="Scan Dynamic UPI QR to Pay Outstanding Fees Instantly">
+              <button class="pay-upi-btn" (click)="openUpiPaymentForTotal()" matTooltip="Scan Dynamic UPI QR to Pay Outstanding Fees Instantly" matButton="filled">
                 <mat-icon>qr_code_scanner</mat-icon>
                 <span>Pay via UPI (₹{{ ledger.totalOutstandingDue | number:'1.0-0' }})</span>
               </button>
             }
             @if (ledger.totalOutstandingDue > 0) {
-              <button mat-stroked-button class="due-slip-btn" (click)="openDueSlip()" matTooltip="Download / Print Official Due Slip">
+              <button class="due-slip-btn" (click)="openDueSlip()" matTooltip="Download / Print Official Due Slip" matButton="filled">
                 <mat-icon>receipt</mat-icon>
                 <span>Print Due Slip</span>
               </button>
             }
-            <button mat-raised-button class="print-passbook-btn" (click)="printPassbook()" matTooltip="Print or save fee passbook as PDF">
+            <button class="print-passbook-btn" (click)="printPassbook()" matTooltip="Print or save fee passbook as PDF" matButton="filled">
               <mat-icon>print</mat-icon>
               <span>Print Statement</span>
             </button>
@@ -129,7 +129,7 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                     <span class="kpi-sub text-success">All dues cleared 🎉</span>
                   }
                   @if (ledger.totalOutstandingDue > 0) {
-                    <button mat-flat-button class="kpi-pay-btn" (click)="openUpiPaymentForTotal()">
+                    <button class="kpi-pay-btn" (click)="openUpiPaymentForTotal()" matButton="filled">
                       <mat-icon>qr_code_scanner</mat-icon>
                       <span>Pay Now</span>
                     </button>
@@ -158,6 +158,16 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                   <!-- Desktop / Tablet Table View -->
                   <div class="table-responsive desktop-table-wrap">
                     <table class="passbook-table">
+                      <colgroup>
+                        <col class="col-inv">
+                        <col class="col-desc">
+                        <col class="col-date">
+                        <col class="col-amt">
+                        <col class="col-amt">
+                        <col class="col-amt">
+                        <col class="col-status">
+                        <col class="col-action">
+                      </colgroup>
                       <thead>
                         <tr>
                           <th class="col-inv">Invoice No</th>
@@ -173,15 +183,27 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                       <tbody>
                         @for (inv of ledger.invoices; track inv) {
                           <tr [class.cancelled-row]="inv.status === 'Cancelled'">
-                            <td class="font-mono nowrap"><strong>{{ inv.invoiceNumber }}</strong></td>
+                            <td class="col-inv font-mono nowrap"><strong>{{ inv.invoiceNumber }}</strong></td>
                             <td class="col-desc-td">
                               <div class="inv-title">{{ inv.title }}</div>
                               @if (inv.items && inv.items.length > 0) {
                                 <div class="heads-wrap">
-                                  @for (it of inv.items; track it) {
+                                  @for (it of inv.items.slice(0, isInvoiceBreakdownExpanded(inv.id) ? inv.items.length : 2); track it.id) {
                                     <span class="head-chip">
                                       {{ it.headName }}: <strong>₹{{ it.amount | number:'1.0-0' }}</strong>
                                     </span>
+                                  }
+                                  @if (inv.items.length > 2) {
+                                    <button
+                                      type="button"
+                                      class="breakdown-toggle"
+                                      matButton="filled"
+                                      [attr.aria-expanded]="isInvoiceBreakdownExpanded(inv.id)"
+                                      [attr.aria-label]="(isInvoiceBreakdownExpanded(inv.id) ? 'Show fewer' : 'Show all') + ' fee heads for invoice ' + inv.invoiceNumber"
+                                      (click)="toggleInvoiceBreakdown(inv.id)">
+                                      <mat-icon>{{ isInvoiceBreakdownExpanded(inv.id) ? 'expand_less' : 'expand_more' }}</mat-icon>
+                                      {{ isInvoiceBreakdownExpanded(inv.id) ? 'Show less' : '+' + (inv.items.length - 2) + ' more' }}
+                                    </button>
                                   }
                                 </div>
                               }
@@ -191,29 +213,27 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                                 </span>
                               }
                             </td>
-                            <td class="nowrap">{{ formatToIST(inv.dueDate, false) }}</td>
-                            <td class="text-right nowrap">
+                            <td class="col-date nowrap">{{ formatToIST(inv.dueDate, false) }}</td>
+                            <td class="col-amt text-right nowrap">
                               {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.totalAmount | number:'1.2-2')) }}
                             </td>
-                            <td class="text-right text-success nowrap">
+                            <td class="col-amt text-right text-success nowrap">
                               {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.paidAmount | number:'1.2-2')) }}
                             </td>
-                            <td class="text-right nowrap font-bold" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
+                            <td class="col-amt text-right nowrap font-bold" [class.text-danger]="inv.dueAmount > 0 && inv.status !== 'Cancelled'">
                               {{ inv.status === 'Cancelled' ? '—' : ('₹' + (inv.dueAmount | number:'1.2-2')) }}
                             </td>
-                            <td class="text-center nowrap">
+                            <td class="col-status text-center nowrap">
                               <span class="status-pill" [ngClass]="inv.status.toLowerCase()">
                                 {{ inv.status }}
                               </span>
                             </td>
-                            <td class="text-center nowrap">
+                            <td class="col-action text-center nowrap">
                               @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
                                 <button
-                                  mat-flat-button
                                   class="row-pay-upi-btn"
                                   (click)="openUpiPaymentForInvoice(inv)"
-                                  matTooltip="Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via Dynamic UPI QR"
-                                  >
+                                  matTooltip="Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via Dynamic UPI QR" matButton="filled">
                                   <mat-icon>qr_code_scanner</mat-icon>
                                   <span>Pay ₹{{ inv.dueAmount | number:'1.0-0' }}</span>
                                 </button>
@@ -293,7 +313,7 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                           </div>
                           @if (inv.dueAmount > 0 && inv.status !== 'Cancelled') {
                             <div class="m-card-footer">
-                              <button mat-flat-button class="m-pay-btn" (click)="openUpiPaymentForInvoice(inv)">
+                              <button class="m-pay-btn" (click)="openUpiPaymentForInvoice(inv)" matButton="filled">
                                 <mat-icon>qr_code_scanner</mat-icon>
                                 <span>Pay ₹{{ inv.dueAmount | number:'1.0-0' }} via UPI</span>
                               </button>
@@ -353,7 +373,7 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                               <span>{{ p.remarks || p.transactionRef || 'Institutional fee deposit' }}</span>
                             </td>
                             <td class="text-center nowrap">
-                              <button mat-stroked-button class="view-receipt-btn" (click)="openPaymentReceipt(p)" matTooltip="View & Print Official Receipt">
+                              <button class="view-receipt-btn" (click)="openPaymentReceipt(p)" matTooltip="View & Print Official Receipt" matButton="filled">
                                 <mat-icon>print</mat-icon>
                                 <span>Receipt</span>
                               </button>
@@ -405,7 +425,7 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                             }
                           </div>
                           <div class="m-card-footer">
-                            <button mat-stroked-button class="view-receipt-btn m-receipt-btn" (click)="openPaymentReceipt(p)">
+                            <button class="view-receipt-btn m-receipt-btn" (click)="openPaymentReceipt(p)" matButton="filled">
                               <mat-icon>print</mat-icon>
                               <span>View / Print Receipt</span>
                             </button>
@@ -791,9 +811,17 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
 
     .passbook-table {
       width: 100%;
-      min-width: 820px;
+      min-width: 980px;
+      table-layout: fixed;
       border-collapse: collapse;
       font-size: 0.85rem;
+
+      col.col-inv { width: 12%; }
+      col.col-desc { width: 27%; }
+      col.col-date { width: 10%; }
+      col.col-amt { width: 11%; }
+      col.col-status { width: 9%; }
+      col.col-action { width: 9%; }
 
       thead th {
         background: #f1f5f9;
@@ -819,13 +847,26 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
         background: #f8fafc;
       }
 
-      .col-inv { min-width: 140px; white-space: nowrap; }
-      .col-desc { min-width: 260px; }
-      .col-desc-td { min-width: 260px; }
-      .col-date { min-width: 110px; white-space: nowrap; }
-      .col-amt { min-width: 105px; white-space: nowrap; }
-      .col-status { min-width: 95px; white-space: nowrap; }
-      .col-action { min-width: 130px; white-space: nowrap; }
+      .col-inv { min-width: 120px; white-space: nowrap; }
+      .col-desc, .col-desc-td { min-width: 260px; }
+      .col-date { min-width: 100px; white-space: nowrap; }
+      .col-amt { min-width: 100px; white-space: nowrap; }
+      .col-status { min-width: 80px; white-space: nowrap; }
+      .col-action {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        min-width: 100px;
+        width: 100px;
+        white-space: nowrap;
+        background: #ffffff;
+        box-shadow: -8px 0 12px -10px rgba(15, 23, 42, 0.45);
+      }
+
+      thead .col-action {
+        z-index: 3;
+        background: #f1f5f9;
+      }
 
       .font-mono {
         font-family: monospace;
@@ -850,11 +891,13 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
 
       .heads-wrap {
         display: flex;
-        gap: 6px;
+        align-items: flex-start;
+        gap: 4px;
         flex-wrap: wrap;
         margin-top: 4px;
 
         .head-chip {
+          max-width: 100%;
           background: #eff6ff;
           color: #1d4ed8;
           font-size: 0.7rem;
@@ -865,13 +908,42 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
           align-items: center;
           gap: 3px;
           line-height: 1.25;
+          overflow-wrap: anywhere;
+        }
+
+        .breakdown-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          min-width: 0;
+          min-height: 24px;
+          height: 24px;
+          padding: 0 7px;
+          border-radius: 12px;
+          background: #e0e7ff;
+          color: #3730a3;
+          font-size: 0.66rem;
+          font-weight: 700;
+          line-height: 24px;
+          --mat-button-filled-container-color: #e0e7ff;
+          --mat-button-filled-label-text-color: #3730a3;
+
+          mat-icon {
+            width: 14px;
+            height: 14px;
+            margin: 0;
+            font-size: 14px;
+          }
         }
       }
 
       .cancelled-row {
         opacity: 0.55;
         background: #f8fafc;
-        text-decoration: line-through;
+      }
+
+      tbody tr:hover .col-action {
+        background: #f8fafc;
       }
 
       .cancelled-tag {
@@ -1369,6 +1441,7 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
 export class MyFeesComponent implements OnInit {
   ledger: StudentLedger | null = null;
   loading = true;
+  private readonly expandedInvoiceBreakdowns = new Set<string>();
 
   get effectiveBranchName(): string {
     if (this.ledger?.branchName) return this.ledger.branchName;
@@ -1385,6 +1458,19 @@ export class MyFeesComponent implements OnInit {
     private authService: AuthService,
     private dialog: MatDialog
   ) {}
+
+  isInvoiceBreakdownExpanded(invoiceId: string): boolean {
+    return this.expandedInvoiceBreakdowns.has(invoiceId);
+  }
+
+  toggleInvoiceBreakdown(invoiceId: string): void {
+    if (this.expandedInvoiceBreakdowns.has(invoiceId)) {
+      this.expandedInvoiceBreakdowns.delete(invoiceId);
+      return;
+    }
+
+    this.expandedInvoiceBreakdowns.add(invoiceId);
+  }
 
   ngOnInit(): void {
     this.loadMyLedger();

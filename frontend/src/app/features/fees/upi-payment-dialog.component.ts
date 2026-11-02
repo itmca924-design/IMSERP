@@ -10,7 +10,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
-import * as QRCode from 'qrcode';
+import * as QRCode from '../../shared/utils/qr-code';
 import { firstValueFrom } from 'rxjs';
 import {
   FeesService,
@@ -67,7 +67,7 @@ export interface UpiPaymentDialogData {
             </p>
           </div>
         </div>
-        <button mat-icon-button class="close-btn" (click)="closeDialog()" aria-label="Close dialog">
+        <button class="close-btn" (click)="closeDialog()" aria-label="Close dialog" mat-icon-button>
           <mat-icon>close</mat-icon>
         </button>
       </header>
@@ -113,11 +113,11 @@ export interface UpiPaymentDialogData {
               </div>
             </div>
             <div class="success-actions">
-              <button mat-flat-button color="primary" class="primary-action-btn" (click)="openOfficialReceipt()">
+              <button color="primary" class="primary-action-btn" (click)="openOfficialReceipt()" matButton="filled">
                 <mat-icon>receipt</mat-icon>
                 <span>View &amp; Print Official Receipt</span>
               </button>
-              <button mat-stroked-button class="secondary-btn" (click)="closeWithSuccess()">
+              <button class="secondary-btn" (click)="closeWithSuccess()" matButton="filled">
                 <mat-icon>done_all</mat-icon>
                 <span>Done / Close</span>
               </button>
@@ -164,12 +164,10 @@ export interface UpiPaymentDialogData {
                     <strong class="vpa-val font-mono">{{ upiIntent?.payeeUpiId || 'fees@upi' }}</strong>
                   </div>
                   <button
-                    mat-icon-button
                     class="copy-btn"
                     [matTooltip]="copiedVpa ? 'Copied to Clipboard!' : 'Copy UPI ID'"
                     (click)="copyVpa()"
-                    type="button"
-                    >
+                    type="button" mat-icon-button>
                     <mat-icon>{{ copiedVpa ? 'check' : 'content_copy' }}</mat-icon>
                   </button>
                 </div>
@@ -177,19 +175,19 @@ export interface UpiPaymentDialogData {
                 <div class="mobile-apps-container">
                   <span class="mobile-launch-label">Or Pay Directly with Mobile App:</span>
                   <div class="upi-apps-row">
-                    <a [href]="upiIntent?.gpayUri || upiIntent?.upiIntentUri" class="upi-app-btn gpay" target="_self">
+                    <a [href]="upiIntent?.gpayUri || upiIntent?.upiIntentUri" class="upi-app-btn gpay" target="_self" matButton="filled">
                       <span class="app-icon">G</span>
                       <span>GPay</span>
                     </a>
-                    <a [href]="upiIntent?.phonepeUri || upiIntent?.upiIntentUri" class="upi-app-btn phonepe" target="_self">
+                    <a [href]="upiIntent?.phonepeUri || upiIntent?.upiIntentUri" class="upi-app-btn phonepe" target="_self" matButton="filled">
                       <span class="app-icon">पे</span>
                       <span>PhonePe</span>
                     </a>
-                    <a [href]="upiIntent?.paytmUri || upiIntent?.upiIntentUri" class="upi-app-btn paytm" target="_self">
+                    <a [href]="upiIntent?.paytmUri || upiIntent?.upiIntentUri" class="upi-app-btn paytm" target="_self" matButton="filled">
                       <span class="app-icon">₹</span>
                       <span>Paytm</span>
                     </a>
-                    <a [href]="$safeNavigationMigration(upiIntent?.upiIntentUri)" class="upi-app-btn any" target="_self">
+                    <a [href]="$safeNavigationMigration(upiIntent?.upiIntentUri)" class="upi-app-btn any" target="_self" matButton="filled">
                       <mat-icon>open_in_new</mat-icon>
                       <span>Any App</span>
                     </a>
@@ -297,12 +295,10 @@ export interface UpiPaymentDialogData {
                 <!-- Submit Action Button -->
                 <div class="submit-action-wrap">
                   <button
-                    mat-flat-button
                     color="primary"
                     type="submit"
                     class="verify-submit-btn"
-                    [disabled]="paymentForm.invalid || submitting || loading"
-                    >
+                    [disabled]="paymentForm.invalid || submitting || loading" matButton="filled">
                     @if (!submitting) {
                       <mat-icon>check_circle_outline</mat-icon>
                     }

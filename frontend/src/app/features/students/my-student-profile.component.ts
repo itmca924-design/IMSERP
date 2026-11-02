@@ -55,16 +55,16 @@ const API_BASE = environment.apiBaseUrl;
         </div>
         @if (data360) {
           <div class="header-actions">
-            <a mat-stroked-button class="print-medical-btn" routerLink="/students/timetable" style="color: #0ea5e9; border-color: #bae6fd;">
+            <a matButton="filled" class="print-medical-btn" routerLink="/students/timetable" style="color: #0ea5e9; border-color: #bae6fd;">
               <mat-icon>calendar_view_week</mat-icon> Class Timetable &amp; Routine
             </a>
-            <button mat-stroked-button class="print-medical-btn" (click)="openRegularizationDialog()" style="color: #2563eb; border-color: #bfdbfe;">
+            <button class="print-medical-btn" (click)="openRegularizationDialog()" style="color: #2563eb; border-color: #bfdbfe;" matButton="filled">
               <mat-icon>edit_calendar</mat-icon> Request Regularization
             </button>
-            <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
+            <button class="print-medical-btn" (click)="showPrintMedicalCard = true" matButton="filled">
               <mat-icon>badge</mat-icon> Pocket Medical Card
             </button>
-            <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="activeTabIndex = 2">
+            <button color="primary" class="primary-gradient-btn" (click)="activeTabIndex = 2" matButton="filled">
               <mat-icon>emoji_events</mat-icon> View Wall of Fame
             </button>
           </div>
@@ -207,7 +207,7 @@ const API_BASE = environment.apiBaseUrl;
                       <p class="sec-sub">Live periods, classroom allocation, assigned faculty and proxy notices</p>
                     </div>
                     <div class="sec-actions">
-                      <a mat-raised-button color="primary" class="primary-gradient-btn" routerLink="/students/timetable">
+                      <a matButton="filled" color="primary" class="primary-gradient-btn" routerLink="/students/timetable">
                         <mat-icon>open_in_new</mat-icon> Full Timetable Portal
                       </a>
                     </div>
@@ -251,7 +251,7 @@ const API_BASE = environment.apiBaseUrl;
                         <mat-icon class="empty-icon">calendar_month</mat-icon>
                         <h4>No Classes Scheduled Today</h4>
                         <p>No lectures are scheduled for today. You can view the master schedule for the full week.</p>
-                        <a mat-stroked-button color="primary" routerLink="/students/timetable" style="margin-top: 10px;">
+                        <a matButton="filled" color="primary" routerLink="/students/timetable" style="margin-top: 10px;">
                           <mat-icon>grid_view</mat-icon> Open Full Routine Matrix
                         </a>
                       </div>
@@ -372,7 +372,7 @@ const API_BASE = environment.apiBaseUrl;
                             }
                           </div>
                           <div class="honor-footer">
-                            <button mat-stroked-button class="print-cert-btn" (click)="printCertificate(ach)" matTooltip="Generate &amp; Print Official Certificate of Merit">
+                            <button class="print-cert-btn" (click)="printCertificate(ach)" matTooltip="Generate &amp; Print Official Certificate of Merit" matButton="filled">
                               <mat-icon>print</mat-icon> Print Official Certificate
                             </button>
                           </div>
@@ -401,7 +401,7 @@ const API_BASE = environment.apiBaseUrl;
                       <h3 class="sec-title">Student Health &amp; Emergency Medical Profile</h3>
                       <p class="sec-sub">Growth vitals, BMI evaluation scale, clinical notes, and emergency medical contacts</p>
                     </div>
-                    <button mat-stroked-button class="print-medical-btn" (click)="showPrintMedicalCard = true">
+                    <button class="print-medical-btn" (click)="showPrintMedicalCard = true" matButton="filled">
                       <mat-icon>badge</mat-icon> Print Pocket Medical Card
                     </button>
                   </div>
@@ -765,7 +765,7 @@ const API_BASE = environment.apiBaseUrl;
                           <p class="reg-sub-desc">Status of your submitted attendance dispute, On-Duty (OD), and medical leave regularizations</p>
                         </div>
                       </div>
-                      <button mat-stroked-button class="apply-reg-btn" (click)="openRegularizationDialog()">
+                      <button class="apply-reg-btn" (click)="openRegularizationDialog()" matButton="filled">
                         <mat-icon>add_circle</mat-icon> Request Regularization
                       </button>
                     </div>
@@ -846,7 +846,7 @@ const API_BASE = environment.apiBaseUrl;
                               </span>
                               <small class="reg-applied-time" [appIstDatetime]="reg.createdAt" prefix="Applied on "></small>
                               @if (reg.status === 'Pending') {
-                                <button mat-icon-button color="warn" (click)="cancelMyRegularization(reg)" matTooltip="Cancel this request">
+                                <button color="warn" (click)="cancelMyRegularization(reg)" matTooltip="Cancel this request" mat-icon-button>
                                   <mat-icon>delete_outline</mat-icon>
                                 </button>
                               }
@@ -930,7 +930,7 @@ const API_BASE = environment.apiBaseUrl;
                                 <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #2563eb;">sensors</mat-icon>
                                 <span>Today's Live Bus Boarding &amp; Transit Status</span>
                               </div>
-                              <button type="button" mat-stroked-button color="primary" (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" style="height: 26px; line-height: 26px; font-size: 0.72rem; padding: 0 8px;">
+                              <button type="button" color="primary" (click)="loadLiveTransitStatus()" [disabled]="loadingLiveTransit" style="height: 26px; line-height: 26px; font-size: 0.72rem; padding: 0 8px;" matButton="filled">
                                 <mat-icon style="font-size: 14px; width: 14px; height: 14px; margin-right: 2px;">refresh</mat-icon> Refresh Live
                               </button>
                             </div>
@@ -1006,10 +1006,10 @@ const API_BASE = environment.apiBaseUrl;
             <div class="cert-modal-top-bar no-print">
               <span>Certificate of Merit &amp; Excellence Preview</span>
               <div class="top-bar-actions">
-                <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="printCertificateModal()">
+                <button color="primary" class="primary-gradient-btn" (click)="printCertificateModal()" matButton="filled">
                   <mat-icon>print</mat-icon> Print Certificate
                 </button>
-                <button mat-icon-button (click)="activeCertificateModal = null">
+                <button (click)="activeCertificateModal = null" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               </div>
@@ -1069,10 +1069,10 @@ const API_BASE = environment.apiBaseUrl;
             <div class="cert-modal-top-bar no-print">
               <span>Student Emergency Medical Pocket Card Preview</span>
               <div class="top-bar-actions">
-                <button mat-raised-button color="primary" class="primary-gradient-btn" (click)="printPocketMedicalCard()">
+                <button color="primary" class="primary-gradient-btn" (click)="printPocketMedicalCard()" matButton="filled">
                   <mat-icon>print</mat-icon> Print ID Card
                 </button>
-                <button mat-icon-button (click)="showPrintMedicalCard = false">
+                <button (click)="showPrintMedicalCard = false" mat-icon-button>
                   <mat-icon>close</mat-icon>
                 </button>
               </div>

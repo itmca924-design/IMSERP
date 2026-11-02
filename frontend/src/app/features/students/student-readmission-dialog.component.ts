@@ -65,7 +65,7 @@ export interface StudentReadmissionDialogData {
           </div>
         </div>
         <div class="header-right">
-          <button mat-icon-button class="close-btn" (click)="closeDialog()" matTooltip="Close">
+          <button class="close-btn" (click)="closeDialog()" matTooltip="Close" mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -192,10 +192,10 @@ export interface StudentReadmissionDialogData {
     
         <!-- Footer Actions -->
         <div class="readmit-dialog-footer">
-          <button type="button" mat-stroked-button (click)="closeDialog()" [disabled]="submitting">
+          <button type="button" (click)="closeDialog()" [disabled]="submitting" matButton="filled" class="app-button-cancel">
             Cancel
           </button>
-          <button type="submit" mat-flat-button color="primary" class="btn-confirm-readmit" [disabled]="readmitForm.invalid || submitting">
+          <button type="submit" color="primary" class="btn-confirm-readmit" [disabled]="readmitForm.invalid || submitting" matButton="filled">
             @if (submitting) {
               <mat-spinner diameter="18" style="display: inline-block; margin-right: 8px;"></mat-spinner>
             }
