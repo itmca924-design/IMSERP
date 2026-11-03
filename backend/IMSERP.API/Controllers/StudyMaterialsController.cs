@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.API.Services;
 
 namespace IMSERP.API.Controllers;
 
@@ -15,15 +16,18 @@ public class StudyMaterialsController : ControllerBase
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IWebHostEnvironment _env;
+    private readonly IMenuPermissionService _menuPermissions;
 
     public StudyMaterialsController(
         IIMSERPDbContext db,
         ICurrentUserService currentUser,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        IMenuPermissionService menuPermissions)
     {
         _db = db;
         _currentUser = currentUser;
         _env = env;
+        _menuPermissions = menuPermissions;
     }
 
     /// <summary>
@@ -305,11 +309,8 @@ public class StudyMaterialsController : ControllerBase
     [RequestSizeLimit(52_428_800)] // 50 MB
     public async Task<IActionResult> UploadFile([FromForm] IFormFile? file, [FromForm] string? type)
     {
-        if (_currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase) || 
-            _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase))
-        {
-            return StatusCode(403, new { message = "Students and parents have read-only access to study materials." });
-        }
+        if (!await _menuPermissions.HasPermissionAsync("/study-materials", MenuPermissionOperation.Create))
+            return Forbid();
 
         if (file == null || file.Length == 0)
             return BadRequest(new { message = "No file was uploaded." });
@@ -355,11 +356,8 @@ public class StudyMaterialsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<StudyMaterialDto>> Create([FromBody] CreateStudyMaterialDto dto)
     {
-        if (_currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase) || 
-            _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase))
-        {
-            return StatusCode(403, new { message = "Students and parents have read-only access to study materials." });
-        }
+        if (!await _menuPermissions.HasPermissionAsync("/study-materials", MenuPermissionOperation.Create))
+            return Forbid();
 
         if (string.IsNullOrWhiteSpace(dto.Title))
             return BadRequest(new { message = "Material title is required." });
@@ -457,11 +455,8 @@ public class StudyMaterialsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateStudyMaterialDto dto)
     {
-        if (_currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase) || 
-            _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase))
-        {
-            return StatusCode(403, new { message = "Students and parents have read-only access to study materials." });
-        }
+        if (!await _menuPermissions.HasPermissionAsync("/study-materials", MenuPermissionOperation.Edit))
+            return Forbid();
 
         var item = await _db.StudyMaterials.FirstOrDefaultAsync(m => m.Id == id);
         if (item == null) return NotFound(new { message = "Study material not found." });
@@ -503,11 +498,8 @@ public class StudyMaterialsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        if (_currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase) || 
-            _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase))
-        {
-            return StatusCode(403, new { message = "Students and parents have read-only access to study materials." });
-        }
+        if (!await _menuPermissions.HasPermissionAsync("/study-materials", MenuPermissionOperation.Edit))
+            return Forbid();
 
         var item = await _db.StudyMaterials.FirstOrDefaultAsync(m => m.Id == id);
         if (item == null) return NotFound(new { message = "Study material not found." });
@@ -534,10 +526,8 @@ public class StudyMaterialsController : ControllerBase
 
     private async Task<IQueryable<StudyMaterial>> ApplyRoleScopeAsync(IQueryable<StudyMaterial> query, Guid tenantId, Guid? studentId = null)
     {
-        // 1. Student / Parent
-        if (!studentId.HasValue && _currentUser.UserId != Guid.Empty && 
-            (_currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase) || 
-             _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase)))
+        // 1. Student / Parent — detect by DB relationship (UserId or ParentUserId linked to a Student)
+        if (!studentId.HasValue && _currentUser.UserId != Guid.Empty)
         {
             var studentUser = await _db.Students
                 .AsNoTracking()
@@ -589,41 +579,39 @@ public class StudyMaterialsController : ControllerBase
                 }
             }
         }
-        // 2. Teacher / Faculty
-        else if (_currentUser.UserId != Guid.Empty && 
-                 (_currentUser.UserRole.Equals("Teacher", StringComparison.OrdinalIgnoreCase) || 
-                  _currentUser.UserRole.Equals("Faculty", StringComparison.OrdinalIgnoreCase)))
+        // 2. Teacher / Faculty — detect by DB relationship (linked Teacher record)
+        else if (_currentUser.UserId != Guid.Empty)
         {
             var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-            if (user != null)
+            var linkedTeacher = user != null
+                ? await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                    t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email) || (user.FullName != null && t.FullName == user.FullName)))
+                : null;
+
+            if (linkedTeacher != null)
             {
-                var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
-                    t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email) || (user.FullName != null && t.FullName == user.FullName)));
+                var assignments = await _db.TeacherBatchAssignments.AsNoTracking()
+                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.TenantId == tenantId)
+                    .ToListAsync();
 
-                if (linkedTeacher != null)
+                var classTeacherSection = await _db.SchoolSections.AsNoTracking()
+                    .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive && s.TenantId == tenantId)
+                    .FirstOrDefaultAsync();
+
+                var teacherClassIds = assignments.Where(a => a.ClassId.HasValue).Select(a => a.ClassId!.Value).Distinct().ToList();
+                if (classTeacherSection != null && !teacherClassIds.Contains(classTeacherSection.ClassId))
                 {
-                    var assignments = await _db.TeacherBatchAssignments.AsNoTracking()
-                        .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.TenantId == tenantId)
-                        .ToListAsync();
-
-                    var classTeacherSection = await _db.SchoolSections.AsNoTracking()
-                        .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive && s.TenantId == tenantId)
-                        .FirstOrDefaultAsync();
-
-                    var teacherClassIds = assignments.Where(a => a.ClassId.HasValue).Select(a => a.ClassId!.Value).Distinct().ToList();
-                    if (classTeacherSection != null && !teacherClassIds.Contains(classTeacherSection.ClassId))
-                    {
-                        teacherClassIds.Add(classTeacherSection.ClassId);
-                    }
-
-                    var teacherBatchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).Distinct().ToList();
-
-                    query = query.Where(m =>
-                        (m.ClassId.HasValue && teacherClassIds.Contains(m.ClassId.Value)) ||
-                        (m.BatchId.HasValue && teacherBatchIds.Contains(m.BatchId.Value)) ||
-                        (!m.ClassId.HasValue && !m.BatchId.HasValue));
+                    teacherClassIds.Add(classTeacherSection.ClassId);
                 }
+
+                var teacherBatchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).Distinct().ToList();
+
+                query = query.Where(m =>
+                    (m.ClassId.HasValue && teacherClassIds.Contains(m.ClassId.Value)) ||
+                    (m.BatchId.HasValue && teacherBatchIds.Contains(m.BatchId.Value)) ||
+                    (!m.ClassId.HasValue && !m.BatchId.HasValue));
             }
+            // else: no linked teacher record → admin/staff → see all, no filter
         }
 
         return query;

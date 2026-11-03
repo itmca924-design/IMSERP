@@ -808,29 +808,26 @@ public class StudentLeavesController : ControllerBase
 
         var roleName = user?.AssignedRole?.Name ?? _currentUser.UserRole ?? "";
 
-        // 1. Check if Student
-        if (roleName.Contains("Student", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase))
+        // 1. Check if Student — via DB link (UserId matches a Student record)
+        var studentRecord = await _db.Students.FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
+        if (studentRecord != null)
         {
-            var student = await _db.Students.FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
-            return ("Student", null, null, student?.Id, user?.FullName ?? "Student");
+            return ("Student", null, null, studentRecord.Id, user?.FullName ?? "Student");
         }
 
-        // 2. Check if Parent
-        if (roleName.Contains("Parent", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase))
+        // 2. Check if Parent — via DB link (ParentUserId matches a Student record)
+        var parentStudent = await _db.Students.FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
+        if (parentStudent != null)
         {
-            var student = await _db.Students.FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
-            return ("Parent", null, null, student?.Id, user?.FullName ?? "Parent");
+            return ("Parent", null, null, parentStudent.Id, user?.FullName ?? "Parent");
         }
 
-        // 3. Check if Teacher (or linked in Teachers table)
+        // 3. Check if Teacher (linked in Teachers table by UserId, Email, or FullName)
         var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.UserId == userId && t.TenantId == tenantId);
-        if (teacher == null && (roleName.Contains("Teacher", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Teacher", StringComparison.OrdinalIgnoreCase)))
+        if (teacher == null && user != null)
         {
-            if (user != null)
-            {
-                teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.TenantId == tenantId &&
-                    (t.Email == user.Email || t.PhoneNumber == user.PhoneNumber || t.FullName == user.FullName));
-            }
+            teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.TenantId == tenantId &&
+                (t.Email == user.Email || t.PhoneNumber == user.PhoneNumber || t.FullName == user.FullName));
         }
 
         if (teacher != null)

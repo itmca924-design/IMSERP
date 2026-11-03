@@ -13,6 +13,11 @@ public class CurrentUserService : ICurrentUserService
         _httpContextAccessor = httpContextAccessor;
     }
 
+    public bool IsSystemContext => _httpContextAccessor.HttpContext is null;
+
+    public bool IsTrustedTenantWrite =>
+        _httpContextAccessor.HttpContext?.Items.ContainsKey("TrustedTenantWrite") == true;
+
     public Guid TenantId
     {
         get

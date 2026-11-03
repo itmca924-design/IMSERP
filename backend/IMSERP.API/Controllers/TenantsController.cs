@@ -128,6 +128,7 @@ public class TenantsController : ControllerBase
     }
 
     [HttpGet("current")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<TenantDto>> GetCurrentTenant()
     {
         var tenantId = _currentUser.TenantId;
@@ -136,11 +137,6 @@ public class TenantsController : ControllerBase
         if (tenantId != Guid.Empty)
         {
             t = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(x => x.Id == tenantId);
-        }
-
-        if (t == null)
-        {
-            t = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(x => x.IsActive);
         }
 
         if (t == null) return NotFound(new { message = "Institute tenant not found." });

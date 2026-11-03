@@ -1,6 +1,12 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 
+export interface TaskPresetCategory {
+  title: string;
+  dotClass: string;
+  presets: string[];
+}
+
 export const HINDI_QUICK_PRESETS: string[] = [
   "'अ' से 'अः' तक",
   "'क' से 'ज्ञ' तक",
@@ -310,5 +316,106 @@ export class HindiTransliterationService {
     }
 
     return result || word;
+  }
+
+  /**
+   * Dynamically resolves task preset categories based on subject name.
+   * Ensures zero hardcoding in UI components.
+   */
+  getPresetCategories(subjectName?: string): TaskPresetCategory[] {
+    const s = (subjectName || '').trim().toLowerCase();
+
+    if (s.includes('hindi') || s.includes('हिन्दी')) {
+      return [
+        {
+          title: 'वर्णमाला व स्वर',
+          dotClass: 'dot-blue',
+          presets: ["'अ' से 'अः' तक", "'क' से 'ज्ञ' तक", 'वर्णमाला अभ्यास']
+        },
+        {
+          title: 'मात्रा व शब्द अभ्यास',
+          dotClass: 'dot-green',
+          presets: ["'कि' से 'की' तक", 'दो अक्षर वाले शब्द', 'तीन अक्षर वाले शब्द', 'चार अक्षर वाले शब्द', 'मात्रा अभ्यास']
+        },
+        {
+          title: 'सुलेख, कविता व एक्टिविटी',
+          dotClass: 'dot-amber',
+          presets: ['सुलेख (1 पेज)', 'कविता याद करना', 'चित्र देखकर नाम लिखो', 'खाली स्थान भरो']
+        }
+      ];
+    } else if (s.includes('eng') || s.includes('अंग्रेजी') || s.includes('rhyme') || s.includes('oral')) {
+      return [
+        {
+          title: 'Alphabet & Phonics',
+          dotClass: 'dot-blue',
+          presets: ['A to Z Capital Letters', 'a to z Small Letters', 'Phonics sound A to Z', 'Vowels & Consonants (A, E, I, O, U)']
+        },
+        {
+          title: 'Words & Reading',
+          dotClass: 'dot-green',
+          presets: ['Two-letter words reading', 'Three-letter rhyming words', 'Sight words practice', 'Reading Practice (Page 1)']
+        },
+        {
+          title: 'Writing & Rhymes',
+          dotClass: 'dot-amber',
+          presets: ['Cursive writing (1 page)', 'Dictation of 10 words', 'Recite rhymes with actions', 'Trace letters in four-line copy']
+        }
+      ];
+    } else if (s.includes('math') || s.includes('गणित') || s.includes('arithmetic')) {
+      return [
+        {
+          title: 'Numbers & Counting',
+          dotClass: 'dot-blue',
+          presets: ['1 to 50 counting', '51 to 100 counting', 'Reverse counting 20 to 1', 'Number names 1 to 20']
+        },
+        {
+          title: 'Tables & Series',
+          dotClass: 'dot-green',
+          presets: ['Table of 2 & 3 practice', 'Table of 4 & 5 practice', 'What comes after & before', 'Fill in the missing numbers']
+        },
+        {
+          title: 'Basic Arithmetic & Shapes',
+          dotClass: 'dot-amber',
+          presets: ['Single digit addition (+)', 'Single digit subtraction (-)', 'Identify basic shapes (Circle, Square, Triangle)', 'Count and write the objects']
+        }
+      ];
+    } else if (s.includes('art') || s.includes('draw') || s.includes('craft') || s.includes('चित्रकला')) {
+      return [
+        {
+          title: 'Lines & Basic Shapes',
+          dotClass: 'dot-blue',
+          presets: ['Trace sleeping & standing lines', 'Draw basic shapes & circle', 'Freehand curve lines practice']
+        },
+        {
+          title: 'Coloring Practice',
+          dotClass: 'dot-green',
+          presets: ['Color the apple & mango', 'Color inside boundary lines', 'Color the rainbow in drawing copy']
+        },
+        {
+          title: 'Craft & Activity',
+          dotClass: 'dot-amber',
+          presets: ['Finger printing activity', 'Paper tearing & pasting', 'Draw your favorite toy or nature']
+        }
+      ];
+    }
+
+    // Default / General Subject Presets
+    return [
+      {
+        title: 'Classwork Follow-up',
+        dotClass: 'dot-blue',
+        presets: ['Complete remaining classwork', 'Read chapter carefully at home', 'Learn today\'s topic questions']
+      },
+      {
+        title: 'Practice & Homework',
+        dotClass: 'dot-green',
+        presets: ['Practice 5 questions in copy', 'Write definitions in fair copy', 'Revision for upcoming weekly test']
+      },
+      {
+        title: 'Notes & Handwriting',
+        dotClass: 'dot-amber',
+        presets: ['1 page neat handwriting practice', 'Complete index & check copy', 'Draw and label diagram']
+      }
+    ];
   }
 }

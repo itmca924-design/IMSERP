@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
+using IMSERP.API.Services;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
 
@@ -19,13 +20,20 @@ public class SchoolController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly IWhatsAppService _whatsAppService;
     private readonly IWebHostEnvironment _env;
+    private readonly IMenuPermissionService _menuPermissions;
 
-    public SchoolController(IIMSERPDbContext db, ICurrentUserService currentUser, IWhatsAppService whatsAppService, IWebHostEnvironment env)
+    public SchoolController(
+        IIMSERPDbContext db,
+        ICurrentUserService currentUser,
+        IWhatsAppService whatsAppService,
+        IWebHostEnvironment env,
+        IMenuPermissionService menuPermissions)
     {
         _db = db;
         _currentUser = currentUser;
         _whatsAppService = whatsAppService;
         _env = env;
+        _menuPermissions = menuPermissions;
     }
 
     #region Classes Management
@@ -1005,8 +1013,7 @@ public class SchoolController : ControllerBase
     [HttpPatch("sections/{id}/class-teacher")]
     public async Task<IActionResult> QuickAssignClassTeacher(Guid id, [FromBody] QuickAssignClassTeacherDto dto)
     {
-        var caller = await _db.Users.FindAsync(_currentUser.UserId);
-        if (caller != null && (caller.Role == UserRole.Teacher || string.Equals(_currentUser.UserRole, "Teacher", StringComparison.OrdinalIgnoreCase)))
+        if (!await _menuPermissions.HasPermissionAsync("/school/classes", MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
@@ -1895,6 +1902,7 @@ public class SchoolController : ControllerBase
     #region School Examinations & Marks Entry
 
     [HttpGet("my-exams")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<StudentMyExamsDto>> GetMyExams(
         [FromQuery] string? academicYear,
         [FromQuery] string? examType,
@@ -2381,8 +2389,7 @@ public class SchoolController : ControllerBase
     [HttpPost("exams/bulk")]
     public async Task<ActionResult<List<SchoolExamDto>>> CreateBulkSchoolExams([FromBody] CreateBulkSchoolExamsDto dto)
     {
-        if (_currentUser.UserRole.Contains("Student", StringComparison.OrdinalIgnoreCase) ||
-            _currentUser.UserRole.Contains("Parent", StringComparison.OrdinalIgnoreCase))
+        if (!await _menuPermissions.HasPermissionAsync("/school/exams", MenuPermissionOperation.Create))
         {
             return Forbid();
         }
@@ -2512,8 +2519,7 @@ public class SchoolController : ControllerBase
     [HttpPost("exams/bulk-marks")]
     public async Task<ActionResult<object>> SaveSchoolExamMarks([FromBody] SaveSchoolExamMarksDto dto)
     {
-        if (_currentUser.UserRole.Contains("Student", StringComparison.OrdinalIgnoreCase) ||
-            _currentUser.UserRole.Contains("Parent", StringComparison.OrdinalIgnoreCase))
+        if (!await _menuPermissions.HasPermissionAsync("/school/exams", MenuPermissionOperation.Create))
         {
             return Forbid();
         }
@@ -2622,14 +2628,9 @@ public class SchoolController : ControllerBase
     [HttpPost("exams/lock-marks")]
     public async Task<ActionResult<object>> LockExamMarks([FromBody] LockExamMarksDto dto)
     {
-        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-        if (!isPrivilegedAdmin)
+        if (!await _menuPermissions.HasPermissionAsync("/school/exams", MenuPermissionOperation.Edit))
         {
-            return StatusCode(403, new { message = "Only School Administrators or Exam Controllers are authorized to Lock & Freeze or Unlock exam marks." });
+            return Forbid();
         }
 
         var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == dto.ExamId);
@@ -3410,14 +3411,9 @@ public class SchoolController : ControllerBase
     [HttpDelete("exams/{id}")]
     public async Task<ActionResult> DeleteSchoolExam(Guid id)
     {
-        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-        if (!isPrivilegedAdmin)
+        if (!await _menuPermissions.HasPermissionAsync("/school/exams", MenuPermissionOperation.Delete))
         {
-            return StatusCode(403, new { message = "Only School Administrators or Exam In-charge are authorized to delete exam records." });
+            return Forbid();
         }
 
         var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == id);
@@ -3456,4 +3452,3 @@ public class SchoolController : ControllerBase
 
     #endregion
 }
-

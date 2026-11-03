@@ -12,9 +12,9 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatMenuModule } from '@angular/material/menu';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { BranchService, Branch } from '../../core/services/branch.service';
@@ -712,8 +712,8 @@ export class AddPtmBookingDialogComponent implements OnInit {
     MatTableModule,
     MatTabsModule,
     MatDialogModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatMenuModule
 ],
   template: `
     <div class="page-container">
@@ -878,18 +878,9 @@ export class AddPtmBookingDialogComponent implements OnInit {
         </form>
       </mat-card>
     
-      <!-- Single Prominent Loader -->
-      @if (isLoading) {
-        <div class="loader-container">
-          <mat-spinner diameter="44"></mat-spinner>
-          <span>Loading PTM records...</span>
-        </div>
-      }
-    
       <!-- Main Tabbed Work Desk -->
-      @if (!isLoading) {
-        <div>
-          <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="150ms">
+      <div>
+        <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="150ms">
             <!-- Tab 1: PTM Sessions -->
             <mat-tab label="PTM Sessions (बैठक सत्र)">
               <div class="tab-content">
@@ -901,7 +892,7 @@ export class AddPtmBookingDialogComponent implements OnInit {
                   </div>
                 }
                 @if (sessions.length > 0) {
-                  <div class="table-responsive">
+                  <div class="table-responsive ptm-sessions-table-responsive">
                     <table mat-table [dataSource]="sessions" class="ptm-table">
                       <ng-container matColumnDef="title">
                         <th mat-header-cell *matHeaderCellDef>Session Title & Scope</th>
@@ -961,21 +952,31 @@ export class AddPtmBookingDialogComponent implements OnInit {
                         </td>
                       </ng-container>
                       <ng-container matColumnDef="actions">
-                        <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+                        <th mat-header-cell *matHeaderCellDef class="text-right actions-header">
+                          <mat-icon aria-label="Actions" matTooltip="Actions">more_horiz</mat-icon>
+                        </th>
                         <td mat-cell *matCellDef="let s" class="text-right">
                           <div class="action-buttons">
                             <button color="primary" class="btn-compact" (click)="openSessionBookings(s)" matTooltip="Manage Attendance & Slot Desk" matButton="filled">
                               <mat-icon>groups</mat-icon> Desk
                             </button>
-                            <button color="accent" (click)="bulkEnrollClass(s)" matTooltip="Bulk Enroll Class Students" mat-icon-button>
-                              <mat-icon>group_add</mat-icon>
+                            <button [matMenuTriggerFor]="sessionActionsMenu" matTooltip="More actions" mat-icon-button>
+                              <mat-icon>more_vert</mat-icon>
                             </button>
-                            <button (click)="openEditSessionDialog(s)" matTooltip="Edit Session" mat-icon-button>
-                              <mat-icon>edit</mat-icon>
-                            </button>
-                            <button color="warn" (click)="deleteSession(s)" matTooltip="Delete Session" mat-icon-button>
-                              <mat-icon>delete</mat-icon>
-                            </button>
+                            <mat-menu #sessionActionsMenu="matMenu">
+                              <button mat-menu-item (click)="bulkEnrollClass(s)">
+                                <mat-icon>group_add</mat-icon>
+                                <span>Bulk Enroll Class Students</span>
+                              </button>
+                              <button mat-menu-item (click)="openEditSessionDialog(s)">
+                                <mat-icon>edit</mat-icon>
+                                <span>Edit Session</span>
+                              </button>
+                              <button mat-menu-item (click)="deleteSession(s)" class="delete-menu-item">
+                                <mat-icon>delete</mat-icon>
+                                <span>Delete Session</span>
+                              </button>
+                            </mat-menu>
                           </div>
                         </td>
                       </ng-container>
@@ -1085,7 +1086,9 @@ export class AddPtmBookingDialogComponent implements OnInit {
                         </td>
                       </ng-container>
                       <ng-container matColumnDef="actions">
-                        <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+                        <th mat-header-cell *matHeaderCellDef class="text-right actions-header">
+                          <mat-icon aria-label="Actions" matTooltip="Actions">more_horiz</mat-icon>
+                        </th>
                         <td mat-cell *matCellDef="let b" class="text-right">
                           <div class="action-buttons">
                             <button color="primary" class="btn-compact" (click)="openRecordFeedbackDialog(b)" matButton="filled">
@@ -1104,9 +1107,8 @@ export class AddPtmBookingDialogComponent implements OnInit {
                 }
               </div>
             </mat-tab>
-          </mat-tab-group>
-        </div>
-      }
+        </mat-tab-group>
+      </div>
     </div>
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -1281,17 +1283,6 @@ export class AddPtmBookingDialogComponent implements OnInit {
       gap: 10px;
     }
 
-    /* Single Loader */
-    .loader-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 60px 0;
-      gap: 16px;
-      color: #64748b;
-    }
-
     /* Tab Content & Tables */
     .tab-content {
       padding: 16px 0;
@@ -1306,11 +1297,48 @@ export class AddPtmBookingDialogComponent implements OnInit {
       border: 1px solid #e2e8f0;
       background: #ffffff;
     }
+    .ptm-sessions-table-responsive {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    .ptm-sessions-table-responsive::-webkit-scrollbar { display: none; }
     table {
       width: 100%;
       border-collapse: collapse;
       white-space: nowrap;
     }
+    .ptm-table {
+      table-layout: fixed !important;
+      min-width: 100% !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    .ptm-table .mat-column-title { width: 18%; }
+    .ptm-table .mat-column-dateTime { width: 17%; }
+    .ptm-table .mat-column-mode { width: 12%; }
+    .ptm-table .mat-column-organizer { width: 10%; }
+    .ptm-table .mat-column-turnout { width: 12%; }
+    .ptm-table .mat-column-status { width: 11%; }
+    .ptm-table .mat-column-actions { width: 20%; }
+    .ptm-table th.mat-header-cell,
+    .ptm-table td.mat-cell {
+      box-sizing: border-box;
+      min-width: 0;
+      padding-left: 8px;
+      padding-right: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ptm-table .title-cell,
+    .ptm-table .name-badge-row { min-width: 0; }
+    .ptm-table .session-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .actions-header mat-icon { vertical-align: middle; }
     th.mat-header-cell {
       background: #f8fafc;
       color: #475569;
@@ -1395,8 +1423,8 @@ export class AddPtmBookingDialogComponent implements OnInit {
     .status-badge.completed { background: #d1fae5; color: #065f46; }
     .status-badge.cancelled { background: #fee2e2; color: #991b1b; }
 
-    .action-buttons { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
-    .btn-compact { font-size: 0.8rem; height: 32px; padding: 0 10px; }
+    .action-buttons { display: flex; gap: 2px; justify-content: flex-end; align-items: center; }
+    .btn-compact { font-size: 0.8rem; height: 32px; padding: 0 8px; }
 
     /* Desk Toolbar */
     .desk-toolbar {
@@ -1467,6 +1495,10 @@ export class AddPtmBookingDialogComponent implements OnInit {
     .empty-icon { font-size: 48px; width: 48px; height: 48px; color: #94a3b8; margin-bottom: 12px; }
     .empty-state h3 { margin: 0; color: #334155; font-size: 1.1rem; }
     .empty-state p { color: #64748b; font-size: 0.88rem; max-width: 440px; margin: 6px 0 0; }
+    @media (max-width: 1024px) {
+      .ptm-sessions-table-responsive { overflow-x: auto; }
+      .ptm-table { min-width: 920px; }
+    }
   `]
 })
 export class PtmSchedulerComponent implements OnInit {
@@ -1490,7 +1522,6 @@ export class PtmSchedulerComponent implements OnInit {
   activeSession: PtmSession | null = null;
   selectedSessionId: string | null = null;
   activeTabIndex = 0;
-  isLoading = false;
 
   get filteredBatches(): any[] {
     if (!this.filterCoachingClassId) return this.batches;
@@ -1562,7 +1593,6 @@ export class PtmSchedulerComponent implements OnInit {
   }
 
   loadSessions() {
-    this.isLoading = true;
     const branchId = this.filterForm.value.branchId === 'ALL' ? null : this.filterForm.value.branchId;
     const filters = {
       branchId,
@@ -1576,7 +1606,6 @@ export class PtmSchedulerComponent implements OnInit {
     this.ptmService.getSessions(filters).subscribe({
       next: (res) => {
         this.sessions = res || [];
-        this.isLoading = false;
 
         if (this.sessions.length > 0 && !this.selectedSessionId) {
           this.selectedSessionId = this.sessions[0].id;
@@ -1585,7 +1614,6 @@ export class PtmSchedulerComponent implements OnInit {
         }
       },
       error: (err) => {
-        this.isLoading = false;
         this.confirmDialog.alert('Error', err.error?.message || 'Failed to load PTM sessions.', 'danger');
       }
     });
@@ -1703,10 +1731,8 @@ export class PtmSchedulerComponent implements OnInit {
       'info'
     ).subscribe(confirmed => {
       if (confirmed) {
-        this.isLoading = true;
         this.ptmService.bulkEnroll(session.id).subscribe({
           next: (res) => {
-            this.isLoading = false;
             this.confirmDialog.alert('Enrolled', res.message, 'success');
             this.loadStats();
             this.loadSessions();
@@ -1715,7 +1741,6 @@ export class PtmSchedulerComponent implements OnInit {
             }
           },
           error: (err) => {
-            this.isLoading = false;
             this.confirmDialog.alert('Error', err.error?.message || 'Failed to enroll students.', 'danger');
           }
         });

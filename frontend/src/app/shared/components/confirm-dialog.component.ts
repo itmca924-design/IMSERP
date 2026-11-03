@@ -1,4 +1,5 @@
 import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -115,7 +116,7 @@ export interface ConfirmDialogData {
               </div>
             </div>
           }
-          <div class="dialog-message" [innerHTML]="currentMessage"></div>
+          <div class="dialog-message" [innerHTML]="safeCurrentMessage"></div>
         </div>
     
         <!-- Material Standard Prompt Input Field -->
@@ -540,7 +541,8 @@ export class ConfirmDialogComponent implements OnInit {
 
   constructor(
     private dialogRef: MatDialogRef<ConfirmDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: ConfirmDialogData
+    @Inject(MAT_DIALOG_DATA) public data: ConfirmDialogData,
+    private sanitizer: DomSanitizer
   ) { }
 
   ngOnInit(): void {
@@ -576,6 +578,10 @@ export class ConfirmDialogComponent implements OnInit {
         : (this.data.titleEn || this.data.title);
     }
     return this.data.title;
+  }
+
+  get safeCurrentMessage(): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(this.currentMessage || '');
   }
 
   get currentMessage(): string {

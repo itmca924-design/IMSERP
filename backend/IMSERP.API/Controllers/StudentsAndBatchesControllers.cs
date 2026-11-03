@@ -3332,6 +3332,7 @@ public class StudentsController : ControllerBase
     // =========================================================================
 
     [HttpGet("my-profile-360")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<Student360Dto>> GetMyProfile360()
     {
         var userId = _currentUser.UserId;
@@ -3828,6 +3829,7 @@ public class StudentsController : ControllerBase
     // =========================================================================
 
     [HttpGet("my-timetable")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<StudentWeeklyTimetableDto>> GetMyTimetable([FromQuery] string? dayOfWeek)
     {
         var userId = _currentUser.UserId;
@@ -4879,19 +4881,19 @@ public class StudentsController : ControllerBase
 
         if (student == null) return NotFound(new { message = "Student not found." });
 
-        // Retrieve student user if exists
+        // Retrieve student user if exists (linked via student.UserId)
         string? studentUsername = null;
         if (student.UserId.HasValue)
         {
-            var sUser = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == student.UserId.Value && u.Role == UserRole.Student);
+            var sUser = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == student.UserId.Value);
             studentUsername = sUser?.Username;
         }
 
-        // Retrieve parent user if exists
+        // Retrieve parent user if exists (linked via student.ParentUserId)
         string? parentUsername = null;
         if (student.ParentUserId.HasValue)
         {
-            var pUser = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == student.ParentUserId.Value && u.Role == UserRole.Parent);
+            var pUser = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == student.ParentUserId.Value);
             parentUsername = pUser?.Username;
         }
 
@@ -4911,7 +4913,8 @@ public class StudentsController : ControllerBase
             {
                 var existingParentByPhone = await _dbContext.Users
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(u => (u.PhoneNumber == cleanPhone || u.Username == cleanPhone) && u.Role == UserRole.Parent);
+                    .FirstOrDefaultAsync(u => (u.PhoneNumber == cleanPhone || u.Username == cleanPhone) &&
+                        _dbContext.Students.Any(s => s.ParentUserId == u.Id && s.TenantId == _currentUser.TenantId));
                 if (existingParentByPhone != null)
                 {
                     parentUsername = existingParentByPhone.Username;
@@ -5089,7 +5092,8 @@ public class StudentsController : ControllerBase
                 // Check if user already exists with this username or phone (e.g. Sibling's parent)
                 var existingPUser = await _dbContext.Users.FirstOrDefaultAsync(u =>
                     (u.Username.ToLower() == pUsername.ToLower() ||
-                    (!string.IsNullOrEmpty(pPhone) && u.PhoneNumber == pPhone)) && u.Role == UserRole.Parent);
+                    (!string.IsNullOrEmpty(pPhone) && u.PhoneNumber == pPhone)) &&
+                    _dbContext.Students.Any(s => s.ParentUserId == u.Id && s.TenantId == _currentUser.TenantId));
 
                 if (existingPUser != null)
                 {

@@ -327,6 +327,7 @@ public class FrontDeskController : ControllerBase
     // ─── Student Gate Pass CRUD ───────────────────────────────────
 
     [HttpGet("gate-passes/my-profile")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult> GetMyStudentProfile()
     {
         var tenantId = _currentUser.TenantId;
@@ -605,18 +606,18 @@ public class FrontDeskController : ControllerBase
 
         var roleName = user?.AssignedRole?.Name ?? _currentUser.UserRole ?? "";
 
-        // Check if Student
-        if (roleName.Contains("Student", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Student", StringComparison.OrdinalIgnoreCase))
+        // Check if Student — via DB link
+        var studentRecord = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
+        if (studentRecord != null)
         {
-            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
-            return ("Student", student?.Id, user?.FullName ?? "Student");
+            return ("Student", studentRecord.Id, user?.FullName ?? "Student");
         }
 
-        // Check if Parent
-        if (roleName.Contains("Parent", StringComparison.OrdinalIgnoreCase) || _currentUser.UserRole.Equals("Parent", StringComparison.OrdinalIgnoreCase))
+        // Check if Parent — via DB link
+        var parentStudent = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
+        if (parentStudent != null)
         {
-            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
-            return ("Parent", student?.Id, user?.FullName ?? "Parent");
+            return ("Parent", parentStudent.Id, user?.FullName ?? "Parent");
         }
 
         // Default: Staff / Admin / Teacher / FrontDesk

@@ -766,6 +766,7 @@ public class LibraryController : ControllerBase
     }
 
     [HttpGet("settings")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<LibrarySettingDto>> GetSettings()
     {
         var s = await _db.LibrarySettings.FirstOrDefaultAsync();

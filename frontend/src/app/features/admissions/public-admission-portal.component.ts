@@ -1560,7 +1560,7 @@ export class PublicAdmissionPortalComponent implements OnInit {
 
     const { applicationNumber, phone } = this.trackForm.value;
 
-    this.admissionsService.trackStatus(applicationNumber, phone).subscribe({
+    this.admissionsService.trackStatus(applicationNumber, phone, this.institute?.tenantCode ?? '').subscribe({
       next: (res) => {
         this.tracking = false;
         this.trackingResult = res;

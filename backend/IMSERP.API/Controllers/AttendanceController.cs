@@ -20,25 +20,35 @@ public class AttendanceController : ControllerBase
     private const string CorrectionRoute = "/attendance/permissions/correction";
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly IConfiguration _configuration;
+    private readonly IMSERP.API.Services.IMenuPermissionService _menuPermissions;
 
-    public AttendanceController(IIMSERPDbContext db, ICurrentUserService currentUser)
+    public AttendanceController(
+        IIMSERPDbContext db,
+        ICurrentUserService currentUser,
+        IConfiguration configuration,
+        IMSERP.API.Services.IMenuPermissionService menuPermissions)
     {
         _db = db;
         _currentUser = currentUser;
+        _configuration = configuration;
+        _menuPermissions = menuPermissions;
     }
 
     [HttpGet("permissions")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<AttendancePermissionsDto>> GetPermissions()
     {
         return Ok(new AttendancePermissionsDto(
-            await HasPermissionAsync(ModeSettingsRoute, PermissionAction.Edit),
-            await HasPermissionAsync(ManualRoute, PermissionAction.Create),
-            await HasPermissionAsync(BiometricRoute, PermissionAction.Create),
-            await HasPermissionAsync(MappingRoute, PermissionAction.Edit),
-            await HasPermissionAsync(CorrectionRoute, PermissionAction.Edit)));
+            await HasPermissionAsync(ModeSettingsRoute, IMSERP.API.Services.MenuPermissionOperation.Edit),
+            await HasPermissionAsync(ManualRoute, IMSERP.API.Services.MenuPermissionOperation.Create),
+            await HasPermissionAsync(BiometricRoute, IMSERP.API.Services.MenuPermissionOperation.Create),
+            await HasPermissionAsync(MappingRoute, IMSERP.API.Services.MenuPermissionOperation.Edit),
+            await HasPermissionAsync(CorrectionRoute, IMSERP.API.Services.MenuPermissionOperation.Edit)));
     }
 
     [HttpGet("settings")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<AttendanceSettingsDto>> GetSettings()
     {
         var settings = await _db.AttendanceSettings.AsNoTracking()
@@ -77,7 +87,7 @@ public class AttendanceController : ControllerBase
     [HttpGet("mappings")]
     public async Task<ActionResult<IEnumerable<BiometricMappingPersonDto>>> GetMappings()
     {
-        if (!await HasPermissionAsync(MappingRoute, PermissionAction.Edit)) return Forbid();
+        if (!await HasPermissionAsync(MappingRoute, IMSERP.API.Services.MenuPermissionOperation.Edit)) return Forbid();
 
         var rawStudents = await _db.Students.AsNoTracking()
             .Where(s => s.IsActive && !s.IsDeleted)
@@ -208,7 +218,7 @@ public class AttendanceController : ControllerBase
     [HttpPut("settings")]
     public async Task<ActionResult<AttendanceSettingsDto>> UpdateSettings([FromBody] AttendanceSettingsDto dto)
     {
-        if (!await HasPermissionAsync(ModeSettingsRoute, PermissionAction.Edit))
+        if (!await HasPermissionAsync(ModeSettingsRoute, IMSERP.API.Services.MenuPermissionOperation.Edit))
             return Forbid();
 
         if (!IsValidMode(dto.StudentMode) || !IsValidMode(dto.TeacherMode) || (!string.IsNullOrEmpty(dto.HostelMode) && !IsValidMode(dto.HostelMode)))
@@ -300,7 +310,7 @@ public class AttendanceController : ControllerBase
     [HttpPost("biometric-events")]
     public async Task<IActionResult> ReceiveBiometricEvent([FromBody] BiometricAttendanceEventDto dto)
     {
-        if (!await HasPermissionAsync(BiometricRoute, PermissionAction.Create))
+        if (!await HasPermissionAsync(BiometricRoute, IMSERP.API.Services.MenuPermissionOperation.Create))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(dto.BiometricUserId) || dto.EventTime == default)
@@ -535,7 +545,7 @@ public class AttendanceController : ControllerBase
     [HttpPut("mappings/{personType}/{personId:guid}")]
     public async Task<IActionResult> UpdateBiometricMapping(string personType, Guid personId, [FromBody] BiometricMappingDto dto)
     {
-        if (!await HasPermissionAsync(MappingRoute, PermissionAction.Edit))
+        if (!await HasPermissionAsync(MappingRoute, IMSERP.API.Services.MenuPermissionOperation.Edit))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(dto.BiometricUserId))
@@ -595,7 +605,7 @@ public class AttendanceController : ControllerBase
     [HttpPost("mappings/auto-generate")]
     public async Task<IActionResult> AutoGenerateBiometricMappings([FromBody] AutoGenerateMappingRequest? request)
     {
-        if (!await HasPermissionAsync(MappingRoute, PermissionAction.Edit))
+        if (!await HasPermissionAsync(MappingRoute, IMSERP.API.Services.MenuPermissionOperation.Edit))
             return Forbid();
 
         var category = (request?.Category ?? "all").Trim().ToLowerInvariant();
@@ -764,7 +774,7 @@ public class AttendanceController : ControllerBase
     [HttpPost("biometric-events/{eventId:guid}/retry")]
     public async Task<IActionResult> RetryBiometricEvent(Guid eventId)
     {
-        if (!await HasPermissionAsync(BiometricRoute, PermissionAction.Create)) return Forbid();
+        if (!await HasPermissionAsync(BiometricRoute, IMSERP.API.Services.MenuPermissionOperation.Create)) return Forbid();
         var failed = await _db.BiometricEventLogs.FirstOrDefaultAsync(e => e.Id == eventId);
         if (failed == null) return NotFound(new { message = "Biometric event not found." });
         if (!string.Equals(failed.Status, "Failed", StringComparison.OrdinalIgnoreCase))
@@ -785,6 +795,20 @@ public class AttendanceController : ControllerBase
         [FromQuery] Guid? tenantId,
         [FromQuery] string? serialNumber)
     {
+        var webhookKey = _configuration["Biometric:WebhookKey"];
+        var suppliedWebhookKey = Request.Headers["X-Biometric-Webhook-Key"].ToString();
+        if (string.IsNullOrWhiteSpace(webhookKey) || System.Text.Encoding.UTF8.GetByteCount(webhookKey) < 32)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Biometric webhook authentication is not configured." });
+        }
+
+        if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.UTF8.GetBytes(webhookKey),
+                System.Text.Encoding.UTF8.GetBytes(suppliedWebhookKey)))
+        {
+            return Unauthorized();
+        }
+
         string? employeeNo = null;
         string? cardNo = null;
         string? serialNo = serialNumber;
@@ -909,35 +933,25 @@ public class AttendanceController : ControllerBase
             return Ok(new { message = "Heartbeat or non-punch event received. No employeeNo or cardNo detected." });
         }
 
-        Guid resolvedTenantId = tenantId ?? Guid.Empty;
-        Guid? resolvedBranchId = null;
-
-        if (resolvedTenantId == Guid.Empty)
+        if (string.IsNullOrWhiteSpace(serialNo))
         {
-            if (!string.IsNullOrWhiteSpace(serialNo))
-            {
-                var matchedDevice = await _db.BiometricDevices.IgnoreQueryFilters().FirstOrDefaultAsync(d => d.SerialNumber == serialNo.Trim());
-                if (matchedDevice != null)
-                {
-                    resolvedTenantId = matchedDevice.TenantId;
-                    resolvedBranchId = matchedDevice.BranchId;
-                    matchedDevice.LastSeenAt = DateTime.UtcNow;
-                    matchedDevice.LastSyncAt = DateTime.UtcNow;
-                    matchedDevice.Status = "Online";
-                }
-            }
-
-            if (resolvedTenantId == Guid.Empty)
-            {
-                var defaultTenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.IsActive);
-                if (defaultTenant != null) resolvedTenantId = defaultTenant.Id;
-            }
+            return BadRequest(new { message = "A registered biometric device serial number is required." });
         }
 
-        if (resolvedTenantId == Guid.Empty)
+        var matchedDevice = await _db.BiometricDevices.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(d => d.SerialNumber == serialNo.Trim() && d.IsActive);
+        if (matchedDevice == null || (tenantId.HasValue && tenantId.Value != matchedDevice.TenantId))
         {
-            return BadRequest(new { message = "Cannot resolve TenantId for this biometric event." });
+            return Unauthorized();
         }
+
+        HttpContext.Items["TrustedTenantWrite"] = true;
+
+        var resolvedTenantId = matchedDevice.TenantId;
+        Guid? resolvedBranchId = matchedDevice.BranchId;
+        matchedDevice.LastSeenAt = DateTime.UtcNow;
+        matchedDevice.LastSyncAt = DateTime.UtcNow;
+        matchedDevice.Status = "Online";
 
         var indiaTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
             DateTime.SpecifyKind(eventTime, DateTimeKind.Utc), "India Standard Time");
@@ -1117,52 +1131,24 @@ public class AttendanceController : ControllerBase
         mode.Equals("Biometric", StringComparison.OrdinalIgnoreCase) ||
         mode.Equals("Both", StringComparison.OrdinalIgnoreCase);
 
-    private enum PermissionAction { View, Create, Edit, Delete }
-
-    private async Task<bool> HasPermissionAsync(string route, PermissionAction action)
+    private async Task<bool> HasPermissionAsync(string route, IMSERP.API.Services.MenuPermissionOperation operation)
     {
-        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        if (user == null) return false;
-        if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin) return true;
-        if (user.RoleId == null) return false;
-
-        var permission = await _db.RolePermissions.AsNoTracking()
-            .Where(rp => rp.RoleId == user.RoleId)
-            .Join(_db.MenuItems, rp => rp.MenuItemId, menu => menu.Id, (rp, menu) => new { rp, menu.RouteUrl })
-            .FirstOrDefaultAsync(item => item.RouteUrl == route);
-
-        if (permission != null)
+        if (await _menuPermissions.HasPermissionAsync(route, operation))
         {
-            var allowed = action switch
-            {
-                PermissionAction.View => permission.rp.CanView,
-                PermissionAction.Create => permission.rp.CanCreate,
-                PermissionAction.Edit => permission.rp.CanEdit,
-                PermissionAction.Delete => permission.rp.CanDelete,
-                _ => false
-            };
-            if (allowed) return true;
+            return true;
         }
 
         // Fallback for Manual Attendance: If checking ManualRoute or CorrectionRoute, check if role has CanCreate / CanEdit on Teacher Attendance or Student Attendance
-        if (route == ManualRoute && (action == PermissionAction.Create || action == PermissionAction.View))
+        if (route == ManualRoute && (operation == IMSERP.API.Services.MenuPermissionOperation.Create || operation == IMSERP.API.Services.MenuPermissionOperation.View))
         {
-            var hasAttendanceRights = await _db.RolePermissions.AsNoTracking()
-                .Where(rp => rp.RoleId == user.RoleId && (rp.CanCreate || rp.CanEdit))
-                .Join(_db.MenuItems, rp => rp.MenuItemId, menu => menu.Id, (rp, menu) => menu.RouteUrl)
-                .AnyAsync(r => r == "/teachers/attendance" || r == "/students/attendance");
-            if (hasAttendanceRights) return true;
+            return await _menuPermissions.HasAnyPermissionAsync("/teachers/attendance", default, IMSERP.API.Services.MenuPermissionOperation.Create, IMSERP.API.Services.MenuPermissionOperation.Edit) ||
+                   await _menuPermissions.HasAnyPermissionAsync("/students/attendance", default, IMSERP.API.Services.MenuPermissionOperation.Create, IMSERP.API.Services.MenuPermissionOperation.Edit);
         }
 
-        if (route == CorrectionRoute && (action == PermissionAction.Edit || action == PermissionAction.View))
+        if (route == CorrectionRoute && (operation == IMSERP.API.Services.MenuPermissionOperation.Edit || operation == IMSERP.API.Services.MenuPermissionOperation.View))
         {
-            if (user.Role == IMSERP.Domain.Enums.UserRole.Teacher) return false;
-
-            var hasAttendanceRights = await _db.RolePermissions.AsNoTracking()
-                .Where(rp => rp.RoleId == user.RoleId && rp.CanEdit)
-                .Join(_db.MenuItems, rp => rp.MenuItemId, menu => menu.Id, (rp, menu) => menu.RouteUrl)
-                .AnyAsync(r => r == "/teachers/attendance" || r == "/students/attendance");
-            if (hasAttendanceRights) return true;
+            return await _menuPermissions.HasPermissionAsync("/teachers/attendance", IMSERP.API.Services.MenuPermissionOperation.Edit) ||
+                   await _menuPermissions.HasPermissionAsync("/students/attendance", IMSERP.API.Services.MenuPermissionOperation.Edit);
         }
 
         return false;

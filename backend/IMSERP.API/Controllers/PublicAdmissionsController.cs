@@ -37,18 +37,9 @@ public class PublicAdmissionsController : ControllerBase
             tenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Code.ToUpper() == code && t.IsActive);
         }
 
-        // If not found or not specified, fall back to the first non-system active tenant
         if (tenant == null)
         {
-            tenant = await _db.Tenants.IgnoreQueryFilters()
-                .Where(t => t.IsActive && t.Code != "SYSTEM")
-                .OrderBy(t => t.CreatedAt)
-                .FirstOrDefaultAsync();
-        }
-
-        if (tenant == null)
-        {
-            return NotFound(new { message = "Institute details could not be found." });
+            return NotFound(new { message = "A valid active institute code or ID is required." });
         }
 
         var branches = await _db.Branches.IgnoreQueryFilters()
@@ -140,24 +131,19 @@ public class PublicAdmissionsController : ControllerBase
         }
 
         if (tenant == null)
-        {
-            tenant = await _db.Tenants.IgnoreQueryFilters()
-                .Where(t => t.IsActive && t.Code != "SYSTEM")
-                .OrderBy(t => t.CreatedAt)
-                .FirstOrDefaultAsync();
-        }
-
-        if (tenant == null)
-            return BadRequest(new { message = "Unable to determine institute context for admission." });
+            return BadRequest(new { message = "A valid active institute code or ID is required." });
 
         // Resolve Branch
         Guid? branchId = dto.BranchId;
         Branch? branch = null;
         if (branchId.HasValue)
         {
-            branch = await _db.Branches.IgnoreQueryFilters().FirstOrDefaultAsync(b => b.Id == branchId.Value && b.TenantId == tenant.Id);
+            branch = await _db.Branches.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(b => b.Id == branchId.Value && b.TenantId == tenant.Id && b.IsActive);
+            if (branch == null)
+                return BadRequest(new { message = "The selected branch does not belong to this institute." });
         }
-        if (branch == null)
+        else
         {
             branch = await _db.Branches.IgnoreQueryFilters().FirstOrDefaultAsync(b => b.TenantId == tenant.Id && b.IsActive);
             branchId = branch?.Id;
@@ -174,7 +160,8 @@ public class PublicAdmissionsController : ControllerBase
         string className = dto.InterestedClassName ?? string.Empty;
         if (string.IsNullOrWhiteSpace(className) && dto.InterestedClassId.HasValue)
         {
-            var cls = await _db.SchoolClasses.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == dto.InterestedClassId.Value);
+            var cls = await _db.SchoolClasses.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(c => c.Id == dto.InterestedClassId.Value && c.TenantId == tenant.Id);
             className = cls?.Name ?? string.Empty;
         }
 
@@ -182,7 +169,8 @@ public class PublicAdmissionsController : ControllerBase
         string? batchName = dto.InterestedBatchName;
         if (string.IsNullOrWhiteSpace(batchName) && dto.InterestedBatchId.HasValue)
         {
-            var bt = await _db.Batches.IgnoreQueryFilters().FirstOrDefaultAsync(b => b.Id == dto.InterestedBatchId.Value);
+            var bt = await _db.Batches.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(b => b.Id == dto.InterestedBatchId.Value && b.TenantId == tenant.Id);
             batchName = bt?.Name;
         }
 
@@ -231,6 +219,7 @@ public class PublicAdmissionsController : ControllerBase
             UpdatedAt = DateTime.UtcNow
         };
 
+        HttpContext.Items["TrustedTenantWrite"] = true;
         _db.AdmissionEnquiries.Add(enquiry);
         await _db.SaveChangesAsync();
 
@@ -251,19 +240,31 @@ public class PublicAdmissionsController : ControllerBase
     /// Allows parents to track application status using Application Number and Contact Phone.
     /// </summary>
     [HttpGet("status/{applicationNumber}")]
-    public async Task<ActionResult<ApplicationTrackingResultDto>> TrackStatus(string applicationNumber, [FromQuery] string phone)
+    public async Task<ActionResult<ApplicationTrackingResultDto>> TrackStatus(
+        string applicationNumber,
+        [FromQuery] string phone,
+        [FromQuery] string? tenantCode)
     {
-        if (string.IsNullOrWhiteSpace(applicationNumber) || string.IsNullOrWhiteSpace(phone))
-            return BadRequest(new { message = "Application number and phone number are required." });
+        if (string.IsNullOrWhiteSpace(applicationNumber) || string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(tenantCode))
+            return BadRequest(new { message = "Institute code, application number, and registered phone number are required." });
 
         var cleanPhone = new string(phone.Where(char.IsDigit).ToArray());
         var cleanApp = applicationNumber.Trim().ToUpperInvariant();
+        if (cleanPhone.Length < 10 || cleanPhone.Length > 15)
+            return BadRequest(new { message = "Enter the complete registered phone number." });
+
+        var normalizedTenantCode = tenantCode.Trim().ToUpperInvariant();
+        var tenant = await _db.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Code == normalizedTenantCode && t.IsActive);
+        if (tenant == null)
+            return NotFound(new { message = "Application not found." });
 
         var enquiry = await _db.AdmissionEnquiries.IgnoreQueryFilters()
             .Include(e => e.Branch)
             .FirstOrDefaultAsync(e =>
+                e.TenantId == tenant.Id &&
                 (e.EnquiryNumber.ToUpper() == cleanApp || (e.ApplicationNumber != null && e.ApplicationNumber.ToUpper() == cleanApp)) &&
-                e.Phone.Contains(cleanPhone));
+                e.Phone == cleanPhone);
 
         if (enquiry == null)
         {

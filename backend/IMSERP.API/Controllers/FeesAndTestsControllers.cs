@@ -2,6 +2,7 @@ using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
+using IMSERP.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,12 +17,18 @@ public class FeesController : ControllerBase
     private readonly IIMSERPDbContext _dbContext;
     private readonly IWhatsAppService _whatsAppService;
     private readonly ICurrentUserService _currentUser;
+    private readonly IMenuPermissionService _menuPermissions;
 
-    public FeesController(IIMSERPDbContext dbContext, IWhatsAppService whatsAppService, ICurrentUserService currentUser)
+    public FeesController(
+        IIMSERPDbContext dbContext,
+        IWhatsAppService whatsAppService,
+        ICurrentUserService currentUser,
+        IMenuPermissionService menuPermissions)
     {
         _dbContext = dbContext;
         _whatsAppService = whatsAppService;
         _currentUser = currentUser;
+        _menuPermissions = menuPermissions;
     }
 
     [HttpGet("invoices/paged")]
@@ -35,11 +42,8 @@ public class FeesController : ControllerBase
         [FromQuery] string? sortBy = "createdAt",
         [FromQuery] bool sortDescending = true)
     {
-        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
-        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
-        {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.View))
             return Forbid();
-        }
 
         var tenantId = _currentUser.TenantId;
         // Base query: include navigation properties needed for filtering/sorting.
@@ -204,8 +208,9 @@ public class FeesController : ControllerBase
 
         if (student == null) return NotFound("Student not found");
 
-        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
-        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
+        // Self-service ownership check — student/parent can only see their own ledger
+        var isLinkedStudentOrParent = student.UserId == _currentUser.UserId || student.ParentUserId == _currentUser.UserId;
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.View) || isLinkedStudentOrParent)
         {
             var isOwn = student.UserId == _currentUser.UserId || student.ParentUserId == _currentUser.UserId;
             if (!isOwn)
@@ -1010,11 +1015,8 @@ public class FeesController : ControllerBase
     [HttpPost("collect-fifo")]
     public async Task<ActionResult<FeePaymentReceiptDto>> CollectFeeFifo([FromBody] CollectFifoFeeDto dto)
     {
-        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
-        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
-        {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Create))
             return Forbid();
-        }
 
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync<ActionResult<FeePaymentReceiptDto>>(async () =>
@@ -1421,9 +1423,11 @@ public class FeesController : ControllerBase
 
     [HttpGet("receipt/{receiptNumber}")]
     [HttpGet("public-receipt/{receiptNumber}")]
-    [AllowAnonymous]
     public async Task<ActionResult<FeePaymentReceiptDto>> GetReceiptByNumber(string receiptNumber)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.View))
+            return Forbid();
+
         var payments = await _dbContext.FeePayments
             .AsNoTracking()
             .Include(p => p.Branch)
@@ -1761,6 +1765,9 @@ public class FeesController : ControllerBase
     [HttpPost("send-reminder/{invoiceId}")]
     public async Task<ActionResult> SendWhatsAppReminder(Guid invoiceId)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Create))
+            return Forbid();
+
         var invoice = await _dbContext.FeeInvoices
             .Include(i => i.Student)
             .FirstOrDefaultAsync(i => i.Id == invoiceId);
@@ -1895,11 +1902,8 @@ public class FeesController : ControllerBase
     [HttpPost("generate-monthly-invoices")]
     public async Task<ActionResult<GenerateMonthlyInvoicesResultDto>> GenerateMonthlyInvoices([FromBody] GenerateMonthlyInvoicesRequestDto dto)
     {
-        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
-        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
-        {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Create))
             return Forbid();
-        }
 
         if (dto.Year < 2020 || dto.Year > 2050 || dto.Month < 1 || dto.Month > 12)
         {
@@ -3026,6 +3030,9 @@ public class FeesController : ControllerBase
     [HttpPost("cancel-invoice/{invoiceId}")]
     public async Task<ActionResult> CancelInvoice(Guid invoiceId, [FromBody] CancelInvoiceDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Delete))
+            return Forbid();
+
         var invoice = await _dbContext.FeeInvoices
             .Include(i => i.Student)
             .Include(i => i.Items)
@@ -3194,6 +3201,9 @@ public class FeesController : ControllerBase
     [HttpPost("invoices/{invoiceId}/items")]
     public async Task<ActionResult> AddInvoiceItem(Guid invoiceId, [FromBody] AddFeeInvoiceItemDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Create))
+            return Forbid();
+
         if (dto == null || string.IsNullOrWhiteSpace(dto.HeadName) || dto.Amount <= 0)
         {
             return BadRequest(new { message = "Valid fee head name and amount greater than 0 are required." });
@@ -3243,6 +3253,9 @@ public class FeesController : ControllerBase
     [HttpDelete("invoices/{invoiceId}/items/{itemId}")]
     public async Task<ActionResult> DeleteInvoiceItem(Guid invoiceId, Guid itemId)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Delete))
+            return Forbid();
+
         var invoice = await _dbContext.FeeInvoices
             .IgnoreQueryFilters()
             .Include(i => i.Items)
@@ -3283,6 +3296,9 @@ public class FeesController : ControllerBase
     [HttpPut("invoices/{invoiceId}/items")]
     public async Task<ActionResult> UpdateInvoiceItems(Guid invoiceId, [FromBody] UpdateInvoiceHeadsRequestDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Edit))
+            return Forbid();
+
         if (dto == null || dto.Items == null || dto.Items.Count == 0)
             return BadRequest(new { message = "At least one fee head is required." });
 
@@ -3346,6 +3362,9 @@ public class FeesController : ControllerBase
     [HttpDelete("payment/{paymentId}")]
     public async Task<ActionResult<ReversePaymentResponseDto>> ReversePayment(Guid paymentId, [FromBody] ReversePaymentDto? dto = null)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Delete))
+            return Forbid();
+
         // Load payment with its invoice and items
         var payment = await _dbContext.FeePayments
             .Include(p => p.Invoice)
@@ -3536,6 +3555,9 @@ public class FeesController : ControllerBase
     [HttpPost("heads")]
     public async Task<ActionResult<FeeHeadDto>> SaveFeeHead([FromBody] CreateFeeHeadDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fee-heads", MenuPermissionOperation.Create))
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Code))
             return BadRequest("Name and Code are required.");
 
@@ -3604,6 +3626,9 @@ public class FeesController : ControllerBase
     [HttpPut("heads/{id:guid}")]
     public async Task<ActionResult<FeeHeadDto>> UpdateFeeHead(Guid id, [FromBody] UpdateFeeHeadDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fee-heads", MenuPermissionOperation.Edit))
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Code))
             return BadRequest("Name and Code are required.");
 
@@ -3645,6 +3670,9 @@ public class FeesController : ControllerBase
     [HttpPatch("heads/{id:guid}/toggle-status")]
     public async Task<ActionResult> ToggleFeeHeadStatus(Guid id)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fee-heads", MenuPermissionOperation.Edit))
+            return Forbid();
+
         var head = await _dbContext.FeeHeads.FindAsync(id);
         if (head == null) return NotFound("Fee head not found.");
 
@@ -3657,6 +3685,9 @@ public class FeesController : ControllerBase
     [HttpDelete("heads/{id:guid}")]
     public async Task<ActionResult> DeleteFeeHead(Guid id)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fee-heads", MenuPermissionOperation.Delete))
+            return Forbid();
+
         var head = await _dbContext.FeeHeads.FindAsync(id);
         if (head == null) return NotFound("Fee head not found.");
 
@@ -3726,6 +3757,11 @@ public class FeesController : ControllerBase
     [HttpPost("structures")]
     public async Task<ActionResult> SaveClassFeeStructures([FromBody] SaveClassFeeStructureBatchDto dto)
     {
+        if (!await _menuPermissions.HasAnyPermissionAsync(
+                "/fee-heads",
+                operations: [MenuPermissionOperation.Create, MenuPermissionOperation.Edit]))
+            return Forbid();
+
         if (dto.Items == null || dto.Items.Count == 0)
             return BadRequest("No fee structure items provided.");
 
@@ -3811,7 +3847,6 @@ public class FeesController : ControllerBase
     // =========================================================================
 
     [HttpGet("invoices/{invoiceId}/upi-intent")]
-    [AllowAnonymous]
     public async Task<ActionResult<UpiIntentResponseDto>> GetInvoiceUpiIntent(Guid invoiceId)
     {
         var invoice = await _dbContext.FeeInvoices
@@ -3890,11 +3925,13 @@ public class FeesController : ControllerBase
     }
 
     [HttpPost("invoices/{invoiceId}/upi-collect")]
-    [AllowAnonymous]
     public async Task<ActionResult<FeePaymentReceiptDto>> CollectInvoiceUpiPayment(
         Guid invoiceId,
         [FromBody] CollectUpiPaymentRequestDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Create))
+            return Forbid();
+
         if (dto == null || dto.Amount <= 0)
             return BadRequest(new { message = "Payment amount must be greater than zero." });
 
@@ -4082,11 +4119,13 @@ public class FeesController : ControllerBase
     }
 
     [HttpPost("student/{studentId}/upi-collect-fifo")]
-    [AllowAnonymous]
     public async Task<ActionResult<FeePaymentReceiptDto>> CollectStudentFifoUpiPayment(
         Guid studentId,
         [FromBody] CollectStudentFifoUpiPaymentRequestDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Create))
+            return Forbid();
+
         if (dto == null || dto.Amount <= 0)
             return BadRequest(new { message = "Payment amount must be greater than zero." });
 
@@ -4374,11 +4413,8 @@ public class FeesController : ControllerBase
     [HttpPut("upi-settings")]
     public async Task<ActionResult> UpdateUpiSettings([FromBody] UpdateUpiPaymentSettingsDto dto)
     {
-        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
-        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
-        {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Edit))
             return Forbid();
-        }
 
         var tenantId = _currentUser.TenantId;
         var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId);
@@ -4425,11 +4461,8 @@ public class FeesController : ControllerBase
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null)
     {
-        var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value?.ToLower() ?? "";
-        if (roleClaim.Contains("parent") || roleClaim.Contains("student"))
-        {
+        if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.View))
             return Forbid();
-        }
 
         var tenantId = _currentUser.TenantId;
         var query = _dbContext.FeePayments
@@ -4525,12 +4558,18 @@ public class TestsController : ControllerBase
     private readonly IIMSERPDbContext _dbContext;
     private readonly IWhatsAppService _whatsAppService;
     private readonly ICurrentUserService _currentUser;
+    private readonly IMenuPermissionService _menuPermissions;
 
-    public TestsController(IIMSERPDbContext dbContext, IWhatsAppService whatsAppService, ICurrentUserService currentUser)
+    public TestsController(
+        IIMSERPDbContext dbContext,
+        IWhatsAppService whatsAppService,
+        ICurrentUserService currentUser,
+        IMenuPermissionService menuPermissions)
     {
         _dbContext = dbContext;
         _whatsAppService = whatsAppService;
         _currentUser = currentUser;
+        _menuPermissions = menuPermissions;
     }
 
     [HttpGet]
@@ -4594,38 +4633,33 @@ public class TestsController : ControllerBase
             query = query.Where(t => t.SectionId == sectionId);
         }
 
-        var isTeacher = _currentUser.UserRole.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
-                        _currentUser.UserRole.Contains("Faculty", StringComparison.OrdinalIgnoreCase);
+        // Scope by linked teacher record (DB relationship, not role string)
+        var teacherScopeUser = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var linkedTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+            t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (teacherScopeUser != null && teacherScopeUser.Email != null && t.Email == teacherScopeUser.Email) || (teacherScopeUser != null && teacherScopeUser.FullName != null && t.FullName == teacherScopeUser.FullName)));
 
-        if (isTeacher)
+        if (linkedTeacher != null)
         {
-            var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-            var linkedTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
-                t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (user != null && user.Email != null && t.Email == user.Email) || (user != null && user.FullName != null && t.FullName == user.FullName)));
+            var assignedBatchIds = await _dbContext.TeacherBatchAssignments
+                .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.BatchId.HasValue)
+                .Select(a => a.BatchId!.Value)
+                .ToListAsync();
 
-            if (linkedTeacher != null)
-            {
-                var assignedBatchIds = await _dbContext.TeacherBatchAssignments
-                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.BatchId.HasValue)
-                    .Select(a => a.BatchId!.Value)
-                    .ToListAsync();
+            var assignedClassIds = await _dbContext.TeacherBatchAssignments
+                .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.ClassId.HasValue)
+                .Select(a => a.ClassId!.Value)
+                .ToListAsync();
 
-                var assignedClassIds = await _dbContext.TeacherBatchAssignments
-                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.ClassId.HasValue)
-                    .Select(a => a.ClassId!.Value)
-                    .ToListAsync();
+            var classTeacherSectionClassIds = await _dbContext.SchoolSections
+                .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
+                .Select(s => s.ClassId)
+                .ToListAsync();
 
-                var classTeacherSectionClassIds = await _dbContext.SchoolSections
-                    .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
-                    .Select(s => s.ClassId)
-                    .ToListAsync();
+            var combinedClassIds = assignedClassIds.Concat(classTeacherSectionClassIds).Distinct().ToList();
 
-                var combinedClassIds = assignedClassIds.Concat(classTeacherSectionClassIds).Distinct().ToList();
-
-                query = query.Where(t => t.EvaluatorTeacherId == linkedTeacher.Id ||
-                                         (t.BatchId.HasValue && assignedBatchIds.Contains(t.BatchId.Value)) ||
-                                         (t.ClassId.HasValue && combinedClassIds.Contains(t.ClassId.Value)));
-            }
+            query = query.Where(t => t.EvaluatorTeacherId == linkedTeacher.Id ||
+                                     (t.BatchId.HasValue && assignedBatchIds.Contains(t.BatchId.Value)) ||
+                                     (t.ClassId.HasValue && combinedClassIds.Contains(t.ClassId.Value)));
         }
 
         var rawList = await query.Select(t => new
@@ -4745,14 +4779,14 @@ public class TestsController : ControllerBase
         if (sectionId.HasValue && sectionId != Guid.Empty)
             query = query.Where(t => t.SectionId == sectionId);
 
-        var isTeacher = _currentUser.UserRole.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
-                        _currentUser.UserRole.Contains("Faculty", StringComparison.OrdinalIgnoreCase);
+        // Scope by linked teacher record (DB relationship, not role string)
+        var teacherScopeUser2 = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var linkedTeacher2 = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+            t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (teacherScopeUser2 != null && teacherScopeUser2.Email != null && t.Email == teacherScopeUser2.Email) || (teacherScopeUser2 != null && teacherScopeUser2.FullName != null && t.FullName == teacherScopeUser2.FullName)));
 
-        if (isTeacher)
+        if (linkedTeacher2 != null)
         {
-            var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-            var linkedTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
-                t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (user != null && user.Email != null && t.Email == user.Email) || (user != null && user.FullName != null && t.FullName == user.FullName)));
+            var linkedTeacher = linkedTeacher2;
 
             if (linkedTeacher != null)
             {
@@ -4864,6 +4898,9 @@ public class TestsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<TestDto>> CreateTest([FromBody] CreateTestDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Create))
+            return Forbid();
+
         var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
         var targetBranchId = batch?.BranchId ?? _currentUser.BranchId;
 
@@ -4888,6 +4925,9 @@ public class TestsController : ControllerBase
     [HttpPost("bulk")]
     public async Task<ActionResult<List<TestDto>>> CreateBulkTests([FromBody] List<CreateTestDto> dtos)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Create))
+            return Forbid();
+
         if (dtos == null || dtos.Count == 0)
             return BadRequest(new { message = "No exams provided." });
 
@@ -5000,14 +5040,9 @@ public class TestsController : ControllerBase
     [HttpDelete("{testId}")]
     public async Task<ActionResult> DeleteTest(Guid testId)
     {
-        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-        if (!isPrivilegedAdmin)
+        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Delete))
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only administrators can delete examination sessions." });
+            return Forbid();
         }
 
         var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
@@ -5227,20 +5262,24 @@ public class TestsController : ControllerBase
     [HttpPost("bulk-marks")]
     public async Task<ActionResult> SaveBulkMarks([FromBody] BulkSaveMarksDto dto)
     {
+        var canEnterExamMarks = await _menuPermissions.HasAnyPermissionAsync(
+            "/tests",
+            operations: [MenuPermissionOperation.Create, MenuPermissionOperation.Edit]);
+        if (!canEnterExamMarks)
+        {
+            return Forbid();
+        }
+        var canManageExamMarks = await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit);
+
         var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == dto.TestId);
         if (test == null) return NotFound("Test not found");
 
-        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-        if (test.IsMarksLocked && !isPrivilegedAdmin)
+        if (test.IsMarksLocked && !canManageExamMarks)
         {
             return BadRequest(new { message = "Marks for this exam have been officially approved and locked by the Principal/Administrator. Editing is prohibited." });
         }
 
-        if (!isPrivilegedAdmin)
+        if (!canManageExamMarks)
         {
             if (!test.EvaluatorTeacherId.HasValue)
             {
@@ -5371,18 +5410,13 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/evaluation-workflow")]
     public async Task<ActionResult<object>> UpdateEvaluationWorkflow(Guid testId, [FromBody] UpdateTestEvaluationWorkflowDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
+        {
+            return Forbid();
+        }
+
         var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
         if (test == null) return NotFound(new { message = "Test not found." });
-
-        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-        if (!isPrivilegedAdmin)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only administrators and exam coordinators can assign copy bundles to faculty." });
-        }
 
         if (test.IsMarksLocked)
         {
@@ -5454,6 +5488,11 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/submit-for-approval")]
     public async Task<ActionResult<object>> SubmitForApproval(Guid testId)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
+        {
+            return Forbid();
+        }
+
         var test = await _dbContext.Tests.Include(t => t.MarksList).FirstOrDefaultAsync(t => t.Id == testId);
         if (test == null) return NotFound(new { message = "Test not found." });
 
@@ -5480,14 +5519,9 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/approve-and-lock")]
     public async Task<ActionResult<object>> ApproveAndLockMarks(Guid testId, [FromBody] ApproveAndLockTestMarksDto dto)
     {
-        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-        if (!isPrivilegedAdmin)
+        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
         {
-            return StatusCode(403, new { message = "Unauthorized: Only Principal or Institute Administrator can officially approve and lock examination results." });
+            return Forbid();
         }
 
         var test = await _dbContext.Tests.Include(t => t.MarksList).FirstOrDefaultAsync(t => t.Id == testId);
@@ -5525,14 +5559,9 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/unlock-marks")]
     public async Task<ActionResult<object>> UnlockMarks(Guid testId, [FromBody] RejectTestMarksDto dto)
     {
-        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-        if (!isPrivilegedAdmin)
+        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
         {
-            return StatusCode(403, new { message = "Unauthorized: Only Principal or Administrator can unlock officially approved marks." });
+            return Forbid();
         }
 
         var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
@@ -5563,14 +5592,9 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/reject-revision")]
     public async Task<ActionResult<object>> RejectForRevision(Guid testId, [FromBody] RejectTestMarksDto dto)
     {
-        var isPrivilegedAdmin = _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
-                                _currentUser.UserRole.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-        if (!isPrivilegedAdmin)
+        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
         {
-            return StatusCode(403, new { message = "Unauthorized: Only Principal or Administrator can reject marks for revision." });
+            return Forbid();
         }
 
         var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);

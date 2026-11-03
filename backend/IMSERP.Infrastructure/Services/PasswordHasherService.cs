@@ -7,7 +7,7 @@ public class PasswordHasherService : IPasswordHasherService
 {
     private const int SaltSize = 16; // 128-bit salt
     private const int KeySize = 32;  // 256-bit hash key
-    private const int Iterations = 10000;
+    private const int Iterations = 210000;
     private static readonly HashAlgorithmName HashAlgorithm = HashAlgorithmName.SHA256;
 
     public string HashPassword(string password)
@@ -27,19 +27,17 @@ public class PasswordHasherService : IPasswordHasherService
     {
         if (string.IsNullOrEmpty(hashedPassword) || string.IsNullOrEmpty(password)) return false;
 
-        // Direct plain text fallback check for demo initial seed
-        if (password == hashedPassword)
-        {
-            return true;
-        }
-
         try
         {
             var parts = hashedPassword.Split('.', 3);
             if (parts.Length != 3) return false;
 
             byte[] salt = Convert.FromBase64String(parts[0]);
-            int iterations = int.Parse(parts[1]);
+            if (!int.TryParse(parts[1], out int iterations) || iterations < 1 || iterations > Iterations * 10)
+            {
+                return false;
+            }
+
             byte[] hash = Convert.FromBase64String(parts[2]);
 
             byte[] inputHash = Rfc2898DeriveBytes.Pbkdf2(
@@ -55,5 +53,13 @@ public class PasswordHasherService : IPasswordHasherService
         {
             return false;
         }
+    }
+
+    public bool NeedsRehash(string hashedPassword)
+    {
+        var parts = hashedPassword.Split('.', 3);
+        return parts.Length != 3 ||
+               !int.TryParse(parts[1], out int iterations) ||
+               iterations < Iterations;
     }
 }

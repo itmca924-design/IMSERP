@@ -1,6 +1,8 @@
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.Domain.Enums;
+using IMSERP.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -18,20 +20,26 @@ public class RolesController : ControllerBase
     private readonly IIMSERPDbContext _dbContext;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<RolesController> _logger;
+    private readonly IMenuPermissionService _menuPermissions;
 
     public RolesController(
         IIMSERPDbContext dbContext,
         ICurrentUserService currentUser,
-        ILogger<RolesController> logger)
+        ILogger<RolesController> logger,
+        IMenuPermissionService menuPermissions)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
         _logger = logger;
+        _menuPermissions = menuPermissions;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<RoleDto>>> GetRoles([FromQuery] Guid? tenantId = null)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/roles", MenuPermissionOperation.View))
+            return Forbid();
+
         try
         {
             var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
@@ -98,6 +106,9 @@ public class RolesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<RoleDto>> GetRoleById(Guid id)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/roles", MenuPermissionOperation.View))
+            return Forbid();
+
         try
         {
             var role = await _dbContext.Roles
@@ -176,6 +187,12 @@ public class RolesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/roles", MenuPermissionOperation.Create))
+            return Forbid();
+        if (NormalizeRoleName(dto.Name) == nameof(UserRole.SuperAdmin) &&
+            !await _menuPermissions.IsPlatformAdministratorAsync())
+            return Forbid();
+
         try
         {
             var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
@@ -252,6 +269,12 @@ public class RolesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult<RoleDto>> UpdateRole(Guid id, [FromBody] CreateRoleDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/roles", MenuPermissionOperation.Edit))
+            return Forbid();
+        if (NormalizeRoleName(dto.Name) == nameof(UserRole.SuperAdmin) &&
+            !await _menuPermissions.IsPlatformAdministratorAsync())
+            return Forbid();
+
         try
         {
             var role = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Id == id);
@@ -317,6 +340,9 @@ public class RolesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteRole(Guid id)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/roles", MenuPermissionOperation.Delete))
+            return Forbid();
+
         try
         {
             var role = await _dbContext.Roles.FindAsync(id);
@@ -346,53 +372,49 @@ public class RolesController : ControllerBase
     }
 
     [HttpGet("my-permissions")]
+    [SkipMenuPermission]
     public async Task<ActionResult<Dictionary<string, UserPermissionSummaryDto>>> GetMyPermissions()
     {
         try
         {
-            var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
-
-            if (isSuperAdmin)
-            {
-                var allItems = await _dbContext.MenuItems.AsNoTracking().Where(m => m.IsActive).ToListAsync();
-                var fullDict = allItems
-                    .Where(m => !string.IsNullOrEmpty(m.RouteUrl))
-                    .ToDictionary(
-                        m => m.RouteUrl!,
-                        m => new UserPermissionSummaryDto(true, true, true, true),
-                        StringComparer.OrdinalIgnoreCase
-                    );
-                return Ok(fullDict);
-            }
-
             var user = await _dbContext.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+                .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId && u.TenantId == _currentUser.TenantId);
 
-            if (user?.RoleId == null)
+            if (user == null)
             {
-                var isInstituteAdmin = string.Equals(_currentUser.UserRole, "InstituteAdmin", StringComparison.OrdinalIgnoreCase) ||
-                                       _currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase);
-                if (isInstituteAdmin)
-                {
-                    var allItems = await _dbContext.MenuItems.AsNoTracking().Where(m => m.IsActive).ToListAsync();
-                    var adminDict = allItems
-                        .Where(m => !string.IsNullOrEmpty(m.RouteUrl))
-                        .ToDictionary(
-                            m => m.RouteUrl!,
-                            m => new UserPermissionSummaryDto(true, true, true, true),
-                            StringComparer.OrdinalIgnoreCase
-                        );
-                    return Ok(adminDict);
-                }
+                return Ok(new Dictionary<string, UserPermissionSummaryDto>(StringComparer.OrdinalIgnoreCase));
+            }
 
+            if (user.Role == UserRole.SuperAdmin)
+            {
+                var allItems = await _dbContext.MenuItems.AsNoTracking()
+                    .Where(menu => menu.IsActive && !string.IsNullOrEmpty(menu.RouteUrl))
+                    .ToListAsync();
+                return Ok(allItems
+                    .GroupBy(menu => menu.RouteUrl!, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        group => group.Key,
+                        _ => new UserPermissionSummaryDto(true, true, true, true),
+                        StringComparer.OrdinalIgnoreCase));
+            }
+
+            if (!user.RoleId.HasValue)
+            {
                 return Ok(new Dictionary<string, UserPermissionSummaryDto>(StringComparer.OrdinalIgnoreCase));
             }
 
             var permissions = await _dbContext.RolePermissions
                 .AsNoTracking()
                 .Include(rp => rp.MenuItem)
-                .Where(rp => rp.RoleId == user.RoleId && rp.MenuItem != null && !string.IsNullOrEmpty(rp.MenuItem.RouteUrl))
+                .Where(rp => rp.RoleId == user.RoleId &&
+                             rp.MenuItem != null &&
+                             rp.MenuItem.IsActive &&
+                             !string.IsNullOrEmpty(rp.MenuItem.RouteUrl) &&
+                             (!rp.MenuItem.TenantId.HasValue || rp.MenuItem.TenantId == user.TenantId) &&
+                             (!rp.MenuItem.BranchId.HasValue ||
+                              !_currentUser.BranchId.HasValue ||
+                              rp.MenuItem.BranchId == _currentUser.BranchId))
                 .ToListAsync();
 
             var dict = permissions
@@ -416,4 +438,7 @@ public class RolesController : ControllerBase
             return StatusCode(500, new { message = "Failed to load permissions" });
         }
     }
+
+    private static string NormalizeRoleName(string? roleName) =>
+        string.Concat((roleName ?? string.Empty).Where(char.IsLetterOrDigit));
 }

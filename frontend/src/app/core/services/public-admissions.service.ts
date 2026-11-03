@@ -113,8 +113,8 @@ export class PublicAdmissionsService {
     return this.http.post<PublicAdmissionResponse>(`${this.baseUrl}/apply`, payload);
   }
 
-  trackStatus(applicationNumber: string, phone: string): Observable<ApplicationTrackingResult> {
-    let params = new HttpParams().set('phone', phone);
+  trackStatus(applicationNumber: string, phone: string, tenantCode: string): Observable<ApplicationTrackingResult> {
+    let params = new HttpParams().set('phone', phone).set('tenantCode', tenantCode);
     return this.http.get<ApplicationTrackingResult>(`${this.baseUrl}/status/${encodeURIComponent(applicationNumber)}`, { params });
   }
 }

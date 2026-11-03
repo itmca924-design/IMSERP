@@ -1,5 +1,6 @@
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
+using IMSERP.API.Services;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -17,22 +18,28 @@ public class UsersController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly IPasswordHasherService _passwordHasher;
     private readonly IWebHostEnvironment _env;
+    private readonly IMenuPermissionService _menuPermissions;
 
     public UsersController(
         IIMSERPDbContext dbContext,
         ICurrentUserService currentUser,
         IPasswordHasherService passwordHasher,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        IMenuPermissionService menuPermissions)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
         _passwordHasher = passwordHasher;
         _env = env;
+        _menuPermissions = menuPermissions;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
     {
+        if (!await _menuPermissions.HasPermissionAsync("/users", MenuPermissionOperation.View))
+            return Forbid();
+
         var users = await _dbContext.Users
             .AsNoTracking()
             .Include(u => u.AssignedRole)
@@ -59,6 +66,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("me")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<UserDto>> GetCurrentUserProfile()
     {
         var user = await _dbContext.Users
@@ -96,6 +104,9 @@ public class UsersController : ControllerBase
         [FromQuery] Guid? roleId = null,
         [FromQuery] Guid? branchId = null)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/users", MenuPermissionOperation.View))
+            return Forbid();
+
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 10;
         if (pageSize > 100) pageSize = 100;
@@ -192,6 +203,11 @@ public class UsersController : ControllerBase
         [FromQuery] string? email = null,
         [FromQuery] Guid? excludeId = null)
     {
+        if (!await _menuPermissions.HasAnyPermissionAsync(
+                "/users",
+                operations: [MenuPermissionOperation.Create, MenuPermissionOperation.Edit]))
+            return Forbid();
+
         var phoneExists = false;
         var emailExists = false;
 
@@ -229,6 +245,9 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<UserDto>> CreateUser([FromBody] CreateUserDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/users", MenuPermissionOperation.Create))
+            return Forbid();
+
         var existing = await _dbContext.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.Trim().ToLower());
         if (existing)
         {
@@ -269,6 +288,12 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Selected Role is invalid." });
         }
 
+        if (NormalizeRoleName(role.Name) == nameof(UserRole.SuperAdmin) &&
+            !await _menuPermissions.IsPlatformAdministratorAsync())
+        {
+            return Forbid();
+        }
+
         if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
         {
             var branchExists = await _dbContext.Branches.AnyAsync(b => b.Id == dto.BranchId.Value);
@@ -279,13 +304,9 @@ public class UsersController : ControllerBase
         }
 
         var mappedRole = UserRole.Teacher;
-        if (Enum.TryParse<UserRole>(role.Name.Replace(" ", ""), true, out var parsedRole))
+        if (Enum.TryParse<UserRole>(NormalizeRoleName(role.Name), true, out var parsedRole))
         {
             mappedRole = parsedRole;
-        }
-        else if (role.Name.Contains("Admin", StringComparison.OrdinalIgnoreCase))
-        {
-            mappedRole = UserRole.InstituteAdmin;
         }
         else if (role.Name.Equals("HR", StringComparison.OrdinalIgnoreCase) ||
                  role.Name.Contains("Human Resource", StringComparison.OrdinalIgnoreCase))
@@ -341,6 +362,9 @@ public class UsersController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult<UserDto>> UpdateUser(Guid id, [FromBody] CreateUserDto dto)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/users", MenuPermissionOperation.Edit))
+            return Forbid();
+
         var user = await _dbContext.Users.FindAsync(id);
         if (user == null) return NotFound();
 
@@ -373,6 +397,12 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Selected Role is invalid." });
         }
 
+        if (NormalizeRoleName(role.Name) == nameof(UserRole.SuperAdmin) &&
+            !await _menuPermissions.IsPlatformAdministratorAsync())
+        {
+            return Forbid();
+        }
+
         user.FullName = dto.FullName.Trim();
         user.Email = dto.Email?.Trim();
         user.PhoneNumber = dto.PhoneNumber?.Trim();
@@ -382,13 +412,9 @@ public class UsersController : ControllerBase
 
         if (user.Role != UserRole.SuperAdmin)
         {
-            if (Enum.TryParse<UserRole>(role.Name.Replace(" ", ""), true, out var parsedRole))
+            if (Enum.TryParse<UserRole>(NormalizeRoleName(role.Name), true, out var parsedRole))
             {
                 user.Role = parsedRole;
-            }
-            else if (role.Name.Contains("Admin", StringComparison.OrdinalIgnoreCase))
-            {
-                user.Role = UserRole.InstituteAdmin;
             }
             else if (role.Name.Equals("HR", StringComparison.OrdinalIgnoreCase) ||
                      role.Name.Contains("Human Resource", StringComparison.OrdinalIgnoreCase))
@@ -445,6 +471,9 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(Guid id)
     {
+        if (!await _menuPermissions.HasPermissionAsync("/users", MenuPermissionOperation.Delete))
+            return Forbid();
+
         var user = await _dbContext.Users.FindAsync(id);
         if (user == null) return NotFound();
 
@@ -458,4 +487,7 @@ public class UsersController : ControllerBase
 
         return NoContent();
     }
+
+    private static string NormalizeRoleName(string roleName) =>
+        string.Concat(roleName.Where(char.IsLetterOrDigit));
 }

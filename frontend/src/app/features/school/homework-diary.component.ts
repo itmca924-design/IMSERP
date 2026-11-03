@@ -15,7 +15,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
-import { HindiTransliterationService, HINDI_QUICK_PRESETS } from '../../core/services/hindi-transliteration.service';
+import { HindiTransliterationService, TaskPresetCategory } from '../../core/services/hindi-transliteration.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { HwCheckPanelComponent, HwAnalyticsPanelComponent } from './homework-hw-check.component';
 import { environment } from '../../../environments/environment';
@@ -203,15 +203,14 @@ export interface DailyDiaryReportHeader {
       @if (activeTab === 'teacher') {
         <!-- Sub-Navigation Bar: Daily Diary Sheet vs Check HW vs Analytics vs Worksheets -->
         <div class="diary-subtabs-nav notranslate" translate="no">
-          <button class="subtab-pill" [class.active]="diarySubTab === 'daily-diary'" (click)="setDiarySubTab('daily-diary')" matButton="filled">
+          <button type="button" class="subtab-pill" [class.active]="diarySubTab === 'daily-diary'" (click)="setDiarySubTab('daily-diary')">
             <div class="subtab-icon-wrap"><mat-icon>menu_book</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">Daily CW &amp; HW Diary</span>
               <span class="pill-desc">Daily Sheet, Assigning &amp; Print Report</span>
             </div>
-            <span class="pill-badge">Daily Report</span>
           </button>
-          <button class="subtab-pill" [class.active]="diarySubTab === 'check-hw'" (click)="setDiarySubTab('check-hw')" matButton="filled">
+          <button type="button" class="subtab-pill" [class.active]="diarySubTab === 'check-hw'" (click)="setDiarySubTab('check-hw')">
             <div class="subtab-icon-wrap"><mat-icon>fact_check</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">Check H.W.</span>
@@ -219,14 +218,14 @@ export interface DailyDiaryReportHeader {
             </div>
             <span class="pill-badge">Verify Ticks</span>
           </button>
-          <button class="subtab-pill" [class.active]="diarySubTab === 'hw-analytics'" (click)="setDiarySubTab('hw-analytics')" matButton="filled">
+          <button type="button" class="subtab-pill" [class.active]="diarySubTab === 'hw-analytics'" (click)="setDiarySubTab('hw-analytics')">
             <div class="subtab-icon-wrap"><mat-icon>insights</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">H.W. Analytics</span>
               <span class="pill-desc">Student &amp; Subject Wise Defaulter Analysis</span>
             </div>
           </button>
-          <button class="subtab-pill" [class.active]="diarySubTab === 'worksheets'" (click)="setDiarySubTab('worksheets')" matButton="filled">
+          <button type="button" class="subtab-pill" [class.active]="diarySubTab === 'worksheets'" (click)="setDiarySubTab('worksheets')">
             <div class="subtab-icon-wrap"><mat-icon>assignment</mat-icon></div>
             <div class="pill-labels">
               <span class="pill-title">Worksheets &amp; Copy Submissions</span>
@@ -469,13 +468,26 @@ export interface DailyDiaryReportHeader {
                           [placeholder]="isHindiActive(item) ? 'हिन्दी C.W. (जैसे: ki + Space दबाएं = कि)...' : 'e.g. B to U, 1 to 10 counting...'"
                           >
                         <div class="qf-input-badges">
+                          @if (isHindiActive(item)) {
+                            <button
+                              type="button"
+                              class="preset-popover-btn notranslate"
+                              translate="no"
+                              [matMenuTriggerFor]="hindiPresetMenu"
+                              (click)="openPresetMenu(item)"
+                              matTooltip="त्वरित कार्य चुनें (Quick Presets)">
+                              <mat-icon class="preset-bolt-icon">bolt</mat-icon>
+                              <span>Presets</span>
+                              <mat-icon class="caret-icon">arrow_drop_down</mat-icon>
+                            </button>
+                          }
                           <button
                             type="button"
                             class="lang-pill notranslate"
                             translate="no"
                             [class.active]="isHindiActive(item)"
                             (click)="toggleHindiMode(item)"
-                            [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'" matButton="filled">
+                            [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
                             <span class="notranslate" translate="no">{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
                           </button>
                           @if (isHindiActive(item) && hasEnglish(item.task)) {
@@ -483,7 +495,7 @@ export interface DailyDiaryReportHeader {
                               type="button"
                               class="convert-pill"
                               (click)="convertTaskToHindi(item)"
-                              matTooltip="Convert typed English text into Hindi (हिन्दी मेंबदलें)" matButton="filled">
+                              matTooltip="Convert typed English text into Hindi (हिन्दी मेंबदलें)">
                               <mat-icon>translate</mat-icon>
                               <span>बदलें</span>
                             </button>
@@ -491,24 +503,11 @@ export interface DailyDiaryReportHeader {
                         </div>
                       </div>
                       @if (commonQuickFill.classWork.length > 1) {
-                        <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.classWork, i)" mat-icon-button>
+                        <button type="button" class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.classWork, i)" matTooltip="Remove Subject">
                           <mat-icon>close</mat-icon>
                         </button>
                       }
                     </div>
-                    <!-- Junior Class Quick Presets for Hindi -->
-                    @if (isHindiActive(item)) {
-                      <div class="hindi-presets-bar">
-                        <span class="preset-label">⚡ त्वरित कार्य:</span>
-                        <div class="preset-chips-scroll">
-                          @for (preset of hindiPresets; track preset) {
-                            <button type="button" class="preset-chip" (click)="applyHindiPreset(item, preset)" matButton="filled">
-                              {{preset}}
-                            </button>
-                          }
-                        </div>
-                      </div>
-                    }
                   </div>
                 }
               </div>
@@ -544,13 +543,26 @@ export interface DailyDiaryReportHeader {
                           [placeholder]="isHindiActive(item) ? 'हिन्दी H.W. (e.g. C.W. जैसा, Page 14 — ki + Space)...' : 'e.g. Same as C.W., Page 14 Practice...'"
                           >
                         <div class="qf-input-badges">
+                          @if (isHindiActive(item)) {
+                            <button
+                              type="button"
+                              class="preset-popover-btn notranslate"
+                              translate="no"
+                              [matMenuTriggerFor]="hindiPresetMenu"
+                              (click)="openPresetMenu(item)"
+                              matTooltip="त्वरित कार्य चुनें (Quick Presets)">
+                              <mat-icon class="preset-bolt-icon">bolt</mat-icon>
+                              <span>Presets</span>
+                              <mat-icon class="caret-icon">arrow_drop_down</mat-icon>
+                            </button>
+                          }
                           <button
                             type="button"
                             class="lang-pill notranslate"
                             translate="no"
                             [class.active]="isHindiActive(item)"
                             (click)="toggleHindiMode(item)"
-                            [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'" matButton="filled">
+                            [matTooltip]="isHindiActive(item) ? '🇮🇳 हिन्दी टाइपिंग चालू है (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
                             <span class="notranslate" translate="no">{{isHindiActive(item) ? '🇮🇳 हिन्दी' : 'ENG'}}</span>
                           </button>
                           @if (isHindiActive(item) && hasEnglish(item.task)) {
@@ -558,7 +570,7 @@ export interface DailyDiaryReportHeader {
                               type="button"
                               class="convert-pill"
                               (click)="convertTaskToHindi(item)"
-                              matTooltip="Convert typed English text into Hindi (हिन्दी मेंबदलें)" matButton="filled">
+                              matTooltip="Convert typed English text into Hindi (हिन्दी मेंबदलें)">
                               <mat-icon>translate</mat-icon>
                               <span>बदलें</span>
                             </button>
@@ -566,24 +578,11 @@ export interface DailyDiaryReportHeader {
                         </div>
                       </div>
                       @if (commonQuickFill.homeWork.length > 1) {
-                        <button class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.homeWork, i)" mat-icon-button>
+                        <button type="button" class="qf-remove-btn" (click)="removeSubjectTask(commonQuickFill.homeWork, i)" matTooltip="Remove Subject">
                           <mat-icon>close</mat-icon>
                         </button>
                       }
                     </div>
-                    <!-- Junior Class Quick Presets for Hindi -->
-                    @if (isHindiActive(item)) {
-                      <div class="hindi-presets-bar">
-                        <span class="preset-label">⚡ त्वरित कार्य:</span>
-                        <div class="preset-chips-scroll">
-                          @for (preset of hindiPresets; track preset) {
-                            <button type="button" class="preset-chip" (click)="applyHindiPreset(item, preset)" matButton="filled">
-                              {{preset}}
-                            </button>
-                          }
-                        </div>
-                      </div>
-                    }
                   </div>
                 }
               </div>
@@ -591,6 +590,42 @@ export interface DailyDiaryReportHeader {
           </div>
         </div>
       }
+
+      <!-- Reusable Task Presets Popover Menu (100% Dynamic) -->
+      <mat-menu #hindiPresetMenu="matMenu" class="hindi-presets-menu-panel" xPosition="before">
+        <div class="h-presets-popover-card" (click)="$event.stopPropagation()">
+          <div class="h-pop-header">
+            <div class="h-pop-header-title">
+              <div class="h-pop-icon-box">
+                <mat-icon>bolt</mat-icon>
+              </div>
+              <div>
+                <h4 class="h-pop-main-title">
+                  {{ activePresetSubjectName ? (activePresetSubjectName + ' Presets') : 'Quick Presets' }}
+                </h4>
+                <span class="h-pop-subtitle">Click any preset to add to diary</span>
+              </div>
+            </div>
+          </div>
+          <div class="h-pop-body">
+            @for (cat of presetCategories; track cat.title) {
+              <div class="h-pop-section">
+                <div class="h-pop-cat-title">
+                  <span class="cat-dot" [ngClass]="cat.dotClass"></span>
+                  <span>{{cat.title}}</span>
+                </div>
+                <div class="h-pop-chips-wrap">
+                  @for (preset of cat.presets; track preset) {
+                    <button type="button" class="h-pop-chip" (click)="applyActivePreset(preset)">
+                      {{preset}}
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </mat-menu>
       <!-- Empty State: No Class Selected -->
       @if (!diaryClassId) {
         <div class="empty-diary-state">
@@ -790,7 +825,7 @@ export interface DailyDiaryReportHeader {
                                     translate="no"
                                     [class.active]="isHindiActive(cw)"
                                     (click)="toggleHindiMode(cw)"
-                                    [matTooltip]="isHindiActive(cw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'" matButton="filled">
+                                    [matTooltip]="isHindiActive(cw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
                                     <span class="notranslate" translate="no">{{isHindiActive(cw) ? '🇮🇳' : 'EN'}}</span>
                                   </button>
                                   @if (isHindiActive(cw) && hasEnglish(cw.task)) {
@@ -798,7 +833,7 @@ export interface DailyDiaryReportHeader {
                                       type="button"
                                       class="row-convert-pill"
                                       (click)="convertTaskToHindi(cw)"
-                                      matTooltip="Convert to Hindi (हिन्दी मेंबदलें)" matButton="filled">
+                                      matTooltip="Convert to Hindi (हिन्दी मेंबदलें)">
                                       अ
                                     </button>
                                   }
@@ -810,7 +845,7 @@ export interface DailyDiaryReportHeader {
                                   [class.has-note]="cw.statusRemark"
                                   [ngClass]="getCwNoteBadgeClass(cw.statusRemark)"
                                   [matMenuTriggerFor]="cwRowNoteMenu"
-                                  matTooltip="Click to set subject-wise C.W. note (Checked, Remember, etc.)" matButton="filled">
+                                  matTooltip="Click to set subject-wise C.W. note (Checked, Remember, etc.)">
                                   <span class="note-btn-label">{{ cw.statusRemark || '+ Note' }}</span>
                                   <mat-icon class="note-btn-caret">arrow_drop_down</mat-icon>
                                 </button>
@@ -845,17 +880,10 @@ export interface DailyDiaryReportHeader {
                                     </button>
                                   }
                                 </mat-menu>
-                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.classWork, cIdx)" mat-icon-button>
+                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.classWork, cIdx)" matTooltip="Remove Subject">
                                   <mat-icon>close</mat-icon>
                                 </button>
                               </div>
-                              @if (isHindiActive(cw) && !cw.task) {
-                                <div class="row-mini-presets">
-                                  @for (p of hindiMiniPresets; track p) {
-                                    <button type="button" class="mini-chip" (click)="applyHindiPreset(cw, p)" matButton="filled">{{p}}</button>
-                                  }
-                                </div>
-                              }
                             </div>
                           }
                         </div>
@@ -892,7 +920,7 @@ export interface DailyDiaryReportHeader {
                                     translate="no"
                                     [class.active]="isHindiActive(hw)"
                                     (click)="toggleHindiMode(hw)"
-                                    [matTooltip]="isHindiActive(hw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'" matButton="filled">
+                                    [matTooltip]="isHindiActive(hw) ? 'हिन्दी मोड चालू (ki + Space = कि). Click to switch to English' : 'Click to enable Hindi phonetic typing'">
                                     <span class="notranslate" translate="no">{{isHindiActive(hw) ? '🇮🇳' : 'EN'}}</span>
                                   </button>
                                   @if (isHindiActive(hw) && hasEnglish(hw.task)) {
@@ -900,25 +928,18 @@ export interface DailyDiaryReportHeader {
                                       type="button"
                                       class="row-convert-pill"
                                       (click)="convertTaskToHindi(hw)"
-                                      matTooltip="Convert to Hindi (हिन्दी मेंबदलें)" matButton="filled">
+                                      matTooltip="Convert to Hindi (हिन्दी मेंबदलें)">
                                       अ
                                     </button>
                                   }
                                 </div>
-                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.homeWork, hIdx)" mat-icon-button>
+                                <button type="button" class="entry-del-btn" (click)="removeSubjectTask(s.homeWork, hIdx)" matTooltip="Remove Subject">
                                   <mat-icon>close</mat-icon>
                                 </button>
                               </div>
                               @if (hw.teacherName) {
                                 <div class="hw-entry-meta">
                                   <span>Assigned by {{hw.teacherName}}</span>
-                                </div>
-                              }
-                              @if (isHindiActive(hw) && !hw.task) {
-                                <div class="row-mini-presets">
-                                  @for (p of hindiMiniPresets; track p) {
-                                    <button type="button" class="mini-chip" (click)="applyHindiPreset(hw, p)" matButton="filled">{{p}}</button>
-                                  }
                                 </div>
                               }
                             </div>
@@ -2062,64 +2083,70 @@ export interface DailyDiaryReportHeader {
     /* DAILY CLASSWORK & HOMEWORK DIARY STYLES                                   */
     /* ========================================================================= */
     .diary-subtabs-nav {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
       background: #ffffff;
-      padding: 6px;
-      border-radius: 12px;
+      padding: 8px;
+      border-radius: 14px;
       border: 1px solid #bfdbfe;
       position: sticky;
       top: 0;
       z-index: 20;
-      box-shadow: 0 4px 14px rgba(15,23,42,0.08);
+      box-shadow: 0 4px 14px rgba(15,23,42,0.06);
+      align-items: stretch;
     }
     .subtab-pill {
-      flex: 1;
-      min-width: 240px;
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 10px 16px;
-      border: 1.5px solid transparent;
+      padding: 10px 14px;
+      border: 1.5px solid #e2e8f0;
       border-radius: 12px;
-      background: transparent;
+      background: #ffffff;
       cursor: pointer;
       text-align: left;
-      transition: all 0.2s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
+      font-family: inherit;
+      box-sizing: border-box;
+      min-height: 60px;
+      outline: none;
     }
     .subtab-icon-wrap {
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
       border-radius: 10px;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      color: #64748b;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #2563eb;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
       transition: all 0.2s ease;
     }
-    .subtab-pill:hover {
-      background: #f1f5f9;
+    .subtab-pill:hover:not(.active) {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
     }
-    .subtab-pill:hover .subtab-icon-wrap {
-      background: #eff6ff;
-      color: #2563eb;
-      border-color: #bfdbfe;
+    .subtab-pill:hover:not(.active) .subtab-icon-wrap {
+      background: #dbeafe;
+      border-color: #93c5fd;
+      transform: scale(1.05);
     }
     .subtab-pill.active {
-      background: #ffffff;
-      border-color: #bfdbfe;
-      box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-color: #93c5fd;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.12);
     }
     .subtab-pill.active .subtab-icon-wrap {
       background: #2563eb;
       color: #ffffff;
-      border-color: #2563eb;
-      box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+      border-color: #1d4ed8;
+      box-shadow: 0 4px 8px -1px rgba(37,99,235,0.3);
     }
     .subtab-icon-wrap mat-icon {
       font-size: 22px;
@@ -2135,18 +2162,31 @@ export interface DailyDiaryReportHeader {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      flex: 1;
+      min-width: 0;
     }
     .pill-title {
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 800;
-      color: #334155;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .subtab-pill.active .pill-title {
       color: #1e3a8a;
     }
     .pill-desc {
-      font-size: 11.5px;
+      font-size: 11px;
       color: #64748b;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .subtab-pill.active .pill-desc {
+      color: #1d4ed8;
     }
     .pill-badge {
       margin-left: auto;
@@ -2157,6 +2197,8 @@ export interface DailyDiaryReportHeader {
       padding: 3px 8px;
       border-radius: 12px;
       border: 1px solid #bfdbfe;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     /* Scope Switcher Pill Tabs */
@@ -2499,7 +2541,7 @@ export interface DailyDiaryReportHeader {
       background: #ffffff;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
-      padding: 6px 120px 6px 12px;
+      padding: 6px 145px 6px 12px;
       font-size: 13px;
       color: #0f172a;
       outline: none;
@@ -2515,6 +2557,42 @@ export interface DailyDiaryReportHeader {
       display: flex;
       align-items: center;
       gap: 5px;
+    }
+    .preset-popover-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 10.5px;
+      font-weight: 800;
+      border-radius: 4px;
+      padding: 2px 6px;
+      cursor: pointer;
+      border: 1px solid #fde68a;
+      background: #fffbeb;
+      color: #b45309;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      height: 22px;
+      line-height: 1;
+    }
+    .preset-popover-btn:hover {
+      background: #fef3c7;
+      border-color: #f59e0b;
+      color: #92400e;
+      box-shadow: 0 1px 3px rgba(245, 158, 11, 0.2);
+    }
+    .preset-popover-btn .preset-bolt-icon {
+      font-size: 13px;
+      width: 13px;
+      height: 13px;
+      line-height: 13px;
+    }
+    .preset-popover-btn .caret-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      line-height: 14px;
+      margin-left: -2px;
     }
     .lang-pill {
       font-size: 10.5px;
@@ -2562,57 +2640,28 @@ export interface DailyDiaryReportHeader {
       background: #dcfce7;
       border-color: #4ade80;
     }
-    .hindi-presets-bar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 8px;
-      background: #f8fafc;
-      border-radius: 6px;
-      border: 1px dashed #bfdbfe;
-    }
-    .preset-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #1e40af;
-      white-space: nowrap;
-    }
-    .preset-chips-scroll {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-    .preset-chip {
-      background: #ffffff;
-      border: 1px solid #93c5fd;
-      color: #1e3a8a;
-      border-radius: 4px;
-      padding: 2px 7px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      white-space: nowrap;
-    }
-    .preset-chip:hover {
-      background: #eff6ff;
-      border-color: #2563eb;
-      color: #1d4ed8;
-      transform: translateY(-1px);
-    }
     .qf-remove-btn {
-      background: transparent;
-      border: none;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
       color: #94a3b8;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      padding: 4px;
-      border-radius: 4px;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 6px;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
     }
-    .qf-remove-btn:hover { color: #dc2626; background: #fee2e2; }
-    .qf-remove-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .qf-remove-btn:hover {
+      color: #ef4444;
+      background: #fef2f2;
+      border-color: #fca5a5;
+      box-shadow: 0 1px 3px rgba(239, 68, 68, 0.15);
+    }
+    .qf-remove-btn mat-icon { font-size: 15px; width: 15px; height: 15px; line-height: 15px; }
 
     /* Student Roster Card */
     .diary-roster-card {
@@ -2968,7 +3017,7 @@ export interface DailyDiaryReportHeader {
 
     /* Task Entry Cells in Roster */
     .tasks-entry-cell {
-      min-width: 280px;
+      min-width: 320px;
     }
     .entry-task-list {
       display: flex;
@@ -3007,14 +3056,14 @@ export interface DailyDiaryReportHeader {
       display: flex;
       align-items: center;
       flex: 1;
-      min-width: 140px;
+      min-width: 160px;
     }
     .entry-task-input {
       width: 100%;
       background: #ffffff;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
-      padding: 5px 56px 5px 8px;
+      padding: 5px 44px 5px 8px;
       font-size: 12.5px;
       color: #0f172a;
       outline: none;
@@ -3053,40 +3102,168 @@ export interface DailyDiaryReportHeader {
       color: #15803d;
       cursor: pointer;
     }
-    .row-mini-presets {
+
+    ::ng-deep .hindi-presets-menu-panel {
+      max-width: 420px !important;
+      border-radius: 12px !important;
+      overflow: hidden !important;
+      border: 1px solid #bfdbfe !important;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.06) !important;
+      background: #ffffff !important;
+      padding: 0 !important;
+
+      .mat-mdc-menu-content {
+        padding: 0 !important;
+      }
+    }
+
+    .h-presets-popover-card {
+      background: #ffffff;
+      width: 380px;
+      max-width: 90vw;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .h-pop-header {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
+      padding: 10px 14px;
+    }
+
+    .h-pop-header-title {
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 10px;
+    }
+
+    .h-pop-icon-box {
+      background: #2563eb;
+      color: #ffffff;
+      border-radius: 8px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(37,99,235,0.25);
+      flex-shrink: 0;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+      }
+    }
+
+    .h-pop-main-title {
+      margin: 0;
+      color: #1e3a8a;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .h-pop-subtitle {
+      color: #3b82f6;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .h-pop-body {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    .h-pop-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .h-pop-cat-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .cat-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      &.dot-blue { background: #3b82f6; }
+      &.dot-green { background: #10b981; }
+      &.dot-amber { background: #f59e0b; }
+    }
+
+    .h-pop-chips-wrap {
+      display: flex;
       flex-wrap: wrap;
-      padding-left: 108px;
+      gap: 5px;
     }
-    .mini-chip {
-      font-size: 9.5px;
-      padding: 1px 5px;
-      border-radius: 3px;
-      border: 1px solid #bfdbfe;
+
+    .h-pop-chip {
       background: #f8fafc;
-      color: #1e40af;
+      border: 1px solid #cbd5e1;
+      color: #1e293b;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 6px;
       cursor: pointer;
-      transition: all 0.12s ease;
-    }
-    .mini-chip:hover {
-      background: #eff6ff;
-      border-color: #2563eb;
+      transition: all 0.14s ease;
+      white-space: nowrap;
+      font-family: inherit;
+      line-height: 1.2;
+
+      &:hover {
+        background: #eff6ff;
+        border-color: #3b82f6;
+        color: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(37,99,235,0.15);
+      }
+
+      &:active {
+        background: #2563eb;
+        color: #ffffff;
+        border-color: #1d4ed8;
+      }
     }
     .entry-del-btn {
-      background: transparent;
-      border: none;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
       color: #94a3b8;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      padding: 3px;
-      border-radius: 4px;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border-radius: 6px;
       flex-shrink: 0;
+      transition: all 0.15s ease;
     }
-    .entry-del-btn:hover { color: #dc2626; background: #fee2e2; }
-    .entry-del-btn mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    .entry-del-btn:hover {
+      color: #ef4444;
+      background: #fef2f2;
+      border-color: #fca5a5;
+      box-shadow: 0 1px 3px rgba(239, 68, 68, 0.15);
+    }
+    .entry-del-btn mat-icon { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
 
     /* C.W. Subject-wise Note Pill Button & Presets */
     .cw-sub-note-btn {
@@ -3357,13 +3534,12 @@ export interface DailyDiaryReportHeader {
     /* ========================================================================= */
     @media (max-width: 1024px) {
       .diary-subtabs-nav {
+        grid-template-columns: repeat(2, 1fr);
         gap: 8px;
         padding: 6px;
       }
       .subtab-pill {
-        flex: 1 1 calc(50% - 8px);
-        min-width: 200px;
-        padding: 10px 14px;
+        padding: 10px 12px;
       }
       .dd-filter-row {
         gap: 10px;
@@ -3800,8 +3976,21 @@ export class HomeworkDiaryComponent implements OnInit {
     return this.studentHomeworks;
   }
 
-  hindiPresets = HINDI_QUICK_PRESETS;
-  hindiMiniPresets = ["'क' से 'ज्ञ'", "'कि' से 'की'", "दो अक्षर शब्द", "मात्रा अभ्यास", "सुलेख", "कविता"];
+  presetCategories: TaskPresetCategory[] = [];
+  activePresetSubjectName = '';
+  activePresetItem: DailySubjectTaskItem | null = null;
+
+  openPresetMenu(item: DailySubjectTaskItem): void {
+    this.activePresetItem = item;
+    this.activePresetSubjectName = item.subject || '';
+    this.presetCategories = this.hindiTrans.getPresetCategories(item.subject);
+  }
+
+  applyActivePreset(preset: string): void {
+    if (this.activePresetItem) {
+      this.applyHindiPreset(this.activePresetItem, preset);
+    }
+  }
 
   constructor(
     private http: HttpClient,
@@ -4318,6 +4507,40 @@ export class HomeworkDiaryComponent implements OnInit {
             ? item.homeWork
             : defaultHW.map(x => ({ ...x }))
         }));
+
+        // Automatically sync Quick Fill common tasks from saved student diary
+        if (this.diaryStudents.length > 0) {
+          const savedCwMap = new Map<string, string>();
+          const savedHwMap = new Map<string, string>();
+
+          for (const s of this.diaryStudents) {
+            for (const cw of s.classWork || []) {
+              if (cw.subject && cw.task && cw.task.trim().length > 0 && !savedCwMap.has(cw.subject.trim())) {
+                savedCwMap.set(cw.subject.trim(), cw.task.trim());
+              }
+            }
+            for (const hw of s.homeWork || []) {
+              if (hw.subject && hw.task && hw.task.trim().length > 0 && !savedHwMap.has(hw.subject.trim())) {
+                savedHwMap.set(hw.subject.trim(), hw.task.trim());
+              }
+            }
+          }
+
+          if (savedCwMap.size > 0) {
+            this.commonQuickFill.classWork = Array.from(savedCwMap.entries()).map(([subject, task]) => ({
+              subject,
+              task
+            }));
+          }
+
+          if (savedHwMap.size > 0) {
+            this.commonQuickFill.homeWork = Array.from(savedHwMap.entries()).map(([subject, task]) => ({
+              subject,
+              task
+            }));
+          }
+        }
+
         if (this.selectedDiaryStudentId && !this.diaryStudents.some(s => s.studentId === this.selectedDiaryStudentId)) {
           this.selectedDiaryStudentId = '';
         }
@@ -6597,9 +6820,6 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
           <div class="header-primary-actions">
             <!-- 1-Click Automated Send to All Parents -->
             <button class="auto-wa-parents-btn" (click)="sendAutomatedWhatsAppToAllParents()" [disabled]="sendingWhatsApp || rows.length === 0" matTooltip="Automatically dispatch personalized daily diary to all parents via WhatsApp" matButton="filled">
-              @if (!sendingWhatsApp) {
-                <mat-icon>bolt</mat-icon>
-              }
               @if (sendingWhatsApp) {
                 <mat-icon class="spin">sync</mat-icon>
               }
@@ -6724,6 +6944,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
           <col class="col-sno">
           <col class="col-name">
           <col class="col-class">
+          <col class="col-att">
           <col class="col-cw">
           <col class="col-cw-rem">
           <col class="col-hw">
@@ -6734,14 +6955,15 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
             <th class="col-sno">S. No.</th>
             <th class="col-name">Student Name</th>
             <th class="col-class">Class</th>
+            <th class="col-att">Attendance</th>
             <th class="col-cw">CLASS WORK (C.W.)</th>
-            <th class="col-cw-rem">Remarks</th>
+            <th class="col-cw-rem">CW Remarks</th>
             <th class="col-hw">HOME WORK (H.W.)</th>
-            <th class="col-hw-rem">Remarks</th>
+            <th class="col-hw-rem">HW Remarks</th>
           </tr>
         </thead>
         <tbody>
-          @for (row of rows; track row; let i = $index) {
+          @for (row of rows; track row.studentId; let i = $index) {
             <tr [class.absent-row]="row.isAbsent">
               <td class="col-sno-data text-center">{{i + 1}}</td>
               <td class="col-name-data">
@@ -6759,10 +6981,17 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
               <td class="col-class-data text-center">{{row.className || reportHeader?.className || data.className}}</td>
               <!-- Absent / Unmarked Student: Subjects } Absent matching reference photo rows 7 & 8 -->
               @if (isAbsentStudent(row)) {
+                <!-- Attendance: Absent -->
+                <td class="col-att-data text-center">
+                  <span class="rpt-att-badge rpt-att-absent">
+                    <span class="rpt-att-icon">✘</span>
+                    <span>{{(row.attendanceStatus || '').toLowerCase() === 'leave' ? 'Leave' : 'Absent'}}</span>
+                  </span>
+                </td>
                 <td class="col-bracket-cell text-center" colspan="2">
                   <div class="absent-bracket-layout">
                     <div class="absent-subjects-col">
-                      @for (s of getClassSubjects(); track s) {
+                      @for (s of cachedClassSubjects; track s) {
                         <span class="subject-pill" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
                       }
                     </div>
@@ -6775,7 +7004,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                 <td class="col-bracket-cell text-center" colspan="2">
                   <div class="absent-bracket-layout">
                     <div class="absent-subjects-col">
-                      @for (s of getClassSubjects(); track s) {
+                      @for (s of cachedClassSubjects; track s) {
                         <span class="subject-pill" [ngClass]="getSubjectColorClass(s)">{{s}}</span>
                       }
                     </div>
@@ -6788,8 +7017,29 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
               }
               <!-- Attending Student (Present / Late / HalfDay) with active tasks -->
               @if (!isAbsentStudent(row)) {
+                <!-- Attendance: Present / Late / HalfDay -->
+                <td class="col-att-data text-center">
+                  @if ((row.attendanceStatus || '').toLowerCase() === 'late') {
+                    <span class="rpt-att-badge rpt-att-late">
+                      <span class="rpt-att-icon">⏰</span>
+                      <span>Late</span>
+                    </span>
+                  }
+                  @if ((row.attendanceStatus || '').toLowerCase() === 'halfday') {
+                    <span class="rpt-att-badge rpt-att-halfday">
+                      <span class="rpt-att-icon">◑</span>
+                      <span>Half Day</span>
+                    </span>
+                  }
+                  @if ((row.attendanceStatus || '').toLowerCase() !== 'late' && (row.attendanceStatus || '').toLowerCase() !== 'halfday') {
+                    <span class="rpt-att-badge rpt-att-present">
+                      <span class="rpt-att-icon">✔</span>
+                      <span>Present</span>
+                    </span>
+                  }
+                </td>
                 <td class="col-work-data">
-                  @for (cw of getActiveTasks(row.classWork); track cw) {
+                  @for (cw of getActiveTasks(row.classWork); track $index) {
                     <div class="task-entry">
                       <span class="subject-pill" [ngClass]="getSubjectColorClass(cw.subject)">{{cw.subject}}</span>
                       <span class="task-arrow">&rarr;</span>
@@ -6803,7 +7053,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                 <td class="col-rem-data text-center">
                   @if (getCwRemarksList(row).length > 0) {
                     <div class="rem-content">
-                      @for (cr of getCwRemarksList(row); track cr) {
+                      @for (cr of getCwRemarksList(row); track $index) {
                         <div class="hw-rem-item" [ngClass]="cr.colorClass">
                           <span class="rem-label">
                             @if (cr.subject) {
@@ -6819,7 +7069,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                     }
                   </td>
                   <td class="col-work-data">
-                    @for (hw of getActiveTasks(row.homeWork); track hw) {
+                    @for (hw of getActiveTasks(row.homeWork); track $index) {
                       <div class="task-entry">
                         <span class="subject-pill" [ngClass]="getSubjectColorClass(hw.subject)">{{hw.subject}}</span>
                         <span class="task-arrow">&rarr;</span>
@@ -6837,7 +7087,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                   <td class="col-rem-data text-center">
                     @if (getHwRemarks(row).length > 0) {
                       <div class="rem-content">
-                        @for (rem of getHwRemarks(row); track rem) {
+                        @for (rem of getHwRemarks(row); track $index) {
                           <div class="hw-rem-item" [ngClass]="'rem-' + rem.status.toLowerCase()">
                             <span class="rem-tick">{{ rem.symbol }}</span>
                             <span class="rem-label">{{ rem.text }}</span>
@@ -6888,7 +7138,7 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
                   </td>
                   <td class="col-class-data text-center">{{ prow.rollNumber }}</td>
                   <td class="col-work-data">
-                    @for (phw of getActiveTasks(prow.homeWork); track phw) {
+                    @for (phw of getActiveTasks(prow.homeWork); track $index) {
                       <div class="task-entry">
                         <span class="subject-pill" [ngClass]="getSubjectColorClass(phw.subject)">{{ phw.subject }}</span>
                         <span class="task-arrow">&rarr;</span>
@@ -7429,13 +7679,36 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
       letter-spacing: 0.3px;
       text-transform: uppercase;
     }
-    .col-sno { width: 3.5%; }
-    .col-name { width: 16.5%; text-align: left !important; }
-    .col-class { width: 6%; }
-    .col-cw { width: 26%; }
-    .col-cw-rem { width: 10%; text-align: center; }
-    .col-hw { width: 26%; }
-    .col-hw-rem { width: 12%; text-align: center; }
+    .col-sno { width: 3%; }
+    .col-name { width: 14%; text-align: left !important; }
+    .col-class { width: 5.5%; }
+    .col-att { width: 8%; text-align: center; }
+    .col-cw { width: 24%; }
+    .col-cw-rem { width: 9%; text-align: center; }
+    .col-hw { width: 24%; }
+    .col-hw-rem { width: 12.5%; text-align: center; }
+
+    /* Attendance Badges in Report */
+    .col-att-data { text-align: center; vertical-align: middle !important; padding: 4px 3px !important; }
+    .rpt-att-badge {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 3px 6px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.2;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+    .rpt-att-icon { font-size: 13px; line-height: 1; }
+    .rpt-att-present { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .rpt-att-absent { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .rpt-att-late { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+    .rpt-att-halfday { background: #e0f2fe; color: #0284c7; border-color: #bae6fd; }
 
     .text-center { text-align: center; }
     .col-sno-data { font-weight: 800; color: #1e293b; text-align: center; }
@@ -7818,13 +8091,20 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         padding: 3.5px 5px !important;
         box-sizing: border-box !important;
       }
-      .col-sno { width: 4% !important; }
-      .col-name { width: 14% !important; }
+      .col-sno { width: 3% !important; }
+      .col-name { width: 13% !important; }
       .col-class { width: 5% !important; }
-      .col-cw { width: 27% !important; }
-      .col-cw-rem { width: 11% !important; }
-      .col-hw { width: 26% !important; }
-      .col-hw-rem { width: 13% !important; }
+      .col-att { width: 7% !important; }
+      .col-cw { width: 24% !important; }
+      .col-cw-rem { width: 9% !important; }
+      .col-hw { width: 24% !important; }
+      .col-hw-rem { width: 12% !important; }
+      .col-att-data { text-align: center !important; vertical-align: middle !important; }
+      .rpt-att-badge { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .rpt-att-present { background: #dcfce7 !important; color: #15803d !important; }
+      .rpt-att-absent { background: #fee2e2 !important; color: #dc2626 !important; }
+      .rpt-att-late { background: #fef3c7 !important; color: #b45309 !important; }
+      .rpt-att-halfday { background: #e0f2fe !important; color: #0284c7 !important; }
       .navy-title-banner, .navy-footer-banner, .subject-pill, .rem-text-badge, .hw-rem-item {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -7846,6 +8126,8 @@ export class DailyDiaryReportDialogComponent implements OnInit {
   loading = false;
   sendingWhatsApp = false;
   logoFailed = false;
+  /** Cached subject list — recomputed only when rows change, not every CD cycle */
+  cachedClassSubjects: string[] = [];
 
   constructor(
     public dialogRef: MatDialogRef<DailyDiaryReportDialogComponent>,
@@ -7856,6 +8138,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
   ) {
     if (data?.students) {
       this.rows = data.students;
+      this.cachedClassSubjects = this.getClassSubjects();
     }
   }
 
@@ -7975,17 +8258,25 @@ export class DailyDiaryReportDialogComponent implements OnInit {
   getCwRemarksList(row: DailyStudentDiaryRow): { subject: string; text: string; colorClass: string }[] {
     const list: { subject: string; text: string; colorClass: string }[] = [];
     for (const cw of this.getActiveTasks(row.classWork)) {
-      if (cw.statusRemark && cw.statusRemark.trim().length > 0) {
-        const txt = cw.statusRemark.trim();
-        let cls = 'rem-pending';
-        const l = txt.toLowerCase();
-        if (l.includes('checked') && !l.includes('un')) cls = 'rem-completed';
-        else if (l.includes('uncheck')) cls = 'rem-pending';
-        else if (l.includes('no remember')) cls = 'rem-notdone';
-        else if (l.includes('remember')) cls = 'rem-partial';
-        else if (l.includes('good')) cls = 'rem-completed';
-        list.push({ subject: cw.subject, text: txt, colorClass: cls });
-      }
+      // Use written remark if present, otherwise fall back to CW status
+      const txt = (cw.statusRemark && cw.statusRemark.trim().length > 0)
+        ? cw.statusRemark.trim()
+        : (cw.status === 'Completed' ? '✔ Checked'
+          : cw.status === 'Partial' ? '◐ Partial'
+          : cw.status === 'NotDone' ? '✘ Not Done'
+          : '');
+      if (!txt) continue;
+      let cls = 'rem-pending';
+      const l = txt.toLowerCase();
+      if (l.includes('checked') && !l.includes('un')) cls = 'rem-completed';
+      else if (l.includes('completed')) cls = 'rem-completed';
+      else if (l.includes('partial')) cls = 'rem-partial';
+      else if (l.includes('not done')) cls = 'rem-notdone';
+      else if (l.includes('uncheck')) cls = 'rem-pending';
+      else if (l.includes('no remember')) cls = 'rem-notdone';
+      else if (l.includes('remember')) cls = 'rem-partial';
+      else if (l.includes('good')) cls = 'rem-completed';
+      list.push({ subject: cw.subject, text: txt, colorClass: cls });
     }
     if (list.length === 0 && row.remarks && row.remarks.trim().length > 0) {
       list.push({ subject: '', text: row.remarks.trim(), colorClass: 'rem-partial' });
@@ -8062,8 +8353,10 @@ export class DailyDiaryReportDialogComponent implements OnInit {
           } else {
             this.rows = rawRows;
           }
+          this.cachedClassSubjects = this.getClassSubjects();
         } else if (this.data?.students && this.data.students.length > 0) {
           this.rows = this.data.students;
+          this.cachedClassSubjects = this.getClassSubjects();
         }
       },
       error: () => {
@@ -8212,13 +8505,35 @@ export class DailyDiaryReportDialogComponent implements OnInit {
             letter-spacing: 0.3px !important;
             text-transform: uppercase !important;
           }
-          .col-sno { width: 3.5% !important; }
-          .col-name { width: 16.5% !important; text-align: left !important; }
-          .col-class { width: 6% !important; }
-          .col-cw { width: 26% !important; }
-          .col-cw-rem { width: 10% !important; text-align: center !important; }
-          .col-hw { width: 26% !important; }
+          .col-sno { width: 3% !important; }
+          .col-name { width: 13% !important; text-align: left !important; }
+          .col-class { width: 5% !important; }
+          .col-att { width: 7% !important; text-align: center !important; }
+          .col-cw { width: 23% !important; }
+          .col-cw-rem { width: 9% !important; text-align: center !important; }
+          .col-hw { width: 23% !important; }
           .col-hw-rem { width: 12% !important; text-align: center !important; }
+          .col-att-data { text-align: center !important; vertical-align: middle !important; padding: 3px 2px !important; }
+          .rpt-att-badge {
+            display: inline-flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 1px !important;
+            padding: 2px 4px !important;
+            border-radius: 5px !important;
+            font-size: 9px !important;
+            font-weight: 800 !important;
+            line-height: 1.15 !important;
+            border: 1px solid transparent !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .rpt-att-icon { font-size: 11px !important; line-height: 1 !important; }
+          .rpt-att-present { background: #dcfce7 !important; color: #15803d !important; border-color: #86efac !important; }
+          .rpt-att-absent { background: #fee2e2 !important; color: #dc2626 !important; border-color: #fca5a5 !important; }
+          .rpt-att-late { background: #fef3c7 !important; color: #b45309 !important; border-color: #fde68a !important; }
+          .rpt-att-halfday { background: #e0f2fe !important; color: #0284c7 !important; border-color: #bae6fd !important; }
           .col-rem-data { text-align: center; vertical-align: middle !important; font-size: 10.5px !important; padding: 3px 4px !important; }
           .rem-content { display: flex !important; flex-direction: column !important; gap: 3px !important; align-items: center !important; justify-content: center !important; width: 100% !important; }
           .rem-text-badge {

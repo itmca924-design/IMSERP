@@ -84,7 +84,10 @@ public sealed class StudentDuesAssistantController : ControllerBase
             studentQuery = studentQuery.Where(s => s.BranchId == branchId.Value);
         }
 
-        if (user.Role == UserRole.Student || user.Role == UserRole.Parent)
+        // Scope: Student/Parent can only see their own linked student record (DB relationship check, not role string)
+        var isLinkedStudentOrParent = await _db.Students.AsNoTracking()
+            .AnyAsync(s => (s.UserId == user.Id || s.ParentUserId == user.Id) && s.TenantId == _currentUser.TenantId, cancellationToken);
+        if (isLinkedStudentOrParent)
         {
             studentQuery = studentQuery.Where(s =>
                 s.UserId == user.Id || s.ParentUserId == user.Id);

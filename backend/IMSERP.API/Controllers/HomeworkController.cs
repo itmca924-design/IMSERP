@@ -6,6 +6,7 @@ using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
 using IMSERP.API.Helpers;
+using IMSERP.API.Services;
 using System.Text.Json;
 
 namespace IMSERP.API.Controllers;
@@ -18,12 +19,14 @@ public class HomeworkController : ControllerBase
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IWebHostEnvironment _env;
+    private readonly IMenuPermissionService _menuPermissions;
 
-    public HomeworkController(IIMSERPDbContext db, ICurrentUserService currentUser, IWebHostEnvironment env)
+    public HomeworkController(IIMSERPDbContext db, ICurrentUserService currentUser, IWebHostEnvironment env, IMenuPermissionService menuPermissions)
     {
         _db = db;
         _currentUser = currentUser;
         _env = env;
+        _menuPermissions = menuPermissions;
     }
 
     [HttpGet]
@@ -1150,9 +1153,8 @@ public class HomeworkController : ControllerBase
         var now = DateTime.UtcNow;
 
         // Resolve assigning teacher / checker context once (no hardcoding; all from DB + login)
-        var isStudentOrParent = string.Equals(_currentUser.UserRole, "Student", StringComparison.OrdinalIgnoreCase) ||
-                                string.Equals(_currentUser.UserRole, "Parent", StringComparison.OrdinalIgnoreCase);
-        if (isStudentOrParent) return Forbid();
+        if (!await _menuPermissions.HasPermissionAsync("/school/homework", MenuPermissionOperation.Create))
+            return Forbid();
 
         var loginUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         var currentTeacher = await _db.Teachers.AsNoTracking()
@@ -1619,7 +1621,7 @@ public class HomeworkController : ControllerBase
         [FromBody] DailyDiaryWhatsAppDispatchRequestDto dto,
         [FromServices] IWhatsAppService whatsAppService)
     {
-        if (IsStudentOrParentRole()) return Forbid();
+        if (!await _menuPermissions.HasPermissionAsync("/school/homework", MenuPermissionOperation.Create)) return Forbid();
         var tenantId = _currentUser.TenantId;
         if (dto.Items == null || dto.Items.Count == 0)
         {
@@ -1695,7 +1697,7 @@ public class HomeworkController : ControllerBase
         [FromBody] DailyDiaryWhatsAppStudentDispatchItem item,
         [FromServices] IWhatsAppService whatsAppService)
     {
-        if (IsStudentOrParentRole()) return Forbid();
+        if (!await _menuPermissions.HasPermissionAsync("/school/homework", MenuPermissionOperation.Create)) return Forbid();
         var tenantId = _currentUser.TenantId;
 
         var phone = item.Phone?.Trim();
@@ -1724,10 +1726,6 @@ public class HomeworkController : ControllerBase
         return Ok(new { success = ok, recipient = cleanPhone, studentName = item.StudentName, message = ok ? "WhatsApp message dispatched successfully!" : "Failed to dispatch WhatsApp message." });
     }
 
-    private bool IsStudentOrParentRole() =>
-        string.Equals(_currentUser.UserRole, "Student", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(_currentUser.UserRole, "Parent", StringComparison.OrdinalIgnoreCase);
-
     /// <summary>Dates (latest first) that have H.W. in the look-back window, with checked / pending counts.</summary>
     [HttpGet("daily-diary/hw-dates")]
     public async Task<ActionResult<IEnumerable<HwCheckDateDto>>> GetHwCheckDates(
@@ -1736,7 +1734,7 @@ public class HomeworkController : ControllerBase
         [FromQuery] Guid? batchId = null,
         [FromQuery] int days = 14)
     {
-        if (IsStudentOrParentRole()) return Forbid();
+        if (!await _menuPermissions.HasPermissionAsync("/school/homework", MenuPermissionOperation.View)) return Forbid();
         days = Math.Clamp(days, 1, 60);
         var today = GetIstToday().Date;
         var from = today.AddDays(-days);
@@ -1776,7 +1774,7 @@ public class HomeworkController : ControllerBase
     [HttpPost("daily-diary/hw-status")]
     public async Task<IActionResult> UpdateHwStatus([FromBody] HwStatusUpdateDto dto)
     {
-        if (IsStudentOrParentRole()) return Forbid();
+        if (!await _menuPermissions.HasPermissionAsync("/school/homework", MenuPermissionOperation.Edit)) return Forbid();
         if (dto.Items == null || dto.Items.Count == 0)
             return BadRequest(new { message = "No H.W. status items provided." });
 
@@ -1874,7 +1872,7 @@ public class HomeworkController : ControllerBase
         [FromQuery] Guid? sectionId,
         [FromQuery] Guid? batchId = null)
     {
-        if (IsStudentOrParentRole()) return Forbid();
+        if (!await _menuPermissions.HasPermissionAsync("/school/homework", MenuPermissionOperation.View)) return Forbid();
         var tenantId = _currentUser.TenantId;
         var toDate = (to ?? GetIstToday()).Date;
         var fromDate = (from ?? toDate.AddDays(-29)).Date;
@@ -2419,7 +2417,7 @@ public class HomeworkController : ControllerBase
         [FromBody] DailyBehaviourWhatsAppDispatchRequestDto dto,
         [FromServices] IWhatsAppService whatsAppService)
     {
-        if (IsStudentOrParentRole()) return Forbid();
+        if (!await _menuPermissions.HasPermissionAsync("/school/homework", MenuPermissionOperation.Create)) return Forbid();
         var tenantId = _currentUser.TenantId;
         if (dto.Items == null || dto.Items.Count == 0)
         {

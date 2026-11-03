@@ -3,6 +3,7 @@ using IMSERP.Application.Interfaces;
 using IMSERP.Infrastructure.Persistence;
 using IMSERP.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -14,6 +15,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
 builder.Services.AddScoped<IPasswordHasherService, PasswordHasherService>();
+builder.Services.AddScoped<IMSERP.API.Services.IMenuPermissionService, IMSERP.API.Services.MenuPermissionService>();
+builder.Services.AddScoped<IMSERP.API.Services.DynamicMenuPermissionFilter>();
+builder.Services.AddScoped<IMSERP.API.Services.DynamicMenuPermissionHubFilter>();
 builder.Services.AddScoped<IAutomationService, AutomationService>();
 builder.Services.AddScoped<IFeeRecoveryAgentService, FeeRecoveryAgentService>();
 builder.Services.AddHostedService<InstituteAutomationBackgroundService>();
@@ -43,7 +47,26 @@ builder.Services.AddDbContext<IMSERPDbContext>(options =>
 builder.Services.AddScoped<IIMSERPDbContext>(provider => provider.GetRequiredService<IMSERPDbContext>());
 
 // 3. JWT Authentication
-var secretKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKeyForIMSERPCoachingSaaSApp123456!";
+var secretKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(secretKey) && builder.Environment.IsDevelopment())
+{
+    secretKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+}
+
+if (string.IsNullOrWhiteSpace(secretKey) || Encoding.UTF8.GetByteCount(secretKey) < 32)
+{
+    throw new InvalidOperationException("Configure Jwt:Key with at least 32 bytes before starting the API.");
+}
+
+builder.Configuration["Jwt:Key"] = secretKey;
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+if (string.IsNullOrWhiteSpace(jwtIssuer) || string.IsNullOrWhiteSpace(jwtAudience))
+{
+    throw new InvalidOperationException("Configure Jwt:Issuer and Jwt:Audience before starting the API.");
+}
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -51,13 +74,16 @@ builder.Services.AddAuthentication(options =>
 }).AddJwtBearer(options =>
 {
     options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = false,
-        ValidateAudience = false,
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.FromMinutes(1)
     };
     options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
     {
@@ -77,19 +103,36 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // SignalR & Presence Tracking
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+    options.AddFilter<IMSERP.API.Services.DynamicMenuPermissionHubFilter>());
 builder.Services.AddSingleton<IMSERP.API.Services.PresenceTracker>();
 
 // 4. Controllers & OpenAPI
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+    options.Filters.AddService<IMSERP.API.Services.DynamicMenuPermissionFilter>());
 builder.Services.AddOpenApi();
 
-// 5. CORS for Angular Material UI
+// 5. CORS for the configured frontend origins
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (allowedOrigins.Length == 0 && builder.Environment.IsDevelopment())
+{
+    allowedOrigins = ["http://localhost:4200"];
+}
+
+if (allowedOrigins.Length == 0 ||
+    allowedOrigins.Any(origin =>
+        !Uri.TryCreate(origin, UriKind.Absolute, out var uri) ||
+        (uri.Scheme != Uri.UriSchemeHttps && !(builder.Environment.IsDevelopment() && uri.Scheme == Uri.UriSchemeHttp)) ||
+        !string.Equals(uri.GetLeftPart(UriPartial.Authority), origin.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)))
+{
+    throw new InvalidOperationException("Configure Cors:AllowedOrigins with exact trusted frontend origins.");
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
     {
-        policy.SetIsOriginAllowed(origin => true)
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -104,8 +147,6 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = scope.ServiceProvider.GetRequiredService<IMSERPDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasherService>();
-        
         context.Database.EnsureCreated();
 
         context.Database.ExecuteSqlRaw(@"
@@ -1685,39 +1726,6 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
-        var users = context.Users.ToList();
-        bool updated = false;
-
-        foreach (var u in users)
-        {
-            if (u.Username.ToLower() == "admin" && !hasher.VerifyPassword("admin123", u.PasswordHash))
-            {
-                u.PasswordHash = hasher.HashPassword("admin123");
-                updated = true;
-            }
-            else if (u.Username.ToLower() == "teacher" && !hasher.VerifyPassword("teacher123", u.PasswordHash))
-            {
-                u.PasswordHash = hasher.HashPassword("teacher123");
-                updated = true;
-            }
-            else if (u.Username.ToLower() == "accountant" && !hasher.VerifyPassword("account123", u.PasswordHash))
-            {
-                u.PasswordHash = hasher.HashPassword("account123");
-                updated = true;
-            }
-            else if (u.Username.ToLower() == "superadmin" && !hasher.VerifyPassword("password123", u.PasswordHash))
-            {
-                u.PasswordHash = hasher.HashPassword("password123");
-                updated = true;
-            }
-        }
-
-        if (updated)
-        {
-            context.SaveChanges();
-            Console.WriteLine("[Database] Demo user passwords automatically hashed and saved to SQL Server.");
-        }
-
         // Auto-seed Standard Roles ('Institute Admin', 'Accountant', 'Teacher', 'HR', 'Front Desk / Receptionist') for every tenant
         var allTenantIds = context.Tenants.Select(t => t.Id).ToList();
         foreach (var tenantId in allTenantIds)
@@ -2904,21 +2912,53 @@ app.UseStaticFiles(new StaticFileOptions
     OnPrepareResponse = ctx =>
     {
         ctx.Context.Response.Headers["Cache-Control"] = "public,max-age=2592000";
-        var origin = ctx.Context.Request.Headers.Origin.ToString();
-        if (!string.IsNullOrEmpty(origin))
-        {
-            ctx.Context.Response.Headers["Access-Control-Allow-Origin"] = origin;
-            ctx.Context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
-        }
-        else
-        {
-            ctx.Context.Response.Headers["Access-Control-Allow-Origin"] = "*";
-        }
-        ctx.Context.Response.Headers["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS";
-        ctx.Context.Response.Headers["Access-Control-Allow-Headers"] = "*";
     }
 });
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true)
+    {
+        if (!Guid.TryParse(context.User.FindFirst("TenantId")?.Value, out var tenantId) || tenantId == Guid.Empty)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        var branchHeader = context.Request.Headers["X-Branch-Id"].ToString();
+        if (!string.IsNullOrWhiteSpace(branchHeader))
+        {
+            if (!Guid.TryParse(branchHeader, out var branchId) || branchId == Guid.Empty)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                return;
+            }
+
+            var role = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            var isBranchAdministrator = string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(role, "InstituteAdmin", StringComparison.OrdinalIgnoreCase);
+            if (!isBranchAdministrator &&
+                (!Guid.TryParse(context.User.FindFirst("BranchId")?.Value, out var assignedBranchId) ||
+                 assignedBranchId != branchId))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            var dbContext = context.RequestServices.GetRequiredService<IMSERPDbContext>();
+            var branchBelongsToTenant = await dbContext.Branches
+                .IgnoreQueryFilters()
+                .AnyAsync(branch => branch.Id == branchId && branch.TenantId == tenantId);
+            if (!branchBelongsToTenant)
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+        }
+    }
+
+    await next();
+});
 app.UseAuthorization();
 
 // Fallback HTTP Middleware: Verifies SessionId against active session to prevent stale concurrent usage

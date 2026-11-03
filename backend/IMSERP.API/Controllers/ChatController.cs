@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using IMSERP.API.Hubs;
 using IMSERP.API.Services;
@@ -28,19 +27,22 @@ public class ChatController : ControllerBase
     private readonly PresenceTracker _presenceTracker;
     private readonly IHubContext<ChatHub> _chatHubContext;
     private readonly IWebHostEnvironment _env;
+    private readonly IMenuPermissionService _menuPermissions;
 
     public ChatController(
         IIMSERPDbContext dbContext,
         ICurrentUserService currentUser,
         PresenceTracker presenceTracker,
         IHubContext<ChatHub> chatHubContext,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        IMenuPermissionService menuPermissions)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
         _presenceTracker = presenceTracker;
         _chatHubContext = chatHubContext;
         _env = env;
+        _menuPermissions = menuPermissions;
     }
 
     /// <summary>
@@ -376,6 +378,9 @@ public class ChatController : ControllerBase
                 dto.Designation = tc.Designation ?? "Faculty";
             }
 
+            bool isStudentUser = students.ContainsKey(u.Id);
+            bool isTeacherUser = teachers.ContainsKey(u.Id);
+
             // Apply filter tab
             if (filter == "same_class")
             {
@@ -385,13 +390,13 @@ public class ChatController : ControllerBase
                 }
                 else
                 {
-                    // For Teacher or Admin, showing classmates means showing students
-                    if (dto.UserRole != "Student") continue;
+                    // For Faculty or Admin, showing classmates means showing students
+                    if (!isStudentUser) continue;
                 }
             }
-            if (filter == "students" && dto.UserRole != "Student") continue;
-            if (filter == "other_classes" && (dto.IsSameClass || dto.UserRole != "Student")) continue;
-            if (filter == "teachers" && dto.UserRole != "Teacher" && dto.UserRole != "Principal") continue;
+            if (filter == "students" && !isStudentUser) continue;
+            if (filter == "other_classes" && (dto.IsSameClass || !isStudentUser)) continue;
+            if (filter == "teachers" && !isTeacherUser) continue;
 
             result.Add(dto);
         }
@@ -453,7 +458,6 @@ public class ChatController : ControllerBase
     {
         var tenantId = _currentUser.TenantId;
         var userId = _currentUser.UserId;
-        var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
 
         var message = await _dbContext.ChatMessages
             .IgnoreQueryFilters()
@@ -470,11 +474,9 @@ public class ChatController : ControllerBase
         }
 
         var isOwner = message.SenderUserId == userId;
-        var isAdminOrTeacher = role.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                               role.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
-                               role.Contains("Principal", StringComparison.OrdinalIgnoreCase);
+        var canModerateChat = await _menuPermissions.HasPermissionAsync("/chat", MenuPermissionOperation.Delete);
 
-        if (!isOwner && !isAdminOrTeacher)
+        if (!isOwner && !canModerateChat)
         {
             return Forbid("You can only delete your own messages.");
         }
@@ -537,7 +539,6 @@ public class ChatController : ControllerBase
     {
         var tenantId = _currentUser.TenantId;
         var userId = _currentUser.UserId;
-        var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
 
         var conversation = await _dbContext.ChatConversations
             .IgnoreQueryFilters()
@@ -557,11 +558,9 @@ public class ChatController : ControllerBase
             return Forbid("You are not a participant in this conversation.");
         }
 
-        var isAdminOrTeacher = role.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
-                               role.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
-                               role.Contains("Principal", StringComparison.OrdinalIgnoreCase);
+        var canModerateChat = await _menuPermissions.HasPermissionAsync("/chat", MenuPermissionOperation.Delete);
 
-        if (conversation.ConversationType == ChatConversationType.ClassGroup && !isAdminOrTeacher)
+        if (conversation.ConversationType == ChatConversationType.ClassGroup && !canModerateChat)
         {
             return Forbid("Only teachers and administrators can clear class channel history.");
         }

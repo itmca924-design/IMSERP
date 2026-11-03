@@ -10,7 +10,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   // 1. Intercept console.warn
   const _origWarn = console.warn;
   console.warn = function (...args: any[]) {
-    if (typeof args[0] === 'string' && args[0].includes('Blocked aria-hidden on an element because its descendant retained focus')) {
+    if (typeof args[0] === 'string' && (
+      args[0].includes('Blocked aria-hidden on an element because its descendant retained focus') ||
+      args[0].includes('sanitizing HTML stripped some content')
+    )) {
       return;
     }
     _origWarn.apply(console, args);

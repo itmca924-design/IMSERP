@@ -33,9 +33,9 @@ public class BranchesController : ControllerBase
         var result = new List<BranchDto>();
         foreach (var b in branches)
         {
-            var studentCount = await _dbContext.Students.IgnoreQueryFilters().CountAsync(s => s.BranchId == b.Id);
-            var batchCount = await _dbContext.Batches.IgnoreQueryFilters().CountAsync(bat => bat.BranchId == b.Id);
-            var roomCount = await _dbContext.Rooms.IgnoreQueryFilters().CountAsync(r => r.BranchId == b.Id);
+            var studentCount = await _dbContext.Students.IgnoreQueryFilters().CountAsync(s => s.TenantId == b.TenantId && s.BranchId == b.Id);
+            var batchCount = await _dbContext.Batches.IgnoreQueryFilters().CountAsync(bat => bat.TenantId == b.TenantId && bat.BranchId == b.Id);
+            var roomCount = await _dbContext.Rooms.IgnoreQueryFilters().CountAsync(r => r.TenantId == b.TenantId && r.BranchId == b.Id);
 
             result.Add(new BranchDto(
                 b.Id,
@@ -69,9 +69,9 @@ public class BranchesController : ControllerBase
 
         if (b == null) return NotFound(new { message = "Branch not found." });
 
-        var studentCount = await _dbContext.Students.IgnoreQueryFilters().CountAsync(s => s.BranchId == b.Id);
-        var batchCount = await _dbContext.Batches.IgnoreQueryFilters().CountAsync(bat => bat.BranchId == b.Id);
-        var roomCount = await _dbContext.Rooms.IgnoreQueryFilters().CountAsync(r => r.BranchId == b.Id);
+        var studentCount = await _dbContext.Students.IgnoreQueryFilters().CountAsync(s => s.TenantId == b.TenantId && s.BranchId == b.Id);
+        var batchCount = await _dbContext.Batches.IgnoreQueryFilters().CountAsync(bat => bat.TenantId == b.TenantId && bat.BranchId == b.Id);
+        var roomCount = await _dbContext.Rooms.IgnoreQueryFilters().CountAsync(r => r.TenantId == b.TenantId && r.BranchId == b.Id);
 
         return Ok(new BranchDto(
             b.Id,

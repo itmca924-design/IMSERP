@@ -3,6 +3,7 @@ using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
 using IMSERP.API.Helpers;
+using IMSERP.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -19,13 +20,20 @@ public class TeachersController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly IPasswordHasherService _passwordHasher;
     private readonly IWebHostEnvironment _env;
+    private readonly IMenuPermissionService _menuPermissions;
 
-    public TeachersController(IIMSERPDbContext db, ICurrentUserService currentUser, IPasswordHasherService passwordHasher, IWebHostEnvironment env)
+    public TeachersController(
+        IIMSERPDbContext db,
+        ICurrentUserService currentUser,
+        IPasswordHasherService passwordHasher,
+        IWebHostEnvironment env,
+        IMenuPermissionService menuPermissions)
     {
         _db = db;
         _currentUser = currentUser;
         _passwordHasher = passwordHasher;
         _env = env;
+        _menuPermissions = menuPermissions;
     }
 
     // ─── Helper ──────────────────────────────────────────────
@@ -504,26 +512,15 @@ public class TeachersController : ControllerBase
         {
             roleId = dto.RoleId.Value;
             var assignedRole = await _db.Roles.FirstOrDefaultAsync(r => r.Id == roleId);
-            if (assignedRole != null)
+            if (assignedRole != null && Enum.TryParse<UserRole>(assignedRole.Name, true, out var parsedRole))
             {
-                var roleNameLower = assignedRole.Name.ToLower();
-                if (roleNameLower.Contains("super") || roleNameLower.Contains("admin"))
-                    userRole = UserRole.InstituteAdmin;
-                else if (roleNameLower.Contains("accountant") || roleNameLower.Contains("finance"))
-                    userRole = UserRole.Accountant;
-                else if (roleNameLower.Contains("hr"))
-                    userRole = UserRole.HR;
-                else
-                    userRole = UserRole.Teacher;
+                userRole = parsedRole;
             }
         }
         else
         {
-            var teacherRole = await _db.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == "teacher");
-            if (teacherRole == null)
-            {
-                teacherRole = await _db.Roles.FirstOrDefaultAsync(r => r.IsActive);
-            }
+            var teacherRole = await _db.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == "teacher")
+                ?? await _db.Roles.FirstOrDefaultAsync(r => r.IsActive);
             roleId = teacherRole?.Id ?? Guid.NewGuid();
         }
 
@@ -3515,6 +3512,7 @@ public class TeachersController : ControllerBase
     // ─── Leave Management ─────────────────────────────────────
 
     [HttpGet("my-profile")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult> GetMyTeacherProfile()
     {
         var tenantId = _currentUser.TenantId;
@@ -3550,9 +3548,9 @@ public class TeachersController : ControllerBase
         var tenantId = _currentUser.TenantId;
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         
-        // Check if current user is a Teacher
+        var canManageAllLeaves = await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.View);
         Teacher? linkedTeacher = null;
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        if (user != null)
         {
             linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
         }
@@ -3561,8 +3559,8 @@ public class TeachersController : ControllerBase
             .Include(l => l.Teacher)
             .Where(l => l.TenantId == tenantId && l.Teacher != null && l.Teacher.IsActive);
 
-        // If Teacher is logged in, restrict to ONLY their own leaves!
-        if (linkedTeacher != null)
+        // If user is a linked teacher and does not have administrative rights to manage all staff leaves, restrict to their own leaves!
+        if (linkedTeacher != null && !canManageAllLeaves)
         {
             q = q.Where(l => l.TeacherId == linkedTeacher.Id);
         }
@@ -3621,6 +3619,7 @@ public class TeachersController : ControllerBase
 
     // Returns the class-teacher section assigned to the currently logged-in teacher
     [HttpGet("my-class-section")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult> GetMyClassSection()
     {
         var tenantId = _currentUser.TenantId;
@@ -3731,8 +3730,9 @@ public class TeachersController : ControllerBase
         var startOfYear = new DateTime(today.Year, 1, 1);
 
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var canManageAllLeaves = await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.View);
         Teacher? linkedTeacher = null;
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        if (user != null)
         {
             linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
         }
@@ -3740,7 +3740,7 @@ public class TeachersController : ControllerBase
         var q = _db.TeacherLeaves.AsNoTracking()
             .Include(l => l.Teacher)
             .Where(l => l.TenantId == tenantId && l.Teacher != null && l.Teacher.IsActive);
-        if (linkedTeacher != null)
+        if (linkedTeacher != null && !canManageAllLeaves)
         {
             q = q.Where(l => l.TeacherId == linkedTeacher.Id);
         }
@@ -3855,8 +3855,8 @@ public class TeachersController : ControllerBase
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         
         Guid targetTeacherId = dto.TeacherId;
-        // If current user is a Teacher, enforce linked profile
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        var canApplyForOthers = await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.Edit);
+        if (user != null && !canApplyForOthers)
         {
             var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
             if (linked != null) targetTeacherId = linked.Id;
@@ -3955,8 +3955,7 @@ public class TeachersController : ControllerBase
         var tenantId = _currentUser.TenantId;
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
 
-        // Security Check 1: Teachers CANNOT approve or reject leaves!
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        if (!await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
@@ -3971,7 +3970,7 @@ public class TeachersController : ControllerBase
             return BadRequest(new { message = "Self-approval is not permitted. Your leave request must be reviewed and approved by the School Administration / Principal / Director." });
         }
 
-        var approverName = user?.FullName ?? user?.Username ?? _currentUser.UserRole;
+        var approverName = user?.FullName ?? user?.Username ?? "Staff";
 
         leave.Status = dto.Approve ? LeaveStatus.Approved : LeaveStatus.Rejected;
         leave.ApprovedBy = approverName;
@@ -4078,10 +4077,10 @@ public class TeachersController : ControllerBase
         if (leave == null) return NotFound(new { message = "Leave record not found." });
 
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        var isTeacher = user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher");
+        var canManageLeaves = await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.Delete);
 
-        // Teachers can only delete their own PENDING requests
-        if (isTeacher && leave.Status != LeaveStatus.Pending)
+        // Regular faculty can only delete their own PENDING requests
+        if (!canManageLeaves && leave.Status != LeaveStatus.Pending)
         {
             return BadRequest(new { message = "Only pending leave applications can be cancelled." });
         }
@@ -4170,7 +4169,7 @@ public class TeachersController : ControllerBase
         var tenantId = _currentUser.TenantId;
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
 
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        if (!await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
@@ -4190,7 +4189,7 @@ public class TeachersController : ControllerBase
             return BadRequest(new { message = "Self-approval is prohibited. Your leave cancellation request must be sanctioned by School Administration / Principal / Director." });
         }
 
-        var reviewerName = user?.FullName ?? user?.Username ?? _currentUser.UserRole;
+        var reviewerName = user?.FullName ?? user?.Username ?? "Staff";
         leave.CancellationReviewedBy = reviewerName;
         leave.CancellationReviewedAt = DateTime.UtcNow;
         leave.CancellationReviewRemarks = dto.ReviewRemarks?.Trim();
@@ -4388,8 +4387,7 @@ public class TeachersController : ControllerBase
     public async Task<ActionResult<LeavePolicySettingsDto>> UpdateLeavePolicySettings([FromBody] LeavePolicySettingsDto dto)
     {
         var tenantId = _currentUser.TenantId;
-        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        if (!await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
@@ -4452,8 +4450,9 @@ public class TeachersController : ControllerBase
             .Include(r => r.Teacher)
             .Where(r => r.TenantId == tenantId && r.Teacher != null && r.Teacher.IsActive);
 
-        // Security scoping: Teachers only see their own requests
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        // Security scoping: check if caller has permission to view all staff regularizations
+        var canManageAll = await _menuPermissions.HasPermissionAsync("/teachers/attendance", MenuPermissionOperation.View);
+        if (!canManageAll && user != null)
         {
             var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
             if (linked != null)
@@ -4515,7 +4514,8 @@ public class TeachersController : ControllerBase
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
 
         Guid targetTeacherId = dto.TeacherId;
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        var canApplyForOthers = await _menuPermissions.HasPermissionAsync("/teachers/attendance", MenuPermissionOperation.Edit);
+        if (user != null && !canApplyForOthers)
         {
             var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
             if (linked != null) targetTeacherId = linked.Id;
@@ -4634,7 +4634,7 @@ public class TeachersController : ControllerBase
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
 
         // Security Check 1: Teachers CANNOT approve regularizations!
-        if (user != null && (user.Role == IMSERP.Domain.Enums.UserRole.Teacher || _currentUser.UserRole == "Teacher"))
+        if (!await _menuPermissions.HasPermissionAsync("/teachers/attendance", MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
@@ -5816,4 +5816,3 @@ public class TeachersController : ControllerBase
         return Ok(cards);
     }
 }
-

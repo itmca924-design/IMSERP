@@ -53,14 +53,6 @@ C:\Projects\IMSERP
 
 ---
 
-## 🔑 Quick Demo Login Credentials
-
-| Role | Username | Password | Access Capabilities |
-| :--- | :--- | :--- | :--- |
-| **Director / Admin** | `admin` | `admin123` | Full Access across all modules & settings |
-| **Faculty / Teacher** | `teacher` | `teacher123` | Student View, Test Scheduling, Marks Entry & Rank |
-| **Accountant** | `accountant` | `account123` | Fee Invoices, Collections, Receipts & Reminders |
-
 ---
 
 ## 🛠️ How to Run the Application
@@ -80,3 +72,13 @@ npm install
 npm start
 ```
 * **Frontend App URL**: `http://localhost:4200`
+
+### Production API JWT configuration
+
+The API requires a JWT signing key of at least 32 bytes in production. Supply it through the `Jwt__Key` environment variable or a secret manager; do not put it in `appsettings*.json` or source control. Configure `Jwt__Issuer` and `Jwt__Audience` to match the API settings. Development runs generate an ephemeral signing key when none is configured, so tokens are invalidated when the API restarts.
+
+The API requires `Cors__AllowedOrigins` to list exact trusted frontend origins in production. The biometric push endpoint additionally requires a 32-byte `Biometric__WebhookKey` sent in the `X-Biometric-Webhook-Key` header and a registered active device serial number.
+
+Changing the signing key invalidates existing access and refresh flows; users will need to sign in again. Plain-text legacy password records and previously shared/demo credentials are rejected; reset affected accounts before deploying. The API no longer seeds demo users or resets passwords during startup.
+
+Authenticated MVC API actions enforce the current user's active `RolePermissions` grants for their mapped menu route and operation. GET requests require `CanView`, PUT/PATCH require `CanEdit`, DELETE requires `CanDelete`, and POST actions use their action semantics to require view/create/edit grants. SignalR chat and presence hubs also enforce matching menu permissions. Self-service identity/menu endpoints and explicitly anonymous endpoints retain their authentication or scoped-access behavior. Configure the relevant grants in role management before using each module. Platform SuperAdmin access remains a system-level exception; other roles do not receive permissions merely because their names contain "Admin".

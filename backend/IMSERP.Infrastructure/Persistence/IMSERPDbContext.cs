@@ -177,7 +177,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         });
 
         modelBuilder.Entity<StudyMaterial>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         modelBuilder.Entity<StudentSibling>(entity =>
@@ -193,40 +193,40 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<StudentSibling>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentSibling>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<StudentFeeConcession>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentFeeConcession>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<StudentAchievement>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentAchievement>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<StudentDisciplinaryRecord>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentDisciplinaryRecord>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<StudentPtmRecord>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentPtmRecord>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<StudentHealthRecord>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentHealthRecord>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<ChatConversation>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<ChatConversation>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<ChatParticipant>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<ChatParticipant>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<ChatMessage>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<ChatMessage>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         modelBuilder.Entity<ChatParticipant>()
@@ -242,249 +242,296 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         // Dynamic Global Multi-Tenant & Multi-Branch Query Filters
-        modelBuilder.Entity<Branch>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<Room>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<MenuItem>().HasQueryFilter(x =>
+            _currentUserService.IsSystemContext ||
+            (_currentUserService.TenantId != Guid.Empty &&
+             (x.TenantId == null || x.TenantId == _currentUserService.TenantId) &&
+             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId)));
+        modelBuilder.Entity<RolePermission>().HasQueryFilter(x =>
+            _currentUserService.IsSystemContext ||
+            (_currentUserService.TenantId != Guid.Empty &&
+             x.Role != null && x.Role.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<AutomationSettings>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TeacherAttendanceRegularization>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentAttendanceRegularization>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<LeaveAndAttendancePolicySettings>().HasQueryFilter(x =>
+            _currentUserService.IsSystemContext ||
+            (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<StaffAppraisalPolicySettings>().HasQueryFilter(x =>
+            _currentUserService.IsSystemContext ||
+            (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<LibraryMembershipPlan>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<DailyStudentBehaviour>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<StudentMonthlyEvaluation>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<SchoolPeriodSlot>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<SchoolActivityType>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<Branch>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<Room>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
-        modelBuilder.Entity<User>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<User>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<RoleEntity>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<SubjectEntity>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<ClassSubject>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<Batch>().HasQueryFilter(x => 
+        modelBuilder.Entity<RoleEntity>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<SubjectEntity>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<ClassSubject>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<Batch>().HasQueryFilter(x =>
             !x.IsDeleted &&
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<Student>().HasQueryFilter(x => 
+        modelBuilder.Entity<Student>().HasQueryFilter(x =>
             !x.IsDeleted &&
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<StudentAttendance>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentAttendance>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<StudentPromotionHistory>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentPromotionHistory>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<AttendanceSettings>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<AttendanceSettings>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<BiometricDevice>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<BiometricDevice>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<BiometricEventLog>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<FeeInvoice>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<BiometricEventLog>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<FeeInvoice>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<FeePayment>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<FeePayment>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<Test>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<Test>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<TestMarks>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<WhatsAppLog>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<Teacher>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<TestMarks>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<WhatsAppLog>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<Teacher>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<TeacherBatchAssignment>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<TeacherAttendance>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<TeacherBatchAssignment>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<TeacherAttendance>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<TeacherSalary>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<TeacherSalaryPayment>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<TeacherSalaryAdvance>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<StaffPromotionIncrement>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<TeacherLeave>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<Holiday>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<SchoolEvent>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+        modelBuilder.Entity<TeacherSalary>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<TeacherSalaryPayment>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<TeacherSalaryAdvance>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<StaffPromotionIncrement>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<TeacherLeave>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<Holiday>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<SchoolEvent>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<EventPhoto>().HasQueryFilter(x => _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
-        modelBuilder.Entity<SchoolClass>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<EventPhoto>().HasQueryFilter(x => _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<SchoolClass>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<SchoolSection>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<SchoolSection>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<LibraryBook>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<LibraryBook>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<BookCopy>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<BookCopy>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<LibraryCirculation>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<LibraryCirculation>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<LibrarySetting>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<LibrarySetting>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<FeeHead>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<FeeHead>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<ClassFeeStructure>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<ClassFeeStructure>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<FeeInvoiceItem>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId));
+        modelBuilder.Entity<FeeInvoiceItem>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)));
 
-        modelBuilder.Entity<Hostel>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<Hostel>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<HostelRoom>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<HostelRoom>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<HostelBed>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<HostelBed>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<HostelAllocation>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<HostelAllocation>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<HostelGatePass>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<HostelGatePass>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<HostelAttendance>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<HostelAttendance>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<ExamSetting>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<ExamSetting>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<TeacherFnFSettlement>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<TeacherFnFSettlement>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<TeacherSubstitution>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<TeacherSubstitution>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<TeacherLessonPlan>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<TeacherLessonPlan>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<TeacherDocument>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<TeacherDocument>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
-        modelBuilder.Entity<StudentDocument>().HasQueryFilter(x => 
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) && 
+        modelBuilder.Entity<StudentDocument>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         // Transport module query filters
         modelBuilder.Entity<TransportDriver>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<TransportVehicle>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<TransportRoute>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<TransportRouteStop>().HasQueryFilter(x =>
-            _currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId);
+            _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
         modelBuilder.Entity<TransportAllocation>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<TransportAttendance>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<CampusGatePass>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<ExpenseCategory>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<ExpenseVoucher>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<AccountLedger>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<StudentHomework>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<StudentHomeworkSubmission>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<DailyStudentDiary>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<AdmissionEnquiry>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<SchoolNotice>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<StudentLeave>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         // Front Desk query filters
         modelBuilder.Entity<VisitorLog>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<StudentGatePass>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         // Inventory & Store query filters
         modelBuilder.Entity<InventoryCategory>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryItem>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryVendor>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryInward>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryInwardItem>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryOutward>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryOutwardItem>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryStockAdjustment>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryPurchaseReturn>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryPurchaseReturnItem>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventorySaleReturn>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventorySaleReturnItem>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryVendorPayment>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InventoryBillSequence>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<InfirmaryVisit>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<PtmSession>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<PtmBooking>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<GrievanceTicket>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<GrievanceComment>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<FeeRecoveryPlan>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<FeePromiseToPay>().HasQueryFilter(x =>
-            (_currentUserService.TenantId == Guid.Empty || x.TenantId == _currentUserService.TenantId) &&
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         // Inventory Entity relationships and indexes
@@ -845,8 +892,6 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     private void SeedData(ModelBuilder modelBuilder)
     {
         var tenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var adminRoleId = Guid.Parse("22222222-1111-1111-1111-111111111111");
-        var teacherRoleId = Guid.Parse("33333333-1111-1111-1111-111111111111");
 
         modelBuilder.Entity<Tenant>().HasData(new Tenant
         {
@@ -858,48 +903,6 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             IsActive = true,
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         });
-
-        modelBuilder.Entity<User>().HasData(
-            new User
-            {
-                Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
-                TenantId = tenantId,
-                Username = "admin",
-                PasswordHash = "admin123",
-                FullName = "Prof. Rajesh Sharma (Director)",
-                Email = "director@apexcoaching.com",
-                PhoneNumber = "+919876543210",
-                Role = UserRole.InstituteAdmin,
-                RoleId = adminRoleId,
-                IsActive = true
-            },
-            new User
-            {
-                Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
-                TenantId = tenantId,
-                Username = "teacher",
-                PasswordHash = "teacher123",
-                FullName = "Anita Verma (Physics Faculty)",
-                Email = "anita@apexcoaching.com",
-                PhoneNumber = "+919876543211",
-                Role = UserRole.Teacher,
-                RoleId = teacherRoleId,
-                IsActive = true
-            },
-            new User
-            {
-                Id = Guid.Parse("44444444-4444-4444-4444-444444444444"),
-                TenantId = tenantId,
-                Username = "accountant",
-                PasswordHash = "account123",
-                FullName = "Suresh Gupta (Accountant)",
-                Email = "accounts@apexcoaching.com",
-                PhoneNumber = "+919876543212",
-                Role = UserRole.Accountant,
-                RoleId = adminRoleId,
-                IsActive = true
-            }
-        );
 
         var batch1Id = Guid.Parse("55555555-5555-5555-5555-555555555555");
         var batch2Id = Guid.Parse("66666666-6666-6666-6666-666666666666");
@@ -1169,56 +1172,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var tenantId = _currentUserService.TenantId;
-        var branchId = _currentUserService.BranchId;
-
-        foreach (var entry in ChangeTracker.Entries())
-        {
-            if (entry.State == EntityState.Added)
-            {
-                var prop = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "TenantId");
-                if (prop != null)
-                {
-                    if (prop.CurrentValue == null || (prop.CurrentValue is Guid g && g == Guid.Empty))
-                    {
-                        prop.CurrentValue = (tenantId != Guid.Empty)
-                            ? tenantId
-                            : Guid.Parse("a8c89ff2-ed12-4e4b-80c4-316453c3a1c6");
-                    }
-                }
-
-                if (branchId.HasValue && branchId.Value != Guid.Empty)
-                {
-                    var branchProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "BranchId");
-                    if (branchProp != null)
-                    {
-                        if (branchProp.CurrentValue == null || (branchProp.CurrentValue is Guid g && g == Guid.Empty))
-                        {
-                            branchProp.CurrentValue = branchProp.Metadata.ClrType == typeof(Guid) ? (object)branchId.Value : (Guid?)branchId.Value;
-                        }
-                    }
-                }
-            }
-
-            if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
-            {
-                var bioProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "BiometricUserId");
-                if (bioProp != null)
-                {
-                    if (bioProp.CurrentValue is string bioStr && string.IsNullOrWhiteSpace(bioStr))
-                    {
-                        bioProp.CurrentValue = null;
-                    }
-
-                    // Automatically release biometric mapping if entity is soft-deleted
-                    var isDelProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "IsDeleted");
-                    if (isDelProp != null && isDelProp.CurrentValue is bool isDel && isDel)
-                    {
-                        bioProp.CurrentValue = null;
-                    }
-                }
-            }
-        }
+        PrepareChanges();
+        await ValidateBranchAssignmentsAsync(cancellationToken);
 
         try
         {
@@ -1229,6 +1184,201 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             var inner = ex.InnerException?.Message ?? ex.Message;
             Console.WriteLine($"[IMSERP DbUpdateException]: {inner}");
             throw new Exception($"Database update error: {inner}", ex);
+        }
+    }
+
+    public override int SaveChanges()
+    {
+        PrepareChanges();
+        ValidateBranchAssignments();
+        return base.SaveChanges();
+    }
+
+    private void PrepareChanges()
+    {
+        if (_currentUserService.IsSystemContext)
+        {
+            return;
+        }
+
+        var tenantId = _currentUserService.TenantId;
+        var branchId = _currentUserService.BranchId;
+        var isPlatformAdministrator = string.Equals(_currentUserService.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+        var entries = ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToList();
+
+        foreach (var entry in entries)
+        {
+            var tenantProperty = entry.Properties.FirstOrDefault(property => property.Metadata.Name == "TenantId");
+            if (tenantProperty != null && !isPlatformAdministrator)
+            {
+                var entityTenantId = tenantProperty.CurrentValue is Guid value ? value : Guid.Empty;
+                if (entry.State == EntityState.Added && entityTenantId == Guid.Empty && tenantId != Guid.Empty)
+                {
+                    tenantProperty.CurrentValue = tenantId;
+                    entityTenantId = tenantId;
+                }
+
+                var originalTenantId = tenantProperty.OriginalValue is Guid originalValue
+                    ? originalValue
+                    : Guid.Empty;
+                if (tenantId != Guid.Empty &&
+                    (entityTenantId != tenantId ||
+                     ((entry.State is EntityState.Modified or EntityState.Deleted) && originalTenantId != tenantId)))
+                {
+                    throw new UnauthorizedAccessException("Cannot create or modify records outside the authenticated tenant.");
+                }
+
+                if (tenantId == Guid.Empty && (!_currentUserService.IsTrustedTenantWrite || entityTenantId == Guid.Empty))
+                {
+                    throw new UnauthorizedAccessException("A verified tenant context is required to write tenant data.");
+                }
+            }
+
+            if (!isPlatformAdministrator &&
+                tenantId != Guid.Empty &&
+                entry.State == EntityState.Added &&
+                branchId.HasValue &&
+                branchId.Value != Guid.Empty)
+            {
+                var branchProperty = entry.Properties.FirstOrDefault(property => property.Metadata.Name == "BranchId");
+                if (branchProperty != null)
+                {
+                    if (branchProperty.CurrentValue == null ||
+                        (branchProperty.CurrentValue is Guid value && value == Guid.Empty))
+                    {
+                        branchProperty.CurrentValue = branchProperty.Metadata.ClrType == typeof(Guid)
+                            ? branchId.Value
+                            : (Guid?)branchId.Value;
+                    }
+                    else if (branchProperty.CurrentValue is Guid assignedBranchId && assignedBranchId != branchId.Value)
+                    {
+                        throw new UnauthorizedAccessException("Cannot create records outside the active branch.");
+                    }
+                }
+            }
+
+            if ((entry.State is EntityState.Modified or EntityState.Deleted) &&
+                !isPlatformAdministrator &&
+                tenantId != Guid.Empty &&
+                branchId.HasValue)
+            {
+                var branchProperty = entry.Properties.FirstOrDefault(property => property.Metadata.Name == "BranchId");
+                if (branchProperty != null)
+                {
+                    var originalBranchId = branchProperty.OriginalValue is Guid originalValue
+                        ? originalValue
+                        : Guid.Empty;
+                    var currentBranchId = branchProperty.CurrentValue is Guid currentValue
+                        ? currentValue
+                        : Guid.Empty;
+                    if ((originalBranchId != Guid.Empty && originalBranchId != branchId.Value) ||
+                        (currentBranchId != Guid.Empty && currentBranchId != branchId.Value) ||
+                        (originalBranchId == branchId.Value && currentBranchId == Guid.Empty))
+                    {
+                        throw new UnauthorizedAccessException("Cannot modify records outside the active branch.");
+                    }
+                }
+            }
+
+            if (entry.State is EntityState.Added or EntityState.Modified)
+            {
+                var biometricProperty = entry.Properties.FirstOrDefault(property => property.Metadata.Name == "BiometricUserId");
+                if (biometricProperty != null)
+                {
+                    if (biometricProperty.CurrentValue is string biometricUserId && string.IsNullOrWhiteSpace(biometricUserId))
+                    {
+                        biometricProperty.CurrentValue = null;
+                    }
+
+                    var isDeletedProperty = entry.Properties.FirstOrDefault(property => property.Metadata.Name == "IsDeleted");
+                    if (isDeletedProperty?.CurrentValue is true)
+                    {
+                        biometricProperty.CurrentValue = null;
+                    }
+                }
+            }
+        }
+    }
+
+    private Guid[] GetChangedBranchIds()
+    {
+        var branchIds = new HashSet<Guid>();
+        foreach (var entry in ChangeTracker.Entries()
+                     .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        {
+            var property = entry.Properties.FirstOrDefault(candidate => candidate.Metadata.Name == "BranchId");
+            if (property?.CurrentValue is Guid currentValue && currentValue != Guid.Empty)
+            {
+                branchIds.Add(currentValue);
+            }
+            if ((entry.State is EntityState.Modified or EntityState.Deleted) &&
+                property?.OriginalValue is Guid originalValue && originalValue != Guid.Empty)
+            {
+                branchIds.Add(originalValue);
+            }
+        }
+
+        var newBranchIds = ChangeTracker.Entries<Branch>()
+            .Where(entry => entry.State == EntityState.Added && entry.Entity.TenantId == _currentUserService.TenantId)
+            .Select(entry => entry.Entity.Id)
+            .ToHashSet();
+        branchIds.ExceptWith(newBranchIds);
+        return branchIds.ToArray();
+    }
+
+    private bool ShouldSkipBranchValidation()
+    {
+        var tenantId = _currentUserService.TenantId;
+        return _currentUserService.IsSystemContext ||
+               tenantId == Guid.Empty ||
+               string.Equals(_currentUserService.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task ValidateBranchAssignmentsAsync(CancellationToken cancellationToken)
+    {
+        if (ShouldSkipBranchValidation())
+        {
+            return;
+        }
+
+        var branchIds = GetChangedBranchIds();
+        if (branchIds.Length == 0)
+        {
+            return;
+        }
+
+        var tenantId = _currentUserService.TenantId;
+        var validBranchCount = await Branches
+            .IgnoreQueryFilters()
+            .CountAsync(branch => branch.TenantId == tenantId && branchIds.Contains(branch.Id), cancellationToken);
+        if (validBranchCount != branchIds.Length)
+        {
+            throw new UnauthorizedAccessException("Branch assignments must belong to the authenticated tenant.");
+        }
+    }
+
+    private void ValidateBranchAssignments()
+    {
+        if (ShouldSkipBranchValidation())
+        {
+            return;
+        }
+
+        var branchIds = GetChangedBranchIds();
+        if (branchIds.Length == 0)
+        {
+            return;
+        }
+
+        var tenantId = _currentUserService.TenantId;
+        var validBranchCount = Branches
+            .IgnoreQueryFilters()
+            .Count(branch => branch.TenantId == tenantId && branchIds.Contains(branch.Id));
+        if (validBranchCount != branchIds.Length)
+        {
+            throw new UnauthorizedAccessException("Branch assignments must belong to the authenticated tenant.");
         }
     }
 }

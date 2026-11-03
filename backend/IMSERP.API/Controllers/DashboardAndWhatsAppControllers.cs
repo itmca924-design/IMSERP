@@ -2,6 +2,7 @@ using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
+using IMSERP.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,21 +16,20 @@ public class DashboardController : ControllerBase
 {
     private readonly IIMSERPDbContext _dbContext;
     private readonly ICurrentUserService _currentUser;
+    private readonly IMenuPermissionService _menuPermissions;
 
-    public DashboardController(IIMSERPDbContext dbContext, ICurrentUserService currentUser)
+    public DashboardController(IIMSERPDbContext dbContext, ICurrentUserService currentUser, IMenuPermissionService menuPermissions)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
+        _menuPermissions = menuPermissions;
     }
 
     [HttpGet("summary")]
     public async Task<ActionResult<DashboardSummaryDto>> GetSummary()
     {
-        var roleNormalized = (_currentUser.UserRole ?? "").Trim();
-        if (roleNormalized.Contains("Student", StringComparison.OrdinalIgnoreCase) || roleNormalized.Contains("Parent", StringComparison.OrdinalIgnoreCase))
-        {
+        if (!await _menuPermissions.HasPermissionAsync("/dashboard", MenuPermissionOperation.View))
             return Forbid();
-        }
 
         bool isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
 

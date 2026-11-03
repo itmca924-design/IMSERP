@@ -1,11 +1,16 @@
 import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
+import { ConfirmDialogService } from '../services/confirm-dialog.service';
 import { PresenceService } from '../services/presence.service';
 import { catchError, switchMap, throwError } from 'rxjs';
 
+let isForbiddenAlertOpen = false;
+
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
+  const confirmService = inject(ConfirmDialogService);
+  const presenceService = inject(PresenceService);
   const token = authService.getToken();
   const branchId = authService.selectedBranchId();
 
@@ -27,7 +32,6 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
       // Check if session was terminated due to concurrent login from another place
       const isSessionKicked = error.headers?.get('X-Session-Terminated') === 'true' || error?.error?.error === 'SessionTerminated';
       if (error.status === 401 && isSessionKicked) {
-        const presenceService = inject(PresenceService);
         const msg = error?.error?.message || 'Your account has been logged in from another browser or device. For security reasons, this session has been terminated.';
         presenceService.handleForceLogout(msg);
         return throwError(() => error);
@@ -48,6 +52,21 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
             return throwError(() => refreshErr);
           })
         );
+      }
+
+      // Handle 403 Forbidden - Role / Menu permission denied (Show exact API message in English)
+      if (error.status === 403) {
+        if (!isForbiddenAlertOpen) {
+          isForbiddenAlertOpen = true;
+          const apiMsg = typeof error?.error === 'string'
+            ? error.error
+            : (error?.error?.message || error?.error?.title || 'You do not have permission to perform this action. Please contact your Institute Administrator.');
+
+          confirmService.alert('Access Denied', apiMsg, 'danger').subscribe(() => {
+            isForbiddenAlertOpen = false;
+          });
+        }
+        return throwError(() => error);
       }
 
       return throwError(() => error);

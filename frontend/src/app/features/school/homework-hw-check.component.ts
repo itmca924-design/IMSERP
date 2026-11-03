@@ -270,8 +270,8 @@ function sectionsOf(classes: any[], classId: string): any[] {
               </div>
               @if (!s.isAbsent) {
                 <div class="hs-quick">
-                  <button type="button" class="q-btn ok" (click)="setStudent(s, 'Completed')" matTooltip="All points Completed" matButton="filled">✔ All</button>
-                  <button type="button" class="q-btn bad" (click)="setStudent(s, 'NotDone')" matTooltip="All points Not Done" matButton="filled">✘ All</button>
+                  <button type="button" class="q-btn ok" (click)="setStudent(s, 'Completed')" matTooltip="All points Completed">✔ All</button>
+                  <button type="button" class="q-btn bad" (click)="setStudent(s, 'NotDone')" matTooltip="All points Not Done">✘ All</button>
                 </div>
               }
             </div>
@@ -292,11 +292,11 @@ function sectionsOf(classes: any[], classId: string): any[] {
                 </div>
                 <div class="hp-controls">
                   <button type="button" class="st-btn ok" [class.on]="p.status === 'Completed'" [disabled]="s.isAbsent"
-                  (click)="toggle(p, 'Completed')" matTooltip="Completed" matButton="filled">✔</button>
+                    (click)="toggle(p, 'Completed')" matTooltip="Completed">✔</button>
                   <button type="button" class="st-btn mid" [class.on]="p.status === 'Partial'" [disabled]="s.isAbsent"
-                  (click)="toggle(p, 'Partial')" matTooltip="Partial" matButton="filled">◐</button>
+                    (click)="toggle(p, 'Partial')" matTooltip="Partial">◐</button>
                   <button type="button" class="st-btn bad" [class.on]="p.status === 'NotDone'" [disabled]="s.isAbsent"
-                  (click)="toggle(p, 'NotDone')" matTooltip="Not Done" matButton="filled">✘</button>
+                    (click)="toggle(p, 'NotDone')" matTooltip="Not Done">✘</button>
                   @if (p.status === 'Partial' || p.status === 'NotDone') {
                     <div class="hp-remark-group">
                       <div class="hw-badges-wrap">
@@ -305,7 +305,7 @@ function sectionsOf(classes: any[], classId: string): any[] {
                             class="hw-badge-chip"
                             [class.active-bad]="p.status === 'NotDone' && isBadgeActive(p, b.label)"
                             [class.active-mid]="p.status === 'Partial' && isBadgeActive(p, b.label)"
-                            (click)="selectBadgeRemark(p, b.label)" matButton="filled">
+                            (click)="selectBadgeRemark(p, b.label)">
                             <span class="b-icon">{{ b.icon }}</span>
                             <span class="b-text">{{ b.label }}</span>
                           </button>
@@ -411,8 +411,11 @@ function sectionsOf(classes: any[], classId: string): any[] {
     .hs-badge.absent { background: #fee2e2; color: #b91c1c; }
     .hs-badge.done { background: #dcfce7; color: #166534; }
     .hs-quick { display: flex; gap: 6px; }
-    .q-btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
-    .q-btn.ok:hover { background: #dcfce7; border-color: #16a34a; } .q-btn.bad:hover { background: #fee2e2; border-color: #dc2626; }
+    .q-btn { display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid #cbd5e1; background: #ffffff; border-radius: 8px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all .15s ease-in-out; }
+    .q-btn.ok { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+    .q-btn.ok:hover { background: #dcfce7; border-color: #16a34a; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(22, 163, 74, 0.15); }
+    .q-btn.bad { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+    .q-btn.bad:hover { background: #fee2e2; border-color: #dc2626; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(220, 38, 38, 0.15); }
     .hs-point { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f1f5f9; }
     .hs-point:last-child { border-bottom: none; }
     .hs-point.changed { background: #fffbeb; }
@@ -421,12 +424,82 @@ function sectionsOf(classes: any[], classId: string): any[] {
     .hp-task { font-size: 14px; color: #0f172a; font-weight: 600; word-break: break-word; }
     .hp-meta { font-size: 11.5px; color: #64748b; }
     .hp-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .st-btn { width: 38px; height: 34px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 16px; font-weight: 800; cursor: pointer; transition: all .12s; font-family: inherit; }
-    .st-btn:disabled { cursor: not-allowed; opacity: .45; }
-    .st-btn.ok { color: #16a34a; } .st-btn.mid { color: #d97706; } .st-btn.bad { color: #dc2626; }
-    .st-btn.ok.on { background: #16a34a; color: #fff; border-color: #16a34a; }
-    .st-btn.mid.on { background: #f59e0b; color: #fff; border-color: #f59e0b; }
-    .st-btn.bad.on { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .st-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all .15s ease-in-out;
+      font-family: inherit;
+      line-height: 1;
+    }
+    .st-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+    .st-btn:disabled {
+      cursor: not-allowed;
+      opacity: .4;
+    }
+    /* Inactive / Unticked states */
+    .st-btn.ok {
+      color: #16a34a;
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+    .st-btn.ok:hover:not(:disabled) {
+      background: #dcfce7;
+      border-color: #86efac;
+      box-shadow: 0 2px 4px rgba(22, 163, 74, 0.15);
+    }
+    .st-btn.mid {
+      color: #d97706;
+      background: #fffbeb;
+      border-color: #fde68a;
+    }
+    .st-btn.mid:hover:not(:disabled) {
+      background: #fef3c7;
+      border-color: #fcd34d;
+      box-shadow: 0 2px 4px rgba(217, 119, 6, 0.15);
+    }
+    .st-btn.bad {
+      color: #dc2626;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+    .st-btn.bad:hover:not(:disabled) {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      box-shadow: 0 2px 4px rgba(220, 38, 38, 0.15);
+    }
+    /* Active / Ticked states (Solid, distinct colors) */
+    .st-btn.ok.on {
+      background: #16a34a !important;
+      color: #ffffff !important;
+      border-color: #15803d !important;
+      box-shadow: 0 3px 8px rgba(22, 163, 74, 0.45) !important;
+      font-weight: 900;
+    }
+    .st-btn.mid.on {
+      background: #f59e0b !important;
+      color: #ffffff !important;
+      border-color: #d97706 !important;
+      box-shadow: 0 3px 8px rgba(245, 158, 11, 0.45) !important;
+      font-weight: 900;
+    }
+    .st-btn.bad.on {
+      background: #dc2626 !important;
+      color: #ffffff !important;
+      border-color: #b91c1c !important;
+      box-shadow: 0 3px 8px rgba(220, 38, 38, 0.45) !important;
+      font-weight: 900;
+    }
     .hp-remark-group { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
     .hw-badges-wrap { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
     .hw-badge-chip {

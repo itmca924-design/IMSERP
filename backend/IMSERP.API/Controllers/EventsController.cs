@@ -5,6 +5,7 @@ using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.API.Helpers;
+using IMSERP.API.Services;
 
 namespace IMSERP.API.Controllers;
 
@@ -16,15 +17,18 @@ public class EventsController : ControllerBase
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IWebHostEnvironment _env;
+    private readonly IMenuPermissionService _menuPermissions;
 
-    public EventsController(IIMSERPDbContext db, ICurrentUserService currentUser, IWebHostEnvironment env)
+    public EventsController(IIMSERPDbContext db, ICurrentUserService currentUser, IWebHostEnvironment env, IMenuPermissionService menuPermissions)
     {
         _db = db;
         _currentUser = currentUser;
         _env = env;
+        _menuPermissions = menuPermissions;
     }
 
     [HttpGet("dashboard-summary")]
+    [SkipMenuPermission]
     public async Task<ActionResult<DashboardCelebrationsSummaryDto>> GetDashboardSummary()
     {
         var tenantId = _currentUser.TenantId;
@@ -655,10 +659,11 @@ public class EventsController : ControllerBase
 
         var roleName = user?.AssignedRole?.Name ?? _currentUser.UserRole ?? "";
 
-        // 1. Accountant / Finance / Non-teaching office clerks -> Zero student noise (only staff birthdays)
-        if (roleName.Contains("Accountant", StringComparison.OrdinalIgnoreCase) ||
-            roleName.Contains("Finance", StringComparison.OrdinalIgnoreCase) ||
-            roleName.Contains("Clerk", StringComparison.OrdinalIgnoreCase))
+        // 1. If user doesn't have student view permission (e.g. Accountant, Finance, Office Clerk), hide student birthdays
+        bool canViewStudents = await _menuPermissions.HasPermissionAsync("/students", MenuPermissionOperation.View)
+            || await _menuPermissions.HasPermissionAsync("/school/students", MenuPermissionOperation.View);
+
+        if (!canViewStudents)
         {
             return new BirthdayScopeResult(
                 CanViewStudents: false,
@@ -667,12 +672,14 @@ public class EventsController : ControllerBase
             );
         }
 
-        // 2. Student / Parent -> Only classmates in their specific section/batch; hide contact phone for child privacy
-        if (roleName.Contains("Student", StringComparison.OrdinalIgnoreCase) ||
-            roleName.Contains("Parent", StringComparison.OrdinalIgnoreCase))
+        // 2. Student / Parent → Only classmates in their specific section/batch; hide contact phone for child privacy
+        // Detect via DB link (UserId/ParentUserId → Student record), not role string
+        var studentOrParentRecord = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s =>
+            (s.UserId == userId || s.ParentUserId == userId) && s.TenantId == tenantId);
+
+        if (studentOrParentRecord != null)
         {
-            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s =>
-                (s.UserId == userId || s.ParentUserId == userId) && s.TenantId == tenantId);
+            var student = studentOrParentRecord;
 
             if (student != null)
             {
@@ -698,13 +705,14 @@ public class EventsController : ControllerBase
             );
         }
 
-        // 3. Teacher / Faculty -> Only students from their Class Teacher sections or assigned batches/classes
-        if (roleName.Contains("Teacher", StringComparison.OrdinalIgnoreCase) ||
-            roleName.Contains("Faculty", StringComparison.OrdinalIgnoreCase))
+        // 3. Teacher / Faculty → Detect via DB link (Teacher record), not role string
+        var linkedTeacherForBirthday = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+            t.TenantId == tenantId &&
+            (t.UserId == userId || (user != null && user.Email != null && t.Email == user.Email)));
+
+        if (linkedTeacherForBirthday != null)
         {
-            var linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
-                t.TenantId == tenantId &&
-                (t.UserId == userId || (user != null && user.Email != null && t.Email == user.Email)));
+            var linkedTeacher = linkedTeacherForBirthday;
 
             if (linkedTeacher != null)
             {

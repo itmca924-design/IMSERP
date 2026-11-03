@@ -23,6 +23,7 @@ public class MenuController : ControllerBase
     }
 
     [HttpGet("my-menu")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<MenuItemDto>>> GetMyMenu()
     {
         var userId = _currentUser.UserId;
@@ -126,33 +127,8 @@ public class MenuController : ControllerBase
                 .ToListAsync();
 
             allowedMenuIds = new HashSet<Guid>(permissions);
-            // Ensure Teacher / Faculty / Admin / Principal roles have access to Tests / Marks Entry and Exams
-            var roleNameLower = userRoleInfo.RoleName?.ToLower() ?? "";
-            if (roleNameLower.Contains("teacher") || roleNameLower.Contains("faculty") || roleNameLower.Contains("admin") || roleNameLower.Contains("principal") || roleNameLower.Contains("super") || roleNameLower.Contains("account"))
-            {
-                var essentialRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
-                { 
-                    "/tests", 
-                    "/school/exams", 
-                    "/teachers/lesson-plans", 
-                    "/school/homework",
-                    "/school/good-manners",
-                    "/school/monthly-performance"
-                };
-
-                if (roleNameLower.Contains("admin") || roleNameLower.Contains("super") || roleNameLower.Contains("principal") || roleNameLower.Contains("director") || roleNameLower.Contains("account"))
-                {
-                    essentialRoutes.Add("/finance/fee-recovery-agent");
-                }
-
-                var testMenuIds = allMenuItems
-                    .Where(m => m.RouteUrl != null && essentialRoutes.Contains(m.RouteUrl))
-                    .Select(m => m.Id);
-                foreach (var id in testMenuIds)
-                {
-                    allowedMenuIds.Add(id);
-                }
-            }
+            // Note: Menu access is 100% driven by RolePermissions in DB.
+            // No hardcoded role-name checks here — grant/revoke routes via the Roles & Permissions UI instead.
         }
         else
         {

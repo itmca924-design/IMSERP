@@ -147,6 +147,8 @@ public interface IWhatsAppService
 
 public interface ICurrentUserService
 {
+    bool IsSystemContext { get; }
+    bool IsTrustedTenantWrite { get; }
     Guid TenantId { get; }
     Guid? BranchId { get; }
     string? BranchName { get; }

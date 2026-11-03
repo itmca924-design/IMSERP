@@ -44,6 +44,10 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
+  if (url.origin !== self.location.origin && url.pathname.startsWith('/uploads/')) {
+    return;
+  }
+
   // 1. Don't cache non-GET requests (POST, PUT, DELETE)
   if (req.method !== 'GET') {
     return;
@@ -192,7 +196,11 @@ self.addEventListener('fetch', (event) => {
   // 4. Proxy uploaded logos/documents to backend if requested on frontend origin
   if (url.pathname.startsWith('/uploads/')) {
     event.respondWith(
-      fetch(req).catch(() => caches.match(req))
+      fetch(req).catch(async () => {
+        const cached = await caches.match(req);
+        if (cached) return cached;
+        return new Response('', { status: 503, statusText: 'Upload unavailable' });
+      })
     );
     return;
   }
