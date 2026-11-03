@@ -131,6 +131,12 @@ export interface FeeDueReceiptDialogData {
                     <span class="meta-val branch-val">{{ effectiveBranchName }}</span>
                   </div>
                 }
+                @if (invoiceNumbersDisplay) {
+                  <div class="meta-item invoice-meta-item">
+                    <span class="meta-label">Invoice No:</span>
+                    <span class="meta-val highlight">{{ invoiceNumbersDisplay }}</span>
+                  </div>
+                }
                 <div class="meta-item">
                   <span class="meta-label">Total Invoices:</span>
                   <span class="meta-val">{{ dueSlip.dueItems.length }} Unpaid</span>
@@ -185,7 +191,6 @@ export interface FeeDueReceiptDialogData {
                   <thead>
                     <tr>
                       <th class="text-center" style="width: 25px;">#</th>
-                      <th>Invoice No</th>
                       <th>Billing Period / Fee Head</th>
                       <th>Due Date</th>
                       <th class="text-right">Total Fee (₹)</th>
@@ -197,7 +202,6 @@ export interface FeeDueReceiptDialogData {
                     @for (item of dueSlip.dueItems; track item; let i = $index) {
                       <tr>
                         <td class="text-center">{{ i + 1 }}</td>
-                        <td><strong>{{ item.invoiceNumber }}</strong></td>
                         <td>
                           <div class="due-item-title">{{ item.title }}</div>
                           @if (item.breakdown && item.breakdown.length > 0) {
@@ -217,7 +221,7 @@ export interface FeeDueReceiptDialogData {
                       </tr>
                     }
                     <tr class="summary-subtotal">
-                      <td colspan="6" class="text-right"><strong>NET OUTSTANDING AMOUNT DUE:</strong></td>
+                      <td colspan="5" class="text-right"><strong>NET OUTSTANDING AMOUNT DUE:</strong></td>
                       <td class="text-right grand-due">₹{{ dueSlip.totalOutstandingDue | number:'1.2-2' }}</td>
                     </tr>
                   </tbody>
@@ -1029,6 +1033,14 @@ export class FeeDueReceiptDialogComponent implements OnInit {
   payeeMerchantName = '';
   bankAccountDisplay = '';
   qrDataUrl: string | null = null;
+
+  get invoiceNumbersDisplay(): string {
+    if (!this.dueSlip?.dueItems?.length) {
+      return this.data.invoice?.invoiceNumber || '';
+    }
+    const invs = Array.from(new Set(this.dueSlip.dueItems.map(d => d.invoiceNumber).filter(Boolean)));
+    return invs.join(', ');
+  }
 
   get effectiveBranchName(): string {
     if (this.dueSlip?.branchName) return this.dueSlip.branchName;
