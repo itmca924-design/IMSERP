@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { FeesService, StudentLedger, StudentLedgerPaymentItem, FeePaymentReceipt } from '../../core/services/fees.service';
+import { FeesService, StudentLedger, StudentLedgerInvoiceItem, StudentLedgerPaymentItem, FeePaymentReceipt } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
@@ -19,6 +19,23 @@ import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+
+export type LedgerInvoiceRow = StudentLedgerInvoiceItem & {
+  advanceAdjustedAmount?: number;
+  advanceAdjustedFromReceipt?: string | null;
+};
+
+export type LedgerPaymentRow = StudentLedgerPaymentItem & {
+  advanceDepositAmount?: number;
+  isAdvanceAdjustment?: boolean;
+};
+
+export type ExtendedStudentLedger = Omit<StudentLedger, 'invoices' | 'payments' | 'reversedPayments'> & {
+  advanceBalance?: number;
+  invoices: LedgerInvoiceRow[];
+  payments: LedgerPaymentRow[];
+  reversedPayments?: LedgerPaymentRow[];
+};
 
 @Component({
   selector: 'app-student-ledger-dialog',
@@ -97,6 +114,15 @@ import { MatSelectModule } from '@angular/material/select';
                 </span>
                 <strong class="m-value due">₹{{ ledger.totalOutstandingDue | number:'1.2-2' }}</strong>
               </div>
+              @if (ledger.advanceBalance && ledger.advanceBalance > 0) {
+                <div class="metric-box">
+                  <span class="m-label">
+                    <span class="d-only">Advance Credit:</span>
+                    <span class="m-only">Advance</span>
+                  </span>
+                  <strong class="m-value paid">₹{{ ledger.advanceBalance | number:'1.2-2' }}</strong>
+                </div>
+              }
               @if (ledger.pendingLibraryFine && ledger.pendingLibraryFine > 0) {
                 <div class="metric-box lib-due-box">
                   <span class="m-label">
@@ -162,6 +188,11 @@ import { MatSelectModule } from '@angular/material/select';
                             }
                             @if (inv.status === 'Cancelled') {
                               <span class="cancelled-label" [matTooltip]="'Cancelled' + (inv.cancelledAt ? ' on ' + (inv.cancelledAt | date:'mediumDate') : '') + (inv.cancellationReason ? ' | Reason: ' + inv.cancellationReason : '')">VOID</span>
+                            }
+                            @if (inv.advanceAdjustedAmount && inv.advanceAdjustedAmount > 0) {
+                              <span class="settled-waiver-label" [matTooltip]="'Advance Paid FIFO Adjusted' + (inv.advanceAdjustedFromReceipt ? ' from Receipt #' + inv.advanceAdjustedFromReceipt : '')">
+                                ✓ ADVANCE PAID ADJUSTED: ₹{{ inv.advanceAdjustedAmount | number:'1.2-2' }}
+                              </span>
                             }
                             @if (inv.cancellationReason && inv.cancellationReason.includes('[BALANCE WAIVED & SETTLED]')) {
                               <span class="settled-waiver-label" [matTooltip]="inv.cancellationReason">WAIVED &amp; SETTLED</span>
@@ -315,13 +346,25 @@ import { MatSelectModule } from '@angular/material/select';
                     <tbody>
                       @for (p of ledger.payments; track p) {
                         <tr [class.reversing-row]="reversingPaymentId === p.paymentId">
-                          <td class="nowrap-col"><strong class="receipt-no-text">{{ p.receiptNumber }}</strong></td>
+                          <td class="nowrap-col">
+                            <strong class="receipt-no-text">{{ p.receiptNumber }}</strong>
+                            @if (p.isAdvanceAdjustment) {
+                              <span class="settled-waiver-label" style="margin-left: 6px;">FIFO ADVANCE ADJUSTED</span>
+                            }
+                          </td>
                           <td class="nowrap-col date-col">{{ formatToIST(p.paymentDate) }}</td>
                           <td class="nowrap-col inv-ref-text">{{ p.invoiceNumber || '—' }}</td>
                           <td class="nowrap-col">
                             <span class="mode-badge">{{ getPaymentModeName(p.mode) }}</span>
                           </td>
-                          <td class="text-right text-success nowrap-col amount-text"><strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong></td>
+                          <td class="text-right text-success nowrap-col amount-text">
+                            <strong>₹{{ p.amountPaid | number:'1.2-2' }}</strong>
+                            @if (p.advanceDepositAmount && p.advanceDepositAmount > 0) {
+                              <div style="font-size: 0.68rem; color: #059669; font-weight: 700;">
+                                +₹{{ p.advanceDepositAmount | number:'1.2-2' }} Advance Paid
+                              </div>
+                            }
+                          </td>
                           <td class="remarks-cell"><small>{{ p.transactionRef || 'N/A' }} ({{ p.remarks || '-' }})</small></td>
                           <td class="text-center nowrap-col">
                             <button color="primary" (click)="openPaymentReceipt(p)" matTooltip="Print / View Payment Receipt" mat-icon-button>
@@ -443,10 +486,10 @@ import { MatSelectModule } from '@angular/material/select';
             <span class="btn-text-short">Due Slip</span>
           </button>
         }
-        @if (ledger && ledger.totalOutstandingDue > 0) {
+        @if (ledger) {
           <button color="primary" (click)="collectFeeModal()" class="btn-collect" matButton="filled">
-            <mat-icon>payments</mat-icon>
-            <span>Collect Fee</span>
+            <mat-icon>{{ ledger.totalOutstandingDue > 0 ? 'payments' : 'account_balance_wallet' }}</mat-icon>
+            <span>{{ ledger.totalOutstandingDue > 0 ? 'Collect Fee' : 'Deposit Advance Fee' }}</span>
           </button>
         }
         <button color="primary" (click)="onClose()" class="btn-done" matButton="filled">
@@ -1422,13 +1465,13 @@ import { MatSelectModule } from '@angular/material/select';
   `]
 })
 export class StudentLedgerDialogComponent implements OnInit {
-  ledger?: StudentLedger;
+  ledger?: ExtendedStudentLedger;
   loading = false;
   reversingPaymentId: string | null = null;
   reversingInProgress = false;
   hasReversedPayment = false;
 
-  get reversingPayment(): StudentLedgerPaymentItem | undefined {
+  get reversingPayment(): LedgerPaymentRow | undefined {
     return this.ledger?.payments?.find(p => p.paymentId === this.reversingPaymentId);
   }
 
@@ -1752,6 +1795,7 @@ export class StudentLedgerDialogComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((res) => {
       if (res) {
+        this.hasReversedPayment = true;
         this.loadLedger();
         this.dialog.open(FeeReceiptDialogComponent, {
           width: '840px',

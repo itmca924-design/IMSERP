@@ -139,14 +139,27 @@ export interface AdvanceMonthOption {
             </div>
           }
         </div>
-        <div class="due-badge">
-          <span class="due-label">{{ data.selectedInvoicesCount && data.selectedInvoicesCount > 1 ? 'Selected Invoices Total:' : 'Total Net Outstanding:' }}</span>
+        <div class="due-badge" [class.due-badge-settled]="remainingDueAfterPay === 0">
+          <span class="due-label">{{ data.selectedInvoicesCount && data.selectedInvoicesCount > 1 ? 'Selected Invoices Bill:' : 'Current Bill Due (कुल बिल):' }}</span>
           <strong class="due-amount">₹{{ studentTotalOutstanding | number:'1.2-2' }}</strong>
+          @if (totalAdvanceInPayment > 0) {
+            <span class="due-live-status status-advance">
+              ✓ Remaining Due: ₹0.00 | +₹{{ totalAdvanceInPayment | number:'1.2-2' }} Advance
+            </span>
+          } @else if (remainingDueAfterPay === 0 && studentTotalOutstanding > 0) {
+            <span class="due-live-status status-cleared">
+              ✓ Remaining Due: ₹0.00 (Full Bill Settled)
+            </span>
+          } @else if (remainingDueAfterPay > 0) {
+            <span class="due-live-status status-partial">
+              Balance Left After Pay: ₹{{ remainingDueAfterPay | number:'1.2-2' }}
+            </span>
+          }
         </div>
       </div>
     
       <!-- Fee Heads Itemized Checklist Table -->
-      @if (itemRows.length > 0) {
+      @if (hasUnpaidItemRows) {
         <div class="heads-breakdown-card">
           <div class="breakdown-header">
             <div class="header-left">
@@ -372,6 +385,19 @@ export interface AdvanceMonthOption {
             <mat-error>Amount must be greater than 0</mat-error>
           }
         </mat-form-field>
+
+        @if (customAdvanceCreditAmount > 0) {
+          <div class="full-width advance-credit-banner">
+            <div class="adv-left">
+              <mat-icon>account_balance_wallet</mat-icon>
+              <div>
+                <strong>Advance Fee Paid (Carried Forward): ₹{{ customAdvanceCreditAmount | number:'1.2-2' }}</strong>
+                <div class="adv-sub">Excess amount above current bill will be printed as Advance Paid &amp; auto-adjusted in next month's fee invoice (FIFO)</div>
+              </div>
+            </div>
+            <span class="adv-pill">+₹{{ customAdvanceCreditAmount | number:'1.2-2' }} Advance</span>
+          </div>
+        }
     
         <mat-form-field appearance="outline" class="half-width">
           <mat-label>Payment Mode</mat-label>
@@ -702,6 +728,20 @@ export interface AdvanceMonthOption {
         border: 1px solid #fecaca;
         border-radius: 8px;
         padding: 6px 14px;
+        transition: all 0.2s ease;
+
+        &.due-badge-settled {
+          background: #f0fdf4;
+          border-color: #bbf7d0;
+
+          .due-label {
+            color: #166534;
+          }
+
+          .due-amount {
+            color: #15803d;
+          }
+        }
 
         .due-label {
           display: block;
@@ -718,6 +758,34 @@ export interface AdvanceMonthOption {
           color: #dc2626;
           font-weight: 800;
           line-height: 1.2;
+        }
+
+        .due-live-status {
+          display: inline-block;
+          margin-top: 4px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.2px;
+
+          &.status-advance {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+          }
+
+          &.status-cleared {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+          }
+
+          &.status-partial {
+            background: #fff7ed;
+            color: #c2410c;
+            border: 1px solid #fed7aa;
+          }
         }
       }
     }
@@ -1628,6 +1696,48 @@ export interface AdvanceMonthOption {
       }
     }
 
+    .advance-credit-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      border: 1px solid #6ee7b7;
+      border-radius: 8px;
+      color: #065f46;
+
+      .adv-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.82rem;
+        mat-icon {
+          color: #059669;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+        .adv-sub {
+          font-size: 0.73rem;
+          color: #047857;
+          margin-top: 2px;
+        }
+      }
+
+      .adv-pill {
+        background: #059669;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.76rem;
+        padding: 4px 10px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+    }
+
     .dialog-actions {
       padding: 14px 24px 16px;
       border-top: 1px solid #bfdbfe;
@@ -1682,6 +1792,7 @@ export class FeeCollectionDialogComponent implements OnInit {
   advanceMonthOptions: AdvanceMonthOption[] = [];
   selectedAdvanceOption: AdvanceMonthOption | null = null;
   advanceAmountTotal: number = 0;
+  customAdvanceCreditAmount: number = 0;
 
   @ViewChild('counterQrCanvas') counterQrCanvas?: ElementRef<HTMLCanvasElement>;
   activeVpa: string = '';
@@ -1873,12 +1984,17 @@ export class FeeCollectionDialogComponent implements OnInit {
         : (invoiceDue > 0 ? invoiceDue : 0);
     }
 
+    const isPureAdvanceMode = invoiceDue <= 0 && (this.data.initialAmount === undefined || this.data.initialAmount <= 0);
+    if (isPureAdvanceMode) {
+      this.customAdvanceCreditAmount = this.detectedMonthlyRate > 0 ? this.detectedMonthlyRate : 500;
+    }
+
     const defaultRemarks = this.data.selectedInvoicesCount && this.data.selectedInvoicesCount > 1
       ? `Multi-Invoice Settlement (${this.data.selectedInvoicesCount} Invoices)`
-      : 'Fee Payment';
+      : (isPureAdvanceMode ? 'Advance Fee Deposit (FIFO Carry-Forward)' : 'Fee Payment');
 
     this.feeForm = this.fb.group({
-      amountPaid: [this.baseTuitionAmount, [Validators.required, Validators.min(1)]],
+      amountPaid: [this.baseTuitionAmount + this.customAdvanceCreditAmount, [Validators.required, Validators.min(1)]],
       mode: [1, [Validators.required]], // Default to UPI
       transactionRef: [''],
       remarks: [defaultRemarks],
@@ -1912,12 +2028,29 @@ export class FeeCollectionDialogComponent implements OnInit {
     });
   }
 
+  get hasUnpaidItemRows(): boolean {
+    return this.itemRows.some(r => r.dueAmount > 0);
+  }
+
   get selectedCount(): number {
     return this.itemRows.filter(r => r.selected).length;
   }
 
   get selectedItemsTotal(): number {
     return this.itemRows.reduce((sum, r) => sum + (r.selected ? r.payingAmount : 0), 0);
+  }
+
+  get remainingDueAfterPay(): number {
+    const billDue = Math.max(0, this.studentTotalOutstanding || 0);
+    const entered = Number(this.feeForm?.get('amountPaid')?.value) || 0;
+    return Math.max(0, Math.round((billDue - entered) * 100) / 100);
+  }
+
+  get totalAdvanceInPayment(): number {
+    const optAdv = (this.selectedAdvanceOption && this.selectedAdvanceOption.monthCount > 0)
+      ? this.selectedAdvanceOption.totalAmount
+      : 0;
+    return Math.round(((this.customAdvanceCreditAmount || 0) + optAdv) * 100) / 100;
   }
 
   isAllSelected(): boolean {
@@ -2007,7 +2140,7 @@ export class FeeCollectionDialogComponent implements OnInit {
     const advanceTotal = (this.selectedAdvanceOption && this.selectedAdvanceOption.monthCount > 0)
       ? this.selectedAdvanceOption.totalAmount
       : 0;
-    const newAmount = Math.round((tuitionTotal + libFine + advanceTotal) * 100) / 100;
+    const newAmount = Math.round((tuitionTotal + libFine + advanceTotal + this.customAdvanceCreditAmount) * 100) / 100;
     this.feeForm.patchValue({ amountPaid: newAmount }, { emitEvent: false });
   }
 
@@ -2022,11 +2155,13 @@ export class FeeCollectionDialogComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     const raw = input.value;
     if (raw === '' || raw === null || raw === undefined) {
+      this.customAdvanceCreditAmount = 0;
       return;
     }
 
     const entered = parseFloat(raw);
     if (isNaN(entered) || entered < 0) {
+      this.customAdvanceCreditAmount = 0;
       return;
     }
 
@@ -2036,6 +2171,7 @@ export class FeeCollectionDialogComponent implements OnInit {
   onTotalAmountBlur(): void {
     const val = Number(this.feeForm.get('amountPaid')?.value);
     if (isNaN(val) || val <= 0) {
+      this.customAdvanceCreditAmount = 0;
       this.recalculateTotal();
     } else {
       this.autoDistributeTotalAmount(val);
@@ -2044,17 +2180,27 @@ export class FeeCollectionDialogComponent implements OnInit {
   }
 
   autoDistributeTotalAmount(enteredTotal: number): void {
-    if (!this.itemRows || this.itemRows.length === 0) return;
-
     const libFine = (this.libraryDues && this.libraryDues.pendingFineAmount > 0 && this.feeForm.get('includeLibraryFine')?.value)
       ? Math.round(this.libraryDues.pendingFineAmount * 100) / 100
       : 0;
+    const advanceOptTotal = (this.selectedAdvanceOption && this.selectedAdvanceOption.monthCount > 0)
+      ? this.selectedAdvanceOption.totalAmount
+      : 0;
 
-    let remaining = Math.max(0, Math.round((enteredTotal - libFine) * 100) / 100);
+    let remaining = Math.max(0, Math.round((enteredTotal - libFine - advanceOptTotal) * 100) / 100);
+
+    if (!this.itemRows || this.itemRows.length === 0) {
+      const currentDue = Math.max(0, Math.round(((this.studentTotalOutstanding || 0) - libFine) * 100) / 100);
+      this.customAdvanceCreditAmount = remaining > currentDue ? Math.round((remaining - currentDue) * 100) / 100 : 0;
+      return;
+    }
 
     const maxAvailableDues = Math.round(this.itemRows.reduce((sum, r) => sum + r.dueAmount, 0) * 100) / 100;
     if (remaining > maxAvailableDues) {
+      this.customAdvanceCreditAmount = Math.round((remaining - maxAvailableDues) * 100) / 100;
       remaining = maxAvailableDues;
+    } else {
+      this.customAdvanceCreditAmount = 0;
     }
 
     // Sort items by priority for distribution:
@@ -2228,6 +2374,11 @@ export class FeeCollectionDialogComponent implements OnInit {
   onSelectAdvanceOption(opt: AdvanceMonthOption): void {
     this.selectedAdvanceOption = opt;
     this.advanceAmountTotal = opt.totalAmount;
+    if (opt.monthCount > 0) {
+      this.customAdvanceCreditAmount = 0;
+    } else if (this.baseTuitionAmount <= 0 && this.studentTotalOutstanding <= 0) {
+      this.customAdvanceCreditAmount = this.detectedMonthlyRate > 0 ? this.detectedMonthlyRate : 500;
+    }
     this.recalculateTotal();
 
     const currentRemarks = this.feeForm.get('remarks')?.value || '';

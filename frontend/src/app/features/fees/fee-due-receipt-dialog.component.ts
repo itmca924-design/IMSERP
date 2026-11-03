@@ -12,6 +12,16 @@ import { FeeCollectionDialogComponent } from './fee-collection-dialog.component'
 import { shareElementOnWhatsApp, openWhatsAppTextOnly } from '../../shared/utils/whatsapp-image-share';
 import * as QRCode from '../../shared/utils/qr-code';
 
+export type ExtendedFeeDueSlipItem = FeeDueSlipItem & {
+  advanceAdjustedAmount?: number;
+  advanceAdjustedFromReceipt?: string | null;
+};
+
+export type ExtendedFeeDueSlip = Omit<FeeDueSlip, 'dueItems'> & {
+  dueItems: ExtendedFeeDueSlipItem[];
+  studentAdvanceBalance?: number;
+};
+
 export interface FeeDueReceiptDialogData {
   studentId: string;
   invoiceId?: string;
@@ -49,9 +59,11 @@ export interface FeeDueReceiptDialogData {
             <span>Collect Fee</span>
           </button>
           <button class="header-action-btn wa-btn" (click)="shareWhatsApp()" matTooltip="Send WhatsApp Due Notice" matButton="filled">
-            <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-            </svg>
+            <mat-icon class="wa-mat-icon">
+              <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+              </svg>
+            </mat-icon>
             <span>WhatsApp</span>
           </button>
           <button class="header-action-btn print-btn" (click)="printDueSlip()" matTooltip="Print or Download PDF" matButton="filled">
@@ -211,6 +223,14 @@ export interface FeeDueReceiptDialogData {
                                 <span class="due-head-chip">
                                   {{ h.headName }}: ₹{{ h.amount | number:'1.0-0' }}
                                 </span>
+                              }
+                            </div>
+                          }
+                          @if ((item.advanceAdjustedAmount || 0) > 0) {
+                            <div class="due-adv-adjusted-pill">
+                              ✓ Advance Paid (FIFO Adjusted): <strong>₹{{ item.advanceAdjustedAmount | number:'1.2-2' }}</strong>
+                              @if (item.advanceAdjustedFromReceipt) {
+                                <span>(Ref: #{{ item.advanceAdjustedFromReceipt }})</span>
                               }
                             </div>
                           }
@@ -408,7 +428,21 @@ export interface FeeDueReceiptDialogData {
           &.wa-btn {
             background: #16a34a !important;
             color: #ffffff !important;
-            .wa-icon { width: 14px; height: 14px; fill: #ffffff; }
+            .wa-mat-icon {
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              width: 16px !important;
+              height: 16px !important;
+              margin-right: 6px !important;
+              vertical-align: middle !important;
+            }
+            .wa-icon {
+              width: 15px;
+              height: 15px;
+              display: block;
+              fill: currentColor;
+            }
             &:hover { background: #15803d !important; transform: translateY(-1px); }
           }
 
@@ -489,7 +523,7 @@ export interface FeeDueReceiptDialogData {
       align-items: center;
       justify-content: center;
       gap: 10px;
-      margin: 8px 0;
+      margin: 16px 0;
       user-select: none;
       page-break-inside: avoid;
 
@@ -769,6 +803,20 @@ export interface FeeDueReceiptDialogData {
           font-weight: 700;
         }
 
+        .due-adv-adjusted-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 2px;
+          padding: 1px 6px;
+          background: #ecfdf5;
+          border: 1px solid #6ee7b7;
+          border-radius: 3px;
+          color: #065f46;
+          font-size: 0.6rem;
+          font-weight: 600;
+        }
+
         .due-item-heads {
           display: flex;
           flex-wrap: wrap;
@@ -1027,7 +1075,7 @@ export class FeeDueReceiptDialogComponent implements OnInit {
   logoUrl: string | null = null;
   logoFailed = false;
 
-  dueSlip: FeeDueSlip | null = null;
+  dueSlip: ExtendedFeeDueSlip | null = null;
   loading = true;
   noticeNumber = '';
   payeeUpiId = 'imserp.fees@sbi';
@@ -1217,7 +1265,7 @@ export class FeeDueReceiptDialogComponent implements OnInit {
       '.due-paper { width: 100%; display: flex; flex-direction: column; padding: 0; margin: 0; }' +
       '.due-slip { position: relative; border: 1px solid #94a3b8; border-radius: 4px; padding: 5px 8px; background: #ffffff; box-sizing: border-box; page-break-inside: avoid !important; }' +
       '.due-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 160px; height: 160px; opacity: 0.035; pointer-events: none; background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 0; }' +
-      '.tear-divider { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0; color: #475569; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; page-break-inside: avoid !important; }' +
+      '.tear-divider { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 14px 0; color: #475569; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; page-break-inside: avoid !important; }' +
       '.tear-line { flex: 1; border-top: 1.5px dashed #64748b; height: 0; }' +
       '.tear-scissor { font-size: 13px; color: #334155; line-height: 1; }' +
       '.tear-scissor.flip { transform: scaleX(-1); }' +

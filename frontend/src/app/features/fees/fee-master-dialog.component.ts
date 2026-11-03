@@ -326,7 +326,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     </tr>
                   </thead>
                   <tbody>
-                    @for (h of filteredFeeHeads; track h) {
+                    @for (h of filteredFeeHeads; track h.id) {
                       <tr>
                         <td><span class="code-pill">{{ h.code }}</span></td>
                         <td><strong>{{ h.name }}</strong></td>
@@ -542,7 +542,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       </tr>
                     </thead>
                     <tbody>
-                      @for (row of matrixRows; track row) {
+                      @for (row of matrixRows; track row.feeHeadId) {
                         <tr [class.row-disabled]="!row.isActive">
                           <td>
                             <mat-checkbox [(ngModel)]="row.isActive" (change)="onRowActiveChange(row)" color="primary"></mat-checkbox>
@@ -637,7 +637,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                     <mat-form-field appearance="outline" class="cutoff-field">
                       <mat-label>Admission Cutoff Day (1 – 28)</mat-label>
                       <input matInput type="number" formControlName="admissionCutoffDay" min="1" max="28" placeholder="20" />
-                      <span matSuffix style="font-size: 0.82rem; color: #64748b; font-weight: 600; margin-right: 8px;">th of each month</span>
+                      <span matTextSuffix class="cutoff-suffix-text">th of each month</span>
                       @if (policyForm.get('admissionCutoffDay')?.hasError('required')) {
                         <mat-error>Cutoff day is required</mat-error>
                       }
@@ -743,11 +743,23 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
+    :host {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-height: 90vh;
+    }
+    ::ng-deep .cdk-overlay-pane:has(app-fee-master-dialog) .mat-mdc-dialog-surface,
+    ::ng-deep .cdk-overlay-pane:has(app-fee-master-dialog) .mdc-dialog__surface {
+      overflow: hidden !important;
+      padding: 0 !important;
+    }
     .dialog-container {
       display: flex;
       flex-direction: column;
       max-height: 90vh;
       min-width: min(1080px, 92vw);
+      overflow: hidden;
 
       @media (max-width: 640px) {
         min-width: 100% !important;
@@ -757,23 +769,61 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
       }
     }
     ::ng-deep .fee-tabs {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+
       .mat-mdc-tab-header-pagination {
         display: none !important;
       }
       .mat-mdc-tab-header {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        flex-shrink: 0;
       }
       .mat-mdc-tab-label-container {
         overflow: visible !important;
       }
+      .mat-mdc-tab-body-wrapper {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden !important;
+      }
+      .mat-mdc-tab-body,
+      .mat-mdc-tab-body.mat-mdc-tab-body-active,
+      .mat-mdc-tab-body-content {
+        overflow: hidden !important;
+        height: 100%;
+      }
       @media (max-width: 640px) {
+        .mat-mdc-tab-labels {
+          display: flex !important;
+          width: 100% !important;
+        }
         .mdc-tab {
+          flex: 1 1 0 !important;
           min-width: 0 !important;
-          padding: 0 10px !important;
+          padding: 0 6px !important;
+          height: 44px !important;
+          .mdc-tab__content {
+            width: 100%;
+            justify-content: center;
+          }
           .mdc-tab__text-label {
-            font-size: 0.78rem !important;
-            gap: 4px;
+            font-size: 0.72rem !important;
+            gap: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            .tab-icon {
+              font-size: 15px !important;
+              width: 15px !important;
+              height: 15px !important;
+              margin-right: 2px !important;
+              flex-shrink: 0;
+            }
           }
         }
       }
@@ -868,7 +918,13 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
     .tab-content {
       padding: 18px 20px;
       overflow-y: auto;
-      max-height: 68vh;
+      overflow-x: hidden;
+      max-height: 70vh;
+
+      @media (max-width: 640px) {
+        padding: 12px;
+        max-height: calc(100dvh - 120px);
+      }
     }
     .add-head-box {
       background: #ffffff;
@@ -1121,6 +1177,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
     .matrix-table-wrapper {
       width: 100%;
       overflow-x: auto;
+      overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
@@ -1555,7 +1612,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
     }
     .inline-amt-field {
       width: 130px;
-      margin-bottom: -1.25em;
+      margin-bottom: 0;
       .rupee-prefix {
         font-weight: 600;
         color: #64748b;
@@ -1563,7 +1620,14 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
     }
     .inline-month-field {
       width: 200px;
-      margin-bottom: -1.25em;
+      margin-bottom: 0;
+    }
+    ::ng-deep .inline-amt-field .mat-mdc-form-field-subscript-wrapper,
+    ::ng-deep .inline-month-field .mat-mdc-form-field-subscript-wrapper,
+    ::ng-deep .select-target-full .mat-mdc-form-field-subscript-wrapper,
+    ::ng-deep .select-class-filter .mat-mdc-form-field-subscript-wrapper,
+    ::ng-deep .select-batch-target .mat-mdc-form-field-subscript-wrapper {
+      display: none !important;
     }
     .row-disabled {
       opacity: 0.5;
@@ -1627,12 +1691,24 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
       display: flex;
       flex-direction: column;
       gap: 16px;
+
+      @media (max-width: 900px) {
+        padding: 16px;
+      }
+      @media (max-width: 640px) {
+        padding: 12px;
+        gap: 12px;
+      }
     }
 
     .policy-form {
       display: flex;
       flex-direction: column;
       gap: 16px;
+
+      @media (max-width: 640px) {
+        gap: 12px;
+      }
     }
 
     .policy-card {
@@ -1649,6 +1725,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
         padding: 14px 18px;
         background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
         border-bottom: 1px solid #bfdbfe;
+        flex-wrap: wrap;
 
         .policy-header-icon-box {
           width: 36px;
@@ -1659,6 +1736,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
           box-shadow: 0 2px 6px rgba(37,99,235,0.3);
           mat-icon { font-size: 20px; width: 20px; height: 20px; }
 
@@ -1669,17 +1747,20 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
         }
 
         .policy-header-text {
-          flex: 1;
+          flex: 1 1 220px;
+          min-width: 0;
           .policy-card-title {
             margin: 0;
             font-size: 0.96rem;
             font-weight: 700;
             color: #1e3a8a;
+            line-height: 1.35;
           }
           .policy-card-desc {
-            margin: 2px 0 0;
+            margin: 3px 0 0;
             font-size: 0.77rem;
             color: #3b82f6;
+            line-height: 1.4;
           }
         }
 
@@ -1691,6 +1772,8 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
           font-weight: 700;
           border-radius: 20px;
           border: 1px solid #93c5fd;
+          white-space: nowrap;
+          flex-shrink: 0;
 
           &.fy-badge {
             background: #ede9fe;
@@ -1698,19 +1781,67 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
             border-color: #c4b5fd;
           }
         }
+
+        @media (max-width: 768px) {
+          align-items: flex-start;
+          padding: 12px 14px;
+          gap: 10px;
+
+          .policy-header-text {
+            flex: 1 1 calc(100% - 50px);
+          }
+
+          .policy-active-badge {
+            margin-left: 46px;
+            font-size: 0.72rem;
+            padding: 3px 10px;
+          }
+        }
       }
 
       .policy-card-body {
         padding: 18px 20px;
 
+        @media (max-width: 640px) {
+          padding: 14px 12px;
+        }
+
         .policy-input-row {
           display: grid;
-          grid-template-columns: 240px 1fr;
+          grid-template-columns: 300px 1fr;
           gap: 16px;
           margin-bottom: 12px;
 
-          @media (max-width: 640px) {
+          @media (max-width: 900px) {
             grid-template-columns: 1fr;
+            gap: 10px;
+          }
+        }
+
+        .cutoff-suffix-text {
+          font-size: 0.8rem;
+          color: #64748b;
+          font-weight: 600;
+          white-space: nowrap !important;
+          line-height: 1.4 !important;
+          display: inline-block;
+          padding-left: 6px;
+          padding-right: 10px;
+        }
+
+        ::ng-deep .cutoff-field {
+          .mat-mdc-form-field-infix {
+            width: auto !important;
+            min-width: 60px !important;
+            flex: 1 1 auto !important;
+          }
+          .mat-mdc-form-field-icon-suffix,
+          .mat-mdc-form-field-text-suffix {
+            line-height: 1.4 !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
           }
         }
 
@@ -1724,8 +1855,9 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
           gap: 16px;
           margin-top: 10px;
 
-          @media (max-width: 640px) {
+          @media (max-width: 768px) {
             grid-template-columns: 1fr;
+            gap: 12px;
           }
 
           .preview-tile {
@@ -1800,6 +1932,11 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
       border-left: 4px solid #10b981;
       border-radius: 10px;
 
+      @media (max-width: 640px) {
+        padding: 12px 14px;
+        gap: 10px;
+      }
+
       .sg-icon-box {
         width: 36px;
         height: 36px;
@@ -1816,14 +1953,17 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
 
       .sg-content {
         flex: 1;
+        min-width: 0;
 
         .sg-title {
           display: flex;
           align-items: center;
-          gap: 8px;
+          flex-wrap: wrap;
+          gap: 6px 8px;
           strong {
             font-size: 0.88rem;
             color: #064e3b;
+            line-height: 1.3;
           }
           .sg-badge {
             background: #d1fae5;
@@ -1833,6 +1973,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
             font-size: 0.7rem;
             font-weight: 800;
             border: 1px solid #6ee7b7;
+            white-space: nowrap;
           }
         }
 
@@ -1857,9 +1998,14 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
         font-weight: 600;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
         border-radius: 8px;
         box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+
+        @media (max-width: 640px) {
+          width: 100%;
+        }
       }
     }
   `]

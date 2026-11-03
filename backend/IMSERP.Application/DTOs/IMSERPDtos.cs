@@ -981,7 +981,11 @@ public record FeePaymentReceiptDto(
     decimal TotalDemandBeforePayment = 0,
     string? FeePeriod = null,
     string? OfficialSealUrl = null,
-    string? DigitalSignatureUrl = null
+    string? DigitalSignatureUrl = null,
+    decimal AdvanceDepositAmount = 0,
+    decimal AdvanceAdjustedAmount = 0,
+    string? AdvanceAdjustedFromReceipt = null,
+    decimal StudentAdvanceBalance = 0
 );
 
 public record StudentPendingFineItemDto(
@@ -1026,7 +1030,9 @@ public record FeeDueSlipItemDto(
     decimal TotalAmount,
     decimal PaidAmount,
     decimal DueAmount,
-    List<FeeInvoiceItemDto>? Breakdown = null
+    List<FeeInvoiceItemDto>? Breakdown = null,
+    decimal AdvanceAdjustedAmount = 0,
+    string? AdvanceAdjustedFromReceipt = null
 );
 
 public record FeeDueSlipDto(
@@ -1042,7 +1048,8 @@ public record FeeDueSlipDto(
     decimal PendingLibraryFine = 0,
     int ActiveOverdueBooksCount = 0,
     string? HostelInfo = null,
-    string? BranchName = null
+    string? BranchName = null,
+    decimal StudentAdvanceBalance = 0
 );
 
 public record TestDto(
@@ -1440,7 +1447,9 @@ public record StudentLedgerInvoiceItemDto(
     string Status,
     string? CancellationReason = null,
     DateTime? CancelledAt = null,
-    List<FeeInvoiceItemDto>? Items = null
+    List<FeeInvoiceItemDto>? Items = null,
+    decimal AdvanceAdjustedAmount = 0,
+    string? AdvanceAdjustedFromReceipt = null
 );
 
 public record StudentLedgerPaymentItemDto(
@@ -1459,7 +1468,9 @@ public record StudentLedgerPaymentItemDto(
     string? ReversalType = null,
     string? RefundMode = null,
     string? RefundRecipient = null,
-    string? RefundReference = null
+    string? RefundReference = null,
+    decimal AdvanceDepositAmount = 0,
+    bool IsAdvanceAdjustment = false
 );
 
 public record StudentLedgerDto(
@@ -1477,7 +1488,8 @@ public record StudentLedgerDto(
     List<StudentLedgerPaymentItemDto> Payments,
     decimal PendingLibraryFine = 0,
     string? BranchName = null,
-    List<StudentLedgerPaymentItemDto>? ReversedPayments = null
+    List<StudentLedgerPaymentItemDto>? ReversedPayments = null,
+    decimal AdvanceBalance = 0
 );
 
 public record FeeCardMonthEntryDto(

@@ -401,6 +401,27 @@ body {
   color: white !important;
 }
 
+mat-icon.wa-mat-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+
+  svg.wa-icon {
+    width: 15px !important;
+    height: 15px !important;
+    display: block !important;
+    fill: currentColor !important;
+  }
+}
+
+.mdc-button__label > svg.wa-icon {
+  display: inline-block !important;
+  vertical-align: -2px !important;
+  margin-right: 6px !important;
+  flex-shrink: 0 !important;
+}
+
 // Utility Chips Styling
 .mat-mdc-chip {
   font-weight: 600;
@@ -2107,7 +2128,7 @@ body.erp-compact {
 // ============================================================================
 // 5. Global Mat-Select & Dropdown Panel Clear Visibility & Elevation
 // ============================================================================
-.cdk-overlay-pane:has(.mat-mdc-select-panel) {
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(> .mat-mdc-select-panel) {
   min-width: 280px !important;
   max-width: 520px !important;
 }
@@ -3519,6 +3540,7 @@ button.utr-copy-btn {
 // ============================================================================
 @media (max-width: 640px) {
   .cdk-overlay-pane.responsive-fee-master-dialog,
+  .cdk-overlay-pane.bulk-fee-print-dialog-panel,
   .cdk-overlay-pane:has(app-fee-master-dialog),
   .cdk-overlay-pane.responsive-report-dialog,
   .cdk-overlay-pane:has(app-class-fee-matrix-report-dialog),
@@ -3550,7 +3572,14 @@ button.utr-copy-btn {
   }
 }
 
-.invoice-breakdown-dialog-panel {
+@media (min-width: 641px) {
+.cdk-overlay-pane.bulk-fee-print-dialog-panel {
+  width: 98vw !important;
+  max-width: 1680px !important;
+}
+
+.invoice-breakdown-dialog-panel,
+.bulk-fee-print-dialog-panel {
   .mat-mdc-dialog-container,
   .mdc-dialog__surface {
     padding: 0 !important;
@@ -3558,4 +3587,6 @@ button.utr-copy-btn {
     overflow: hidden !important;
     background: #ffffff !important;
   }
+}
+
 }

@@ -46,7 +46,7 @@ public class DashboardController : ControllerBase
         
         var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var totalFeeCollectedThisMonth = await feePaymentsQuery
-            .Where(p => p.PaymentDate >= startOfMonth)
+            .Where(p => !p.IsReversed && !p.IsAdvanceAdjustment && p.PaymentDate >= startOfMonth)
             .SumAsync(p => (decimal?)p.AmountPaid) ?? 0;
 
         var pendingFeesTotal = await feeInvoicesQuery

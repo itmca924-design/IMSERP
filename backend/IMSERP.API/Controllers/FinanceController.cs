@@ -85,14 +85,14 @@ public class FinanceController : ControllerBase
             if (branch != null) branchName = branch.Name;
         }
 
-        // 2. Query Fee Payments with Scope & Branch Filters
+        // 2. Query Fee Payments with Scope & Branch Filters (exclude synthetic FIFO advance adjustments so cash is never double-counted)
         var feePaymentsQuery = _dbContext.FeePayments
             .AsNoTracking()
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Items)
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Student)
-            .Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= start && p.PaymentDate <= end);
+            .Where(p => p.TenantId == tenantId && !p.IsReversed && !p.IsAdvanceAdjustment && p.PaymentDate >= start && p.PaymentDate <= end);
 
         if (branchId.HasValue && branchId.Value != Guid.Empty)
         {
@@ -272,6 +272,21 @@ public class FinanceController : ControllerBase
                 "Library & Resource Center",
                 "Learning Resource"
             );
+        }
+
+        // If realized fee collections exceed billed invoices in the period due to Advance Fee Deposits collected, include the unadjusted advance inflow in the breakdown
+        decimal currentBreakdownSum = incomeMap.Values.Sum(x => x.Amount);
+        if (totalDirectIncome > currentBreakdownSum)
+        {
+            decimal advanceCarryForwardInflow = Math.Round(totalDirectIncome - currentBreakdownSum, 2);
+            if (advanceCarryForwardInflow > 0)
+            {
+                incomeMap["Advance Fee Received (Carry-Forward Credit)"] = (
+                    advanceCarryForwardInflow,
+                    "Advance & Pre-Paid Fees",
+                    "Institutional"
+                );
+            }
         }
 
         if (incomeMap.Count == 0 && totalDirectIncome > 0)
@@ -485,12 +500,12 @@ public class FinanceController : ControllerBase
         }
 
         // ─── A. CURRENT ASSETS ──────────────────────────────────────────
-        // 1. Fee Payments Received up to cutoff
+        // 1. Fee Payments Received up to cutoff (exclude synthetic FIFO advance adjustments so cash/bank is never double-counted)
         var feePaymentsBase = _dbContext.FeePayments
             .AsNoTracking()
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Student)
-            .Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate <= cutoff);
+            .Where(p => p.TenantId == tenantId && !p.IsReversed && !p.IsAdvanceAdjustment && p.PaymentDate <= cutoff);
 
         if (branchId.HasValue && branchId.Value != Guid.Empty)
         {
@@ -644,7 +659,9 @@ public class FinanceController : ControllerBase
         decimal accountsReceivable = 0m;
         foreach (var inv in cutoffInvoices)
         {
-            decimal paidOnOrBeforeCutoff = inv.Payments != null ? inv.Payments.Where(p => p.PaymentDate <= cutoff).Sum(p => p.AmountPaid) : 0m;
+            decimal paidOnOrBeforeCutoff = inv.Payments != null
+                ? inv.Payments.Where(p => !p.IsReversed && p.PaymentDate <= cutoff).Sum(p => Math.Max(0m, p.AmountPaid - p.AdvanceDepositAmount))
+                : 0m;
             decimal dueAtCutoff = Math.Max(0m, inv.TotalAmount - paidOnOrBeforeCutoff);
             accountsReceivable += dueAtCutoff;
         }
@@ -768,6 +785,27 @@ public class FinanceController : ControllerBase
             ));
         }
 
+        // Student Advance Fee Deposits (Unearned Revenue Credit pending next month FIFO adjustment)
+        decimal totalAdvDepositsCutoff = feePaymentsCutoff.Sum(p => p.AdvanceDepositAmount);
+        decimal totalAdvAdjustedCutoff = cutoffInvoices
+            .Where(i => i.Payments != null)
+            .SelectMany(i => i.Payments!)
+            .Where(p => !p.IsReversed && p.IsAdvanceAdjustment && p.PaymentDate <= cutoff)
+            .Sum(p => p.AmountPaid);
+        decimal unearnedStudentAdvances = Math.Max(0m, totalAdvDepositsCutoff - totalAdvAdjustedCutoff);
+
+        if (unearnedStudentAdvances > 0)
+        {
+            currentLiabilityItems.Add(new BalanceSheetItemDto(
+                Code: "CL-STUDENT-ADV",
+                Title: "Student Advance Fee Deposits (Unearned Credit)",
+                Amount: unearnedStudentAdvances,
+                Category: "Current Liabilities",
+                IsDynamic: true,
+                Note: "Advance fees paid by parents carried forward for automatic FIFO adjustment in upcoming billing cycles"
+            ));
+        }
+
         var currentLiabilitiesGroup = new BalanceSheetGroupDto("Current Liabilities", currentLiabilityItems.Sum(x => x.Amount), currentLiabilityItems);
 
         // ─── D. LONG-TERM LIABILITIES ───────────────────────────────────
@@ -789,7 +827,7 @@ public class FinanceController : ControllerBase
         // ─── E. CAPITAL & EQUITY ────────────────────────────────────────
         // Operational Accrual Surplus up to cutoff date:
         // Revenue (Cash + Bank fees + Library fines + Kit sales + Accounts Receivable) - Gross Salaries - Operating Expenses (including vendor supplies)
-        decimal totalAccrualRevenueAllTime = (cashFeeCollected + bankFeeCollected + cashLibFines + cashKitSales + bankKitSales) + accountsReceivable;
+        decimal totalAccrualRevenueAllTime = (cashFeeCollected + bankFeeCollected - unearnedStudentAdvances + cashLibFines + cashKitSales + bankKitSales) + accountsReceivable;
         decimal totalGrossSalariesAllTime = (cashSalariesPaid + bankSalariesPaid) + totalAdvancesAdjustedInSalaries + totalStatutoryDeductions;
         decimal totalExpensesAllTime = cashExpensesPaid + bankExpensesPaid + cashVendorPaid + bankVendorPaid;
         decimal netProfitSurplus = totalAccrualRevenueAllTime - (totalGrossSalariesAllTime + totalExpensesAllTime);
@@ -1509,7 +1547,7 @@ public class FinanceController : ControllerBase
         var startOfFy = new DateTime(currentFyYear, 4, 1, 0, 0, 0, DateTimeKind.Utc);
 
         // This Month Incomes (Fee Payments + Kit Sales)
-        var feeQueryMonth = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startOfMonth);
+        var feeQueryMonth = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && !p.IsAdvanceAdjustment && p.PaymentDate >= startOfMonth);
         if (branchId.HasValue && branchId.Value != Guid.Empty) feeQueryMonth = feeQueryMonth.Where(p => p.BranchId == branchId.Value);
         decimal feeIncomeThisMonth = await feeQueryMonth.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
 
@@ -1538,7 +1576,7 @@ public class FinanceController : ControllerBase
         decimal totalDues = await duesQuery.SumAsync(i => (decimal?)(i.TotalAmount - i.PaidAmount)) ?? 0m;
 
         // Cash & Bank Balances (incorporating inventory kit sales and supplier payments)
-        var cashCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.Mode == PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var cashCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && !p.IsAdvanceAdjustment && p.Mode == PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var cashRefunds = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.IsReversed && p.ReversalType == "RefundToParent" && (p.RefundMode == "Cash" || p.Mode == PaymentMode.Cash) && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var cashLibFines = await _dbContext.LibraryCirculations.Where(c => c.TenantId == tenantId && c.FineStatus == "Paid" && (!branchId.HasValue || c.BranchId == branchId.Value)).SumAsync(c => (decimal?)c.FineAmount) ?? 0m;
         var cashSalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentMode == SalaryPaymentMode.Cash && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
@@ -1560,7 +1598,7 @@ public class FinanceController : ControllerBase
         var cashLedger = await _dbContext.AccountLedgers.FirstOrDefaultAsync(l => l.TenantId == tenantId && l.AccountCode == "CASH-MAIN");
         decimal cashBalance = Math.Max(0m, (cashLedger?.OpeningBalance ?? 0m) + cashCollected + cashLibFines + cashKitSales + cashVendorRefunds - cashSalaries - cashAdvances - cashExpenses - cashRefunds - cashVendorPaid - allKitRefunds);
 
-        var bankCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.Mode != PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
+        var bankCollected = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && !p.IsAdvanceAdjustment && p.Mode != PaymentMode.Cash && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var bankRefunds = await _dbContext.FeePayments.Where(p => p.TenantId == tenantId && p.IsReversed && p.ReversalType == "RefundToParent" && (p.RefundMode != "Cash" && p.Mode != PaymentMode.Cash) && (!branchId.HasValue || p.BranchId == branchId.Value)).SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var bankSalaries = await _dbContext.TeacherSalaryPayments.Include(s => s.Teacher).Where(s => s.TenantId == tenantId && s.PaymentMode != SalaryPaymentMode.Cash && (!branchId.HasValue || (s.Teacher != null && s.Teacher.BranchId == branchId.Value))).SumAsync(s => (decimal?)s.NetPaid) ?? 0m;
         var bankExpenses = await _dbContext.ExpenseVouchers.Where(v => v.TenantId == tenantId && v.PaymentMode != ExpensePaymentMode.Cash && (!branchId.HasValue || v.BranchId == branchId.Value)).SumAsync(v => (decimal?)v.Amount) ?? 0m;
@@ -1568,7 +1606,7 @@ public class FinanceController : ControllerBase
         decimal bankBalance = Math.Max(0m, (bankLedger?.OpeningBalance ?? 0m) + bankCollected + bankKitSales + bankVendorRefunds - bankSalaries - bankExpenses - bankRefunds - bankVendorPaid);
 
         // Current FY Revenue & Expenses (including Inventory)
-        var fyFeeQuery = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startOfFy && (!branchId.HasValue || p.BranchId == branchId.Value));
+        var fyFeeQuery = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && !p.IsAdvanceAdjustment && p.PaymentDate >= startOfFy && (!branchId.HasValue || p.BranchId == branchId.Value));
         decimal fyFeeIncome = await fyFeeQuery.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
         var fyKitQuery = _dbContext.InventoryOutwards.Where(o => o.TenantId == tenantId && o.PaymentStatus == "Paid" && o.IssueDate >= startOfFy && (!branchId.HasValue || o.BranchId == branchId.Value));
         decimal fyKitIncome = await fyKitQuery.SumAsync(o => (decimal?)o.TotalAmount) ?? 0m;
@@ -1658,7 +1696,7 @@ public class FinanceController : ControllerBase
         decimal bankOpening = bankLedger?.OpeningBalance ?? 0m;
 
         // Inflows prior to startUtc
-        var priorFees = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate < startUtc);
+        var priorFees = _dbContext.FeePayments.Where(p => p.TenantId == tenantId && !p.IsReversed && !p.IsAdvanceAdjustment && p.PaymentDate < startUtc);
         if (branchId.HasValue && branchId.Value != Guid.Empty) priorFees = priorFees.Where(p => p.BranchId == branchId.Value);
         decimal priorFeeCollected = await priorFees.SumAsync(p => (decimal?)p.AmountPaid) ?? 0m;
 
@@ -1710,7 +1748,7 @@ public class FinanceController : ControllerBase
                 .ThenInclude(i => i!.Student)
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Class)
-            .Where(p => p.TenantId == tenantId && !p.IsReversed && p.PaymentDate >= startUtc && p.PaymentDate <= endUtc);
+            .Where(p => p.TenantId == tenantId && !p.IsReversed && !p.IsAdvanceAdjustment && p.PaymentDate >= startUtc && p.PaymentDate <= endUtc);
 
         if (branchId.HasValue && branchId.Value != Guid.Empty)
         {
@@ -1752,7 +1790,8 @@ public class FinanceController : ControllerBase
 
             string studentInfo = stu != null ? $"{stu.StudentName} (Roll: {stu.RollNumber ?? stu.AdmissionNumber ?? "N/A"})" : "Student";
             string classOrBatch = inv?.ClassName != null ? $"Class: {inv.ClassName}" : (inv?.Class != null ? $"Class: {inv.Class.Name}" : "Academic");
-            string particulars = $"{studentInfo} • {classOrBatch} Fee Settlement";
+            string advSuffix = p.AdvanceDepositAmount > 0 ? $" (Includes ₹{p.AdvanceDepositAmount:N2} Advance Paid)" : "";
+            string particulars = $"{studentInfo} • {classOrBatch} Fee Settlement{advSuffix}";
 
             transactions.Add(new DayBookTransactionDto
             {

@@ -430,6 +430,18 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE FeePayments ADD VerifiedBy NVARCHAR(100) NULL;
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'VerifiedAt')
                         ALTER TABLE FeePayments ADD VerifiedAt DATETIME2 NULL;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'AdvanceDepositAmount')
+                        ALTER TABLE FeePayments ADD AdvanceDepositAmount DECIMAL(18,2) NOT NULL DEFAULT 0;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeePayments') AND name = 'IsAdvanceAdjustment')
+                        ALTER TABLE FeePayments ADD IsAdvanceAdjustment BIT NOT NULL DEFAULT 0;
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'AdvanceAdjustedAmount')
+                        ALTER TABLE FeeInvoices ADD AdvanceAdjustedAmount DECIMAL(18,2) NOT NULL DEFAULT 0;
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoices') AND name = 'AdvanceAdjustedFromReceipt')
+                        ALTER TABLE FeeInvoices ADD AdvanceAdjustedFromReceipt NVARCHAR(100) NULL;
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'AdvanceBalance')
+                        ALTER TABLE Students ADD AdvanceBalance DECIMAL(18,2) NOT NULL DEFAULT 0;
 
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('FeeInvoiceItems') AND name = 'Description')
                         ALTER TABLE FeeInvoiceItems ADD Description NVARCHAR(300) NULL;

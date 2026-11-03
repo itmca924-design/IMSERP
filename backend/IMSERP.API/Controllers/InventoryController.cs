@@ -1124,13 +1124,12 @@ public class InventoryController : ControllerBase
 
         _db.InventoryOutwards.Add(outward);
 
-        // If marked as 'AddedToFeeBill' or 'Unpaid' for a student, auto-generate a pending FeeInvoice attached to the student
+        // If marked as 'AddedToFeeBill' or 'Unpaid' for a student, auto-generate a FeeInvoice attached to the student (and auto-adjust FIFO if student has AdvanceBalance > 0)
         if ((dto.PaymentStatus == "AddedToFeeBill" || dto.PaymentStatus == "Unpaid") && dto.StudentId.HasValue && totalAmount > 0)
         {
             var student = await _db.Students
                 .Include(s => s.Class)
                 .Include(s => s.Section)
-                .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == dto.StudentId.Value && s.TenantId == tenantId);
 
             var storeInvoice = new FeeInvoice
@@ -1165,6 +1164,52 @@ public class InventoryController : ControllerBase
                     Amount = oi.TotalAmount,
                     PaidAmount = 0,
                     CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            // Automatic FIFO Advance Adjustment if student has AdvanceBalance > 0
+            if (student != null && student.AdvanceBalance > 0)
+            {
+                decimal applyAdv = Math.Min(student.AdvanceBalance, totalAmount);
+                student.AdvanceBalance -= applyAdv;
+
+                var latestAdvPmt = await _db.FeePayments
+                    .AsNoTracking()
+                    .Include(p => p.Invoice)
+                    .Where(p => !p.IsReversed && p.AdvanceDepositAmount > 0 && p.Invoice != null && p.Invoice.StudentId == student.Id)
+                    .OrderByDescending(p => p.PaymentDate)
+                    .FirstOrDefaultAsync();
+
+                string srcReceipt = latestAdvPmt?.ReceiptNumber ?? "ADVANCE-WALLET";
+                PaymentMode srcMode = latestAdvPmt?.Mode ?? PaymentMode.Cash;
+
+                storeInvoice.PaidAmount = applyAdv;
+                storeInvoice.AdvanceAdjustedAmount = applyAdv;
+                storeInvoice.AdvanceAdjustedFromReceipt = srcReceipt;
+                storeInvoice.Status = storeInvoice.PaidAmount >= storeInvoice.TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.Partial;
+
+                decimal remItem = applyAdv;
+                foreach (var it in storeInvoice.Items)
+                {
+                    if (remItem <= 0) break;
+                    decimal alloc = Math.Min(remItem, it.Amount);
+                    it.PaidAmount = alloc;
+                    remItem -= alloc;
+                }
+
+                _db.FeePayments.Add(new FeePayment
+                {
+                    TenantId = tenantId,
+                    BranchId = storeInvoice.BranchId,
+                    InvoiceId = storeInvoice.Id,
+                    ReceiptNumber = $"ADV-{DateTime.UtcNow:yyyyMMddHHmmss}-{Random.Shared.Next(100, 999)}",
+                    AmountPaid = applyAdv,
+                    AdvanceDepositAmount = 0m,
+                    IsAdvanceAdjustment = true,
+                    Mode = srcMode,
+                    TransactionRef = srcReceipt,
+                    Remarks = $"Advance Paid (FIFO Auto-Adjusted on Store Issue #{issueNumber} from Receipt #{srcReceipt})",
+                    PaymentDate = DateTime.UtcNow
                 });
             }
 
@@ -1223,19 +1268,43 @@ public class InventoryController : ControllerBase
             ? $"[CANCELLED & STOCK RESTORED on {DateTime.UtcNow:yyyy-MM-dd}] Reason: {dto?.Reason ?? "Cancelled by user"}"
             : $"{outward.Remarks} [CANCELLED & STOCK RESTORED on {DateTime.UtcNow:yyyy-MM-dd}: {dto?.Reason ?? "Cancelled"}]";
 
-        // 3. If student had a pending kit FeeInvoice, cancel it
+        // 3. If student had a kit FeeInvoice, cancel it and restore any FIFO AdvanceAdjustedAmount back to Student.AdvanceBalance
         if (outward.StudentId.HasValue)
         {
+            var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == outward.StudentId.Value && s.TenantId == tenantId);
             var kitInvoices = await _db.FeeInvoices
+                .Include(i => i.Items)
+                .Include(i => i.Payments)
                 .Where(i => i.StudentId == outward.StudentId.Value &&
                             i.TenantId == tenantId &&
                             i.InvoiceCategory == "Inventory" &&
-                            i.Status == InvoiceStatus.Pending &&
-                            (i.Title.Contains(outward.IssueNumber) || i.InvoiceNumber.Contains(outward.IssueNumber) || i.Title.Contains("Admission Books")))
+                            i.Status != InvoiceStatus.Cancelled &&
+                            (i.Title.Contains(outward.IssueNumber) || i.InvoiceNumber.Contains(outward.IssueNumber)))
                 .ToListAsync();
 
             foreach (var inv in kitInvoices)
             {
+                if (inv.Payments != null)
+                {
+                    foreach (var p in inv.Payments.Where(x => !x.IsReversed))
+                    {
+                        if (student != null && p.IsAdvanceAdjustment)
+                        {
+                            student.AdvanceBalance += p.AmountPaid;
+                        }
+                        p.IsReversed = true;
+                        p.ReversedAt = DateTime.UtcNow;
+                        p.ReversedBy = _currentUser.Username ?? "Admin";
+                        p.ReversalType = p.IsAdvanceAdjustment ? "ClericalCorrection" : "RefundToParent";
+                        p.ReversalReason = $"Store Outward {outward.IssueNumber} cancelled";
+                    }
+                }
+                if (inv.Items != null)
+                {
+                    foreach (var it in inv.Items) it.PaidAmount = 0m;
+                }
+                inv.PaidAmount = 0m;
+                inv.AdvanceAdjustedAmount = 0m;
                 inv.Status = InvoiceStatus.Cancelled;
                 inv.CancellationReason = $"Outward issue cancelled: {outward.IssueNumber}";
                 inv.CancelledAt = DateTime.UtcNow;
@@ -2124,6 +2193,50 @@ public class InventoryController : ControllerBase
 
         sReturn.TotalAmount = totalAmount;
         _db.InventorySaleReturns.Add(sReturn);
+
+        // If student returned items and it is NOT a cash refund (e.g., adjusted against fee bill / advance wallet), reconcile linked Inventory invoice or Student.AdvanceBalance
+        if (dto.StudentId.HasValue && totalAmount > 0 && !string.Equals(dto.RefundStatus, "RefundedCash", StringComparison.OrdinalIgnoreCase))
+        {
+            var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == dto.StudentId.Value && s.TenantId == GetEffectiveTenantId());
+            FeeInvoice? linkedStoreInv = null;
+            if (dto.OutwardId.HasValue)
+            {
+                var origOutward = await _db.InventoryOutwards.AsNoTracking().FirstOrDefaultAsync(o => o.Id == dto.OutwardId.Value);
+                if (origOutward != null)
+                {
+                    linkedStoreInv = await _db.FeeInvoices
+                        .Include(i => i.Items)
+                        .FirstOrDefaultAsync(i => i.StudentId == dto.StudentId.Value &&
+                                                  i.Status != InvoiceStatus.Cancelled &&
+                                                  i.InvoiceCategory == "Inventory" &&
+                                                  i.Title.Contains(origOutward.IssueNumber));
+                }
+            }
+
+            if (linkedStoreInv != null)
+            {
+                decimal newInvTotal = Math.Max(0m, linkedStoreInv.TotalAmount - totalAmount);
+                linkedStoreInv.TotalAmount = newInvTotal;
+                if (linkedStoreInv.PaidAmount > newInvTotal)
+                {
+                    decimal excessPaid = linkedStoreInv.PaidAmount - newInvTotal;
+                    linkedStoreInv.PaidAmount = newInvTotal;
+                    if (student != null)
+                    {
+                        student.AdvanceBalance += excessPaid;
+                    }
+                }
+                linkedStoreInv.Status = newInvTotal == 0m
+                    ? InvoiceStatus.Cancelled
+                    : (linkedStoreInv.PaidAmount >= newInvTotal ? InvoiceStatus.Paid : (linkedStoreInv.PaidAmount > 0 ? InvoiceStatus.Partial : InvoiceStatus.Pending));
+                if (newInvTotal == 0m)
+                {
+                    linkedStoreInv.CancellationReason = $"Items returned via Sale Return {returnNo}";
+                    linkedStoreInv.CancelledAt = DateTime.UtcNow;
+                }
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "Kit / Sale return recorded successfully.", returnNumber = returnNo });

@@ -224,6 +224,21 @@ public class FeesController : ControllerBase
             if (!isOwn) return Forbid();
         }
 
+        // If student has an AdvanceBalance credit and any unpaid invoices exist, auto-settle them in FIFO order immediately
+        if (student.AdvanceBalance > 0)
+        {
+            bool settledAny = await AutoSettleStudentAdvanceFifoAsync(studentId);
+            if (settledAny)
+            {
+                student = await _dbContext.Students
+                    .AsNoTracking()
+                    .Include(s => s.Batch)
+                        .ThenInclude(b => b!.Branch)
+                    .Include(s => s.Branch)
+                    .FirstOrDefaultAsync(s => s.Id == studentId) ?? student;
+            }
+        }
+
         var ledgerBranchName = student.Branch?.Name ?? student.Batch?.Branch?.Name;
         if (string.IsNullOrEmpty(ledgerBranchName))
         {
@@ -266,7 +281,9 @@ public class FeesController : ControllerBase
             i.Status.ToString(),
             i.CancellationReason,
             i.CancelledAt,
-            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount, it.Description)).ToList()
+            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount, it.Description)).ToList(),
+            i.AdvanceAdjustedAmount,
+            i.AdvanceAdjustedFromReceipt
         )).ToList();
 
         var activePayments = payments.Where(p => !p.IsReversed).ToList();
@@ -288,7 +305,9 @@ public class FeesController : ControllerBase
             p.ReversalType,
             p.RefundMode,
             p.RefundRecipient,
-            p.RefundReference
+            p.RefundReference,
+            p.AdvanceDepositAmount,
+            p.IsAdvanceAdjustment
         )).ToList();
 
         var reversedPaymentDtos = reversedPayments.Select(p => new StudentLedgerPaymentItemDto(
@@ -307,13 +326,16 @@ public class FeesController : ControllerBase
             p.ReversalType,
             p.RefundMode,
             p.RefundRecipient,
-            p.RefundReference
+            p.RefundReference,
+            p.AdvanceDepositAmount,
+            p.IsAdvanceAdjustment
         )).ToList();
 
         // Calculations exclude Cancelled invoices — cancelled invoices show in ledger but don't affect totals
         var totalCharged = activeInvoices.Sum(i => i.TotalAmount);
-        var totalPaid = activeInvoices.Sum(i => i.PaidAmount);
-        var totalDue = totalCharged - totalPaid;
+        var totalSettledOnInvoices = activeInvoices.Sum(i => i.PaidAmount);
+        var totalPaid = totalSettledOnInvoices + student.AdvanceBalance;
+        var totalDue = Math.Max(0m, totalCharged - totalSettledOnInvoices);
 
         var pendingLibFine = await _dbContext.LibraryCirculations
             .Where(c => c.StudentId == studentId && c.FineStatus == "Pending")
@@ -334,13 +356,98 @@ public class FeesController : ControllerBase
             paymentDtos,
             pendingLibFine,
             ledgerBranchName,
-            reversedPaymentDtos
+            reversedPaymentDtos,
+            student.AdvanceBalance
         ));
+    }
+
+    private async Task<bool> AutoSettleStudentAdvanceFifoAsync(Guid studentId)
+    {
+        var trackedStudent = await _dbContext.Students.FirstOrDefaultAsync(s => s.Id == studentId);
+        if (trackedStudent == null || trackedStudent.AdvanceBalance <= 0) return false;
+
+        var unpaidInvoices = await _dbContext.FeeInvoices
+            .Include(i => i.Items)
+            .Where(i => i.StudentId == studentId &&
+                        i.Status != InvoiceStatus.Paid &&
+                        i.Status != InvoiceStatus.Cancelled &&
+                        (i.TotalAmount - i.PaidAmount) > 0)
+            .OrderBy(i => i.DueDate)
+            .ThenBy(i => i.CreatedAt)
+            .ToListAsync();
+
+        if (unpaidInvoices.Count == 0) return false;
+
+        var latestAdvPayment = await _dbContext.FeePayments
+            .AsNoTracking()
+            .Include(p => p.Invoice)
+            .Where(p => !p.IsReversed && p.AdvanceDepositAmount > 0 && p.Invoice != null && p.Invoice.StudentId == studentId)
+            .OrderByDescending(p => p.PaymentDate)
+            .FirstOrDefaultAsync();
+
+        string srcReceipt = latestAdvPayment?.ReceiptNumber ?? "ADVANCE-WALLET";
+        PaymentMode srcMode = latestAdvPayment?.Mode ?? PaymentMode.Cash;
+
+        bool modified = false;
+        foreach (var inv in unpaidInvoices)
+        {
+            if (trackedStudent.AdvanceBalance <= 0) break;
+            decimal due = inv.TotalAmount - inv.PaidAmount;
+            if (due <= 0) continue;
+
+            decimal apply = Math.Min(trackedStudent.AdvanceBalance, due);
+            trackedStudent.AdvanceBalance -= apply;
+            inv.PaidAmount += apply;
+            inv.AdvanceAdjustedAmount += apply;
+            if (string.IsNullOrWhiteSpace(inv.AdvanceAdjustedFromReceipt))
+            {
+                inv.AdvanceAdjustedFromReceipt = srcReceipt;
+            }
+            inv.Status = inv.PaidAmount >= inv.TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.Partial;
+
+            if (inv.Items != null && inv.Items.Count > 0)
+            {
+                decimal remItem = apply;
+                foreach (var it in inv.Items.Where(x => x.Amount > 0))
+                {
+                    if (remItem <= 0) break;
+                    decimal itDue = it.Amount - it.PaidAmount;
+                    if (itDue <= 0) continue;
+                    decimal alloc = Math.Min(remItem, itDue);
+                    it.PaidAmount += alloc;
+                    remItem -= alloc;
+                }
+            }
+
+            _dbContext.FeePayments.Add(new FeePayment
+            {
+                TenantId = trackedStudent.TenantId,
+                BranchId = inv.BranchId ?? trackedStudent.BranchId,
+                InvoiceId = inv.Id,
+                ReceiptNumber = $"ADV-{DateTime.UtcNow:yyyyMMddHHmmss}-{Random.Shared.Next(100, 999)}",
+                AmountPaid = apply,
+                AdvanceDepositAmount = 0m,
+                IsAdvanceAdjustment = true,
+                Mode = srcMode,
+                TransactionRef = srcReceipt,
+                Remarks = $"Advance Paid (FIFO Auto-Adjusted from Receipt #{srcReceipt})",
+                PaymentDate = DateTime.UtcNow
+            });
+            modified = true;
+        }
+
+        if (modified)
+        {
+            await _dbContext.SaveChangesAsync();
+        }
+        return modified;
     }
 
     [HttpGet("student-fee-card/{studentId}")]
     public async Task<ActionResult<StudentFeeCardDto>> GetStudentFeeCard(Guid studentId, [FromQuery] int? sessionStartYear)
     {
+        await AutoSettleStudentAdvanceFifoAsync(studentId);
+
         var student = await _dbContext.Students
             .AsNoTracking()
             .Include(s => s.Class)
@@ -771,6 +878,11 @@ public class FeesController : ControllerBase
             }
         }
 
+        decimal remainingAdvanceForPassbook = student.AdvanceBalance;
+        var latestAdvForPassbook = student.AdvanceBalance > 0
+            ? payments.FirstOrDefault(p => !p.IsReversed && p.AdvanceDepositAmount > 0)
+            : null;
+
         for (int i = 1; i <= 12; i++)
         {
             int calMonth = i <= 9 ? i + 3 : i - 9;
@@ -858,8 +970,34 @@ public class FeesController : ControllerBase
             else
             {
                 bool isFuture = monthDate > currentMonthStart;
-                string status = isFuture ? "Upcoming" : "Due";
-                decimal balanceDue = isFuture ? 0m : netMonthlyFeeRate;
+                decimal advAppliedToMonth = 0m;
+                if (remainingAdvanceForPassbook > 0 && netMonthlyFeeRate > 0)
+                {
+                    advAppliedToMonth = Math.Min(remainingAdvanceForPassbook, netMonthlyFeeRate);
+                    remainingAdvanceForPassbook -= advAppliedToMonth;
+                }
+
+                string status;
+                decimal balanceDue;
+                string? monthAdvRemarks = null;
+                string? monthAdvReceipt = null;
+                DateTime? monthAdvDate = null;
+                string? monthAdvMode = null;
+
+                if (advAppliedToMonth > 0)
+                {
+                    status = advAppliedToMonth >= netMonthlyFeeRate ? "Paid" : "PartiallyPaid";
+                    balanceDue = Math.Max(0m, netMonthlyFeeRate - advAppliedToMonth);
+                    monthAdvReceipt = latestAdvForPassbook?.ReceiptNumber;
+                    monthAdvDate = latestAdvForPassbook != null ? DateTime.SpecifyKind(latestAdvForPassbook.PaymentDate, DateTimeKind.Utc) : null;
+                    monthAdvMode = latestAdvForPassbook != null ? FormatPaymentMode(latestAdvForPassbook.Mode) : "Advance";
+                    monthAdvRemarks = $"Advance Paid (FIFO Credit: ₹{advAppliedToMonth:N0})" + (!string.IsNullOrWhiteSpace(monthAdvReceipt) ? $" [Ref: #{monthAdvReceipt}]" : "");
+                }
+                else
+                {
+                    status = isFuture ? "Upcoming" : "Due";
+                    balanceDue = isFuture ? 0m : netMonthlyFeeRate;
+                }
 
                 monthsList.Add(new FeeCardMonthEntryDto(
                     i,
@@ -871,13 +1009,13 @@ public class FeesController : ControllerBase
                     grossMonthlyFeeRate,
                     recurringMonthlyConcession,
                     netMonthlyFeeRate,
-                    0m,
+                    advAppliedToMonth,
                     balanceDue,
                     null,
-                    null,
-                    null,
-                    null,
-                    null,
+                    monthAdvReceipt,
+                    monthAdvDate,
+                    monthAdvMode,
+                    monthAdvRemarks,
                     0m,
                     monthlyBreakdownNote
                 ));
@@ -1094,7 +1232,7 @@ public class FeesController : ControllerBase
                 libraryFineToCollect = selectedCirculations.Sum(c => c.FineAmount);
             }
 
-            if (unpaidInvoices.Count == 0 && libraryFineToCollect == 0)
+            if (unpaidInvoices.Count == 0 && libraryFineToCollect == 0 && dto.AmountPaid <= 0)
             {
                 return BadRequest(new { message = "This student has zero outstanding due fees or library fines!" });
             }
@@ -1189,6 +1327,70 @@ public class FeesController : ControllerBase
                 }
             }
 
+            decimal advanceDepositNow = Math.Max(0m, tuitionToAllocate - tuitionAllocatedTotal);
+            if (advanceDepositNow > 0)
+            {
+                student.AdvanceBalance += advanceDepositNow;
+                if (lastPayment != null)
+                {
+                    lastPayment.AmountPaid += advanceDepositNow;
+                    lastPayment.AdvanceDepositAmount = advanceDepositNow;
+                    if (string.IsNullOrWhiteSpace(lastPayment.Remarks))
+                        lastPayment.Remarks = $"Includes Advance Paid ₹{advanceDepositNow:N2} (FIFO Carry-Forward)";
+                    else if (!lastPayment.Remarks.Contains("Advance", StringComparison.OrdinalIgnoreCase))
+                        lastPayment.Remarks += $" | Includes Advance Paid ₹{advanceDepositNow:N2}";
+                }
+                else
+                {
+                    // Student had zero unpaid invoices and made a pure Advance Fee deposit
+                    var latestInv = await _dbContext.FeeInvoices
+                        .Where(i => i.StudentId == student.Id && i.Status != InvoiceStatus.Cancelled)
+                        .OrderByDescending(i => i.DueDate)
+                        .FirstOrDefaultAsync();
+
+                    if (latestInv == null)
+                    {
+                        latestInv = new FeeInvoice
+                        {
+                            TenantId = _currentUser.TenantId,
+                            BranchId = student.BranchId ?? _currentUser.BranchId,
+                            StudentId = student.Id,
+                            ClassId = student.ClassId,
+                            ClassName = student.Class?.Name,
+                            SectionId = student.SectionId,
+                            SectionName = student.Section?.Name,
+                            InvoiceNumber = $"INV-ADV-{DateTime.UtcNow:yyyyMMdd}-{new Random().Next(100, 999)}",
+                            Title = $"{DateTime.UtcNow:MMMM yyyy} Advance Fee Wallet",
+                            InvoiceCategory = student.IsSchoolStudent && student.IsCoachingStudent ? "Integrated" : (student.IsSchoolStudent ? "School" : "Coaching"),
+                            TotalAmount = 0m,
+                            PaidAmount = 0m,
+                            DueDate = DateTime.UtcNow,
+                            Status = InvoiceStatus.Paid,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _dbContext.FeeInvoices.Add(latestInv);
+                        await _dbContext.SaveChangesAsync();
+                    }
+
+                    var advPayment = new FeePayment
+                    {
+                        TenantId = _currentUser.TenantId,
+                        BranchId = latestInv.BranchId ?? student.BranchId ?? _currentUser.BranchId,
+                        InvoiceId = latestInv.Id,
+                        ReceiptNumber = receiptNo,
+                        AmountPaid = advanceDepositNow,
+                        AdvanceDepositAmount = advanceDepositNow,
+                        IsAdvanceAdjustment = false,
+                        Mode = dto.Mode,
+                        TransactionRef = dto.TransactionRef,
+                        Remarks = !string.IsNullOrWhiteSpace(dto.Remarks) ? dto.Remarks : $"Advance Fee Deposit ₹{advanceDepositNow:N2} (Auto-adjusts in next month's bill via FIFO)",
+                        PaymentDate = DateTime.UtcNow
+                    };
+                    _dbContext.FeePayments.Add(advPayment);
+                    lastPayment = advPayment;
+                }
+            }
+
             if (finePaidNow > 0)
             {
                 foreach (var circ in selectedCirculations)
@@ -1229,7 +1431,7 @@ public class FeesController : ControllerBase
                 ))
                 .ToList();
 
-            decimal totalDemandBeforePayment = dto.AmountPaid + totalOutstandingDue;
+            decimal totalDemandBeforePayment = (dto.AmountPaid - advanceDepositNow) + totalOutstandingDue;
 
             // Construct Line Items for Receipt with actual Fee Heads
             var lineItems = new List<FeeReceiptLineItemDto>();
@@ -1322,6 +1524,17 @@ public class FeesController : ControllerBase
                 ));
             }
 
+            if (advanceDepositNow > 0)
+            {
+                lineItems.Add(new FeeReceiptLineItemDto(
+                    lineItems.Count + 1,
+                    "Advance Fee Paid (Carried Forward)",
+                    "Excess Advance Credit — Auto-Adjusts in Next Month's Fee Bill (FIFO)",
+                    receiptNo,
+                    advanceDepositNow
+                ));
+            }
+
             var autoSettings = await _dbContext.AutomationSettings
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
@@ -1381,6 +1594,15 @@ public class FeesController : ControllerBase
             }
             string feePeriod = paidPeriods.Count > 0 ? string.Join(", ", paidPeriods) : DateTime.UtcNow.ToString("MMMM yyyy");
 
+            decimal totalAdvAdjustedOnPaidInvoices = allocatedInvoicesList
+                .Select(x => x.Invoice)
+                .DistinctBy(i => i.Id)
+                .Sum(i => i.AdvanceAdjustedAmount);
+            string? advAdjustedRefOnPaidInvoices = string.Join(", ", allocatedInvoicesList
+                .Select(x => x.Invoice.AdvanceAdjustedFromReceipt)
+                .Where(r => !string.IsNullOrWhiteSpace(r))
+                .Distinct());
+
             return Ok(new FeePaymentReceiptDto(
                 lastPayment?.Id ?? (selectedCirculations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
                 receiptNo,
@@ -1389,7 +1611,7 @@ public class FeesController : ControllerBase
                 student.Batch?.Name ?? "",
                 student.ParentName,
                 student.ParentWhatsAppPhone,
-                unpaidInvoices.Count > 1 ? "FIFO Multi-Invoice Settlement" : (unpaidInvoices.FirstOrDefault()?.InvoiceNumber ?? "Library Fine Settlement"),
+                unpaidInvoices.Count > 1 ? "FIFO Multi-Invoice Settlement" : (unpaidInvoices.FirstOrDefault()?.InvoiceNumber ?? (advanceDepositNow > 0 ? "Advance Fee Deposit" : "Library Fine Settlement")),
                 dto.AmountPaid,
                 totalOutstandingDue,
                 DateTime.UtcNow,
@@ -1416,7 +1638,11 @@ public class FeesController : ControllerBase
                 totalDemandBeforePayment,
                 feePeriod,
                 tenant?.OfficialSeal,
-                tenant?.DigitalSignature
+                tenant?.DigitalSignature,
+                advanceDepositNow,
+                totalAdvAdjustedOnPaidInvoices,
+                !string.IsNullOrWhiteSpace(advAdjustedRefOnPaidInvoices) ? advAdjustedRefOnPaidInvoices : null,
+                student.AdvanceBalance
             ));
         });
     }
@@ -1469,9 +1695,10 @@ public class FeesController : ControllerBase
         var firstPayment = payments.FirstOrDefault();
         var student = firstPayment?.Invoice?.Student ?? circulations.FirstOrDefault()?.Student;
 
-        decimal totalTuitionPaid = payments.Sum(p => p.AmountPaid);
+        decimal totalAdvanceDeposit = payments.Sum(p => p.AdvanceDepositAmount);
+        decimal totalTuitionPaid = payments.Sum(p => Math.Max(0m, p.AmountPaid - p.AdvanceDepositAmount));
         decimal totalFinePaid = circulations.Sum(c => c.FineAmount);
-        decimal grandTotalPaid = totalTuitionPaid + totalFinePaid;
+        decimal grandTotalPaid = payments.Sum(p => p.AmountPaid) + totalFinePaid;
 
         var remainingDue = student != null
             ? await _dbContext.FeeInvoices
@@ -1505,16 +1732,19 @@ public class FeesController : ControllerBase
             ))
             .ToList();
 
-        decimal totalDemandBeforePayment = grandTotalPaid + remainingDue;
+        decimal totalDemandBeforePayment = (grandTotalPaid - totalAdvanceDeposit) + remainingDue;
 
         var lineItems = new List<FeeReceiptLineItemDto>();
         if (totalTuitionPaid > 0)
         {
             foreach (var p in payments)
             {
+                decimal invoiceAllocPart = Math.Max(0m, p.AmountPaid - p.AdvanceDepositAmount);
+                if (invoiceAllocPart <= 0) continue;
+
                 if (p.Invoice?.Items != null && p.Invoice.Items.Count > 0)
                 {
-                    decimal remainingAlloc = p.AmountPaid;
+                    decimal remainingAlloc = invoiceAllocPart;
                     var itemsList = p.Invoice.Items.Where(it => it.Amount > 0).ToList();
                     decimal totalPositiveAmt = itemsList.Sum(it => it.Amount);
                     for (int idx = 0; idx < itemsList.Count; idx++)
@@ -1528,7 +1758,7 @@ public class FeesController : ControllerBase
                         else
                         {
                             itShare = totalPositiveAmt > 0
-                                ? Math.Round(p.AmountPaid * (it.Amount / totalPositiveAmt), 2)
+                                ? Math.Round(invoiceAllocPart * (it.Amount / totalPositiveAmt), 2)
                                 : it.Amount;
                             if (itShare > remainingAlloc) itShare = remainingAlloc;
                         }
@@ -1536,10 +1766,15 @@ public class FeesController : ControllerBase
 
                         if (itShare > 0)
                         {
+                            string baseSub = FormatReceiptItemSubtitle(it.HeadName, p.Invoice.Title, it.Description);
+                            if (p.IsAdvanceAdjustment)
+                            {
+                                baseSub = $"{baseSub} • Advance Paid (FIFO Auto-Adjusted)";
+                            }
                             lineItems.Add(new FeeReceiptLineItemDto(
                                 lineItems.Count + 1,
                                 it.HeadName,
-                                FormatReceiptItemSubtitle(it.HeadName, p.Invoice.Title, it.Description),
+                                baseSub,
                                 p.Invoice.InvoiceNumber,
                                 itShare
                             ));
@@ -1551,12 +1786,23 @@ public class FeesController : ControllerBase
                     lineItems.Add(new FeeReceiptLineItemDto(
                         lineItems.Count + 1,
                         p.Invoice?.Title ?? "Tuition & Coaching Fee Settlement",
-                        p.Remarks ?? "Monthly Tuition Fee installment",
+                        p.IsAdvanceAdjustment ? "Advance Paid (FIFO Auto-Adjusted)" : (p.Remarks ?? "Monthly Tuition Fee installment"),
                         p.Invoice?.InvoiceNumber ?? "Tuition Fee",
-                        p.AmountPaid
+                        invoiceAllocPart
                     ));
                 }
             }
+        }
+
+        if (totalAdvanceDeposit > 0)
+        {
+            lineItems.Add(new FeeReceiptLineItemDto(
+                lineItems.Count + 1,
+                "Advance Fee Paid (Carried Forward)",
+                "Excess Advance Credit — Auto-Adjusts in Next Month's Fee Bill (FIFO)",
+                receiptNumber,
+                totalAdvanceDeposit
+            ));
         }
 
         if (totalFinePaid > 0)
@@ -1605,6 +1851,16 @@ public class FeesController : ControllerBase
             .ToList();
         string feePeriodRec = receiptPeriods.Count > 0 ? string.Join(", ", receiptPeriods) : (firstPayment?.PaymentDate ?? DateTime.UtcNow).ToString("MMMM yyyy");
 
+        decimal totalAdvAdjustedRec = payments
+            .Where(p => p.Invoice != null)
+            .Select(p => p.Invoice!)
+            .DistinctBy(i => i.Id)
+            .Sum(i => i.AdvanceAdjustedAmount);
+        string? advAdjustedRefRec = string.Join(", ", payments
+            .Where(p => p.Invoice != null && !string.IsNullOrWhiteSpace(p.Invoice.AdvanceAdjustedFromReceipt))
+            .Select(p => p.Invoice!.AdvanceAdjustedFromReceipt)
+            .Distinct());
+
         return Ok(new FeePaymentReceiptDto(
             firstPayment?.Id ?? (circulations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
             receiptNumber,
@@ -1640,7 +1896,11 @@ public class FeesController : ControllerBase
             totalDemandBeforePayment,
             feePeriodRec,
             tenant?.OfficialSeal,
-            tenant?.DigitalSignature
+            tenant?.DigitalSignature,
+            totalAdvanceDeposit,
+            totalAdvAdjustedRec,
+            !string.IsNullOrWhiteSpace(advAdjustedRefRec) ? advAdjustedRefRec : null,
+            student?.AdvanceBalance ?? 0m
         ));
     }
 
@@ -1690,6 +1950,11 @@ public class FeesController : ControllerBase
 
         if (student == null) return NotFound("Student not found");
 
+        if (student.AdvanceBalance > 0)
+        {
+            await AutoSettleStudentAdvanceFifoAsync(studentId);
+        }
+
         var query = _dbContext.FeeInvoices
             .AsNoTracking()
             .Include(i => i.Items)
@@ -1710,7 +1975,9 @@ public class FeesController : ControllerBase
             i.TotalAmount,
             i.PaidAmount,
             i.TotalAmount - i.PaidAmount,
-            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount, it.Description)).ToList()
+            i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount, it.Description)).ToList(),
+            i.AdvanceAdjustedAmount,
+            i.AdvanceAdjustedFromReceipt
         )).ToList();
 
         var totalDue = items.Sum(i => i.DueAmount);
@@ -1758,8 +2025,628 @@ public class FeesController : ControllerBase
             pendingLibFine,
             activeOverdueCount,
             dueSlipHostelInfo,
-            dueSlipBranch
+            dueSlipBranch,
+            student.AdvanceBalance
         ));
+    }
+
+    // ─── Bulk Class-Wise & All Students Fee Receipts & Due Slips (Monthly, Quarterly, Half-Yearly, Yearly) ───
+    [HttpGet("bulk-print-data")]
+    public async Task<ActionResult> GetBulkPrintData(
+        [FromQuery] string cycleType = "Monthly", // Monthly, Quarterly, HalfYearly, Yearly
+        [FromQuery] int? year = null,
+        [FromQuery] int? month = null,
+        [FromQuery] int? quarter = null, // 1=Apr-Jun, 2=Jul-Sep, 3=Oct-Dec, 4=Jan-Mar
+        [FromQuery] int? halfYear = null, // 1=Apr-Sep, 2=Oct-Mar
+        [FromQuery] string? division = null, // all, school, coaching
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? sectionId = null,
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeArrears = true,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDescending = false,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] bool fetchAll = false)
+    {
+        var tenantId = _currentUser.TenantId;
+        var effectiveBranchId = branchId ?? _currentUser.BranchId;
+        var nowIst = DateTime.UtcNow.AddHours(5.5);
+        int baseYear = year ?? (nowIst.Month >= 4 ? nowIst.Year : nowIst.Year - 1);
+
+        var targetMonths = new List<(int Month, int Year)>();
+        string periodLabel = "";
+        var monthNames = new[] { "", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+
+        string cycleNorm = (cycleType ?? "Monthly").Trim().ToLowerInvariant();
+        if (cycleNorm == "quarterly")
+        {
+            int q = quarter ?? 1;
+            if (q == 1)
+            {
+                targetMonths.AddRange(new[] { (4, baseYear), (5, baseYear), (6, baseYear) });
+                periodLabel = $"Quarter 1 (Apr – Jun {baseYear})";
+            }
+            else if (q == 2)
+            {
+                targetMonths.AddRange(new[] { (7, baseYear), (8, baseYear), (9, baseYear) });
+                periodLabel = $"Quarter 2 (Jul – Sep {baseYear})";
+            }
+            else if (q == 3)
+            {
+                targetMonths.AddRange(new[] { (10, baseYear), (11, baseYear), (12, baseYear) });
+                periodLabel = $"Quarter 3 (Oct – Dec {baseYear})";
+            }
+            else
+            {
+                targetMonths.AddRange(new[] { (1, baseYear + 1), (2, baseYear + 1), (3, baseYear + 1) });
+                periodLabel = $"Quarter 4 (Jan – Mar {baseYear + 1})";
+            }
+        }
+        else if (cycleNorm == "halfyearly" || cycleNorm == "half-yearly")
+        {
+            int hy = halfYear ?? 1;
+            if (hy == 1)
+            {
+                for (int m = 4; m <= 9; m++) targetMonths.Add((m, baseYear));
+                periodLabel = $"Half-Yearly Term 1 (Apr – Sep {baseYear})";
+            }
+            else
+            {
+                for (int m = 10; m <= 12; m++) targetMonths.Add((m, baseYear));
+                for (int m = 1; m <= 3; m++) targetMonths.Add((m, baseYear + 1));
+                periodLabel = $"Half-Yearly Term 2 (Oct {baseYear} – Mar {baseYear + 1})";
+            }
+        }
+        else if (cycleNorm == "yearly" || cycleNorm == "annual")
+        {
+            for (int m = 4; m <= 12; m++) targetMonths.Add((m, baseYear));
+            for (int m = 1; m <= 3; m++) targetMonths.Add((m, baseYear + 1));
+            periodLabel = $"Annual Session ({baseYear}–{(baseYear + 1) % 100:D2})";
+        }
+        else
+        {
+            int m = month ?? nowIst.Month;
+            int y = year ?? nowIst.Year;
+            targetMonths.Add((m, y));
+            periodLabel = $"{monthNames[Math.Clamp(m, 1, 12)]} {y}";
+        }
+
+        var firstPair = targetMonths.First();
+        var lastPair = targetMonths.Last();
+        var periodStartUtc = new DateTime(firstPair.Year, firstPair.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEndUtc = new DateTime(lastPair.Year, lastPair.Month, DateTime.DaysInMonth(lastPair.Year, lastPair.Month), 23, 59, 59, DateTimeKind.Utc);
+
+        string? resolvedBranchName = null;
+        if (effectiveBranchId.HasValue)
+        {
+            resolvedBranchName = await _dbContext.Branches.AsNoTracking()
+                .Where(b => b.Id == effectiveBranchId.Value && b.TenantId == tenantId)
+                .Select(b => b.Name)
+                .FirstOrDefaultAsync();
+        }
+        if (string.IsNullOrWhiteSpace(resolvedBranchName))
+        {
+            resolvedBranchName = await _dbContext.Branches.AsNoTracking()
+                .Where(b => b.TenantId == tenantId)
+                .OrderByDescending(b => b.IsMainBranch)
+                .Select(b => b.Name)
+                .FirstOrDefaultAsync();
+        }
+
+        var studentsQuery = _dbContext.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .Where(s => s.TenantId == tenantId && s.IsActive);
+
+        if (effectiveBranchId.HasValue)
+            studentsQuery = studentsQuery.Where(s => s.BranchId == effectiveBranchId.Value);
+
+        if (!string.IsNullOrWhiteSpace(division) && !division.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            if (division.Equals("school", StringComparison.OrdinalIgnoreCase))
+                studentsQuery = studentsQuery.Where(s => s.IsSchoolStudent);
+            else if (division.Equals("coaching", StringComparison.OrdinalIgnoreCase))
+                studentsQuery = studentsQuery.Where(s => s.IsCoachingStudent);
+        }
+
+        if (classId.HasValue)
+            studentsQuery = studentsQuery.Where(s => s.ClassId == classId.Value || (s.Batch != null && s.Batch.ClassId == classId.Value));
+
+        if (sectionId.HasValue)
+            studentsQuery = studentsQuery.Where(s => s.SectionId == sectionId.Value);
+
+        if (batchId.HasValue)
+            studentsQuery = studentsQuery.Where(s => s.BatchId == batchId.Value);
+
+        var students = await studentsQuery
+            .OrderBy(s => s.Class != null ? s.Class.DisplayOrder : 999)
+            .ThenBy(s => s.Class != null ? s.Class.Name : "")
+            .ThenBy(s => s.Section != null ? s.Section.Name : "")
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var studentIds = students.Select(s => s.Id).ToList();
+        var studentMap = students.ToDictionary(s => s.Id);
+
+        if (!studentIds.Any())
+        {
+            return Ok(new
+            {
+                cycleType,
+                periodLabel,
+                branchName = resolvedBranchName,
+                summary = new
+                {
+                    totalStudents = 0,
+                    studentsWithDues = 0,
+                    receiptsCount = 0,
+                    totalInvoiced = 0m,
+                    totalAdvanceAdjusted = 0m,
+                    totalPaid = 0m,
+                    totalBalanceDue = 0m
+                },
+                dueSlips = new List<object>(),
+                receipts = new List<object>(),
+                registerRows = new List<object>()
+            });
+        }
+
+        var allInvoices = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Include(i => i.Items)
+            .Where(i => i.TenantId == tenantId && studentIds.Contains(i.StudentId) && i.Status != InvoiceStatus.Cancelled)
+            .OrderBy(i => i.DueDate)
+            .ToListAsync();
+
+        bool IsInvoiceInCycle(FeeInvoice inv)
+        {
+            return targetMonths.Any(tm => FeeInvoice.CheckCoversPeriod(inv.InvoiceNumber, inv.Title, inv.DueDate, tm.Year, tm.Month));
+        }
+
+        bool IsInvoiceBeforeOrInCycle(FeeInvoice inv)
+        {
+            if (IsInvoiceInCycle(inv)) return true;
+            return inv.DueDate <= periodEndUtc;
+        }
+
+        var relevantInvoices = allInvoices
+            .Where(inv => includeArrears ? IsInvoiceBeforeOrInCycle(inv) : IsInvoiceInCycle(inv))
+            .ToList();
+
+        var invoiceIds = allInvoices.Select(i => i.Id).ToList();
+        var allPayments = await _dbContext.FeePayments
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && invoiceIds.Contains(p.InvoiceId))
+            .OrderByDescending(p => p.PaymentDate)
+            .ToListAsync();
+
+        var invoiceById = allInvoices.ToDictionary(i => i.Id);
+
+        var cyclePayments = allPayments
+            .Where(p =>
+                (p.PaymentDate >= periodStartUtc.AddHours(-6) && p.PaymentDate <= periodEndUtc.AddHours(6)) ||
+                (invoiceById.TryGetValue(p.InvoiceId, out var inv) && IsInvoiceInCycle(inv)))
+            .ToList();
+
+        var dueSlipEntries = new List<(object Dto, string StudentName, string RollNumber, string ClassName, string ParentName, decimal TotalInvoiced, decimal AdvanceAdjusted, decimal PaidAmount, decimal BalanceDue, string SearchBlob)>();
+        var registerEntries = new List<(object Dto, string StudentName, string RollNumber, string ClassName, string ParentName, int MonthsCount, decimal TotalInvoiced, decimal AdvanceAdjusted, decimal TotalPaid, decimal BalanceDue, string Status, string SearchBlob)>();
+
+        decimal grandInvoiced = 0m;
+        decimal grandAdvanceAdj = 0m;
+        decimal grandPaid = 0m;
+        decimal grandDue = 0m;
+
+        foreach (var st in students)
+        {
+            var stInvoices = relevantInvoices.Where(i => i.StudentId == st.Id).ToList();
+            if (!stInvoices.Any()) continue;
+
+            decimal stInvoiced = stInvoices.Sum(i => i.TotalAmount);
+            decimal stAdvAdj = stInvoices.Sum(i => i.AdvanceAdjustedAmount);
+            decimal stCashPaid = stInvoices.Sum(i => Math.Max(0m, i.PaidAmount - i.AdvanceAdjustedAmount));
+            decimal stDue = stInvoices.Sum(i => Math.Max(0m, i.TotalAmount - i.PaidAmount));
+
+            grandInvoiced += stInvoiced;
+            grandAdvanceAdj += stAdvAdj;
+            grandPaid += stCashPaid;
+            grandDue += stDue;
+
+            string divLabel = st.IsSchoolStudent && st.IsCoachingStudent ? "Hybrid"
+                : st.IsCoachingStudent ? "Coaching" : "School";
+
+            var unpaidInvoices = stInvoices
+                .Where(i => (i.TotalAmount - i.PaidAmount) > 0)
+                .ToList();
+
+            var invoiceBreakdowns = stInvoices.Select(inv =>
+            {
+                int m = inv.DueDate.Month;
+                int y = inv.DueDate.Year;
+                decimal bal = Math.Max(0m, inv.TotalAmount - inv.PaidAmount);
+                decimal cashPaidOnInv = Math.Max(0m, inv.PaidAmount - inv.AdvanceAdjustedAmount);
+                var heads = inv.Items != null && inv.Items.Any()
+                    ? inv.Items.Select(li => new
+                    {
+                        headName = li.HeadName,
+                        amount = li.Amount
+                    }).ToList<object>()
+                    : new List<object>
+                    {
+                        new { headName = string.IsNullOrWhiteSpace(inv.Title) ? $"Monthly Fee ({monthNames[m]} {y})" : inv.Title, amount = inv.TotalAmount }
+                    };
+
+                return new
+                {
+                    invoiceId = inv.Id,
+                    invoiceNumber = inv.InvoiceNumber,
+                    title = string.IsNullOrWhiteSpace(inv.Title) ? $"Tuition & Academic Fee ({monthNames[m]} {y})" : inv.Title,
+                    period = $"{monthNames[m]} {y}",
+                    isArrear = !IsInvoiceInCycle(inv),
+                    dueDate = inv.DueDate,
+                    baseAmount = inv.TotalAmount,
+                    discountAmount = 0m,
+                    lateFeeAmount = 0m,
+                    finalAmount = inv.TotalAmount,
+                    advanceAdjustedAmount = inv.AdvanceAdjustedAmount,
+                    advanceAdjustedFromReceipt = inv.AdvanceAdjustedFromReceipt,
+                    paidAmount = cashPaidOnInv,
+                    balanceDue = bal,
+                    status = inv.Status.ToString(),
+                    heads
+                };
+            }).ToList();
+
+            string statusStr = stDue <= 0 ? "Paid" : (stCashPaid > 0 || stAdvAdj > 0 ? "Partial" : "Unpaid");
+            string periodsSummaryStr = string.Join(", ", invoiceBreakdowns.Select(b => b.period).Distinct());
+            string invNumsBlob = string.Join(" ", invoiceBreakdowns.Select(b => b.invoiceNumber));
+            string stSearchBlob = $"{st.StudentName} {st.RollNumber} {st.AdmissionNumber} {st.Class?.Name} {st.Section?.Name} {st.Batch?.Name} {st.ParentName} {st.ParentWhatsAppPhone} {divLabel} {statusStr} {periodsSummaryStr} {invNumsBlob}".ToLowerInvariant();
+
+            var regDto = new
+            {
+                studentId = st.Id,
+                studentName = st.StudentName,
+                rollNumber = st.RollNumber,
+                admissionNumber = st.AdmissionNumber ?? st.RollNumber,
+                className = st.Class?.Name ?? "",
+                sectionName = st.Section?.Name ?? "",
+                batchName = st.Batch?.Name ?? "",
+                division = divLabel,
+                parentName = st.ParentName,
+                parentPhone = st.ParentWhatsAppPhone,
+                monthsCount = stInvoices.Count,
+                periodsSummary = periodsSummaryStr,
+                totalInvoiced = stInvoiced,
+                advanceAdjusted = stAdvAdj,
+                totalPaid = stCashPaid,
+                balanceDue = stDue,
+                advanceWalletBalance = st.AdvanceBalance,
+                status = statusStr
+            };
+            registerEntries.Add((regDto, st.StudentName ?? "", st.RollNumber ?? "", st.Class?.Name ?? "", st.ParentName ?? "", stInvoices.Count, stInvoiced, stAdvAdj, stCashPaid, stDue, statusStr, stSearchBlob));
+
+            if (unpaidInvoices.Any())
+            {
+                var unpaidBreakdowns = invoiceBreakdowns.Where(b => b.balanceDue > 0).ToList();
+                decimal slipInvoiced = unpaidInvoices.Sum(i => i.TotalAmount);
+                decimal slipAdv = unpaidInvoices.Sum(i => i.AdvanceAdjustedAmount);
+                decimal slipPaid = unpaidInvoices.Sum(i => Math.Max(0m, i.PaidAmount - i.AdvanceAdjustedAmount));
+                var dueDto = new
+                {
+                    studentId = st.Id,
+                    studentName = st.StudentName,
+                    rollNumber = st.RollNumber,
+                    admissionNumber = st.AdmissionNumber ?? st.RollNumber,
+                    className = st.Class?.Name ?? "",
+                    sectionName = st.Section?.Name ?? "",
+                    batchName = st.Batch?.Name ?? "",
+                    division = divLabel,
+                    parentName = st.ParentName,
+                    parentPhone = st.ParentWhatsAppPhone,
+                    branchName = resolvedBranchName,
+                    periodLabel,
+                    totalInvoiced = slipInvoiced,
+                    advanceAdjusted = slipAdv,
+                    paidAmount = slipPaid,
+                    totalBalanceDue = stDue,
+                    advanceWalletBalance = st.AdvanceBalance,
+                    invoices = unpaidBreakdowns
+                };
+                dueSlipEntries.Add((dueDto, st.StudentName ?? "", st.RollNumber ?? "", st.Class?.Name ?? "", st.ParentName ?? "", slipInvoiced, slipAdv, slipPaid, stDue, stSearchBlob));
+            }
+        }
+
+        var receiptEntries = cyclePayments
+            .GroupBy(p => string.IsNullOrWhiteSpace(p.ReceiptNumber) ? p.Id.ToString() : p.ReceiptNumber)
+            .Select(g =>
+            {
+                var firstPay = g.First();
+                invoiceById.TryGetValue(firstPay.InvoiceId, out var firstInv);
+                var st = firstInv != null && studentMap.TryGetValue(firstInv.StudentId, out var s) ? s : null;
+                if (st == null) return default;
+
+                string divLabel = st.IsSchoolStudent && st.IsCoachingStudent ? "Hybrid"
+                    : st.IsCoachingStudent ? "Coaching" : "School";
+
+                var lineItems = new List<object>();
+                int idx = 1;
+                decimal totalInvDemand = 0m;
+                decimal totalAdvAdjOnInv = 0m;
+                string? advRef = null;
+                var coveredPeriods = new List<string>();
+
+                foreach (var p in g)
+                {
+                    if (invoiceById.TryGetValue(p.InvoiceId, out var inv))
+                    {
+                        int m = inv.DueDate.Month;
+                        int y = inv.DueDate.Year;
+                        string per = $"{monthNames[m]} {y}";
+                        if (!coveredPeriods.Contains(per)) coveredPeriods.Add(per);
+
+                        totalInvDemand += inv.TotalAmount;
+                        totalAdvAdjOnInv += inv.AdvanceAdjustedAmount;
+                        if (string.IsNullOrWhiteSpace(advRef) && !string.IsNullOrWhiteSpace(inv.AdvanceAdjustedFromReceipt))
+                            advRef = inv.AdvanceAdjustedFromReceipt;
+
+                        if (inv.Items != null && inv.Items.Any() && g.Count() == 1 && Math.Abs(p.AmountPaid - p.AdvanceDepositAmount - (inv.TotalAmount - inv.AdvanceAdjustedAmount)) < 1m)
+                        {
+                            foreach (var li in inv.Items)
+                            {
+                                lineItems.Add(new
+                                {
+                                    index = idx++,
+                                    particulars = $"{li.HeadName} ({per})",
+                                    invoiceNumber = inv.InvoiceNumber,
+                                    amount = li.Amount
+                                });
+                            }
+                        }
+                        else
+                        {
+                            decimal allocatedToBill = Math.Max(0m, p.AmountPaid - p.AdvanceDepositAmount);
+                            lineItems.Add(new
+                            {
+                                index = idx++,
+                                particulars = string.IsNullOrWhiteSpace(inv.Title) ? $"Academic & Tuition Fee ({per})" : $"{inv.Title} ({per})",
+                                invoiceNumber = inv.InvoiceNumber,
+                                amount = allocatedToBill > 0 ? allocatedToBill : p.AmountPaid
+                            });
+                        }
+                    }
+                }
+
+                decimal totalAdvanceDeposit = g.Sum(x => x.AdvanceDepositAmount);
+                if (totalAdvanceDeposit > 0)
+                {
+                    lineItems.Add(new
+                    {
+                        index = idx++,
+                        particulars = "Advance Fee Paid (अग्रिम शुल्क जमा — Auto-Adjusts in Next Month Bill)",
+                        invoiceNumber = "ADV-WALLET",
+                        amount = totalAdvanceDeposit
+                    });
+                }
+
+                decimal studentRemainingDue = allInvoices
+                    .Where(i => i.StudentId == st.Id)
+                    .Sum(i => Math.Max(0m, i.TotalAmount - i.PaidAmount));
+
+                string rcpPeriodLbl = coveredPeriods.Any() ? string.Join(", ", coveredPeriods) : periodLabel;
+                string invNums = string.Join(", ", g.Select(p => invoiceById.TryGetValue(p.InvoiceId, out var iv) ? iv.InvoiceNumber : "").Where(s => !string.IsNullOrEmpty(s)).Distinct());
+                decimal rcpPaid = g.Sum(x => x.AmountPaid);
+                string modeStr = firstPay.Mode.ToString();
+                string rcpBlob = $"{firstPay.ReceiptNumber} {st.StudentName} {st.RollNumber} {st.AdmissionNumber} {st.Class?.Name} {st.Section?.Name} {st.Batch?.Name} {st.ParentName} {st.ParentWhatsAppPhone} {rcpPeriodLbl} {invNums} {modeStr} {firstPay.TransactionRef}".ToLowerInvariant();
+
+                object dtoObj = new
+                {
+                    paymentId = firstPay.Id,
+                    receiptNumber = firstPay.ReceiptNumber,
+                    paymentDate = firstPay.PaymentDate,
+                    paymentMode = modeStr,
+                    transactionRef = firstPay.TransactionRef ?? "",
+                    remarks = firstPay.Remarks ?? "",
+                    studentId = st.Id,
+                    studentName = st.StudentName,
+                    rollNumber = st.RollNumber,
+                    admissionNumber = st.AdmissionNumber ?? st.RollNumber,
+                    className = st.Class?.Name ?? "",
+                    sectionName = st.Section?.Name ?? "",
+                    batchName = st.Batch?.Name ?? "",
+                    division = divLabel,
+                    parentName = st.ParentName,
+                    parentPhone = st.ParentWhatsAppPhone,
+                    branchName = resolvedBranchName,
+                    periodLabel = rcpPeriodLbl,
+                    invoiceNumbers = invNums,
+                    amountPaid = rcpPaid,
+                    advanceDepositAmount = totalAdvanceDeposit,
+                    advanceAdjustedAmount = totalAdvAdjOnInv,
+                    advanceAdjustedFromReceipt = advRef,
+                    remainingDue = studentRemainingDue,
+                    studentAdvanceBalance = st.AdvanceBalance,
+                    lineItems
+                };
+
+                return (
+                    Valid: true,
+                    Dto: dtoObj,
+                    ReceiptNumber: firstPay.ReceiptNumber ?? "",
+                    PaymentDate: firstPay.PaymentDate,
+                    StudentName: st.StudentName ?? "",
+                    ClassName: st.Class?.Name ?? "",
+                    PeriodLabel: rcpPeriodLbl,
+                    PaymentMode: modeStr,
+                    AmountPaid: rcpPaid,
+                    AdvanceDeposit: totalAdvanceDeposit,
+                    RemainingDue: studentRemainingDue,
+                    SearchBlob: rcpBlob
+                );
+            })
+            .Where(r => r.Valid)
+            .ToList();
+
+        // 1. Server-Side Search Filtering
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            string q = searchTerm.Trim().ToLowerInvariant();
+            dueSlipEntries = dueSlipEntries.Where(x => x.SearchBlob.Contains(q)).ToList();
+            receiptEntries = receiptEntries.Where(x => x.SearchBlob.Contains(q)).ToList();
+            registerEntries = registerEntries.Where(x => x.SearchBlob.Contains(q)).ToList();
+        }
+
+        // 2. Server-Side Column Sorting
+        dueSlipEntries = dueSlipEntries.OrderByDescending(x => x.BalanceDue).ThenByDescending(x => x.TotalInvoiced).ThenBy(x => x.StudentName).ToList();
+        receiptEntries = receiptEntries.OrderByDescending(x => x.RemainingDue).ThenByDescending(x => x.AmountPaid).ThenByDescending(x => x.PaymentDate).ToList();
+        registerEntries = registerEntries.OrderByDescending(x => x.BalanceDue).ThenByDescending(x => x.TotalInvoiced).ThenBy(x => x.StudentName).ToList();
+        string sortKey = (sortBy ?? "").Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(sortKey))
+        {
+            dueSlipEntries = (sortKey, sortDescending) switch
+            {
+                ("studentname", false) => dueSlipEntries.OrderBy(x => x.StudentName).ToList(),
+                ("studentname", true) => dueSlipEntries.OrderByDescending(x => x.StudentName).ToList(),
+                ("rollnumber", false) => dueSlipEntries.OrderBy(x => x.RollNumber).ToList(),
+                ("rollnumber", true) => dueSlipEntries.OrderByDescending(x => x.RollNumber).ToList(),
+                ("classname", false) => dueSlipEntries.OrderBy(x => x.ClassName).ThenBy(x => x.StudentName).ToList(),
+                ("classname", true) => dueSlipEntries.OrderByDescending(x => x.ClassName).ThenBy(x => x.StudentName).ToList(),
+                ("parentname", false) => dueSlipEntries.OrderBy(x => x.ParentName).ToList(),
+                ("parentname", true) => dueSlipEntries.OrderByDescending(x => x.ParentName).ToList(),
+                ("totalinvoiced", false) => dueSlipEntries.OrderBy(x => x.TotalInvoiced).ToList(),
+                ("totalinvoiced", true) => dueSlipEntries.OrderByDescending(x => x.TotalInvoiced).ToList(),
+                ("advanceadjusted", false) => dueSlipEntries.OrderBy(x => x.AdvanceAdjusted).ToList(),
+                ("advanceadjusted", true) => dueSlipEntries.OrderByDescending(x => x.AdvanceAdjusted).ToList(),
+                ("paidamount", false) => dueSlipEntries.OrderBy(x => x.PaidAmount).ToList(),
+                ("paidamount", true) => dueSlipEntries.OrderByDescending(x => x.PaidAmount).ToList(),
+                ("totalbalancedue" or "balancedue", false) => dueSlipEntries.OrderBy(x => x.BalanceDue).ToList(),
+                ("totalbalancedue" or "balancedue", true) => dueSlipEntries.OrderByDescending(x => x.BalanceDue).ToList(),
+                _ => dueSlipEntries
+            };
+
+            receiptEntries = (sortKey, sortDescending) switch
+            {
+                ("receiptnumber", false) => receiptEntries.OrderBy(x => x.ReceiptNumber).ToList(),
+                ("receiptnumber", true) => receiptEntries.OrderByDescending(x => x.ReceiptNumber).ToList(),
+                ("paymentdate", false) => receiptEntries.OrderBy(x => x.PaymentDate).ToList(),
+                ("paymentdate", true) => receiptEntries.OrderByDescending(x => x.PaymentDate).ToList(),
+                ("studentname", false) => receiptEntries.OrderBy(x => x.StudentName).ToList(),
+                ("studentname", true) => receiptEntries.OrderByDescending(x => x.StudentName).ToList(),
+                ("classname", false) => receiptEntries.OrderBy(x => x.ClassName).ThenBy(x => x.StudentName).ToList(),
+                ("classname", true) => receiptEntries.OrderByDescending(x => x.ClassName).ThenBy(x => x.StudentName).ToList(),
+                ("periodlabel", false) => receiptEntries.OrderBy(x => x.PeriodLabel).ToList(),
+                ("periodlabel", true) => receiptEntries.OrderByDescending(x => x.PeriodLabel).ToList(),
+                ("paymentmode", false) => receiptEntries.OrderBy(x => x.PaymentMode).ToList(),
+                ("paymentmode", true) => receiptEntries.OrderByDescending(x => x.PaymentMode).ToList(),
+                ("amountpaid", false) => receiptEntries.OrderBy(x => x.AmountPaid).ToList(),
+                ("amountpaid", true) => receiptEntries.OrderByDescending(x => x.AmountPaid).ToList(),
+                ("advancedepositamount", false) => receiptEntries.OrderBy(x => x.AdvanceDeposit).ToList(),
+                ("advancedepositamount", true) => receiptEntries.OrderByDescending(x => x.AdvanceDeposit).ToList(),
+                ("remainingdue", false) => receiptEntries.OrderBy(x => x.RemainingDue).ToList(),
+                ("remainingdue", true) => receiptEntries.OrderByDescending(x => x.RemainingDue).ToList(),
+                _ => receiptEntries
+            };
+
+            registerEntries = (sortKey, sortDescending) switch
+            {
+                ("studentname", false) => registerEntries.OrderBy(x => x.StudentName).ToList(),
+                ("studentname", true) => registerEntries.OrderByDescending(x => x.StudentName).ToList(),
+                ("rollnumber", false) => registerEntries.OrderBy(x => x.RollNumber).ToList(),
+                ("rollnumber", true) => registerEntries.OrderByDescending(x => x.RollNumber).ToList(),
+                ("classname", false) => registerEntries.OrderBy(x => x.ClassName).ThenBy(x => x.StudentName).ToList(),
+                ("classname", true) => registerEntries.OrderByDescending(x => x.ClassName).ThenBy(x => x.StudentName).ToList(),
+                ("parentname", false) => registerEntries.OrderBy(x => x.ParentName).ToList(),
+                ("parentname", true) => registerEntries.OrderByDescending(x => x.ParentName).ToList(),
+                ("monthscount", false) => registerEntries.OrderBy(x => x.MonthsCount).ToList(),
+                ("monthscount", true) => registerEntries.OrderByDescending(x => x.MonthsCount).ToList(),
+                ("totalinvoiced", false) => registerEntries.OrderBy(x => x.TotalInvoiced).ToList(),
+                ("totalinvoiced", true) => registerEntries.OrderByDescending(x => x.TotalInvoiced).ToList(),
+                ("advanceadjusted", false) => registerEntries.OrderBy(x => x.AdvanceAdjusted).ToList(),
+                ("advanceadjusted", true) => registerEntries.OrderByDescending(x => x.AdvanceAdjusted).ToList(),
+                ("totalpaid" or "paidamount", false) => registerEntries.OrderBy(x => x.TotalPaid).ToList(),
+                ("totalpaid" or "paidamount", true) => registerEntries.OrderByDescending(x => x.TotalPaid).ToList(),
+                ("balancedue" or "totalbalancedue", false) => registerEntries.OrderBy(x => x.BalanceDue).ToList(),
+                ("balancedue" or "totalbalancedue", true) => registerEntries.OrderByDescending(x => x.BalanceDue).ToList(),
+                ("status", false) => registerEntries.OrderBy(x => x.Status).ToList(),
+                ("status", true) => registerEntries.OrderByDescending(x => x.Status).ToList(),
+                _ => registerEntries
+            };
+        }
+
+        int dueSlipsTotalCount = dueSlipEntries.Count;
+        int receiptsTotalCount = receiptEntries.Count;
+        int registerTotalCount = registerEntries.Count;
+
+        int safePage = Math.Max(1, pageNumber);
+        int safeSize = Math.Clamp(pageSize, 1, 500);
+        int skip = (safePage - 1) * safeSize;
+
+        var pagedDueSlips = fetchAll
+            ? dueSlipEntries.Select(x => x.Dto).ToList()
+            : dueSlipEntries.Skip(skip).Take(safeSize).Select(x => x.Dto).ToList();
+
+        var pagedReceipts = fetchAll
+            ? receiptEntries.Select(x => x.Dto).ToList()
+            : receiptEntries.Skip(skip).Take(safeSize).Select(x => x.Dto).ToList();
+
+        var pagedRegisterRows = fetchAll
+            ? registerEntries.Select(x => x.Dto).ToList()
+            : registerEntries.Skip(skip).Take(safeSize).Select(x => x.Dto).ToList();
+
+        // Dynamic Available Years from Database (Zero Hardcoding)
+        var invoiceYears = await _dbContext.FeeInvoices.AsNoTracking()
+            .Where(i => i.TenantId == tenantId)
+            .Select(i => i.DueDate.Year)
+            .Distinct()
+            .ToListAsync();
+
+        var paymentYears = await _dbContext.FeePayments.AsNoTracking()
+            .Where(p => p.TenantId == tenantId)
+            .Select(p => p.PaymentDate.Year)
+            .Distinct()
+            .ToListAsync();
+
+        int currentSessionStart = nowIst.Month >= 4 ? nowIst.Year : nowIst.Year - 1;
+        var dynamicYears = invoiceYears
+            .Concat(paymentYears)
+            .Append(nowIst.Year)
+            .Append(currentSessionStart)
+            .Append(currentSessionStart + 1)
+            .Distinct()
+            .OrderByDescending(y => y)
+            .ToList();
+
+        return Ok(new
+        {
+            cycleType,
+            periodLabel,
+            branchName = resolvedBranchName,
+            availableYears = dynamicYears,
+            summary = new
+            {
+                totalStudents = registerTotalCount,
+                studentsWithDues = dueSlipsTotalCount,
+                receiptsCount = receiptsTotalCount,
+                totalInvoiced = grandInvoiced,
+                totalAdvanceAdjusted = grandAdvanceAdj,
+                totalPaid = grandPaid,
+                totalBalanceDue = grandDue
+            },
+            pagination = new
+            {
+                pageNumber = safePage,
+                pageSize = safeSize,
+                dueSlipsTotalCount,
+                receiptsTotalCount,
+                registerTotalCount
+            },
+            dueSlips = pagedDueSlips,
+            receipts = pagedReceipts,
+            registerRows = pagedRegisterRows
+        });
     }
 
     [HttpPost("send-reminder/{invoiceId}")]
@@ -2224,8 +3111,17 @@ public class FeesController : ControllerBase
 
         var studentsWithKitSet = studentsWithKitOutward.Concat(studentsWithKitInvoice).ToHashSet();
 
-        // Pre-load all pending unbilled Admission Kit outwards marked 'AddedToFeeBill'
-        var pendingKitOutwards = await _dbContext.InventoryOutwards
+        // Pre-load all pending unbilled Admission Kit outwards marked 'AddedToFeeBill' (excluding any that already have a standalone INV-STK invoice)
+        var existingStkInvoiceTitles = await _dbContext.FeeInvoices
+            .AsNoTracking()
+            .Where(i => i.TenantId == _currentUser.TenantId &&
+                        studentIds.Contains(i.StudentId) &&
+                        i.Status != InvoiceStatus.Cancelled &&
+                        i.InvoiceCategory == "Inventory")
+            .Select(i => new { i.StudentId, i.Title })
+            .ToListAsync();
+
+        var pendingKitOutwardsRaw = await _dbContext.InventoryOutwards
             .Include(o => o.Items)
                 .ThenInclude(oi => oi.Item)
             .Where(o => o.TenantId == _currentUser.TenantId &&
@@ -2233,6 +3129,19 @@ public class FeesController : ControllerBase
                         studentIds.Contains(o.StudentId.Value) &&
                         o.PaymentStatus == "AddedToFeeBill")
             .ToListAsync();
+
+        var pendingKitOutwards = new List<InventoryOutward>();
+        foreach (var ko in pendingKitOutwardsRaw)
+        {
+            if (existingStkInvoiceTitles.Any(st => st.StudentId == ko.StudentId && st.Title != null && st.Title.Contains(ko.IssueNumber)))
+            {
+                ko.PaymentStatus = "BilledInFeeInvoice";
+            }
+            else
+            {
+                pendingKitOutwards.Add(ko);
+            }
+        }
 
         var pendingKitsByStudent = pendingKitOutwards
             .GroupBy(o => o.StudentId!.Value)
@@ -2244,7 +3153,29 @@ public class FeesController : ControllerBase
             ? defaultPeriodStart.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
             : $"{defaultPeriodStart:MMMM yyyy} – {defaultPeriodEnd:MMMM yyyy}";
 
+        // Pre-fetch latest advance deposit receipt number per student for FIFO Advance Adjustment audit trail
+        var studentsWithAdvanceIds = students.Where(st => st.AdvanceBalance > 0).Select(st => st.Id).ToList();
+        var latestAdvReceiptByStudent = new Dictionary<Guid, (string ReceiptNo, PaymentMode Mode)>();
+        if (studentsWithAdvanceIds.Count > 0)
+        {
+            var advPayments = await _dbContext.FeePayments
+                .AsNoTracking()
+                .Include(p => p.Invoice)
+                .Where(p => !p.IsReversed && p.AdvanceDepositAmount > 0 && p.Invoice != null && studentsWithAdvanceIds.Contains(p.Invoice.StudentId))
+                .OrderByDescending(p => p.PaymentDate)
+                .ToListAsync();
+
+            foreach (var ap in advPayments)
+            {
+                if (ap.Invoice != null && !latestAdvReceiptByStudent.ContainsKey(ap.Invoice.StudentId))
+                {
+                    latestAdvReceiptByStudent[ap.Invoice.StudentId] = (ap.ReceiptNumber, ap.Mode);
+                }
+            }
+        }
+
         var newInvoices = new List<FeeInvoice>();
+        var newAdvancePayments = new List<FeePayment>();
         int skippedCount = 0;
         var skipReasonsEn = new List<string>();
         var skipReasonsHi = new List<string>();
@@ -2774,11 +3705,17 @@ public class FeesController : ControllerBase
                 }
             }
 
-            // ── Inject Admission Kit Items (Physical Kit items issued from store with 'Added to Fee Bill') ──
+            // ── Inject Admission Kit Items (Physical Kit items issued from store with 'Added to Fee Bill' that don't already have a standalone INV-STK invoice) ──
             if (pendingKitsByStudent.TryGetValue(s.Id, out var kitOutwardsForStudent))
             {
                 foreach (var outward in kitOutwardsForStudent)
                 {
+                    bool alreadyHasStkInvoice = candidateExistingInvoices.Any(ci => ci.StudentId == s.Id && ci.Title != null && ci.Title.Contains(outward.IssueNumber));
+                    if (alreadyHasStkInvoice)
+                    {
+                        outward.PaymentStatus = "BilledInFeeInvoice";
+                        continue;
+                    }
                     foreach (var oi in outward.Items)
                     {
                         var kitItemName = oi.Item?.ItemName ?? "Admission Kit Item";
@@ -2933,12 +3870,62 @@ public class FeesController : ControllerBase
                 Items         = invoiceItems
             };
 
+            // ── Automatic FIFO Advance Fee Adjustment ────────────────────────
+            if (s.AdvanceBalance > 0 && netTotalAmount > 0)
+            {
+                decimal advanceToApply = Math.Min(s.AdvanceBalance, netTotalAmount);
+                s.AdvanceBalance -= advanceToApply;
+
+                string srcReceipt = latestAdvReceiptByStudent.TryGetValue(s.Id, out var advInfo)
+                    ? advInfo.ReceiptNo
+                    : "ADVANCE-WALLET";
+                PaymentMode srcMode = latestAdvReceiptByStudent.TryGetValue(s.Id, out var advModeInfo)
+                    ? advModeInfo.Mode
+                    : PaymentMode.Cash;
+
+                invoice.PaidAmount = advanceToApply;
+                invoice.AdvanceAdjustedAmount = advanceToApply;
+                invoice.AdvanceAdjustedFromReceipt = srcReceipt;
+                invoice.Status = invoice.PaidAmount >= invoice.TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.Partial;
+
+                // Distribute advance adjustment across positive invoice items in FIFO order
+                decimal remAdvItem = advanceToApply;
+                foreach (var it in invoiceItems.Where(x => x.Amount > 0))
+                {
+                    if (remAdvItem <= 0) break;
+                    decimal itemDue = it.Amount - it.PaidAmount;
+                    if (itemDue <= 0) continue;
+                    decimal alloc = Math.Min(remAdvItem, itemDue);
+                    it.PaidAmount += alloc;
+                    remAdvItem -= alloc;
+                }
+
+                newAdvancePayments.Add(new FeePayment
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = invoice.BranchId,
+                    InvoiceId = invoice.Id,
+                    ReceiptNumber = $"ADV-{DateTime.UtcNow:yyyyMMddHHmmss}-{random.Next(100, 999)}",
+                    AmountPaid = advanceToApply,
+                    AdvanceDepositAmount = 0m,
+                    IsAdvanceAdjustment = true,
+                    Mode = srcMode,
+                    TransactionRef = srcReceipt,
+                    Remarks = $"Advance Paid (FIFO Auto-Adjusted from Receipt #{srcReceipt})",
+                    PaymentDate = DateTime.UtcNow
+                });
+            }
+
             newInvoices.Add(invoice);
         }
 
         if (newInvoices.Count > 0)
         {
             _dbContext.FeeInvoices.AddRange(newInvoices);
+            if (newAdvancePayments.Count > 0)
+            {
+                _dbContext.FeePayments.AddRange(newAdvancePayments);
+            }
             await _dbContext.SaveChangesAsync();
         }
 
@@ -2956,12 +3943,11 @@ public class FeesController : ControllerBase
         string invoiceWordHi = "इनवॉइस";
 
         var totalConcessionsApplied = newInvoices.Sum(i => i.ConcessionAmount);
-        var concessionSuffix = totalConcessionsApplied > 0
-            ? $" (₹{totalConcessionsApplied:N2} in automatic sibling discounts & fee concessions applied!)"
-            : "";
-        var concessionSuffixHi = totalConcessionsApplied > 0
-            ? $" (₹{totalConcessionsApplied:N2} ऑटोमैटिक छूट/कंसेशन लागू किया गया!)"
-            : "";
+        var totalAdvanceAdjusted = newInvoices.Sum(i => i.AdvanceAdjustedAmount);
+        var concessionSuffix = (totalConcessionsApplied > 0 ? $" (₹{totalConcessionsApplied:N2} in automatic sibling discounts & fee concessions applied!)" : "") +
+                               (totalAdvanceAdjusted > 0 ? $" (₹{totalAdvanceAdjusted:N2} Advance Paid auto-adjusted via FIFO!)" : "");
+        var concessionSuffixHi = (totalConcessionsApplied > 0 ? $" (₹{totalConcessionsApplied:N2} ऑटोमैटिक छूट/कंसेशन लागू किया गया!)" : "") +
+                                 (totalAdvanceAdjusted > 0 ? $" (₹{totalAdvanceAdjusted:N2} एडवांस फीस FIFO से ऑटो-एडजस्ट की गई!)" : "");
 
         if (newInvoices.Count == 1 && dto.StudentId.HasValue)
         {
@@ -3107,12 +4093,25 @@ public class FeesController : ControllerBase
 
             // Soft-reverse fee payment records so audit trail is preserved in Reversed & Refunded History
             string cleanReason = string.IsNullOrWhiteSpace(dto.Reason) ? "Administrative Cancellation" : dto.Reason.Trim();
-            foreach (var p in payments)
+            foreach (var p in payments.Where(x => !x.IsReversed))
             {
+                if (invoice.Student != null)
+                {
+                    if (p.IsAdvanceAdjustment)
+                    {
+                        // Restore auto-adjusted advance back to student's AdvanceBalance wallet
+                        invoice.Student.AdvanceBalance += p.AmountPaid;
+                    }
+                    else if (p.AdvanceDepositAmount > 0)
+                    {
+                        invoice.Student.AdvanceBalance = Math.Max(0m, invoice.Student.AdvanceBalance - p.AdvanceDepositAmount);
+                    }
+                }
+
                 p.IsReversed = true;
                 p.ReversedAt = DateTime.UtcNow;
                 p.ReversedBy = User?.Identity?.Name ?? _currentUser.Username ?? "Admin";
-                p.ReversalType = "RefundToParent";
+                p.ReversalType = p.IsAdvanceAdjustment ? "ClericalCorrection" : "RefundToParent";
                 p.ReversalReason = $"Invoice {invoice.InvoiceNumber} cancelled & refunded: {cleanReason}";
                 p.RefundMode = p.Mode == PaymentMode.Cash ? "Cash" : (p.Mode == PaymentMode.UPI ? "UPI" : "Bank Transfer");
                 p.RefundRecipient = invoice.Student != null ? $"{invoice.Student.ParentName ?? invoice.Student.StudentName} (Parent)" : "Parent";
@@ -3365,10 +4364,12 @@ public class FeesController : ControllerBase
         if (!await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Delete))
             return Forbid();
 
-        // Load payment with its invoice and items
+        // Load payment with its invoice, student, and items
         var payment = await _dbContext.FeePayments
             .Include(p => p.Invoice)
                 .ThenInclude(i => i!.Items)
+            .Include(p => p.Invoice)
+                .ThenInclude(i => i!.Student)
             .FirstOrDefaultAsync(p => p.Id == paymentId);
 
         if (payment == null)
@@ -3384,16 +4385,32 @@ public class FeesController : ControllerBase
         if (invoice.Status == InvoiceStatus.Cancelled)
             return BadRequest(new { message = "Cannot reverse a payment on a cancelled invoice." });
 
-        // Deduct this payment's amount from invoice
-        invoice.PaidAmount -= payment.AmountPaid;
+        // Deduct the invoice-allocated portion from invoice (excluding excess AdvanceDepositAmount stored in wallet)
+        decimal invoicePortionToReverse = Math.Max(0m, payment.AmountPaid - payment.AdvanceDepositAmount);
+        invoice.PaidAmount -= invoicePortionToReverse;
 
         // Guard against negative (shouldn't happen, but safety net)
         if (invoice.PaidAmount < 0) invoice.PaidAmount = 0;
 
-        // Also revert PaidAmount on invoice items
-        if (invoice.Items != null && invoice.Items.Count > 0)
+        if (payment.IsAdvanceAdjustment)
         {
-            decimal remainingReverse = payment.AmountPaid;
+            invoice.AdvanceAdjustedAmount = Math.Max(0m, invoice.AdvanceAdjustedAmount - payment.AmountPaid);
+            if (invoice.Student != null)
+            {
+                // Restore advance credit back to student's wallet when an advance adjustment is reversed
+                invoice.Student.AdvanceBalance += payment.AmountPaid;
+            }
+        }
+        else if (payment.AdvanceDepositAmount > 0 && invoice.Student != null)
+        {
+            // Remove the advance deposit that was credited in this receipt
+            invoice.Student.AdvanceBalance = Math.Max(0m, invoice.Student.AdvanceBalance - payment.AdvanceDepositAmount);
+        }
+
+        // Also revert PaidAmount on invoice items
+        if (invoice.Items != null && invoice.Items.Count > 0 && invoicePortionToReverse > 0)
+        {
+            decimal remainingReverse = invoicePortionToReverse;
             foreach (var it in invoice.Items.OrderByDescending(x => x.PaidAmount))
             {
                 if (remainingReverse <= 0) break;

@@ -35,6 +35,7 @@ import { CancelInvoiceDialogComponent } from './cancel-invoice-dialog.component'
 import { FeeMasterDialogComponent } from './fee-master-dialog.component';
 import { EditInvoiceDialogComponent } from './edit-invoice-dialog.component';
 import { FeeInvoiceBreakdownDialogComponent, BreakdownDialogResult } from './fee-invoice-breakdown-dialog.component';
+import { BulkFeePrintDialogComponent } from './bulk-fee-print-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
 
@@ -81,9 +82,14 @@ export interface UpcomingBillingCycleInfo {
           <p>Record fee payments with FIFO auto-settlement, issue digital WhatsApp receipts, and track student ledger passbooks.</p>
         </div>
         <div class="header-action-buttons">
+          <button class="bulk-print-btn" (click)="openBulkFeePrintModal()" matButton="filled"
+            matTooltip="Bulk Print Class-Wise or All Fee Due Slips, Paid Receipts & Register (Monthly / Quarterly / Half-Yearly / Yearly)">
+            <mat-icon>print</mat-icon>
+            <span>Bulk Receipts &amp; Due Slips</span>
+          </button>
           <button class="fee-master-btn" (click)="openFeeMasterModal()" matButton="filled">
             <mat-icon color="primary">tune</mat-icon>
-            <span>Fee Heads & Structure</span>
+            <span>Fee Heads &amp; Structure</span>
           </button>
           <button color="primary" class="generate-btn" (click)="openGenerateInvoicesModal()" matButton="filled">
             <mat-icon>post_add</mat-icon>
@@ -520,6 +526,15 @@ export interface UpcomingBillingCycleInfo {
                           (click)="openCollectFeeModal(inv)">
                           <mat-icon class="menu-icon-blue">payments</mat-icon>
                           <span>Collect Fee (फीस जमा करें)</span>
+                        </button>
+                      }
+                      <!-- Deposit Advance Fee (when current invoice is Paid / ₹0 due) -->
+                      @if (inv.dueAmount <= 0 && inv.status !== 'Cancelled' && !isKitOrInventoryInvoice(inv)) {
+                        <button
+                          mat-menu-item
+                          (click)="openCollectFeeModal(inv)">
+                          <mat-icon class="menu-icon-emerald">account_balance_wallet</mat-icon>
+                          <span>Deposit Advance Fee (अग्रिम फीस जमा)</span>
                         </button>
                       }
                       <!-- Pay via Dynamic UPI QR -->
@@ -1183,6 +1198,29 @@ export interface UpcomingBillingCycleInfo {
             color: #ffffff;
           }
         }
+      }
+    }
+    .bulk-print-btn {
+      height: 44px;
+      font-weight: 700;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+      color: #1e40af !important;
+      border: 1.5px solid #93c5fd !important;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.12);
+      transition: all 0.2s ease;
+
+      mat-icon {
+        color: #2563eb !important;
+      }
+
+      &:hover {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
+        border-color: #3b82f6 !important;
+        transform: translateY(-1px);
       }
     }
     .generate-btn {
@@ -3546,7 +3584,9 @@ export class FeesComponent implements OnInit, OnDestroy {
   openReceiptForInvoice(inv: FeeInvoicePagedItem, autoShareWhatsApp = false): void {
     this.feesService.getStudentLedger(inv.studentId).subscribe({
       next: (ledger) => {
-        const payment = ledger.payments.find(p => p.invoiceNumber === inv.invoiceNumber) || ledger.payments[0];
+        const payment = ledger.payments.find(p => p.invoiceNumber === inv.invoiceNumber && !p.isAdvanceAdjustment)
+          || ledger.payments.find(p => p.invoiceNumber === inv.invoiceNumber)
+          || ledger.payments[0];
         if (payment) {
           this.feesService.getReceiptByNumber(payment.receiptNumber).subscribe({
             next: (receipt) => {
@@ -3719,6 +3759,21 @@ export class FeesComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe(() => {
       this.loadInvoices();
+    });
+  }
+
+  openBulkFeePrintModal(): void {
+    this.dialog.open(BulkFeePrintDialogComponent, {
+      width: '98vw',
+      maxWidth: '1680px',
+      maxHeight: '95vh',
+      panelClass: 'bulk-fee-print-dialog-panel',
+      autoFocus: false,
+      data: {
+        classes: this.schoolClasses,
+        batches: this.batches,
+        initialClassId: this.selectedClassFilter || ''
+      }
     });
   }
 

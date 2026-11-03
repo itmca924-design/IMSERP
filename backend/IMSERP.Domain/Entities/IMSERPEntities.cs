@@ -348,6 +348,7 @@ public class Student
     public string? EmergencyContactName { get; set; }
     public string? EmergencyContactPhone { get; set; }
     public string? PreviousSchoolName { get; set; }
+    public decimal AdvanceBalance { get; set; } = 0m;
     public string? PreviousBoard { get; set; }
 
     [ForeignKey("BranchId")]
@@ -532,6 +533,8 @@ public class FeeInvoice
     public string? SectionName { get; set; }
     public decimal ConcessionAmount { get; set; } = 0;
     public string? ConcessionReason { get; set; }
+    public decimal AdvanceAdjustedAmount { get; set; } = 0m;
+    public string? AdvanceAdjustedFromReceipt { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
@@ -629,6 +632,8 @@ public class FeePayment
     public string? RefundMode { get; set; } // "Cash", "BankTransfer", "UPI"
     public string? RefundRecipient { get; set; }
     public string? RefundReference { get; set; }
+    public decimal AdvanceDepositAmount { get; set; } = 0m;
+    public bool IsAdvanceAdjustment { get; set; } = false;
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }

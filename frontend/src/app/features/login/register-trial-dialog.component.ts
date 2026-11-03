@@ -239,12 +239,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
               Cancel
             </button>
             <button color="primary" type="submit" class="submit-action-btn" [disabled]="regForm.invalid || submitting || codeStatus === 'taken'" matButton="filled">
-              @if (submitting) {
-                <mat-spinner diameter="20" style="display:inline-block; margin-right:8px;"></mat-spinner>
-              }
-              @if (!submitting) {
-                <mat-icon>check_circle</mat-icon>
-              }
+              <mat-icon>check_circle</mat-icon>
               <span>{{ submitting ? 'Provisioning Institute...' : 'Create & Launch Instant Demo' }}</span>
             </button>
           </div>

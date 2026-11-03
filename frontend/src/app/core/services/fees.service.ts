@@ -128,6 +128,8 @@ export interface StudentLedgerInvoiceItem {
   cancellationReason?: string | null;
   cancelledAt?: string | null;
   items?: FeeInvoiceItem[];
+  advanceAdjustedAmount?: number;
+  advanceAdjustedFromReceipt?: string | null;
 }
 
 export interface StudentLedgerPaymentItem {
@@ -147,6 +149,8 @@ export interface StudentLedgerPaymentItem {
   refundMode?: string;
   refundRecipient?: string;
   refundReference?: string;
+  advanceDepositAmount?: number;
+  isAdvanceAdjustment?: boolean;
 }
 
 export interface StudentLedger {
@@ -165,6 +169,7 @@ export interface StudentLedger {
   pendingLibraryFine?: number;
   branchName?: string;
   reversedPayments?: StudentLedgerPaymentItem[];
+  advanceBalance?: number;
 }
 
 export interface PagedResult<T> {
@@ -283,6 +288,10 @@ export interface FeePaymentReceipt {
   feeMonth?: string;
   officialSealUrl?: string;
   digitalSignatureUrl?: string;
+  advanceDepositAmount?: number;
+  advanceAdjustedAmount?: number;
+  advanceAdjustedFromReceipt?: string | null;
+  studentAdvanceBalance?: number;
 }
 
 export interface StudentPendingFineItem {
@@ -312,6 +321,8 @@ export interface FeeDueSlipItem {
   paidAmount: number;
   dueAmount: number;
   breakdown?: FeeInvoiceItem[];
+  advanceAdjustedAmount?: number;
+  advanceAdjustedFromReceipt?: string | null;
 }
 
 export interface FeeDueSlip {
@@ -328,6 +339,7 @@ export interface FeeDueSlip {
   activeOverdueBooksCount?: number;
   hostelInfo?: string;
   branchName?: string;
+  studentAdvanceBalance?: number;
 }
 
 @Injectable({
@@ -515,6 +527,45 @@ export class FeesService {
     if (batchId) params = params.set('batchId', batchId);
     if (sessionStartYear) params = params.set('sessionStartYear', sessionStartYear.toString());
     return this.http.get<StudentFeeCard[]>(`${this.apiUrl}/student-fee-cards-by-class`, { params });
+  }
+
+  getBulkPrintData(options: {
+    cycleType: 'Monthly' | 'Quarterly' | 'HalfYearly' | 'Yearly' | string;
+    year?: number | null;
+    month?: number | null;
+    quarter?: number | null;
+    halfYear?: number | null;
+    division?: string | null;
+    classId?: string | null;
+    sectionId?: string | null;
+    batchId?: string | null;
+    branchId?: string | null;
+    includeArrears?: boolean;
+    searchTerm?: string | null;
+    sortBy?: string | null;
+    sortDescending?: boolean;
+    pageNumber?: number;
+    pageSize?: number;
+    fetchAll?: boolean;
+  }): Observable<BulkPrintDataResponse> {
+    let params = new HttpParams().set('cycleType', options.cycleType || 'Monthly');
+    if (options.year) params = params.set('year', options.year.toString());
+    if (options.month) params = params.set('month', options.month.toString());
+    if (options.quarter) params = params.set('quarter', options.quarter.toString());
+    if (options.halfYear) params = params.set('halfYear', options.halfYear.toString());
+    if (options.division && options.division !== 'all') params = params.set('division', options.division);
+    if (options.classId) params = params.set('classId', options.classId);
+    if (options.sectionId) params = params.set('sectionId', options.sectionId);
+    if (options.batchId) params = params.set('batchId', options.batchId);
+    if (options.branchId) params = params.set('branchId', options.branchId);
+    if (options.includeArrears !== undefined) params = params.set('includeArrears', options.includeArrears.toString());
+    if (options.searchTerm && options.searchTerm.trim()) params = params.set('searchTerm', options.searchTerm.trim());
+    if (options.sortBy) params = params.set('sortBy', options.sortBy);
+    if (options.sortDescending !== undefined) params = params.set('sortDescending', options.sortDescending.toString());
+    if (options.pageNumber) params = params.set('pageNumber', options.pageNumber.toString());
+    if (options.pageSize) params = params.set('pageSize', options.pageSize.toString());
+    if (options.fetchAll !== undefined) params = params.set('fetchAll', options.fetchAll.toString());
+    return this.http.get<BulkPrintDataResponse>(`${this.apiUrl}/bulk-print-data`, { params });
   }
 
   // ─── Dynamic Bharat UPI QR & Online Fee Collection Methods ───────────
@@ -809,4 +860,123 @@ export interface StudentFeeCard {
   totalOneTimeFee?: number;
   coachingJoiningDate?: string | null;
 }
+
+export interface BulkDueSlipInvoiceItem {
+  invoiceId: string;
+  invoiceNumber: string;
+  title: string;
+  period: string;
+  isArrear: boolean;
+  dueDate: string;
+  baseAmount: number;
+  discountAmount: number;
+  lateFeeAmount: number;
+  finalAmount: number;
+  advanceAdjustedAmount: number;
+  advanceAdjustedFromReceipt?: string | null;
+  paidAmount: number;
+  balanceDue: number;
+  status: string;
+  heads: { headName: string; amount: number }[];
+}
+
+export interface BulkDueSlipItem {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber: string;
+  className: string;
+  sectionName: string;
+  batchName: string;
+  division: string;
+  parentName: string;
+  parentPhone: string;
+  branchName?: string | null;
+  periodLabel: string;
+  totalInvoiced: number;
+  advanceAdjusted: number;
+  paidAmount: number;
+  totalBalanceDue: number;
+  advanceWalletBalance: number;
+  qrDataUrl?: string;
+  invoices: BulkDueSlipInvoiceItem[];
+}
+
+export interface BulkReceiptItem {
+  paymentId: string;
+  receiptNumber: string;
+  paymentDate: string;
+  paymentMode: string;
+  transactionRef: string;
+  remarks: string;
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber: string;
+  className: string;
+  sectionName: string;
+  batchName: string;
+  division: string;
+  parentName: string;
+  parentPhone: string;
+  branchName?: string | null;
+  periodLabel: string;
+  invoiceNumbers: string;
+  amountPaid: number;
+  advanceDepositAmount: number;
+  advanceAdjustedAmount: number;
+  advanceAdjustedFromReceipt?: string | null;
+  remainingDue: number;
+  studentAdvanceBalance: number;
+  qrDataUrl?: string;
+  lineItems: { index: number; particulars: string; invoiceNumber: string; amount: number }[];
+}
+
+export interface BulkRegisterRow {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber: string;
+  className: string;
+  sectionName: string;
+  batchName: string;
+  division: string;
+  parentName: string;
+  parentPhone: string;
+  monthsCount: number;
+  periodsSummary: string;
+  totalInvoiced: number;
+  advanceAdjusted: number;
+  totalPaid: number;
+  balanceDue: number;
+  advanceWalletBalance: number;
+  status: 'Paid' | 'Partial' | 'Unpaid' | string;
+}
+
+export interface BulkPrintDataResponse {
+  cycleType: string;
+  periodLabel: string;
+  branchName?: string | null;
+  availableYears?: number[];
+  summary: {
+    totalStudents: number;
+    studentsWithDues: number;
+    receiptsCount: number;
+    totalInvoiced: number;
+    totalAdvanceAdjusted: number;
+    totalPaid: number;
+    totalBalanceDue: number;
+  };
+  pagination?: {
+    pageNumber: number;
+    pageSize: number;
+    dueSlipsTotalCount: number;
+    receiptsTotalCount: number;
+    registerTotalCount: number;
+  };
+  dueSlips: BulkDueSlipItem[];
+  receipts: BulkReceiptItem[];
+  registerRows: BulkRegisterRow[];
+}
+
 
