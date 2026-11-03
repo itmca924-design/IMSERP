@@ -289,7 +289,25 @@ export interface FeeReceiptDialogData {
               </div>
             }
 
-            <!-- Signature Blocks -->
+            <!-- Compact Arrears Table (if any pending arrears exist) -->
+            @if (data.receipt.pendingArrears && data.receipt.pendingArrears.length > 0) {
+              <div class="arrears-compact-section">
+                <div class="arrears-header-row">
+                  <span class="arrears-title">⚠️ Pending Arrears / शेष बकाया</span>
+                  <span class="arrears-total">₹{{ totalArrearsAmount | number:'1.2-2' }}</span>
+                </div>
+                <div class="arrears-items-row">
+                  @for (arr of data.receipt.pendingArrears; track arr.invoiceNumber) {
+                    <span class="arrears-chip">
+                      <span class="arr-name">{{ arr.title || arr.period }}</span>
+                      <span class="arr-amt">₹{{ arr.dueAmount | number:'1.0-0' }}</span>
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- Signature Blocks + QR Code -->
             <div class="signatures-row">
               <div class="sig-col">
                 <div class="sig-line"></div>
@@ -306,6 +324,12 @@ export interface FeeReceiptDialogData {
                   </div>
                 }
               </div>
+              @if (qrDataUrl) {
+                <div class="sig-col-qr text-center">
+                  <img [src]="qrDataUrl" alt="QR Code" class="receipt-mini-qr" />
+                  <span class="qr-label">{{ data.receipt.remainingDue > 0 ? 'Scan to Pay' : 'Verify' }}</span>
+                </div>
+              }
               <div class="sig-col text-right">
                 @if (digitalSignatureUrl) {
                   <div class="digital-sign-wrapper">
@@ -972,6 +996,81 @@ export interface FeeReceiptDialogData {
     .text-center { text-align: center; }
     .text-right { text-align: right; }
 
+    /* Compact Arrears Section */
+    .arrears-compact-section {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 3px;
+      padding: 2px 5px;
+      margin-bottom: 3px;
+      position: relative;
+      z-index: 1;
+    }
+    .arrears-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+    .arrears-title {
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: #b91c1c;
+    }
+    .arrears-total {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #dc2626;
+    }
+    .arrears-items-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 4px;
+    }
+    .arrears-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #fff;
+      border: 1px solid #fecaca;
+      border-radius: 2px;
+      padding: 0 4px;
+      font-size: 0.58rem;
+      line-height: 1.4;
+    }
+    .arr-name {
+      color: #92400e;
+      font-weight: 600;
+    }
+    .arr-amt {
+      color: #dc2626;
+      font-weight: 800;
+    }
+
+    /* Mini QR in Signatures Row */
+    .sig-col-qr {
+      width: 52px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .receipt-mini-qr {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+      border: 1px solid #e2e8f0;
+      border-radius: 2px;
+    }
+    .qr-label {
+      font-size: 0.5rem;
+      font-weight: 700;
+      color: #475569;
+      margin-top: 1px;
+      white-space: nowrap;
+    }
+
     @media print {
       .no-print { display: none !important; }
       .receipt-paper {
@@ -1437,6 +1536,17 @@ export class FeeReceiptDialogComponent implements OnInit {
       '.digital-seal { border: 1px dashed #0284c7; border-radius: 2px; padding: 1px 3px; background: #f0f9ff; color: #0284c7; font-size: 0.55rem; font-weight: 800; text-align: center; }' +
       '.digital-sign-wrapper { display: flex; align-items: flex-end; justify-content: flex-end; height: 16px; margin-bottom: 1px; }' +
       '.digital-sign-img { max-height: 16px; max-width: 70px; object-fit: contain; mix-blend-mode: multiply; }' +
+      '.arrears-compact-section { background: #fef2f2 !important; border: 1px solid #fecaca; border-radius: 3px; padding: 2px 5px; margin-bottom: 3px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.arrears-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }' +
+      '.arrears-title { font-size: 0.62rem; font-weight: 700; color: #b91c1c; }' +
+      '.arrears-total { font-size: 0.68rem; font-weight: 800; color: #dc2626; }' +
+      '.arrears-items-row { display: flex; flex-wrap: wrap; gap: 2px 4px; }' +
+      '.arrears-chip { display: inline-flex; align-items: center; gap: 3px; background: #fff; border: 1px solid #fecaca; border-radius: 2px; padding: 0 4px; font-size: 0.58rem; line-height: 1.4; }' +
+      '.arr-name { color: #92400e; font-weight: 600; }' +
+      '.arr-amt { color: #dc2626; font-weight: 800; }' +
+      '.sig-col-qr { width: 52px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }' +
+      '.receipt-mini-qr { width: 48px; height: 48px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 2px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.qr-label { font-size: 0.5rem; font-weight: 700; color: #475569; margin-top: 1px; white-space: nowrap; }' +
       '.paper-footer { text-align: center; font-size: 0.54rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 1px; margin-top: 1px; }' +
       '.text-center { text-align: center; }' +
       '.text-right { text-align: right; }' +
