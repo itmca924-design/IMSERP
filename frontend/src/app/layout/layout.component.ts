@@ -406,7 +406,7 @@ export interface BreadcrumbItem {
               <span class="active-pulse-dot"></span>
               <mat-icon class="active-icon">group</mat-icon>
               <span class="active-count">{{ presenceService.activeUsersCount() }}</span>
-              <span class="active-text">Online</span>
+              <span class="active-text">&nbsp;Online</span>
             </button>
             <mat-menu #activeUsersMenu="matMenu" xPosition="before" class="active-users-menu-panel">
               <div class="active-menu-header">
@@ -1604,6 +1604,11 @@ export interface BreadcrumbItem {
     }
     /* Real-time Multi-tenant Branch-wise Active Users Badge & Dropdown */
     .active-users-pill-btn {
+      ::ng-deep .mdc-button__label {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+      }
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -1650,6 +1655,7 @@ export interface BreadcrumbItem {
       }
 
       .active-text {
+        margin-left: 4px !important;
         font-size: 0.72rem !important;
         font-weight: 600 !important;
         color: #15803d !important;

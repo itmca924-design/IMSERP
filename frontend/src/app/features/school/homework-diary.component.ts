@@ -2531,17 +2531,19 @@ export interface DailyDiaryReportHeader {
       outline: none;
     }
     .qf-task-input-wrap {
-      position: relative;
       display: flex;
       align-items: center;
       flex: 1;
+      gap: 6px;
+      min-width: 0;
     }
     .qf-task-input {
-      width: 100%;
+      flex: 1;
+      min-width: 0;
       background: #ffffff;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
-      padding: 6px 145px 6px 12px;
+      padding: 6px 10px;
       font-size: 13px;
       color: #0f172a;
       outline: none;
@@ -2552,11 +2554,10 @@ export interface DailyDiaryReportHeader {
       box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
     }
     .qf-input-badges {
-      position: absolute;
-      right: 6px;
       display: flex;
       align-items: center;
       gap: 5px;
+      flex-shrink: 0;
     }
     .preset-popover-btn {
       display: inline-flex;
@@ -3052,18 +3053,19 @@ export interface DailyDiaryReportHeader {
       flex-shrink: 0;
     }
     .entry-input-wrap {
-      position: relative;
       display: flex;
       align-items: center;
       flex: 1;
       min-width: 160px;
+      gap: 5px;
     }
     .entry-task-input {
-      width: 100%;
+      flex: 1;
+      min-width: 0;
       background: #ffffff;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
-      padding: 5px 44px 5px 8px;
+      padding: 5px 8px;
       font-size: 12.5px;
       color: #0f172a;
       outline: none;
@@ -3074,8 +3076,7 @@ export interface DailyDiaryReportHeader {
       box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
     }
     .row-lang-pill {
-      position: absolute;
-      right: 4px;
+      flex-shrink: 0;
       font-size: 9.5px;
       font-weight: 800;
       border-radius: 3px;
@@ -3091,8 +3092,7 @@ export interface DailyDiaryReportHeader {
       color: #1d4ed8;
     }
     .row-convert-pill {
-      position: absolute;
-      right: 32px;
+      flex-shrink: 0;
       font-size: 10px;
       font-weight: 900;
       border-radius: 3px;

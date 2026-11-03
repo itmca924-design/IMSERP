@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imserp-cache-v10';
+const CACHE_NAME = 'imserp-cache-v11';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -179,15 +179,19 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 3. Dynamic tenant cached icons
-  if (url.pathname === '/__tenant_icon_192.png' || url.pathname === '/__tenant_icon_512.png') {
+  if (url.pathname === '/__tenant_icon_192.png' ||
+      url.pathname === '/__tenant_icon_maskable_192.png' ||
+      url.pathname === '/__tenant_icon_512.png' ||
+      url.pathname === '/__tenant_icon_maskable_512.png') {
     event.respondWith(
       (async () => {
         try {
           const brandingCache = await caches.open('imserp-dynamic-branding');
-          const cached = await brandingCache.match(req.url);
+          const cached = (await brandingCache.match(url.pathname)) || (await brandingCache.match(req.url));
           if (cached) return cached;
         } catch (e) {}
-        return caches.match('/assets/icons/icon-192x192.png');
+        const fallback = url.pathname.includes('512') ? '/assets/icons/icon-512x512.png' : '/assets/icons/icon-192x192.png';
+        return (await caches.match(fallback)) || fetch(fallback);
       })()
     );
     return;

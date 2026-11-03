@@ -55,35 +55,58 @@ export class BrandingService {
     this.updateMetaTags(companyName);
 
     // 3. Dynamic Icons for Desktop, Android, and iOS
-    let icon192 = logoUrl || this.DEFAULT_FAVICON;
-    let icon512 = logoUrl || this.DEFAULT_APPLE_ICON;
-    let maskable192 = logoUrl || this.DEFAULT_APPLE_ICON;
-    let maskable512 = logoUrl || this.DEFAULT_APPLE_ICON;
+    // Standard HTTP URLs served by Service Worker Cache (required by W3C & Chromium PWA specs)
+    const icon192Url = '/__tenant_icon_192.png';
+    const maskable192Url = '/__tenant_icon_maskable_192.png';
+    const icon512Url = '/__tenant_icon_512.png';
+    const maskable512Url = '/__tenant_icon_maskable_512.png';
+
+    let faviconDataUrl: string | null = null;
 
     if (logoUrl) {
       try {
-        const [gen192, genMask192, gen512, genMask512] = await Promise.all([
-          this.generateSquareIcon(logoUrl, 192, false),
-          this.generateSquareIcon(logoUrl, 192, true, '#ffffff'),
-          this.generateSquareIcon(logoUrl, 512, false),
-          this.generateSquareIcon(logoUrl, 512, true, '#ffffff')
+        const [blob192, blobMask192, blob512, blobMask512] = await Promise.all([
+          this.generateSquareIconBlob(logoUrl, 192, false),
+          this.generateSquareIconBlob(logoUrl, 192, true, '#ffffff'),
+          this.generateSquareIconBlob(logoUrl, 512, false),
+          this.generateSquareIconBlob(logoUrl, 512, true, '#ffffff')
         ]);
-        icon192 = gen192;
-        maskable192 = genMask192;
-        icon512 = gen512;
-        maskable512 = genMask512;
+
+        if (typeof window !== 'undefined' && 'caches' in window) {
+          const cache = await window.caches.open('imserp-dynamic-branding');
+          const cacheHeader = {
+            'Content-Type': 'image/png',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          };
+
+          if (blob192) {
+            await cache.put(icon192Url, new Response(blob192, { headers: cacheHeader }));
+          }
+          if (blobMask192) {
+            await cache.put(maskable192Url, new Response(blobMask192, { headers: cacheHeader }));
+          }
+          if (blob512) {
+            await cache.put(icon512Url, new Response(blob512, { headers: cacheHeader }));
+          }
+          if (blobMask512) {
+            await cache.put(maskable512Url, new Response(blobMask512, { headers: cacheHeader }));
+          }
+        }
+
+        // Generate favicon preview
+        faviconDataUrl = await this.generateSquareIconDataUrl(logoUrl, 192, false);
       } catch (err) {
-        console.warn('[BrandingService] Fallback to direct logoUrl for PWA icons:', err);
+        console.warn('[BrandingService] Error preparing dynamic PWA icon blobs:', err);
       }
     }
 
     // Dynamic Favicon
-    this.setFavicon(icon192);
+    this.setFavicon(faviconDataUrl || logoUrl || this.DEFAULT_FAVICON);
 
-    // Dynamic Apple Touch Icon for iOS Safari & Mobile Home Screen
-    this.setAppleTouchIcon(icon192);
+    // Dynamic Apple Touch Icon for iOS Safari & Mobile Home Screen (MUST be valid HTTP URL)
+    this.setAppleTouchIcon(logoUrl || icon192Url);
 
-    // 4. Construct Full Dynamic Manifest
+    // 4. Construct Full Dynamic Manifest with valid HTTP URLs
     const dynamicManifest = {
       name: companyName ? `${companyName} - School ERP` : this.DEFAULT_TITLE,
       short_name: companyName || this.DEFAULT_SHORT_TITLE,
@@ -98,27 +121,52 @@ export class BrandingService {
       lang: 'en-IN',
       dir: 'ltr',
       categories: ['education', 'business', 'productivity'],
-      icons: [
+      icons: logoUrl ? [
         {
-          src: icon192,
+          src: icon192Url,
           sizes: '192x192',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: maskable192,
+          src: maskable192Url,
           sizes: '192x192',
           type: 'image/png',
           purpose: 'maskable'
         },
         {
-          src: icon512,
+          src: icon512Url,
           sizes: '512x512',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: maskable512,
+          src: maskable512Url,
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'maskable'
+        }
+      ] : [
+        {
+          src: 'assets/icons/icon-192x192.png',
+          sizes: '192x192',
+          type: 'image/png',
+          purpose: 'any'
+        },
+        {
+          src: 'assets/icons/icon-maskable-192x192.png',
+          sizes: '192x192',
+          type: 'image/png',
+          purpose: 'maskable'
+        },
+        {
+          src: 'assets/icons/icon-512x512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'any'
+        },
+        {
+          src: 'assets/icons/icon-maskable-512x512.png',
           sizes: '512x512',
           type: 'image/png',
           purpose: 'maskable'
@@ -130,33 +178,33 @@ export class BrandingService {
           short_name: 'Dashboard',
           description: 'Executive Overview & Insights',
           url: '/dashboard',
-          icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
+          icons: [{ src: logoUrl ? icon192Url : 'assets/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }]
         },
         {
           name: 'Attendance',
           short_name: 'Attendance',
           description: 'Daily Student & Teacher Attendance',
           url: '/student-attendance',
-          icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
+          icons: [{ src: logoUrl ? icon192Url : 'assets/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }]
         },
         {
           name: 'Fees Collection',
           short_name: 'Fees',
           description: 'Collect Fees & Instant Receipt',
           url: '/fees',
-          icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
+          icons: [{ src: logoUrl ? icon192Url : 'assets/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }]
         },
         {
           name: 'Student Directory',
           short_name: 'Students',
           description: 'Search & View Enrolled Students',
           url: '/students',
-          icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
+          icons: [{ src: logoUrl ? icon192Url : 'assets/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }]
         }
       ]
     };
 
-    // 5. Store directly into CacheStorage so Service Worker immediately serves dynamic manifest & icons
+    // 5. Store manifest directly into CacheStorage
     if (typeof window !== 'undefined' && 'caches' in window) {
       try {
         const cache = await window.caches.open('imserp-dynamic-branding');
@@ -178,14 +226,107 @@ export class BrandingService {
     this.updatePwaManifest(user);
 
     // 7. Notify active Service Worker
-    this.notifyServiceWorker(user, logoUrl, dynamicManifest, { icon192, icon512, maskable192, maskable512 });
+    this.notifyServiceWorker(user, logoUrl, dynamicManifest, {
+      icon192: icon192Url,
+      icon512: icon512Url,
+      maskable192: maskable192Url,
+      maskable512: maskable512Url
+    });
   }
 
   /**
-   * Dynamically generates a square high-resolution PNG data URL from any image URL (SVG, PNG, JPG, WebP).
+   * Generates a square high-resolution PNG Blob from an image URL.
    * Ensures the icon meets 100% of PWA criteria on Android, Windows, Mac, and iOS.
    */
-  private generateSquareIcon(
+  private generateSquareIconBlob(
+    imageUrl: string,
+    size: number,
+    isMaskable: boolean = false,
+    bgColor: string = '#ffffff'
+  ): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || typeof document === 'undefined') {
+        resolve(null);
+        return;
+      }
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      const timer = setTimeout(() => {
+        // Fallback: fetch directly as blob
+        fetch(imageUrl)
+          .then((r) => (r.ok ? r.blob() : null))
+          .then(resolve)
+          .catch(() => resolve(null));
+      }, 3500);
+
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+
+          if (isMaskable) {
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, size, size);
+          } else {
+            ctx.clearRect(0, 0, size, size);
+          }
+
+          const scale = isMaskable ? 0.78 : 0.94;
+          const targetArea = size * scale;
+          const offset = (size - targetArea) / 2;
+
+          const w = img.naturalWidth || img.width || size;
+          const h = img.naturalHeight || img.height || size;
+          const aspect = w / h;
+
+          let dw = targetArea;
+          let dh = targetArea;
+          let dx = offset;
+          let dy = offset;
+
+          if (aspect > 1) {
+            dh = targetArea / aspect;
+            dy = offset + (targetArea - dh) / 2;
+          } else {
+            dw = targetArea * aspect;
+            dx = offset + (targetArea - dw) / 2;
+          }
+
+          ctx.drawImage(img, dx, dy, dw, dh);
+          canvas.toBlob((blob) => resolve(blob), 'image/png');
+        } catch (e) {
+          fetch(imageUrl)
+            .then((r) => (r.ok ? r.blob() : null))
+            .then(resolve)
+            .catch(() => resolve(null));
+        }
+      };
+
+      img.onerror = () => {
+        clearTimeout(timer);
+        fetch(imageUrl)
+          .then((r) => (r.ok ? r.blob() : null))
+          .then(resolve)
+          .catch(() => resolve(null));
+      };
+
+      img.src = imageUrl;
+    });
+  }
+
+  /**
+   * Generates a square high-resolution PNG data URL (primarily for browser tab favicon).
+   */
+  private generateSquareIconDataUrl(
     imageUrl: string,
     size: number,
     isMaskable: boolean = false,
@@ -223,7 +364,6 @@ export class BrandingService {
             ctx.clearRect(0, 0, size, size);
           }
 
-          // Safe zone factor: maskable icons require inner ~78-80% safe zone
           const scale = isMaskable ? 0.78 : 0.94;
           const targetArea = size * scale;
           const offset = (size - targetArea) / 2;
@@ -248,7 +388,6 @@ export class BrandingService {
           ctx.drawImage(img, dx, dy, dw, dh);
           resolve(canvas.toDataURL('image/png'));
         } catch (e) {
-          console.warn('[BrandingService] Canvas generation warning:', e);
           resolve(imageUrl);
         }
       };
