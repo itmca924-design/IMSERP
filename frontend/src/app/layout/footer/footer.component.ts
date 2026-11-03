@@ -272,6 +272,6 @@ export class FooterComponent {
   readonly appVersion: string = 'v1.0.0 PRO';
 
   get instituteName(): string {
-    return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+    return this.authService.getInstituteName();
   }
 }

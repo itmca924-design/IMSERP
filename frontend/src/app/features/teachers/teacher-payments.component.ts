@@ -2322,7 +2322,7 @@ export class TeacherPaymentsComponent implements OnInit {
                 data: {
                   payment: match,
                   teacher: teacher,
-                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                  instituteName: this.authService.getInstituteName(),
                   branchName: this.authService.getCurrentBranchName()
                 }
               });
@@ -2521,7 +2521,7 @@ export class TeacherPaymentsComponent implements OnInit {
       data: {
         payment,
         teacher: this.selectedTeacher,
-        instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+        instituteName: this.authService.getInstituteName(),
         branchName: this.authService.getCurrentBranchName()
       }
     });

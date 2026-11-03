@@ -210,7 +210,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   logoFailed = false;
 
   get logoUrl(): string | null { return this.authService.getInstituteLogoUrl(); }
-  get instituteName(): string { return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy'; }
+  get instituteName(): string { return this.authService.getInstituteName(); }
   get isStudentOrParent(): boolean { return this.authService.isStudentOrParent(); }
   get isTeacher(): boolean { return this.authService.isTeacher(); }
   get canManageStaff(): boolean { return this.authService.canManageStaff(); }

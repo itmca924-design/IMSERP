@@ -82,7 +82,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               matInput
               type="text"
               formControlName="upiMerchantName"
-              placeholder="e.g. Jnandeep Campus"
+              placeholder="e.g. Registered Institute Name"
               autocomplete="off"
               />
             <mat-icon matPrefix class="field-icon">business</mat-icon>

@@ -517,7 +517,7 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
                       <!-- Institute Header -->
                       <div class="hall-ticket-header">
                         <div class="inst-brand">
-                          <h2>{{ myData.student.branchName || 'Jnandeep Campus' }}</h2>
+                          <h2>{{ myData.student.branchName || authService.getInstituteName() }}</h2>
                           <p class="inst-sub">Official Examination Admit Card &amp; Hall Ticket</p>
                           <span class="session-badge">ACADEMIC SESSION: {{ selectedSession }}</span>
                         </div>
@@ -2127,7 +2127,7 @@ export class MyExamsComponent implements OnInit {
       </head>
       <body>
         <div class="header">
-          <h2>${student.branchName || 'Jnandeep Campus'}</h2>
+          <h2>${student.branchName || this.authService.getInstituteName()}</h2>
           <p>Official Examination Datesheet &amp; Schedule (${this.selectedSession})</p>
         </div>
         <div class="meta-grid">
@@ -2272,7 +2272,7 @@ export class MyExamsComponent implements OnInit {
         <div class="scorecard-paper">
           <div class="inst-header">
             <div class="inst-title">
-              <h2>${student.branchName || 'Jnandeep Campus'}</h2>
+              <h2>${student.branchName || this.authService.getInstituteName()}</h2>
               <p class="inst-sub">Official Student Test Performance Scorecard &amp; Results</p>
             </div>
             <div>

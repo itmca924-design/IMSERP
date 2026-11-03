@@ -312,7 +312,7 @@ import { environment } from '../../../environments/environment';
               <img [src]="getInstituteLogo(currentCard)" alt="Institute Logo" class="inst-logo-img" (error)="onLogoError($event)" />
             </div>
             <div class="inst-details-col">
-              <h2 class="inst-name">{{ currentCard.instituteName || 'JnanDeep Campus' }}</h2>
+              <h2 class="inst-name">{{ currentCard.instituteName || authService.getInstituteName() }}</h2>
               <p class="inst-tagline">Excellence in Education • Complete Student ERP Management</p>
               <p class="inst-address">{{ currentCard.instituteAddress || 'Parsa, Saran, Bihar - 841219' }}</p>
               <p class="inst-contact">

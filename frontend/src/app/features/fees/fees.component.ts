@@ -3095,7 +3095,7 @@ export class FeesComponent implements OnInit, OnDestroy {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: res,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: this.authService.getCurrentBranchName()
           }
         });
@@ -3469,7 +3469,7 @@ export class FeesComponent implements OnInit, OnDestroy {
               panelClass: 'receipt-dialog-panel',
               data: {
                 receipt: res,
-                instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                instituteName: this.authService.getInstituteName(),
                 branchName: res.branchName || inv.branchName || this.authService.getCurrentBranchName()
               }
             });
@@ -3507,7 +3507,7 @@ export class FeesComponent implements OnInit, OnDestroy {
               panelClass: 'receipt-dialog-panel',
               data: {
                 receipt: res,
-                instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                instituteName: this.authService.getInstituteName(),
                 branchName: res.branchName || inv.branchName || this.authService.getCurrentBranchName()
               }
             });
@@ -3530,7 +3530,7 @@ export class FeesComponent implements OnInit, OnDestroy {
         batchName: inv.batchName,
         parentWhatsAppPhone: inv.parentWhatsAppPhone,
         invoice: inv,
-        instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+        instituteName: this.authService.getInstituteName(),
         branchName: inv.branchName || this.authService.getCurrentBranchName(),
         autoShareWhatsApp
       }
@@ -3556,7 +3556,7 @@ export class FeesComponent implements OnInit, OnDestroy {
                 panelClass: 'receipt-dialog-panel',
                 data: {
                   receipt,
-                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                  instituteName: this.authService.getInstituteName(),
                   branchName: receipt.branchName || inv.branchName || ledger.branchName || this.authService.getCurrentBranchName(),
                   autoShareWhatsApp
                 }
@@ -3604,7 +3604,7 @@ export class FeesComponent implements OnInit, OnDestroy {
                 panelClass: 'receipt-dialog-panel',
                 data: {
                   receipt: receiptData,
-                  instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+                  instituteName: this.authService.getInstituteName(),
                   branchName: inv.branchName || ledger.branchName || this.authService.getCurrentBranchName(),
                   autoShareWhatsApp
                 }
@@ -4004,7 +4004,7 @@ export class FeesComponent implements OnInit, OnDestroy {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: res,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: res.branchName || inv.branchName || this.authService.getCurrentBranchName()
           }
         });
@@ -4044,7 +4044,7 @@ export class FeesComponent implements OnInit, OnDestroy {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: res,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: res.branchName || first.branchName || this.authService.getCurrentBranchName()
           }
         });
@@ -4077,7 +4077,7 @@ export class FeesComponent implements OnInit, OnDestroy {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: txn.branchName || this.authService.getCurrentBranchName()
           }
         });

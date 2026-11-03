@@ -1,6 +1,7 @@
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace IMSERP.Infrastructure.Services;
@@ -95,20 +96,32 @@ public class WhatsAppService : IWhatsAppService
         return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
     }
 
+    private async Task<string> GetTenantNameAsync(Guid tenantId)
+    {
+        var name = await _dbContext.Tenants
+            .AsNoTracking()
+            .Where(t => t.Id == tenantId)
+            .Select(t => t.Name)
+            .FirstOrDefaultAsync();
+        return !string.IsNullOrWhiteSpace(name) ? name : "Administration Desk";
+    }
+
     public async Task<bool> SendAbsenteeAlertAsync(Guid tenantId, string recipientPhone, string studentName, string rollNumber, string dateStr)
     {
+        var instName = await GetTenantNameAsync(tenantId);
         var rollText = !string.IsNullOrWhiteSpace(rollNumber) ? $" (Roll: #{rollNumber})" : "";
         var content = $"*DAILY ABSENTEE ALERT*\n" +
                       $"Dear Parent,\n" +
                       $"Your ward *{studentName}*{rollText} has been marked *ABSENT* on *{dateStr}*.\n" +
                       $"If this absence is unplanned or unexplained, kindly contact the institute desk immediately.\n" +
-                      $"Apex Public School & Coaching Academy.";
+                      $"{instName}.";
 
         return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
     }
 
     public async Task<bool> SendLeaveStatusAlertAsync(Guid tenantId, string recipientPhone, string studentName, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName)
     {
+        var instName = await GetTenantNameAsync(tenantId);
         var durationStr = fromDate.Date == toDate.Date 
             ? fromDate.ToString("dd MMM yyyy") 
             : $"{fromDate:dd MMM yyyy} to {toDate:dd MMM yyyy}";
@@ -123,13 +136,14 @@ public class WhatsAppService : IWhatsAppService
                       $"*Processed By:* {reviewerName}" +
                       $"{remarkText}\n" +
                       (statusUpper == "APPROVED" ? "Leave status has been synchronized with the school attendance register.\n" : "") +
-                      $"Apex Public School & Coaching Academy.";
+                      $"{instName}.";
 
         return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
     }
 
     public async Task<bool> SendTeacherLeaveDecisionAlertAsync(Guid tenantId, string recipientPhone, string teacherName, string leaveType, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName)
     {
+        var instName = await GetTenantNameAsync(tenantId);
         var durationStr = fromDate.Date == toDate.Date 
             ? fromDate.ToString("dd MMM yyyy") 
             : $"{fromDate:dd MMM yyyy} to {toDate:dd MMM yyyy}";
@@ -144,7 +158,7 @@ public class WhatsAppService : IWhatsAppService
                       $"*Sanctioned / Reviewed By:* {reviewerName}" +
                       $"{remarkText}\n" +
                       (statusUpper == "APPROVED" ? "Attendance roster has been updated as Sanctioned Leave.\n" : "") +
-                      $"Apex Public School & Academy HRMS.";
+                      $"{instName} HRMS.";
 
         return await LogAndSend(tenantId, recipientPhone, teacherName, MessageType.Announcement, content);
     }

@@ -2456,7 +2456,7 @@ export class FeeCollectionDialogComponent implements OnInit {
       next: (settings) => {
         if (settings) {
           this.activeVpa = settings.upiId || 'imserp.fees@sbi';
-          this.merchantName = settings.upiMerchantName || this.authService.getInstituteName() || 'Jnandeep Campus';
+          this.merchantName = settings.upiMerchantName || this.authService.getInstituteName() || '';
           if (this.feeForm?.get('mode')?.value === 1) {
             setTimeout(() => this.generateCounterQr(), 100);
           }
@@ -2464,7 +2464,7 @@ export class FeeCollectionDialogComponent implements OnInit {
       },
       error: () => {
         this.activeVpa = 'imserp.fees@sbi';
-        this.merchantName = this.authService.getInstituteName() || 'Jnandeep Campus';
+        this.merchantName = this.authService.getInstituteName() || '';
         if (this.feeForm?.get('mode')?.value === 1) {
           setTimeout(() => this.generateCounterQr(), 100);
         }
@@ -2478,7 +2478,7 @@ export class FeeCollectionDialogComponent implements OnInit {
     if (amount <= 0) return;
 
     const vpa = this.activeVpa || 'imserp.fees@sbi';
-    const payee = encodeURIComponent(this.merchantName || 'Jnandeep Campus');
+    const payee = encodeURIComponent(this.merchantName || '');
     const formattedAmt = amount.toFixed(2);
     const note = encodeURIComponent(`Fee ${this.data?.studentName || ''}`);
     const txnRef = `FEE${Date.now().toString().slice(-6)}`;

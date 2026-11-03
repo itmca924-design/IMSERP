@@ -598,7 +598,7 @@ export interface BreadcrumbItem {
               <div class="user-info-text">
                 <span class="user-name">{{ currentUser()?.fullName || currentUser()?.username || 'Administrator' }}</span>
                 <span class="user-role">{{ currentUser()?.role || 'Admin' }} &bull; {{ getCurrentBranchLabel() }}</span>
-                <span class="user-inst">{{ currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+                <span class="user-inst">{{ authService.getInstituteName() }}</span>
               </div>
             </div>
     

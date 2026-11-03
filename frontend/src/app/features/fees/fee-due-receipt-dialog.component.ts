@@ -1091,7 +1091,7 @@ export class FeeDueReceiptDialogComponent implements OnInit {
         this.generateQrCode();
       },
       error: () => {
-        this.payeeMerchantName = this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+        this.payeeMerchantName = this.data.instituteName || this.authService.getInstituteName();
         this.generateQrCode();
       }
     });
@@ -1147,7 +1147,7 @@ export class FeeDueReceiptDialogComponent implements OnInit {
 
     const amount = this.dueSlip.totalOutstandingDue;
     const payee = this.payeeUpiId;
-    const name = this.payeeMerchantName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+    const name = this.payeeMerchantName || this.data.instituteName || this.authService.getInstituteName();
     const student = this.dueSlip.studentName;
     const roll = this.dueSlip.rollNumber || '';
     const note = `Fee Due ${student}${roll ? ' Roll ' + roll : ''} ${this.noticeNumber}`;

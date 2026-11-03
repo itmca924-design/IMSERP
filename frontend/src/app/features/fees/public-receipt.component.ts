@@ -87,7 +87,7 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
                   }
                 </div>
                 <div class="inst-text">
-                  <h1 class="inst-name">{{ receipt.instituteName || 'Jnandeep Campus' }}</h1>
+                  <h1 class="inst-name">{{ receipt.instituteName || 'Official Fee Receipt' }}</h1>
                   <p class="inst-sub">
                     @if (receipt.instituteAddress) {
                       <span>{{ receipt.instituteAddress }} • </span>
@@ -296,7 +296,7 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
             <div class="receipt-terms">
               <strong>Terms & Conditions / महत्वपूर्ण सूचना:</strong>
               <ol>
-                <li>This digital receipt is an official acknowledgment of payment received by {{ receipt.instituteName || 'Jnandeep Campus' }}.</li>
+                <li>This digital receipt is an official acknowledgment of payment received by {{ receipt.instituteName || 'Official Fee Receipt' }}.</li>
                 <li>Fees once deposited are subject to the academy's official fee cancellation & refund policy.</li>
                 <li>All payments are securely audited in the IMSERP Cloud Management Suite.</li>
               </ol>
@@ -1311,7 +1311,7 @@ export class PublicReceiptComponent implements OnInit {
       ? `${this.receipt.className}${this.receipt.sectionName ? ' (' + this.receipt.sectionName + ')' : ''}`
       : (this.receipt.batchName || 'General');
 
-    const instName = this.receipt.instituteName || 'Jnandeep Campus';
+    const instName = this.receipt.instituteName || 'Official Fee Receipt';
 
     const textMsg = `*OFFICIAL FEE PAYMENT RECEIPT*\n` +
       `*Institute*: ${instName}\n` +

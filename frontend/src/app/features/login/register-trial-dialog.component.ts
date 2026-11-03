@@ -76,7 +76,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
           <div class="form-row">
             <mat-form-field appearance="outline" class="col-7">
               <mat-label>Institute Name</mat-label>
-              <input matInput formControlName="name" placeholder="e.g. Apex International Academy" (input)="onNameInput($event)">
+              <input matInput formControlName="name" placeholder="e.g. National Public School & Academy" (input)="onNameInput($event)">
               <mat-icon matSuffix>business</mat-icon>
               @if (regForm.get('name')?.hasError('required')) {
                 <mat-error>Institute name is required</mat-error>

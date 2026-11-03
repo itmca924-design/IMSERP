@@ -2768,10 +2768,10 @@ public class HomeworkController : ControllerBase
 
         var schoolName = !string.IsNullOrWhiteSpace(tenant?.Name)
             ? tenant.Name
-            : (!string.IsNullOrWhiteSpace(branch?.Name) ? branch.Name : "Jnandeep Campus");
+            : (!string.IsNullOrWhiteSpace(branch?.Name) ? branch.Name : "");
         var schoolAddress = !string.IsNullOrWhiteSpace(branch?.Address)
             ? branch.Address
-            : (!string.IsNullOrWhiteSpace(tenant?.Address) ? tenant.Address : "Main Road, Jnandeep Campus");
+            : (!string.IsNullOrWhiteSpace(tenant?.Address) ? tenant.Address : "");
 
         var reportTitle = batchId.HasValue ? "BATCH MONTHLY PERFORMANCE REPORT" : "MONTHLY STUDENT PERFORMANCE REPORT";
 

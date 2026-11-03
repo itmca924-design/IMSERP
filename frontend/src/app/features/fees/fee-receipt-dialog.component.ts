@@ -1392,7 +1392,7 @@ export class FeeReceiptDialogComponent implements OnInit {
     if (rcpt.remainingDue > 0) {
       const amount = rcpt.remainingDue;
       const payee = this.payeeUpiId;
-      const name = this.payeeMerchantName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+      const name = this.payeeMerchantName || this.data.instituteName || this.authService.getInstituteName();
       const student = rcpt.studentName;
       const roll = rcpt.rollNumber || '';
       const note = `Fee Bal ${student}${roll ? ' Roll ' + roll : ''} ${rcpt.receiptNumber}`;

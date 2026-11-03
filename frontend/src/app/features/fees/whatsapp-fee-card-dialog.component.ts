@@ -472,7 +472,7 @@ export class WhatsAppFeeCardDialogComponent implements OnInit {
     const sessionRange = this.getSessionRangeLabel(card);
 
     const lines: string[] = [
-      `🏛️ *${(card.instituteName || 'JnanDeep Campus').toUpperCase()}*`,
+      `🏛️ *${(card.instituteName || '').toUpperCase()}*`,
       `📄 *STUDENT FEE PASSBOOK (${sessionRange}) / शुल्क विवरण पत्र*`,
       `━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `👤 *Student Name:* ${card.studentName}`,

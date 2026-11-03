@@ -1759,7 +1759,7 @@ export class StudentLedgerDialogComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: res,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: this.effectiveBranchName
           }
         });
@@ -1778,7 +1778,7 @@ export class StudentLedgerDialogComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: this.effectiveBranchName
           }
         });
@@ -1825,7 +1825,7 @@ export class StudentLedgerDialogComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: fallbackReceipt,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: this.effectiveBranchName
           }
         });
@@ -1846,7 +1846,7 @@ export class StudentLedgerDialogComponent implements OnInit {
         rollNumber: this.ledger.rollNumber,
         batchName: this.ledger.batchName,
         parentWhatsAppPhone: this.ledger.parentWhatsAppPhone,
-        instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+        instituteName: this.authService.getInstituteName(),
         branchName: this.effectiveBranchName
       }
     });

@@ -1155,7 +1155,7 @@ export class TeacherFnFComponent implements OnInit {
   activeSettlement: TeacherFnFSettlementDto | null = null;
 
   todayDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  instituteName = 'Apex Coaching Academy';
+  instituteName = '';
 
   formData: CreateTeacherFnFRequestDto = {
     teacherId: '',
@@ -1189,8 +1189,7 @@ export class TeacherFnFComponent implements OnInit {
     private confirmDialog: ConfirmDialogService,
     private authService: AuthService
   ) {
-    const inst = this.authService.currentUser()?.instituteName;
-    if (inst) this.instituteName = inst;
+    this.instituteName = this.authService.getInstituteName();
   }
 
   get officialSealUrl(): string | null {

@@ -2732,11 +2732,11 @@ export class TeacherReportsComponent implements OnInit {
   }
 
   get tenantCode(): string {
-    return this.authService.currentUser()?.tenantCode || 'APEX';
+    return this.authService.currentUser()?.tenantCode || '';
   }
 
   get instituteName(): string {
-    return this.authService.currentUser()?.instituteName || 'Apex Coaching Academy';
+    return this.authService.getInstituteName();
   }
 
   get branchName(): string {

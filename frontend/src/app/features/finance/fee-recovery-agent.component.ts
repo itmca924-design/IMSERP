@@ -1655,7 +1655,7 @@ export class FeeRecoveryAgentComponent implements OnInit {
 
   openNudgeModal(plan: FeeRecoveryPlanItemDto): void {
     const isPaid = plan.status === 'Resolved' || plan.totalOverdueAmount <= 0;
-    const instName = this.authService.getInstituteName() || 'Jnandeep Campus';
+    const instName = this.authService.getInstituteName();
     const parentGreeting = plan.parentName ? `Dear ${plan.parentName}` : 'Respected Parent / Guardian';
 
     if (isPaid) {

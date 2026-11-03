@@ -1044,7 +1044,7 @@ import { API_BASE, TeacherDto, StaffPromotionIncrementDto, CreateStaffPromotionI
                   <div class="institute-brand">
                     <mat-icon class="brand-icon">school</mat-icon>
                     <div>
-                      <h3 class="inst-name">JNANDEEP CAMPUS</h3>
+                      <h3 class="inst-name">{{ (authService?.getInstituteName() || '') | uppercase }}</h3>
                       <p class="inst-sub">Enterprise Coaching &amp; School Education ERP</p>
                     </div>
                   </div>
@@ -4140,7 +4140,7 @@ export class StaffPromotionsComponent implements OnInit {
   }
 
   // Policy, Access Control & Tenure State
-  private authService = inject(AuthService, { optional: true });
+  public authService = inject(AuthService, { optional: true });
   private confirmDialog = inject(ConfirmDialogService);
   get canManagePolicy(): boolean {
     return this.authService ? (this.authService.isAdmin() || this.authService.isHR()) : true;

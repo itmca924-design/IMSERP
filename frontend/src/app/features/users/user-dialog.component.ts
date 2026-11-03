@@ -174,7 +174,7 @@ export class ImmediateErrorStateMatcher implements ErrorStateMatcher {
                 formControlName="email"
                 [errorStateMatcher]="errorMatcher"
                 (blur)="checkEmailDuplicate()"
-                placeholder="rajesh@apexcoaching.com" />
+                placeholder="faculty@institute.edu.in" />
               <mat-icon matSuffix [color]="emailDuplicate || userForm.get('email')?.hasError('duplicate') ? 'warn' : 'primary'">mail</mat-icon>
               @if (emailDuplicate || userForm.get('email')?.hasError('duplicate')) {
                 <mat-error>

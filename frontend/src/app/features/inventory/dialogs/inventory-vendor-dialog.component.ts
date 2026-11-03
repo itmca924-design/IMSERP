@@ -50,7 +50,7 @@ export interface InventoryVendorDialogData {
           <div class="form-grid">
             <mat-form-field appearance="outline" class="col-span-2">
               <mat-label>Vendor / Business Name</mat-label>
-              <input matInput formControlName="vendorName" placeholder="e.g. Apex Stationers & Uniform Suppliers" />
+              <input matInput formControlName="vendorName" placeholder="e.g. National Stationers & Uniform Suppliers" />
               @if (form.get('vendorName')?.hasError('required')) {
                 <mat-error>
                   Vendor name is required

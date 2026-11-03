@@ -142,7 +142,7 @@ public class TeachersController : ControllerBase
 
     /// <summary>
     /// Generates a clean, short company prefix (2-4 uppercase characters) based on Company / Tenant Name.
-    /// E.g. "Jnandeep Campus" -> "JC", "Delhi Coaching Hub" -> "DCH", "Galaxy Academy" -> "GA"
+    /// E.g. "National Public School" -> "NPS", "Delhi Coaching Hub" -> "DCH", "Galaxy Academy" -> "GA"
     /// </summary>
     public static string GenerateShortCompanyPrefix(string? companyName, string? tenantCode)
     {

@@ -95,7 +95,7 @@ export interface StampMakerData {
             <!-- Text Slots -->
             <mat-form-field appearance="outline" class="density-compact w-100">
               <mat-label>Top Arc (संस्थान का नाम)</mat-label>
-              <input matInput formControlName="topText" placeholder="e.g. JNANDEEP CAMPUS" />
+              <input matInput formControlName="topText" placeholder="e.g. OFFICIAL INSTITUTE NAME" />
               <mat-icon matSuffix>business</mat-icon>
             </mat-form-field>
     

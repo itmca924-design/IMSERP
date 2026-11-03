@@ -1545,7 +1545,7 @@ export class MonthlyPerformanceComponent implements OnInit {
             </div>
             <div class="sc-header-text">
               <h1 class="sc-inst-name">{{ getInstitutionName() }}</h1>
-              <p class="sc-inst-sub">{{ data.header?.subtitleOrAddress || 'Main Road, Jnandeep Campus' }}</p>
+              <p class="sc-inst-sub">{{ data.header?.subtitleOrAddress || '' }}</p>
               <div class="sc-session-badges">
                 <span class="sc-pill-meta">Affiliated &amp; Recognized</span>
                 <span class="sc-dot">•</span>

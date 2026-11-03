@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CoachingService, StudentPortalLoginInfoDto, CreateStudentPortalLoginRequestDto } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../../environments/environment';
 
 export interface StudentPortalLoginDialogData {
@@ -670,7 +671,8 @@ export class StudentPortalLoginDialogComponent implements OnInit {
     private dialogRef: MatDialogRef<StudentPortalLoginDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: StudentPortalLoginDialogData,
     private coachingService: CoachingService,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    public authService: AuthService
   ) {}
 
   getPhotoUrl(photo: string | null | undefined): string {
@@ -838,7 +840,7 @@ export class StudentPortalLoginDialogComponent implements OnInit {
     const sUser = this.loginInfo?.studentUsername || this.studentUsername;
     const pUser = this.loginInfo?.parentUsername || this.parentUsername;
 
-    return `*Jnandeep Campus ERP - Portal Login Credentials*\n` +
+    return `*${this.authService.getInstituteName() || 'Institute'} ERP - Portal Login Credentials*\n` +
       `Dear ${this.loginInfo?.parentName || 'Parent'},\n` +
       `Aapke ward *${this.data.studentName}* ke online ERP portal accounts configure kar diye gaye hain:\n\n` +
       `🎓 *Student Portal Login:*\n` +

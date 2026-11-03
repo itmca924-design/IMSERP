@@ -1517,7 +1517,7 @@ export class StudyMaterialsComponent implements OnInit {
 
   shareViaWhatsApp(item: StudyMaterialDto) {
     const fileFullUrl = item.fileUrl.startsWith('http') ? item.fileUrl : `${environment.apiBaseUrl}${item.fileUrl}`;
-    const text = `📚 *Study Material Shared*: ${item.title}\n📖 *Subject*: ${item.subject} (${item.materialType})\n🔗 *Download Link*: ${fileFullUrl}\n\nShared via Apex Academy IMSERP.`;
+    const text = `📚 *Study Material Shared*: ${item.title}\n📖 *Subject*: ${item.subject} (${item.materialType})\n🔗 *Download Link*: ${fileFullUrl}\n\nShared via ${this.authService.getInstituteName() || 'IMSERP'}.`;
     const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
   }

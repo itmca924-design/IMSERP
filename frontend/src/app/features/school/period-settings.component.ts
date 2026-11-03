@@ -2439,7 +2439,7 @@ export class PeriodSettingsComponent implements OnInit {
   }
 
   get instituteName(): string {
-    return this.authService.currentUser()?.instituteName || 'Jnandeep Campus';
+    return this.authService.getInstituteName();
   }
 
   get reportGeneratedOnIst(): string {

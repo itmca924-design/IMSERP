@@ -1537,7 +1537,7 @@ export class MyFeesComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: this.effectiveBranchName
           }
         });
@@ -1584,7 +1584,7 @@ export class MyFeesComponent implements OnInit {
           panelClass: 'receipt-dialog-panel',
           data: {
             receipt: fallbackReceipt,
-            instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+            instituteName: this.authService.getInstituteName(),
             branchName: this.effectiveBranchName
           }
         });
@@ -1605,7 +1605,7 @@ export class MyFeesComponent implements OnInit {
         rollNumber: this.ledger.rollNumber,
         batchName: this.ledger.batchName,
         parentWhatsAppPhone: this.ledger.parentWhatsAppPhone,
-        instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
+        instituteName: this.authService.getInstituteName(),
         branchName: this.effectiveBranchName
       }
     });

@@ -171,11 +171,11 @@
           <div class="info-card">
             <div class="info-row">
               <span class="info-label">Institute Name</span>
-              <span class="info-val font-semibold">{{ authService.currentUser()?.instituteName || 'Apex Coaching Academy' }}</span>
+              <span class="info-val font-semibold">{{ authService.getInstituteName() }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Tenant Code</span>
-              <span class="info-badge">{{ authService.currentUser()?.tenantCode || 'APEX' }}</span>
+              <span class="info-badge">{{ authService.currentUser()?.tenantCode || '' }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Operator</span>

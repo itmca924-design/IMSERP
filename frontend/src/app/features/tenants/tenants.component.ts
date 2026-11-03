@@ -661,7 +661,7 @@ import { environment } from '../../../environments/environment';
                     @if (!isEditing) {
                       <mat-form-field appearance="outline" class="span-1">
                         <mat-label>Company / Institute Code (Unique)</mat-label>
-                        <input matInput formControlName="code" placeholder="e.g. APEX, EXCEL" (input)="onCodeInput($event)">
+                        <input matInput formControlName="code" placeholder="e.g. INST01, CAMPUS" (input)="onCodeInput($event)">
                         <mat-icon matSuffix>vpn_key</mat-icon>
                         <mat-hint>Used by users to sign in</mat-hint>
                         @if (tenantForm.get('code')?.hasError('required')) {
@@ -672,7 +672,7 @@ import { environment } from '../../../environments/environment';
                     <!-- Name -->
                     <mat-form-field appearance="outline" [class.span-2]="isEditing" [class.span-1]="!isEditing">
                       <mat-label>Institute Name *</mat-label>
-                      <input matInput formControlName="name" placeholder="e.g. Apex Coaching Academy">
+                      <input matInput formControlName="name" placeholder="e.g. Registered Institute Name">
                       <mat-icon matSuffix>school</mat-icon>
                       @if (tenantForm.get('name')?.hasError('required')) {
                         <mat-error>Name is required</mat-error>
@@ -681,7 +681,7 @@ import { environment } from '../../../environments/environment';
                     <!-- Email -->
                     <mat-form-field appearance="outline" class="span-1">
                       <mat-label>Official Email</mat-label>
-                      <input matInput type="email" formControlName="email" placeholder="e.g. info@jnandeep.in">
+                      <input matInput type="email" formControlName="email" placeholder="e.g. info@institute.edu.in">
                       <mat-icon matSuffix>email</mat-icon>
                       @if (tenantForm.get('email')?.hasError('email')) {
                         <mat-error>Invalid email address</mat-error>
@@ -696,7 +696,7 @@ import { environment } from '../../../environments/environment';
                     <!-- Website -->
                     <mat-form-field appearance="outline" class="span-1">
                       <mat-label>Website / Portal URL</mat-label>
-                      <input matInput formControlName="website" placeholder="e.g. https://jnandeep.in">
+                      <input matInput formControlName="website" placeholder="e.g. https://www.institute.edu.in">
                       <mat-icon matSuffix>language</mat-icon>
                     </mat-form-field>
                     <!-- Affiliation / Registration No. -->
@@ -714,7 +714,7 @@ import { environment } from '../../../environments/environment';
                     <!-- Address -->
                     <mat-form-field appearance="outline" class="span-2">
                       <mat-label>Campus Street Address</mat-label>
-                      <input matInput formControlName="address" placeholder="e.g. Main Road, Jnandeep Campus">
+                      <input matInput formControlName="address" placeholder="e.g. Main Campus Road, City">
                       <mat-icon matSuffix>location_on</mat-icon>
                     </mat-form-field>
                     <!-- City -->
@@ -766,7 +766,7 @@ import { environment } from '../../../environments/environment';
                         <input
                           matInput
                           formControlName="upiId"
-                          placeholder="e.g. jnandeep@sbi or 8088377282@ybl"
+                          placeholder="e.g. institute@sbi or merchant@upi"
                           autocomplete="off"
                           />
                           <mat-icon matPrefix class="field-icon">alternate_email</mat-icon>
@@ -779,7 +779,7 @@ import { environment } from '../../../environments/environment';
                             <input
                               matInput
                               formControlName="upiMerchantName"
-                              placeholder="e.g. Jnandeep Campus"
+                              placeholder="e.g. Registered Merchant Name"
                               autocomplete="off"
                               />
                               <mat-icon matPrefix class="field-icon">business</mat-icon>
@@ -926,7 +926,7 @@ import { environment } from '../../../environments/environment';
                                           <input
                                             matInput
                                             formControlName="bankAccountHolderName"
-                                            placeholder="e.g. Jnandeep Campus Educational Trust"
+                                            placeholder="e.g. Registered Educational Trust Name"
                                             autocomplete="off"
                                             />
                                             <mat-icon matPrefix class="field-icon">badge</mat-icon>
