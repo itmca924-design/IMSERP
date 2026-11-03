@@ -18,6 +18,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 import { HindiTransliterationService, TaskPresetCategory } from '../../core/services/hindi-transliteration.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { HwCheckPanelComponent, HwAnalyticsPanelComponent } from './homework-hw-check.component';
+import { shareElementOnWhatsApp, openWhatsAppTextOnly } from '../../shared/utils/whatsapp-image-share';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiUrl;
@@ -7186,6 +7187,131 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         <span>DISCIPLINE &nbsp; | &nbsp; GOOD HABITS &nbsp; | &nbsp; BRIGHT FUTURE</span>
       </div>
     </div>
+
+    <!-- Off-Screen Personalized Student Daily Diary Card for Individual WhatsApp Image Share -->
+    @if (activeShareStudent) {
+      <div id="active-student-diary-card" class="student-wa-share-card">
+        <div class="swa-top-header">
+          <div class="swa-inst-left">
+            @if (logoUrl && !logoFailed) {
+              <img [src]="logoUrl" alt="Logo" class="swa-logo" />
+            }
+            <div class="swa-inst-text">
+              <div class="swa-school-name">{{ reportHeader?.tenantName || authService.getInstituteName() || 'Daily Diary Report' }}</div>
+              @if (reportHeader?.tenantAddress) {
+                <div class="swa-school-addr">{{ reportHeader?.tenantAddress }}</div>
+              }
+            </div>
+          </div>
+          <div class="swa-badge-right">
+            <span class="swa-main-tag">DAILY DIARY CARD</span>
+            <span class="swa-sub-tag">दैनिक गृहकार्य एवं कक्षाकार्य डायरी</span>
+          </div>
+        </div>
+
+        <div class="swa-student-strip">
+          <div class="swa-st-item">
+            <span class="swa-lbl">Student Name:</span>
+            <span class="swa-val highlight">{{ activeShareStudent.studentName }}</span>
+          </div>
+          @if (activeShareStudent.rollNumber) {
+            <div class="swa-st-item">
+              <span class="swa-lbl">Roll No:</span>
+              <span class="swa-val">#{{ activeShareStudent.rollNumber }}</span>
+            </div>
+          }
+          <div class="swa-st-item">
+            <span class="swa-lbl">Class:</span>
+            <span class="swa-val">{{ activeShareStudent.className || reportHeader?.className || data.className }}@if (reportHeader?.sectionName || data.sectionName) { ({{ reportHeader?.sectionName || data.sectionName }}) }</span>
+          </div>
+          <div class="swa-st-item">
+            <span class="swa-lbl">Date:</span>
+            <span class="swa-val">{{ formattedDate }}</span>
+          </div>
+          <div class="swa-st-item">
+            <span class="swa-lbl">Attendance:</span>
+            @if (isAbsentStudent(activeShareStudent)) {
+              <span class="swa-att-pill absent">✘ {{ (activeShareStudent.attendanceStatus || '').toLowerCase() === 'leave' ? 'Leave' : 'Absent' }}</span>
+            } @else if ((activeShareStudent.attendanceStatus || '').toLowerCase() === 'late') {
+              <span class="swa-att-pill late">⏰ Late</span>
+            } @else if ((activeShareStudent.attendanceStatus || '').toLowerCase() === 'halfday') {
+              <span class="swa-att-pill halfday">◑ Half Day</span>
+            } @else {
+              <span class="swa-att-pill present">✔ Present</span>
+            }
+          </div>
+        </div>
+
+        <div class="swa-grid-sections">
+          <!-- Class Work Section -->
+          <div class="swa-work-box cw-box">
+            <div class="swa-box-hdr cw-hdr">
+              <span>📘 CLASS WORK (कक्षा कार्य - C.W.)</span>
+            </div>
+            <div class="swa-box-body">
+              @if (getActiveTasks(activeShareStudent.classWork).length > 0) {
+                @for (cw of getActiveTasks(activeShareStudent.classWork); track $index) {
+                  <div class="swa-task-row">
+                    <span class="subject-pill" [ngClass]="getSubjectColorClass(cw.subject)">{{ cw.subject }}</span>
+                    <span class="swa-task-txt">{{ cw.task }}</span>
+                    @if (cw.teacherName || reportHeader?.classTeacherName) {
+                      <span class="swa-teacher-txt">({{ cw.teacherName || reportHeader?.classTeacherName }})</span>
+                    }
+                    @if (cw.statusRemark) {
+                      <span class="swa-rem-tag">{{ cw.statusRemark }}</span>
+                    }
+                  </div>
+                }
+              } @else {
+                <div class="swa-empty-msg">No specific Class Work recorded for today.</div>
+              }
+            </div>
+          </div>
+
+          <!-- Home Work Section -->
+          <div class="swa-work-box hw-box">
+            <div class="swa-box-hdr hw-hdr">
+              <span>🏠 HOME WORK (गृह कार्य - H.W.)</span>
+              @if (hwSummary(activeShareStudent); as sm) {
+                <span class="swa-hw-done-pill">H.W. Checked: {{ sm }}</span>
+              }
+            </div>
+            <div class="swa-box-body">
+              @if (getActiveTasks(activeShareStudent.homeWork).length > 0) {
+                @for (hw of getActiveTasks(activeShareStudent.homeWork); track $index) {
+                  <div class="swa-task-row">
+                    <span class="subject-pill" [ngClass]="getSubjectColorClass(hw.subject)">{{ hw.subject }}</span>
+                    <span class="swa-task-txt">{{ hw.task }}</span>
+                    @if (hw.teacherName || reportHeader?.classTeacherName) {
+                      <span class="swa-teacher-txt">({{ hw.teacherName || reportHeader?.classTeacherName }})</span>
+                    }
+                    <span class="swa-hw-status" [ngClass]="hwTickClass(hw)">{{ hwTickSymbol(hw) }} {{ hw.statusRemark || hw.status || 'Assigned' }}</span>
+                  </div>
+                }
+              } @else {
+                <div class="swa-empty-msg">No specific Home Work assigned for today.</div>
+              }
+            </div>
+          </div>
+        </div>
+
+        @if (activeShareStudent.remarks && activeShareStudent.remarks.trim()) {
+          <div class="swa-teacher-note">
+            <strong>💬 Teacher's Note / Remark:</strong> {{ activeShareStudent.remarks }}
+          </div>
+        }
+
+        <div class="swa-footer-row">
+          <div class="swa-sig">
+            @if (digitalSignatureUrl) {
+              <img [src]="digitalSignatureUrl" alt="Sign" class="swa-sign-img" />
+            }
+            <span>Class Teacher: <strong>{{ reportHeader?.classTeacherName || 'Authorized Signatory' }}</strong></span>
+          </div>
+          <div class="swa-motto">⭐ DISCIPLINE &bull; GOOD HABITS &bull; BRIGHT FUTURE ⭐</div>
+        </div>
+      </div>
+    }
     </div>
     </div>
     `,
@@ -8117,11 +8243,235 @@ export class StudentHomeworkSubmitDialogComponent implements OnInit {
         margin: 5mm 6mm;
       }
     }
+
+    /* Individual Student WhatsApp Share Card (Off-screen high-res render) */
+    .student-wa-share-card {
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 680px;
+      background: #ffffff;
+      border: 2px solid #1e3a8a;
+      border-radius: 10px;
+      padding: 16px 18px;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      box-sizing: border-box;
+      z-index: -1;
+    }
+    .swa-top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+    .swa-inst-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .swa-logo {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+    }
+    .swa-school-name {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.15;
+    }
+    .swa-school-addr {
+      font-size: 0.72rem;
+      color: #475569;
+      margin-top: 2px;
+    }
+    .swa-badge-right {
+      text-align: right;
+    }
+    .swa-main-tag {
+      display: inline-block;
+      background: #1e3a8a;
+      color: #ffffff;
+      font-size: 0.78rem;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+    .swa-sub-tag {
+      display: block;
+      font-size: 0.65rem;
+      color: #475569;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .swa-student-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+    }
+    .swa-st-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+    }
+    .swa-lbl {
+      color: #475569;
+      font-weight: 600;
+    }
+    .swa-val {
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .swa-val.highlight {
+      color: #1e3a8a;
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+    .swa-att-pill {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+    .swa-att-pill.present { background: #dcfce7; color: #15803d; }
+    .swa-att-pill.absent { background: #fee2e2; color: #dc2626; }
+    .swa-att-pill.late { background: #fef3c7; color: #b45309; }
+    .swa-att-pill.halfday { background: #e0f2fe; color: #0284c7; }
+    .swa-grid-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .swa-work-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .swa-box-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+    .cw-hdr { background: #dbeafe; color: #1e3a8a; border-bottom: 1px solid #bfdbfe; }
+    .hw-hdr { background: #dcfce7; color: #14532d; border-bottom: 1px solid #bbf7d0; }
+    .swa-hw-done-pill {
+      background: #ffffff;
+      color: #15803d;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      font-weight: 800;
+    }
+    .swa-box-body {
+      padding: 8px 12px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .swa-task-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      line-height: 1.35;
+      padding-bottom: 4px;
+      border-bottom: 1px dashed #e2e8f0;
+    }
+    .swa-task-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .swa-task-txt {
+      color: #0f172a;
+      font-weight: 600;
+      flex: 1;
+    }
+    .swa-teacher-txt {
+      color: #64748b;
+      font-size: 0.7rem;
+      font-style: italic;
+    }
+    .swa-rem-tag {
+      background: #fef9c3;
+      color: #854d0e;
+      border: 1px solid #fde047;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+    .swa-hw-status {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #334155;
+    }
+    .swa-empty-msg {
+      color: #64748b;
+      font-size: 0.76rem;
+      font-style: italic;
+    }
+    .swa-teacher-note {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.76rem;
+      color: #92400e;
+      margin-bottom: 10px;
+    }
+    .swa-footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1.5px solid #cbd5e1;
+      padding-top: 8px;
+      font-size: 0.72rem;
+      color: #334155;
+    }
+    .swa-sig {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .swa-sign-img {
+      max-height: 24px;
+      max-width: 80px;
+      object-fit: contain;
+    }
+    .swa-motto {
+      font-weight: 800;
+      color: #1e3a8a;
+      font-size: 0.68rem;
+      letter-spacing: 0.03em;
+    }
   `]
 })
 export class DailyDiaryReportDialogComponent implements OnInit {
   reportHeader?: DailyDiaryReportHeader;
   rows: DailyStudentDiaryRow[] = [];
+  activeShareStudent: DailyStudentDiaryRow | null = null;
   includePreviousHw = false;
   loading = false;
   sendingWhatsApp = false;
@@ -8823,13 +9173,21 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     }
   }
 
-  shareToClassGroupWhatsApp(): void {
+  async shareToClassGroupWhatsApp(): Promise<void> {
     const text = this.getClassSummaryText();
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).catch(() => {});
+    const el = document.getElementById('printableDiaryReport');
+    if (el) {
+      const cls = (this.reportHeader?.className || this.data.className || 'Class').replace(/\s+/g, '_');
+      await shareElementOnWhatsApp({
+        element: el,
+        fileName: `Daily_CW_HW_Report_${cls}_${this.formattedDate}.png`,
+        messageText: text,
+        shareTitle: `Daily CW & HW Report - ${this.formattedDate}`,
+        confirmDialog: this.confirmDialog
+      });
+    } else {
+      openWhatsAppTextOnly(null, text);
     }
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
   }
 
   generateStudentWhatsAppText(r: DailyStudentDiaryRow): string {
@@ -8998,19 +9356,12 @@ export class DailyDiaryReportDialogComponent implements OnInit {
     });
   }
 
-  sendIndividualStudentWhatsApp(row: DailyStudentDiaryRow): void {
+  async sendIndividualStudentWhatsApp(row: DailyStudentDiaryRow): Promise<void> {
     const text = this.generateStudentWhatsAppText(row);
     const phone = (row.parentWhatsAppPhone || '').trim();
     const cleanPhone = phone.replace(/[^0-9]/g, '');
 
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).catch(() => {});
-    }
-
     if (cleanPhone && cleanPhone.length >= 10) {
-      const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-      const url = `https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodeURIComponent(text)}`;
-      window.open(url, '_blank');
       this.http.post<any>(`${API_BASE}/homework/daily-diary/send-whatsapp-single`, {
         studentId: row.studentId,
         studentName: row.studentName,
@@ -9018,15 +9369,26 @@ export class DailyDiaryReportDialogComponent implements OnInit {
         phone: row.parentWhatsAppPhone,
         messageText: text
       }).subscribe({ error: () => {} });
-    } else {
-      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-      window.open(url, '_blank');
-      this.confirmDialog.alert(
-        'WhatsApp Opened',
-        `No phone number found in ${row.studentName}'s profile. The personalized diary text has been copied to your clipboard and WhatsApp share window opened.`,
-        'info'
-      );
     }
+
+    this.activeShareStudent = row;
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const cardEl = document.getElementById('active-student-diary-card');
+    if (cardEl) {
+      await shareElementOnWhatsApp({
+        element: cardEl,
+        fileName: `Daily_Diary_${row.studentName.replace(/\s+/g, '_')}_${this.formattedDate}.png`,
+        phone: cleanPhone.length >= 10 ? cleanPhone : null,
+        messageText: text,
+        shareTitle: `Daily Diary - ${row.studentName}`,
+        confirmDialog: this.confirmDialog
+      });
+    } else {
+      openWhatsAppTextOnly(cleanPhone.length >= 10 ? cleanPhone : null, text);
+    }
+
+    this.activeShareStudent = null;
   }
 
   getSubjectColorClass(subject: string): string {

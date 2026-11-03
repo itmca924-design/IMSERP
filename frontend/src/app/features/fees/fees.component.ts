@@ -3517,7 +3517,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     });
   }
 
-  openDueReceiptModal(inv: FeeInvoicePagedItem): void {
+  openDueReceiptModal(inv: FeeInvoicePagedItem, autoShareWhatsApp = false): void {
     const dialogRef = this.dialog.open(FeeDueReceiptDialogComponent, {
       width: '840px',
       maxWidth: '96vw',
@@ -3531,7 +3531,8 @@ export class FeesComponent implements OnInit, OnDestroy {
         parentWhatsAppPhone: inv.parentWhatsAppPhone,
         invoice: inv,
         instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
-        branchName: inv.branchName || this.authService.getCurrentBranchName()
+        branchName: inv.branchName || this.authService.getCurrentBranchName(),
+        autoShareWhatsApp
       }
     });
 
@@ -3542,7 +3543,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     });
   }
 
-  openReceiptForInvoice(inv: FeeInvoicePagedItem): void {
+  openReceiptForInvoice(inv: FeeInvoicePagedItem, autoShareWhatsApp = false): void {
     this.feesService.getStudentLedger(inv.studentId).subscribe({
       next: (ledger) => {
         const payment = ledger.payments.find(p => p.invoiceNumber === inv.invoiceNumber) || ledger.payments[0];
@@ -3556,7 +3557,8 @@ export class FeesComponent implements OnInit, OnDestroy {
                 data: {
                   receipt,
                   instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
-                  branchName: receipt.branchName || inv.branchName || ledger.branchName || this.authService.getCurrentBranchName()
+                  branchName: receipt.branchName || inv.branchName || ledger.branchName || this.authService.getCurrentBranchName(),
+                  autoShareWhatsApp
                 }
               });
             },
@@ -3603,7 +3605,8 @@ export class FeesComponent implements OnInit, OnDestroy {
                 data: {
                   receipt: receiptData,
                   instituteName: this.authService.currentUser()?.instituteName || 'Apex Coaching Academy',
-                  branchName: inv.branchName || ledger.branchName || this.authService.getCurrentBranchName()
+                  branchName: inv.branchName || ledger.branchName || this.authService.getCurrentBranchName(),
+                  autoShareWhatsApp
                 }
               });
             }
@@ -3729,9 +3732,10 @@ export class FeesComponent implements OnInit, OnDestroy {
   sendReminder(inv: FeeInvoicePagedItem): void {
     const isPaid = inv.dueAmount === 0;
     const actionTitle = isPaid ? 'Send WhatsApp Receipt' : 'Send WhatsApp Reminder';
+    const phoneSuffix = inv.parentWhatsAppPhone ? ` (${inv.parentWhatsAppPhone})` : '';
     const actionMsg = isPaid
-      ? `Dispatch fee paid receipt WhatsApp message to ${inv.studentName}'s Parent (${inv.parentWhatsAppPhone})?`
-      : `Dispatch fee due reminder WhatsApp message to ${inv.studentName}'s Parent (${inv.parentWhatsAppPhone})?`;
+      ? `Dispatch fee paid receipt (Student Copy Image) on WhatsApp to ${inv.studentName}'s Parent${phoneSuffix}?`
+      : `Dispatch fee due slip (Student Copy Image) on WhatsApp to ${inv.studentName}'s Parent${phoneSuffix}?`;
 
     this.confirmDialog.confirm(
       actionTitle,
@@ -3741,27 +3745,12 @@ export class FeesComponent implements OnInit, OnDestroy {
       isPaid ? 'success' : 'info'
     ).subscribe((confirmed) => {
       if (confirmed) {
-        this.feesService.sendWhatsAppReminder(inv.id).subscribe({
-          next: () => {
-            if (inv.parentWhatsAppPhone) {
-              const rawPhone = inv.parentWhatsAppPhone.replace(/\D/g, '');
-              const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
-              let textMsg = '';
-              if (isPaid) {
-                textMsg = `*FEE PAYMENT RECEIPT*\nDear Parent, Payment of *₹${inv.totalAmount}* for *${inv.studentName}* (Invoice #${inv.invoiceNumber} - ${inv.title}) has been received & settled.\nRemaining Balance: *₹0.00*.\n\nThank you for choosing Apex Coaching Academy!`;
-              } else {
-                textMsg = `*FEE DUE REMINDER*\nDear Parent, This is a gentle reminder that fee of *₹${inv.dueAmount}* for *${inv.studentName}* (Invoice #${inv.invoiceNumber}) is pending.\nKindly pay at the earliest.\n\nThank you!`;
-              }
-              const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(textMsg)}`;
-              window.open(waUrl, '_blank');
-            }
-
-            this.confirmDialog.alert('WhatsApp Dispatched', `WhatsApp message opened for ${inv.parentWhatsAppPhone}!`, 'success');
-          },
-          error: (err) => {
-            this.confirmDialog.alert('Dispatch Failed', err?.error?.message || 'Error sending WhatsApp message', 'danger');
-          }
-        });
+        this.feesService.sendWhatsAppReminder(inv.id).subscribe({ error: () => {} });
+        if (isPaid) {
+          this.openReceiptForInvoice(inv, true);
+        } else {
+          this.openDueReceiptModal(inv, true);
+        }
       }
     });
   }
