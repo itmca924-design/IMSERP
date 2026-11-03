@@ -157,36 +157,31 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         <!-- RIGHT SIDE: Bold Executive Login Command Card -->
         <div class="login-panel-right">
           <div class="login-card">
-            <!-- Top Metallic Gold-to-Electric-Blue Accent Bar -->
-            <div class="card-accent-line"></div>
-
-            <!-- Bold Executive Dark-Sapphire Hero Header -->
+            <!-- Signature Light-Blue Gradient Header (Strict ERP Standard) -->
             <div class="login-exec-header">
-              <div class="exec-header-glow"></div>
               <div class="exec-top-row">
-                <div class="brand-crest-shield" title="Secure Portal Login">
-                  <mat-icon class="brand-icon">admin_panel_settings</mat-icon>
-                  <span class="shield-key-dot">
-                    <mat-icon>vpn_key</mat-icon>
-                  </span>
-                </div>
-                <div class="exec-title-block">
-                  <div class="exec-badge-row">
-                    <span class="tenant-pill">MULTI-TENANT</span>
-                    <span class="cloud-pill">ENTERPRISE SAAS</span>
+                <div class="exec-brand-left">
+                  <div class="brand-crest-shield" title="Secure Portal Login">
+                    <mat-icon class="brand-icon">admin_panel_settings</mat-icon>
                   </div>
-                  <h2 class="brand-title">ERP Vertical SaaS</h2>
-                  <p class="brand-sub">All-in-One Education Command Center</p>
+                  <div class="exec-title-block">
+                    <h2 class="brand-title">ERP Vertical SaaS</h2>
+                    <p class="brand-sub">All-in-One Education Command Center</p>
+                  </div>
+                </div>
+                <div class="exec-badges-right">
+                  <span class="tenant-pill">MULTI-TENANT</span>
+                  <span class="cloud-pill">ENTERPRISE SAAS</span>
                 </div>
               </div>
 
               <div class="module-tags-row">
-                <span class="module-chip">School</span>
-                <span class="module-chip">Coaching</span>
-                <span class="module-chip highlight">Biometric/RFID</span>
-                <span class="module-chip">Hostel</span>
-                <span class="module-chip">Library</span>
-                <span class="module-chip">Transport</span>
+                <span class="module-chip"><mat-icon>school</mat-icon> School</span>
+                <span class="module-chip"><mat-icon>menu_book</mat-icon> Coaching</span>
+                <span class="module-chip highlight"><mat-icon>fingerprint</mat-icon> Biometric/RFID</span>
+                <span class="module-chip"><mat-icon>hotel</mat-icon> Hostel</span>
+                <span class="module-chip"><mat-icon>local_library</mat-icon> Library</span>
+                <span class="module-chip"><mat-icon>directions_bus</mat-icon> Transport</span>
               </div>
             </div>
 
@@ -641,82 +636,45 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       flex-direction: column;
     }
 
-    .card-accent-line {
-      height: 5px;
-      width: 100%;
-      background: linear-gradient(90deg, #f59e0b 0%, #38bdf8 50%, #2563eb 100%);
-    }
-
-    /* Bold Dark-Sapphire Executive Header Banner inside Card */
+    /* Signature Light-Blue Gradient Header Banner (Strict ERP Standard) */
     .login-exec-header {
       position: relative;
-      background: linear-gradient(135deg, #091128 0%, #172554 55%, #1e3a8a 100%);
-      padding: 16px 22px 14px;
-      color: #ffffff;
-      border-bottom: 1px solid rgba(59, 130, 246, 0.25);
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid #bfdbfe;
       overflow: hidden;
 
-      .exec-header-glow {
-        position: absolute;
-        top: -40px;
-        right: -30px;
-        width: 150px;
-        height: 150px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(56, 189, 248, 0.28) 0%, transparent 70%);
-        pointer-events: none;
+      .exec-top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
       }
 
-      .exec-top-row {
-        position: relative;
-        z-index: 1;
+      .exec-brand-left {
         display: flex;
         align-items: center;
         gap: 14px;
-        margin-bottom: 11px;
+        min-width: 0;
       }
 
       .brand-crest-shield {
-        position: relative;
-        width: 50px;
-        height: 50px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
-        border: 1.5px solid rgba(147, 197, 253, 0.65);
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: #2563eb;
+        color: #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
         flex-shrink: 0;
 
         .brand-icon {
-          font-size: 27px;
-          width: 27px;
-          height: 27px;
+          font-size: 26px;
+          width: 26px;
+          height: 26px;
           color: #ffffff;
-        }
-
-        .shield-key-dot {
-          position: absolute;
-          bottom: -4px;
-          right: -4px;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          border: 2px solid #0f172a;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-
-          mat-icon {
-            font-size: 11px;
-            width: 11px;
-            height: 11px;
-            color: #0f172a;
-            font-weight: 900;
-          }
         }
       }
 
@@ -725,75 +683,98 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         flex-direction: column;
         min-width: 0;
 
-        .exec-badge-row {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-bottom: 3px;
+        .brand-title {
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: #1e3a8a;
+          letter-spacing: -0.02em;
+          margin: 0;
+          line-height: 1.2;
         }
 
+        .brand-sub {
+          font-size: 0.76rem;
+          color: #3b82f6;
+          font-weight: 600;
+          margin: 2px 0 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+
+      .exec-badges-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px;
+        flex-shrink: 0;
+
         .tenant-pill {
-          background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
-          color: #0f172a;
-          font-size: 0.6rem;
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+          font-size: 0.62rem;
           font-weight: 800;
-          padding: 1.5px 7px;
+          padding: 2.5px 8px;
           border-radius: 6px;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.04em;
           text-transform: uppercase;
         }
 
         .cloud-pill {
-          background: rgba(56, 189, 248, 0.18);
-          border: 1px solid rgba(56, 189, 248, 0.4);
-          color: #7dd3fc;
-          font-size: 0.6rem;
+          background: #ecfdf5;
+          color: #047857;
+          border: 1px solid #a7f3d0;
+          font-size: 0.62rem;
           font-weight: 800;
-          padding: 1px 7px;
+          padding: 2px 8px;
           border-radius: 6px;
-          letter-spacing: 0.05em;
-        }
-
-        .brand-title {
-          font-size: 1.28rem;
-          font-weight: 800;
-          color: #ffffff;
-          letter-spacing: -0.02em;
-          margin: 0;
-          line-height: 1.15;
-        }
-
-        .brand-sub {
-          font-size: 0.74rem;
-          color: #93c5fd;
-          font-weight: 600;
-          margin: 2px 0 0;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
         }
       }
 
       .module-tags-row {
-        position: relative;
-        z-index: 1;
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
-        gap: 4px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(191, 219, 254, 0.7);
 
         .module-chip {
-          font-size: 0.61rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.65rem;
           font-weight: 700;
-          padding: 2px 6px;
+          padding: 3px 7px;
           border-radius: 6px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: #e2e8f0;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #334155;
           letter-spacing: 0.01em;
           white-space: nowrap;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+
+          mat-icon {
+            font-size: 12px;
+            width: 12px;
+            height: 12px;
+            color: #2563eb;
+          }
 
           &.highlight {
-            background: rgba(16, 185, 129, 0.22);
-            border-color: rgba(52, 211, 153, 0.45);
-            color: #6ee7b7;
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #047857;
+
+            mat-icon {
+              color: #059669;
+            }
           }
         }
       }
@@ -1095,50 +1076,53 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         padding: 12px 14px 10px;
 
         .exec-top-row {
+          gap: 8px;
+        }
+
+        .exec-brand-left {
           gap: 10px;
-          margin-bottom: 8px;
         }
 
         .brand-crest-shield {
-          width: 42px;
-          height: 42px;
-          border-radius: 11px;
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
           .brand-icon {
             font-size: 22px;
             width: 22px;
             height: 22px;
           }
-          .shield-key-dot {
-            width: 17px;
-            height: 17px;
-            bottom: -3px;
-            right: -3px;
-            mat-icon {
-              font-size: 10px;
-              width: 10px;
-              height: 10px;
-            }
-          }
         }
 
         .exec-title-block {
           .brand-title {
-            font-size: 1.12rem;
+            font-size: 1.1rem;
           }
           .brand-sub {
             font-size: 0.68rem;
           }
+        }
+
+        .exec-badges-right {
+          gap: 3px;
           .tenant-pill, .cloud-pill {
             font-size: 0.55rem;
-            padding: 1px 5px;
+            padding: 1.5px 5px;
           }
         }
 
         .module-tags-row {
-          gap: 4px;
+          margin-top: 8px;
+          padding-top: 8px;
+          gap: 3px;
           .module-chip {
             font-size: 0.58rem;
-            padding: 2px 5.5px;
+            padding: 2px 5px;
+            mat-icon {
+              font-size: 11px;
+              width: 11px;
+              height: 11px;
+            }
           }
         }
       }
