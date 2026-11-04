@@ -2488,7 +2488,58 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
-        // Auto-seed 'Transport & Fleet' MenuItem under Academic Operations
+                // Auto-seed / ensure 'Faculty Operations' parent menu item and re-parent '/tests' strictly to it
+        var facultyMenu = context.MenuItems.FirstOrDefault(m => m.Title == "Faculty Operations" && m.ParentId == null);
+        if (facultyMenu == null)
+        {
+            facultyMenu = new IMSERP.Domain.Entities.MenuItem
+            {
+                Id = Guid.NewGuid(),
+                Title = "Faculty Operations",
+                RouteUrl = null,
+                Icon = "school",
+                ParentId = null,
+                SortOrder = 5,
+                Module = "Teachers",
+                IsActive = true
+            };
+            context.MenuItems.Add(facultyMenu);
+            context.SaveChanges();
+
+            var allRoles = context.Roles.ToList();
+            foreach (var role in allRoles)
+            {
+                context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleId = role.Id,
+                    MenuItemId = facultyMenu.Id,
+                    CanView = true,
+                    CanCreate = true,
+                    CanEdit = true,
+                    CanDelete = true
+                });
+            }
+            context.SaveChanges();
+            Console.WriteLine("[Database] Auto-seeded 'Faculty Operations' parent menu item.");
+        }
+
+        // Ensure '/tests' is strictly bound to Faculty Operations, never HRMS or Academic Operations
+        var testsMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/tests");
+        if (testsMenu != null)
+        {
+            if (testsMenu.ParentId != facultyMenu.Id || testsMenu.Title != "Test Exams & Marks Entry")
+            {
+                testsMenu.ParentId = facultyMenu.Id;
+                testsMenu.Title = "Test Exams & Marks Entry";
+                testsMenu.Module = "Teachers";
+                testsMenu.SortOrder = 4;
+                context.SaveChanges();
+                Console.WriteLine("[Database] Re-parented '/tests' menu item strictly to 'Faculty Operations'.");
+            }
+        }
+
+// Auto-seed 'Transport & Fleet' MenuItem under Academic Operations
         if (academicMenu != null)
         {
             var transportMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/transport");

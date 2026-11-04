@@ -2741,7 +2741,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Fee Collection', route: '/fees', icon: 'payments' },
     { title: 'School Examinations & Marks', route: '/school/exams', icon: 'assignment' },
     { title: 'Student Promotion', route: '/students/promotion', icon: 'trending_up' },
-    { title: 'Tests & Report Cards', route: '/tests', icon: 'quiz' },
+    { title: 'Test Exams & Marks Entry', route: '/tests', icon: 'quiz' },
     { title: 'Library Books Catalog', route: '/library/books', icon: 'local_library' },
     { title: 'Book Issue & Return Desk', route: '/library/circulation', icon: 'sync_alt' },
     { title: 'Library Shifts & Plans', route: '/library/plans', icon: 'schedule' },
@@ -3587,7 +3587,8 @@ export class LayoutComponent implements OnInit {
           roles: { label: 'Admin Settings', icon: 'admin_panel_settings' },
           users: { label: 'Admin Settings', icon: 'manage_accounts' },
           chat: { label: 'Campus Chat', icon: 'forum' },
-          developer: { label: 'Support & Help', icon: 'engineering' }
+          developer: { label: 'Support & Help', icon: 'engineering' },
+          tests: { label: 'Faculty Operations', icon: 'school' }
         };
         if (categoryMap[seg1]) {
           items.push(categoryMap[seg1]);
@@ -3699,17 +3700,6 @@ export class LayoutComponent implements OnInit {
       children: []
     };
 
-    const testsItemAcademic: MenuItem = {
-      id: 'academic-tests-link',
-      title: 'Test Exams & Marks Entry',
-      routeUrl: '/tests',
-      icon: 'quiz',
-      sortOrder: 4.2,
-      module: 'Academic',
-      isActive: true,
-      children: []
-    };
-
     const testsItemFaculty: MenuItem = {
       id: 'faculty-tests-link',
       title: 'Test Exams & Marks Entry',
@@ -3747,14 +3737,8 @@ export class LayoutComponent implements OnInit {
             copy.children.push(workflowItemAcademic);
           }
         }
-        if (!copy.children.some(c => c.routeUrl === '/tests')) {
-          const examIdx = copy.children.findIndex(c => c.routeUrl === '/school/exams' || c.routeUrl === '/admin/academic-workflow');
-          if (examIdx >= 0) {
-            copy.children.splice(examIdx + 1, 0, testsItemAcademic);
-          } else {
-            copy.children.push(testsItemAcademic);
-          }
-        }
+// STRICT: Strip /tests from Academic Operations (tests belongs strictly to Faculty Operations)
+        copy.children = copy.children.filter(c => c.routeUrl !== '/tests');
         if (!copy.children.some(c => c.routeUrl === '/students/timetable')) {
           const hwIdx = copy.children.findIndex(c => c.routeUrl === '/school/homework');
           if (hwIdx >= 0) {
@@ -3825,12 +3809,15 @@ export class LayoutComponent implements OnInit {
         }
       }
 
-      // 4. Inject into Faculty Operations (right after Homework / Lesson Plan)
-      const isFaculty = (copy.title && copy.title.toLowerCase().includes('faculty')) ||
-                        (copy.title && copy.title.toLowerCase().includes('teacher')) ||
-                        copy.id === '4b' ||
-                        copy.id === '4' ||
-                        (copy.module && copy.module.toLowerCase() === 'teachers');
+      // 4. HRMS & Staff: STRICT RULE: Remove /tests from HRMS & Staff
+      const isHRMS = (copy.title && (copy.title.toLowerCase().includes('hrms') || copy.title.toLowerCase().includes('staff'))) ||
+                     copy.id === '4';
+      if (isHRMS) {
+        copy.children = copy.children.filter(c => c.routeUrl !== '/tests');
+      }
+
+      // 5. Inject into Faculty Operations ONLY (right after Homework / Lesson Plan)
+      const isFaculty = ((copy.title && copy.title.toLowerCase().includes('faculty')) || copy.id === '4b') && !isHRMS;
       if (isFaculty) {
         if (!copy.children.some(c => c.routeUrl === '/tests')) {
           const diaryIdx = copy.children.findIndex(c => c.routeUrl === '/teachers/lesson-plans' || c.routeUrl === '/teachers/assignments');
@@ -3845,7 +3832,36 @@ export class LayoutComponent implements OnInit {
       return copy;
     });
 
-    // 5. If Admin Settings group did not exist at all, add it if user has admin privileges
+    // Ensure Faculty Operations group exists for staff/admin if not already present
+    const hasFacultyOps = updated.some(item =>
+      (item.title && item.title.toLowerCase().includes('faculty')) || item.id === '4b'
+    );
+    if (!hasFacultyOps && !this.authService.isStudentOrParent()) {
+      const hrmsIdx = updated.findIndex(item => item.id === '4' || (item.title && item.title.toLowerCase().includes('hrms')));
+      const facultyOpsItem: MenuItem = {
+        id: '4b',
+        title: 'Faculty Operations',
+        routeUrl: '',
+        icon: 'school',
+        sortOrder: 4.5,
+        module: 'Teachers',
+        isActive: true,
+        children: [
+          { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
+          { id: '410', title: 'Proxy & Substitution', routeUrl: '/teachers/substitution', icon: 'swap_horiz', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
+          { id: '411', title: 'Daily Lesson Diary', routeUrl: '/teachers/lesson-plans', icon: 'menu_book', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
+          testsItemFaculty,
+          { id: '412', title: 'Faculty Workload', routeUrl: '/teachers/reports', icon: 'analytics', sortOrder: 4, module: 'Teachers', isActive: true, children: [] }
+        ]
+      };
+      if (hrmsIdx >= 0) {
+        updated.splice(hrmsIdx + 1, 0, facultyOpsItem);
+      } else {
+        updated.push(facultyOpsItem);
+      }
+    }
+
+    // 6. If Admin Settings group did not exist at all, add it if user has admin privileges
     const hasAdminSettings = updated.some(item =>
       (item.title && item.title.toLowerCase().includes('admin')) ||
       item.id === '6' ||
@@ -3977,6 +3993,7 @@ export class LayoutComponent implements OnInit {
           { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
           { id: '410', title: 'Proxy & Substitution', routeUrl: '/teachers/substitution', icon: 'swap_horiz', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
           { id: '411', title: 'Daily Lesson Diary', routeUrl: '/teachers/lesson-plans', icon: 'menu_book', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
+          { id: '413', title: 'Test Exams & Marks Entry', routeUrl: '/tests', icon: 'quiz', sortOrder: 3.5, module: 'Teachers', isActive: true, children: [] },
           { id: '412', title: 'Faculty Workload', routeUrl: '/teachers/reports', icon: 'analytics', sortOrder: 4, module: 'Teachers', isActive: true, children: [] }
         ]
       },
@@ -4002,8 +4019,7 @@ export class LayoutComponent implements OnInit {
           ] : [
             { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
             { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
-            { id: '5211', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 5.5, module: 'Academic', isActive: true, children: [] },
-            { id: '522', title: 'Tests & Report Cards', routeUrl: '/tests', icon: 'quiz', sortOrder: 6, module: 'Academic', isActive: true, children: [] }
+            { id: '5211', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 5.5, module: 'Academic', isActive: true, children: [] }
           ]),
           { id: '523', title: 'School Notices', routeUrl: '/school/notices', icon: 'campaign', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
           { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 8, module: 'Academic', isActive: true, children: [] },

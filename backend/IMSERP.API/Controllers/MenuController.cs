@@ -738,8 +738,15 @@ public class MenuController : ControllerBase
 
     private MenuItemDto MapMenuItemToDto(MenuItem item, List<MenuItem> allList)
     {
+        var isHrmsOrAcademic = (item.Title != null && (
+            item.Title.Contains("HRMS", StringComparison.OrdinalIgnoreCase) || 
+            item.Title.Contains("Staff", StringComparison.OrdinalIgnoreCase) ||
+            item.Title.Contains("Academic", StringComparison.OrdinalIgnoreCase))) ||
+            string.Equals(item.Module, "Academic", StringComparison.OrdinalIgnoreCase);
+
         var children = allList
             .Where(c => c.ParentId == item.Id)
+            .Where(c => !isHrmsOrAcademic || !string.Equals(c.RouteUrl, "/tests", StringComparison.OrdinalIgnoreCase))
             .OrderBy(c => c.SortOrder)
             .Select(c => MapMenuItemToDto(c, allList))
             .ToList();
