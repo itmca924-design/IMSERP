@@ -177,7 +177,7 @@ export type ExtendedStudentLedger = Omit<StudentLedger, 'invoices' | 'payments' 
                               <div class="mini-heads-row">
                                 @for (it of getSortedInvoiceItems(inv.items); track it) {
                                   <span class="mini-head-chip" [class.tuition-head-chip]="isTuitionHead(it.headName)">
-                                    <span class="chip-head-name">{{ it.headName }}:</span>
+                                    <span class="chip-head-name">{{ cleanHeadName(it.headName) }}:</span>
                                     <strong class="chip-head-amt">₹{{ it.amount | number:'1.0-0' }}</strong>
                                     @if (getHeadMonthNote(it, inv); as note) {
                                       <span class="chip-month-tag">({{ note }})</span>
@@ -1603,6 +1603,12 @@ export class StudentLedgerDialogComponent implements OnInit {
     return !!headName && /tuition/i.test(headName);
   }
 
+  cleanHeadName(name?: string): string {
+    if (!name) return '';
+    name = name.replace(/\s*\(\s*(School|LKG|UKG|Nursery|Pre-Nursery|Prep)\s*\)\s*/gi, ' ');
+    return name.trim();
+  }
+
   getSortedInvoiceItems(items?: any[]): any[] {
     if (!items || items.length === 0) return [];
     return items.slice().sort((a, b) => {
@@ -1780,8 +1786,9 @@ export class StudentLedgerDialogComponent implements OnInit {
     if (!this.ledger) return;
 
     const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-      width: '740px',
+      width: '880px',
       maxWidth: '96vw',
+      panelClass: 'responsive-fee-collection-dialog',
       data: {
         studentId: this.ledger.studentId,
         studentName: this.ledger.studentName,

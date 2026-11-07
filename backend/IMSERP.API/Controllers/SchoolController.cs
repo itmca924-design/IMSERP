@@ -42,6 +42,23 @@ public class SchoolController : ControllerBase
     public async Task<ActionResult<IEnumerable<SchoolClassDto>>> GetClasses([FromQuery] bool activeOnly = false, [FromQuery] string? scope = null)
     {
         var tenantId = _currentUser.TenantId;
+
+        // Auto-purge any Section C from the database (Permanent rule: Class sections are strictly Section A and B)
+        var secCToDelete = await _db.SchoolSections
+            .Where(s => s.TenantId == tenantId && (s.Name == "C" || s.Name == "Section C" || s.Name == "SEC-C"))
+            .ToListAsync();
+        if (secCToDelete.Count > 0)
+        {
+            var secCIds = secCToDelete.Select(s => s.Id).ToList();
+            var studentsInSecC = await _db.Students.Where(st => st.SectionId.HasValue && secCIds.Contains(st.SectionId.Value)).ToListAsync();
+            foreach (var st in studentsInSecC)
+            {
+                st.SectionId = null;
+            }
+            _db.SchoolSections.RemoveRange(secCToDelete);
+            await _db.SaveChangesAsync();
+        }
+
         var query = _db.SchoolClasses.AsNoTracking().Where(c => c.TenantId == tenantId);
         if (activeOnly)
         {
@@ -90,9 +107,12 @@ public class SchoolController : ControllerBase
             c.IsActive,
             c.CreatedAt,
             c.BranchId,
-            c.Sections.Count,
+            c.Sections.Count(s => s.Name != null && s.Name.Trim() != "C" && s.Name.Trim() != "Section C" && s.Name.Trim() != "SEC-C"),
             studentCountsByClass.GetValueOrDefault(c.Id, 0),
-            c.Sections.OrderBy(s => s.Name).Select(s => new SchoolSectionDto(
+            c.Sections
+                .Where(s => s.Name != null && s.Name.Trim() != "C" && s.Name.Trim() != "Section C" && s.Name.Trim() != "SEC-C")
+                .OrderBy(s => s.Name)
+                .Select(s => new SchoolSectionDto(
                 s.Id,
                 s.TenantId,
                 s.ClassId,
@@ -128,6 +148,11 @@ public class SchoolController : ControllerBase
 
         if (c == null) return NotFound();
 
+        var filteredSections = c.Sections
+            .Where(s => s.Name != null && s.Name.Trim() != "C" && s.Name.Trim() != "Section C" && s.Name.Trim() != "SEC-C")
+            .OrderBy(s => s.Name)
+            .ToList();
+
         var dto = new SchoolClassDto(
             c.Id,
             c.TenantId,
@@ -137,9 +162,9 @@ public class SchoolController : ControllerBase
             c.IsActive,
             c.CreatedAt,
             c.BranchId,
-            c.Sections.Count,
+            filteredSections.Count,
             await _db.Students.CountAsync(s => s.ClassId == c.Id && s.IsActive),
-            c.Sections.OrderBy(s => s.Name).Select(s => new SchoolSectionDto(
+            filteredSections.Select(s => new SchoolSectionDto(
                 s.Id,
                 s.TenantId,
                 s.ClassId,
@@ -184,7 +209,36 @@ public class SchoolController : ControllerBase
         };
 
         _db.SchoolClasses.Add(newClass);
+
+        // Auto-create Sections A and B as per enterprise standard (Class sections: A and B)
+        var secA = new SchoolSection
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = newClass.BranchId,
+            ClassId = newClass.Id,
+            Name = "A",
+            MaxCapacity = 45,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        var secB = new SchoolSection
+        {
+            TenantId = _currentUser.TenantId,
+            BranchId = newClass.BranchId,
+            ClassId = newClass.Id,
+            Name = "B",
+            MaxCapacity = 45,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _db.SchoolSections.AddRange(secA, secB);
         await _db.SaveChangesAsync();
+
+        var sectionsList = new List<SchoolSectionDto>
+        {
+            new SchoolSectionDto(secA.Id, secA.TenantId, secA.ClassId, newClass.Name, secA.Name, secA.MaxCapacity, null, null, secA.IsActive, secA.CreatedAt, secA.BranchId),
+            new SchoolSectionDto(secB.Id, secB.TenantId, secB.ClassId, newClass.Name, secB.Name, secB.MaxCapacity, null, null, secB.IsActive, secB.CreatedAt, secB.BranchId)
+        };
 
         return CreatedAtAction(nameof(GetClassById), new { id = newClass.Id }, new SchoolClassDto(
             newClass.Id,
@@ -197,7 +251,7 @@ public class SchoolController : ControllerBase
             newClass.BranchId,
             0,
             0,
-            new List<SchoolSectionDto>(),
+            sectionsList,
             newClass.AcademicScope
         ));
     }

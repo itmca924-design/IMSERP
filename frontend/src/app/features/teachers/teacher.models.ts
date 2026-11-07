@@ -237,12 +237,19 @@ export interface BulkSalaryPaymentRequestDto {
   paymentMode: string;
   transactionRef?: string;
   remarks?: string;
+  allowEarlyDisbursal?: boolean;
   payments: BulkSalaryPaymentItemDto[];
 }
 export interface AdvanceDto {
   id: string; teacherId: string; teacherName: string; employeeCode: string;
   amount: number; requestDate: string; approvedDate?: string; reason?: string;
   status: string; adjustedInMonth?: number; adjustedInYear?: number;
+  monthlyInstallment?: number;
+  recoveredAmount?: number;
+  installmentTenureMonths?: number;
+  remainingBalance?: number;
+  branchId?: string;
+  branchName?: string;
 }
 export interface LeaveDto {
   id: string; teacherId: string; teacherName: string; employeeCode: string;
@@ -319,6 +326,15 @@ export interface LeavePolicySettingsDto {
   allowFullDayLeaveIfMarkedPresent: boolean;
   excludeHolidaysFromLeaveCount?: boolean;
   excludeSundaysFromLeaveCount?: boolean;
+  salaryDivisorMode?: string;
+  latePenaltyMode?: string;
+  latePenaltyThresholdDays?: number;
+  latePenaltyDeductionFactor?: number;
+  autoCalculateStatutoryPF?: boolean;
+  autoCalculateStatutoryESI?: boolean;
+  autoPostPayrollToDayBook?: boolean;
+  autoSendWhatsAppPayslip?: boolean;
+  noticePeriodDays?: number;
 }
 
 export interface TeacherLeaveBalanceItemDto {
@@ -491,6 +507,80 @@ export interface TeacherFnFPreviewDto {
   finalMonthSalaryPaidAmount?: number;
   finalMonthSalaryPaymentDate?: string;
   isFnFAlreadySettled?: boolean;
+  availableEarnedLeaveDays?: number;
+  earnedLeaveEncashmentAmount?: number;
+  noticePeriodRequiredDays?: number;
+  noticeServedDays?: number;
+  noticeShortfallDays?: number;
+  noticeShortfallAmount?: number;
+  branchId?: string;
+  branchName?: string;
+}
+
+export interface TeacherPayrollMonthLockDto {
+  id: string;
+  tenantId: string;
+  branchId?: string;
+  branchName?: string;
+  month: number;
+  year: number;
+  isLocked: boolean;
+  lockedAt?: string;
+  lockedBy?: string;
+  remarks?: string;
+}
+
+export interface ToggleMonthLockDto {
+  month: number;
+  year: number;
+  branchId?: string;
+  lock: boolean;
+  remarks?: string;
+}
+
+export interface TeacherLeaveAccrualLogDto {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  employeeCode: string;
+  month: number;
+  year: number;
+  casualLeaveAdded: number;
+  sickLeaveAdded: number;
+  earnedLeaveAdded: number;
+  remarks?: string;
+  accruedAt: string;
+}
+
+export interface TriggerLeaveAccrualResultDto {
+  month: number;
+  year: number;
+  totalStaffProcessed: number;
+  totalClAccrued: number;
+  totalSlAccrued: number;
+  totalElAccrued: number;
+  message: string;
+}
+
+export interface PayrollAuditIssueDto {
+  severity: 'Critical' | 'Warning' | 'Info';
+  category: string;
+  teacherId?: string;
+  teacherName?: string;
+  employeeCode?: string;
+  issue: string;
+  actionRecommendation: string;
+}
+
+export interface PayrollAuditSummaryDto {
+  month: number;
+  year: number;
+  healthScore: number;
+  totalStaffAudited: number;
+  readyForDisbursalCount: number;
+  criticalIssuesCount: number;
+  warningCount: number;
+  issues: PayrollAuditIssueDto[];
 }
 
 export interface CreateTeacherFnFRequestDto {

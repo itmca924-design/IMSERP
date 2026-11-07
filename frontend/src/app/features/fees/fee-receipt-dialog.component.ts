@@ -38,7 +38,16 @@ export interface FeeReceiptDialogData {
             <mat-icon>receipt</mat-icon>
           </div>
           <div class="title-text-group">
-            <span class="main-title">Official Fee Payment Receipt</span>
+            <div class="main-title-row">
+              <span class="main-title">Official Fee Payment Receipt</span>
+              @if (isHybrid) {
+                <span class="header-hybrid-badge">Hybrid</span>
+              } @else if (isCoachingOnly) {
+                <span class="header-coaching-badge">Coaching</span>
+              } @else {
+                <span class="header-school-badge">School</span>
+              }
+            </div>
             <span class="sub-title">शुल्क भुगतान रसीद</span>
           </div>
         </div>
@@ -97,6 +106,9 @@ export interface FeeReceiptDialogData {
                 <div class="badge-title-wrap">
                   <span class="badge-title">FEE RECEIPT</span>
                   <span class="badge-sub">शुल्क भुगतान रसीद</span>
+                  @if (isHybrid) {
+                    <span class="paper-hybrid-tag">School + Coaching (Hybrid)</span>
+                  }
                 </div>
                 <span class="copy-tag" [class.office-copy-tag]="copy.isOffice">
                   {{ copy.title }} ({{ copy.hindiTitle }})
@@ -128,6 +140,12 @@ export interface FeeReceiptDialogData {
                 <span class="meta-label">Payment Mode:</span>
                 <span class="meta-val mode-pill">{{ getPaymentModeName(data.receipt.mode) }}</span>
               </div>
+              <div class="meta-item">
+                <span class="meta-label">Division:</span>
+                <span class="meta-val scope-meta-pill" [class.hybrid-pill]="isHybrid" [class.coaching-pill]="isCoachingOnly" [class.school-pill]="isSchoolOnly">
+                  {{ scopeDisplayText }}
+                </span>
+              </div>
               @if (data.receipt.transactionRef) {
                 <div class="meta-item">
                   <span class="meta-label">Txn / UTR Ref:</span>
@@ -147,24 +165,18 @@ export interface FeeReceiptDialogData {
                   <span class="k">Roll / Admission No:</span>
                   <span class="v"><strong>{{ data.receipt.rollNumber || 'N/A' }}</strong></span>
                 </div>
-                @if (data.receipt.className && !data.receipt.batchName) {
+                @if (data.receipt.className) {
                   <div class="prof-row">
-                    <span class="k">Class &amp; Section:</span>
+                    <span class="k">Class:</span>
                     <span class="v"><strong>{{ data.receipt.className }}@if (data.receipt.sectionName) {
                       <span> (Section {{ data.receipt.sectionName }})</span>
                     }</strong></span>
                   </div>
                 }
-                @if (data.receipt.className && data.receipt.batchName) {
-                  <div class="prof-row">
-                    <span class="k">Coaching:</span>
-                    <span class="v"><strong>{{ data.receipt.className }}</strong></span>
-                  </div>
-                }
                 @if (!data.receipt.className && data.receipt.batchName) {
                   <div class="prof-row">
-                    <span class="k">Coaching:</span>
-                    <span class="v"><strong>Coaching</strong></span>
+                    <span class="k">Academic Stream:</span>
+                    <span class="v"><strong>Coaching Only</strong></span>
                   </div>
                 }
                 @if (!data.receipt.className && !data.receipt.batchName) {
@@ -226,7 +238,7 @@ export interface FeeReceiptDialogData {
                       <tr>
                         <td class="text-center">{{ item.itemIndex }}</td>
                         <td>
-                          <strong class="fee-head-title">{{ item.particulars }}</strong>
+                          <strong class="fee-head-title">{{ cleanHeadName(item.particulars) }}</strong>
                           @if (formatSubTitle(item.subTitle)) {
                             <div class="fee-head-sub">{{ formatSubTitle(item.subTitle) }}</div>
                           }
@@ -448,11 +460,59 @@ export interface FeeReceiptDialogData {
         .title-text-group {
           display: flex;
           flex-direction: column;
+
+          .main-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
           .main-title {
             font-weight: 700;
             font-size: 1rem;
             color: #1e3a8a;
           }
+
+          .header-hybrid-badge {
+            background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+            color: #be185d;
+            border: 1px solid #fbcfe8;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            line-height: 1;
+          }
+
+          .header-coaching-badge {
+            background: #f5f3ff;
+            color: #6d28d9;
+            border: 1px solid #ddd6fe;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            line-height: 1;
+          }
+
+          .header-school-badge {
+            background: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            line-height: 1;
+          }
+
           .sub-title {
             font-size: 0.72rem;
             color: #3b82f6;
@@ -694,6 +754,20 @@ export interface FeeReceiptDialogData {
             font-weight: 600;
             display: block;
           }
+          .paper-hybrid-tag {
+            display: inline-block;
+            font-size: 0.58rem;
+            font-weight: 800;
+            background: #fdf2f8;
+            color: #be185d;
+            border: 1px solid #fbcfe8;
+            padding: 1px 5px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            margin-top: 2px;
+            white-space: nowrap;
+          }
         }
 
         .copy-tag {
@@ -770,6 +844,28 @@ export interface FeeReceiptDialogData {
             color: #15803d;
             padding: 0 5px;
             border-radius: 3px;
+          }
+          &.scope-meta-pill {
+            padding: 0 6px;
+            border-radius: 3px;
+            font-weight: 700;
+            white-space: nowrap;
+
+            &.hybrid-pill {
+              background: #fdf2f8;
+              color: #be185d;
+              border: 1px solid #fbcfe8;
+            }
+            &.coaching-pill {
+              background: #f5f3ff;
+              color: #6d28d9;
+              border: 1px solid #ddd6fe;
+            }
+            &.school-pill {
+              background: #eff6ff;
+              color: #1e40af;
+              border: 1px solid #bfdbfe;
+            }
           }
         }
       }
@@ -1201,6 +1297,57 @@ export class FeeReceiptDialogComponent implements OnInit {
     return 'Main Branch';
   }
 
+  get isHybrid(): boolean {
+    const r = this.data?.receipt;
+    if (!r) return false;
+    if (r.className && r.batchName) return true;
+    const items = r.items || [];
+    const hasCoaching = items.some(it => {
+      const p = (it.particulars || '').toLowerCase();
+      const s = (it.subTitle || '').toLowerCase();
+      return p.includes('coaching') || s.includes('coaching');
+    });
+    const hasSchool = items.some(it => {
+      const p = (it.particulars || '').toLowerCase();
+      const s = (it.subTitle || '').toLowerCase();
+      return p.includes('school') || p.includes('tuition') || p.includes('admission') || p.includes('annual') || s.includes('school');
+    });
+    return (hasCoaching && hasSchool) || (!!r.className && !!r.batchName);
+  }
+
+  get isCoachingOnly(): boolean {
+    const r = this.data?.receipt;
+    if (!r) return false;
+    if (this.isHybrid) return false;
+    return !!r.batchName && !r.className;
+  }
+
+  get isSchoolOnly(): boolean {
+    return !this.isHybrid && !this.isCoachingOnly;
+  }
+
+  get scopeDisplayText(): string {
+    if (this.isHybrid) return 'School + Coaching (Hybrid)';
+    if (this.isCoachingOnly) return 'Coaching Division';
+    return 'School Division';
+  }
+
+  cleanHeadName(name?: string): string {
+    if (!name) return '';
+    if (this.data?.receipt?.className) {
+      const rawCls = this.data.receipt.className.trim();
+      const escapedRaw = rawCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      name = name.replace(new RegExp(`\\s*\\(${escapedRaw}\\)\\s*`, 'gi'), ' ');
+      const baseCls = rawCls.split('(')[0].trim();
+      if (baseCls && baseCls !== rawCls) {
+        const escapedBase = baseCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        name = name.replace(new RegExp(`\\s*\\(${escapedBase}\\)\\s*`, 'gi'), ' ');
+      }
+    }
+    name = name.replace(/\s*\(\s*(School|LKG|UKG|Nursery|Pre-Nursery|Prep)\s*\)\s*/gi, ' ');
+    return name.trim();
+  }
+
   get feeMonthTooltip(): string {
     const r = this.data?.receipt;
     if (!r) return '';
@@ -1568,6 +1715,7 @@ export class FeeReceiptDialogComponent implements OnInit {
       '.receipt-badge { text-align: right; }' +
       '.badge-title { font-size: 0.84rem; font-weight: 800; color: #1e40af; letter-spacing: 0.04em; display: block; line-height: 1.1; }' +
       '.badge-sub { font-size: 0.58rem; color: #64748b; display: block; }' +
+      '.paper-hybrid-tag { display: inline-block; font-size: 0.54rem; font-weight: 800; background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; padding: 0 4px; border-radius: 2px; text-transform: uppercase; margin-top: 1px; }' +
       '.copy-tag { display: inline-block; margin-top: 1px; font-size: 0.58rem; font-weight: 800; background: #eff6ff; color: #1d4ed8; padding: 0 5px; border-radius: 2px; border: 1px solid #bfdbfe; }' +
       '.copy-tag.office-copy-tag { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }' +
       '.meta-strip { display: flex; flex-wrap: wrap; gap: 3px 8px; padding: 2.5px 5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 3px; margin: 3px 0; }' +
@@ -1578,6 +1726,10 @@ export class FeeReceiptDialogComponent implements OnInit {
       '.month-pill { background: #e0f2fe; color: #0369a1; padding: 0 3px; border-radius: 2px; }' +
       '.session-pill { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 0 3px; border-radius: 2px; }' +
       '.mode-pill { background: #dcfce7; color: #15803d; padding: 0 3px; border-radius: 2px; }' +
+      '.scope-meta-pill { padding: 0 4px; border-radius: 2px; font-weight: 700; }' +
+      '.scope-meta-pill.hybrid-pill { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; }' +
+      '.scope-meta-pill.coaching-pill { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }' +
+      '.scope-meta-pill.school-pill { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }' +
       '.student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; padding: 3px 5px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; margin-bottom: 3px; }' +
       '.prof-row { display: flex; font-size: 0.65rem; line-height: 1.25; }' +
       '.prof-row .k { width: 110px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }' +
@@ -1676,7 +1828,7 @@ export class FeeReceiptDialogComponent implements OnInit {
     let headsSection = '';
     if (this.data.receipt.items && this.data.receipt.items.length > 0) {
       const list = this.data.receipt.items
-        .map(it => `  • ${it.particulars}: ₹${it.amount.toLocaleString('en-IN')}`)
+        .map(it => `  • ${this.cleanHeadName(it.particulars)}: ₹${it.amount.toLocaleString('en-IN')}`)
         .join('\n');
       headsSection = `\n*Fee Heads Breakdown*:\n${list}\n`;
     }

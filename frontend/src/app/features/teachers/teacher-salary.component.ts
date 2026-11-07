@@ -15,9 +15,11 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { TeacherSelectorComponent } from './teacher-selector.component';
+import { LeavePolicySettingsDialogComponent } from './leave-policy-settings-dialog.component';
 import { API_BASE, TeacherDto, SalaryDto, StaffSalaryOverviewItem, StaffSalaryDirectoryResponse, StaffSalaryDirectoryKpis } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
@@ -40,7 +42,7 @@ interface ExperienceSlabRecommendation {
     MatCardModule, MatButtonModule, MatIconModule, MatInputModule,
     MatFormFieldModule, MatSelectModule, MatProgressBarModule, MatProgressSpinnerModule,
     MatDividerModule, MatCheckboxModule, MatTooltipModule, MatPaginatorModule,
-    TeacherSelectorComponent
+    MatDialogModule, TeacherSelectorComponent
   ],
   template: `
 <div class="page-container">
@@ -56,26 +58,33 @@ interface ExperienceSlabRecommendation {
       </div>
     </div>
 
-    <!-- Mode Selector Pills -->
-    <div class="mode-pills">
-      <button
-        type="button"
-        class="mode-pill"
-        [class.active]="viewMode === 'single'"
-        (click)="switchViewMode('single')" matButton="filled">
-        <mat-icon>person</mat-icon>
-        <span>Individual Staff View</span>
-      </button>
-      <button
-        type="button"
-        class="mode-pill"
-        [class.active]="viewMode === 'batch'"
-        (click)="switchViewMode('batch')" matButton="filled">
-        <mat-icon>groups</mat-icon>
-        <span>Batch / Multiple Staff Setup</span>
-        @if (unconfiguredCount > 0) {
-          <span class="badge-pill">{{ unconfiguredCount }} Missing</span>
-        }
+    <div class="header-right-actions">
+      <!-- Mode Selector Pills -->
+      <div class="mode-pills">
+        <button
+          type="button"
+          class="mode-pill"
+          [class.active]="viewMode === 'single'"
+          (click)="switchViewMode('single')" matButton="filled">
+          <mat-icon>person</mat-icon>
+          <span>Individual Staff View</span>
+        </button>
+        <button
+          type="button"
+          class="mode-pill"
+          [class.active]="viewMode === 'batch'"
+          (click)="switchViewMode('batch')" matButton="filled">
+          <mat-icon>groups</mat-icon>
+          <span>Batch / Multiple Staff Setup</span>
+          @if (unconfiguredCount > 0) {
+            <span class="badge-pill">{{ unconfiguredCount }} Missing</span>
+          }
+        </button>
+      </div>
+
+      <button type="button" class="policy-settings-btn" (click)="openPolicySettings()" matTooltip="Configure Daily Salary Divisor Modes, Late Attendance Penalties, Day Book auto-posting & Statutory Rules" matButton="filled">
+        <mat-icon>tune</mat-icon>
+        <span>Policy & Divisor Rules</span>
       </button>
     </div>
   </div>
@@ -838,6 +847,41 @@ interface ExperienceSlabRecommendation {
           margin: 3px 0 0;
           font-size: 0.85rem;
           line-height: 1.3;
+        }
+      }
+
+      .header-right-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .policy-settings-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.82rem;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+        color: #1e40af !important;
+        border: 1px solid #bfdbfe !important;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #2563eb;
+        }
+
+        &:hover {
+          background: #dbeafe !important;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+          transform: translateY(-1px);
         }
       }
 
@@ -1795,7 +1839,12 @@ interface ExperienceSlabRecommendation {
       .page-header {
         flex-direction: column;
         align-items: stretch;
-        .mode-pills { width: 100%; .mode-pill { flex: 1; justify-content: center; } }
+        .header-right-actions {
+          width: 100%;
+          flex-direction: column;
+          .mode-pills { width: 100%; .mode-pill { flex: 1; justify-content: center; } }
+          .policy-settings-btn { width: 100%; justify-content: center; }
+        }
       }
     }
 
@@ -1903,8 +1952,17 @@ export class TeacherSalaryComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private route: ActivatedRoute,
     private fb: FormBuilder,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private dialog: MatDialog
   ) {}
+
+  openPolicySettings() {
+    this.dialog.open(LeavePolicySettingsDialogComponent, {
+      width: '850px',
+      maxWidth: '96vw',
+      disableClose: true
+    });
+  }
 
   ngOnInit() {
     this.route.queryParams.subscribe(p => {

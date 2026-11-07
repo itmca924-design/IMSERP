@@ -1,6 +1,6 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, FormControl } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
@@ -30,10 +30,14 @@ import {
   FeeRecoverySummaryKpiDto,
   FeePromiseItemDto,
   RunAnalysisRequest,
-  PagedResult
+  PagedResult,
+  FeeDueAutomationStatus,
+  UpdateFeeDueAutomationSettings,
+  PreviewVoiceResult
 } from '../../core/services/fee-recovery-agent.service';
 import { RecordPromiseDialogComponent } from './dialogs/record-promise-dialog.component';
 import { EditNudgeMessageDialogComponent } from './dialogs/edit-nudge-message-dialog.component';
+import { StudentVoiceDialogComponent } from './dialogs/student-voice-dialog.component';
 import { FeeCollectionDialogComponent } from '../fees/fee-collection-dialog.component';
 import { environment } from '../../../environments/environment';
 
@@ -93,7 +97,167 @@ import { environment } from '../../../environments/environment';
       @if (loading) {
         <mat-progress-bar mode="indeterminate" class="page-loader"></mat-progress-bar>
       }
-    
+
+      <!-- Autonomous WhatsApp Dues & AI Hindi Voice Engine Control Deck -->
+      <mat-card class="voice-engine-card mat-elevation-z1">
+        <div class="engine-card-header">
+          <div class="engine-header-left">
+            <div class="engine-badge-icon" [class.active]="automationStatus?.feeDueRemindersEnabled">
+              <mat-icon>{{ isPlayingVoice ? 'graphic_eq' : 'record_voice_over' }}</mat-icon>
+            </div>
+            <div class="engine-info">
+              <div class="engine-title-row">
+                <h3 class="engine-title">Autonomous WhatsApp Dues &amp; AI Hindi Voice Engine</h3>
+                <span class="engine-status-pill" [class.active]="automationStatus?.feeDueRemindersEnabled">
+                  <mat-icon class="status-dot">fiber_manual_record</mat-icon>
+                  {{ automationStatus?.feeDueRemindersEnabled ? ('Scheduled on ' + (automationStatus?.feeDueReminderDayOfMonth || 10) + 'th of every month') : 'Paused' }}
+                </span>
+                <span class="voice-badge">
+                  <mat-icon>mic</mat-icon>
+                  AI Voice: {{ automationStatus?.feeDueVoiceGender === 'Male' ? 'Madhur (Male)' : 'Swara (Female)' }}
+                </span>
+                @if (automationStatus?.hasMetaCloudApiConfigured) {
+                  <span class="meta-badge live">
+                    <mat-icon>verified</mat-icon>
+                    Meta Cloud API Live
+                  </span>
+                } @else {
+                  <span class="meta-badge simulated" matTooltip="Internal gateway audit logging active. Configure Meta API credentials for direct mobile delivery.">
+                    <mat-icon>cloud_queue</mat-icon>
+                    Gateway Logger Active
+                  </span>
+                }
+              </div>
+              <p class="engine-desc">
+                Dispatches automated WhatsApp dues notices with personalized <strong>AI Hindi Voice Notes</strong> (कक्षा, देय राशि, अंतिम तारीख) before the 10th of every month. Unpaid students across School &amp; Coaching are auto-clustered without manual button clicking.
+              </p>
+            </div>
+          </div>
+
+          <div class="engine-actions">
+            <!-- Audio Voice Player Button -->
+            <button
+              class="engine-btn voice-play-btn"
+              [class.playing]="isPlayingVoice"
+              (click)="playSampleAiVoice()"
+              [disabled]="isLoadingAutomation"
+              matTooltip="Play sample personalized Hindi voice reminder in browser"
+              matButton="filled">
+              <mat-icon [class.spinning]="isLoadingAutomation">{{ isPlayingVoice ? 'pause_circle' : 'play_circle' }}</mat-icon>
+              <span>{{ isPlayingVoice ? 'Stop AI Voice' : 'Play Sample Hindi Voice' }}</span>
+            </button>
+
+            <!-- Script Toggle Button -->
+            <button
+              class="engine-btn script-toggle-btn"
+              (click)="showVoiceScript = !showVoiceScript"
+              matTooltip="View sample Hindi script spoken by AI"
+              matButton="outlined">
+              <mat-icon>{{ showVoiceScript ? 'visibility_off' : 'chat_bubble_outline' }}</mat-icon>
+              <span>{{ showVoiceScript ? 'Hide Script' : 'Hindi Script' }}</span>
+            </button>
+
+            <!-- Instant Trigger Button -->
+            <button
+              class="engine-btn trigger-now-btn"
+              (click)="triggerAutomatedRemindersNow()"
+              [disabled]="isTriggeringAutomated"
+              matTooltip="Run fee due scan & WhatsApp + Voice dispatch now for all unpaid accounts"
+              matButton="filled">
+              <mat-icon [class.spinning]="isTriggeringAutomated">bolt</mat-icon>
+              <span>{{ isTriggeringAutomated ? 'Sending Reminders...' : 'Trigger Reminders Now' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Script Preview Dropdown/Box -->
+        @if (showVoiceScript) {
+          <div class="voice-script-box">
+            <div class="script-header">
+              <mat-icon class="script-icon">translate</mat-icon>
+              <strong>AI Hindi Voice Script Preview (उच्चारण एवं संदेश प्रारूप):</strong>
+            </div>
+            <p class="script-text">
+              "नमस्ते <strong>राजेश कुमार</strong> जी! <strong>{{ instituteDisplayName }}</strong> से सादर अनुरोध है। आपके सुपुत्र/सुपुत्री <strong>रोहित कुमार</strong>, कक्षा <strong>Class 10 (PCM)</strong>, की चालू माह की फीस <strong>₹2,500</strong> देय है। फीस जमा करने की नियत तारीख <strong>{{ automationStatus?.feeDueReminderDayOfMonth || 10 }} तारीख</strong> है। कृपया समय पर फीस जमा कराकर सहयोग करें। धन्यवाद!"
+            </p>
+          </div>
+        }
+
+        <!-- Control Deck Footer: Settings & Test Dispatch Bar -->
+        <div class="engine-card-footer">
+          <div class="footer-settings-group">
+            <label class="setting-label">Voice Gender:</label>
+            <div class="gender-toggle-group">
+              <button
+                type="button"
+                class="gender-pill"
+                [class.active]="automationStatus?.feeDueVoiceGender !== 'Male'"
+                (click)="saveAutomationSettings('gender', 'Female')">
+                👩 Swara (Female)
+              </button>
+              <button
+                type="button"
+                class="gender-pill"
+                [class.active]="automationStatus?.feeDueVoiceGender === 'Male'"
+                (click)="saveAutomationSettings('gender', 'Male')">
+                👨 Madhur (Male)
+              </button>
+            </div>
+
+            <span class="setting-divider">|</span>
+
+            <label class="setting-label">Due Day:</label>
+            <select
+              class="day-select"
+              [value]="automationStatus?.feeDueReminderDayOfMonth || 10"
+              (change)="onDayOfMonthSelected($event)">
+              <option [value]="5">5th of Month</option>
+              <option [value]="7">7th of Month</option>
+              <option [value]="10">10th of Month (Standard)</option>
+              <option [value]="15">15th of Month</option>
+            </select>
+
+            <span class="setting-divider">|</span>
+
+            <label class="setting-label">AI Voice Note:</label>
+            <button
+              type="button"
+              class="toggle-mini-pill"
+              [class.enabled]="automationStatus?.feeDueVoiceNoteEnabled"
+              (click)="saveAutomationSettings('voice', !automationStatus?.feeDueVoiceNoteEnabled)">
+              {{ automationStatus?.feeDueVoiceNoteEnabled ? 'Attached (Voice On)' : 'Text Only (Voice Off)' }}
+            </button>
+          </div>
+
+          <div class="footer-test-dispatch">
+            <input
+              type="tel"
+              class="test-phone-input"
+              placeholder="Enter Mobile No. (e.g. 9876543210)"
+              [formControl]="testPhoneControl"
+              maxlength="15" />
+            <button
+              class="send-test-btn"
+              (click)="sendSampleTestWhatsApp()"
+              [disabled]="isSendingTestWhatsApp"
+              matTooltip="Send test dues reminder with AI voice note to this number"
+              matButton="filled">
+              <mat-icon [class.spinning]="isSendingTestWhatsApp">send</mat-icon>
+              <span>{{ isSendingTestWhatsApp ? 'Sending...' : 'Auto-Send' }}</span>
+            </button>
+            <button
+              type="button"
+              class="direct-wa-btn"
+              (click)="openDirectWhatsAppWeb()"
+              matTooltip="Open this message directly in WhatsApp Web or App"
+              matButton="filled">
+              <mat-icon>chat</mat-icon>
+              <span>Open in WhatsApp</span>
+            </button>
+          </div>
+        </div>
+      </mat-card>
+
       <!-- 4-Column Standard Executive KPI Deck -->
       <div class="kpi-grid">
         <div class="kpi-card overdue-kpi" (click)="filterByRisk('')" matTooltip="Click to show all fee defaulters" style="cursor: pointer;">
@@ -357,10 +521,30 @@ import { environment } from '../../../environments/environment';
                           </div>
                         </td>
                         <td class="text-center actions-col">
+                          @if (p.totalOverdueAmount > 0) {
+                            <button type="button" class="mini-voice-btn" (click)="openStudentVoiceDialog(p)" matTooltip="AI Hindi Voice Note & Download" mat-icon-button>
+                              <mat-icon style="color: #7c3aed;">mic</mat-icon>
+                            </button>
+                            <button type="button" class="mini-wa-btn" (click)="openDirectWhatsAppForPlan(p)" matTooltip="Open in WhatsApp Web / App" mat-icon-button>
+                              <mat-icon style="color: #25d366;">chat</mat-icon>
+                            </button>
+                          } @else {
+                            <span class="settled-tag" matTooltip="Fee already fully paid & settled">
+                              <mat-icon style="color: #16a34a; font-size: 20px; width: 20px; height: 20px; vertical-align: middle;">check_circle</mat-icon>
+                            </span>
+                          }
                           <button type="button" [matMenuTriggerFor]="planActionMenu" class="action-more-btn" matTooltip="Action Menu" mat-icon-button>
                             <mat-icon>more_vert</mat-icon>
                           </button>
                           <mat-menu #planActionMenu="matMenu" xPosition="before" class="plan-actions-dropdown">
+                            <button mat-menu-item (click)="openStudentVoiceDialog(p)">
+                              <mat-icon style="color: #7c3aed;">mic</mat-icon>
+                              <span>AI Voice Note &amp; Audio Player</span>
+                            </button>
+                            <button mat-menu-item (click)="openDirectWhatsAppForPlan(p)">
+                              <mat-icon style="color: #25d366;">chat</mat-icon>
+                              <span>Direct WhatsApp Web / App</span>
+                            </button>
                             <button mat-menu-item (click)="openNudgeModal(p)">
                               <mat-icon style="color: #16a34a;">send</mat-icon>
                               <span>Send WhatsApp Nudge</span>
@@ -667,6 +851,396 @@ import { environment } from '../../../environments/environment';
 
     .page-loader {
       border-radius: 4px;
+    }
+
+    /* Autonomous WhatsApp Dues & AI Hindi Voice Engine Card */
+    .voice-engine-card {
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      overflow: hidden;
+      padding: 0;
+      box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.08);
+
+      .engine-card-header {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+
+        @media (max-width: 992px) {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .engine-header-left {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          flex: 1 1 auto;
+          min-width: 0;
+
+          .engine-badge-icon {
+            background: #2563eb;
+            color: #ffffff;
+            border-radius: 12px;
+            width: 46px;
+            height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 4px 8px -2px rgba(37, 99, 235, 0.3);
+
+            &.active {
+              background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            }
+
+            mat-icon {
+              font-size: 26px;
+              width: 26px;
+              height: 26px;
+            }
+          }
+
+          .engine-info {
+            min-width: 0;
+
+            .engine-title-row {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              flex-wrap: wrap;
+              margin-bottom: 4px;
+
+              .engine-title {
+                color: #1e3a8a;
+                font-weight: 700;
+                font-size: 1.125rem;
+                margin: 0;
+              }
+
+              .engine-status-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                background: #f1f5f9;
+                color: #64748b;
+                border: 1px solid #cbd5e1;
+
+                &.active {
+                  background: #ecfdf5;
+                  color: #059669;
+                  border-color: #a7f3d0;
+                }
+
+                .status-dot {
+                  font-size: 8px;
+                  width: 8px;
+                  height: 8px;
+                }
+              }
+
+              .voice-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                background: #ede9fe;
+                color: #6d28d9;
+                border: 1px solid #ddd6fe;
+
+                mat-icon {
+                  font-size: 14px;
+                  width: 14px;
+                  height: 14px;
+                }
+              }
+
+              .meta-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 0.75rem;
+                font-weight: 600;
+
+                &.live {
+                  background: #dcfce7;
+                  color: #166534;
+                  border: 1px solid #bbf7d0;
+                }
+
+                &.simulated {
+                  background: #fef3c7;
+                  color: #92400e;
+                  border: 1px solid #fde68a;
+                }
+
+                mat-icon {
+                  font-size: 14px;
+                  width: 14px;
+                  height: 14px;
+                }
+              }
+            }
+
+            .engine-desc {
+              color: #3b82f6;
+              font-size: 0.85rem;
+              margin: 0;
+              line-height: 1.4;
+
+              strong {
+                color: #1e40af;
+              }
+            }
+          }
+        }
+
+        .engine-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+
+          .engine-btn {
+            font-size: 0.82rem;
+            font-weight: 600;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+
+            mat-icon {
+              font-size: 18px;
+              width: 18px;
+              height: 18px;
+            }
+          }
+
+          .voice-play-btn {
+            background: #2563eb;
+            color: #ffffff;
+
+            &.playing {
+              background: #dc2626;
+            }
+          }
+
+          .script-toggle-btn {
+            border: 1px solid #93c5fd;
+            color: #1d4ed8;
+            background: #ffffff;
+          }
+
+          .trigger-now-btn {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: #ffffff;
+            box-shadow: 0 2px 6px -1px rgba(5, 150, 105, 0.3);
+          }
+        }
+      }
+
+      .voice-script-box {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 14px 20px;
+
+        .script-header {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #1e3a8a;
+          font-size: 0.82rem;
+          margin-bottom: 6px;
+
+          .script-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #2563eb;
+          }
+        }
+
+        .script-text {
+          margin: 0;
+          color: #334155;
+          font-size: 0.9rem;
+          line-height: 1.6;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-left: 4px solid #2563eb;
+          padding: 10px 14px;
+          border-radius: 6px;
+        }
+      }
+
+      .engine-card-footer {
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        background: #ffffff;
+
+        .footer-settings-group {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+
+          .setting-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+          }
+
+          .setting-divider {
+            color: #cbd5e1;
+            font-weight: 300;
+          }
+
+          .gender-toggle-group {
+            display: inline-flex;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+
+            .gender-pill {
+              border: none;
+              background: #f8fafc;
+              padding: 5px 10px;
+              font-size: 0.78rem;
+              font-weight: 600;
+              color: #64748b;
+              cursor: pointer;
+              transition: all 0.2s;
+
+              &.active {
+                background: #eff6ff;
+                color: #1d4ed8;
+                font-weight: 700;
+              }
+
+              &:hover:not(.active) {
+                background: #f1f5f9;
+              }
+            }
+          }
+
+          .day-select {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #1e293b;
+            background: #ffffff;
+            cursor: pointer;
+          }
+
+          .toggle-mini-pill {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: #f8fafc;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+
+            &.enabled {
+              background: #eff6ff;
+              color: #1d4ed8;
+              border-color: #93c5fd;
+            }
+          }
+        }
+
+        .footer-test-dispatch {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+
+          .test-phone-input {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 7px 12px;
+            font-size: 0.82rem;
+            width: 220px;
+            color: #1e293b;
+            outline: none;
+            transition: border-color 0.2s;
+
+            &:focus {
+              border-color: #2563eb;
+              box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+            }
+          }
+
+          .send-test-btn {
+            background: #1e3a8a;
+            color: #ffffff;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 7px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+            }
+          }
+
+          .direct-wa-btn {
+            background: #25d366;
+            color: #ffffff;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 7px 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px -1px rgba(37, 211, 102, 0.4);
+            cursor: pointer;
+            transition: all 0.2s;
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+            }
+
+            &:hover {
+              background: #1eb855;
+            }
+          }
+        }
+      }
     }
 
     /* Standard IMSERP Executive KPI Grid */
@@ -1191,9 +1765,67 @@ import { environment } from '../../../environments/environment';
     .actions-col {
       white-space: nowrap;
       text-align: center !important;
-      width: 42px;
-      min-width: 42px;
+      width: 114px;
+      min-width: 114px;
       padding: 6px 4px !important;
+
+      .mini-voice-btn {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        min-height: 30px;
+        padding: 0;
+        margin-right: 4px;
+        border: 1px solid #ddd6fe;
+        border-radius: 50%;
+        background: #f5f3ff;
+        color: #7c3aed;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        &:hover {
+          background: #ede9fe;
+          border-color: #c4b5fd;
+        }
+      }
+
+      .mini-wa-btn {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        min-height: 30px;
+        padding: 0;
+        margin-right: 4px;
+        border: 1px solid #bbf7d0;
+        border-radius: 50%;
+        background: #f0fdf4;
+        color: #16a34a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        &:hover {
+          background: #dcfce7;
+          border-color: #86efac;
+        }
+      }
 
       .action-more-btn {
         width: 30px;
@@ -1385,10 +2017,10 @@ import { environment } from '../../../environments/environment';
     }
   `]
 })
-export class FeeRecoveryAgentComponent implements OnInit {
+export class FeeRecoveryAgentComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private agentService = inject(FeeRecoveryAgentService);
-  private authService = inject(AuthService);
+  public authService = inject(AuthService);
   private confirmDialog = inject(ConfirmDialogService);
   private schoolService = inject(SchoolService);
   private batchesService = inject(BatchesService);
@@ -1397,6 +2029,17 @@ export class FeeRecoveryAgentComponent implements OnInit {
 
   filterForm!: FormGroup;
   loading = false;
+
+  // Automated WhatsApp & AI Hindi Voice Engine state
+  automationStatus: FeeDueAutomationStatus | null = null;
+  isLoadingAutomation = false;
+  isPlayingVoice = false;
+  currentAudio: HTMLAudioElement | null = null;
+  voiceScriptPreview: string | null = null;
+  showVoiceScript = false;
+  testPhoneControl = new FormControl('');
+  isSendingTestWhatsApp = false;
+  isTriggeringAutomated = false;
 
   branches: any[] = [];
   classes: any[] = [];
@@ -1442,6 +2085,230 @@ export class FeeRecoveryAgentComponent implements OnInit {
 
     this.loadMetadata();
     this.refreshAll();
+    this.loadAutomationStatus();
+  }
+
+  ngOnDestroy(): void {
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio = null;
+    }
+  }
+
+  get instituteDisplayName(): string {
+    return this.authService.getInstituteName() || 'Jnandeep Campus';
+  }
+
+  loadAutomationStatus(): void {
+    this.agentService.getAutomationStatus().subscribe({
+      next: (status) => {
+        this.automationStatus = status;
+      },
+      error: () => {}
+    });
+  }
+
+  saveAutomationSettings(toggleField?: string, value?: any): void {
+    if (!this.automationStatus) return;
+
+    const dto: UpdateFeeDueAutomationSettings = {
+      feeDueRemindersEnabled: toggleField === 'reminders' ? value : this.automationStatus.feeDueRemindersEnabled,
+      feeDueVoiceNoteEnabled: toggleField === 'voice' ? value : this.automationStatus.feeDueVoiceNoteEnabled,
+      feeDueVoiceGender: toggleField === 'gender' ? value : this.automationStatus.feeDueVoiceGender,
+      feeDueReminderDayOfMonth: toggleField === 'day' ? value : this.automationStatus.feeDueReminderDayOfMonth,
+      feeDueDaysPrior: this.automationStatus.feeDueDaysPrior
+    };
+
+    this.agentService.updateAutomationSettings(dto).subscribe({
+      next: (updated) => {
+        this.automationStatus = updated;
+      },
+      error: (err) => {
+        this.confirmDialog.alert('Settings Update Failed', err.error?.message || 'Could not update automation preferences.', 'danger');
+      }
+    });
+  }
+
+  onDayOfMonthSelected(event: Event): void {
+    const val = (event.target as HTMLSelectElement).value;
+    this.saveAutomationSettings('day', parseInt(val, 10));
+  }
+
+  playSampleAiVoice(): void {
+    if (this.isPlayingVoice && this.currentAudio) {
+      this.currentAudio.pause();
+      this.isPlayingVoice = false;
+      return;
+    }
+
+    this.isLoadingAutomation = true;
+    const instName = this.instituteDisplayName;
+    const gender = this.automationStatus?.feeDueVoiceGender || 'Female';
+    const dueDay = this.automationStatus?.feeDueReminderDayOfMonth || 10;
+
+    this.agentService.previewVoice({
+      parentName: 'राजेश कुमार',
+      studentName: 'रोहित कुमार',
+      className: 'Class 10 (PCM)',
+      dueAmount: 2500,
+      dueDay: dueDay,
+      instituteName: instName,
+      voiceGender: gender
+    }).subscribe({
+      next: (res) => {
+        this.isLoadingAutomation = false;
+        this.voiceScriptPreview = res.hindiScript;
+        if (res.audioBase64) {
+          const audioSrc = `data:${res.contentType};base64,${res.audioBase64}`;
+          if (this.currentAudio) {
+            this.currentAudio.pause();
+          }
+          this.currentAudio = new Audio(audioSrc);
+          this.isPlayingVoice = true;
+          this.currentAudio.play().catch(() => {
+            this.isPlayingVoice = false;
+          });
+          this.currentAudio.onended = () => {
+            this.isPlayingVoice = false;
+          };
+          this.currentAudio.onerror = () => {
+            this.isPlayingVoice = false;
+            this.confirmDialog.alert('Voice Playback', 'Could not play audio in this browser session.', 'warning');
+          };
+        }
+      },
+      error: (err) => {
+        this.isLoadingAutomation = false;
+        this.confirmDialog.alert('AI Voice Generation', err.error?.message || 'Failed to synthesize sample Hindi voice note.', 'danger');
+      }
+    });
+  }
+
+  sendSampleTestWhatsApp(): void {
+    const phone = this.testPhoneControl.value?.trim();
+    if (!phone) {
+      this.confirmDialog.alert('WhatsApp Test', 'Please enter a valid recipient WhatsApp mobile number (e.g. 9876543210).', 'info');
+      return;
+    }
+
+    this.confirmDialog.confirm(
+      'Send Test WhatsApp Notice',
+      `Dispatch live test fee due reminder with AI Hindi Voice Note to ${phone}?`,
+      'Send Now',
+      'Cancel'
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
+
+      this.isSendingTestWhatsApp = true;
+      const gender = this.automationStatus?.feeDueVoiceGender || 'Female';
+
+      this.agentService.sendTestWhatsApp({
+        recipientPhone: phone,
+        studentName: 'रोहित कुमार',
+        parentName: 'राजेश कुमार',
+        className: 'Class 10 (PCM)',
+        dueAmount: 2500,
+        voiceGender: gender
+      }).subscribe({
+        next: (res) => {
+          this.isSendingTestWhatsApp = false;
+          this.confirmDialog.alert('WhatsApp Test Success', res.message || 'Test reminder sent successfully!', 'success');
+        },
+        error: (err) => {
+          this.isSendingTestWhatsApp = false;
+          this.confirmDialog.alert('WhatsApp Test Failed', err.error?.message || 'Failed to dispatch test WhatsApp reminder.', 'danger');
+        }
+      });
+    });
+  }
+
+  triggerAutomatedRemindersNow(): void {
+    this.confirmDialog.confirm(
+      'Trigger Monthly Dues Reminders Now',
+      `This will immediately scan all unpaid invoices across all classes/batches and dispatch WhatsApp notices + AI Hindi voice notes. Proceed?`,
+      '⚡ Dispatch Now',
+      'Cancel'
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
+
+      this.isTriggeringAutomated = true;
+      this.agentService.triggerAutomatedReminders().subscribe({
+        next: (res) => {
+          this.isTriggeringAutomated = false;
+          const msg = res.message || `Dispatched ${res.processedCount || 0} dues reminders.`;
+          this.confirmDialog.alert('Automated Dues Reminders', msg, 'success');
+          this.loadAutomationStatus();
+          this.refreshAll();
+        },
+        error: (err) => {
+          this.isTriggeringAutomated = false;
+          this.confirmDialog.alert('Execution Notice', err.error?.message || 'Failed to trigger automated reminders.', 'danger');
+        }
+      });
+    });
+  }
+
+  openDirectWhatsAppWeb(): void {
+    const rawPhone = this.testPhoneControl.value?.trim();
+    if (!rawPhone) {
+      this.confirmDialog.alert('WhatsApp Number', 'Please enter a valid mobile number to open WhatsApp.', 'info');
+      return;
+    }
+    const cleanPhone = this.normalizePhoneForWhatsApp(rawPhone);
+    const instName = this.instituteDisplayName;
+    const dueDay = this.automationStatus?.feeDueReminderDayOfMonth || 10;
+    const text = `🔔 *फीस भुगतान अनुस्मारक | FEE PAYMENT NOTICE*\n\n` +
+      `नमस्ते राजेश कुमार जी,\n` +
+      `${instName} से सादर अनुरोध है कि आपके सुपुत्र/सुपुत्री *रोहित कुमार* (Class 10) की फीस *₹2,500* देय है।\n\n` +
+      `📅 नियत देय तिथि: *${dueDay} तारीख*\n\n` +
+      `कृपया समय पर फीस जमा कराकर सहयोग प्रदान करें।\nधन्यवाद,\n*${instName}*`;
+
+    const encoded = encodeURIComponent(text);
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encoded}`;
+    window.open(waUrl, '_blank');
+  }
+
+  openStudentVoiceDialog(plan: FeeRecoveryPlanItemDto): void {
+    if (plan.totalOverdueAmount <= 0) {
+      this.confirmDialog.alert('Fee Fully Paid', `Student ${plan.studentName} has ₹0 overdue fees (Account already fully settled). No dues reminder needed!`, 'info');
+      return;
+    }
+
+    this.dialog.open(StudentVoiceDialogComponent, {
+      width: '560px',
+      data: {
+        plan,
+        instituteName: this.instituteDisplayName,
+        dueDay: this.automationStatus?.feeDueReminderDayOfMonth || 10,
+        initialGender: this.automationStatus?.feeDueVoiceGender || 'Female'
+      }
+    });
+  }
+
+  openDirectWhatsAppForPlan(plan: FeeRecoveryPlanItemDto): void {
+    if (plan.totalOverdueAmount <= 0) {
+      this.confirmDialog.alert('Fee Fully Paid', `Student ${plan.studentName} has ₹0 overdue fees (Account already fully settled). No dues reminder needed!`, 'info');
+      return;
+    }
+
+    const rawPhone = plan.parentPhone || '';
+    if (!rawPhone) {
+      this.confirmDialog.alert('No Phone Number', `Student ${plan.studentName} has no parent WhatsApp phone recorded in admissions profile.`, 'warning');
+      return;
+    }
+
+    const cleanPhone = this.normalizePhoneForWhatsApp(rawPhone);
+    const message = plan.generatedMessage || `🔔 *फीस बकाया रिमाइंडर*\n\nनमस्ते!\nआपके सुपुत्र/सुपुत्री *${plan.studentName}* की फीस ₹${plan.totalOverdueAmount} देय है। कृपया समय पर फीस जमा कराकर सहयोग करें। धन्यवाद!`;
+    const encoded = encodeURIComponent(message);
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encoded}`;
+    window.open(waUrl, '_blank');
+  }
+
+  private normalizePhoneForWhatsApp(phone: string): string {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) return '91' + digits;
+    if (digits.length === 12 && digits.startsWith('91')) return digits;
+    return digits;
   }
 
   get selectedAcademicScope(): string {
@@ -1804,8 +2671,9 @@ export class FeeRecoveryAgentComponent implements OnInit {
         const outstandingAmount = matchedInv ? matchedInv.dueAmount : plan.totalOverdueAmount;
 
         const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-          width: '740px',
-          maxWidth: '96vw',
+      width: '880px',
+      maxWidth: '96vw',
+      panelClass: 'responsive-fee-collection-dialog',
           data: {
             studentId: plan.studentId,
             studentName: plan.studentName,
@@ -1832,8 +2700,9 @@ export class FeeRecoveryAgentComponent implements OnInit {
       error: () => {
         this.loading = false;
         const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-          width: '740px',
-          maxWidth: '96vw',
+      width: '880px',
+      maxWidth: '96vw',
+      panelClass: 'responsive-fee-collection-dialog',
           data: {
             studentId: plan.studentId,
             studentName: plan.studentName,

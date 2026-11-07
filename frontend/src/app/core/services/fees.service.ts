@@ -233,6 +233,9 @@ export interface PendingInvoicingStudent {
   batchId?: string | null;
   batchName?: string | null;
   joiningDate: string;
+  coachingJoiningDate?: string | null;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
   estimatedMonthlyFee: number;
 }
 

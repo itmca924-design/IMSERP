@@ -1066,6 +1066,10 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
               <mat-icon>tune</mat-icon>
               <span>Policy & Quotas</span>
             </button>
+            <button class="accrual-btn" (click)="triggerMonthlyLeaveAccrual()" matTooltip="Execute automated monthly leave credit engine (+1 CL, +0.83 SL, +1.25 EL)" matButton="filled">
+              <mat-icon>auto_mode</mat-icon>
+              <span>Monthly Accrual</span>
+            </button>
           }
           <button class="reg-btn" (click)="openRegularizationDialog()" matButton="filled">
             <mat-icon>build_circle</mat-icon>
@@ -1094,6 +1098,10 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
           @if (pendingRegCount > 0) {
             <span class="pill-badge">{{pendingRegCount}}</span>
           }
+        </button>
+        <button type="button" class="tab-pill" [class.active]="activeTab === 'accruals'" (click)="activeTab = 'accruals'; loadAccrualLogs()" matButton="filled">
+          <mat-icon>history_edu</mat-icon>
+          <span>Monthly Accrual History ({{accrualLogs.length}})</span>
         </button>
       </div>
     
@@ -1754,6 +1762,129 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
           }
         </div>
       }
+
+      <!-- ── Main Card for Monthly Accrual History ── -->
+      @if (activeTab === 'accruals') {
+        <div class="content-card">
+          <!-- Filter Bar -->
+          <div class="filter-bar">
+            <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
+              <mat-label>Month</mat-label>
+              <mat-select [(ngModel)]="filterAccrualMonth" (selectionChange)="loadAccrualLogs()">
+                <mat-option [value]="0">All Months</mat-option>
+                <mat-option [value]="1">January</mat-option>
+                <mat-option [value]="2">February</mat-option>
+                <mat-option [value]="3">March</mat-option>
+                <mat-option [value]="4">April</mat-option>
+                <mat-option [value]="5">May</mat-option>
+                <mat-option [value]="6">June</mat-option>
+                <mat-option [value]="7">July</mat-option>
+                <mat-option [value]="8">August</mat-option>
+                <mat-option [value]="9">September</mat-option>
+                <mat-option [value]="10">October</mat-option>
+                <mat-option [value]="11">November</mat-option>
+                <mat-option [value]="12">December</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
+              <mat-label>Year</mat-label>
+              <mat-select [(ngModel)]="filterAccrualYear" (selectionChange)="loadAccrualLogs()">
+                <mat-option [value]="2025">2025</mat-option>
+                <mat-option [value]="2026">2026</mat-option>
+                <mat-option [value]="2027">2027</mat-option>
+              </mat-select>
+            </mat-form-field>
+            @if (!isTeacher) {
+              <mat-form-field appearance="outline" class="filter-field filter-field-teacher" subscriptSizing="dynamic">
+                <mat-label>Faculty Member</mat-label>
+                <mat-select [(ngModel)]="filterAccrualTeacherId" (selectionChange)="loadAccrualLogs()">
+                  <mat-option value="">All Faculty</mat-option>
+                  @for (t of teachers; track t) {
+                    <mat-option [value]="t.id">{{t.fullName}} ({{t.employeeCode}})</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+            <mat-form-field appearance="outline" class="filter-field-search" subscriptSizing="dynamic">
+              <mat-icon matPrefix class="filter-icon">search</mat-icon>
+              <input matInput [(ngModel)]="accrualSearchQuery" placeholder="Search teacher, employee code, remarks..." />
+              @if (accrualSearchQuery) {
+                <button matSuffix (click)="accrualSearchQuery=''" style="color:#94a3b8;" mat-icon-button>
+                  <mat-icon style="font-size:18px;">close</mat-icon>
+                </button>
+              }
+            </mat-form-field>
+            <button class="accrual-btn" (click)="triggerMonthlyLeaveAccrual()" matTooltip="Execute automated monthly leave credit engine" matButton="filled">
+              <mat-icon>auto_mode</mat-icon>
+              <span>Run Accrual Engine</span>
+            </button>
+          </div>
+
+          <!-- Accrual History Table -->
+          @if (filteredAccrualLogs.length > 0) {
+            <div class="fd-table-wrap">
+              <table class="fd-table">
+                <thead>
+                  <tr>
+                    <th>Faculty Member</th>
+                    <th>Accrual Cycle</th>
+                    <th>Casual Leave (CL)</th>
+                    <th>Sick Leave (SL)</th>
+                    <th>Earned Leave (EL)</th>
+                    <th>Total Credited</th>
+                    <th>Accrued On (IST)</th>
+                    <th>Audit Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (log of filteredAccrualLogs; track log.id) {
+                    <tr>
+                      <td>
+                        <div class="teacher-info-cell">
+                          <div class="teacher-avatar"><mat-icon>person</mat-icon></div>
+                          <div>
+                            <div class="teacher-name">{{log.teacherName}}</div>
+                            <div class="teacher-code">{{log.employeeCode}}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="days-badge">{{getMonthName(log.month)}} {{log.year}}</span>
+                      </td>
+                      <td>
+                        <span class="quota-add-chip cl">+{{log.casualLeaveAdded}} CL</span>
+                      </td>
+                      <td>
+                        <span class="quota-add-chip sl">+{{log.sickLeaveAdded}} SL</span>
+                      </td>
+                      <td>
+                        <span class="quota-add-chip el">+{{log.earnedLeaveAdded}} EL</span>
+                      </td>
+                      <td>
+                        <strong style="color:#1e3a8a;">+{{(log.casualLeaveAdded + log.sickLeaveAdded + log.earnedLeaveAdded) | number:'1.2-2'}} Days</strong>
+                      </td>
+                      <td>
+                        <span style="font-weight:600; color:#475569;">{{log.accruedAt | date:'dd MMM yyyy, hh:mm a'}}</span>
+                      </td>
+                      <td>
+                        <span style="font-size:0.8rem; color:#64748b;">{{log.remarks || 'Monthly auto-accrual'}}</span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <div class="empty-state">
+              <mat-icon>history_edu</mat-icon>
+              <p>No monthly leave accrual records found for the selected cycle.</p>
+              <button (click)="triggerMonthlyLeaveAccrual()" matButton="filled">
+                <mat-icon>auto_mode</mat-icon> Run Monthly Accrual Engine
+              </button>
+            </div>
+          }
+        </div>
+      }
     </div>
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -1894,7 +2025,8 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
       display: flex; gap: 12px; align-items: center;
       padding: 16px 20px 10px; flex-wrap: wrap;
     }
-    .filter-field { flex: 0 0 170px; min-width: 140px; }
+    .filter-field { flex: 0 0 195px; min-width: 170px; }
+    .filter-field.filter-field-teacher { flex: 0 0 240px; min-width: 200px; }
     .filter-field-search { flex: 1 1 240px; min-width: 200px; }
     .filter-icon {
       color: #64748b; margin-right: 8px; margin-left: 2px;
@@ -1941,6 +2073,13 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     .type-earnedleave    { background: #fef3c7; color: #92400e; }
     .type-unpaidleave    { background: #f1f5f9; color: #475569; }
     .type-emergencyleave { background: #ffedd5; color: #9a3412; }
+
+    .quota-add-chip {
+      padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; display: inline-block;
+    }
+    .quota-add-chip.cl { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .quota-add-chip.sl { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .quota-add-chip.el { background: #fdf4ff; color: #9333ea; border: 1px solid #f0abfc; }
 
     .date-range-text { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; }
     .date-bold { font-weight: 600; color: #0f172a; }
@@ -2308,15 +2447,17 @@ export class TeacherLeavesComponent implements OnInit {
   private dialog = inject(MatDialog);
   private confirm = inject(ConfirmDialogService);
 
-  activeTab: 'leaves' | 'regularizations' = 'leaves';
+  activeTab: 'leaves' | 'regularizations' | 'accruals' = 'leaves';
   leaves: LeaveDto[] = [];
   regularizations: TeacherAttendanceRegularizationDto[] = [];
+  accrualLogs: any[] = [];
   teachers: TeacherDto[] = [];
   myProfile: any = null;
   currentTeacherBalances: TeacherLeaveBalancesSummaryDto | null = null;
   loading = false;
   loadingRegs = false;
   loadingBalances = false;
+  loadingAccruals = false;
 
   // Filters (Leaves)
   filterStatus = 'All';
@@ -2328,6 +2469,12 @@ export class TeacherLeavesComponent implements OnInit {
   filterRegStatus = 'All';
   filterRegTeacherId = '';
   regSearchQuery = '';
+
+  // Filters (Accruals)
+  filterAccrualMonth = 0;
+  filterAccrualYear = new Date().getFullYear();
+  filterAccrualTeacherId = '';
+  accrualSearchQuery = '';
 
   // Stats
   stats = {
@@ -2405,9 +2552,49 @@ export class TeacherLeavesComponent implements OnInit {
     this.loadStats();
     this.loadLeaves();
     this.loadRegularizations();
+    this.loadAccrualLogs();
     this.loadMyProfile();
     this.loadTeachers();
     this.loadTeacherBalances();
+  }
+
+  loadAccrualLogs() {
+    this.loadingAccruals = true;
+    const params: any = {};
+    if (this.filterAccrualMonth > 0) params.month = this.filterAccrualMonth;
+    if (this.filterAccrualYear > 0) params.year = this.filterAccrualYear;
+    if (this.filterAccrualTeacherId) params.teacherId = this.filterAccrualTeacherId;
+
+    this.http.get<any[]>(`${API_BASE}/teachers/leaves/accrual-logs`, { params }).subscribe({
+      next: logs => {
+        this.accrualLogs = logs || [];
+        this.loadingAccruals = false;
+      },
+      error: () => {
+        this.loadingAccruals = false;
+      }
+    });
+  }
+
+  get filteredAccrualLogs(): any[] {
+    return this.accrualLogs.filter(l => {
+      if (this.filterAccrualMonth > 0 && l.month !== this.filterAccrualMonth) return false;
+      if (this.filterAccrualYear > 0 && l.year !== this.filterAccrualYear) return false;
+      if (this.filterAccrualTeacherId && l.teacherId !== this.filterAccrualTeacherId) return false;
+      if (this.accrualSearchQuery) {
+        const q = this.accrualSearchQuery.toLowerCase();
+        const matchName = l.teacherName?.toLowerCase().includes(q);
+        const matchCode = l.employeeCode?.toLowerCase().includes(q);
+        const matchRemarks = l.remarks?.toLowerCase().includes(q);
+        if (!matchName && !matchCode && !matchRemarks) return false;
+      }
+      return true;
+    });
+  }
+
+  getMonthName(m: number): string {
+    const names = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return names[m] || `Month ${m}`;
   }
 
   loadMyProfile() {
@@ -2650,8 +2837,8 @@ export class TeacherLeavesComponent implements OnInit {
   openPolicySettingsDialog() {
     const ref = this.dialog.open(LeavePolicySettingsDialogComponent, {
       disableClose: true,
-      width: '680px',
-      maxWidth: '95vw',
+      width: '850px',
+      maxWidth: '96vw',
       panelClass: 'no-overflow-dialog'
     });
     ref.afterClosed().subscribe(res => {
@@ -2746,5 +2933,54 @@ export class TeacherLeavesComponent implements OnInit {
       case 'Rejected': return 'cancel';
       default: return 'hourglass_top';
     }
+  }
+
+  triggerMonthlyLeaveAccrual() {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    const monthName = new Date(currentYear, currentMonth - 1, 1).toLocaleString('default', { month: 'long' });
+
+    this.confirm.confirm(
+      'Run Monthly Leave Accrual Engine',
+      `Run automated corporate-style monthly leave credit for <strong>${monthName} ${currentYear}</strong>?<br><br>` +
+      `<div style="font-size:12px; color:#475569; background:#f1f5f9; padding:10px; border-radius:8px; border:1px solid #cbd5e1;">` +
+      `• Credits <strong>+1.00 CL</strong>, <strong>+0.83 SL</strong>, <strong>+1.25 EL</strong> to all active faculty.<br>` +
+      `• Pro-rata calculation for new joiners based on joining date.<br>` +
+      `• Safe & Idempotent: Skips employees already credited for this month.<br>` +
+      `• Immutable audit trail logged in database.</div>`,
+      'Execute Leave Accrual', 'Cancel'
+    ).subscribe(ok => {
+      if (!ok) return;
+      this.loading = true;
+      this.http.post<any>(`${API_BASE}/teachers/leaves/accrue-monthly`, {
+        month: currentMonth,
+        year: currentYear
+      }).subscribe({
+        next: (res) => {
+          this.loading = false;
+          const staffCount = res?.totalStaffProcessed ?? res?.accruedCount ?? res?.totalEligible ?? 0;
+          const cl = res?.totalClAccrued ?? res?.totalCLCredited ?? 0;
+          const sl = res?.totalSlAccrued ?? res?.totalSLCredited ?? 0;
+          const el = res?.totalElAccrued ?? res?.totalELCredited ?? 0;
+
+          this.confirm.alert(
+            'Leave Accrual Completed',
+            `<strong>Accrual Processed Successfully!</strong><br><br>` +
+            (res?.message ? `<div style="background:#eff6ff; color:#1e40af; padding:8px 12px; border-radius:6px; border:1px solid #bfdbfe; margin-bottom:12px; font-weight:600;">${res.message}</div>` : '') +
+            `• Eligible Employees: <strong>${staffCount}</strong><br>` +
+            `• Successfully Credited: <strong>${staffCount}</strong><br>` +
+            `• Total Leave Quota Added:<br>` +
+            `  &nbsp;&nbsp;<b>CL:</b> +${cl} | <b>SL:</b> +${sl} | <b>EL:</b> +${el}`
+          );
+          this.loadAll();
+        },
+        error: (err) => {
+          this.loading = false;
+          this.confirm.alert('Error', err?.error?.message || 'Failed to process monthly leave accrual.');
+        }
+      });
+    });
   }
 }

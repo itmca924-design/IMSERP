@@ -46,6 +46,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<TeacherLeave> TeacherLeaves => Set<TeacherLeave>();
     public DbSet<TeacherAttendanceRegularization> TeacherAttendanceRegularizations => Set<TeacherAttendanceRegularization>();
     public DbSet<StudentAttendanceRegularization> StudentAttendanceRegularizations => Set<StudentAttendanceRegularization>();
+    public DbSet<TeacherPayrollMonthLock> TeacherPayrollMonthLocks => Set<TeacherPayrollMonthLock>();
+    public DbSet<TeacherLeaveAccrualLog> TeacherLeaveAccrualLogs => Set<TeacherLeaveAccrualLog>();
     public DbSet<LeaveAndAttendancePolicySettings> LeaveAndAttendancePolicies => Set<LeaveAndAttendancePolicySettings>();
     public DbSet<StaffAppraisalPolicySettings> StaffAppraisalPolicies => Set<StaffAppraisalPolicySettings>();
     public DbSet<Holiday> Holidays => Set<Holiday>();

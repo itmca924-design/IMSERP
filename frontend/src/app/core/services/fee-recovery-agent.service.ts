@@ -84,6 +84,55 @@ export interface FeePromiseItemDto {
   divisionTag?: string;
 }
 
+export interface PreviewVoiceRequest {
+  parentName?: string;
+  studentName?: string;
+  className?: string;
+  dueAmount: number;
+  monthName?: string;
+  dueDay?: number;
+  instituteName?: string;
+  voiceGender?: string;
+}
+
+export interface PreviewVoiceResult {
+  hindiScript: string;
+  audioBase64: string;
+  contentType: string;
+  byteLength: number;
+}
+
+export interface FeeDueAutomationStatus {
+  feeDueRemindersEnabled: boolean;
+  feeDueVoiceNoteEnabled: boolean;
+  feeDueVoiceGender: string;
+  feeDueReminderDayOfMonth: number;
+  feeDueDaysPrior: number;
+  hasMetaCloudApiConfigured: boolean;
+  whatsAppPhoneNumberId?: string;
+  lastFeeReminderDate?: string;
+}
+
+export interface UpdateFeeDueAutomationSettings {
+  feeDueRemindersEnabled: boolean;
+  feeDueVoiceNoteEnabled: boolean;
+  feeDueVoiceGender: string;
+  feeDueReminderDayOfMonth: number;
+  feeDueDaysPrior?: number;
+  whatsAppCloudApiToken?: string;
+  whatsAppPhoneNumberId?: string;
+  whatsAppBusinessAccountId?: string;
+}
+
+export interface SendDuesTestWhatsAppRequest {
+  recipientPhone: string;
+  studentName?: string;
+  parentName?: string;
+  className?: string;
+  dueAmount: number;
+  voiceGender?: string;
+}
+
 export interface RunAnalysisRequest {
   branchId?: string | null;
   classId?: string | null;
@@ -180,6 +229,38 @@ export class FeeRecoveryAgentService {
       settledAmount,
       notes
     });
+  }
+
+  getAutomationStatus(): Observable<FeeDueAutomationStatus> {
+    return this.http.get<FeeDueAutomationStatus>(`${this.baseUrl}/automation-status`);
+  }
+
+  updateAutomationSettings(dto: UpdateFeeDueAutomationSettings): Observable<FeeDueAutomationStatus> {
+    return this.http.put<FeeDueAutomationStatus>(`${this.baseUrl}/automation-settings`, dto);
+  }
+
+  previewVoice(req: PreviewVoiceRequest): Observable<PreviewVoiceResult> {
+    return this.http.post<PreviewVoiceResult>(`${this.baseUrl}/preview-voice`, req);
+  }
+
+  sendTestWhatsApp(req: SendDuesTestWhatsAppRequest): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(`${this.baseUrl}/send-test-whatsapp`, req);
+  }
+
+  triggerAutomatedReminders(daysPrior?: number): Observable<any> {
+    let params: HttpParams | undefined;
+    if (daysPrior) {
+      params = new HttpParams().set('daysPrior', daysPrior.toString());
+    }
+    return this.http.post<any>(`${this.baseUrl}/trigger-automated-reminders`, {}, { params });
+  }
+
+  getStudentVoiceUrl(planId: string, gender: string = 'Female'): string {
+    return `${this.baseUrl}/student-voice/${planId}?gender=${gender}`;
+  }
+
+  getStudentVoiceListenUrl(planId: string, gender: string = 'Female'): string {
+    return `${environment.apiUrl}/finance/fee-recovery-agent/listen/${planId}?gender=${gender}`;
   }
 }
 

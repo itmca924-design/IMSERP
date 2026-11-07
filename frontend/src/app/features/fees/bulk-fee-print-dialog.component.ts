@@ -2101,8 +2101,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
   openQuickCollect(slip: BulkDueSlipItem): void {
     if (!slip) return;
     const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-      width: '740px',
+      width: '880px',
       maxWidth: '96vw',
+      panelClass: 'responsive-fee-collection-dialog',
       data: {
         studentId: slip.studentId,
         studentName: slip.studentName,

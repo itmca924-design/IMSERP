@@ -73,6 +73,19 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
                 @if (inv.rollNumber) {
                   <span class="roll-pill">Roll: {{ inv.rollNumber }}</span>
                 }
+                @if (isHybrid) {
+                  <span class="stream-pill hybrid-pill" matTooltip="Hybrid Enrolled (School + Coaching Consolidated)">
+                    <span>School + Coaching (Hybrid)</span>
+                  </span>
+                } @else if (inv.className && !inv.batchName) {
+                  <span class="stream-pill school-pill">
+                    <span>School Only</span>
+                  </span>
+                } @else if (inv.batchName && !inv.className) {
+                  <span class="stream-pill coaching-pill">
+                    <span>Coaching Only</span>
+                  </span>
+                }
               </div>
               <div class="academic-badges-row">
                 @if (inv.className) {
@@ -164,8 +177,8 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
               <thead>
                 <tr>
                   <th class="th-num">#</th>
-                  <th class="th-head">Fee Head Description</th>
-                  <th class="th-note">Cycle / Frequency</th>
+                  <th class="th-head text-left">Fee Head Description</th>
+                  <th class="th-note text-left">Cycle / Frequency</th>
                   <th class="th-amt text-right">Amount (₹)</th>
                 </tr>
               </thead>
@@ -181,7 +194,7 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
                           <mat-icon>{{ it.icon }}</mat-icon>
                         </div>
                         <div class="head-names">
-                          <span class="head-name" [class.tuition-title]="it.isTuition">{{ it.headName || 'Fee Head' }}</span>
+                          <span class="head-name" [class.tuition-title]="it.isTuition">{{ cleanHeadName(it.headName) || 'Fee Head' }}</span>
                           @if (it.isTuition) {
                             <span class="tuition-pill">TUITION</span>
                           }
@@ -443,28 +456,27 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
 
     /* 1. Student & Invoice Meta Deck */
     .meta-deck-card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      border: 1px solid #cbd5e1;
       border-radius: 12px;
-      padding: 14px 16px;
+      padding: 14px 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 16px;
-      flex-wrap: wrap;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 
       .meta-deck-left {
         display: flex;
-        align-items: flex-start;
-        gap: 12px;
+        align-items: center;
+        gap: 14px;
         min-width: 0;
-        flex: 1;
+        flex: 1 1 auto;
         box-sizing: border-box;
 
         .student-avatar-box {
-          width: 44px;
-          height: 44px;
+          width: 46px;
+          height: 46px;
           border-radius: 50%;
           background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
           color: #ffffff;
@@ -474,14 +486,16 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+          border: 2px solid #ffffff;
         }
 
         .student-meta-details {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 6px;
           min-width: 0;
+          flex: 1;
 
           .student-name-row {
             display: flex;
@@ -490,7 +504,7 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
             flex-wrap: wrap;
 
             .student-name {
-              font-size: 1.02rem;
+              font-size: 1.08rem;
               font-weight: 700;
               color: #0f172a;
               line-height: 1.25;
@@ -502,8 +516,47 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
               background: #f1f5f9;
               color: #475569;
               padding: 2px 8px;
-              border-radius: 10px;
-              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              border: 1px solid #cbd5e1;
+            }
+
+            .stream-pill {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 0.71rem;
+              font-weight: 700;
+              padding: 2px 9px;
+              border-radius: 6px;
+              letter-spacing: 0.2px;
+
+              .stream-ic {
+                font-size: 13px;
+                width: 13px;
+                height: 13px;
+              }
+
+              &.hybrid-pill {
+                background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%);
+                color: #7e22ce;
+                border: 1px solid #f0abfc;
+                box-shadow: 0 1px 2px rgba(126, 34, 206, 0.08);
+                .stream-ic { color: #9333ea; }
+              }
+
+              &.school-pill {
+                background: #eff6ff;
+                color: #1d4ed8;
+                border: 1px solid #bfdbfe;
+                .stream-ic { color: #2563eb; }
+              }
+
+              &.coaching-pill {
+                background: #f0fdf4;
+                color: #15803d;
+                border: 1px solid #bbf7d0;
+                .stream-ic { color: #16a34a; }
+              }
             }
           }
 
@@ -554,7 +607,8 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 6px;
+        justify-content: center;
+        gap: 8px;
         flex-shrink: 0;
 
         .status-pill {
@@ -770,13 +824,31 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
 
         th {
           background: #f8fafc;
-          color: #64748b;
+          color: #475569;
           font-weight: 700;
           font-size: 0.72rem;
           text-transform: uppercase;
-          letter-spacing: 0.03em;
+          letter-spacing: 0.04em;
           padding: 11px 14px;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid #cbd5e1;
+          text-align: left;
+        }
+
+        .th-num, .td-num {
+          width: 44px;
+          text-align: center !important;
+        }
+
+        .th-head, .td-head {
+          text-align: left !important;
+        }
+
+        .th-note, .td-note {
+          text-align: left !important;
+        }
+
+        .th-amt, .td-amt {
+          text-align: right !important;
         }
 
         tbody {
@@ -805,11 +877,6 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
 
         tr.tuition-row td {
           background: #fbfdff;
-        }
-
-        .th-num, .td-num {
-          width: 44px;
-          text-align: center;
         }
 
         .index-num {
@@ -1263,6 +1330,36 @@ export class FeeInvoiceBreakdownDialogComponent implements OnInit {
     private feesService: FeesService
   ) {
     this.inv = data.invoice;
+  }
+
+  get isHybrid(): boolean {
+    if (this.inv?.className && this.inv?.batchName) return true;
+    const items = this.inv?.items || this.itemsList || [];
+    const hasCoaching = items.some(it => {
+      const n = (it.headName || '').toLowerCase();
+      return n.includes('coaching');
+    });
+    const hasSchool = items.some(it => {
+      const n = (it.headName || '').toLowerCase();
+      return n.includes('school') || n.includes('annual') || n.includes('development') || n.includes('exam');
+    });
+    return (hasCoaching && hasSchool) || (hasCoaching && !!this.inv?.className) || (hasSchool && !!this.inv?.batchName);
+  }
+
+  cleanHeadName(name?: string): string {
+    if (!name) return '';
+    if (this.inv?.className) {
+      const rawCls = this.inv.className.trim();
+      const escapedRaw = rawCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      name = name.replace(new RegExp(`\\s*\\(${escapedRaw}\\)\\s*`, 'gi'), ' ');
+      const baseCls = rawCls.split('(')[0].trim();
+      if (baseCls && baseCls !== rawCls) {
+        const escapedBase = baseCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        name = name.replace(new RegExp(`\\s*\\(${escapedBase}\\)\\s*`, 'gi'), ' ');
+      }
+    }
+    name = name.replace(/\s*\(\s*(School|LKG|UKG|Nursery|Pre-Nursery|Prep)\s*\)\s*/gi, ' ');
+    return name.trim();
   }
 
   ngOnInit(): void {

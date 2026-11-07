@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 
 @Component({
   selector: 'app-leave-policy-settings-dialog',
@@ -151,6 +152,65 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
               </div>
               <mat-slide-toggle formControlName="excludeSundaysFromLeaveCount" color="primary"></mat-slide-toggle>
             </div>
+
+            <!-- Section 6: Payroll Calculation & Daily Divisor Policy (Zero Hardcoding) -->
+            <div class="section-title">
+              <mat-icon>calculate</mat-icon>
+              <span>Payroll Calculation & Daily Salary Divisor (Zero Hardcoding)</span>
+            </div>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Salary Daily Divisor Mode</mat-label>
+                <mat-select formControlName="salaryDivisorMode">
+                  <mat-option value="WorkingDays">Actual Monthly Working Days (Institutional Standard)</mat-option>
+                  <mat-option value="Fixed30Days">Fixed 30 Days (Corporate Payroll Standard)</mat-option>
+                  <mat-option value="Standard26Days">Standard 26 Days (Factories / 6-Day Work Week)</mat-option>
+                  <mat-option value="CalendarDays">Total Calendar Days in Month (28, 29, 30, or 31)</mat-option>
+                </mat-select>
+                <mat-hint>Formula used to compute daily salary rate (PerDay = Gross / Divisor)</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Late Penalty Threshold (Days)</mat-label>
+                <input matInput type="number" formControlName="latePenaltyThresholdDays" min="0" max="15" />
+                <mat-hint>Allowed late days per month before penalties trigger (default: 3)</mat-hint>
+              </mat-form-field>
+            </div>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Late Penalty Factor</mat-label>
+                <mat-select formControlName="latePenaltyDeductionFactor">
+                  <mat-option [value]="0.5">Half-Day Deduction (0.5x Per 3 Late Punches)</mat-option>
+                  <mat-option [value]="1.0">Full-Day Deduction (1.0x Per 3 Late Punches)</mat-option>
+                  <mat-option [value]="0.0">No Financial Penalty (Warnings Only)</mat-option>
+                </mat-select>
+                <mat-hint>Deduction multiplier per penalty cycle</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Notice Period Required (Days)</mat-label>
+                <input matInput type="number" formControlName="noticePeriodDays" min="0" max="180" />
+                <mat-hint>Standard notice period for staff exits / FNF settlement (default: 30)</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <!-- Section 7: Financial Accounting & Auto-Posting -->
+            <div class="section-title">
+              <mat-icon>account_balance</mat-icon>
+              <span>Financial Day Book & Payslip Automation</span>
+            </div>
+            <div class="toggle-card">
+              <div class="toggle-info">
+                <strong>Auto-Post Salary Disbursals to Day Book, P&L & Balance Sheet</strong>
+                <p>When enabled, every disbursed salary creates an automated Expense Voucher under 'SALARY' category, instantly reconciling Day Book, P&L operating expense, and Cash/Bank asset ledgers.</p>
+              </div>
+              <mat-slide-toggle formControlName="autoPostPayrollToDayBook" color="primary"></mat-slide-toggle>
+            </div>
+            <div class="toggle-card">
+              <div class="toggle-info">
+                <strong>Auto-Send WhatsApp Payslip on Payment</strong>
+                <p>Instantly deliver monthly salary slips to faculty WhatsApp numbers immediately upon individual or bulk salary payment approval.</p>
+              </div>
+              <mat-slide-toggle formControlName="autoSendWhatsAppPayslip" color="primary"></mat-slide-toggle>
+            </div>
             @if (errorMessage) {
               <div class="error-banner">
                 <mat-icon>error</mat-icon>
@@ -171,9 +231,13 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+    }
     .policy-dialog-container {
       width: 100%;
-      max-width: 680px;
+      max-width: 880px;
       box-sizing: border-box;
       overflow-x: hidden;
       font-family: inherit;
@@ -217,10 +281,10 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
     .policy-dialog-close:hover { color: #1e293b; }
     .policy-loader { height: 3px; }
     .policy-dialog-body {
-      padding: 18px 22px;
+      padding: 20px 24px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
       max-height: 72vh;
       overflow-y: auto;
       overflow-x: hidden;
@@ -230,11 +294,11 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       font-weight: 700;
       color: #1e40af;
-      margin-top: 8px;
-      padding-bottom: 4px;
+      margin-top: 10px;
+      padding-bottom: 6px;
       border-bottom: 1px dashed #cbd5e1;
     }
     .section-title mat-icon {
@@ -245,16 +309,27 @@ import { API_BASE, LeavePolicySettingsDto } from './teacher.models';
     }
     .form-row {
       display: flex;
-      gap: 12px;
+      gap: 16px;
       flex-wrap: wrap;
       width: 100%;
       box-sizing: border-box;
+      margin-bottom: 8px;
     }
     .form-col {
-      flex: 1 1 180px;
+      flex: 1 1 340px;
       min-width: 0;
       max-width: 100%;
       box-sizing: border-box;
+    }
+    .form-col mat-hint {
+      font-size: 0.74rem;
+      line-height: 1.35;
+      color: #64748b;
+      margin-top: 3px;
+      display: block;
+    }
+    mat-form-field {
+      width: 100%;
     }
     .toggle-card {
       display: flex;
@@ -318,7 +393,8 @@ export class LeavePolicySettingsDialogComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private http: HttpClient,
-    private dialogRef: MatDialogRef<LeavePolicySettingsDialogComponent>
+    private dialogRef: MatDialogRef<LeavePolicySettingsDialogComponent>,
+    private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit(): void {
@@ -335,7 +411,13 @@ export class LeavePolicySettingsDialogComponent implements OnInit {
           autoCancelLeaveOnBiometricPunch: [res.autoCancelLeaveOnBiometricPunch],
           allowFullDayLeaveIfMarkedPresent: [res.allowFullDayLeaveIfMarkedPresent],
           excludeHolidaysFromLeaveCount: [res.excludeHolidaysFromLeaveCount ?? true],
-          excludeSundaysFromLeaveCount: [res.excludeSundaysFromLeaveCount ?? true]
+          excludeSundaysFromLeaveCount: [res.excludeSundaysFromLeaveCount ?? true],
+          salaryDivisorMode: [res.salaryDivisorMode || 'WorkingDays', Validators.required],
+          latePenaltyThresholdDays: [res.latePenaltyThresholdDays ?? 3, [Validators.required, Validators.min(0)]],
+          latePenaltyDeductionFactor: [res.latePenaltyDeductionFactor ?? 0.5, Validators.required],
+          noticePeriodDays: [res.noticePeriodDays ?? 30, [Validators.required, Validators.min(0)]],
+          autoPostPayrollToDayBook: [res.autoPostPayrollToDayBook ?? true],
+          autoSendWhatsAppPayslip: [res.autoSendWhatsAppPayslip ?? false]
         });
         this.loading = false;
       },
@@ -347,18 +429,41 @@ export class LeavePolicySettingsDialogComponent implements OnInit {
 
   submit(): void {
     if (this.form.invalid) return;
-    this.saving = true;
-    this.errorMessage = '';
 
-    this.http.put(`${API_BASE}/teachers/leave-policy-settings`, this.form.value).subscribe({
-      next: () => {
-        this.saving = false;
-        this.dialogRef.close(true);
-      },
-      error: err => {
-        this.saving = false;
-        this.errorMessage = err.error?.message || 'Failed to update policy settings.';
-      }
+    this.confirmDialog.confirm(
+      'Confirm Policy & Calculation Rules Update',
+      `Are you sure you want to update institutional <strong>Leave & Payroll Calculation Policies</strong>?<br><br>` +
+      `<div style="font-size:12px; color:#475569; background:#f1f5f9; padding:10px 14px; border-radius:8px; border:1px solid #cbd5e1; line-height: 1.5;">` +
+      `• <strong>Salary Divisor Mode:</strong> ${this.form.value.salaryDivisorMode}<br>` +
+      `• <strong>Late Penalty Threshold:</strong> ${this.form.value.latePenaltyThresholdDays} Days (Factor: ${this.form.value.latePenaltyDeductionFactor}x)<br>` +
+      `• <strong>Notice Period Required:</strong> ${this.form.value.noticePeriodDays} Days<br>` +
+      `• <strong>Day Book & P&L Auto-Posting:</strong> ${this.form.value.autoPostPayrollToDayBook ? 'Enabled' : 'Disabled'}<br>` +
+      `• Changes will take effect immediately for all subsequent payroll runs and attendance evaluations across all branches.</div>`,
+      'Save Policies',
+      'Cancel',
+      'info'
+    ).subscribe(confirmed => {
+      if (!confirmed) return;
+
+      this.saving = true;
+      this.errorMessage = '';
+
+      this.http.put(`${API_BASE}/teachers/leave-policy-settings`, this.form.value).subscribe({
+        next: () => {
+          this.saving = false;
+          this.confirmDialog.alert(
+            'Policy Settings Saved',
+            'Institutional leave quotas, payroll divisor calculation rules, and Day Book automation settings have been successfully updated.',
+            'info'
+          );
+          this.dialogRef.close(true);
+        },
+        error: err => {
+          this.saving = false;
+          this.errorMessage = err.error?.message || 'Failed to update policy settings.';
+          this.confirmDialog.alert('Save Error', this.errorMessage, 'danger');
+        }
+      });
     });
   }
 

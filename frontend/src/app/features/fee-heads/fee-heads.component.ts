@@ -1,6 +1,8 @@
-import { Component, OnInit, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, ViewChild, inject, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, MatPaginator, PageEvent } from '@angular/material/paginator';
@@ -19,6 +21,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { FeeHeadsReportDialogComponent } from '../fees/fee-heads-report-dialog.component';
 import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-report-dialog.component';
+import { MasterExcelImportDialogComponent } from '../../shared/components/master-excel-import-dialog.component';
 
 @Component({
   selector: 'app-fee-heads',
@@ -26,7 +29,6 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    FormsModule,
     MatCardModule,
     MatTableModule,
     MatPaginatorModule,
@@ -55,6 +57,10 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
           </p>
         </div>
         <div class="header-actions">
+          <button class="report-btn excel-import-btn" (click)="openExcelImportDialog()" matTooltip="Bulk import fee heads from Excel or CSV spreadsheet" matButton="filled">
+            <mat-icon>upload_file</mat-icon>
+            <span>Import from Excel</span>
+          </button>
           <button class="report-btn catalog-btn" (click)="openFeeHeadsReport()" matTooltip="Print or export official master fee heads catalog" matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Master Catalog (कैटलॉग)</span>
@@ -209,16 +215,16 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
       <!-- Search, Filters & Server-side Data Grid -->
       @if (!showDrawer) {
         <mat-card class="table-card mat-elevation-z2">
-          <!-- Filter Toolbar -->
-          <div class="filter-toolbar">
+          <!-- Filter Toolbar (Angular Material Reactive Form) -->
+          <div class="filter-toolbar" [formGroup]="filterForm">
             <mat-form-field appearance="outline" class="search-field">
               <mat-label>Search Fee Head, Code or Description...</mat-label>
-              <input matInput [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Type and hit Enter..." />
-              <button matSuffix (click)="onSearch()" mat-icon-button><mat-icon>search</mat-icon></button>
+              <input matInput formControlName="searchTerm" (keyup.enter)="onSearch()" placeholder="Search by name, code or description..." />
+              <button matSuffix (click)="onSearch()" mat-icon-button type="button" matTooltip="Search"><mat-icon>search</mat-icon></button>
             </mat-form-field>
             <mat-form-field appearance="outline" class="filter-select">
               <mat-label>Category</mat-label>
-              <mat-select [(ngModel)]="selectedCategory" (selectionChange)="onFilterChange()">
+              <mat-select formControlName="category">
                 <mat-option value="All">All Categories</mat-option>
                 <mat-option value="Academic">Academic</mat-option>
                 <mat-option value="Infrastructure">Infrastructure</mat-option>
@@ -235,7 +241,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
             </mat-form-field>
             <mat-form-field appearance="outline" class="filter-select">
               <mat-label>Frequency</mat-label>
-              <mat-select [(ngModel)]="selectedFrequency" (selectionChange)="onFilterChange()">
+              <mat-select formControlName="frequency">
                 <mat-option value="All">All Frequencies</mat-option>
                 <mat-option value="Monthly">Monthly</mat-option>
                 <mat-option value="Quarterly">Quarterly</mat-option>
@@ -247,26 +253,34 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
             </mat-form-field>
             <mat-form-field appearance="outline" class="filter-select">
               <mat-label>Status</mat-label>
-              <mat-select [(ngModel)]="selectedStatus" (selectionChange)="onFilterChange()">
+              <mat-select formControlName="status">
                 <mat-option [value]="null">All Status</mat-option>
                 <mat-option [value]="true">Active Only</mat-option>
                 <mat-option [value]="false">Inactive Only</mat-option>
               </mat-select>
             </mat-form-field>
             <div class="toolbar-actions">
-              <button (click)="resetFilters()" matTooltip="Reset search & filters" matButton="filled" class="app-button-cancel">
+              <button (click)="resetFilters()" matTooltip="Reset search & filters" matButton="filled" class="app-button-cancel" type="button">
                 <mat-icon>refresh</mat-icon>
                 <span>Reset</span>
               </button>
             </div>
           </div>
+
+          <!-- Single Prominent Material Progress Bar Loader -->
+          <div class="loader-container">
+            @if (loading) {
+              <mat-progress-bar mode="indeterminate" class="table-progress-bar"></mat-progress-bar>
+            }
+          </div>
+
           <!-- Responsive Grid Table -->
           <div class="mobile-table-hint">
             <mat-icon>swipe</mat-icon>
             <span>Swipe sideways to view all columns &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
           </div>
-          <div class="table-container">
-            <table mat-table [dataSource]="feeHeads" matSort (matSortChange)="onSortChange($event)" class="fee-heads-table">
+          <div class="table-container" [class.table-loading]="loading">
+            <table mat-table [dataSource]="feeHeads" matSort [matSortActive]="sortBy" [matSortDirection]="sortDescending ? 'desc' : 'asc'" (matSortChange)="onSortChange($event)" class="fee-heads-table">
               <!-- Code Column -->
               <ng-container matColumnDef="code">
                 <th mat-header-cell *matHeaderCellDef mat-sort-header> Code </th>
@@ -306,7 +320,7 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
               </ng-container>
               <!-- Description Column -->
               <ng-container matColumnDef="description">
-                <th mat-header-cell *matHeaderCellDef> Description </th>
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Description </th>
                 <td mat-cell *matCellDef="let head" class="desc-cell">
                   <span class="desc-text" [matTooltip]="head.description || ''">{{ head.description || '—' }}</span>
                 </td>
@@ -328,12 +342,12 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
                   </span>
                 </td>
               </ng-container>
-              <!-- Actions Column -->
-              <ng-container matColumnDef="actions">
+              <!-- Actions Column (Sticky on Right) -->
+              <ng-container matColumnDef="actions" stickyEnd>
                 <th mat-header-cell *matHeaderCellDef class="text-center actions-header"> Actions </th>
                 <td mat-cell *matCellDef="let head" class="text-center action-buttons">
-                  <button color="primary" (click)="openEditHeadDrawer(head)" matTooltip="Edit Fee Head" mat-icon-button>
-                    <mat-icon>edit</mat-icon>
+                  <button color="primary" class="edit-btn" (click)="openEditHeadDrawer(head)" matTooltip="Edit Fee Head" mat-icon-button>
+                    <mat-icon style="color: #2563eb;">edit</mat-icon>
                   </button>
                   <button [color]="head.isActive ? 'warn' : 'accent'" (click)="onToggleStatus(head)" [matTooltip]="head.isActive ? 'Deactivate' : 'Activate'" mat-icon-button>
                     <mat-icon>{{ head.isActive ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
@@ -458,6 +472,16 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
           background: #f8fafc;
           &:hover {
             background: #dbeafe;
+          }
+        }
+
+        &.excel-import-btn {
+          background: #059669;
+          color: #ffffff;
+          border: 1px solid #047857;
+          &:hover {
+            background: #047857;
+            color: #ffffff;
           }
         }
       }
@@ -729,6 +753,23 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
       margin-bottom: 16px;
     }
 
+    .loader-container {
+      height: 4px;
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+      background: transparent;
+    }
+
+    .table-progress-bar {
+      height: 4px !important;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 5;
+    }
+
     .mobile-table-hint {
       display: none;
       @media (max-width: 768px) {
@@ -753,6 +794,12 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       border-radius: 0 0 12px 12px;
+      transition: opacity 0.2s ease;
+
+      &.table-loading {
+        opacity: 0.55;
+        pointer-events: none;
+      }
     }
 
     .fee-heads-table {
@@ -877,8 +924,32 @@ import { ClassFeeMatrixReportDialogComponent } from '../fees/class-fee-matrix-re
       height: 14px;
     }
 
+    /* Sticky Actions Column (Strict ERP Feature) */
+    .mat-column-actions,
+    .actions-header,
     .action-buttons {
-      white-space: nowrap;
+      position: sticky !important;
+      right: 0 !important;
+      background: #ffffff !important;
+      z-index: 4 !important;
+      box-shadow: -4px 0 10px -2px rgba(15, 23, 42, 0.08) !important;
+      border-left: 1px solid #e2e8f0 !important;
+      min-width: 130px !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+    }
+
+    th.mat-column-actions,
+    th.actions-header {
+      background: #f8fafc !important;
+      z-index: 5 !important;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    tr.table-row:hover td.mat-column-actions,
+    tr.table-row:hover td.action-buttons {
+      background: #f1f5f9 !important;
     }
 
     .empty-placeholder {
@@ -1089,11 +1160,9 @@ export class FeeHeadsComponent implements OnInit {
   sortBy = 'sortOrder';
   sortDescending = false;
 
-  // Search & Filter state
-  searchTerm = '';
-  selectedCategory = 'All';
-  selectedFrequency = 'All';
-  selectedStatus: boolean | null = null;
+  // Reactive Forms State
+  filterForm!: FormGroup;
+  headForm!: FormGroup;
 
   // KPI summary stats
   activeCount = 0;
@@ -1104,13 +1173,13 @@ export class FeeHeadsComponent implements OnInit {
   showDrawer = false;
   isEditMode = false;
   editingHead: FeeHead | null = null;
-  headForm!: FormGroup;
 
   loading = false;
   saving = false;
 
   readonly authService = inject(AuthService);
   private dialog = inject(MatDialog);
+  private destroyRef = inject(DestroyRef);
 
   get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
   get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
@@ -1131,14 +1200,15 @@ export class FeeHeadsComponent implements OnInit {
   ) {}
 
   openFeeHeadsReport(): void {
+    const fv = this.filterForm?.value;
     this.dialog.open(FeeHeadsReportDialogComponent, {
       width: '1100px',
       maxWidth: '96vw',
       maxHeight: '94vh',
       panelClass: 'responsive-report-dialog',
       data: {
-        initialCategory: this.selectedCategory !== 'All' ? this.selectedCategory : undefined,
-        initialFrequency: this.selectedFrequency !== 'All' ? this.selectedFrequency : undefined
+        initialCategory: fv?.category && fv.category !== 'All' ? fv.category : undefined,
+        initialFrequency: fv?.frequency && fv.frequency !== 'All' ? fv.frequency : undefined
       }
     });
   }
@@ -1153,6 +1223,29 @@ export class FeeHeadsComponent implements OnInit {
     });
   }
 
+  openExcelImportDialog(): void {
+    const dialogRef = this.dialog.open(MasterExcelImportDialogComponent, {
+      width: '1150px',
+      maxWidth: '96vw',
+      data: {
+        type: 'fee-heads',
+        title: 'Import Universal Fee Heads Master',
+        subtitle: 'Bulk onboarding of fee heads, categories, frequencies and scopes',
+        icon: 'account_tree',
+        templateFileName: 'IMSERP_Fee_Heads_Master_Template.csv',
+        existingItems: (this.feeHeads || []).map(h => ({ name: h.name, code: h.code }))
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.success) {
+        this.loadFeeHeadsPaged();
+        this.loadKpiSummaries();
+        this.confirmDialog.alert('Fee Heads Setup Complete', res.message || 'Fee heads imported successfully.', 'success');
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.initForm();
     this.loadFeeHeadsPaged();
@@ -1160,6 +1253,13 @@ export class FeeHeadsComponent implements OnInit {
   }
 
   initForm(): void {
+    this.filterForm = this.fb.group({
+      searchTerm: [''],
+      category: ['All'],
+      frequency: ['All'],
+      status: [null as boolean | null]
+    });
+
     this.headForm = this.fb.group({
       name: ['', Validators.required],
       code: ['', Validators.required],
@@ -1170,17 +1270,57 @@ export class FeeHeadsComponent implements OnInit {
       sortOrder: [10, [Validators.required, Validators.min(0)]],
       isActive: [true]
     });
+
+    // Reactive server-side search with 350ms debounce
+    this.filterForm.get('searchTerm')?.valueChanges.pipe(
+      debounceTime(350),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      this.pageNumber = 1;
+      this.loadFeeHeadsPaged();
+    });
+
+    // Reactive server-side category filter
+    this.filterForm.get('category')?.valueChanges.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      this.pageNumber = 1;
+      this.loadFeeHeadsPaged();
+    });
+
+    // Reactive server-side frequency filter
+    this.filterForm.get('frequency')?.valueChanges.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      this.pageNumber = 1;
+      this.loadFeeHeadsPaged();
+    });
+
+    // Reactive server-side status filter
+    this.filterForm.get('status')?.valueChanges.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      this.pageNumber = 1;
+      this.loadFeeHeadsPaged();
+    });
   }
 
   loadFeeHeadsPaged(): void {
     this.loading = true;
+    const fv = this.filterForm ? this.filterForm.value : { searchTerm: '', category: 'All', frequency: 'All', status: null };
+    const search = fv.searchTerm ? fv.searchTerm.trim() : '';
+    const cat = fv.category || 'All';
+    const freq = fv.frequency || 'All';
+    const st = fv.status === null || fv.status === undefined ? undefined : fv.status;
+
     this.feesService.getFeeHeadsPaged(
       this.pageNumber,
       this.pageSize,
-      this.searchTerm,
-      this.selectedCategory,
-      this.selectedFrequency,
-      this.selectedStatus === null ? undefined : this.selectedStatus,
+      search,
+      cat,
+      freq,
+      st,
       this.sortBy,
       this.sortDescending
     ).subscribe({
@@ -1219,10 +1359,12 @@ export class FeeHeadsComponent implements OnInit {
   }
 
   resetFilters(): void {
-    this.searchTerm = '';
-    this.selectedCategory = 'All';
-    this.selectedFrequency = 'All';
-    this.selectedStatus = null;
+    this.filterForm.patchValue({
+      searchTerm: '',
+      category: 'All',
+      frequency: 'All',
+      status: null
+    }, { emitEvent: false });
     this.pageNumber = 1;
     this.sortBy = 'sortOrder';
     this.sortDescending = false;
@@ -1230,6 +1372,7 @@ export class FeeHeadsComponent implements OnInit {
   }
 
   onSortChange(sort: Sort): void {
+    this.pageNumber = 1;
     if (!sort.active || sort.direction === '') {
       this.sortBy = 'sortOrder';
       this.sortDescending = false;

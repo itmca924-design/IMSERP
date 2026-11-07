@@ -1,6 +1,6 @@
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -99,7 +99,11 @@ export interface BreadcrumbItem {
               <mat-accordion class="menu-accordion" [multi]="false">
                 @for (item of menuTree(); track item.id) {
                   @if (item.children && item.children.length > 0) {
-                    <mat-expansion-panel class="menu-section-panel mat-elevation-z0" [expanded]="isParentActive(item)">
+                    <mat-expansion-panel
+                      class="menu-section-panel mat-elevation-z0"
+                      [expanded]="isParentActive(item)"
+                      (opened)="onPanelOpened(item.id)"
+                      (closed)="onPanelClosed(item.id)">
                       <mat-expansion-panel-header
                         class="menu-section-header"
                         [matTooltip]="item.title"
@@ -2680,9 +2684,10 @@ export class LayoutComponent implements OnInit {
   }
   menuTree = signal<MenuItem[]>([]);
   isMobile = signal<boolean>(
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 960px)').matches
+    typeof window !== 'undefined' ? window.innerWidth <= 960 : false
   );
   isRailMode = signal<boolean>(typeof window !== 'undefined' ? localStorage.getItem('imserp_sidebar_rail') === 'true' : false);
+  activeExpandedPanelId = signal<string | null>(null);
 
   openDuesAssistant(): void {
     this.assistantDrawer.open();
@@ -2704,18 +2709,59 @@ export class LayoutComponent implements OnInit {
     }
   }
 
-  isParentActive(item: MenuItem): boolean {
-    const currentUrl = (this.router.url || '').split('?')[0].split('#')[0].toLowerCase();
-    if (!item.children || item.children.length === 0) {
-      if (!item.routeUrl) return false;
-      const r = item.routeUrl.trim().toLowerCase();
-      return currentUrl === r || (r !== '/' && r !== '/dashboard' && currentUrl.startsWith(r + '/'));
+  updateActiveMenuPanel(url?: string): void {
+    const currentUrl = (url || this.router.url || '').split('?')[0].split('#')[0].toLowerCase();
+    const allParents = this.menuTree();
+    if (!allParents || allParents.length === 0) return;
+
+    // 1. Exact match on children
+    const exactParent = allParents.find(p => p.children?.some(c => c.routeUrl && c.routeUrl.trim().toLowerCase() === currentUrl));
+    if (exactParent) {
+      this.activeExpandedPanelId.set(exactParent.id);
+      return;
     }
-    return item.children.some(c => {
-      if (!c.routeUrl) return false;
-      const r = c.routeUrl.trim().toLowerCase();
-      return currentUrl === r || currentUrl.startsWith(r + '/');
-    });
+
+    // 2. Exact match on direct item without children
+    const exactDirect = allParents.find(p => (!p.children || p.children.length === 0) && p.routeUrl && p.routeUrl.trim().toLowerCase() === currentUrl);
+    if (exactDirect) {
+      this.activeExpandedPanelId.set(exactDirect.id);
+      return;
+    }
+
+    // 3. Prefix matching: longest matching route
+    let bestParentId: string | null = null;
+    let longestMatchLen = 0;
+
+    for (const p of allParents) {
+      if (p.children && p.children.length > 0) {
+        for (const c of p.children) {
+          if (!c.routeUrl) continue;
+          const r = c.routeUrl.trim().toLowerCase();
+          if (r !== '/' && r !== '/dashboard' && currentUrl.startsWith(r + '/') && r.length > longestMatchLen) {
+            longestMatchLen = r.length;
+            bestParentId = p.id;
+          }
+        }
+      }
+    }
+
+    if (bestParentId) {
+      this.activeExpandedPanelId.set(bestParentId);
+    }
+  }
+
+  isParentActive(item: MenuItem): boolean {
+    return this.activeExpandedPanelId() === item.id;
+  }
+
+  onPanelOpened(id: string): void {
+    this.activeExpandedPanelId.set(id);
+  }
+
+  onPanelClosed(id: string): void {
+    if (this.activeExpandedPanelId() === id) {
+      this.activeExpandedPanelId.set(null);
+    }
   }
   headerSearch = '';
   headerSearchFocused = false;
@@ -2997,7 +3043,8 @@ export class LayoutComponent implements OnInit {
     private branchService: BranchService,
     private menuService: MenuService,
     private idleTimeout: IdleTimeoutService,
-    private breakpointObserver: BreakpointObserver
+    private breakpointObserver: BreakpointObserver,
+    private cdr: ChangeDetectorRef
   ) {
     effect(() => {
       const user = this.currentUser();
@@ -3138,7 +3185,12 @@ export class LayoutComponent implements OnInit {
 
   ngOnInit(): void {
     this.breakpointObserver.observe(['(max-width: 960px)']).subscribe((result) => {
-      this.isMobile.set(result.matches);
+      if (this.isMobile() !== result.matches) {
+        setTimeout(() => {
+          this.isMobile.set(result.matches);
+          this.cdr.markForCheck();
+        }, 0);
+      }
     });
 
     // ── Progressive Web App (PWA) Event Handlers ──
@@ -3174,8 +3226,11 @@ export class LayoutComponent implements OnInit {
     }
 
     this.updateBreadcrumbs(this.router.url);
+    this.updateActiveMenuPanel(this.router.url);
     this.routerSub = this.router.events.pipe(filter((e: any) => e instanceof NavigationEnd)).subscribe((e: any) => {
-      this.updateBreadcrumbs(e.urlAfterRedirects || e.url || this.router.url);
+      const url = e.urlAfterRedirects || e.url || this.router.url;
+      this.updateBreadcrumbs(url);
+      this.updateActiveMenuPanel(url);
     });
     this.loadCurrentTenant();
     this.loadUserProfile();
@@ -3531,9 +3586,10 @@ export class LayoutComponent implements OnInit {
 
   
   updateBreadcrumbs(rawUrl: string): void {
-    const cleanUrl = (rawUrl || '/dashboard').split('?')[0].split('#')[0];
+    const cleanUrl = (rawUrl || '/dashboard').split('?')[0].split('#')[0].trim();
+    const cleanUrlLower = cleanUrl.toLowerCase();
     
-    if (cleanUrl === '/' || cleanUrl === '/dashboard') {
+    if (cleanUrlLower === '/' || cleanUrlLower === '/dashboard') {
       this.breadcrumbs.set([
         { label: 'Home', url: '/dashboard', icon: 'home' },
         { label: 'Executive Dashboard', icon: 'space_dashboard' }
@@ -3545,67 +3601,100 @@ export class LayoutComponent implements OnInit {
       { label: 'Home', url: '/dashboard', icon: 'home' }
     ];
 
-    let matched = false;
     const tree = this.menuTree();
 
-    // 1. Look for match in active dynamic menu tree (module -> sub-route)
+    // 1. Pass 1: Look for an EXACT child route match in active menu tree
     for (const parent of tree) {
       if (parent.children && parent.children.length > 0) {
         const child = parent.children.find(c => 
-          c.routeUrl === cleanUrl || (c.routeUrl && cleanUrl.startsWith(c.routeUrl + '/'))
+          c.routeUrl && c.routeUrl.trim().toLowerCase() === cleanUrlLower
         );
         if (child) {
           items.push({ label: parent.title, icon: parent.icon });
           items.push({ label: child.title, url: child.routeUrl, icon: child.icon });
-          matched = true;
-          break;
+          this.breadcrumbs.set(items);
+          return;
         }
-      } else if (parent.routeUrl === cleanUrl) {
-        items.push({ label: parent.title, url: parent.routeUrl, icon: parent.icon });
-        matched = true;
-        break;
       }
     }
 
-    // 2. If not directly in menu (e.g. sub-pages like reports, profiles, receipts, settings)
-    if (!matched) {
-      const page = this.searchablePages.find(p => p.route === cleanUrl || cleanUrl.startsWith(p.route + '/'));
-      if (page) {
-        const seg1 = cleanUrl.split('/')[1];
-        const categoryMap: Record<string, { label: string; icon: string }> = {
-          students: { label: 'Academic Operations', icon: 'school' },
-          school: { label: 'Academic Operations', icon: 'school' },
-          teachers: { label: 'HRMS & Staff', icon: 'badge' },
-          attendance: { label: 'Attendance Management', icon: 'event_available' },
-          finance: { label: 'Finance & Accounts', icon: 'account_balance' },
-          fees: { label: 'Finance & Accounts', icon: 'payments' },
-          inventory: { label: 'Stock & Inventory', icon: 'inventory_2' },
-          library: { label: 'Library Management', icon: 'local_library' },
-          hostel: { label: 'Hostel Management', icon: 'hotel' },
-          transport: { label: 'Transport & Fleet', icon: 'directions_bus' },
-          admin: { label: 'Admin Settings', icon: 'settings' },
-          roles: { label: 'Admin Settings', icon: 'admin_panel_settings' },
-          users: { label: 'Admin Settings', icon: 'manage_accounts' },
-          chat: { label: 'Campus Chat', icon: 'forum' },
-          developer: { label: 'Support & Help', icon: 'engineering' },
-          tests: { label: 'Faculty Operations', icon: 'school' }
-        };
-        if (categoryMap[seg1]) {
-          items.push(categoryMap[seg1]);
-        }
-        items.push({ label: page.title, url: page.route, icon: page.icon });
-      } else {
-        // Fallback to URL path segments
-        const segs = cleanUrl.split('/').filter(s => s.length > 0);
-        segs.forEach((seg, i) => {
-          const label = seg.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-          const isLast = i === segs.length - 1;
-          items.push({
-            label,
-            url: isLast ? undefined : '/' + segs.slice(0, i + 1).join('/')
-          });
-        });
+    // 2. Pass 2: Look for an EXACT parent route match
+    for (const parent of tree) {
+      if ((!parent.children || parent.children.length === 0) && parent.routeUrl && parent.routeUrl.trim().toLowerCase() === cleanUrlLower) {
+        items.push({ label: parent.title, url: parent.routeUrl, icon: parent.icon });
+        this.breadcrumbs.set(items);
+        return;
       }
+    }
+
+    // 3. Pass 3: Prefix matching (longest route match wins across children and parents)
+    let bestMatch: { parent: MenuItem; child?: MenuItem; length: number } | null = null;
+    for (const parent of tree) {
+      if (parent.children && parent.children.length > 0) {
+        for (const child of parent.children) {
+          const childUrl = child.routeUrl?.trim().toLowerCase();
+          if (childUrl && (cleanUrlLower === childUrl || cleanUrlLower.startsWith(childUrl + '/'))) {
+            if (!bestMatch || childUrl.length > bestMatch.length) {
+              bestMatch = { parent, child, length: childUrl.length };
+            }
+          }
+        }
+      } else if (parent.routeUrl) {
+        const parentUrl = parent.routeUrl.trim().toLowerCase();
+        if (cleanUrlLower === parentUrl || cleanUrlLower.startsWith(parentUrl + '/')) {
+          if (!bestMatch || parentUrl.length > bestMatch.length) {
+            bestMatch = { parent, length: parentUrl.length };
+          }
+        }
+      }
+    }
+
+    if (bestMatch) {
+      items.push({ label: bestMatch.parent.title, icon: bestMatch.parent.icon });
+      if (bestMatch.child) {
+        items.push({ label: bestMatch.child.title, url: bestMatch.child.routeUrl, icon: bestMatch.child.icon });
+      }
+      this.breadcrumbs.set(items);
+      return;
+    }
+
+    // 4. Pass 4: If not directly in menu (e.g. sub-pages like reports, profiles, receipts, settings)
+    const page = this.searchablePages.find(p => p.route.toLowerCase() === cleanUrlLower || cleanUrlLower.startsWith(p.route.toLowerCase() + '/'));
+    if (page) {
+      const seg1 = cleanUrlLower.split('/')[1];
+      const categoryMap: Record<string, { label: string; icon: string }> = {
+        students: { label: 'Academic Operations', icon: 'school' },
+        school: { label: 'Academic Operations', icon: 'school' },
+        teachers: { label: 'HRMS & Staff', icon: 'badge' },
+        attendance: { label: 'Attendance Management', icon: 'event_available' },
+        finance: { label: 'Finance & Accounts', icon: 'account_balance' },
+        fees: { label: 'Finance & Accounts', icon: 'payments' },
+        inventory: { label: 'Stock & Inventory', icon: 'inventory_2' },
+        library: { label: 'Library Management', icon: 'local_library' },
+        hostel: { label: 'Hostel Management', icon: 'hotel' },
+        transport: { label: 'Transport & Fleet', icon: 'directions_bus' },
+        admin: { label: 'Admin Settings', icon: 'settings' },
+        roles: { label: 'Admin Settings', icon: 'admin_panel_settings' },
+        users: { label: 'Admin Settings', icon: 'manage_accounts' },
+        chat: { label: 'Campus Chat', icon: 'forum' },
+        developer: { label: 'Support & Help', icon: 'engineering' },
+        tests: { label: 'Faculty Operations', icon: 'school' }
+      };
+      if (categoryMap[seg1]) {
+        items.push(categoryMap[seg1]);
+      }
+      items.push({ label: page.title, url: page.route, icon: page.icon });
+    } else {
+      // Fallback to URL path segments
+      const segs = cleanUrl.split('/').filter(s => s.length > 0);
+      segs.forEach((seg, i) => {
+        const label = seg.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const isLast = i === segs.length - 1;
+        items.push({
+          label,
+          url: isLast ? undefined : '/' + segs.slice(0, i + 1).join('/')
+        });
+      });
     }
 
     this.breadcrumbs.set(items);
@@ -3629,12 +3718,15 @@ export class LayoutComponent implements OnInit {
             filtered = this.adjustStudentMenu(filtered);
           }
           this.menuTree.set(filtered);
+          this.updateActiveMenuPanel();
         } else {
           this.fallbackMenu();
+          this.updateActiveMenuPanel();
         }
       },
       error: () => {
         this.fallbackMenu();
+        this.updateActiveMenuPanel();
       }
     });
   }

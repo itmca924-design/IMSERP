@@ -107,6 +107,9 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
               <div class="receipt-badge">
                 <div class="badge-title">FEE RECEIPT</div>
                 <div class="badge-sub">शुल्क भुगतान रसीद</div>
+                @if (isHybrid) {
+                  <span class="paper-hybrid-tag">School + Coaching (Hybrid)</span>
+                }
                 <span class="copy-tag">STUDENT ORIGINAL</span>
               </div>
             </div>
@@ -130,6 +133,12 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
                 <span class="meta-label">Payment Mode:</span>
                 <span class="meta-val mode-pill">{{ getPaymentModeName(receipt.mode) }}</span>
               </div>
+              <div class="meta-item">
+                <span class="meta-label">Division:</span>
+                <span class="meta-val scope-meta-pill" [class.hybrid-pill]="isHybrid" [class.coaching-pill]="isCoachingOnly" [class.school-pill]="isSchoolOnly">
+                  {{ scopeDisplayText }}
+                </span>
+              </div>
               @if (receipt.transactionRef) {
                 <div class="meta-item">
                   <span class="meta-label">Txn / UTR Ref:</span>
@@ -148,24 +157,18 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
                   <span class="k">Roll / Admission No:</span>
                   <span class="v"><strong>{{ receipt.rollNumber || 'N/A' }}</strong></span>
                 </div>
-                @if (receipt.className && !receipt.batchName) {
+                @if (receipt.className) {
                   <div class="prof-row">
-                    <span class="k">Class & Section:</span>
+                    <span class="k">Class:</span>
                     <span class="v"><strong>{{ receipt.className }}@if (receipt.sectionName) {
                       <span> (Section {{ receipt.sectionName }})</span>
                     }</strong></span>
                   </div>
                 }
-                @if (receipt.className && receipt.batchName) {
-                  <div class="prof-row">
-                    <span class="k">Coaching:</span>
-                    <span class="v"><strong>{{ receipt.className }}</strong></span>
-                  </div>
-                }
                 @if (!receipt.className && receipt.batchName) {
                   <div class="prof-row">
-                    <span class="k">Coaching:</span>
-                    <span class="v"><strong>Coaching</strong></span>
+                    <span class="k">Academic Stream:</span>
+                    <span class="v"><strong>Coaching Only</strong></span>
                   </div>
                 }
                 @if (!receipt.className && !receipt.batchName) {
@@ -226,7 +229,7 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
                       <tr>
                         <td class="text-center">{{ item.itemIndex }}</td>
                         <td>
-                          <strong class="fee-head-title">{{ item.particulars }}</strong>
+                          <strong class="fee-head-title">{{ cleanHeadName(item.particulars) }}</strong>
                           @if (formatSubTitle(item.subTitle)) {
                             <div class="fee-head-sub">{{ formatSubTitle(item.subTitle) }}</div>
                           }
@@ -565,6 +568,19 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
             border-radius: 4px;
             border: 1px solid #bae6fd;
           }
+          .paper-hybrid-tag {
+            display: inline-block;
+            font-size: 0.68rem;
+            font-weight: 800;
+            background: #fdf2f8;
+            color: #be185d;
+            border: 1px solid #fbcfe8;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            margin-top: 3px;
+          }
         }
       }
 
@@ -626,6 +642,30 @@ import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-d
             border-radius: 4px;
             font-size: 0.82rem;
             font-weight: 700;
+          }
+          .scope-meta-pill {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            white-space: nowrap;
+
+            &.hybrid-pill {
+              background: #fdf2f8;
+              color: #be185d;
+              border: 1px solid #fbcfe8;
+            }
+            &.coaching-pill {
+              background: #f5f3ff;
+              color: #6d28d9;
+              border: 1px solid #ddd6fe;
+            }
+            &.school-pill {
+              background: #eff6ff;
+              color: #1e40af;
+              border: 1px solid #bfdbfe;
+            }
           }
         }
       }
@@ -1026,6 +1066,57 @@ export class PublicReceiptComponent implements OnInit {
 
   printReceipt(): void {
     window.print();
+  }
+
+  get isHybrid(): boolean {
+    const r = this.receipt;
+    if (!r) return false;
+    if (r.className && r.batchName) return true;
+    const items = r.items || [];
+    const hasCoaching = items.some(it => {
+      const p = (it.particulars || '').toLowerCase();
+      const s = (it.subTitle || '').toLowerCase();
+      return p.includes('coaching') || s.includes('coaching');
+    });
+    const hasSchool = items.some(it => {
+      const p = (it.particulars || '').toLowerCase();
+      const s = (it.subTitle || '').toLowerCase();
+      return p.includes('school') || p.includes('tuition') || p.includes('admission') || p.includes('annual') || s.includes('school');
+    });
+    return (hasCoaching && hasSchool) || (!!r.className && !!r.batchName);
+  }
+
+  get isCoachingOnly(): boolean {
+    const r = this.receipt;
+    if (!r) return false;
+    if (this.isHybrid) return false;
+    return !!r.batchName && !r.className;
+  }
+
+  get isSchoolOnly(): boolean {
+    return !this.isHybrid && !this.isCoachingOnly;
+  }
+
+  get scopeDisplayText(): string {
+    if (this.isHybrid) return 'School + Coaching (Hybrid)';
+    if (this.isCoachingOnly) return 'Coaching Division';
+    return 'School Division';
+  }
+
+  cleanHeadName(name?: string): string {
+    if (!name) return '';
+    if (this.receipt?.className) {
+      const rawCls = this.receipt.className.trim();
+      const escapedRaw = rawCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      name = name.replace(new RegExp(`\\s*\\(${escapedRaw}\\)\\s*`, 'gi'), ' ');
+      const baseCls = rawCls.split('(')[0].trim();
+      if (baseCls && baseCls !== rawCls) {
+        const escapedBase = baseCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        name = name.replace(new RegExp(`\\s*\\(${escapedBase}\\)\\s*`, 'gi'), ' ');
+      }
+    }
+    name = name.replace(/\s*\(\s*(School|LKG|UKG|Nursery|Pre-Nursery|Prep)\s*\)\s*/gi, ' ');
+    return name.trim();
   }
 
   get feeMonthTooltip(): string {

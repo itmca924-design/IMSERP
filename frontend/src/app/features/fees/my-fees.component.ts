@@ -346,33 +346,44 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
                   <!-- Desktop / Tablet Table View -->
                   <div class="table-responsive desktop-table-wrap">
                     <table class="passbook-table">
+                      <colgroup>
+                        <col class="col-rcpt-no">
+                        <col class="col-rcpt-date">
+                        <col class="col-rcpt-inv">
+                        <col class="col-rcpt-mode">
+                        <col class="col-rcpt-amt">
+                        <col class="col-rcpt-remarks">
+                        <col class="col-action">
+                      </colgroup>
                       <thead>
                         <tr>
-                          <th>Receipt No</th>
-                          <th>Payment Date (IST)</th>
-                          <th>Invoice Ref</th>
-                          <th>Payment Mode</th>
-                          <th class="text-right">Amount Paid</th>
-                          <th>Transaction Ref / Remarks</th>
-                          <th class="text-center" style="width: 100px;">Receipt</th>
+                          <th class="col-rcpt-no">Receipt No</th>
+                          <th class="col-rcpt-date">Payment Date (IST)</th>
+                          <th class="col-rcpt-inv">Invoice Ref</th>
+                          <th class="col-rcpt-mode">Payment Mode</th>
+                          <th class="col-rcpt-amt text-right">Amount Paid</th>
+                          <th class="col-rcpt-remarks">Transaction Ref / Remarks</th>
+                          <th class="col-action text-center">Receipt</th>
                         </tr>
                       </thead>
                       <tbody>
                         @for (p of ledger.payments; track p) {
                           <tr>
-                            <td class="font-mono nowrap"><strong class="receipt-no-tag">{{ p.receiptNumber }}</strong></td>
-                            <td class="nowrap">{{ formatToIST(p.paymentDate, true) }}</td>
-                            <td class="nowrap font-mono">{{ p.invoiceNumber || '—' }}</td>
-                            <td class="nowrap">
+                            <td class="col-rcpt-no font-mono nowrap"><strong class="receipt-no-tag">{{ p.receiptNumber }}</strong></td>
+                            <td class="col-rcpt-date nowrap">{{ formatToIST(p.paymentDate, true) }}</td>
+                            <td class="col-rcpt-inv nowrap font-mono">{{ p.invoiceNumber || '—' }}</td>
+                            <td class="col-rcpt-mode nowrap">
                               <span class="mode-pill">{{ getPaymentModeName(p.mode) }}</span>
                             </td>
-                            <td class="text-right text-success nowrap font-bold">
+                            <td class="col-rcpt-amt text-right text-success nowrap font-bold">
                               ₹{{ p.amountPaid | number:'1.2-2' }}
                             </td>
-                            <td class="remarks-col">
-                              <span>{{ p.remarks || p.transactionRef || 'Institutional fee deposit' }}</span>
+                            <td class="col-rcpt-remarks">
+                              <span class="remarks-text" [matTooltip]="p.remarks || p.transactionRef || 'Institutional fee deposit'">
+                                {{ p.remarks || p.transactionRef || 'Institutional fee deposit' }}
+                              </span>
                             </td>
-                            <td class="text-center nowrap">
+                            <td class="col-action text-center nowrap">
                               <button class="view-receipt-btn" (click)="openPaymentReceipt(p)" matTooltip="View & Print Official Receipt" matButton="filled">
                                 <mat-icon>print</mat-icon>
                                 <span>Receipt</span>
@@ -823,6 +834,13 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
       col.col-status { width: 9%; }
       col.col-action { width: 9%; }
 
+      col.col-rcpt-no { width: 17%; }
+      col.col-rcpt-date { width: 17%; }
+      col.col-rcpt-inv { width: 13%; }
+      col.col-rcpt-mode { width: 11%; }
+      col.col-rcpt-amt { width: 11%; }
+      col.col-rcpt-remarks { width: 21%; }
+
       thead th {
         background: #f1f5f9;
         color: #334155;
@@ -852,6 +870,25 @@ import { UpiPaymentDialogComponent } from './upi-payment-dialog.component';
       .col-date { min-width: 100px; white-space: nowrap; }
       .col-amt { min-width: 100px; white-space: nowrap; }
       .col-status { min-width: 80px; white-space: nowrap; }
+
+      .col-rcpt-no { min-width: 150px; white-space: nowrap; }
+      .col-rcpt-date { min-width: 160px; white-space: nowrap; }
+      .col-rcpt-inv { min-width: 130px; white-space: nowrap; }
+      .col-rcpt-mode { min-width: 90px; white-space: nowrap; }
+      .col-rcpt-amt { min-width: 110px; white-space: nowrap; }
+      .col-rcpt-remarks {
+        min-width: 200px;
+
+        .remarks-text {
+          display: block;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: #475569;
+        }
+      }
+
       .col-action {
         position: sticky;
         right: 0;

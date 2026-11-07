@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 
 namespace IMSERP.API.Services;
 
-[AttributeUsage(AttributeTargets.Method)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
 public sealed class SkipMenuPermissionAttribute : Attribute
 {
 }
@@ -33,6 +33,7 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
             ["Infirmary"] = "/front-desk/infirmary",
             ["Inventory"] = "/inventory",
             ["Library"] = "/library/books",
+            ["MasterImport"] = "/school/classes",
             ["Menu"] = "/admin/menu-management",
             ["Notices"] = "/school/notices",
             ["Ptm"] = "/front-desk/ptm",
@@ -76,6 +77,7 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
             context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>() != null ||
             action.EndpointMetadata.OfType<IAllowAnonymous>().Any() ||
             action.MethodInfo.IsDefined(typeof(SkipMenuPermissionAttribute), inherit: true) ||
+            action.ControllerTypeInfo.IsDefined(typeof(SkipMenuPermissionAttribute), inherit: true) ||
             context.HttpContext.User.Identity?.IsAuthenticated != true)
         {
             await next();
@@ -131,6 +133,15 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
         if (controller.Equals("Menu", StringComparison.OrdinalIgnoreCase))
         {
             return route;
+        }
+
+        if (controller.Equals("MasterImport", StringComparison.OrdinalIgnoreCase))
+        {
+            if (path.Contains("/fee-heads", StringComparison.OrdinalIgnoreCase))
+            {
+                return "/fee-heads";
+            }
+            return "/school/classes";
         }
 
         if (controller.Equals("Events", StringComparison.OrdinalIgnoreCase))

@@ -21,6 +21,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { QuickClassTeacherDialogComponent } from './quick-class-teacher-dialog.component';
 import { SectionRoutineDialogComponent } from './section-routine-dialog.component';
+import { MasterExcelImportDialogComponent } from '../../shared/components/master-excel-import-dialog.component';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -45,25 +46,31 @@ import { environment } from '../../../environments/environment';
     <div class="page-container">
       <!-- Header -->
       <div class="page-header">
-        <div>
-          <h1 class="page-title">
-            <mat-icon class="title-icon">school</mat-icon>
-            School Classes &amp; Sections Master
-          </h1>
-          <p class="page-subtitle">
-            Configure academic classes (Nursery to 12th) and their sections. Students in these classes can seamlessly enroll in evening coaching batches.
-          </p>
+        <div class="header-main-row">
+          <div class="header-title-box">
+            <h1 class="page-title">
+              <mat-icon class="title-icon">school</mat-icon>
+              <span>School Classes &amp; Sections Master</span>
+            </h1>
+          </div>
+          <div class="header-actions">
+            <button class="action-btn excel-btn" (click)="openExcelImportDialog()" matTooltip="Bulk import classes & auto-create sections A and B from Excel" matButton="filled">
+              <mat-icon>upload_file</mat-icon>
+              <span>Import from Excel</span>
+            </button>
+            <button color="primary" class="action-btn" (click)="openAddSectionDrawer()" matButton="filled">
+              <mat-icon>add_box</mat-icon>
+              <span>Add Section</span>
+            </button>
+            <button color="primary" class="action-btn primary" (click)="openAddClassDrawer()" matButton="filled">
+              <mat-icon>add</mat-icon>
+              <span>Add New Class</span>
+            </button>
+          </div>
         </div>
-        <div class="header-actions">
-          <button color="primary" class="action-btn" (click)="openAddSectionDrawer()" matButton="filled">
-            <mat-icon>add_box</mat-icon>
-            <span>Add Section</span>
-          </button>
-          <button color="primary" class="action-btn primary" (click)="openAddClassDrawer()" matButton="filled">
-            <mat-icon>add</mat-icon>
-            <span>Add New Class</span>
-          </button>
-        </div>
+        <p class="page-subtitle">
+          Configure academic classes (Nursery to 12th) and their sections. Students in these classes can seamlessly enroll in evening coaching batches.
+        </p>
       </div>
     
       <!-- Unified Stats Cards -->
@@ -203,7 +210,10 @@ import { environment } from '../../../environments/environment';
             }
             <mat-form-field appearance="outline" class="f-flex-1">
               <mat-label>Section Name *</mat-label>
-              <input matInput [(ngModel)]="sectionFormData.name" placeholder="e.g. A, B, C, Rose" required />
+              <mat-select [(ngModel)]="sectionFormData.name" required>
+                <mat-option value="A">Section A</mat-option>
+                <mat-option value="B">Section B</mat-option>
+              </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline" class="f-flex-1">
               <mat-label>Max Capacity</mat-label>
@@ -420,92 +430,253 @@ import { environment } from '../../../environments/environment';
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page-container { display: flex; flex-direction: column; gap: 20px; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
-    .page-title {
-      font-size: 1.5rem; font-weight: 700; margin: 0; color: #0f172a; display: flex; align-items: center; gap: 10px;
-      .title-icon { color: #2563eb; font-size: 1.7rem; width: 1.7rem; height: 1.7rem; }
-    }
-    .page-subtitle { color: #64748b; margin: 4px 0 0; font-size: 0.88rem; max-width: 820px; }
-    .header-actions { display: flex; align-items: center; gap: 10px; }
-    .action-btn { font-weight: 600; border-radius: 8px; }
 
-    /* Modern Material 3 Stats Grid */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+    /* Header: Same line on desktop, clean responsive stack on mobile */
+    .page-header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+    .header-main-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      gap: 16px;
+    }
+    .header-title-box {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+
+      .title-icon {
+        color: #2563eb;
+        font-size: 1.7rem;
+        width: 1.7rem;
+        height: 1.7rem;
+        flex-shrink: 0;
+      }
+    }
+    .page-subtitle {
+      color: #64748b;
+      margin: 0;
+      font-size: 0.86rem;
+      max-width: 900px;
+      line-height: 1.4;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .action-btn {
+      font-weight: 600;
+      border-radius: 8px;
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .action-btn.excel-btn {
+      background: #059669 !important;
+      color: #ffffff !important;
+      border: 1px solid #047857;
+      &:hover {
+        background: #047857 !important;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .header-main-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .page-title {
+        white-space: normal;
+      }
+      .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+    }
+
+    /* Standard Sleek ERP KPI Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      width: 100%;
+      box-sizing: border-box;
+
+      @media (max-width: 1024px) {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+      }
+
+      @media (max-width: 640px) {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+      }
+
+      @media (max-width: 440px) {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+      }
+    }
+
     .stat-card {
       background: #ffffff !important;
-      border-radius: 14px !important;
-      padding: 16px 14px !important;
+      border-radius: 12px !important;
+      padding: 12px 16px !important;
       display: flex !important;
-      flex-direction: column !important;
+      flex-direction: row !important;
       align-items: center !important;
-      justify-content: center !important;
-      text-align: center !important;
-      gap: 8px !important;
-      min-height: 125px !important;
+      justify-content: flex-start !important;
+      text-align: left !important;
+      gap: 14px !important;
+      height: 72px !important;
+      box-sizing: border-box !important;
       border: 1px solid #e2e8f0 !important;
+      border-left: 4px solid transparent !important;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02) !important;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      min-width: 0 !important;
 
       &:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.08) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 14px -3px rgba(15, 23, 42, 0.08) !important;
         border-color: #cbd5e1 !important;
       }
 
       .stat-icon {
-        width: 44px !important;
-        height: 44px !important;
-        border-radius: 12px !important;
+        width: 42px !important;
+        height: 42px !important;
+        min-width: 42px !important;
+        border-radius: 10px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         flex-shrink: 0 !important;
-        margin: 0 auto !important;
+        margin: 0 !important;
 
         mat-icon {
-          font-size: 24px;
-          width: 24px;
-          height: 24px;
-          color: #ffffff;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
+          line-height: 22px;
         }
       }
 
       .stat-info {
         display: flex !important;
         flex-direction: column !important;
-        align-items: center !important;
+        align-items: flex-start !important;
         justify-content: center !important;
-        text-align: center !important;
-        width: 100% !important;
+        text-align: left !important;
+        min-width: 0 !important;
+        flex: 1 !important;
 
         .stat-val {
           display: block !important;
-          font-size: 1.75rem !important;
+          font-size: 1.45rem !important;
           font-weight: 800 !important;
           color: #0f172a !important;
-          line-height: 1.15 !important;
+          line-height: 1.1 !important;
           letter-spacing: -0.02em;
-          text-align: center !important;
-          width: 100% !important;
-          margin: 0 auto !important;
+          text-align: left !important;
+          margin: 0 !important;
         }
 
         .stat-lbl {
-          font-size: 0.76rem !important;
+          font-size: 0.74rem !important;
           font-weight: 600 !important;
           color: #64748b !important;
-          margin-top: 3px !important;
+          margin-top: 2px !important;
           display: block !important;
-          text-align: center !important;
+          text-align: left !important;
+          line-height: 1.2 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
           width: 100% !important;
-          line-height: 1.25 !important;
         }
       }
 
-      &.classes .stat-icon { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25); }
-      &.sections .stat-icon { background: linear-gradient(135deg, #d946ef 0%, #a21caf 100%); box-shadow: 0 4px 10px rgba(217, 70, 239, 0.25); }
-      &.school-students .stat-icon { background: linear-gradient(135deg, #10b981 0%, #047857 100%); box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25); }
-      &.dual-students .stat-icon { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 10px rgba(245, 158, 11, 0.25); }
+      &.classes {
+        border-left-color: #2563eb !important;
+        .stat-icon {
+          background: #eff6ff !important;
+          color: #2563eb !important;
+          mat-icon { color: #2563eb !important; }
+        }
+      }
+      &.sections {
+        border-left-color: #db2777 !important;
+        .stat-icon {
+          background: #fdf2f8 !important;
+          color: #db2777 !important;
+          mat-icon { color: #db2777 !important; }
+        }
+      }
+      &.school-students {
+        border-left-color: #059669 !important;
+        .stat-icon {
+          background: #ecfdf5 !important;
+          color: #059669 !important;
+          mat-icon { color: #059669 !important; }
+        }
+      }
+      &.dual-students {
+        border-left-color: #d97706 !important;
+        .stat-icon {
+          background: #fffbeb !important;
+          color: #d97706 !important;
+          mat-icon { color: #d97706 !important; }
+        }
+      }
+
+      @media (max-width: 640px) {
+        padding: 10px 12px !important;
+        height: 64px !important;
+        gap: 10px !important;
+
+        .stat-icon {
+          width: 36px !important;
+          height: 36px !important;
+          min-width: 36px !important;
+          border-radius: 8px !important;
+
+          mat-icon {
+            font-size: 19px;
+            width: 19px;
+            height: 19px;
+            line-height: 19px;
+          }
+        }
+
+        .stat-info .stat-val {
+          font-size: 1.25rem !important;
+        }
+
+        .stat-info .stat-lbl {
+          font-size: 0.7rem !important;
+        }
+      }
     }
 
     /* Drawers */
@@ -1468,9 +1639,13 @@ export class SchoolClassesComponent implements OnInit {
     this.schoolService.getClasses(false).subscribe({
       next: (res) => {
         const list = res || [];
-        // Ensure sections in every class are always sequenced A, B, C, D...
+        // Ensure sections in every class are strictly Section A and Section B (Section C completely deleted)
         list.forEach(c => {
           if (c.sections && c.sections.length > 0) {
+            c.sections = c.sections.filter(s => {
+              const clean = (s.name || '').replace(/^Section\s*/i, '').trim().toUpperCase();
+              return clean === 'A' || clean === 'B';
+            });
             c.sections.sort((a, b) => {
               const nameA = (a.name || '').replace(/^Section\s*/i, '').trim();
               const nameB = (b.name || '').replace(/^Section\s*/i, '').trim();
@@ -1620,14 +1795,42 @@ export class SchoolClassesComponent implements OnInit {
     });
   }
 
+  openExcelImportDialog(): void {
+    const dialogRef = this.dialog.open(MasterExcelImportDialogComponent, {
+      width: '1150px',
+      maxWidth: '96vw',
+      data: {
+        type: 'classes',
+        title: 'Import Academic Classes & Sections Master',
+        subtitle: 'Bulk onboarding of school classes with automatic Section A & B initialization',
+        icon: 'school',
+        templateFileName: 'IMSERP_Classes_Master_Template.csv',
+        existingItems: (this.classes || []).map(c => ({ name: c.name, code: c.code }))
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.success) {
+        this.loadData();
+        this.confirmDialog.alert('Classes Setup Complete', res.message || 'Classes and sections imported successfully.', 'success');
+      }
+    });
+  }
+
   openAddSectionDrawer(classId?: string): void {
     this.isEditingSection = false;
     this.editingSectionId = null;
-    const parentClass = this.classes.find(c => c.id === classId);
+    const targetClassId = classId || (this.classes.length > 0 ? this.classes[0].id : '');
+    const parentClass = this.classes.find(c => c.id === targetClassId);
     this.editingParentClassName = parentClass?.name || '';
+
+    // Smart Section naming: default to 'A', or 'B' if 'A' already exists
+    const existingSecs = (parentClass?.sections || []).map(s => s.name?.toUpperCase());
+    const defaultSec = existingSecs.includes('A') ? 'B' : 'A';
+
     this.sectionFormData = {
-      classId: classId || (this.classes.length > 0 ? this.classes[0].id : ''),
-      name: '',
+      classId: targetClassId,
+      name: defaultSec,
       maxCapacity: 45,
       roomId: null,
       classTeacherId: null,

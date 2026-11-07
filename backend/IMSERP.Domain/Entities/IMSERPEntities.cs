@@ -175,6 +175,8 @@ public class ClassSubject
 
     [ForeignKey("TeacherId")]
     public Teacher? Teacher { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 }
 
 public class MenuItem
@@ -896,6 +898,12 @@ public class AutomationSettings
     public bool FeeDueRemindersEnabled { get; set; } = true;
     public int FeeDueDaysPrior { get; set; } = 7;
     public DateTime? LastFeeReminderDate { get; set; }
+    public bool FeeDueVoiceNoteEnabled { get; set; } = true;
+    public int FeeDueReminderDayOfMonth { get; set; } = 10;
+    public string FeeDueVoiceGender { get; set; } = "Female";
+    public string? WhatsAppCloudApiToken { get; set; }
+    public string? WhatsAppPhoneNumberId { get; set; }
+    public string? WhatsAppBusinessAccountId { get; set; }
 
     public bool BiometricSyncEnabled { get; set; } = true;
     public DateTime? LastBiometricSyncAt { get; set; }
@@ -961,6 +969,7 @@ public class TeacherSalary
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid TeacherId { get; set; }
     public decimal BasicSalary { get; set; }
     public decimal HRA { get; set; }
@@ -982,6 +991,7 @@ public class TeacherSalaryPayment
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid TeacherId { get; set; }
     public int PaymentMonth { get; set; }
     public int PaymentYear { get; set; }
@@ -1019,14 +1029,21 @@ public class TeacherSalaryPayment
     public string? ArrearsRemarks { get; set; }
 
     public Teacher? Teacher { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 }
 
 public class TeacherSalaryAdvance
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid TeacherId { get; set; }
     public decimal Amount { get; set; }
+    public decimal MonthlyInstallment { get; set; } = 0;
+    public decimal RecoveredAmount { get; set; } = 0;
+    public int InstallmentTenureMonths { get; set; } = 1;
+    public decimal RemainingBalance => Math.Max(0m, Amount - RecoveredAmount);
     public DateTime RequestDate { get; set; } = DateTime.UtcNow;
     public DateTime? ApprovedDate { get; set; }
     public string? Reason { get; set; }
@@ -1036,6 +1053,8 @@ public class TeacherSalaryAdvance
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Teacher? Teacher { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 }
 
 public class StaffPromotionIncrement
@@ -1075,6 +1094,7 @@ public class TeacherLeave
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid TeacherId { get; set; }
     public LeaveType LeaveType { get; set; } = LeaveType.CasualLeave;
     public DateTime FromDate { get; set; }
@@ -1169,7 +1189,57 @@ public class LeaveAndAttendancePolicySettings
     public bool AllowFullDayLeaveIfMarkedPresent { get; set; } = false;
     public bool ExcludeHolidaysFromLeaveCount { get; set; } = true;
     public bool ExcludeSundaysFromLeaveCount { get; set; } = true;
+    
+    // Enterprise Payroll & Divisor Policies (Zero Hardcoding)
+    public string SalaryDivisorMode { get; set; } = "WorkingDays"; // "WorkingDays", "Fixed30Days", "CalendarDays", "Standard26Days"
+    public string LatePenaltyMode { get; set; } = "HalfDayPerThreeLates"; // "HalfDayPerThreeLates", "Custom", "WarningOnly"
+    public int LatePenaltyThresholdDays { get; set; } = 3;
+    public decimal LatePenaltyDeductionFactor { get; set; } = 0.5m;
+    public bool AutoCalculateStatutoryPF { get; set; } = false;
+    public bool AutoCalculateStatutoryESI { get; set; } = false;
+    public bool AutoPostPayrollToDayBook { get; set; } = true;
+    public bool AutoSendWhatsAppPayslip { get; set; } = true;
+    public int NoticePeriodDays { get; set; } = 30;
+    
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+
+
+public class TeacherPayrollMonthLock
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public int Month { get; set; }
+    public int Year { get; set; }
+    public bool IsLocked { get; set; } = true;
+    public DateTime? LockedAt { get; set; }
+    public string? LockedBy { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class TeacherLeaveAccrualLog
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TeacherId { get; set; }
+    public int Month { get; set; }
+    public int Year { get; set; }
+    public decimal CasualLeaveAdded { get; set; } = 1.0m;
+    public decimal SickLeaveAdded { get; set; } = 0.83m;
+    public decimal EarnedLeaveAdded { get; set; } = 1.25m;
+    public DateTime AccruedAt { get; set; } = DateTime.UtcNow;
+    public string Remarks { get; set; } = "Monthly Automated Leave Accrual";
+
+    public Teacher? Teacher { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 }
 
 public class StaffAppraisalPolicySettings

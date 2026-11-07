@@ -12,6 +12,8 @@ import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
 import { FeesService, FeeHead, ClassFeeStructureItem, SaveClassFeeStructureBatch } from '../../core/services/fees.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
@@ -38,7 +40,9 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
     MatTableModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatPaginatorModule,
+    MatSortModule
   ],
   template: `
     <div class="dialog-container">
@@ -381,29 +385,53 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
               <div class="selector-top-row">
                 <!-- Dual Switcher: shown only when BOTH modules are active and items exist -->
                 @if (hasSchoolModule && hasCoachingModule && schoolClasses.length > 0 && batches.length > 0) {
-                  <div class="target-toggle">
-                    <button type="button"
-                      class="toggle-btn"
-                      [class.active]="targetType === 'class'"
-                      (click)="setTargetType('class')" matButton="filled">
-                      <mat-icon>school</mat-icon>
-                      <span>School Class</span>
-                      <span class="count-pill">{{ schoolOnlyClasses.length }}</span>
-                    </button>
-                    <button type="button"
-                      class="toggle-btn"
-                      [class.active]="targetType === 'batch'"
-                      (click)="setTargetType('batch')" matButton="filled">
-                      <mat-icon>groups</mat-icon>
-                      <span>Coaching Batch</span>
-                      <span class="count-pill">{{ batches.length }}</span>
-                    </button>
+                  <div class="target-toggle-wrap">
+                    <div class="target-toggle">
+                      <button type="button"
+                        class="toggle-btn"
+                        [class.active]="targetType === 'class'"
+                        (click)="setTargetType('class')" matButton="filled">
+                        <mat-icon>school</mat-icon>
+                        <span>School Class</span>
+                        <span class="count-pill" matTooltip="{{ schoolFeeHeadsCount }} Fee Heads applicable to School (across {{ schoolOnlyClasses.length }} classes)">{{ schoolFeeHeadsCount }} Heads</span>
+                      </button>
+                      <button type="button"
+                        class="toggle-btn"
+                        [class.active]="targetType === 'batch'"
+                        (click)="setTargetType('batch')" matButton="filled">
+                        <mat-icon>groups</mat-icon>
+                        <span>Coaching Batch</span>
+                        <span class="count-pill" matTooltip="{{ coachingFeeHeadsCount }} Fee Heads applicable to Coaching (across {{ batches.length }} batches)">{{ coachingFeeHeadsCount }} Heads</span>
+                      </button>
+                    </div>
+
+                    <div class="scope-badges-strip">
+                      <span class="scope-count-badge school" matTooltip="{{ schoolOnlyFeeHeadsCount }} Fee Heads exclusive to School">
+                        <span class="dot"></span>
+                        <span>School: <strong>{{ schoolOnlyFeeHeadsCount }}</strong></span>
+                      </span>
+                      <span class="scope-count-badge coaching" matTooltip="{{ coachingOnlyFeeHeadsCount }} Fee Heads exclusive to Coaching">
+                        <span class="dot"></span>
+                        <span>Coaching: <strong>{{ coachingOnlyFeeHeadsCount }}</strong></span>
+                      </span>
+                      <span class="scope-count-badge hybrid" matTooltip="{{ hybridFeeHeadsCount }} Fee Heads common to both School & Coaching">
+                        <span class="dot"></span>
+                        <span>Hybrid: <strong>{{ hybridFeeHeadsCount }}</strong></span>
+                      </span>
+                    </div>
                   </div>
                 }
     
                 <!-- Summary Cards (Monthly & Annual Totals) -->
                 @if (matrixRows.length > 0) {
                   <div class="summary-cards">
+                    <div class="sum-card active-heads" matTooltip="{{ activeMatrixRowsCount }} of {{ matrixRows.length }} fee heads are checked (active) for {{ selectedTargetName }}">
+                      <span class="sum-label">Active Fee Heads:</span>
+                      <strong class="sum-val">
+                        <mat-icon class="sum-check-icon">check_circle</mat-icon>
+                        {{ activeMatrixRowsCount }} / {{ matrixRows.length }} Checked
+                      </strong>
+                    </div>
                     <div class="sum-card monthly">
                       <span class="sum-label">Total Monthly Bill:</span>
                       <strong class="sum-val">₹{{ totalMonthlyAmount | number:'1.2-2' }}</strong>
@@ -427,9 +455,9 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                   <mat-form-field appearance="outline" class="select-target-full">
                     <mat-label>Assign Fee For: School Class</mat-label>
                     <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                      @for (c of schoolOnlyClasses; track c) {
+                      @for (c of schoolOnlyClasses; track c.id) {
                         <mat-option [value]="c.id">
-                          🏫 {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }}
+                          🏫 {{ c.name }} {{ c.code ? '(' + c.code + ')' : '' }} — {{ getClassActiveHeadsCount(c.id) }} Heads Active
                         </mat-option>
                       }
                     </mat-select>
@@ -445,22 +473,22 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       <button type="button"
                         class="scope-btn"
                         [class.active]="coachingScope === 'single'"
-                        (click)="setCoachingScope('single')" matButton="filled">
+                        (click)="setCoachingScope('single')">
                         <mat-icon>school</mat-icon>
                         <div class="scope-btn-text">
                           <span class="scope-btn-title">Single Class Batch</span>
-                          <span class="scope-btn-sub">एक class → batch select करें</span>
+                          <span class="scope-btn-sub">Class ➔ Batch Select</span>
                         </div>
                         <span class="count-pill">{{ singleClassBatches.length }}</span>
                       </button>
                       <button type="button"
                         class="scope-btn"
                         [class.active]="coachingScope === 'combined'"
-                        (click)="setCoachingScope('combined')" matButton="filled">
+                        (click)="setCoachingScope('combined')">
                         <mat-icon>layers</mat-icon>
                         <div class="scope-btn-text">
                           <span class="scope-btn-title">Combined / Multi-Class</span>
-                          <span class="scope-btn-sub">Class 1st–5th जैसी combined batches</span>
+                          <span class="scope-btn-sub">Multi-Class Common Batches</span>
                         </div>
                         <span class="count-pill">{{ combinedBatches.length }}</span>
                       </button>
@@ -472,7 +500,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                           <mat-label>Academic Class (कक्षा)</mat-label>
                           <mat-select [(ngModel)]="batchClassFilter" (selectionChange)="onBatchClassFilterChange()" panelClass="target-select-panel">
                             <mat-option value="">✨ All Classes</mat-option>
-                            @for (c of coachingEligibleClasses; track c) {
+                            @for (c of coachingEligibleClasses; track c.id) {
                               <mat-option [value]="c.id">
                                 🏫 {{ c.name }}
                               </mat-option>
@@ -483,9 +511,9 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                         <mat-form-field appearance="outline" class="select-batch-target">
                           <mat-label>Batch Select करें</mat-label>
                           <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                            @for (b of filteredSingleBatches; track b) {
+                            @for (b of filteredSingleBatches; track b.id) {
                               <mat-option [value]="b.id">
-                                🎯 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }}
+                                🎯 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }} — {{ getBatchActiveHeadsCount(b.id) }} Heads Active
                               </mat-option>
                             }
                             @if (filteredSingleBatches.length === 0) {
@@ -503,9 +531,9 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                       <mat-form-field appearance="outline" class="select-target-full">
                         <mat-label>Combined Batch Select करें</mat-label>
                         <mat-select [(ngModel)]="selectedBatchId" (selectionChange)="loadStructureForSelection()" panelClass="target-select-panel">
-                          @for (b of combinedBatches; track b) {
+                          @for (b of combinedBatches; track b.id) {
                             <mat-option [value]="b.id">
-                              🔗 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }}
+                              🔗 {{ b.name }}{{ b.subject ? ' — ' + b.subject : '' }} — {{ getBatchActiveHeadsCount(b.id) }} Heads Active
                             </mat-option>
                           }
                           @if (combinedBatches.length === 0) {
@@ -520,71 +548,204 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                   </div>
                 }
               </div>
+
+              <!-- Selected Target Active Fee Heads Status Bar -->
+              @if (hasActiveSelection() && matrixRows.length > 0) {
+                <div class="selected-target-status-bar">
+                  <div class="target-title-wrap">
+                    <mat-icon color="primary">{{ targetType === 'class' ? 'school' : 'groups' }}</mat-icon>
+                    <span class="target-name-text">
+                      Fee Schedule for: <strong>{{ selectedTargetName }}</strong>
+                    </span>
+                  </div>
+                  <div class="target-stats-wrap">
+                    <span class="active-heads-badge" [class.badge-zero]="activeMatrixRowsCount === 0">
+                      <mat-icon>check_circle</mat-icon>
+                      <span><strong>{{ activeMatrixRowsCount }}</strong> of {{ matrixRows.length }} Fee Heads Checked (Active)</span>
+                    </span>
+                  </div>
+                </div>
+              }
             </div>
     
             <!-- Structure Grid Table -->
             @if ((targetType === 'class' && selectedClassId) || (targetType === 'batch' && selectedBatchId)) {
               <div class="matrix-table-container">
+
+                <!-- Matrix Search & Filter Deck (Reactive Form) -->
+                <div class="matrix-filter-bar" [formGroup]="matrixFilterForm">
+                  <mat-form-field appearance="outline" class="matrix-search-box" subscriptSizing="dynamic">
+                    <mat-label>Search Fee Head or Code...</mat-label>
+                    <input matInput formControlName="searchTerm" placeholder="e.g. Tuition, Exam, LAB, Sports..." />
+                    <mat-icon matPrefix color="primary">search</mat-icon>
+                    @if (matrixFilterForm.get('searchTerm')?.value) {
+                      <button type="button" matSuffix mat-icon-button (click)="matrixFilterForm.get('searchTerm')?.setValue('')">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="matrix-filter-dropdown" subscriptSizing="dynamic">
+                    <mat-label>Category</mat-label>
+                    <mat-select formControlName="category">
+                      <mat-option value="ALL">All Categories</mat-option>
+                      @for (cat of matrixCategories; track cat) {
+                        <mat-option [value]="cat">{{ cat }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="matrix-filter-dropdown" subscriptSizing="dynamic">
+                    <mat-label>Frequency</mat-label>
+                    <mat-select formControlName="frequency">
+                      <mat-option value="ALL">All Frequencies</mat-option>
+                      <mat-option value="Monthly">Monthly</mat-option>
+                      <mat-option value="Annual">Annual</mat-option>
+                      <mat-option value="TermWise">Term-Wise</mat-option>
+                      <mat-option value="OneTime">One-Time</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="matrix-filter-dropdown" subscriptSizing="dynamic">
+                    <mat-label>Status</mat-label>
+                    <mat-select formControlName="status">
+                      <mat-option value="ALL">All Status</mat-option>
+                      <mat-option value="ACTIVE">Active (Configured)</mat-option>
+                      <mat-option value="INACTIVE">Inactive Only</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <button type="button" mat-stroked-button color="warn" class="matrix-reset-btn" (click)="resetMatrixFilters()" matTooltip="Reset search & filters">
+                    <mat-icon>refresh</mat-icon>
+                    <span>Reset</span>
+                  </button>
+                </div>
+
                 <div class="mobile-table-hint">
                   <mat-icon>swipe</mat-icon>
                   <span>Swipe sideways to edit amounts &amp; months &bull; तालिका दाएं-बाएं स्क्रॉल करें</span>
                 </div>
-                <div class="matrix-table-wrapper">
-                  <table class="styled-table matrix-table">
-                    <thead>
-                      <tr>
-                        <th style="width: 40px;">Active</th>
-                        <th>Fee Head</th>
-                        <th>Category</th>
-                        <th>Frequency</th>
-                        <th style="width: 180px;">Amount (₹)</th>
-                        <th style="width: 220px;">Applicable Month</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (row of matrixRows; track row.feeHeadId) {
-                        <tr [class.row-disabled]="!row.isActive">
-                          <td>
-                            <mat-checkbox [(ngModel)]="row.isActive" (change)="onRowActiveChange(row)" color="primary"></mat-checkbox>
-                          </td>
-                          <td>
-                            <strong>{{ row.feeHeadName }}</strong>
-                            <span class="code-sub">({{ row.feeHeadCode }})</span>
-                          </td>
-                          <td>
-                            <span class="category-tag" [ngClass]="'cat-' + row.category.toLowerCase()">{{ row.category }}</span>
-                          </td>
-                          <td><span class="freq-tag">{{ row.frequency }}</span></td>
-                          <td>
-                            <mat-form-field appearance="outline" class="inline-amt-field" density="compact">
-                              <span matPrefix class="rupee-prefix">₹&nbsp;</span>
-                              <input matInput type="number" [ngModel]="row.isActive ? row.amount : 0" (ngModelChange)="row.amount = $event; onAmountChange(row)" [disabled]="!row.isActive" min="0" />
-                            </mat-form-field>
-                          </td>
-                          <td>
-                            <mat-form-field appearance="outline" class="inline-month-field" density="compact">
-                              <mat-select [(ngModel)]="row.applicableMonth" [disabled]="!row.isActive || row.frequency === 'Monthly'">
-                                <mat-option [value]="null">All Months (Recurring)</mat-option>
-                                <mat-option [value]="4">April (Session Start)</mat-option>
-                                <mat-option [value]="5">May</mat-option>
-                                <mat-option [value]="6">June</mat-option>
-                                <mat-option [value]="7">July</mat-option>
-                                <mat-option [value]="8">August</mat-option>
-                                <mat-option [value]="9">September (Term 1 Exam)</mat-option>
-                                <mat-option [value]="10">October</mat-option>
-                                <mat-option [value]="11">November</mat-option>
-                                <mat-option [value]="12">December</mat-option>
-                                <mat-option [value]="1">January</mat-option>
-                                <mat-option [value]="2">February (Final Exam)</mat-option>
-                                <mat-option [value]="3">March</mat-option>
-                              </mat-select>
-                            </mat-form-field>
-                          </td>
+
+                <!-- Strict Single Loader Rule -->
+                @if (loadingMatrix) {
+                  <div class="matrix-loader-container">
+                    <mat-spinner diameter="42"></mat-spinner>
+                    <span class="loader-text">Loading Class Fee Structure Matrix from Server...</span>
+                  </div>
+                }
+
+                @if (!loadingMatrix) {
+                  <div class="matrix-table-wrapper">
+                    <table class="styled-table matrix-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 125px;" class="sortable-th" (click)="onSortMatrix('isActive')">
+                            <div class="th-content">
+                              <span>Active ({{ activeMatrixRowsCount }})</span>
+                              <mat-icon class="sort-icon">{{ getSortIcon('isActive') }}</mat-icon>
+                            </div>
+                          </th>
+                          <th class="sortable-th" (click)="onSortMatrix('feeHeadName')">
+                            <div class="th-content">
+                              <span>Fee Head</span>
+                              <mat-icon class="sort-icon">{{ getSortIcon('feeHeadName') }}</mat-icon>
+                            </div>
+                          </th>
+                          <th class="sortable-th" (click)="onSortMatrix('category')">
+                            <div class="th-content">
+                              <span>Category</span>
+                              <mat-icon class="sort-icon">{{ getSortIcon('category') }}</mat-icon>
+                            </div>
+                          </th>
+                          <th class="sortable-th" (click)="onSortMatrix('frequency')">
+                            <div class="th-content">
+                              <span>Frequency</span>
+                              <mat-icon class="sort-icon">{{ getSortIcon('frequency') }}</mat-icon>
+                            </div>
+                          </th>
+                          <th style="width: 180px;" class="sortable-th" (click)="onSortMatrix('amount')">
+                            <div class="th-content">
+                              <span>Amount (₹)</span>
+                              <mat-icon class="sort-icon">{{ getSortIcon('amount') }}</mat-icon>
+                            </div>
+                          </th>
+                          <th style="width: 220px;" class="sortable-th" (click)="onSortMatrix('applicableMonth')">
+                            <div class="th-content">
+                              <span>Applicable Month</span>
+                              <mat-icon class="sort-icon">{{ getSortIcon('applicableMonth') }}</mat-icon>
+                            </div>
+                          </th>
                         </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        @for (row of pagedMatrixRows; track row.feeHeadId) {
+                          <tr [class.row-disabled]="!row.isActive">
+                            <td>
+                              <mat-checkbox [(ngModel)]="row.isActive" (change)="onRowActiveChange(row)" color="primary"></mat-checkbox>
+                            </td>
+                            <td>
+                              <strong>{{ row.feeHeadName }}</strong>
+                              <span class="code-sub">({{ row.feeHeadCode }})</span>
+                            </td>
+                            <td>
+                              <span class="category-tag" [ngClass]="'cat-' + row.category.toLowerCase()">{{ row.category }}</span>
+                            </td>
+                            <td><span class="freq-tag">{{ row.frequency }}</span></td>
+                            <td>
+                              <mat-form-field appearance="outline" class="inline-amt-field" density="compact" subscriptSizing="dynamic">
+                                <span matPrefix class="rupee-prefix">₹&nbsp;</span>
+                                <input matInput type="number" [ngModel]="row.isActive ? row.amount : 0" (ngModelChange)="row.amount = $event; onAmountChange(row)" [disabled]="!row.isActive" min="0" />
+                              </mat-form-field>
+                            </td>
+                            <td>
+                              <mat-form-field appearance="outline" class="inline-month-field" density="compact" subscriptSizing="dynamic">
+                                <mat-select [(ngModel)]="row.applicableMonth" [disabled]="!row.isActive || row.frequency === 'Monthly'">
+                                  <mat-option [value]="null">All Months (Recurring)</mat-option>
+                                  <mat-option [value]="4">April (Session Start)</mat-option>
+                                  <mat-option [value]="5">May</mat-option>
+                                  <mat-option [value]="6">June</mat-option>
+                                  <mat-option [value]="7">July</mat-option>
+                                  <mat-option [value]="8">August</mat-option>
+                                  <mat-option [value]="9">September (Term 1 Exam)</mat-option>
+                                  <mat-option [value]="10">October</mat-option>
+                                  <mat-option [value]="11">November</mat-option>
+                                  <mat-option [value]="12">December</mat-option>
+                                  <mat-option [value]="1">January</mat-option>
+                                  <mat-option [value]="2">February (Final Exam)</mat-option>
+                                  <mat-option [value]="3">March</mat-option>
+                                </mat-select>
+                              </mat-form-field>
+                            </td>
+                          </tr>
+                        }
+                        @if (filteredMatrixRows.length === 0) {
+                          <tr>
+                            <td colspan="6" class="empty-matrix-row">
+                              <div class="empty-matrix-content">
+                                <mat-icon>filter_alt_off</mat-icon>
+                                <p>No fee heads match your search or filter criteria.</p>
+                                <button type="button" mat-stroked-button color="primary" (click)="resetMatrixFilters()">Reset Filters</button>
+                              </div>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Matrix Pagination -->
+                  @if (filteredMatrixRows.length > 0) {
+                    <mat-paginator
+                      [length]="filteredMatrixRows.length"
+                      [pageSize]="matrixPageSize"
+                      [pageIndex]="matrixPageIndex"
+                      [pageSizeOptions]="[5, 10, 20, 50, 100]"
+                      (page)="onMatrixPageChange($event)"
+                      [showFirstLastButtons]="true"
+                      class="matrix-paginator">
+                    </mat-paginator>
+                  }
+                }
                 <div class="matrix-save-bar">
                   <span class="save-hint">💡 Changes will apply to generated invoices for this {{ targetType === 'class' ? 'School Class' : 'Coaching Batch' }}.</span>
                   <button color="primary" class="save-matrix-btn app-button-save" (click)="onSaveMatrix()" [disabled]="savingMatrix" matButton="filled">
@@ -745,6 +906,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
   styles: [`
     :host {
       display: flex;
+      width: 100%;
       flex-direction: column;
       overflow: hidden;
       max-height: 90vh;
@@ -758,6 +920,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
       display: flex;
       flex-direction: column;
       max-height: 90vh;
+      width: 100%;
       min-width: min(1080px, 92vw);
       overflow: hidden;
 
@@ -1292,12 +1455,20 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
         flex-wrap: wrap;
         margin-bottom: 12px;
 
+        .target-toggle-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
         .target-toggle {
           display: inline-flex;
           background: #e2e8f0;
           border-radius: 8px;
-          padding: 3px;
+          padding: 4px;
           border: 1px solid #cbd5e1;
+          gap: 8px;
 
           .toggle-btn {
             display: inline-flex;
@@ -1306,7 +1477,7 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
             padding: 7px 14px;
             font-size: 0.84rem;
             font-weight: 600;
-            border: none;
+            border: 1px solid transparent;
             background: transparent;
             color: #64748b;
             border-radius: 6px;
@@ -1322,20 +1493,73 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
             .count-pill {
               background: #cbd5e1;
               color: #334155;
-              padding: 1px 6px;
+              padding: 2px 7px;
               border-radius: 10px;
-              font-size: 0.7rem;
+              font-size: 0.72rem;
+              font-weight: 700;
             }
 
             &.active {
               background: #ffffff;
               color: #0284c7;
+              border-color: #bae6fd;
               box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 
               .count-pill {
                 background: #e0f2fe;
                 color: #0369a1;
               }
+            }
+          }
+        }
+
+        .scope-badges-strip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+
+          .scope-count-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+            line-height: 1.2;
+
+            .dot {
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+            }
+
+            strong {
+              font-weight: 700;
+              margin-left: 2px;
+            }
+
+            &.school {
+              background: #eff6ff;
+              border-color: #bfdbfe;
+              color: #1d4ed8;
+              .dot { background: #3b82f6; }
+            }
+
+            &.coaching {
+              background: #fdf2f8;
+              border-color: #fbcfe8;
+              color: #be185d;
+              .dot { background: #ec4899; }
+            }
+
+            &.hybrid {
+              background: #f0fdf4;
+              border-color: #bbf7d0;
+              color: #15803d;
+              .dot { background: #22c55e; }
             }
           }
         }
@@ -1359,6 +1583,26 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
             .sum-val {
               font-size: 1.1rem;
               font-weight: 700;
+            }
+
+            &.active-heads {
+              background: #eff6ff;
+              border: 1px solid #bfdbfe;
+              color: #1e40af;
+
+              .sum-val {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 1.02rem;
+              }
+
+              .sum-check-icon {
+                font-size: 16px;
+                width: 16px;
+                height: 16px;
+                color: #2563eb;
+              }
             }
 
             &.monthly {
@@ -1435,61 +1679,75 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
 
         .coaching-scope-toggle {
           display: flex;
-          gap: 8px;
+          gap: 12px;
           background: #f1f5f9;
           border-radius: 10px;
-          padding: 4px;
+          padding: 6px;
+          border: 1px solid #cbd5e1;
 
           @media (max-width: 640px) {
             flex-direction: column;
           }
 
           .scope-btn {
-            flex: 1;
+            flex: 1 1 50%;
+            min-width: 0;
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 10px 14px;
+            padding: 8px 14px;
             border: 1.5px solid transparent;
             border-radius: 8px;
             background: transparent;
             cursor: pointer;
             transition: all 0.18s ease;
             text-align: left;
+            box-sizing: border-box;
 
             mat-icon {
-              font-size: 20px;
-              width: 20px;
-              height: 20px;
+              font-size: 22px;
+              width: 22px;
+              height: 22px;
               color: #64748b;
               flex-shrink: 0;
             }
 
             .scope-btn-text {
-              flex: 1;
+              flex: 1 1 auto;
+              min-width: 0;
               display: flex;
               flex-direction: column;
-              gap: 1px;
+              gap: 2px;
+              overflow: hidden;
 
               .scope-btn-title {
-                font-size: 0.84rem;
-                font-weight: 600;
+                font-size: 0.85rem;
+                font-weight: 700;
                 color: #334155;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                line-height: 1.2;
               }
               .scope-btn-sub {
                 font-size: 0.72rem;
                 color: #64748b;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                line-height: 1.2;
               }
             }
 
             .count-pill {
               background: #cbd5e1;
               color: #334155;
-              padding: 2px 7px;
-              border-radius: 10px;
-              font-size: 0.71rem;
+              padding: 2px 8px;
+              border-radius: 12px;
+              font-size: 0.75rem;
               font-weight: 700;
               flex-shrink: 0;
+              margin-left: auto;
             }
 
             &:hover {
@@ -1536,6 +1794,71 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
           width: 100%;
           margin-bottom: -0.75em;
           .dropdown-prefix-icon { margin-right: 8px; }
+        }
+      }
+
+      .selected-target-status-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #ffffff;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        padding: 8px 14px;
+        margin-top: 14px;
+        gap: 12px;
+        flex-wrap: wrap;
+
+        .target-title-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #1e293b;
+          font-size: 0.86rem;
+
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            color: #2563eb;
+          }
+
+          strong {
+            color: #0f172a;
+          }
+        }
+
+        .target-stats-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+
+          .active-heads-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+
+            mat-icon {
+              font-size: 15px;
+              width: 15px;
+              height: 15px;
+              color: #2563eb;
+            }
+
+            &.badge-zero {
+              background: #fef2f2;
+              color: #b91c1c;
+              border-color: #fecaca;
+              mat-icon { color: #dc2626; }
+            }
+          }
         }
       }
     }
@@ -1629,6 +1952,123 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
     ::ng-deep .select-batch-target .mat-mdc-form-field-subscript-wrapper {
       display: none !important;
     }
+    .matrix-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+      background: #f8fafc;
+      padding: 12px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+
+      .matrix-search-box {
+        flex: 2;
+        min-width: 220px;
+      }
+
+      .matrix-filter-dropdown {
+        flex: 1;
+        min-width: 140px;
+      }
+
+      .matrix-reset-btn {
+        height: 48px;
+        align-self: center;
+        border-color: #cbd5e1;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 6px;
+
+        &:hover {
+          color: #dc2626;
+          border-color: #fca5a5;
+          background: #fef2f2;
+        }
+      }
+    }
+
+    .matrix-loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      gap: 14px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      margin-bottom: 12px;
+
+      .loader-text {
+        font-size: 0.92rem;
+        color: #475569;
+        font-weight: 600;
+      }
+    }
+
+    .sortable-th {
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease;
+
+      &:hover {
+        background: #e2e8f0 !important;
+      }
+
+      .th-content {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        justify-content: space-between;
+
+        .sort-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #64748b;
+          vertical-align: middle;
+        }
+      }
+    }
+
+    .matrix-paginator {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      margin-top: -12px;
+      margin-bottom: 14px;
+    }
+
+    .empty-matrix-row {
+      text-align: center;
+      padding: 32px 16px !important;
+    }
+
+    .empty-matrix-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: #64748b;
+
+      mat-icon {
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
+        color: #94a3b8;
+      }
+
+      p {
+        margin: 0;
+        font-size: 0.9rem;
+      }
+    }
+
     .row-disabled {
       opacity: 0.5;
     }
@@ -2060,6 +2500,38 @@ export class FeeMasterDialogComponent implements OnInit {
     return (this.schoolClasses || []).filter(c => c.academicScope !== 'School');
   }
 
+  get activeFeeHeads(): FeeHead[] {
+    return (this.feeHeads || []).filter(head => {
+      const scope = head.applicableTo || 'Both';
+      if (!this.hasSchoolModule && scope === 'School') return false;
+      if (!this.hasCoachingModule && scope === 'Coaching') return false;
+      if (!this.hasHostelModule && (head.category === 'Residential' || head.code === 'HOSTEL' || head.code === 'MESS')) return false;
+      if (!this.hasTransportModule && (head.category === 'Transport' || head.code === 'TRANS')) return false;
+      if (!this.hasLibraryModule && head.code === 'LIB') return false;
+      return true;
+    });
+  }
+
+  get schoolFeeHeadsCount(): number {
+    return this.activeFeeHeads.filter(h => (h.applicableTo || 'Both') === 'School' || (h.applicableTo || 'Both') === 'Both').length;
+  }
+
+  get coachingFeeHeadsCount(): number {
+    return this.activeFeeHeads.filter(h => (h.applicableTo || 'Both') === 'Coaching' || (h.applicableTo || 'Both') === 'Both').length;
+  }
+
+  get schoolOnlyFeeHeadsCount(): number {
+    return this.activeFeeHeads.filter(h => h.applicableTo === 'School').length;
+  }
+
+  get coachingOnlyFeeHeadsCount(): number {
+    return this.activeFeeHeads.filter(h => h.applicableTo === 'Coaching').length;
+  }
+
+  get hybridFeeHeadsCount(): number {
+    return this.activeFeeHeads.filter(h => (h.applicableTo || 'Both') === 'Both').length;
+  }
+
   isCombinedBatch(b: any): boolean {
     if (!b?.classId) return true;
     return !!(b?.name && (
@@ -2094,6 +2566,7 @@ export class FeeMasterDialogComponent implements OnInit {
     this.coachingScope = scope;
     this.selectedBatchId = '';
     this.matrixRows = [];
+    this.applyMatrixFiltersAndSort();
     this.batchClassFilter = '';
     if (scope === 'single' && this.filteredSingleBatches.length > 0) {
       this.selectedBatchId = this.filteredSingleBatches[0].id;
@@ -2110,10 +2583,12 @@ export class FeeMasterDialogComponent implements OnInit {
       if (!list.some(b => b.id === this.selectedBatchId)) {
         this.selectedBatchId = list[0].id;
         this.loadStructureForSelection();
+        this.loadAllFeeStructuresCounts();
       }
     } else {
       this.selectedBatchId = '';
       this.matrixRows = [];
+      this.applyMatrixFiltersAndSort();
     }
   }
 
@@ -2143,8 +2618,92 @@ export class FeeMasterDialogComponent implements OnInit {
     applicableTo?: string;
   }> = [];
 
+  // Fee Structure Matrix reactive search, filters, sorting & pagination
+  matrixFilterForm!: FormGroup;
+  filteredMatrixRows: Array<{
+    id?: string;
+    feeHeadId: string;
+    feeHeadName: string;
+    feeHeadCode: string;
+    category: string;
+    frequency: string;
+    amount: number;
+    applicableMonth: number | null;
+    isActive: boolean;
+    applicableTo?: string;
+  }> = [];
+  pagedMatrixRows: Array<{
+    id?: string;
+    feeHeadId: string;
+    feeHeadName: string;
+    feeHeadCode: string;
+    category: string;
+    frequency: string;
+    amount: number;
+    applicableMonth: number | null;
+    isActive: boolean;
+    applicableTo?: string;
+  }> = [];
+
+  matrixCategories: string[] = [];
+  loadingMatrix = false;
+  matrixPageIndex = 0;
+  matrixPageSize = 10;
+  matrixSortColumn: string = 'feeHeadName';
+  matrixSortDirection: 'asc' | 'desc' = 'asc';
+
   totalMonthlyAmount: number = 0;
   totalAnnualExtras: number = 0;
+  activeMatrixRowsCount: number = 0;
+
+  classActiveHeadsCount = new Map<string, number>();
+  batchActiveHeadsCount = new Map<string, number>();
+
+  get selectedTargetName(): string {
+    if (this.targetType === 'class') {
+      const cls = this.schoolOnlyClasses.find(c => c.id === this.selectedClassId);
+      return cls ? `Class ${cls.name}${cls.code ? ' (' + cls.code + ')' : ''}` : 'School Class';
+    } else {
+      const b = this.batches.find(b => b.id === this.selectedBatchId);
+      return b ? `${b.name}${b.subject ? ' — ' + b.subject : ''}` : 'Coaching Batch';
+    }
+  }
+
+  loadAllFeeStructuresCounts(): void {
+    this.feesService.getClassFeeStructures().subscribe({
+      next: (allStructures) => {
+        this.classActiveHeadsCount.clear();
+        this.batchActiveHeadsCount.clear();
+        for (const s of (allStructures || [])) {
+          if (s.isActive) {
+            if (s.classId) {
+              const cur = this.classActiveHeadsCount.get(s.classId) || 0;
+              this.classActiveHeadsCount.set(s.classId, cur + 1);
+            }
+            if (s.batchId) {
+              const cur = this.batchActiveHeadsCount.get(s.batchId) || 0;
+              this.batchActiveHeadsCount.set(s.batchId, cur + 1);
+            }
+          }
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  getClassActiveHeadsCount(classId: string): number {
+    if (this.targetType === 'class' && this.selectedClassId === classId) {
+      return this.activeMatrixRowsCount;
+    }
+    return this.classActiveHeadsCount.get(classId) || 0;
+  }
+
+  getBatchActiveHeadsCount(batchId: string): number {
+    if (this.targetType === 'batch' && this.selectedBatchId === batchId) {
+      return this.activeMatrixRowsCount;
+    }
+    return this.batchActiveHeadsCount.get(batchId) || 0;
+  }
   savingMatrix = false;
 
   policyForm!: FormGroup;
@@ -2189,8 +2748,129 @@ export class FeeMasterDialogComponent implements OnInit {
   ngOnInit(): void {
     this.initHeadForm();
     this.initPolicyForm();
+    this.initMatrixFilterForm();
     this.loadFeeHeads();
     this.loadClassesAndBatches();
+    this.loadAllFeeStructuresCounts();
+  }
+
+  initMatrixFilterForm(): void {
+    this.matrixFilterForm = this.fb.group({
+      searchTerm: [''],
+      category: ['ALL'],
+      frequency: ['ALL'],
+      status: ['ALL']
+    });
+
+    this.matrixFilterForm.valueChanges.subscribe(() => {
+      this.matrixPageIndex = 0;
+      this.applyMatrixFiltersAndSort();
+    });
+  }
+
+  resetMatrixFilters(): void {
+    this.matrixFilterForm.reset({
+      searchTerm: '',
+      category: 'ALL',
+      frequency: 'ALL',
+      status: 'ALL'
+    });
+    this.matrixPageIndex = 0;
+    this.matrixSortColumn = 'feeHeadName';
+    this.matrixSortDirection = 'asc';
+    this.applyMatrixFiltersAndSort();
+  }
+
+  onSortMatrix(column: string): void {
+    if (this.matrixSortColumn === column) {
+      this.matrixSortDirection = this.matrixSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.matrixSortColumn = column;
+      this.matrixSortDirection = 'asc';
+    }
+    this.applyMatrixFiltersAndSort();
+  }
+
+  getSortIcon(column: string): string {
+    if (this.matrixSortColumn !== column) {
+      return 'unfold_more';
+    }
+    return this.matrixSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward';
+  }
+
+  onMatrixPageChange(event: PageEvent): void {
+    this.matrixPageIndex = event.pageIndex;
+    this.matrixPageSize = event.pageSize;
+    this.updatePagedMatrixRows();
+  }
+
+  updatePagedMatrixRows(): void {
+    const start = this.matrixPageIndex * this.matrixPageSize;
+    const end = start + this.matrixPageSize;
+    this.pagedMatrixRows = this.filteredMatrixRows.slice(start, end);
+  }
+
+  applyMatrixFiltersAndSort(): void {
+    const formVal = this.matrixFilterForm ? this.matrixFilterForm.value : { searchTerm: '', category: 'ALL', frequency: 'ALL', status: 'ALL' };
+    const term = (formVal.searchTerm || '').trim().toLowerCase();
+    const cat = formVal.category || 'ALL';
+    const freq = formVal.frequency || 'ALL';
+    const status = formVal.status || 'ALL';
+
+    let result = [...this.matrixRows];
+
+    // Search filter
+    if (term) {
+      result = result.filter(r =>
+        (r.feeHeadName && r.feeHeadName.toLowerCase().includes(term)) ||
+        (r.feeHeadCode && r.feeHeadCode.toLowerCase().includes(term)) ||
+        (r.category && r.category.toLowerCase().includes(term))
+      );
+    }
+
+    // Category filter
+    if (cat && cat !== 'ALL') {
+      result = result.filter(r => r.category === cat);
+    }
+
+    // Frequency filter
+    if (freq && freq !== 'ALL') {
+      result = result.filter(r => r.frequency === freq);
+    }
+
+    // Status filter
+    if (status === 'ACTIVE') {
+      result = result.filter(r => r.isActive);
+    } else if (status === 'INACTIVE') {
+      result = result.filter(r => !r.isActive);
+    }
+
+    // Sorting
+    result.sort((a: any, b: any) => {
+      let valA = a[this.matrixSortColumn];
+      let valB = b[this.matrixSortColumn];
+
+      if (this.matrixSortColumn === 'amount') {
+        valA = Number(valA) || 0;
+        valB = Number(valB) || 0;
+      } else if (this.matrixSortColumn === 'applicableMonth') {
+        valA = valA === null || valA === undefined ? 99 : Number(valA);
+        valB = valB === null || valB === undefined ? 99 : Number(valB);
+      } else if (typeof valA === 'string') {
+        valA = (valA || '').toLowerCase();
+        valB = (valB || '').toLowerCase();
+      } else if (this.matrixSortColumn === 'isActive') {
+        valA = valA ? 1 : 0;
+        valB = valB ? 1 : 0;
+      }
+
+      if (valA < valB) return this.matrixSortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return this.matrixSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    this.filteredMatrixRows = result;
+    this.updatePagedMatrixRows();
   }
 
   initPolicyForm(): void {
@@ -2255,6 +2935,7 @@ export class FeeMasterDialogComponent implements OnInit {
         this.filterFeeHeadsMaster();
         if (this.hasActiveSelection()) {
           this.loadStructureForSelection();
+        this.loadAllFeeStructuresCounts();
         }
       },
       error: (err) => console.error('Failed to load fee heads', err)
@@ -2397,8 +3078,10 @@ export class FeeMasterDialogComponent implements OnInit {
     const batchId = this.targetType === 'batch' ? this.selectedBatchId : undefined;
     if (!classId && !batchId) return;
 
+    this.loadingMatrix = true;
     this.feesService.getClassFeeStructures(classId, batchId).subscribe({
       next: (structures) => {
+        this.loadingMatrix = false;
         const structMap = new Map<string, ClassFeeStructureItem>();
         structures.forEach(s => structMap.set(s.feeHeadId, s));
 
@@ -2468,9 +3151,14 @@ export class FeeMasterDialogComponent implements OnInit {
           };
         });
 
+        this.matrixCategories = Array.from(new Set(this.matrixRows.map(r => r.category).filter(Boolean))).sort();
         this.calculateTotals();
+        this.applyMatrixFiltersAndSort();
       },
-      error: (err) => console.error('Failed to load structure', err)
+      error: (err) => {
+        this.loadingMatrix = false;
+        console.error('Failed to load structure', err);
+      }
     });
   }
 
@@ -2479,6 +3167,7 @@ export class FeeMasterDialogComponent implements OnInit {
       row.amount = 0;
     }
     this.calculateTotals();
+    this.applyMatrixFiltersAndSort();
   }
 
   onAmountChange(row: any): void {
@@ -2492,9 +3181,11 @@ export class FeeMasterDialogComponent implements OnInit {
   calculateTotals(): void {
     let monthly = 0;
     let annual = 0;
+    let activeCount = 0;
 
     for (const r of this.matrixRows) {
       if (!r.isActive) continue;
+      activeCount++;
       const amt = Number(r.amount) || 0;
       if (r.frequency === 'Monthly') {
         monthly += amt;
@@ -2503,8 +3194,15 @@ export class FeeMasterDialogComponent implements OnInit {
       }
     }
 
+    this.activeMatrixRowsCount = activeCount;
     this.totalMonthlyAmount = monthly;
     this.totalAnnualExtras = annual;
+
+    if (this.targetType === 'class' && this.selectedClassId) {
+      this.classActiveHeadsCount.set(this.selectedClassId, activeCount);
+    } else if (this.targetType === 'batch' && this.selectedBatchId) {
+      this.batchActiveHeadsCount.set(this.selectedBatchId, activeCount);
+    }
   }
 
   onSaveHead(): void {
@@ -2552,6 +3250,7 @@ export class FeeMasterDialogComponent implements OnInit {
         this.confirmDialog.alert('Fee Catalog Synced', `Successfully loaded ${heads.length} fee heads from the database.`, 'success');
         if (this.hasActiveSelection()) {
           this.loadStructureForSelection();
+        this.loadAllFeeStructuresCounts();
         }
       },
       error: (err) => {
@@ -2592,6 +3291,7 @@ export class FeeMasterDialogComponent implements OnInit {
           'success'
         );
         this.loadStructureForSelection();
+        this.loadAllFeeStructuresCounts();
       },
       error: (err) => {
         this.savingMatrix = false;

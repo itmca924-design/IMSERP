@@ -1451,15 +1451,23 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   private initWebhookUrl(): void {
-    const rawWebhook = environment.biometricWebhookUrl || `${environment.apiUrl}/attendance/biometric/hikvision`;
+    let rawWebhook = (typeof window !== 'undefined' && (window as any).__env?.BIOMETRIC_WEBHOOK_URL)
+      || environment.biometricWebhookUrl
+      || `${environment.apiUrl}/attendance/biometric/hikvision`;
+
     if (typeof window !== 'undefined') {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      // In local dev, if device needs LAN IP to reach PC, replace localhost with current hostname
-      if (isLocal && rawWebhook.includes('localhost')) {
+      if (!isLocal) {
+        // In Production on live domain/VPS, automatically resolve to current live website origin
+        if (rawWebhook.includes('localhost') || rawWebhook.includes('127.0.0.1')) {
+          this.webhookUrl = `${window.location.origin}/api/attendance/biometric/hikvision`;
+        } else {
+          this.webhookUrl = rawWebhook;
+        }
+      } else {
+        // In local development
         const host = window.location.hostname || 'localhost';
         this.webhookUrl = rawWebhook.replace('localhost', host);
-      } else {
-        this.webhookUrl = rawWebhook;
       }
     } else {
       this.webhookUrl = rawWebhook;

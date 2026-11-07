@@ -1029,33 +1029,33 @@ mat-icon.wa-mat-icon {
 // ============================================================================
 // Smooth Material Select Overlays (Fee Heads & Structure Panels)
 // ============================================================================
-.cdk-overlay-pane.smooth-dropdown-panel,
-.cdk-overlay-pane.fee-category-panel,
-.cdk-overlay-pane.fee-frequency-panel,
-.cdk-overlay-pane:has(.smooth-dropdown-panel),
-.cdk-overlay-pane:has(.fee-category-panel),
-.cdk-overlay-pane:has(.fee-frequency-panel) {
+.cdk-overlay-pane.smooth-dropdown-panel:not(.mat-mdc-dialog-panel),
+.cdk-overlay-pane.fee-category-panel:not(.mat-mdc-dialog-panel),
+.cdk-overlay-pane.fee-frequency-panel:not(.mat-mdc-dialog-panel),
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(.smooth-dropdown-panel),
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(.fee-category-panel),
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(.fee-frequency-panel) {
   min-width: 400px !important;
   width: max-content !important;
   max-width: min(580px, 94vw) !important;
 }
 
-.cdk-overlay-pane.target-select-panel,
-.cdk-overlay-pane:has(.target-select-panel) {
+.cdk-overlay-pane.target-select-panel:not(.mat-mdc-dialog-panel),
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(.target-select-panel) {
   min-width: 320px !important;
   width: max-content !important;
   max-width: min(540px, 94vw) !important;
 }
 
-.cdk-overlay-pane.batch-select-panel,
-.cdk-overlay-pane:has(.batch-select-panel) {
+.cdk-overlay-pane.batch-select-panel:not(.mat-mdc-dialog-panel),
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(.batch-select-panel) {
   min-width: 380px !important;
   width: max-content !important;
   max-width: min(640px, 94vw) !important;
 }
 
-.cdk-overlay-pane.subject-multiselect-panel,
-.cdk-overlay-pane:has(.subject-multiselect-panel) {
+.cdk-overlay-pane.subject-multiselect-panel:not(.mat-mdc-dialog-panel),
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(.subject-multiselect-panel) {
   min-width: 440px !important;
   width: max-content !important;
   max-width: min(650px, 94vw) !important;
@@ -3539,8 +3539,12 @@ button.utr-copy-btn {
 // Report & Master Catalog Dialogs Responsive Engine (Mobile < 640px)
 // ============================================================================
 @media (max-width: 640px) {
+  .cdk-overlay-pane.responsive-fee-collection-dialog,
+  .cdk-overlay-pane:has(app-fee-collection-dialog),
   .cdk-overlay-pane.responsive-fee-master-dialog,
+  .cdk-overlay-pane.responsive-invoice-dialog,
   .cdk-overlay-pane.bulk-fee-print-dialog-panel,
+  .cdk-overlay-pane:has(app-generate-invoices-dialog),
   .cdk-overlay-pane:has(app-fee-master-dialog),
   .cdk-overlay-pane.responsive-report-dialog,
   .cdk-overlay-pane:has(app-class-fee-matrix-report-dialog),
@@ -3557,6 +3561,7 @@ button.utr-copy-btn {
     position: fixed !important;
 
     .mat-mdc-dialog-container,
+    .mdc-dialog__container,
     .mdc-dialog__surface {
       border-radius: 0 !important;
       max-height: 100dvh !important;
@@ -3567,18 +3572,129 @@ button.utr-copy-btn {
       margin: 0 !important;
       display: flex !important;
       flex-direction: column !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
       overflow: hidden !important;
+    }
+
+    app-fee-collection-dialog {
+      display: flex !important;
+      flex-direction: column !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      height: 100% !important;
+      width: 100% !important;
+      max-height: 100dvh !important;
+      overflow: hidden !important;
+
+      form.collection-form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+
+      .dialog-content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .dialog-actions {
+        flex-shrink: 0 !important;
+        flex-grow: 0 !important;
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 10 !important;
+      }
     }
   }
 }
 
 @media (min-width: 641px) {
+  .cdk-overlay-pane.responsive-fee-collection-dialog,
+  .cdk-overlay-pane:has(app-fee-collection-dialog) {
+    width: min(880px, 96vw) !important;
+    max-width: 96vw !important;
+    max-height: 90vh !important;
+
+    .mat-mdc-dialog-container,
+    .mdc-dialog__container,
+    .mdc-dialog__surface {
+      padding: 0 !important;
+      border-radius: 14px !important;
+      overflow: hidden !important;
+      background: #ffffff !important;
+      display: flex !important;
+      flex-direction: column !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      max-height: 90vh !important;
+      height: 100% !important;
+    }
+
+    app-fee-collection-dialog {
+      display: flex !important;
+      flex-direction: column !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      height: 100% !important;
+      max-height: 90vh !important;
+      overflow: hidden !important;
+
+      form.collection-form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+
+      .dialog-content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
+
+      .dialog-actions {
+        flex-shrink: 0 !important;
+        flex-grow: 0 !important;
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 10 !important;
+      }
+    }
+  }
+  .cdk-overlay-pane.responsive-fee-master-dialog {
+    width: min(1150px, 96vw) !important;
+    max-width: 96vw !important;
+  }
+  .cdk-overlay-pane.responsive-invoice-dialog,
+  .cdk-overlay-pane:has(app-generate-invoices-dialog) {
+    width: min(820px, 96vw) !important;
+    max-width: 96vw !important;
+  }
 .cdk-overlay-pane.bulk-fee-print-dialog-panel {
   width: 98vw !important;
   max-width: 1680px !important;
 }
 
 .invoice-breakdown-dialog-panel,
+.responsive-fee-collection-dialog,
 .bulk-fee-print-dialog-panel {
   .mat-mdc-dialog-container,
   .mdc-dialog__surface {

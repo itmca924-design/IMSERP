@@ -39,6 +39,8 @@ public interface IIMSERPDbContext
     DbSet<TeacherLeave> TeacherLeaves { get; }
     DbSet<TeacherAttendanceRegularization> TeacherAttendanceRegularizations { get; }
     DbSet<StudentAttendanceRegularization> StudentAttendanceRegularizations { get; }
+    DbSet<TeacherPayrollMonthLock> TeacherPayrollMonthLocks { get; }
+    DbSet<TeacherLeaveAccrualLog> TeacherLeaveAccrualLogs { get; }
     DbSet<LeaveAndAttendancePolicySettings> LeaveAndAttendancePolicies { get; }
     DbSet<StaffAppraisalPolicySettings> StaffAppraisalPolicies { get; }
     DbSet<Holiday> Holidays { get; }
@@ -133,6 +135,19 @@ public interface IWhatsAppService
 {
     Task<bool> SendFeeReceiptAsync(Guid tenantId, string recipientPhone, string studentName, string receiptNo, decimal amount, decimal balanceDue);
     Task<bool> SendFeeReminderAsync(Guid tenantId, string recipientPhone, string studentName, string invoiceNo, decimal amountDue, DateTime dueDate);
+    Task<bool> SendFeeDueWithVoiceAsync(
+        Guid tenantId,
+        string recipientPhone,
+        string studentName,
+        string? parentName,
+        string? className,
+        string invoiceNo,
+        decimal amountDue,
+        DateTime dueDate,
+        string? upiPaymentUrl = null,
+        bool includeVoiceNote = true,
+        string voiceGender = "Female");
+    Task<WhatsAppTestResultDto> TestWhatsAppGatewayAsync(Guid tenantId, string recipientPhone, string? testMessage = null);
     Task<bool> SendTestMarksReportAsync(Guid tenantId, string recipientPhone, string studentName, string testTitle, decimal marksObtained, decimal maxMarks, int rank);
     Task<bool> SendAnnualExamReportAsync(Guid tenantId, string recipientPhone, string studentName, string examTitle, string academicYear, decimal totalObtained, decimal totalMax, decimal percentage, string grade, string resultStatus, int? rank);
     Task<bool> SendTeacherSalarySlipAsync(Guid tenantId, string recipientPhone, string teacherName, string monthName, int year, decimal netPaid, string receiptNo);

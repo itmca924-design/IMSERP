@@ -307,7 +307,11 @@ import { AuthService } from '../../core/services/auth.service';
                 <div class="fin-field">
                   <div class="fin-label-box">
                     <label>Leave Encashment (PL/EL):</label>
-                    <span class="fin-hint opt">Unused PL × Daily Rate (or 0)</span>
+                    @if ((preview?.earnedLeaveEncashmentAmount || 0) > 0) {
+                      <span class="fin-hint auto" style="color:#15803d;font-weight:700;">⚡ Auto: {{preview?.availableEarnedLeaveDays}} days EL</span>
+                    } @else {
+                      <span class="fin-hint opt">Unused PL × Daily Rate (or 0)</span>
+                    }
                   </div>
                   <input type="number" [(ngModel)]="formData.earnedLeaveEncashment" />
                 </div>
@@ -342,7 +346,11 @@ import { AuthService } from '../../core/services/auth.service';
                 <div class="fin-field">
                   <div class="fin-label-box">
                     <label>Notice Shortfall Recovery:</label>
-                    <span class="fin-hint opt">Shortfall days × Daily Rate (or 0)</span>
+                    @if ((preview?.noticeShortfallDays || 0) > 0) {
+                      <span class="fin-hint auto" style="color:#dc2626;font-weight:700;">⚡ Shortfall: {{preview?.noticeShortfallDays}} days</span>
+                    } @else {
+                      <span class="fin-hint opt">Shortfall days × Daily Rate (or 0)</span>
+                    }
                   </div>
                   <input type="number" [(ngModel)]="formData.noticeShortfallDeduction" />
                 </div>
@@ -494,6 +502,13 @@ import { AuthService } from '../../core/services/auth.service';
                   <span class="status-pill" [class.settled]="s.status === 'Settled'" [class.draft]="s.status === 'Draft'">
                     {{ s.status }}
                   </span>
+                  @if (s.status === 'Settled' && s.netPayableAmount > 0) {
+                    <div style="margin-top: 4px;">
+                      <span class="daybook-sync-chip" matTooltip="Settlement synced to Day Book & P&L Expenses under category SALARY">
+                        <mat-icon>account_balance</mat-icon> Day Book Linked
+                      </span>
+                    </div>
+                  }
                 </td>
                 <td class="text-right actions-cell">
                   <button class="doc-btn" (click)="viewSettlementStatement(s)" matTooltip="View / Print FNF Statement" matButton="filled">
@@ -992,6 +1007,19 @@ import { AuthService } from '../../core/services/auth.service';
         &.settled { background: #dcfce7; color: #15803d; }
         &.draft { background: #fef3c7; color: #b45309; }
       }
+      .daybook-sync-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+        mat-icon { font-size: 13px; width: 13px; height: 13px; }
+      }
       .actions-cell {
         display: flex; justify-content: flex-end; align-items: center; gap: 8px;
         .doc-btn {
@@ -1359,6 +1387,8 @@ export class TeacherFnFComponent implements OnInit {
         this.formData.unpaidSalary = prev.suggestedUnpaidSalary;
         this.formData.pendingAdvanceDeduction = prev.outstandingAdvanceBalance;
         this.formData.libraryDuesDeduction = prev.pendingLibraryFines;
+        this.formData.earnedLeaveEncashment = prev.earnedLeaveEncashmentAmount || 0;
+        this.formData.noticeShortfallDeduction = prev.noticeShortfallAmount || 0;
 
         // Auto-evaluate clearances
         this.formData.academicClearance = prev.activeBatchesCount === 0 && prev.assignedSectionsCount === 0;
@@ -1377,12 +1407,20 @@ export class TeacherFnFComponent implements OnInit {
     if (!this.preview) return;
     if (this.preview.isFinalMonthSalaryPaid) {
       this.formData.unpaidSalary = 0;
-      return;
+    } else {
+      const lastDate = new Date(this.formData.lastWorkingDate);
+      const day = lastDate.getDate();
+      this.formData.workingDaysInFinalMonth = Math.min(day, 30);
+      this.formData.unpaidSalary = Math.round(this.formData.workingDaysInFinalMonth * this.preview.perDayRate);
     }
-    const lastDate = new Date(this.formData.lastWorkingDate);
-    const day = lastDate.getDate();
-    this.formData.workingDaysInFinalMonth = Math.min(day, 30);
-    this.formData.unpaidSalary = Math.round(this.formData.workingDaysInFinalMonth * this.preview.perDayRate);
+
+    if (this.formData.resignationDate && this.formData.lastWorkingDate && (this.preview.noticePeriodRequiredDays || 0) > 0) {
+      const r = new Date(this.formData.resignationDate);
+      const l = new Date(this.formData.lastWorkingDate);
+      const served = Math.max(0, Math.round((l.getTime() - r.getTime()) / (1000 * 3600 * 24)));
+      const shortfall = Math.max(0, (this.preview.noticePeriodRequiredDays || 30) - served);
+      this.formData.noticeShortfallDeduction = Math.round(shortfall * (this.preview.perDayRate || 0));
+    }
   }
 
   getCalculatedTotalEarnings(): number {

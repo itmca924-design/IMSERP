@@ -34,6 +34,7 @@ export interface FeeDialogData {
   items?: FeeInvoiceItem[];
   invoiceDueDate?: string;
   invoiceTitle?: string;
+  isHybrid?: boolean;
 }
 
 export interface FeeCollectionItemRow {
@@ -90,13 +91,18 @@ export interface AdvanceMonthOption {
       </button>
     </div>
     
-    <form [formGroup]="feeForm" (ngSubmit)="onSubmit()">
+    <form [formGroup]="feeForm" (ngSubmit)="onSubmit()" class="collection-form">
       <mat-dialog-content class="dialog-content">
         <!-- Student Info Header Card -->
         <div class="student-info-box">
           <div class="info-details">
             <span class="st-name">{{ data.studentName }} ({{ data.rollNumber }})</span>
             <span class="st-sub">
+              @if (isHybrid) {
+                <span class="st-hybrid-chip" matTooltip="Hybrid Enrolled (School + Coaching Consolidated)">
+                  School + Coaching (Hybrid)
+                </span>
+              }
               @if (data.className) {
                 <span class="st-school-chip">
                   🏫 {{ data.className }}@if (data.sectionName) {
@@ -181,15 +187,15 @@ export interface AdvanceMonthOption {
             <table class="heads-table">
               <thead>
                 <tr>
-                  <th style="width: 40px; text-align: center;">Pay</th>
-                  <th>Fee Head Particulars</th>
-                  <th class="text-right">Total Fee</th>
-                  <th class="text-right">Due Balance</th>
-                  <th class="text-right" style="width: 140px;">Paying Now (₹)</th>
+                  <th class="chk-th" style="width: 44px; text-align: center !important;">Pay</th>
+                  <th style="text-align: left !important;">Fee Head Particulars</th>
+                  <th class="text-right" style="width: 110px; text-align: right !important;">Total Fee</th>
+                  <th class="text-right" style="width: 120px; text-align: right !important;">Due Balance</th>
+                  <th class="text-right" style="width: 145px; text-align: right !important;">Paying Now (₹)</th>
                 </tr>
               </thead>
               <tbody>
-                @for (row of itemRows; track row) {
+                @for (row of itemRows; track (row.id || (row.headName + '_' + $index))) {
                   <tr [class.row-selected]="row.selected" [class.row-disabled]="row.dueAmount <= 0">
                     <td class="chk-cell" style="text-align: center;">
                       <mat-checkbox
@@ -202,7 +208,7 @@ export interface AdvanceMonthOption {
                     <td>
                       <div class="head-info">
                         <div class="head-name-row">
-                          <span class="head-name">{{ row.headName }}</span>
+                          <span class="head-name">{{ cleanHeadName(row.headName) }}</span>
                           <span class="head-stream-badge" [ngClass]="getStreamBadgeClass(row.headName)">
                             {{ getStreamBadgeText(row.headName) }}
                           </span>
@@ -279,12 +285,12 @@ export interface AdvanceMonthOption {
             }
           </div>
           <div class="adv-options-grid">
-            @for (opt of advanceMonthOptions; track opt) {
+            @for (opt of advanceMonthOptions; track opt.monthCount) {
               <button
                 type="button"
                 class="adv-option-btn"
                 [class.active]="selectedAdvanceOption?.monthCount === opt.monthCount"
-                (click)="onSelectAdvanceOption(opt)" matButton="filled">
+                (click)="onSelectAdvanceOption(opt)">
                 <div class="btn-top">
                   <span class="opt-label">{{ opt.label }}</span>
                   @if (selectedAdvanceOption?.monthCount === opt.monthCount) {
@@ -329,7 +335,7 @@ export interface AdvanceMonthOption {
             <div class="fine-amt">₹{{ libraryDues.pendingFineAmount | number:'1.2-2' }}</div>
           </div>
           <div class="fine-books-list">
-            @for (item of libraryDues.pendingFines; track item) {
+            @for (item of libraryDues.pendingFines; track (item.circulationId || item.accessionNumber || $index)) {
               <div class="book-chip">
                 <mat-icon class="chip-icon">menu_book</mat-icon>
                 <span class="book-title">{{ item.bookTitle }}</span>
@@ -402,17 +408,43 @@ export interface AdvanceMonthOption {
         <mat-form-field appearance="outline" class="half-width">
           <mat-label>Payment Mode</mat-label>
           <mat-select formControlName="mode">
-            <mat-option [value]="0">Cash</mat-option>
-            <mat-option [value]="1">UPI / GPay / PhonePe</mat-option>
-            <mat-option [value]="2">Bank Transfer / NetBanking</mat-option>
-            <mat-option [value]="3">Cheque</mat-option>
+            <mat-option [value]="0">💵 Cash</mat-option>
+            <mat-option [value]="1">📱 UPI / GPay / PhonePe</mat-option>
+            <mat-option [value]="2">🏦 Bank Transfer / NetBanking</mat-option>
+            <mat-option [value]="3">📑 Cheque</mat-option>
           </mat-select>
         </mat-form-field>
     
-        <mat-form-field appearance="outline" class="half-width">
-          <mat-label>Transaction / UTR Ref No</mat-label>
-          <input matInput formControlName="transactionRef" placeholder="e.g. 12-digit UPI UTR" />
+        <mat-form-field appearance="outline" class="half-width transaction-ref-field">
+          <mat-label>{{ getTransactionRefLabel() }}</mat-label>
+          <input matInput formControlName="transactionRef" [placeholder]="getTransactionRefPlaceholder()" />
+          <mat-icon matPrefix class="tx-prefix-icon">
+            @switch (feeForm.get('mode')?.value) {
+              @case (0) { payments }
+              @case (1) { qr_code_scanner }
+              @case (2) { account_balance }
+              @case (3) { receipt_long }
+              @default { pin }
+            }
+          </mat-icon>
         </mat-form-field>
+
+        <!-- Mode 0: Cash Notice Banner -->
+        @if (feeForm.get('mode')?.value === 0) {
+          <div class="mode-info-banner mode-cash full-width">
+            <div class="mode-info-left">
+              <mat-icon class="mode-info-icon">payments</mat-icon>
+              <div class="mode-info-text">
+                <strong>Cash Payment at Desk Counter</strong>
+                <span>Physical currency collection at billing counter. Official digital fee receipt &amp; SMS/WhatsApp alert will be issued instantly.</span>
+              </div>
+            </div>
+            <div class="mode-amt-badge">
+              <span>Collect:</span>
+              <strong>₹{{ (feeForm.get('amountPaid')?.value || 0) | number:'1.2-2' }}</strong>
+            </div>
+          </div>
+        }
     
         <!-- Dynamic UPI Counter QR Code Panel (Visible when Payment Mode is UPI = 1) -->
         @if (feeForm.get('mode')?.value === 1) {
@@ -456,38 +488,102 @@ export interface AdvanceMonthOption {
                         <span class="vpa-payee">({{ merchantName }})</span>
                       }
                     </div>
-                    <button type="button" class="copy-vpa-btn" (click)="copyVpa()" matTooltip="Copy UPI ID" mat-icon-button>
-                      <mat-icon>content_copy</mat-icon>
+                    <button type="button" class="copy-vpa-btn" (click)="copyVpa()" [matTooltip]="vpaCopied ? 'Copied!' : 'Copy UPI ID'">
+                      <mat-icon>{{ vpaCopied ? 'check' : 'content_copy' }}</mat-icon>
                     </button>
                   </div>
                 }
-                <!-- 3 Micro-Steps in Horizontal Flow -->
+                <!-- 3 Micro-Steps in Horizontal / Stacked Responsive Flow -->
                 <div class="upi-steps-row">
                   <div class="micro-step">
                     <span class="step-badge">1</span>
-                    <span class="step-desc">Scan with UPI App</span>
+                    <span class="step-desc">Scan with any UPI App (GPay, PhonePe, Paytm, BHIM)</span>
                   </div>
                   <mat-icon class="step-arrow">chevron_right</mat-icon>
                   <div class="micro-step">
                     <span class="step-badge">2</span>
-                    <span class="step-desc">Verify confirmation</span>
+                    <span class="step-desc">Verify institute payee &amp; confirm payment</span>
                   </div>
                   <mat-icon class="step-arrow">chevron_right</mat-icon>
                   <div class="micro-step highlight">
                     <span class="step-badge">3</span>
-                    <span class="step-desc">Enter 12-digit UTR above</span>
+                    <span class="step-desc">Enter 12-digit UTR in field above</span>
                   </div>
                 </div>
                 <!-- Supported Apps Pills -->
                 <div class="upi-apps-chips">
                   <span class="apps-label">Supported:</span>
-                  <span class="app-chip">GPay</span>
-                  <span class="app-chip">PhonePe</span>
-                  <span class="app-chip">Paytm</span>
-                  <span class="app-chip">BHIM</span>
-                  <span class="app-chip">CRED / Any UPI</span>
+                  <span class="app-chip chip-gpay" title="Google Pay">
+                    <svg class="pay-app-icon" viewBox="0 0 24 24" width="13" height="13">
+                      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
+                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24Z"/>
+                      <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15Z"/>
+                      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"/>
+                    </svg>
+                    <span class="chip-text">GPay</span>
+                  </span>
+                  <span class="app-chip chip-phonepe" title="PhonePe">
+                    <span class="phonepe-logo-circle">पे</span>
+                    <span class="chip-text">PhonePe</span>
+                  </span>
+                  <span class="app-chip chip-paytm" title="Paytm">
+                    <svg class="pay-app-icon" viewBox="0 0 24 14" width="16" height="11">
+                      <rect width="24" height="14" rx="2" fill="#002970"/>
+                      <text x="3" y="10" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-weight="900" font-size="7.5" fill="#ffffff">pay</text>
+                      <text x="14.5" y="10" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-weight="900" font-size="7.5" fill="#00b9f5">tm</text>
+                    </svg>
+                    <span class="chip-text paytm-brand-text"><span class="p-dark">Pay</span><span class="p-cyan">tm</span></span>
+                  </span>
+                  <span class="app-chip chip-bhim" title="BHIM UPI">
+                    <svg class="pay-app-icon" viewBox="0 0 16 16" width="13" height="13">
+                      <polygon points="3,2 8,2 5,14 0,14" fill="#007659"/>
+                      <polygon points="9,2 14,2 11,14 6,14" fill="#E26A2C"/>
+                    </svg>
+                    <span class="chip-text">BHIM</span>
+                  </span>
+                  <span class="app-chip chip-upi" title="CRED / Any UPI App">
+                    <svg class="pay-app-icon" viewBox="0 0 20 14" width="15" height="11">
+                      <path d="M1,2 L5.5,2 L3.5,12 L-1,12 Z" fill="#007659"/>
+                      <path d="M7,2 L11.5,2 L9.5,12 L5,12 Z" fill="#E26A2C"/>
+                    </svg>
+                    <span class="chip-text">CRED / Any UPI</span>
+                  </span>
                 </div>
               </div>
+            </div>
+          </div>
+        }
+
+        <!-- Mode 2: Bank Transfer Notice Banner -->
+        @if (feeForm.get('mode')?.value === 2) {
+          <div class="mode-info-banner mode-bank full-width">
+            <div class="mode-info-left">
+              <mat-icon class="mode-info-icon">account_balance</mat-icon>
+              <div class="mode-info-text">
+                <strong>Direct Bank Transfer / NEFT / IMPS / RTGS</strong>
+                <span>Record the bank transaction reference number / UTR to reconcile payment directly with the institution bank account.</span>
+              </div>
+            </div>
+            <div class="mode-amt-badge">
+              <span>Transfer:</span>
+              <strong>₹{{ (feeForm.get('amountPaid')?.value || 0) | number:'1.2-2' }}</strong>
+            </div>
+          </div>
+        }
+
+        <!-- Mode 3: Cheque Notice Banner -->
+        @if (feeForm.get('mode')?.value === 3) {
+          <div class="mode-info-banner mode-cheque full-width">
+            <div class="mode-info-left">
+              <mat-icon class="mode-info-icon">receipt_long</mat-icon>
+              <div class="mode-info-text">
+                <strong>Cheque / Demand Draft Collection</strong>
+                <span>Enter cheque number and bank name above. Official receipt will record instrument details for clearance audit.</span>
+              </div>
+            </div>
+            <div class="mode-amt-badge">
+              <span>Instrument:</span>
+              <strong>₹{{ (feeForm.get('amountPaid')?.value || 0) | number:'1.2-2' }}</strong>
             </div>
           </div>
         }
@@ -533,18 +629,46 @@ export interface AdvanceMonthOption {
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
       width: 100%;
+      height: 100%;
+      max-height: 90vh;
       overflow: hidden;
+      box-sizing: border-box;
+
+      @media (max-width: 768px) {
+        max-height: 100dvh;
+        height: 100dvh;
+      }
     }
 
     .dialog-header-wrap {
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       gap: 14px;
       padding: 18px 24px 16px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
+
+      @media (max-width: 768px) {
+        padding: 12px 16px;
+        gap: 10px;
+
+        .header-icon-box {
+          width: 38px;
+          height: 38px;
+          mat-icon { font-size: 20px; width: 20px; height: 20px; }
+        }
+
+        .header-titles {
+          .dialog-header { font-size: 1.05rem; }
+          .dialog-sub { font-size: 0.74rem; }
+        }
+      }
 
       .header-icon-box {
         width: 44px;
@@ -590,13 +714,28 @@ export interface AdvanceMonthOption {
       }
     }
 
+    form.collection-form {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
     .dialog-content {
       width: 100%;
       box-sizing: border-box;
       padding: 18px 24px;
-      max-height: 75vh;
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
+
+      @media (max-width: 768px) {
+        padding: 12px 14px !important;
+      }
     }
 
     .student-info-box {
@@ -609,17 +748,32 @@ export interface AdvanceMonthOption {
       align-items: center;
       gap: 16px;
       margin-bottom: 16px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+
+      @media (max-width: 768px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px 14px;
+      }
 
       .info-details {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 4px;
         min-width: 0;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
 
         .st-name {
           font-weight: 700;
           font-size: 1.05rem;
           color: #0f172a;
+          word-break: break-word;
         }
 
         .st-sub {
@@ -630,41 +784,74 @@ export interface AdvanceMonthOption {
           flex-wrap: wrap;
           gap: 6px;
           margin-top: 3px;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+
+          .st-hybrid-chip {
+            background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%);
+            color: #7e22ce;
+            border: 1px solid #f0abfc;
+            box-shadow: 0 1px 2px rgba(126, 34, 206, 0.08);
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.76rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            max-width: 100%;
+            box-sizing: border-box;
+            word-break: break-word;
+            line-height: 1.35;
+          }
 
           .st-school-chip {
             color: #0369a1;
             font-weight: 600;
             background: #e0f2fe;
-            padding: 1px 6px;
+            padding: 2px 7px;
             border-radius: 4px;
             border: 1px solid #bae6fd;
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            max-width: 100%;
+            box-sizing: border-box;
+            word-break: break-word;
+            line-height: 1.35;
           }
 
           .st-batch-chip {
             color: #6d28d9;
             font-weight: 600;
             background: #ede9fe;
-            padding: 1px 6px;
+            padding: 2px 7px;
             border-radius: 4px;
             border: 1px solid #ddd6fe;
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            max-width: 100%;
+            box-sizing: border-box;
+            word-break: break-word;
+            line-height: 1.35;
           }
 
           .st-branch-chip {
             color: #1e40af;
             font-weight: 700;
             background: #eff6ff;
-            padding: 1px 6px;
+            padding: 2px 7px;
             border-radius: 4px;
             border: 1px solid #bfdbfe;
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            max-width: 100%;
+            box-sizing: border-box;
+            word-break: break-word;
+            line-height: 1.35;
           }
 
           .st-sep {
@@ -673,8 +860,9 @@ export interface AdvanceMonthOption {
           }
 
           .st-wa-text {
-            color: #16a34a;
-            font-weight: 500;
+            color: #047857;
+            font-weight: 600;
+            white-space: nowrap;
           }
         }
         .hostel-badge {
@@ -727,8 +915,17 @@ export interface AdvanceMonthOption {
         background: #fef2f2;
         border: 1px solid #fecaca;
         border-radius: 8px;
-        padding: 6px 14px;
+        padding: 8px 14px;
         transition: all 0.2s ease;
+
+        @media (max-width: 768px) {
+          text-align: left;
+          width: 100%;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
 
         &.due-badge-settled {
           background: #f0fdf4;
@@ -798,6 +995,10 @@ export interface AdvanceMonthOption {
       margin-bottom: 16px;
       background: #ffffff;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
 
       .breakdown-header {
         display: flex;
@@ -806,6 +1007,15 @@ export interface AdvanceMonthOption {
         padding: 10px 14px;
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
+        gap: 8px;
+        flex-wrap: wrap;
+
+        @media (max-width: 640px) {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 6px;
+          padding: 10px 12px;
+        }
 
         .card-title {
           font-size: 0.9rem;
@@ -820,16 +1030,23 @@ export interface AdvanceMonthOption {
           padding: 3px 10px;
           border-radius: 6px;
           border: 1px solid #bae6fd;
+          white-space: nowrap;
         }
       }
 
       .heads-table-wrap {
-        max-height: 250px;
+        max-height: 280px;
         overflow-y: auto;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
       .heads-table {
         width: 100%;
+        min-width: 560px;
         border-collapse: collapse;
         font-size: 0.85rem;
 
@@ -840,12 +1057,22 @@ export interface AdvanceMonthOption {
           z-index: 1;
 
           th {
-            padding: 8px 10px;
+            padding: 9px 12px;
             font-size: 0.75rem;
-            font-weight: 600;
-            color: #475569;
+            font-weight: 700;
+            color: #334155;
             text-transform: uppercase;
+            letter-spacing: 0.3px;
             border-bottom: 1px solid #cbd5e1;
+            text-align: left !important;
+
+            &.chk-th {
+              text-align: center !important;
+            }
+
+            &.text-right {
+              text-align: right !important;
+            }
           }
         }
 
@@ -867,8 +1094,17 @@ export interface AdvanceMonthOption {
             }
 
             td {
-              padding: 8px 10px;
+              padding: 9px 12px;
               vertical-align: middle;
+              text-align: left !important;
+
+              &.chk-cell {
+                text-align: center !important;
+              }
+
+              &.text-right {
+                text-align: right !important;
+              }
             }
           }
         }
@@ -881,7 +1117,7 @@ export interface AdvanceMonthOption {
           .head-name-row {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             flex-wrap: wrap;
           }
 
@@ -919,10 +1155,15 @@ export interface AdvanceMonthOption {
           }
 
           .head-stream-badge {
-            font-size: 0.68rem;
-            padding: 1px 6px;
+            font-size: 0.7rem;
+            padding: 2px 7px;
             border-radius: 4px;
-            font-weight: 500;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
 
             &.badge-school {
               background: #e0f2fe;
@@ -1102,15 +1343,18 @@ export interface AdvanceMonthOption {
 
       .adv-options-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+        gap: 10px;
         padding: 12px;
 
         .adv-option-btn {
           display: flex;
           flex-direction: column;
-          gap: 4px;
-          padding: 8px 10px;
+          justify-content: space-between;
+          gap: 6px;
+          padding: 10px 12px;
+          min-height: 66px;
+          box-sizing: border-box;
           background: #ffffff;
           border: 1.5px solid #cbd5e1;
           border-radius: 8px;
@@ -1138,30 +1382,37 @@ export interface AdvanceMonthOption {
           .btn-top {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
+            gap: 6px;
 
             .opt-label {
-              font-size: 0.76rem;
+              font-size: 0.78rem;
               font-weight: 700;
               color: #334155;
+              line-height: 1.35;
+              word-break: normal;
             }
 
             .opt-check-icon {
-              font-size: 14px;
-              width: 14px;
-              height: 14px;
+              font-size: 15px;
+              width: 15px;
+              height: 15px;
               color: #2563eb;
+              flex-shrink: 0;
+              margin-top: 2px;
             }
           }
 
           .btn-meta {
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
-            gap: 4px;
+            align-items: center;
+            gap: 6px;
+            margin-top: auto;
+            padding-top: 4px;
 
             .opt-period {
-              font-size: 0.68rem;
+              font-size: 0.7rem;
               color: #64748b;
               white-space: nowrap;
               overflow: hidden;
@@ -1169,8 +1420,8 @@ export interface AdvanceMonthOption {
             }
 
             .opt-cost {
-              font-size: 0.8rem;
-              font-weight: 700;
+              font-size: 0.82rem;
+              font-weight: 800;
               color: #059669;
               white-space: nowrap;
 
@@ -1343,13 +1594,23 @@ export interface AdvanceMonthOption {
       flex-wrap: wrap;
       gap: 12px;
 
+      @media (max-width: 640px) {
+        gap: 10px;
+      }
+
       .full-width {
         flex: 1 1 100%;
         width: 100%;
       }
       .half-width {
         flex: 1 1 calc(50% - 6px);
-        min-width: 200px;
+        min-width: 220px;
+
+        @media (max-width: 640px) {
+          flex: 1 1 100%;
+          width: 100%;
+          min-width: 100%;
+        }
       }
 
       .amount-collect-field {
@@ -1369,6 +1630,135 @@ export interface AdvanceMonthOption {
           font-weight: 600 !important;
         }
       }
+
+      .transaction-ref-field {
+        .tx-prefix-icon {
+          color: #2563eb;
+          margin-right: 6px;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+
+    /* Mode Information Banners (Cash, Bank Transfer, Cheque) */
+    .mode-info-banner {
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+
+      @media (max-width: 640px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 10px 12px;
+      }
+
+      .mode-info-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+
+        .mode-info-icon {
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
+          flex-shrink: 0;
+        }
+
+        .mode-info-text {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+
+          strong {
+            font-size: 0.88rem;
+            font-weight: 700;
+          }
+
+          span {
+            font-size: 0.76rem;
+            line-height: 1.35;
+          }
+        }
+      }
+
+      .mode-amt-badge {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        flex-shrink: 0;
+        padding: 4px 10px;
+        border-radius: 8px;
+
+        @media (max-width: 640px) {
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        span {
+          font-size: 0.68rem;
+          text-transform: uppercase;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+        }
+
+        strong {
+          font-size: 0.98rem;
+          font-weight: 800;
+        }
+      }
+
+      &.mode-cash {
+        background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+        border: 1px solid #a7f3d0;
+        .mode-info-icon { color: #059669; }
+        .mode-info-text strong { color: #065f46; }
+        .mode-info-text span { color: #047857; }
+        .mode-amt-badge {
+          background: #d1fae5;
+          border: 1px solid #6ee7b7;
+          span { color: #047857; }
+          strong { color: #064e3b; }
+        }
+      }
+
+      &.mode-bank {
+        background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+        border: 1px solid #bfdbfe;
+        .mode-info-icon { color: #2563eb; }
+        .mode-info-text strong { color: #1e40af; }
+        .mode-info-text span { color: #1d4ed8; }
+        .mode-amt-badge {
+          background: #dbeafe;
+          border: 1px solid #93c5fd;
+          span { color: #1e40af; }
+          strong { color: #172554; }
+        }
+      }
+
+      &.mode-cheque {
+        background: linear-gradient(135deg, #fffbeb 0%, #fefce8 100%);
+        border: 1px solid #fde68a;
+        .mode-info-icon { color: #d97706; }
+        .mode-info-text strong { color: #92400e; }
+        .mode-info-text span { color: #b45309; }
+        .mode-amt-badge {
+          background: #fef3c7;
+          border: 1px solid #fcd34d;
+          span { color: #92400e; }
+          strong { color: #78350f; }
+        }
+      }
     }
 
     .whatsapp-toggle-box {
@@ -1378,40 +1768,63 @@ export interface AdvanceMonthOption {
       padding: 8px 14px;
       margin-top: 4px;
 
+      @media (max-width: 640px) {
+        padding: 8px 10px;
+      }
+
       .wa-toggle-label {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         color: #15803d;
         font-size: 0.85rem;
+        flex-wrap: wrap;
+        line-height: 1.35;
 
         .wa-icon {
           font-size: 18px;
           width: 18px;
           height: 18px;
           color: #16a34a;
+          flex-shrink: 0;
+        }
+
+        strong {
+          word-break: normal;
         }
       }
     }
 
-    /* Dynamic UPI Counter Card - Compact, High-Tech, Zero-Overflow */
+    /* Dynamic UPI Counter Card - Fully Responsive Across Mobile, Tablet & Desktop */
     .dynamic-upi-counter-card {
       background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
       border: 1px solid #86efac;
       border-radius: 12px;
-      padding: 10px 14px;
+      padding: 12px 16px;
       margin-bottom: 8px;
       box-shadow: 0 2px 8px rgba(22, 163, 74, 0.08);
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+
+      @media (max-width: 640px) {
+        padding: 10px 12px;
+        border-radius: 10px;
+      }
 
       .upi-card-inner {
         display: grid;
         grid-template-columns: auto 1fr;
-        gap: 14px;
+        gap: 16px;
         align-items: center;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
 
-        @media (max-width: 600px) {
+        @media (max-width: 640px) {
           grid-template-columns: 1fr;
-          gap: 10px;
+          gap: 12px;
         }
       }
 
@@ -1419,74 +1832,83 @@ export interface AdvanceMonthOption {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
 
         .qr-frame {
           position: relative;
           background: #ffffff;
-          padding: 5px;
-          border-radius: 8px;
-          border: 1.5px solid #16a34a;
-          box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
+          padding: 6px;
+          border-radius: 10px;
+          border: 2px solid #16a34a;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
           display: flex;
           align-items: center;
           justify-content: center;
 
           .counter-qr-canvas {
             display: block;
-            width: 115px !important;
-            height: 115px !important;
+            width: 120px !important;
+            height: 120px !important;
+
+            @media (max-width: 640px) {
+              width: 130px !important;
+              height: 130px !important;
+            }
           }
 
           .scan-corner {
             position: absolute;
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             border-color: #16a34a;
             border-style: solid;
             pointer-events: none;
 
             &.top-left {
-              top: 2px;
-              left: 2px;
-              border-width: 2px 0 0 2px;
-              border-top-left-radius: 3px;
+              top: 3px;
+              left: 3px;
+              border-width: 2.5px 0 0 2.5px;
+              border-top-left-radius: 4px;
             }
             &.top-right {
-              top: 2px;
-              right: 2px;
-              border-width: 2px 2px 0 0;
-              border-top-right-radius: 3px;
+              top: 3px;
+              right: 3px;
+              border-width: 2.5px 2.5px 0 0;
+              border-top-right-radius: 4px;
             }
             &.bottom-left {
-              bottom: 2px;
-              left: 2px;
-              border-width: 0 0 2px 2px;
-              border-bottom-left-radius: 3px;
+              bottom: 3px;
+              left: 3px;
+              border-width: 0 0 2.5px 2.5px;
+              border-bottom-left-radius: 4px;
             }
             &.bottom-right {
-              bottom: 2px;
-              right: 2px;
-              border-width: 0 2px 2px 0;
-              border-bottom-right-radius: 3px;
+              bottom: 3px;
+              right: 3px;
+              border-width: 0 2.5px 2.5px 0;
+              border-bottom-right-radius: 4px;
             }
           }
         }
 
         .btn-refresh-mini {
-          height: 22px;
-          line-height: 22px;
-          padding: 0 6px;
-          font-size: 0.7rem;
+          height: 24px;
+          line-height: 24px;
+          padding: 0 8px;
+          font-size: 0.72rem;
           color: #15803d;
           font-weight: 600;
           border-radius: 4px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: #ffffff;
+          border: 1px solid #86efac;
 
           mat-icon {
-            font-size: 13px;
-            width: 13px;
-            height: 13px;
-            margin-right: 3px;
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
           }
           &:hover {
             background: #dcfce7;
@@ -1497,40 +1919,54 @@ export interface AdvanceMonthOption {
       .upi-info-col {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
         min-width: 0;
+        width: 100%;
 
         .upi-info-top {
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 6px;
+          gap: 8px;
+
+          @media (max-width: 640px) {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+          }
 
           .upi-brand-badge {
             display: flex;
             align-items: center;
             gap: 6px;
+            flex-wrap: wrap;
+
+            @media (max-width: 640px) {
+              justify-content: space-between;
+              width: 100%;
+            }
 
             .brand-icon {
-              font-size: 18px;
-              width: 18px;
-              height: 18px;
+              font-size: 20px;
+              width: 20px;
+              height: 20px;
               color: #16a34a;
             }
             strong {
-              font-size: 0.86rem;
+              font-size: 0.9rem;
               color: #14532d;
-              font-weight: 700;
+              font-weight: 800;
             }
             .zero-fee-badge {
               background: #dcfce7;
               color: #15803d;
-              font-size: 0.68rem;
+              font-size: 0.7rem;
               font-weight: 700;
-              padding: 1px 6px;
-              border-radius: 10px;
+              padding: 2px 8px;
+              border-radius: 12px;
               border: 1px solid #86efac;
+              white-space: nowrap;
             }
           }
 
@@ -1538,18 +1974,27 @@ export interface AdvanceMonthOption {
             background: #dcfce7;
             border: 1px solid #86efac;
             border-radius: 16px;
-            padding: 2px 8px;
+            padding: 3px 10px;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
+            white-space: nowrap;
+
+            @media (max-width: 640px) {
+              width: 100%;
+              box-sizing: border-box;
+              justify-content: space-between;
+              padding: 5px 12px;
+              border-radius: 8px;
+            }
 
             .amt-lbl {
-              font-size: 0.7rem;
+              font-size: 0.74rem;
               color: #15803d;
               font-weight: 600;
             }
             .amt-val {
-              font-size: 0.92rem;
+              font-size: 1rem;
               color: #14532d;
               font-weight: 800;
             }
@@ -1559,60 +2004,75 @@ export interface AdvanceMonthOption {
         .vpa-compact-bar {
           background: #ffffff;
           border: 1px solid #bbf7d0;
-          border-radius: 6px;
-          padding: 3px 8px;
+          border-radius: 8px;
+          padding: 6px 12px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 6px;
+          gap: 10px;
+          min-height: 44px;
+          box-sizing: border-box;
 
           .vpa-text-box {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 0.78rem;
+            flex-wrap: wrap;
+            gap: 4px 8px;
             min-width: 0;
-            overflow: hidden;
+            flex: 1 1 auto;
 
             .vpa-label {
               color: #64748b;
-              font-weight: 600;
+              font-weight: 700;
               font-size: 0.7rem;
               text-transform: uppercase;
-              letter-spacing: 0.3px;
-              flex-shrink: 0;
+              letter-spacing: 0.4px;
+              white-space: nowrap;
             }
             .vpa-id {
               color: #0f172a;
               font-family: 'SF Mono', Consolas, Monaco, monospace;
               font-weight: 700;
-              font-size: 0.82rem;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
+              font-size: 0.85rem;
+              word-break: break-all;
             }
             .vpa-payee {
-              color: #64748b;
-              font-size: 0.72rem;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
+              color: #475569;
+              font-size: 0.74rem;
+              font-weight: 500;
             }
           }
 
           .copy-vpa-btn {
-            width: 24px;
-            height: 24px;
-            line-height: 24px;
-            flex-shrink: 0;
+            width: 30px;
+            height: 30px;
+            flex: 0 0 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            align-self: center;
+            margin: auto 0;
             color: #16a34a;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 0;
+            transition: all 0.15s ease;
+
             mat-icon {
-              font-size: 14px;
-              width: 14px;
-              height: 14px;
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
             }
+
             &:hover {
-              background: #f0fdf4;
+              background: #dcfce7;
+              border-color: #86efac;
+              color: #15803d;
             }
           }
         }
@@ -1620,27 +2080,58 @@ export interface AdvanceMonthOption {
         .upi-steps-row {
           display: flex;
           align-items: center;
-          gap: 4px;
-          background: rgba(255, 255, 255, 0.75);
+          gap: 6px;
+          background: rgba(255, 255, 255, 0.85);
           border: 1px solid #e2e8f0;
-          border-radius: 6px;
-          padding: 4px 6px;
+          border-radius: 8px;
+          padding: 6px 8px;
+
+          @media (max-width: 640px) {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+            padding: 8px 10px;
+
+            .step-arrow {
+              display: none !important;
+            }
+
+            .micro-step {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 0.78rem;
+
+              .step-badge {
+                width: 18px;
+                height: 18px;
+                font-size: 0.68rem;
+              }
+
+              .step-desc {
+                white-space: normal;
+                overflow: visible;
+                text-overflow: unset;
+                line-height: 1.35;
+              }
+            }
+          }
 
           .micro-step {
             display: flex;
             align-items: center;
             gap: 4px;
-            font-size: 0.72rem;
+            font-size: 0.74rem;
             color: #475569;
             min-width: 0;
 
             .step-badge {
-              width: 15px;
-              height: 15px;
+              width: 16px;
+              height: 16px;
               border-radius: 50%;
               background: #16a34a;
               color: #ffffff;
-              font-size: 0.62rem;
+              font-size: 0.65rem;
               font-weight: 800;
               display: flex;
               align-items: center;
@@ -1656,7 +2147,7 @@ export interface AdvanceMonthOption {
 
             &.highlight {
               color: #1e293b;
-              font-weight: 600;
+              font-weight: 700;
               .step-badge {
                 background: #2563eb;
               }
@@ -1664,9 +2155,9 @@ export interface AdvanceMonthOption {
           }
 
           .step-arrow {
-            font-size: 13px;
-            width: 13px;
-            height: 13px;
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
             color: #94a3b8;
             flex-shrink: 0;
           }
@@ -1675,22 +2166,102 @@ export interface AdvanceMonthOption {
         .upi-apps-chips {
           display: flex;
           align-items: center;
-          gap: 5px;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 3px;
 
           .apps-label {
-            font-size: 0.68rem;
+            font-size: 0.72rem;
             color: #64748b;
             font-weight: 600;
+            white-space: nowrap;
+            margin-right: 2px;
           }
 
           .app-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
             background: #ffffff;
             border: 1px solid #cbd5e1;
-            border-radius: 3px;
-            padding: 1px 5px;
-            font-size: 0.65rem;
+            border-radius: 5px;
+            padding: 3px 8px;
+            font-size: 0.70rem;
             font-weight: 600;
-            color: #475569;
+            color: #334155;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            transition: all 0.15s ease-in-out;
+            user-select: none;
+
+            &:hover {
+              border-color: #94a3b8;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+              transform: translateY(-1px);
+            }
+
+            .pay-app-icon {
+              display: inline-block;
+              vertical-align: middle;
+              flex-shrink: 0;
+            }
+
+            .chip-text {
+              line-height: 1;
+            }
+
+            &.chip-gpay {
+              &:hover {
+                border-color: #4285f4;
+              }
+            }
+
+            &.chip-phonepe {
+              .phonepe-logo-circle {
+                width: 13px;
+                height: 13px;
+                background: #5f259f;
+                color: #ffffff;
+                border-radius: 50%;
+                font-size: 8px;
+                font-weight: 800;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                line-height: 1;
+                flex-shrink: 0;
+              }
+              &:hover {
+                border-color: #5f259f;
+                color: #5f259f;
+              }
+            }
+
+            &.chip-paytm {
+              .p-dark {
+                color: #002970;
+                font-weight: 800;
+              }
+              .p-cyan {
+                color: #00b9f5;
+                font-weight: 800;
+              }
+              &:hover {
+                border-color: #00b9f5;
+              }
+            }
+
+            &.chip-bhim {
+              &:hover {
+                border-color: #007659;
+              }
+            }
+
+            &.chip-upi {
+              &:hover {
+                border-color: #e26a2c;
+              }
+            }
           }
         }
       }
@@ -1739,13 +2310,33 @@ export interface AdvanceMonthOption {
     }
 
     .dialog-actions {
-      padding: 14px 24px 16px;
+      padding: 12px 24px 14px;
       border-top: 1px solid #bfdbfe;
       background: #f8fafc;
       display: flex;
       justify-content: flex-end;
       gap: 12px;
       margin: 0;
+      flex-shrink: 0;
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08);
+
+      @media (max-width: 768px) {
+        padding: 10px 14px;
+        flex-direction: row;
+        gap: 8px;
+
+        .btn-cancel {
+          flex: 0 0 auto;
+        }
+
+        .btn-confirm {
+          flex: 1 1 auto;
+          justify-content: center;
+        }
+      }
 
       .btn-cancel {
         color: #475569;
@@ -1903,7 +2494,7 @@ export class FeeCollectionDialogComponent implements OnInit {
       const due = Math.max(0, netHeadTotal - it.paidAmount);
 
       return {
-        id: it.id,
+        id: it.id || ('head_' + idx + '_' + (it.headName || 'item').replace(/\s+/g, '_')),
         invoiceId: invoiceId,
         invoiceTitle: invoiceTitle,
         headName: it.headName,
@@ -2393,6 +2984,21 @@ export class FeeCollectionDialogComponent implements OnInit {
     }
   }
 
+  get isHybrid(): boolean {
+    if (this.data?.isHybrid !== undefined) return this.data.isHybrid;
+    if (this.data?.className && this.data?.batchName) return true;
+    const items = this.itemRows || this.data?.items || [];
+    const hasCoaching = items.some(it => {
+      const n = (it.headName || '').toLowerCase();
+      return n.includes('coaching');
+    });
+    const hasSchool = items.some(it => {
+      const n = (it.headName || '').toLowerCase();
+      return n.includes('school') || n.includes('tuition') || n.includes('admission');
+    });
+    return (hasCoaching && hasSchool) || (!!this.data?.className && !!this.data?.batchName);
+  }
+
   getStreamBadgeClass(name: string): string {
     const lower = name.toLowerCase();
     if (lower.includes('hostel') || lower.includes('bed') || lower.includes('mess')) return 'badge-hostel';
@@ -2413,6 +3019,22 @@ export class FeeCollectionDialogComponent implements OnInit {
     if (lower.includes('tuition')) return '🏫 School';
     if (lower.includes('shirt') || lower.includes('uniform') || lower.includes('dress') || lower.includes('pen') || lower.includes('kit') || lower.includes('book') || lower.includes('stationery') || lower.includes('bag') || lower.includes('belt') || lower.includes('tie')) return '🎒 Kit';
     return '📋 Fee';
+  }
+
+  cleanHeadName(name: string): string {
+    if (!name) return '';
+    if (this.data?.className) {
+      const rawCls = this.data.className.trim();
+      const escapedRaw = rawCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      name = name.replace(new RegExp(`\\s*\\(${escapedRaw}\\)\\s*`, 'gi'), ' ');
+      const baseCls = rawCls.split('(')[0].trim();
+      if (baseCls && baseCls !== rawCls) {
+        const escapedBase = baseCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        name = name.replace(new RegExp(`\\s*\\(${escapedBase}\\)\\s*`, 'gi'), ' ');
+      }
+    }
+    name = name.replace(/\s*\(\s*(School|LKG|UKG|Nursery|Pre-Nursery|Prep)\s*\)\s*/gi, ' ');
+    return name.trim();
   }
 
   loadStudentLibraryDues(): void {
@@ -2637,7 +3259,7 @@ export class FeeCollectionDialogComponent implements OnInit {
     const upiUri = `upi://pay?pa=${vpa}&pn=${payee}&am=${formattedAmt}&cu=INR&tn=${note}&tr=${txnRef}&mc=8211`;
 
     QRCode.toCanvas(this.counterQrCanvas.nativeElement, upiUri, {
-      width: 115,
+      width: 130,
       margin: 1,
       color: {
         dark: '#0f172a',
@@ -2647,10 +3269,33 @@ export class FeeCollectionDialogComponent implements OnInit {
     }).catch(err => console.error('Error generating counter QR canvas:', err));
   }
 
+  vpaCopied = false;
   copyVpa(): void {
     if (this.activeVpa) {
       navigator.clipboard?.writeText(this.activeVpa);
+      this.vpaCopied = true;
+      setTimeout(() => { this.vpaCopied = false; }, 2500);
       this.confirmDialog.alert('Copied', `Institute VPA ${this.activeVpa} copied to clipboard.`);
+    }
+  }
+
+  getTransactionRefLabel(): string {
+    switch (this.feeForm?.get('mode')?.value) {
+      case 0: return 'Cash Memo / Receipt Ref (Optional)';
+      case 1: return '12-Digit UPI UTR / Transaction Ref';
+      case 2: return 'Bank NEFT / RTGS / UTR Ref No';
+      case 3: return 'Cheque No & Bank Details';
+      default: return 'Transaction / Reference No';
+    }
+  }
+
+  getTransactionRefPlaceholder(): string {
+    switch (this.feeForm?.get('mode')?.value) {
+      case 0: return 'Optional (e.g. Desk Cash Voucher #104)';
+      case 1: return 'Enter 12-digit UPI UTR from payment app';
+      case 2: return 'Enter Bank NEFT / RTGS / IMPS Ref No';
+      case 3: return 'e.g. Chq #000124 - SBI Main Branch';
+      default: return 'Reference or Transaction No';
     }
   }
 

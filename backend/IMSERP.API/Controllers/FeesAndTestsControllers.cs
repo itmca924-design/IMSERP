@@ -2757,10 +2757,13 @@ public class FeesController : ControllerBase
                 s.Class != null ? s.Class.Name : null,
                 s.BatchId,
                 s.Batch != null ? s.Batch.Name : null,
-                (s.IsCoachingStudent && !s.IsSchoolStudent && s.CoachingJoiningDate != null) ? s.CoachingJoiningDate.Value : s.JoiningDate,
+                s.JoiningDate,
                 s.Batch != null ? s.Batch.StandardMonthlyFee : 3500m,
                 false,
-                null
+                null,
+                s.CoachingJoiningDate,
+                s.IsSchoolStudent,
+                s.IsCoachingStudent
             ))
             .ToListAsync();
 
@@ -3064,6 +3067,21 @@ public class FeesController : ControllerBase
             .Distinct()
             .ToListAsync();
         var studentsWithPriorCoachingInvoiceSet = studentIdsWithSessionCoachingInvoice.ToHashSet();
+
+        // Students who already have at least one school item billed in this academic session (pure DB ApplicableTo / Description / FeeHeadId)
+        var studentIdsWithSessionSchoolInvoice = await _dbContext.FeeInvoiceItems
+            .AsNoTracking()
+            .Where(it => studentIds.Contains(it.Invoice!.StudentId) &&
+                         it.Invoice!.Status != InvoiceStatus.Cancelled &&
+                         it.Invoice.InvoiceCategory != "Inventory" &&
+                         it.Invoice.DueDate >= sessionStartDate && it.Invoice.DueDate <= sessionEndDate &&
+                         ((it.FeeHead != null && (it.FeeHead.ApplicableTo == "School" || it.FeeHead.ApplicableTo == "Both")) ||
+                          (tuiFeeHead != null && it.FeeHeadId == tuiFeeHead.Id) ||
+                          (it.Description != null && !it.Description.StartsWith("Coaching:"))))
+            .Select(it => it.Invoice!.StudentId)
+            .Distinct()
+            .ToListAsync();
+        var studentsWithPriorSchoolInvoiceSet = studentIdsWithSessionSchoolInvoice.ToHashSet();
         // ────────────────────────────────────────────────────────────────────
 
         // ── Load Active Fee Concessions & Sibling Discounts for Target Students ──
@@ -3206,7 +3224,7 @@ public class FeesController : ControllerBase
                 studentStartMonth = customOverride.StartMonth.Value;
                 studentStartYear = customOverride.StartYear.Value;
             }
-            else if (dto.AutoBillNewAdmissionsFromDoj && isNewAdmission && effectiveEarliestDate > DateTime.MinValue && effectiveEarliestDate.Year <= dto.Year)
+            else if (!dto.StudentId.HasValue && dto.AutoBillNewAdmissionsFromDoj && isNewAdmission && effectiveEarliestDate > DateTime.MinValue && effectiveEarliestDate.Year <= dto.Year)
             {
                 // Dynamic Admission Cutoff Rule (Day 1 to CutoffDay = Same Month; Day > CutoffDay = Next Month)
                 if (effectiveEarliestDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull")
@@ -3323,7 +3341,7 @@ public class FeesController : ControllerBase
             var coachingBilledOneTime = lifetimeCoachingOneTimeSet.GetValueOrDefault(s.Id) ?? new HashSet<Guid>();
 
             // School admission checks
-            bool hasPriorSchoolInvoice = studentsWithPriorInvoiceSet.Contains(s.Id);
+            bool hasPriorSchoolInvoice = studentsWithPriorSchoolInvoiceSet.Contains(s.Id);
             bool isSchoolAdmissionMonth = (effectiveSchoolDate >= studentPeriodStart && effectiveSchoolDate <= studentPeriodEnd);
             bool isRolledOverSchoolMonth = (effectiveSchoolDate.Day > cutoffDay && rolloverPolicy == "NextMonthFull" &&
                 effectiveSchoolDate.AddMonths(1) >= studentPeriodStart && effectiveSchoolDate.AddMonths(1) <= studentPeriodEnd && !hasPriorSchoolInvoice);
@@ -3449,9 +3467,7 @@ public class FeesController : ControllerBase
                     decimal headAmount = isRecurring ? (head.Amount * studentCycleMonths) : head.Amount;
                     totalAmount += headAmount;
 
-                    string headName = sharedFeeHeadIds.Contains(head.FeeHeadId)
-                        ? $"{head.FeeHead?.Name ?? "Fee Head"} ({s.Class?.Name ?? "School"})"
-                        : (head.FeeHead?.Name ?? "Fee Head");
+                    string headName = head.FeeHead?.Name ?? "Fee Head";
 
                     invoiceItems.Add(new FeeInvoiceItem
                     {
@@ -4514,6 +4530,8 @@ public class FeesController : ControllerBase
             ("category", true) => query.OrderByDescending(h => h.Category).ThenBy(h => h.SortOrder),
             ("frequency", false) => query.OrderBy(h => h.Frequency).ThenBy(h => h.SortOrder),
             ("frequency", true) => query.OrderByDescending(h => h.Frequency).ThenBy(h => h.SortOrder),
+            ("description", false) => query.OrderBy(h => h.Description ?? "").ThenBy(h => h.SortOrder),
+            ("description", true) => query.OrderByDescending(h => h.Description ?? "").ThenBy(h => h.SortOrder),
             ("isactive", false) => query.OrderBy(h => h.IsActive).ThenBy(h => h.SortOrder),
             ("isactive", true) => query.OrderByDescending(h => h.IsActive).ThenBy(h => h.SortOrder),
             ("sortorder", true) => query.OrderByDescending(h => h.SortOrder).ThenBy(h => h.Name),

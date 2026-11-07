@@ -12,8 +12,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. Infrastructure Services
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
+builder.Services.AddScoped<IAiVoiceService, AiHindiVoiceService>();
 builder.Services.AddScoped<IPasswordHasherService, PasswordHasherService>();
 builder.Services.AddScoped<IMSERP.API.Services.IMenuPermissionService, IMSERP.API.Services.MenuPermissionService>();
 builder.Services.AddScoped<IMSERP.API.Services.DynamicMenuPermissionFilter>();
@@ -315,6 +317,31 @@ using (var scope = app.Services.CreateScope())
                 context.Database.ExecuteSqlRaw(@"
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('SchoolClasses') AND name = 'AcademicScope')
                         ALTER TABLE SchoolClasses ADD AcademicScope NVARCHAR(50) NOT NULL DEFAULT 'Both';
+
+                    -- Purge Section C from SchoolSections across all classes (Permanent rule: sections are strictly A and B)
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchoolSections')
+                    BEGIN
+                        IF COL_LENGTH('ChatConversations', 'SectionId') IS NOT NULL
+                            EXEC('UPDATE ChatConversations SET SectionId = NULL WHERE SectionId IN (SELECT Id FROM SchoolSections WHERE Name IN (''C'', ''Section C'', ''SEC-C'') OR Name LIKE ''%Section C%'')');
+                        IF COL_LENGTH('Homework', 'SectionId') IS NOT NULL
+                            EXEC('UPDATE Homework SET SectionId = NULL WHERE SectionId IN (SELECT Id FROM SchoolSections WHERE Name IN (''C'', ''Section C'', ''SEC-C'') OR Name LIKE ''%Section C%'')');
+                        IF COL_LENGTH('StudentAttendances', 'SectionId') IS NOT NULL
+                            EXEC('UPDATE StudentAttendances SET SectionId = NULL WHERE SectionId IN (SELECT Id FROM SchoolSections WHERE Name IN (''C'', ''Section C'', ''SEC-C'') OR Name LIKE ''%Section C%'')');
+                        
+                        -- Reassign any students from Section C to Section A of the same class
+                        IF COL_LENGTH('Students', 'SectionId') IS NOT NULL
+                        BEGIN
+                            EXEC('UPDATE s
+                            SET s.SectionId = secA.Id
+                            FROM Students s
+                            JOIN SchoolSections secC ON s.SectionId = secC.Id AND (secC.Name IN (''C'', ''Section C'', ''SEC-C'') OR secC.Name LIKE ''%Section C%'')
+                            JOIN SchoolSections secA ON secA.ClassId = secC.ClassId AND (secA.Name IN (''A'', ''Section A'', ''SEC-A'') OR secA.Name LIKE ''%Section A%'');
+
+                            UPDATE Students SET SectionId = NULL WHERE SectionId IN (SELECT Id FROM SchoolSections WHERE Name IN (''C'', ''Section C'', ''SEC-C'') OR Name LIKE ''%Section C%'');');
+                        END
+
+                        DELETE FROM SchoolSections WHERE Name IN ('C', 'Section C', 'SEC-C') OR Name LIKE '%Section C%';
+                    END
 
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'HasSchoolModule')
                         ALTER TABLE Tenants ADD HasSchoolModule BIT NOT NULL DEFAULT 1;
@@ -685,6 +712,36 @@ using (var scope = app.Services.CreateScope())
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'FinancialYearStartMonth' AND object_id = OBJECT_ID('AutomationSettings'))
                     BEGIN
                         ALTER TABLE AutomationSettings ADD FinancialYearStartMonth INT NOT NULL DEFAULT 4;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'FeeDueVoiceNoteEnabled' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD FeeDueVoiceNoteEnabled BIT NOT NULL DEFAULT 1;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'FeeDueReminderDayOfMonth' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD FeeDueReminderDayOfMonth INT NOT NULL DEFAULT 10;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'FeeDueVoiceGender' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD FeeDueVoiceGender NVARCHAR(50) NOT NULL DEFAULT 'Female';
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppCloudApiToken' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppCloudApiToken NVARCHAR(MAX) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppPhoneNumberId' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppPhoneNumberId NVARCHAR(100) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppBusinessAccountId' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppBusinessAccountId NVARCHAR(100) NULL;
                     END
 
                     -- Teacher Module Hybrid School & Login Migrations
@@ -1496,7 +1553,135 @@ using (var scope = app.Services.CreateScope())
                         END
                     END
 
-                    -- Study Material & Question Bank Repository (Digital Notes & PYQ)
+                                        -- Enterprise HRMS & Payroll Enhancements (BranchId, EMI Advances, Policies & Locks)
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherSalaries')
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'BranchId' AND object_id = OBJECT_ID('TeacherSalaries'))
+                        BEGIN
+                            ALTER TABLE TeacherSalaries ADD BranchId UNIQUEIDENTIFIER NULL;
+                        END
+                    END
+
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherSalaryPayments')
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'BranchId' AND object_id = OBJECT_ID('TeacherSalaryPayments'))
+                        BEGIN
+                            ALTER TABLE TeacherSalaryPayments ADD BranchId UNIQUEIDENTIFIER NULL;
+                        END
+                    END
+
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherSalaryAdvances')
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'BranchId' AND object_id = OBJECT_ID('TeacherSalaryAdvances'))
+                        BEGIN
+                            ALTER TABLE TeacherSalaryAdvances ADD BranchId UNIQUEIDENTIFIER NULL;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'MonthlyInstallment' AND object_id = OBJECT_ID('TeacherSalaryAdvances'))
+                        BEGIN
+                            ALTER TABLE TeacherSalaryAdvances ADD MonthlyInstallment DECIMAL(18,2) NOT NULL DEFAULT 0;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'RecoveredAmount' AND object_id = OBJECT_ID('TeacherSalaryAdvances'))
+                        BEGIN
+                            ALTER TABLE TeacherSalaryAdvances ADD RecoveredAmount DECIMAL(18,2) NOT NULL DEFAULT 0;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'InstallmentTenureMonths' AND object_id = OBJECT_ID('TeacherSalaryAdvances'))
+                        BEGIN
+                            ALTER TABLE TeacherSalaryAdvances ADD InstallmentTenureMonths INT NOT NULL DEFAULT 1;
+                        END
+                    END
+
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherLeaves')
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'BranchId' AND object_id = OBJECT_ID('TeacherLeaves'))
+                        BEGIN
+                            ALTER TABLE TeacherLeaves ADD BranchId UNIQUEIDENTIFIER NULL;
+                        END
+                    END
+
+                    IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'LeaveAndAttendancePolicies')
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'SalaryDivisorMode' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD SalaryDivisorMode NVARCHAR(50) NOT NULL DEFAULT 'WorkingDays';
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LatePenaltyMode' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD LatePenaltyMode NVARCHAR(50) NOT NULL DEFAULT 'HalfDayPerThreeLates';
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LatePenaltyThresholdDays' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD LatePenaltyThresholdDays INT NOT NULL DEFAULT 3;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LatePenaltyDeductionFactor' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD LatePenaltyDeductionFactor DECIMAL(3,2) NOT NULL DEFAULT 0.50;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'AutoCalculateStatutoryPF' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD AutoCalculateStatutoryPF BIT NOT NULL DEFAULT 0;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'AutoCalculateStatutoryESI' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD AutoCalculateStatutoryESI BIT NOT NULL DEFAULT 0;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'AutoPostPayrollToDayBook' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD AutoPostPayrollToDayBook BIT NOT NULL DEFAULT 1;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'AutoSendWhatsAppPayslip' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD AutoSendWhatsAppPayslip BIT NOT NULL DEFAULT 1;
+                        END
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'NoticePeriodDays' AND object_id = OBJECT_ID('LeaveAndAttendancePolicies'))
+                        BEGIN
+                            ALTER TABLE LeaveAndAttendancePolicies ADD NoticePeriodDays INT NOT NULL DEFAULT 30;
+                        END
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherPayrollMonthLocks')
+                    BEGIN
+                        CREATE TABLE TeacherPayrollMonthLocks (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            Month INT NOT NULL,
+                            Year INT NOT NULL,
+                            IsLocked BIT NOT NULL DEFAULT 1,
+                            LockedAt DATETIME2 NULL,
+                            LockedBy NVARCHAR(150) NULL,
+                            Remarks NVARCHAR(MAX) NULL,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE INDEX IX_TeacherPayrollMonthLocks_Tenant_Year_Month ON TeacherPayrollMonthLocks (TenantId, Year, Month);
+                    END
+                    ELSE
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherPayrollMonthLocks') AND name = 'CreatedAt')
+                        BEGIN
+                            ALTER TABLE TeacherPayrollMonthLocks ADD CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE();
+                        END
+                        ALTER TABLE TeacherPayrollMonthLocks ALTER COLUMN LockedAt DATETIME2 NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherLeaveAccrualLogs')
+                    BEGIN
+                        CREATE TABLE TeacherLeaveAccrualLogs (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            TeacherId UNIQUEIDENTIFIER NOT NULL,
+                            Month INT NOT NULL,
+                            Year INT NOT NULL,
+                            CasualLeaveAdded DECIMAL(5,2) NOT NULL DEFAULT 1.0,
+                            SickLeaveAdded DECIMAL(5,2) NOT NULL DEFAULT 0.83,
+                            EarnedLeaveAdded DECIMAL(5,2) NOT NULL DEFAULT 1.25,
+                            AccruedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            Remarks NVARCHAR(300) NOT NULL DEFAULT 'Monthly Automated Leave Accrual'
+                        );
+                        CREATE INDEX IX_TeacherLeaveAccrualLogs_Tenant_Teacher ON TeacherLeaveAccrualLogs (TenantId, TeacherId, Year, Month);
+                    END
+
+-- Study Material & Question Bank Repository (Digital Notes & PYQ)
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudyMaterials')
                     BEGIN
                         CREATE TABLE StudyMaterials (

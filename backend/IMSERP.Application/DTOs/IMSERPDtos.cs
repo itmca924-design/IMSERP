@@ -1723,7 +1723,10 @@ public record PendingInvoicingStudentDto(
     DateTime JoiningDate,
     decimal EstimatedMonthlyFee,
     bool HasAdmissionKit = false,
-    string? KitStatus = null
+    string? KitStatus = null,
+    DateTime? CoachingJoiningDate = null,
+    bool IsSchoolStudent = true,
+    bool IsCoachingStudent = false
 );
 
 public record CancelInvoiceDto(
@@ -2215,7 +2218,8 @@ public record BulkSalaryPaymentRequestDto(
     string PaymentMode,
     string? TransactionRef,
     string? Remarks,
-    List<BulkSalaryPaymentItemDto> Payments
+    List<BulkSalaryPaymentItemDto> Payments,
+    bool AllowEarlyDisbursal = false
 );
 
 public record TeacherSalaryPaymentDto(
@@ -2273,7 +2277,8 @@ public record CreateSalaryPaymentDto(
     int AbsentDays,
     string? Remarks,
     decimal ArrearsAmount = 0,
-    string? ArrearsRemarks = null
+    string? ArrearsRemarks = null,
+    bool AllowEarlyDisbursal = false
 );
 
 public record TeacherSalaryAdvanceDto(
@@ -2287,19 +2292,30 @@ public record TeacherSalaryAdvanceDto(
     string? Reason,
     string Status,
     int? AdjustedInMonth,
-    int? AdjustedInYear
+    int? AdjustedInYear,
+    decimal MonthlyInstallment = 0,
+    decimal RecoveredAmount = 0,
+    int InstallmentTenureMonths = 1,
+    decimal RemainingBalance = 0,
+    Guid? BranchId = null,
+    string? BranchName = null
 );
 
 public record CreateAdvanceDto(
     Guid TeacherId,
     decimal Amount,
-    string? Reason
+    string? Reason,
+    decimal MonthlyInstallment = 0,
+    int InstallmentTenureMonths = 1,
+    Guid? BranchId = null
 );
 
 public record ApproveAdvanceDto(
     bool Approve,
     int? AdjustedInMonth,
-    int? AdjustedInYear
+    int? AdjustedInYear,
+    decimal? MonthlyInstallment = null,
+    int? InstallmentTenureMonths = null
 );
 
 public record TeacherLeaveDto(
@@ -2446,7 +2462,96 @@ public record LeavePolicySettingsDto(
     bool AutoCancelLeaveOnBiometricPunch,
     bool AllowFullDayLeaveIfMarkedPresent,
     bool ExcludeHolidaysFromLeaveCount = true,
-    bool ExcludeSundaysFromLeaveCount = true
+    bool ExcludeSundaysFromLeaveCount = true,
+    string SalaryDivisorMode = "WorkingDays",
+    string LatePenaltyMode = "StandardRule",
+    int LatePenaltyThresholdDays = 3,
+    decimal LatePenaltyDeductionFactor = 0.5m,
+    bool AutoCalculateStatutoryPF = false,
+    bool AutoCalculateStatutoryESI = false,
+    bool AutoPostPayrollToDayBook = true,
+    bool AutoSendWhatsAppPayslip = false,
+    int NoticePeriodDays = 30
+);
+
+public record TeacherPayrollMonthLockDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string? BranchName,
+    int Month,
+    int Year,
+    bool IsLocked,
+    DateTime? LockedAt,
+    string? LockedBy,
+    string? Remarks
+);
+
+public record ToggleMonthLockDto(
+    int Month,
+    int Year,
+    Guid? BranchId,
+    bool Lock,
+    string? Remarks
+);
+
+public record TeacherLeaveAccrualLogDto(
+    Guid Id,
+    Guid TeacherId,
+    string TeacherName,
+    string EmployeeCode,
+    int Month,
+    int Year,
+    decimal CasualLeaveAdded,
+    decimal SickLeaveAdded,
+    decimal EarnedLeaveAdded,
+    string? Remarks,
+    DateTime AccruedAt
+);
+
+public record TriggerLeaveAccrualRequestDto(
+    int? Month,
+    int? Year,
+    Guid? BranchId
+);
+
+public record TriggerLeaveAccrualResultDto(
+    int Month,
+    int Year,
+    int TotalStaffProcessed,
+    decimal TotalClAccrued,
+    decimal TotalSlAccrued,
+    decimal TotalElAccrued,
+    string Message
+)
+{
+    public int TotalEligible => TotalStaffProcessed;
+    public int AccruedCount => TotalStaffProcessed;
+    public int SkippedCount => 0;
+    public decimal TotalCLCredited => TotalClAccrued;
+    public decimal TotalSLCredited => TotalSlAccrued;
+    public decimal TotalELCredited => TotalElAccrued;
+}
+
+public record PayrollAuditIssueDto(
+    string Severity,
+    string Category,
+    Guid? TeacherId,
+    string? TeacherName,
+    string? EmployeeCode,
+    string Issue,
+    string ActionRecommendation
+);
+
+public record PayrollAuditSummaryDto(
+    int Month,
+    int Year,
+    int HealthScore,
+    int TotalStaffAudited,
+    int ReadyForDisbursalCount,
+    int CriticalIssuesCount,
+    int WarningCount,
+    List<PayrollAuditIssueDto> Issues
 );
 
 public record TeacherLeaveBalanceItemDto(
@@ -3256,7 +3361,16 @@ public record TeacherFnFPreviewDto(
     string? FinalMonthSalaryReceiptNumber = null,
     decimal FinalMonthSalaryPaidAmount = 0,
     DateTime? FinalMonthSalaryPaymentDate = null,
-    bool IsFnFAlreadySettled = false
+    bool IsFnFAlreadySettled = false,
+    // Dynamic Leave Encashment & Notice Shortfall calculation
+    decimal AvailableEarnedLeaveDays = 0,
+    decimal EarnedLeaveEncashmentAmount = 0,
+    int NoticePeriodRequiredDays = 30,
+    int NoticeServedDays = 0,
+    int NoticeShortfallDays = 0,
+    decimal NoticeShortfallAmount = 0,
+    Guid? BranchId = null,
+    string? BranchName = null
 );
 
 public record CreateTeacherFnFRequestDto(
@@ -3915,18 +4029,24 @@ public record AutomationSettingsDto(
     bool FeeDueRemindersEnabled,
     int FeeDueDaysPrior,
     DateTime? LastFeeReminderDate,
-    bool BiometricSyncEnabled,
-    DateTime? LastBiometricSyncAt,
-    bool LateFeeAutoComputeEnabled,
-    decimal LateFeeDailyRate,
-    int LateFeeGraceDays,
-    bool AutoPilotFeeInvoicingEnabled,
-    int AutoPilotInvoicingDayOfMonth,
-    DateTime? LastAutoPilotInvoicingRun,
-    int AdmissionCutoffDay,
-    string AdmissionRolloverPolicy,
-    int FinancialYearStartMonth,
-    DateTime? UpdatedAt
+    bool FeeDueVoiceNoteEnabled = true,
+    int FeeDueReminderDayOfMonth = 10,
+    string FeeDueVoiceGender = "Female",
+    string? WhatsAppCloudApiToken = null,
+    string? WhatsAppPhoneNumberId = null,
+    string? WhatsAppBusinessAccountId = null,
+    bool BiometricSyncEnabled = true,
+    DateTime? LastBiometricSyncAt = null,
+    bool LateFeeAutoComputeEnabled = true,
+    decimal LateFeeDailyRate = 10,
+    int LateFeeGraceDays = 5,
+    bool AutoPilotFeeInvoicingEnabled = false,
+    int AutoPilotInvoicingDayOfMonth = 25,
+    DateTime? LastAutoPilotInvoicingRun = null,
+    int AdmissionCutoffDay = 20,
+    string AdmissionRolloverPolicy = "NextMonthFull",
+    int FinancialYearStartMonth = 4,
+    DateTime? UpdatedAt = null
 );
 
 public record SaveAutomationSettingsDto(
@@ -3943,7 +4063,13 @@ public record SaveAutomationSettingsDto(
     int AutoPilotInvoicingDayOfMonth = 25,
     int AdmissionCutoffDay = 20,
     string AdmissionRolloverPolicy = "NextMonthFull",
-    int FinancialYearStartMonth = 4
+    int FinancialYearStartMonth = 4,
+    bool FeeDueVoiceNoteEnabled = true,
+    int FeeDueReminderDayOfMonth = 10,
+    string FeeDueVoiceGender = "Female",
+    string? WhatsAppCloudApiToken = null,
+    string? WhatsAppPhoneNumberId = null,
+    string? WhatsAppBusinessAccountId = null
 );
 
 public record RunAutomationJobResultDto(
@@ -6537,5 +6663,63 @@ public record AiGenerateDailyDiaryResultDto(
     string AiRationale,
     DateTime GeneratedDate
 );
+
+public record PreviewDuesVoiceRequestDto(
+    string? ParentName,
+    string? StudentName,
+    string? ClassName,
+    decimal DueAmount,
+    string? MonthName,
+    int DueDay,
+    string? InstituteName,
+    string? VoiceGender
+);
+
+public record PreviewDuesVoiceResultDto(
+    string HindiScript,
+    string AudioBase64,
+    string ContentType,
+    int ByteLength
+);
+
+public record WhatsAppTestResultDto(
+    bool Success,
+    string Message,
+    string RecipientPhone,
+    string GatewayMode,
+    DateTime SentAt
+);
+
+public record SendDuesTestWhatsAppRequestDto(
+    string RecipientPhone,
+    string? StudentName,
+    string? ParentName,
+    string? ClassName,
+    decimal DueAmount,
+    string? VoiceGender
+);
+
+public record FeeDueAutomationStatusDto(
+    bool FeeDueRemindersEnabled,
+    bool FeeDueVoiceNoteEnabled,
+    string FeeDueVoiceGender,
+    int FeeDueReminderDayOfMonth,
+    int FeeDueDaysPrior,
+    bool HasMetaCloudApiConfigured,
+    string? WhatsAppPhoneNumberId,
+    DateTime? LastFeeReminderDate
+);
+
+public record UpdateFeeDueAutomationSettingsDto(
+    bool FeeDueRemindersEnabled,
+    bool FeeDueVoiceNoteEnabled,
+    string FeeDueVoiceGender,
+    int FeeDueReminderDayOfMonth,
+    int? FeeDueDaysPrior,
+    string? WhatsAppCloudApiToken,
+    string? WhatsAppPhoneNumberId,
+    string? WhatsAppBusinessAccountId
+);
+
 
 

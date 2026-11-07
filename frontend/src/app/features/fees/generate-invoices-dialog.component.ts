@@ -26,6 +26,9 @@ export interface GenerateInvoicesDialogData {
   targetStudentName?: string;
   targetRollNumber?: string;
   targetJoiningDate?: string;
+  targetCoachingJoiningDate?: string | null;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
   defaultMonth?: number;
   defaultYear?: number;
 }
@@ -84,11 +87,20 @@ interface BillingCycleOption {
               </div>
               <div class="card-content">
                 <div class="st-main">
-                  <span class="st-role-badge">NEW ADMISSION</span>
+                  @if (isHybridStudent) {
+                    <span class="st-role-badge hybrid">HYBRID ADMISSION</span>
+                  } @else {
+                    <span class="st-role-badge">NEW ADMISSION</span>
+                  }
                   <strong class="st-name">{{ data.targetStudentName }}</strong>
                   <span class="st-roll">({{ data.targetRollNumber }})</span>
                 </div>
                 <div class="st-sub-details">
+                  @if (isHybridStudent) {
+                    <span class="sub-pill hybrid-tag">
+                      ⚡ School + Coaching
+                    </span>
+                  }
                   @if (getSelectedTargetClassName()) {
                     <span class="sub-pill school">
                       🏫 {{ getSelectedTargetClassName() }}
@@ -99,9 +111,19 @@ interface BillingCycleOption {
                       🎯 {{ getSelectedTargetBatchName() }}
                     </span>
                   }
-                  @if (data.targetJoiningDate) {
+                  @if (isHybridStudent && targetSchoolJoiningDate) {
+                    <span class="sub-pill doj school-doj">
+                      🏫 School DOJ: {{ targetSchoolJoiningDate | date:'dd MMM yyyy' }}
+                    </span>
+                  }
+                  @if (isHybridStudent && targetCoachingJoiningDate) {
+                    <span class="sub-pill doj coaching-doj">
+                      🎯 Coach DOJ: {{ targetCoachingJoiningDate | date:'dd MMM yyyy' }}
+                    </span>
+                  }
+                  @if (!isHybridStudent && (data.targetJoiningDate || data.targetCoachingJoiningDate)) {
                     <span class="sub-pill doj">
-                      📅 Admission: {{ data.targetJoiningDate | date:'dd MMM yyyy' }}
+                      📅 Admission: {{ (data.targetJoiningDate || data.targetCoachingJoiningDate) | date:'dd MMM yyyy' }}
                     </span>
                   }
                 </div>
@@ -109,39 +131,53 @@ interface BillingCycleOption {
                   <mat-icon class="hint-icon">auto_awesome</mat-icon>
                   @if (isCutoffRolledOver()) {
                     <span>
-                      Admitted on <strong>{{ data.targetJoiningDate | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} Cutoff). First billing begins in <strong>{{ getNextRolledOverMonthName() }}</strong>.
+                      Admitted on <strong>{{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}</strong> (after Day {{ cutoffDay }} Cutoff). First billing begins in <strong>{{ getNextRolledOverMonthName() }}</strong>.
                       <br>
-                        <small style="color: #1e40af; font-weight: 600;">(एडमिशन {{ cutoffDay }} तारीख कट-ऑफ के बाद हुआ, इसलिए पहली बिलिंग {{ getNextRolledOverMonthName() }} से शुरू होगी।)</small>
+                      <small style="color: #1e40af; font-weight: 600;">(एडमिशन {{ cutoffDay }} तारीख कट-ऑफ के बाद हुआ, इसलिए पहली बिलिंग {{ getNextRolledOverMonthName() }} से शुरू होगी।)</small>
+                    </span>
+                  }
+                  @if (!isCutoffRolledOver()) {
+                    @if (isHybridStudent && hasDifferentStreamDates) {
+                      <span>
+                        <strong>⚡ Dual-Stream Admission:</strong> Starting billing month is <strong>{{ getMonthName($safeNavigationMigration(form.get('month')?.value)) }} {{ form.get('year')?.value }}</strong>. Active streams (School/Coaching) for this cycle will be combined into a single unified receipt.
                       </span>
-                    }
-                    @if (!isCutoffRolledOver()) {
+                    } @else {
                       <span>
                         Starting month auto-filled to <strong>{{ getMonthName($safeNavigationMigration(form.get('month')?.value)) }} {{ form.get('year')?.value }}</strong> from admission date. Select your billing cycle (Monthly, Quarterly, etc.).
                       </span>
                     }
+                  }
+                </div>
+              </div>
+            </div>
+          }
+    
+            <!-- Recommended Workflow Callout (Only in bulk mode; single student gets compact hint) -->
+            @if (!data.targetStudentName) {
+              <div class="workflow-guide-callout">
+                <div class="guide-icon-pill">
+                  <mat-icon>lightbulb</mat-icon>
+                </div>
+                <div class="guide-body">
+                  <div class="guide-header">
+                    <strong>Recommended Billing Sequence</strong>
+                    <span class="guide-pro-badge">PRO TIP</span>
+                  </div>
+                  <p class="guide-text">
+                    If student(s) require <strong>Transport (Bus Pass)</strong>, <strong>Hostel</strong>, or <strong>Library</strong> facilities, please assign them first in their respective modules. The system will automatically bundle those monthly charges with the <strong>Tuition Fee</strong> into a single combined invoice.
+                  </p>
+                  <div class="guide-foot">
+                    <span>Note: If no extra facilities are needed, you may safely proceed with generating tuition invoices below.</span>
                   </div>
                 </div>
               </div>
             }
-    
-            <!-- Recommended Workflow Callout -->
-            <div class="workflow-guide-callout">
-              <div class="guide-icon-pill">
-                <mat-icon>lightbulb</mat-icon>
+            @if (data.targetStudentName) {
+              <div class="single-student-facility-hint">
+                <mat-icon class="hint-ic">info_outline</mat-icon>
+                <span>Active <strong>Transport, Hostel, or Library</strong> monthly charges for {{ data.targetStudentName }} will be bundled automatically into this invoice.</span>
               </div>
-              <div class="guide-body">
-                <div class="guide-header">
-                  <strong>Recommended Billing Sequence</strong>
-                  <span class="guide-pro-badge">PRO TIP</span>
-                </div>
-                <p class="guide-text">
-                  If student(s) require <strong>Transport (Bus Pass)</strong>, <strong>Hostel</strong>, or <strong>Library</strong> facilities, please assign them first in their respective modules. The system will automatically bundle those monthly charges with the <strong>Tuition Fee</strong> into a single combined invoice.
-                </p>
-                <div class="guide-foot">
-                  <span>Note: If no extra facilities are needed, you may safely proceed with generating tuition invoices below.</span>
-                </div>
-              </div>
-            </div>
+            }
     
             <!-- Auto-Pilot Mode Guidance Callout -->
             @if (settingsService.autoPilotInvoicing() && !data.targetStudentName) {
@@ -190,7 +226,7 @@ interface BillingCycleOption {
                   [style.--cycle-color]="c.color"
                   [style.--cycle-bg]="c.bgColor"
                   [style.--cycle-border]="c.borderColor"
-                  (click)="selectCycle(c.value)" matButton="filled">
+                  (click)="selectCycle(c.value)">
                   <mat-icon class="cycle-icon">{{ c.icon }}</mat-icon>
                   <span class="cycle-label">{{ c.label }}</span>
                   <span class="cycle-desc">{{ c.description }}</span>
@@ -205,7 +241,7 @@ interface BillingCycleOption {
             </div>
             <div class="form-grid">
               <mat-form-field appearance="outline" class="field-month">
-                <mat-label>Starting Month *</mat-label>
+                <mat-label>Starting Month</mat-label>
                 <mat-select formControlName="month" (selectionChange)="onMonthYearChange()">
                   @for (m of months; track m) {
                     <mat-option [value]="m.value">{{ m.name }}</mat-option>
@@ -242,7 +278,7 @@ interface BillingCycleOption {
               </mat-form-field>
     
               <mat-form-field appearance="outline" class="field-year">
-                <mat-label>Year *</mat-label>
+                <mat-label>Year</mat-label>
                 <mat-select formControlName="year" (selectionChange)="onMonthYearChange()">
                   @for (y of years; track y) {
                     <mat-option [value]="y">{{ y }}</mat-option>
@@ -490,7 +526,7 @@ interface BillingCycleOption {
               }
     
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Payment Due Date *</mat-label>
+                <mat-label>Payment Due Date</mat-label>
                 <input matInput type="date" formControlName="dueDate" />
                 <mat-icon matSuffix color="primary">event</mat-icon>
                 <mat-hint>Parents will see this date on invoices and WhatsApp notifications</mat-hint>
@@ -615,12 +651,35 @@ interface BillingCycleOption {
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
+    :host {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
     .dialog-wrapper {
       padding: 0;
       box-sizing: border-box;
-      min-width: 500px;
-      max-width: 660px;
       width: 100%;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
     }
 
     .dialog-header {
@@ -665,9 +724,33 @@ interface BillingCycleOption {
     }
 
     .dialog-content {
-      padding: 16px 24px;
-      max-height: 75vh;
+      padding: 16px 24px 20px;
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: calc(88vh - 140px);
       overflow-y: auto;
+      box-sizing: border-box;
+    }
+
+    .single-student-facility-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.74rem;
+      color: #1e40af;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 6px 12px;
+      border-radius: 8px;
+      margin-bottom: 2px;
+      .hint-ic {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #2563eb;
+        flex-shrink: 0;
+      }
+      strong { color: #1e3a8a; }
     }
 
     .target-student-card {
@@ -716,6 +799,11 @@ interface BillingCycleOption {
             padding: 1px 6px;
             border-radius: 4px;
             letter-spacing: 0.5px;
+
+            &.hybrid {
+              background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+              color: #ffffff;
+            }
           }
 
           .st-name {
@@ -734,6 +822,8 @@ interface BillingCycleOption {
           display: flex;
           align-items: center;
           gap: 6px;
+          flex-wrap: wrap;
+          row-gap: 4px;
 
           .sub-pill {
             font-size: 0.75rem;
@@ -745,6 +835,33 @@ interface BillingCycleOption {
               background: #e0f2fe;
               color: #0369a1;
               border: 1px solid #bae6fd;
+            }
+
+            &.batch {
+              background: #f3e8ff;
+              color: #6b21a8;
+              border: 1px solid #e9d5ff;
+            }
+
+            &.hybrid-tag {
+              background: #fdf4ff;
+              color: #7e22ce;
+              border: 1px solid #f5d0fe;
+              font-weight: 700;
+            }
+
+            &.school-doj {
+              background: #eff6ff;
+              color: #1d4ed8;
+              border: 1px solid #bfdbfe;
+              font-weight: 600;
+            }
+
+            &.coaching-doj {
+              background: #f0fdf4;
+              color: #15803d;
+              border: 1px solid #bbf7d0;
+              font-weight: 600;
             }
 
             &.doj {
@@ -934,12 +1051,13 @@ interface BillingCycleOption {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 0.75rem;
+      font-size: 0.76rem;
       font-weight: 700;
       color: #475569;
       text-transform: uppercase;
       letter-spacing: 0.07em;
-      margin-bottom: -4px;
+      margin-top: 14px;
+      margin-bottom: 8px;
 
       .section-icon { font-size: 15px; width: 15px; height: 15px; color: #94a3b8; }
     }
@@ -947,15 +1065,19 @@ interface BillingCycleOption {
     .cycle-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 9px;
+      gap: 10px;
+      margin-bottom: 18px;
     }
 
     .cycle-tile {
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 3px;
-      padding: 10px 5px 8px;
+      padding: 12px 6px 10px;
+      min-height: 80px;
+      box-sizing: border-box;
       border: 2px solid #e2e8f0;
       border-radius: 10px;
       background: #f8fafc;
@@ -964,9 +1086,9 @@ interface BillingCycleOption {
       outline: none;
       user-select: none;
 
-      .cycle-icon { font-size: 22px; width: 22px; height: 22px; color: #94a3b8; transition: color 0.18s; }
-      .cycle-label { font-size: 0.74rem; font-weight: 700; color: #64748b; transition: color 0.18s; }
-      .cycle-desc  { font-size: 0.65rem; color: #94a3b8; text-align: center; line-height: 1.3; }
+      .cycle-icon { font-size: 22px; width: 22px; height: 22px; color: #94a3b8; transition: color 0.18s; margin-bottom: 2px; }
+      .cycle-label { font-size: 0.78rem; font-weight: 700; color: #64748b; transition: color 0.18s; white-space: nowrap; }
+      .cycle-desc  { font-size: 0.67rem; color: #94a3b8; text-align: center; line-height: 1.3; }
 
       &:hover:not(.selected) {
         border-color: var(--cycle-border, #93c5fd);
@@ -977,22 +1099,22 @@ interface BillingCycleOption {
       }
 
       &.selected {
-        border-color: var(--cycle-border, #3b82f6);
-        background: var(--cycle-bg, #eff6ff);
+        border-color: #2563eb !important;
+        background: #eff6ff !important;
         transform: translateY(-1px);
-        box-shadow: 0 0 0 3px rgba(147,197,253,0.35);
-        .cycle-icon { color: var(--cycle-color, #2563eb); }
-        .cycle-label { color: var(--cycle-color, #2563eb); font-weight: 800; }
-        .cycle-desc  { color: var(--cycle-color, #2563eb); opacity: 0.75; }
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25) !important;
+        .cycle-icon { color: #2563eb !important; }
+        .cycle-label { color: #1e40af !important; font-weight: 800; }
+        .cycle-desc  { color: #2563eb !important; font-weight: 600; }
       }
     }
 
     .form-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      .field-month { flex: 1 1 210px; }
-      .field-year  { flex: 0 0 105px; }
+      gap: 14px;
+      .field-month { flex: 1 1 260px; min-width: 220px; }
+      .field-year  { flex: 0 0 150px; min-width: 140px; }
       .full-width  { width: 100%; flex: 1 1 100%; }
 
       .class-structure-warning-pill {
@@ -1316,11 +1438,15 @@ interface BillingCycleOption {
     }
 
     .dialog-actions {
-      padding: 13px 24px 20px;
-      border-top: 1px solid #f1f5f9;
+      padding: 12px 24px 16px;
+      border-top: 1px solid #e2e8f0;
+      background: #ffffff;
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-shrink: 0;
+      box-sizing: border-box;
 
       .submit-btn {
         height: 42px;
@@ -1531,9 +1657,31 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   }
 
   isCutoffRolledOver(): boolean {
-    if (!this.data?.targetJoiningDate) return false;
+    const jd = this.getSelectedStudentJoiningDate();
+    if (!jd) return false;
+    return jd.getDate() > this.cutoffDay;
+  }
+
+  get isHybridStudent(): boolean {
+    return !!((this.data?.isSchoolStudent && this.data?.isCoachingStudent) ||
+              (this.data?.targetJoiningDate && this.data?.targetCoachingJoiningDate && this.data.targetJoiningDate !== this.data.targetCoachingJoiningDate));
+  }
+
+  get targetSchoolJoiningDate(): Date | null {
+    if (!this.data?.targetJoiningDate) return null;
     const d = new Date(this.data.targetJoiningDate);
-    return !isNaN(d.getTime()) && d.getDate() > this.cutoffDay;
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  get targetCoachingJoiningDate(): Date | null {
+    if (!this.data?.targetCoachingJoiningDate) return null;
+    const d = new Date(this.data.targetCoachingJoiningDate);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  get hasDifferentStreamDates(): boolean {
+    if (!this.data?.targetJoiningDate || !this.data?.targetCoachingJoiningDate) return false;
+    return this.data.targetJoiningDate !== this.data.targetCoachingJoiningDate;
   }
 
   getInstitutePolicyName(): string {
@@ -1798,9 +1946,23 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   }
 
   getSelectedStudentJoiningDate(): Date | null {
-    if (this.data?.targetJoiningDate) {
-      const d = new Date(this.data.targetJoiningDate);
-      return isNaN(d.getTime()) ? null : d;
+    if (this.data?.targetJoiningDate || this.data?.targetCoachingJoiningDate) {
+      if (this.data.isSchoolStudent && this.data.isCoachingStudent) {
+        const dSchool = this.data.targetJoiningDate ? new Date(this.data.targetJoiningDate) : null;
+        const dCoach = this.data.targetCoachingJoiningDate ? new Date(this.data.targetCoachingJoiningDate) : null;
+        if (dSchool && !isNaN(dSchool.getTime()) && dCoach && !isNaN(dCoach.getTime())) {
+          return dSchool.getTime() <= dCoach.getTime() ? dSchool : dCoach;
+        }
+        if (dCoach && !isNaN(dCoach.getTime())) return dCoach;
+        if (dSchool && !isNaN(dSchool.getTime())) return dSchool;
+      } else if (this.data.isCoachingStudent && !this.data.isSchoolStudent && this.data.targetCoachingJoiningDate) {
+        const d = new Date(this.data.targetCoachingJoiningDate);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      if (this.data.targetJoiningDate) {
+        const d = new Date(this.data.targetJoiningDate);
+        return isNaN(d.getTime()) ? null : d;
+      }
     }
     const student = this.getSelectedStudent();
     if (student?.joiningDate) {

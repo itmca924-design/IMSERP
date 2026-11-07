@@ -23,7 +23,9 @@ import {
   AdvanceDto,
   MonthlyPayrollSummaryDto,
   MonthlyPayrollStaffItemDto,
-  BulkSalaryPaymentRequestDto
+  BulkSalaryPaymentRequestDto,
+  TeacherPayrollMonthLockDto,
+  PayrollAuditSummaryDto
 } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -486,22 +488,26 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
                       </td>
                       <td>₹{{p.deductions | number}}</td>
                       <td>
-                        @if (p.advanceAdjusted > 0) {
+                        @if ((p.advanceAdjusted || 0) > 0) {
                           <span class="advance-adj-chip">
                             <mat-icon class="inline-icon">account_balance_wallet</mat-icon>
                             ₹{{p.advanceAdjusted | number}}
                           </span>
-                        }
-                        @if (p.advanceAdjusted === 0) {
+                        } @else {
                           <span style="color:#94a3b8">—</span>
                         }
                       </td>
                       <td><strong class="net-amount">₹{{p.netPaid | number}}</strong></td>
                       <td><span class="mode-chip">{{p.paymentMode}}</span></td>
                       <td>
-                        <span class="receipt-tag clickable" (click)="openPayslip(p)" matTooltip="Click to view Payslip">
-                          <mat-icon class="inline-icon">receipt</mat-icon> {{p.receiptNumber}}
-                        </span>
+                        <div style="display:inline-flex; flex-direction:column; gap:4px; align-items:flex-start;">
+                          <span class="receipt-tag clickable" (click)="openPayslip(p)" matTooltip="Click to view Payslip">
+                            <mat-icon class="inline-icon">receipt</mat-icon> {{p.receiptNumber}}
+                          </span>
+                          <span class="daybook-sync-chip" matTooltip="Disbursal synced with Day Book & P&L Expenses under category SALARY">
+                            <mat-icon>account_balance</mat-icon> Day Book Linked
+                          </span>
+                        </div>
                       </td>
                       <td>{{p.paymentDate | date:'dd MMM yyyy'}}</td>
                       <td class="text-center" style="white-space:nowrap;">
@@ -559,10 +565,31 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
             <input matInput type="number" [(ngModel)]="bulkYear" (change)="loadBulkPreview()" min="2020" max="2099">
           </mat-form-field>
           <button color="primary" class="refresh-preview-btn" (click)="loadBulkPreview()"
-            [disabled]="bulkLoading || isBulkMonthOngoing || isBulkMonthFuture"
-            [matTooltip]="isBulkMonthOngoing ? 'Payroll calculation is locked until month-end' : (isBulkMonthFuture ? 'Cannot calculate payroll for future month' : 'Recalculate monthly payroll preview')" matButton="filled">
-            <mat-icon [class.spin-anim]="bulkLoading">{{ isBulkMonthOngoing ? 'lock' : 'refresh' }}</mat-icon>
-            <span>{{ bulkLoading ? 'Calculating...' : (isBulkMonthOngoing ? 'Payroll Locked (In Progress)' : (isBulkMonthFuture ? 'Future Month (Locked)' : 'Load Payroll Preview')) }}</span>
+            [disabled]="bulkLoading || (isBulkMonthOngoing && !allowEarlyDisbursal) || isBulkMonthFuture"
+            [matTooltip]="(isBulkMonthOngoing && !allowEarlyDisbursal) ? 'Payroll is in progress. Click Admin Override below to unlock.' : (isBulkMonthFuture ? 'Cannot calculate payroll for future month' : 'Recalculate monthly payroll preview')" matButton="filled">
+            <mat-icon [class.spin-anim]="bulkLoading">{{ (isBulkMonthOngoing && !allowEarlyDisbursal) ? 'lock' : 'refresh' }}</mat-icon>
+            <span>{{ bulkLoading ? 'Calculating...' : ((isBulkMonthOngoing && !allowEarlyDisbursal) ? 'Payroll In Progress (Locked)' : (isBulkMonthFuture ? 'Future Month (Locked)' : 'Load Payroll Preview')) }}</span>
+          </button>
+
+          <button type="button" class="btn-ai-audit" (click)="runAiPayrollAudit()"
+            [disabled]="bulkLoading || isBulkMonthFuture"
+            matTooltip="Autonomous AI Auditor to identify KYC, bank details, and salary structure compliance" matButton="filled">
+            <mat-icon [class.spin-anim]="aiAuditLoading">psychology</mat-icon>
+            <span>AI Pre-Payroll Audit</span>
+          </button>
+
+          <button type="button" class="btn-bank-export" (click)="exportBankAdviceCsv()"
+            [disabled]="bulkLoading"
+            matTooltip="Export corporate bank NEFT salary advice CSV" matButton="filled">
+            <mat-icon>file_download</mat-icon>
+            <span>Bank NEFT Export</span>
+          </button>
+
+          <button type="button" class="btn-month-lock" [class.locked]="isMonthLocked" (click)="toggleCurrentMonthLock()"
+            [disabled]="bulkLoading"
+            [matTooltip]="isMonthLocked ? 'Click to Unlock Month' : 'Click to Finalize & Lock Month'" matButton="filled">
+            <mat-icon>{{ isMonthLocked ? 'lock' : 'lock_open' }}</mat-icon>
+            <span>{{ isMonthLocked ? 'Month Locked' : 'Lock Month' }}</span>
           </button>
         </div>
         <!-- Quick Search & Status Filter -->
@@ -585,18 +612,95 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
           </mat-form-field>
         </div>
       </div>
+
+      <!-- Locked Month Banner -->
+      @if (isMonthLocked) {
+        <div class="month-status-banner locked-banner mat-elevation-z1">
+          <div class="status-banner-icon"><mat-icon>verified_user</mat-icon></div>
+          <div class="status-banner-content">
+            <h4>{{ months[bulkMonth - 1] }} {{ bulkYear }} Payroll is Finalized & Locked (माह बंद कर दिया गया है)</h4>
+            <p>
+              This payroll month was officially finalized and locked by <strong>{{ monthLockRecord?.lockedBy || 'Administrator' }}</strong>{{ monthLockRecord?.lockedAt ? ' on ' + (monthLockRecord?.lockedAt | date:'dd MMM yyyy') : '' }}.
+              All records are protected against inadvertent edits or duplicate disbursals. Click the "Month Locked" button above to unlock if changes are authorized.
+            </p>
+          </div>
+        </div>
+      }
+
+      <!-- AI Pre-Payroll Audit Summary Card -->
+      @if (aiAuditSummary) {
+        <div class="ai-audit-banner mat-elevation-z2">
+          <div class="ai-audit-header">
+            <div class="ai-audit-title">
+              <div class="ai-chip-icon"><mat-icon>psychology</mat-icon></div>
+              <div>
+                <h4>Autonomous AI Pre-Payroll Audit — {{ months[bulkMonth - 1] }} {{ bulkYear }}</h4>
+                <p>
+                  Health Score: <strong [style.color]="aiAuditSummary.healthScore >= 90 ? '#16a34a' : (aiAuditSummary.healthScore >= 70 ? '#d97706' : '#dc2626')">{{ aiAuditSummary.healthScore }}/100</strong> •
+                  Audited: <strong>{{ aiAuditSummary.totalStaffAudited }}</strong> Staff •
+                  Ready to Disburse: <strong>{{ aiAuditSummary.readyForDisbursalCount }}</strong> •
+                  Critical Issues: <strong [style.color]="aiAuditSummary.criticalIssuesCount > 0 ? '#dc2626' : '#16a34a'">{{ aiAuditSummary.criticalIssuesCount }}</strong>
+                </p>
+              </div>
+            </div>
+            <button class="ai-close-btn" (click)="aiAuditSummary = null" mat-icon-button><mat-icon>close</mat-icon></button>
+          </div>
+          @if (aiAuditSummary.issues.length > 0) {
+            <div class="ai-issues-list">
+              @for (issue of aiAuditSummary.issues; track issue) {
+                <div class="ai-issue-item" [class.severity-critical]="issue.severity === 'Critical'" [class.severity-warning]="issue.severity === 'Warning'">
+                  <div class="issue-badge"><mat-icon>{{ issue.severity === 'Critical' ? 'error' : (issue.severity === 'Warning' ? 'warning' : 'info') }}</mat-icon></div>
+                  <div class="issue-details">
+                    <span class="issue-staff"><strong>{{ issue.teacherName }}</strong> ({{ issue.employeeCode }})</span>
+                    <span class="issue-desc">{{ issue.issue }}</span>
+                    @if (issue.actionRecommendation) {
+                      <span class="issue-tip"><mat-icon>lightbulb</mat-icon> {{ issue.actionRecommendation }}</span>
+                    }
+                  </div>
+                  <span class="issue-type-pill">{{ issue.category }}</span>
+                </div>
+              }
+            </div>
+          }
+          @if (aiAuditSummary.issues.length === 0) {
+            <div class="ai-all-clean">
+              <mat-icon>verified</mat-icon>
+              <span>Excellent! 100% Pre-Payroll Compliance achieved. No bank account anomalies, missing salary structures, or compliance blockers detected.</span>
+            </div>
+          }
+        </div>
+      }
       <!-- Ongoing Month Warning Banner in Bulk View -->
-      @if (isBulkMonthOngoing) {
+      @if (isBulkMonthOngoing && !allowEarlyDisbursal) {
         <div class="month-status-banner ongoing-banner mat-elevation-z1">
           <div class="status-banner-icon"><mat-icon>lock_clock</mat-icon></div>
           <div class="status-banner-content">
-            <h4>{{ months[bulkMonth - 1] }} {{ bulkYear }} Payroll is Locked (माह अभी जारी है)</h4>
+            <h4>{{ months[bulkMonth - 1] }} {{ bulkYear }} Payroll is in Progress (माह अभी जारी है)</h4>
             <p>
               Today is <strong>Day {{ bulkOngoingMonthInfo?.currentDay }} of {{ bulkOngoingMonthInfo?.totalDays }}</strong>. Monthly attendance register is currently in progress.
-              Per standard institutional payroll rules, monthly payroll calculation will unlock on or after the last day of the month (<strong>{{ bulkOngoingMonthInfo?.totalDays }} {{ bulkOngoingMonthInfo?.monthName }} {{ bulkOngoingMonthInfo?.year }}</strong>).
-              Please select a completed past month (e.g. <strong>{{ months[getDefaultPayrollMonth().month - 1] }} {{ getDefaultPayrollMonth().year }}</strong>) to review and disburse monthly staff salaries.
+              Normally, bulk payroll calculation unlocks on month-end (<strong>{{ bulkOngoingMonthInfo?.totalDays }} {{ bulkOngoingMonthInfo?.monthName }} {{ bulkOngoingMonthInfo?.year }}</strong>).
+              As an Administrator, you can unlock <strong>Early Disbursal</strong> to calculate and process payroll now (e.g. for festival advance, early disbursal, or verification).
             </p>
+            <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <button color="primary" (click)="enableEarlyDisbursal()" mat-stroked-button style="font-weight: 700; border-color: #2563eb; color: #1e40af; background: #ffffff; padding: 0 16px;">
+                <mat-icon style="color: #2563eb;">bolt</mat-icon> Admin Override: Calculate &amp; Disburse Early
+              </button>
+              <span style="font-size: 0.8rem; color: #64748b;">(Future unmarked dates in the month will not be penalized as absent)</span>
+            </div>
           </div>
+        </div>
+      }
+      @if (isBulkMonthOngoing && allowEarlyDisbursal) {
+        <div class="month-status-banner ongoing-override-banner mat-elevation-z1" style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <mat-icon style="color: #16a34a;">check_circle</mat-icon>
+            <span style="font-size: 0.85rem; color: #166534; font-weight: 600;">
+              Admin Early Disbursal Override Active for {{ months[bulkMonth - 1] }} {{ bulkYear }}. Unmarked future days are treated as pending and not penalized.
+            </span>
+          </div>
+          <button (click)="disableEarlyDisbursal()" mat-button style="font-size: 0.78rem; color: #64748b;">
+            <mat-icon style="font-size: 16px; width: 16px; height: 16px;">lock</mat-icon> Re-lock Month
+          </button>
         </div>
       }
       <!-- Future Month Warning Banner in Bulk View -->
@@ -609,8 +713,8 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
           </div>
         </div>
       }
-      <!-- Bulk KPI Cards (Only for completed past months) -->
-      @if (bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture) {
+      <!-- Bulk KPI Cards (Only for completed past months or early disbursal) -->
+      @if (bulkSummary && (!isBulkMonthOngoing || allowEarlyDisbursal) && !isBulkMonthFuture) {
         <div class="stats-grid">
           <div class="stat-card total">
             <div class="stat-icon-wrap"><mat-icon>people</mat-icon></div>
@@ -642,8 +746,8 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
           </div>
         </div>
       }
-      <!-- Bulk Action & Disbursement Banner (Only for completed past months) -->
-      @if (bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture) {
+      <!-- Bulk Action & Disbursement Banner (Only for completed past months or early disbursal) -->
+      @if (bulkSummary && (!isBulkMonthOngoing || allowEarlyDisbursal) && !isBulkMonthFuture) {
         <mat-card class="bulk-action-card mat-elevation-z1">
           <div class="action-card-header">
             <div class="selection-indicator">
@@ -666,8 +770,8 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
               <button
                 color="primary"
                 class="disburse-btn"
-                [disabled]="selectedBulkStaff.length === 0 || bulkDisbursing || isBulkMonthOngoing || isBulkMonthFuture"
-                [matTooltip]="isBulkMonthOngoing ? 'Cannot disburse salary for ongoing month until month-end' : (isBulkMonthFuture ? 'Cannot disburse salary for future month' : '')"
+                [disabled]="selectedBulkStaff.length === 0 || bulkDisbursing || (isBulkMonthOngoing && !allowEarlyDisbursal) || isBulkMonthFuture"
+                [matTooltip]="(isBulkMonthOngoing && !allowEarlyDisbursal) ? 'Cannot disburse salary for ongoing month until month-end' : (isBulkMonthFuture ? 'Cannot disburse salary for future month' : '')"
                 (click)="disburseBulkPayments()" matButton="filled">
                 <mat-icon>{{ bulkDisbursing ? 'hourglass_empty' : 'send_and_archive' }}</mat-icon>
                 <span>{{ bulkDisbursing ? 'Processing Disbursement...' : 'Disburse Salary for ' + selectedBulkStaff.length + ' Staff' }}</span>
@@ -700,8 +804,8 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
           </div>
         </mat-card>
       }
-      <!-- Bulk Staff Payroll Table (Only for completed past months) -->
-      @if (filteredBulkItems.length > 0 && !isBulkMonthOngoing && !isBulkMonthFuture) {
+      <!-- Bulk Staff Payroll Table (Only for completed past months or early disbursal) -->
+      @if (filteredBulkItems.length > 0 && (!isBulkMonthOngoing || allowEarlyDisbursal) && !isBulkMonthFuture) {
         <mat-card class="table-card mat-elevation-z1">
           <div class="table-responsive">
             <table class="bulk-pay-table">
@@ -814,9 +918,14 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
                     <!-- Status Badge -->
                     <td style="white-space: nowrap; min-width: 140px;">
                       @if (item.isAlreadyPaid) {
-                        <span class="status-chip paid">
-                          <mat-icon>check_circle</mat-icon> Paid ✓
-                        </span>
+                        <div class="paid-status-cluster">
+                          <span class="status-chip paid">
+                            <mat-icon>check_circle</mat-icon> Paid ✓
+                          </span>
+                          <span class="daybook-sync-chip" matTooltip="Disbursal synced with Day Book & P&L Expenses under category SALARY">
+                            <mat-icon>account_balance</mat-icon> Day Book Linked
+                          </span>
+                        </div>
                       }
                       @if (!item.isAlreadyPaid && item.hasSalaryStructure) {
                         <span class="status-chip ready">
@@ -857,7 +966,7 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
         </mat-card>
       }
       <!-- Empty Table State -->
-      @if (filteredBulkItems.length === 0 && !bulkLoading && bulkSummary && !isBulkMonthOngoing && !isBulkMonthFuture) {
+      @if (filteredBulkItems.length === 0 && !bulkLoading && bulkSummary && (!isBulkMonthOngoing || allowEarlyDisbursal) && !isBulkMonthFuture) {
         <div class="empty-state">
           <mat-icon>search_off</mat-icon>
           <p>No faculty members match the current filter criteria for {{ months[bulkMonth - 1] }} {{ bulkYear }}.</p>
@@ -1816,6 +1925,253 @@ import { TeacherPayslipDialogComponent } from './teacher-payslip-dialog.componen
       }
     }
 
+    .paid-status-cluster {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-start;
+    }
+
+    .daybook-sync-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+
+      mat-icon {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+      }
+    }
+
+    .btn-ai-audit {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px !important;
+      font-weight: 700 !important;
+      font-size: 0.82rem !important;
+      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25) !important;
+      transition: all 0.2s ease !important;
+
+      &:hover:not(:disabled) {
+        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.35) !important;
+        transform: translateY(-1px);
+      }
+    }
+
+    .btn-bank-export {
+      background: linear-gradient(135deg, #059669 0%, #0d9488 100%) !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px !important;
+      font-weight: 700 !important;
+      font-size: 0.82rem !important;
+      box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25) !important;
+
+      &:hover:not(:disabled) {
+        box-shadow: 0 4px 10px rgba(5, 150, 105, 0.35) !important;
+        transform: translateY(-1px);
+      }
+    }
+
+    .btn-month-lock {
+      background: #f8fafc !important;
+      color: #475569 !important;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 8px !important;
+      font-weight: 700 !important;
+      font-size: 0.82rem !important;
+
+      &:hover:not(:disabled) {
+        background: #f1f5f9 !important;
+      }
+
+      &.locked {
+        background: #fef2f2 !important;
+        color: #b91c1c !important;
+        border: 1px solid #fecaca !important;
+
+        &:hover:not(:disabled) {
+          background: #fee2e2 !important;
+        }
+      }
+    }
+
+    .month-status-banner.locked-banner {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1px solid #fde68a;
+      border-left: 5px solid #d97706;
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 20px;
+
+      .status-banner-icon {
+        background: #f59e0b;
+        color: #ffffff;
+        border-radius: 10px;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .status-banner-content {
+        h4 {
+          margin: 0 0 4px;
+          color: #92400e;
+          font-size: 1rem;
+          font-weight: 700;
+        }
+        p {
+          margin: 0;
+          color: #78350f;
+          font-size: 0.85rem;
+          line-height: 1.4;
+        }
+      }
+    }
+
+    .ai-audit-banner {
+      background: #ffffff;
+      border: 1px solid #e0e7ff;
+      border-left: 5px solid #6366f1;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+
+      .ai-audit-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .ai-audit-title {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .ai-chip-icon {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: #ffffff;
+            border-radius: 10px;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+
+          h4 {
+            margin: 0 0 2px;
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #1e1b4b;
+          }
+
+          p {
+            margin: 0;
+            font-size: 0.82rem;
+            color: #475569;
+          }
+        }
+      }
+
+      .ai-issues-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .ai-issue-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 8px 12px;
+          border-radius: 8px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+
+          &.severity-critical {
+            background: #fef2f2;
+            border-color: #fecaca;
+            .issue-badge mat-icon { color: #dc2626; }
+          }
+
+          &.severity-warning {
+            background: #fffbeb;
+            border-color: #fde68a;
+            .issue-badge mat-icon { color: #d97706; }
+          }
+
+          .issue-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+
+            .issue-staff {
+              font-size: 0.82rem;
+              color: #0f172a;
+            }
+
+            .issue-desc {
+              font-size: 0.78rem;
+              color: #475569;
+            }
+
+            .issue-tip {
+              font-size: 0.74rem;
+              color: #047857;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              margin-top: 2px;
+              mat-icon { font-size: 14px; width: 14px; height: 14px; }
+            }
+          }
+
+          .issue-type-pill {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            white-space: nowrap;
+          }
+        }
+      }
+
+      .ai-all-clean {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        color: #15803d;
+        font-size: 0.84rem;
+        font-weight: 600;
+      }
+    }
+
     .spin-anim {
       animation: spin 1s linear infinite;
     }
@@ -1923,6 +2279,21 @@ export class TeacherPaymentsComponent implements OnInit {
   bulkDisbursing = false;
   bulkSearchQuery = '';
   bulkStatusFilter: 'all' | 'pending' | 'paid' | 'missing' = 'all';
+  isMonthLocked = false;
+  monthLockRecord: TeacherPayrollMonthLockDto | null = null;
+  aiAuditSummary: PayrollAuditSummaryDto | null = null;
+  aiAuditLoading = false;
+  allowEarlyDisbursal = false;
+
+  enableEarlyDisbursal(): void {
+    this.allowEarlyDisbursal = true;
+    this.loadBulkPreview();
+  }
+
+  disableEarlyDisbursal(): void {
+    this.allowEarlyDisbursal = false;
+    this.bulkSummary = null;
+  }
 
   months = [
     'January','February','March','April','May','June',
@@ -2199,7 +2570,8 @@ export class TeacherPaymentsComponent implements OnInit {
 
   loadBulkPreview() {
     if (!this.bulkMonth || !this.bulkYear) return;
-    if (this.isBulkMonthOngoing || this.isBulkMonthFuture) {
+    this.checkMonthLockStatus();
+    if ((this.isBulkMonthOngoing && !this.allowEarlyDisbursal) || this.isBulkMonthFuture) {
       this.bulkSummary = null;
       this.bulkLoading = false;
       return;
@@ -2223,11 +2595,111 @@ export class TeacherPaymentsComponent implements OnInit {
     });
   }
 
+  checkMonthLockStatus() {
+    if (!this.bulkMonth || !this.bulkYear) return;
+    this.http.get<TeacherPayrollMonthLockDto>(
+      `${this.api}/teachers/salary-payments/month-lock?month=${this.bulkMonth}&year=${this.bulkYear}`
+    ).subscribe({
+      next: res => {
+        this.monthLockRecord = res;
+        this.isMonthLocked = !!res?.isLocked;
+      },
+      error: () => {
+        this.isMonthLocked = false;
+        this.monthLockRecord = null;
+      }
+    });
+  }
+
+  toggleCurrentMonthLock() {
+    if (!this.bulkMonth || !this.bulkYear) return;
+    const action = this.isMonthLocked ? 'Unlock' : 'Lock';
+    const monthName = this.months[this.bulkMonth - 1];
+
+    this.confirmDialog.confirm(
+      `${action} Payroll Month`,
+      `Are you sure you want to <strong>${action.toLowerCase()}</strong> payroll records for <strong>${monthName} ${this.bulkYear}</strong>?<br><br>` +
+      (this.isMonthLocked
+        ? `Unlocking will allow administrators to disburse, edit, or reverse salary payments for this month.`
+        : `Locking will finalize all salary records for this month, protecting them from unintended edits or duplicate payouts.`),
+      `Yes, ${action} Month`,
+      'Cancel'
+    ).subscribe(ok => {
+      if (!ok) return;
+      this.http.post<TeacherPayrollMonthLockDto>(`${this.api}/teachers/salary-payments/toggle-month-lock`, {
+        month: this.bulkMonth,
+        year: this.bulkYear,
+        lock: !this.isMonthLocked,
+        remarks: `${action}ed via HRMS Portal`
+      }).subscribe({
+        next: res => {
+          this.monthLockRecord = res;
+          this.isMonthLocked = res.isLocked;
+          this.confirmDialog.alert(
+            'Month Lock Updated',
+            `Payroll for <strong>${monthName} ${this.bulkYear}</strong> has been successfully <strong>${res.isLocked ? 'Locked' : 'Unlocked'}</strong>.`,
+            'info'
+          );
+        },
+        error: err => {
+          this.confirmDialog.alert('Error', err?.error?.message || 'Failed to update month lock status.', 'danger');
+        }
+      });
+    });
+  }
+
+  runAiPayrollAudit() {
+    if (!this.bulkMonth || !this.bulkYear) return;
+    this.aiAuditLoading = true;
+    this.http.get<PayrollAuditSummaryDto>(
+      `${this.api}/teachers/payroll/audit?month=${this.bulkMonth}&year=${this.bulkYear}`
+    ).subscribe({
+      next: res => {
+        this.aiAuditLoading = false;
+        this.aiAuditSummary = res;
+      },
+      error: err => {
+        this.aiAuditLoading = false;
+        this.confirmDialog.alert('Audit Error', err?.error?.message || 'Failed to run AI Pre-Payroll Auditor.', 'danger');
+      }
+    });
+  }
+
+  exportBankAdviceCsv() {
+    if (!this.bulkMonth || !this.bulkYear) return;
+    const monthName = this.months[this.bulkMonth - 1];
+    const url = `${this.api}/teachers/salary-payments/bank-export?month=${this.bulkMonth}&year=${this.bulkYear}`;
+
+    this.http.get(url, { responseType: 'blob' }).subscribe({
+      next: (blob: Blob) => {
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `NEFT_Salary_Advice_${monthName}_${this.bulkYear}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+      },
+      error: () => {
+        this.confirmDialog.alert('Export Failed', 'Failed to generate bank NEFT export advice CSV file.', 'danger');
+      }
+    });
+  }
+
   disburseBulkPayments() {
-    if (this.isBulkMonthOngoing) {
+    if (this.isMonthLocked) {
+      this.confirmDialog.alert(
+        'Payroll Month Locked',
+        `Disbursement blocked: ${this.months[this.bulkMonth - 1]} ${this.bulkYear} has been finalized and locked by ${this.monthLockRecord?.lockedBy || 'Administrator'}. Unlock the month first to proceed.`,
+        'warning'
+      );
+      return;
+    }
+    if (this.isBulkMonthOngoing && !this.allowEarlyDisbursal) {
       this.confirmDialog.alert(
         'Month In Progress',
-        `Cannot disburse bulk salary: ${this.bulkOngoingMonthInfo?.monthName} ${this.bulkOngoingMonthInfo?.year} is currently in progress. Bulk disbursement is locked until the last day of the month.`,
+        `Cannot disburse bulk salary: ${this.bulkOngoingMonthInfo?.monthName} ${this.bulkOngoingMonthInfo?.year} is currently in progress. Click 'Admin Override' in the banner to enable early disbursal.`,
         'warning'
       );
       return;
@@ -2266,6 +2738,7 @@ export class TeacherPaymentsComponent implements OnInit {
           paymentMode: this.bulkPaymentMode,
           transactionRef: this.bulkTransactionRef?.trim() || undefined,
           remarks: this.bulkRemarks?.trim() || `Monthly staff payroll disbursement for ${monthName} ${this.bulkYear}`,
+          allowEarlyDisbursal: this.allowEarlyDisbursal || false,
           payments: selected.map(s => ({
             teacherId: s.teacherId,
             grossAmount: s.grossAmount,
@@ -2315,8 +2788,9 @@ export class TeacherPaymentsComponent implements OnInit {
             const match = payments.find(p => p.id === item.paidPaymentId) || payments[0];
             if (match) {
               this.dialog.open(TeacherPayslipDialogComponent, {
-                width: '860px',
+                width: '820px',
                 maxWidth: '96vw',
+                maxHeight: '92vh',
                 autoFocus: false,
                 panelClass: 'payslip-dialog-panel',
                 data: {
@@ -2514,8 +2988,9 @@ export class TeacherPaymentsComponent implements OnInit {
   openPayslip(payment: SalaryPaymentDto) {
     if (!this.selectedTeacher) return;
     this.dialog.open(TeacherPayslipDialogComponent, {
-      width: '860px',
+      width: '820px',
       maxWidth: '96vw',
+      maxHeight: '92vh',
       autoFocus: false,
       panelClass: 'payslip-dialog-panel',
       data: {
@@ -2583,7 +3058,7 @@ export class TeacherPaymentsComponent implements OnInit {
 
     this.saving = true;
     this.http.post<SalaryPaymentDto>(`${this.api}/teachers/salary-payments`, {
-      teacherId: this.selectedTeacher.id, ...v
+      teacherId: this.selectedTeacher.id, ...v, allowEarlyDisbursal: true
     }).subscribe({
       next: (res) => {
         this.saving = false;

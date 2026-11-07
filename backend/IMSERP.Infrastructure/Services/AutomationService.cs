@@ -41,6 +41,15 @@ public class AutomationService : IAutomationService
         }
         settings.FeeDueRemindersEnabled = dto.FeeDueRemindersEnabled;
         settings.FeeDueDaysPrior = Math.Max(1, dto.FeeDueDaysPrior);
+        settings.FeeDueVoiceNoteEnabled = dto.FeeDueVoiceNoteEnabled;
+        settings.FeeDueReminderDayOfMonth = Math.Clamp(dto.FeeDueReminderDayOfMonth, 1, 28);
+        if (!string.IsNullOrWhiteSpace(dto.FeeDueVoiceGender))
+        {
+            settings.FeeDueVoiceGender = dto.FeeDueVoiceGender.Trim();
+        }
+        if (dto.WhatsAppCloudApiToken != null) settings.WhatsAppCloudApiToken = dto.WhatsAppCloudApiToken.Trim();
+        if (dto.WhatsAppPhoneNumberId != null) settings.WhatsAppPhoneNumberId = dto.WhatsAppPhoneNumberId.Trim();
+        if (dto.WhatsAppBusinessAccountId != null) settings.WhatsAppBusinessAccountId = dto.WhatsAppBusinessAccountId.Trim();
         settings.BiometricSyncEnabled = dto.BiometricSyncEnabled;
         settings.LateFeeAutoComputeEnabled = dto.LateFeeAutoComputeEnabled;
         settings.LateFeeDailyRate = Math.Max(0, dto.LateFeeDailyRate);
@@ -136,6 +145,7 @@ public class AutomationService : IAutomationService
         // Find unpaid / partially paid invoices due on or before thresholdDate
         var invoices = await _db.FeeInvoices
             .Include(i => i.Student)
+            .Include(i => i.Class)
             .Where(i => i.TenantId == tenantId &&
                         i.Status != InvoiceStatus.Paid &&
                         i.DueDate.Date <= thresholdDate)
@@ -163,11 +173,27 @@ public class AutomationService : IAutomationService
 
             if (!recentReminderSent)
             {
-                var ok = await _whatsAppService.SendFeeReminderAsync(tenantId, student.ParentWhatsAppPhone, student.StudentName, inv.InvoiceNumber, balanceDue, inv.DueDate);
+                var className = !string.IsNullOrWhiteSpace(inv.ClassName) ? inv.ClassName : inv.Class?.Name ?? "School";
+                var parentName = !string.IsNullOrWhiteSpace(student.ParentName) ? student.ParentName : "अभिभावक";
+
+                var ok = await _whatsAppService.SendFeeDueWithVoiceAsync(
+                    tenantId,
+                    student.ParentWhatsAppPhone,
+                    student.StudentName,
+                    parentName,
+                    className,
+                    inv.InvoiceNumber,
+                    balanceDue,
+                    inv.DueDate,
+                    null,
+                    settings.FeeDueVoiceNoteEnabled,
+                    settings.FeeDueVoiceGender ?? "Female"
+                );
+
                 if (ok)
                 {
                     sentCount++;
-                    dispatched.Add($"Inv #{inv.InvoiceNumber} - {student.StudentName} (Due: ₹{balanceDue:N0})");
+                    dispatched.Add($"Inv #{inv.InvoiceNumber} - {student.StudentName} (Due: ₹{balanceDue:N0}) [Voice: {(settings.FeeDueVoiceNoteEnabled ? settings.FeeDueVoiceGender : "Off")}]");
                 }
             }
         }
@@ -408,15 +434,30 @@ public class AutomationService : IAutomationService
             "biometric" or "biometric-sync" or "rfid" => await ExecuteBiometricSyncAsync(tenantId),
             "late-fee" or "late-fee-calc" or "rules" => await ExecuteLateFeeComputationAsync(tenantId),
             "autopilot" or "auto-pilot" or "autopilot-invoicing" or "monthly-invoices" => await ExecuteAutoPilotFeeInvoicingAsync(tenantId),
-            "whatsapp-receipts" or "receipts" => new RunAutomationJobResultDto(
-                JobName: "WhatsApp Fee Receipts",
-                Success: true,
-                Message: "WhatsApp Fee Receipt gateway is active and configured for instant dispatch upon payment collection.",
-                ProcessedCount: 1,
-                ExecutedAt: DateTime.UtcNow
-            ),
+            "whatsapp-receipts" or "receipts" => await TestWhatsAppReceiptGatewayAsync(tenantId),
             _ => throw new ArgumentException($"Unknown automation job name: {jobName}")
         };
+    }
+
+    private async Task<RunAutomationJobResultDto> TestWhatsAppReceiptGatewayAsync(Guid tenantId)
+    {
+        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId);
+        var testPhone = !string.IsNullOrWhiteSpace(tenant?.ContactPhone) ? tenant.ContactPhone : "919999999999";
+
+        var testRes = await _whatsAppService.TestWhatsAppGatewayAsync(
+            tenantId, 
+            testPhone, 
+            $"*IMSERP WhatsApp Gateway Test*\nInstitute: {tenant?.Name ?? "Campus"}\nStatus: Active and Ready for Automated Dues & AI Hindi Voice Reminders."
+        );
+
+        return new RunAutomationJobResultDto(
+            JobName: "WhatsApp Fee Receipts & Dues Gateway",
+            Success: testRes.Success,
+            Message: testRes.Message,
+            ProcessedCount: testRes.Success ? 1 : 0,
+            ExecutedAt: testRes.SentAt,
+            Details: new List<string> { $"Target Phone: {testRes.RecipientPhone}", $"Mode: {testRes.GatewayMode}" }
+        );
     }
 
     public async Task<RunAutomationJobResultDto> ExecuteAutoPilotFeeInvoicingAsync(Guid tenantId)
@@ -854,6 +895,12 @@ public class AutomationService : IAutomationService
         FeeDueRemindersEnabled: s.FeeDueRemindersEnabled,
         FeeDueDaysPrior: s.FeeDueDaysPrior,
         LastFeeReminderDate: s.LastFeeReminderDate,
+        FeeDueVoiceNoteEnabled: s.FeeDueVoiceNoteEnabled,
+        FeeDueReminderDayOfMonth: s.FeeDueReminderDayOfMonth,
+        FeeDueVoiceGender: s.FeeDueVoiceGender ?? "Female",
+        WhatsAppCloudApiToken: s.WhatsAppCloudApiToken,
+        WhatsAppPhoneNumberId: s.WhatsAppPhoneNumberId,
+        WhatsAppBusinessAccountId: s.WhatsAppBusinessAccountId,
         BiometricSyncEnabled: s.BiometricSyncEnabled,
         LastBiometricSyncAt: s.LastBiometricSyncAt,
         LateFeeAutoComputeEnabled: s.LateFeeAutoComputeEnabled,

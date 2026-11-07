@@ -82,7 +82,7 @@ export interface ConfirmDialogData {
             </div>
           }
     
-          <button type="button" class="close-btn" (click)="onCancel()" aria-label="Closedialog" mat-icon-button>
+          <button type="button" class="close-btn" (click)="onCancel()" aria-label="Close dialog">
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -301,43 +301,39 @@ export interface ConfirmDialogData {
       }
 
       .close-btn {
-        width: 28px;
-        height: 28px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        color: #1e3a8a;
-        background: #ffffff;
-        border: 1.5px solid #bfdbfe;
-        padding: 0;
-        cursor: pointer;
-        transition: all 0.15s ease-in-out;
-        box-shadow: 0 1px 2px rgba(30, 58, 138, 0.08);
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        max-width: 32px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 50% !important;
+        color: #64748b !important;
+        background: transparent !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease-in-out;
         flex-shrink: 0;
 
         mat-icon {
-          font-size: 16px;
-          width: 16px;
-          height: 16px;
-          line-height: 16px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          font-size: 18px !important;
+          width: 18px !important;
+          height: 18px !important;
+          line-height: 18px !important;
+          color: inherit !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
         }
 
         &:hover {
-          background: #fee2e2;
-          border-color: #ef4444;
-          color: #dc2626;
-          box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
-          transform: translateY(-1px);
-        }
-
-        &:active {
-          transform: translateY(0);
-          box-shadow: none;
+          background: rgba(30, 58, 138, 0.08) !important;
+          color: #0f172a !important;
         }
       }
     }

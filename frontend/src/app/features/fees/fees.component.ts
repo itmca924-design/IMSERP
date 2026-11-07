@@ -410,7 +410,7 @@ export interface UpcomingBillingCycleInfo {
                               class="mini-head-chip clickable-head-chip"
                               [ngClass]="getHeadChipClass(it.headName)"
                               (click)="openInvoiceBreakdown(inv)">
-                              <span class="chip-title-part">{{ it.headName }}:</span>
+                              <span class="chip-title-part">{{ cleanHeadName(it.headName, inv.className) }}:</span>
                               <strong class="chip-amt-part">₹{{ it.amount | number:'1.0-0' }}</strong>
                             </span>
                           }
@@ -418,7 +418,7 @@ export interface UpcomingBillingCycleInfo {
                             <button
                               type="button"
                               class="mini-head-breakdown-btn more-heads-pill"
-                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()" matButton="filled">
+                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
                               <mat-icon class="more-ic">receipt_long</mat-icon>
                               <span>+{{ sortedItems.length - 2 }} More &bull; Breakdown</span>
                             </button>
@@ -426,8 +426,8 @@ export interface UpcomingBillingCycleInfo {
                           @if (sortedItems.length <= 2 && sortedItems.length > 0) {
                             <button
                               type="button"
-                              class="mini-head-breakdown-btn"
-                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()" matButton="filled">
+                              class="mini-head-breakdown-btn view-breakdown-pill"
+                              (click)="openInvoiceBreakdown(inv); $event.stopPropagation()">
                               <mat-icon class="more-ic">receipt_long</mat-icon>
                               <span>Breakdown</span>
                             </button>
@@ -1159,43 +1159,89 @@ export interface UpcomingBillingCycleInfo {
       }
 
       .mini-head-breakdown-btn {
-        font-size: 0.68rem;
-        background: #eff6ff;
+        font-size: 0.72rem;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
         color: #1d4ed8;
-        border: 1px solid #bfdbfe;
-        padding: 1px 7px;
-        border-radius: 5px;
+        border: 1px solid #60a5fa;
+        padding: 3px 9px;
+        border-radius: 6px;
         font-weight: 700;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
-        gap: 3px;
+        gap: 4px;
         white-space: nowrap;
-        transition: all 0.15s ease-in-out;
+        box-shadow: 0 1px 2px rgba(37, 99, 235, 0.10);
+        transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+        line-height: 1.2;
+        outline: none;
+        user-select: none;
+
+        .more-ic {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          color: #2563eb;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: color 0.18s ease-in-out;
+        }
 
         &.more-heads-pill {
           background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          border-color: #93c5fd;
-          color: #1e40af;
+          border-color: #60a5fa;
+          color: #1d4ed8;
+
+          .more-ic {
+            color: #2563eb;
+          }
+
+          &:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            border-color: #1e40af !important;
+            color: #ffffff !important;
+            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+            transform: translateY(-1px);
+
+            .more-ic {
+              color: #ffffff !important;
+            }
+          }
         }
 
-        .more-ic {
-          font-size: 13px;
-          width: 13px;
-          height: 13px;
-          color: #2563eb;
+        &.view-breakdown-pill {
+          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+          border-color: #4ade80;
+          color: #15803d;
+
+          .more-ic {
+            color: #16a34a;
+          }
+
+          &:hover {
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+            border-color: #166534 !important;
+            color: #ffffff !important;
+            box-shadow: 0 3px 8px rgba(22, 163, 74, 0.35);
+            transform: translateY(-1px);
+
+            .more-ic {
+              color: #ffffff !important;
+            }
+          }
         }
 
         &:hover {
-          background: #2563eb;
-          color: #ffffff;
-          border-color: #1d4ed8;
-          border-style: solid;
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          color: #ffffff !important;
+          border-color: #1e40af;
           transform: translateY(-1px);
-          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+          box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
 
           .more-ic {
-            color: #ffffff;
+            color: #ffffff !important;
           }
         }
       }
@@ -3102,8 +3148,9 @@ export class FeesComponent implements OnInit, OnDestroy {
     const invTitles = this.selectedInvoices.map(i => i.title).join(', ');
 
     const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-      width: '740px',
+      width: '880px',
       maxWidth: '96vw',
+      panelClass: 'responsive-fee-collection-dialog',
       data: {
         studentId: first.studentId,
         studentName: first.studentName,
@@ -3244,6 +3291,22 @@ export class FeesComponent implements OnInit, OnDestroy {
       return `${months.length} Mos: ${shortNames} @ ₹${perMo.toLocaleString('en-IN')}/mo`;
     }
     return `${months.length} Mos: ${shortNames}`;
+  }
+
+  cleanHeadName(name?: string, className?: string): string {
+    if (!name) return '';
+    if (className) {
+      const rawCls = className.trim();
+      const escapedRaw = rawCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      name = name.replace(new RegExp(`\\s*\\(${escapedRaw}\\)\\s*`, 'gi'), ' ');
+      const baseCls = rawCls.split('(')[0].trim();
+      if (baseCls && baseCls !== rawCls) {
+        const escapedBase = baseCls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        name = name.replace(new RegExp(`\\s*\\(${escapedBase}\\)\\s*`, 'gi'), ' ');
+      }
+    }
+    name = name.replace(/\s*\(\s*(School|LKG|UKG|Nursery|Pre-Nursery|Prep)\s*\)\s*/gi, ' ');
+    return name.trim();
   }
 
   getHeadChipClass(headName?: string): string {
@@ -3476,8 +3539,9 @@ export class FeesComponent implements OnInit, OnDestroy {
           : undefined;
 
         const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-          width: '740px',
-          maxWidth: '96vw',
+      width: '880px',
+      maxWidth: '96vw',
+      panelClass: 'responsive-fee-collection-dialog',
           data: {
             studentId: inv.studentId,
             studentName: inv.studentName,
@@ -3517,8 +3581,9 @@ export class FeesComponent implements OnInit, OnDestroy {
       error: () => {
         // If allocation lookup fails, still open dialog without hostel info
         const dialogRef = this.dialog.open(FeeCollectionDialogComponent, {
-          width: '740px',
-          maxWidth: '96vw',
+      width: '880px',
+      maxWidth: '96vw',
+      panelClass: 'responsive-fee-collection-dialog',
           data: {
             studentId: inv.studentId,
             studentName: inv.studentName,
@@ -3680,8 +3745,22 @@ export class FeesComponent implements OnInit, OnDestroy {
     let defaultMonth = today.getMonth() + 1;
     let defaultYear = today.getFullYear();
 
-    if (targetStudent?.joiningDate) {
-      const joinD = new Date(targetStudent.joiningDate);
+    // Determine effective joining date across School & Coaching
+    let effectiveDateStr: string | null | undefined = targetStudent?.joiningDate;
+    if (targetStudent?.isCoachingStudent && !targetStudent?.isSchoolStudent && targetStudent?.coachingJoiningDate) {
+      effectiveDateStr = targetStudent.coachingJoiningDate;
+    } else if (targetStudent?.isSchoolStudent && targetStudent?.isCoachingStudent) {
+      if (targetStudent.joiningDate && targetStudent.coachingJoiningDate) {
+        const dSchool = new Date(targetStudent.joiningDate).getTime();
+        const dCoach = new Date(targetStudent.coachingJoiningDate).getTime();
+        effectiveDateStr = dSchool <= dCoach ? targetStudent.joiningDate : targetStudent.coachingJoiningDate;
+      } else {
+        effectiveDateStr = targetStudent.joiningDate || targetStudent.coachingJoiningDate;
+      }
+    }
+
+    if (effectiveDateStr) {
+      const joinD = new Date(effectiveDateStr);
       if (!isNaN(joinD.getTime())) {
         const cutoffDay = this.settingsService.admissionCutoffDay() || 20;
         if (joinD.getDate() > cutoffDay) {
@@ -3697,8 +3776,9 @@ export class FeesComponent implements OnInit, OnDestroy {
     }
 
     const dialogRef = this.dialog.open(GenerateInvoicesDialogComponent, {
-      width: '660px',
+      width: '820px',
       maxWidth: '96vw',
+      panelClass: 'responsive-invoice-dialog',
       data: {
         batches: this.batches,
         classes: this.schoolClasses,
@@ -3708,6 +3788,9 @@ export class FeesComponent implements OnInit, OnDestroy {
         targetStudentName: targetStudent?.studentName,
         targetRollNumber: targetStudent?.rollNumber,
         targetJoiningDate: targetStudent?.joiningDate,
+        targetCoachingJoiningDate: targetStudent?.coachingJoiningDate,
+        isSchoolStudent: targetStudent?.isSchoolStudent,
+        isCoachingStudent: targetStudent?.isCoachingStudent,
         defaultMonth: defaultMonth,
         defaultYear: defaultYear
       }
@@ -3952,8 +4035,9 @@ export class FeesComponent implements OnInit, OnDestroy {
     if (!this.upcomingCycle) return;
 
     const dialogRef = this.dialog.open(GenerateInvoicesDialogComponent, {
-      width: '660px',
+      width: '820px',
       maxWidth: '96vw',
+      panelClass: 'responsive-invoice-dialog',
       data: {
         batches: this.batches,
         classes: this.schoolClasses,

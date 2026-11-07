@@ -109,43 +109,55 @@ export interface PayslipDialogData {
         <div class="details-section">
           <div class="details-col">
             <div class="info-row"><span class="k">Faculty Name:</span><span class="v"><strong>{{ data.payment.teacherName }}</strong></span></div>
-            <div class="info-row"><span class="k">Employee Code:</span><span class="v">{{ data.payment.employeeCode }}</span></div>
+            <div class="info-row"><span class="k">Employee Code:</span><span class="v code-badge">{{ data.payment.employeeCode }}</span></div>
             <div class="info-row"><span class="k">Specialization / Subject:</span><span class="v">{{ data.teacher.specialization || 'Academic Faculty' }}</span></div>
           </div>
           <div class="details-col">
-            <div class="info-row"><span class="k">Contact Number:</span><span class="v">{{ data.teacher.phoneNumber }}</span></div>
-            <div class="info-row"><span class="k">Experience:</span><span class="v">{{ data.teacher.experienceYears }} Years</span></div>
+            <div class="info-row"><span class="k">Contact Number:</span><span class="v">{{ data.teacher.phoneNumber || '—' }}</span></div>
+            <div class="info-row"><span class="k">Experience:</span><span class="v">{{ data.teacher.experienceYears ? data.teacher.experienceYears + ' Years' : '—' }}</span></div>
             @if (data.payment.transactionRef) {
-              <div class="info-row"><span class="k">Transaction Ref:</span><span class="v">{{ data.payment.transactionRef }}</span></div>
+              <div class="info-row"><span class="k">Transaction Ref:</span><span class="v font-mono">{{ data.payment.transactionRef }}</span></div>
             }
           </div>
         </div>
     
         <!-- Attendance Summary Row -->
         <div class="attendance-summary-box">
-          @if (data.payment.workingDays) {
-            <div class="att-item">
-              <span class="att-lbl">Working Days:</span>
-              <span class="att-val">{{ data.payment.workingDays }} Days</span>
-            </div>
+          @if (hasAttendanceData) {
+            @if (data.payment.workingDays) {
+              <div class="att-item">
+                <span class="att-lbl">Working Days:</span>
+                <span class="att-val">{{ data.payment.workingDays }} Days</span>
+              </div>
+            }
+            @if (data.payment.presentDays > 0) {
+              <div class="att-item">
+                <span class="att-lbl">Present Days:</span>
+                <span class="att-val green">{{ data.payment.presentDays }} Days</span>
+              </div>
+            }
+            @if ((data.payment.lopDays || data.payment.absentDays || 0) > 0) {
+              <div class="att-item">
+                <span class="att-lbl">Absent / LOP:</span>
+                <span class="att-val red">{{ data.payment.lopDays || data.payment.absentDays }} Days</span>
+              </div>
+            }
+            @if ((data.payment.paidLeaveDays || 0) > 0) {
+              <div class="att-item">
+                <span class="att-lbl">Paid Leaves:</span>
+                <span class="att-val green">{{ data.payment.paidLeaveDays }} Days</span>
+              </div>
+            }
           }
-          <div class="att-item">
-            <span class="att-lbl">Present Days:</span>
-            <span class="att-val green">{{ data.payment.presentDays }} Days</span>
-          </div>
-          <div class="att-item">
-            <span class="att-lbl">Absent / LOP:</span>
-            <span class="att-val" [class.red]="data.payment.absentDays > 0">{{ data.payment.absentDays }} Days</span>
-          </div>
-          @if ((data.payment.paidLeaveDays || 0) > 0) {
+          @if (!hasAttendanceData) {
             <div class="att-item">
-              <span class="att-lbl">Paid Leaves:</span>
-              <span class="att-val green">{{ data.payment.paidLeaveDays }} Days</span>
+              <span class="att-lbl">Payroll Cycle:</span>
+              <span class="att-val blue">Standard Monthly Disbursal</span>
             </div>
           }
           @if (data.payment.remarks) {
             <div class="att-item att-remarks">
-              <span class="att-lbl">Attendance Details:</span>
+              <span class="att-lbl">Details:</span>
               <span class="att-val-sub">{{ data.payment.remarks }}</span>
             </div>
           }
@@ -254,12 +266,15 @@ export interface PayslipDialogData {
         <!-- Signatures & Disclaimer Footer -->
         <div class="footer-signatures">
           <div class="sig-box">
+            <div class="sig-space"></div>
             <div class="sig-line"></div>
-            <span>Employee / Faculty Signature</span>
+            <span class="sig-title">Employee / Faculty Signature</span>
           </div>
           <div class="sig-box text-center">
             @if (officialSealUrl) {
-              <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              <div class="seal-container">
+                <img [src]="officialSealUrl" alt="Official Seal" class="uploaded-official-seal-img" />
+              </div>
             }
             @if (!officialSealUrl) {
               <div class="stamp-placeholder">
@@ -267,6 +282,7 @@ export interface PayslipDialogData {
                 <span>Verified &amp; Audited</span>
               </div>
             }
+            <span class="sig-title">Institutional Official Seal</span>
           </div>
           <div class="sig-box text-right">
             @if (digitalSignatureUrl) {
@@ -274,8 +290,11 @@ export interface PayslipDialogData {
                 <img [src]="digitalSignatureUrl" alt="Authorized Signature" class="digital-sign-img" />
               </div>
             }
+            @if (!digitalSignatureUrl) {
+              <div class="sig-space"></div>
+            }
             <div class="sig-line"></div>
-            <span>Authorized Signatory / Director</span>
+            <span class="sig-title">Authorized Signatory / Principal</span>
           </div>
         </div>
     
@@ -291,8 +310,8 @@ export interface PayslipDialogData {
       display: block;
     }
     .payslip-modal-container {
-      width: 100%; max-width: 860px; background: #fff; border-radius: 12px; overflow: hidden;
-      display: flex; flex-direction: column;
+      width: 100%; max-width: 820px; background: #fff; border-radius: 12px; overflow: hidden;
+      display: flex; flex-direction: column; max-height: 90vh;
     }
     .modal-actions {
       display: flex; justify-content: space-between; align-items: center;
@@ -302,8 +321,8 @@ export interface PayslipDialogData {
       .modal-hdr-left {
         display: flex; align-items: center; gap: 10px;
         .modal-hdr-icon {
-          background: #2563eb; color: #ffffff; border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(37,99,235,0.25);
+          background: #2563eb; color: #ffffff; border-radius: 10px;
+          box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
           width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
           overflow: hidden; flex-shrink: 0;
           mat-icon { font-size: 19px; width: 19px; height: 19px; }
@@ -322,10 +341,10 @@ export interface PayslipDialogData {
       .btn-group {
         display: flex; align-items: center; gap: 8px;
         .whatsapp-btn {
-          background: #22c55e; color: #ffffff; border: none; font-weight: 600; height: 32px; font-size: 0.8rem;
+          background: #16a34a; color: #ffffff; border: none; font-weight: 600; height: 32px; font-size: 0.8rem;
           display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; border-radius: 6px;
           mat-icon { font-size: 16px; width: 16px; height: 16px; margin: 0; }
-          &:hover { background: #16a34a; }
+          &:hover { background: #15803d; }
         }
         .print-btn {
           height: 32px; font-size: 0.8rem;
@@ -362,24 +381,25 @@ export interface PayslipDialogData {
       }
     }
     .payslip-paper {
-      padding: 12px 22px 14px; color: #1e293b; font-family: 'Segoe UI', Roboto, sans-serif;
-      overflow-y: auto;
-      scrollbar-width: none; /* Hide scrollbar for Firefox */
-      -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
-      &::-webkit-scrollbar { display: none; } /* Hide scrollbar for Chrome/Safari */
+      padding: 14px 22px 16px; color: #1e293b; font-family: 'Segoe UI', Roboto, sans-serif;
+      overflow-y: auto; flex: 1 1 auto;
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 transparent;
+      &::-webkit-scrollbar { width: 6px; }
+      &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     }
     .paper-header {
-      display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a;
-      padding-bottom: 6px; margin-bottom: 7px;
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 6px; margin-bottom: 8px;
     }
     .inst-info {
       display: flex; align-items: center; gap: 10px;
       .logo-mark {
-        width: 36px; height: 36px; background: transparent !important; border: none !important; box-shadow: none !important;
+        width: 38px; height: 38px; background: transparent !important; border: none !important; box-shadow: none !important;
         display: flex; align-items: center; justify-content: center; overflow: visible; flex-shrink: 0;
         &.has-img { background: transparent !important; border: none !important; padding: 0 !important; }
         .inst-logo-img { width: 100%; height: 100%; object-fit: contain; background: transparent !important; border: none !important; }
-        mat-icon { font-size: 22px; width: 22px; height: 22px; }
+        mat-icon { font-size: 24px; width: 24px; height: 24px; }
       }
       .inst-name { margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.3px; line-height: 1.15; }
       .inst-subtitle { margin: 1px 0 0; font-size: 0.72rem; color: #64748b; }
@@ -397,70 +417,93 @@ export interface PayslipDialogData {
     }
     .meta-strip {
       display: flex; flex-wrap: wrap; gap: 6px 14px;
-      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 12px; margin-bottom: 7px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; margin-bottom: 8px;
     }
     .meta-item {
       display: flex; flex-direction: column; gap: 1px; min-width: 95px; flex: 1 1 auto;
       .meta-label { font-size: 0.64rem; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.3px; }
-      .meta-val { font-size: 0.8rem; color: #0f172a; }
+      .meta-val { font-size: 0.8rem; color: #0f172a; font-weight: 600; }
       .branch-val { color: #1e40af; font-weight: 700; }
       .receipt-no { font-family: monospace; font-weight: 700; color: #1e40af; }
       .mode-pill { font-weight: 600; color: #0284c7; }
     }
     .details-section {
       display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; margin-bottom: 7px;
+      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; margin-bottom: 8px;
     }
     .details-col { display: flex; flex-direction: column; gap: 3px; }
     .info-row {
       display: flex; justify-content: space-between; font-size: 0.78rem;
       .k { color: #64748b; }
-      .v { color: #0f172a; }
+      .v { color: #0f172a; font-weight: 500; }
+      .code-badge { font-weight: 700; color: #1e40af; font-family: monospace; }
+      .font-mono { font-family: monospace; }
     }
     .attendance-summary-box {
-      display: flex; align-items: center; gap: 18px; background: #f0fdf4; border: 1px solid #bbf7d0;
-      border-radius: 6px; padding: 4px 12px; margin-bottom: 7px; font-size: 0.78rem;
+      display: flex; align-items: center; gap: 16px; background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 6px; padding: 5px 12px; margin-bottom: 8px; font-size: 0.78rem;
       .att-item { display: flex; align-items: center; gap: 5px; }
       .att-lbl { color: #166534; font-weight: 600; }
-      .att-val { font-weight: 700; &.green { color: #15803d; } &.red { color: #b91c1c; } }
+      .att-val { font-weight: 700; &.green { color: #15803d; } &.red { color: #b91c1c; } &.blue { color: #1d4ed8; } }
       .att-remarks { color: #64748b; font-size: 0.74rem; margin-left: auto; }
     }
     .breakdown-table-wrapper {
-      margin-bottom: 7px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;
+      margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;
     }
     .payslip-table {
       width: 100%; border-collapse: collapse; font-size: 0.78rem;
       th, td { padding: 4px 10px; border: 1px solid #e2e8f0; line-height: 1.25; }
-      .th-earnings { background: #eff6ff; color: #1e40af; font-weight: 700; text-align: center; }
-      .th-deductions { background: #fef2f2; color: #991b1b; font-weight: 700; text-align: center; }
-      .sub-head th { background: #f8fafc; font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
-      .text-right { text-align: right; }
-      .total-row { background: #f8fafc; border-top: 1.5px solid #cbd5e1; }
+      .th-earnings { background: #eff6ff; color: #1e40af; font-weight: 700; text-align: center; border-bottom: 2px solid #3b82f6; }
+      .th-deductions { background: #fef2f2; color: #991b1b; font-weight: 700; text-align: center; border-bottom: 2px solid #ef4444; }
+      .sub-head th { background: #f8fafc; font-size: 0.68rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
+      .text-right { text-align: right; font-variant-numeric: tabular-nums; }
+      .total-row { background: #f8fafc; border-top: 1.5px solid #cbd5e1; font-weight: 700; }
     }
     .net-payable-strip {
       display: flex; justify-content: space-between; align-items: center;
-      background: #0f172a; color: #fff; padding: 6px 14px; border-radius: 6px; margin-bottom: 8px;
-      .net-left { display: flex; flex-direction: column; gap: 1px; }
+      background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+      color: #fff; padding: 8px 16px; border-radius: 6px; margin-bottom: 8px;
+      box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.15);
+      .net-left { display: flex; flex-direction: column; gap: 2px; }
       .net-label { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.3px; color: #93c5fd; }
-      .net-words { font-size: 0.7rem; color: #cbd5e1; em { font-style: normal; color: #facc15; font-weight: 600; } }
+      .net-words { font-size: 0.7rem; color: #cbd5e1; em { font-style: normal; color: #fde047; font-weight: 600; } }
       .net-right {
         display: flex; align-items: baseline; gap: 3px;
         .net-currency { font-size: 1rem; font-weight: 700; color: #4ade80; }
-        .net-amount { font-size: 1.25rem; font-weight: 800; color: #4ade80; }
+        .net-amount { font-size: 1.3rem; font-weight: 800; color: #4ade80; letter-spacing: -0.3px; }
       }
     }
     .footer-signatures {
-      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px; padding-top: 2px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 10px; padding-top: 2px;
+      align-items: flex-end;
     }
     .sig-box {
       display: flex; flex-direction: column; align-items: flex-start; gap: 3px; font-size: 0.72rem; color: #64748b;
-      .sig-line { width: 110px; height: 1px; background: #94a3b8; margin-bottom: 2px; }
-      &.text-center { align-items: center; }
+      .sig-space { height: 48px; width: 100%; }
+      .sig-line { width: 120px; height: 1.5px; background: #94a3b8; margin-bottom: 2px; }
+      .sig-title { font-weight: 600; color: #475569; font-size: 0.72rem; }
+      &.text-center {
+        align-items: center;
+        .seal-container {
+          height: 52px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;
+        }
+      }
       &.text-right { align-items: flex-end; }
+    }
+    .uploaded-official-seal-img {
+      max-width: 52px; max-height: 52px; object-fit: contain; display: block; margin: 0 auto;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.06));
+    }
+    .digital-sign-wrapper {
+      display: flex; align-items: flex-end; justify-content: flex-end; height: 48px; margin-bottom: 2px;
+    }
+    .digital-sign-img {
+      max-height: 42px; max-width: 110px; object-fit: contain; display: block; mix-blend-mode: multiply;
     }
     .stamp-placeholder {
       display: flex; align-items: center; gap: 4px; border: 1.5px dashed #cbd5e1;
       padding: 2px 7px; border-radius: 14px; color: #94a3b8; font-size: 0.68rem;
+      height: 44px; box-sizing: border-box; margin-bottom: 2px;
       mat-icon { font-size: 14px; width: 14px; height: 14px; }
     }
     .paper-disclaimer {
@@ -489,6 +532,16 @@ export class TeacherPayslipDialogComponent {
     const authBranch = this.authService.getCurrentBranchName();
     if (authBranch) return authBranch;
     return '';
+  }
+
+  get hasAttendanceData(): boolean {
+    const p = this.data?.payment;
+    if (!p) return false;
+    return (p.workingDays != null && p.workingDays > 0) ||
+           (p.presentDays != null && p.presentDays > 0) ||
+           (p.absentDays != null && p.absentDays > 0) ||
+           (p.lopDays != null && p.lopDays > 0) ||
+           (p.paidLeaveDays != null && p.paidLeaveDays > 0);
   }
 
   constructor(
@@ -570,23 +623,26 @@ export class TeacherPayslipDialogComponent {
             .sub-head th { background: #f8fafc; font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
             .text-right { text-align: right; }
             .total-row { background: #f8fafc; border-top: 2px solid #cbd5e1; }
-            .net-payable-strip { display: flex; justify-content: space-between; align-items: center; background: #0f172a; color: #fff; padding: 14px 20px; border-radius: 8px; margin-bottom: 30px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .net-payable-strip { display: flex; justify-content: space-between; align-items: center; background: #1e3a8a; color: #fff; padding: 12px 18px; border-radius: 8px; margin-bottom: 24px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .net-label { font-size: 0.88rem; font-weight: 800; letter-spacing: 0.5px; color: #93c5fd; }
             .net-words { font-size: 0.76rem; color: #cbd5e1; margin-top: 4px; }
             .net-words em { font-style: normal; color: #facc15; font-weight: 600; }
             .net-right { display: flex; align-items: baseline; gap: 4px; }
             .net-currency { font-size: 1.2rem; font-weight: 700; color: #4ade80; }
-            .net-amount { font-size: 1.6rem; font-weight: 800; color: #4ade80; }
-            .footer-signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 36px; padding-top: 10px; }
-            .sig-box { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 0.78rem; color: #64748b; }
-            .sig-line { width: 140px; height: 1px; background: #94a3b8; margin-bottom: 4px; }
+            .net-amount { font-size: 1.5rem; font-weight: 800; color: #4ade80; }
+            .footer-signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 24px; padding-top: 10px; align-items: flex-end; }
+            .sig-box { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 0.78rem; color: #64748b; }
+            .sig-space { height: 48px; width: 100%; }
+            .sig-line { width: 140px; height: 1.5px; background: #94a3b8; margin-bottom: 4px; }
+            .sig-title { font-weight: 600; color: #475569; font-size: 0.78rem; }
             .sig-center { align-items: center; }
             .sig-right { align-items: flex-end; }
-            .uploaded-official-seal-img { max-width: 68px; max-height: 68px; object-fit: contain; display: block; margin: 0 auto; }
-            .digital-sign-wrapper { display: flex; align-items: flex-end; justify-content: flex-end; height: 38px; margin-bottom: 2px; }
-            .digital-sign-img { max-height: 38px; max-width: 130px; object-fit: contain; display: block; mix-blend-mode: multiply; }
+            .seal-container { height: 52px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
+            .uploaded-official-seal-img { max-width: 54px; max-height: 54px; object-fit: contain; display: block; margin: 0 auto; }
+            .digital-sign-wrapper { display: flex; align-items: flex-end; justify-content: flex-end; height: 48px; margin-bottom: 2px; }
+            .digital-sign-img { max-height: 42px; max-width: 120px; object-fit: contain; display: block; mix-blend-mode: multiply; }
             .stamp-placeholder { display: flex; align-items: center; gap: 4px; border: 1.5px dashed #cbd5e1; padding: 4px 10px; border-radius: 20px; color: #94a3b8; font-size: 0.72rem; }
-            .paper-disclaimer { margin-top: 24px; padding-top: 12px; border-top: 1px dashed #e2e8f0; text-align: center; font-size: 0.68rem; color: #94a3b8; }
+            .paper-disclaimer { margin-top: 20px; padding-top: 10px; border-top: 1px dashed #e2e8f0; text-align: center; font-size: 0.68rem; color: #94a3b8; }
             @media print {
               body { padding: 0; }
               @page { margin: 8mm 10mm; size: A4 portrait; }

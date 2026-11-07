@@ -2721,10 +2721,16 @@ public class TeachersController : ControllerBase
             );
         }
 
-        // Fetch attendance for the month
+        // Fetch attendance and approved regularizations for the month
         var records = await _db.TeacherAttendances.AsNoTracking()
             .Where(a => a.TeacherId == id && a.AttendanceDate.Month == month && a.AttendanceDate.Year == year)
             .ToListAsync();
+
+        var approvedRegularizations = await _db.TeacherAttendanceRegularizations.AsNoTracking()
+            .Where(r => r.TeacherId == id && r.Status == RegularizationStatus.Approved &&
+                        r.AttendanceDate.Month == month && r.AttendanceDate.Year == year)
+            .ToListAsync();
+        var regularizedDates = new HashSet<DateTime>(approvedRegularizations.Select(r => r.AttendanceDate.Date));
 
         var approvedLeaves = await _db.TeacherLeaves.AsNoTracking()
             .Where(l => l.TeacherId == id && 
@@ -2736,9 +2742,17 @@ public class TeachersController : ControllerBase
         int unpaidLeaveDays = 0, paidLeaveDays = 0;
 
         var attSettings = await _db.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == teacher.TenantId);
+        var policy = await _db.LeaveAndAttendancePolicies.AsNoTracking().FirstOrDefaultAsync(p => p.TenantId == teacher.TenantId);
 
         foreach (var r in records)
         {
+            if (regularizedDates.Contains(r.AttendanceDate.Date))
+            {
+                // Approved regularization overrides any absent/late/half-day status to Present
+                present++;
+                continue;
+            }
+
             var effectiveStatus = EvaluateSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime, attSettings);
             if (effectiveStatus == TeacherAttendanceStatus.Present) present++;
             else if (effectiveStatus == TeacherAttendanceStatus.Absent) absent++;
@@ -2829,6 +2843,13 @@ public class TeachersController : ControllerBase
             // Dates before joining date are not absences
             if (date < joiningDate) continue;
 
+            if (regularizedDates.Contains(date))
+            {
+                // Approved regularization covers this date as Present
+                present++;
+                continue;
+            }
+
             var leave = approvedLeaves.FirstOrDefault(l =>
                 l.FromDate.Date <= date && l.ToDate.Date >= date &&
                 !(l.IsCancellationApproved == true && l.CancellationFromDate.HasValue && l.CancellationToDate.HasValue &&
@@ -2850,11 +2871,25 @@ public class TeachersController : ControllerBase
             }
         }
 
-        int allowedLateDays = attSettings?.TeacherAllowedLateDaysPerMonth ?? 3;
+        int allowedLateDays = policy?.LatePenaltyThresholdDays ?? attSettings?.TeacherAllowedLateDaysPerMonth ?? 3;
+        decimal latePenaltyFactor = policy?.LatePenaltyDeductionFactor ?? 0.5m;
         int excessLateDays = Math.Max(0, late - allowedLateDays);
-        decimal latePenaltyDays = Math.Floor(excessLateDays / 3.0m) * 0.5m;
+        decimal latePenaltyDays = Math.Floor(excessLateDays / 3.0m) * latePenaltyFactor;
 
-        decimal perDayRate = totalWorkingDays > 0 ? Math.Round(gross / totalWorkingDays, 2) : 0m;
+        int divisorDays = totalWorkingDays;
+        if (policy != null)
+        {
+            if (string.Equals(policy.SalaryDivisorMode, "Fixed30Days", StringComparison.OrdinalIgnoreCase))
+                divisorDays = 30;
+            else if (string.Equals(policy.SalaryDivisorMode, "Standard26Days", StringComparison.OrdinalIgnoreCase))
+                divisorDays = 26;
+            else if (string.Equals(policy.SalaryDivisorMode, "CalendarDays", StringComparison.OrdinalIgnoreCase))
+                divisorDays = daysInMonth;
+            else
+                divisorDays = Math.Max(1, totalWorkingDays);
+        }
+
+        decimal perDayRate = divisorDays > 0 ? Math.Round(gross / divisorDays, 2) : 0m;
         decimal preJoiningDeduction = Math.Round(preJoiningWorkingDays * perDayRate, 2);
         decimal absentDeduction = Math.Round(absent * perDayRate, 2);
         decimal halfDayDeduction = Math.Round((half * 0.5m) * perDayRate, 2);
@@ -2900,9 +2935,22 @@ public class TeachersController : ControllerBase
             }
         }
 
-        var pendingAdvance = await _db.TeacherSalaryAdvances.AsNoTracking()
+        var approvedAdvances = await _db.TeacherSalaryAdvances.AsNoTracking()
             .Where(a => a.TeacherId == id && a.Status == AdvanceStatus.Approved)
-            .SumAsync(a => a.Amount);
+            .ToListAsync();
+
+        decimal pendingAdvance = 0m;
+        foreach (var adv in approvedAdvances)
+        {
+            decimal remaining = Math.Max(0m, adv.Amount - adv.RecoveredAmount);
+            if (remaining > 0)
+            {
+                if (adv.MonthlyInstallment > 0)
+                    pendingAdvance += Math.Min(adv.MonthlyInstallment, remaining);
+                else
+                    pendingAdvance += remaining;
+            }
+        }
 
         // Hostel rent deduction
         var hostelAlloc = await _db.HostelAllocations.AsNoTracking()
@@ -3167,12 +3215,42 @@ public class TeachersController : ControllerBase
         var bulkIstToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, bulkIstZone).Date;
         var bulkMonthEndDate = new DateTime(dto.PaymentYear, dto.PaymentMonth, lastDayOfBulkMonth);
 
-        if (bulkIstToday < bulkMonthEndDate)
+        if (bulkIstToday < bulkMonthEndDate && !dto.AllowEarlyDisbursal)
         {
             var mName = new DateTime(dto.PaymentYear, dto.PaymentMonth, 1).ToString("MMMM yyyy");
             return BadRequest(new { 
                 message = $"Cannot disburse bulk salary: {mName} is currently in progress (Day {bulkIstToday.Day} of {lastDayOfBulkMonth}). Full-month attendance is incomplete. Regular monthly salary can only be processed on or after the last day of the month ({bulkMonthEndDate:dd MMM yyyy})." 
             });
+        }
+
+        // Check if payroll month is locked
+        var isBulkMonthLocked = await _db.TeacherPayrollMonthLocks.AsNoTracking()
+            .AnyAsync(l => l.TenantId == _currentUser.TenantId && l.Month == dto.PaymentMonth && l.Year == dto.PaymentYear && l.IsLocked);
+        if (isBulkMonthLocked)
+        {
+            return BadRequest(new { message = $"Cannot disburse salary: Payroll for {dto.PaymentMonth:D2}/{dto.PaymentYear} is locked. Please unlock the month in Payroll Settings." });
+        }
+
+        var payrollPolicy = await _db.LeaveAndAttendancePolicies.AsNoTracking().FirstOrDefaultAsync(p => p.TenantId == _currentUser.TenantId);
+        ExpenseCategory? salaryCategory = null;
+        if (payrollPolicy == null || payrollPolicy.AutoPostPayrollToDayBook)
+        {
+            salaryCategory = await _db.ExpenseCategories
+                .FirstOrDefaultAsync(c => c.TenantId == _currentUser.TenantId && (c.Code == "SALARY" || c.Name.Contains("Salary")));
+            if (salaryCategory == null)
+            {
+                salaryCategory = new ExpenseCategory
+                {
+                    TenantId = _currentUser.TenantId,
+                    Name = "Staff Salaries",
+                    Code = "SALARY",
+                    Description = "Automated payroll disbursals linked from HRMS",
+                    SortOrder = 1,
+                    IsActive = true
+                };
+                _db.ExpenseCategories.Add(salaryCategory);
+                await _db.SaveChangesAsync();
+            }
         }
 
         if (!Enum.TryParse<SalaryPaymentMode>(dto.PaymentMode, true, out var mode))
@@ -3197,6 +3275,8 @@ public class TeachersController : ControllerBase
             .Where(p => teacherIds.Contains(p.TeacherId) && p.PaymentMonth == dto.PaymentMonth && p.PaymentYear == dto.PaymentYear)
             .Select(p => p.TeacherId)
             .ToListAsync();
+
+        string bulkMonthLabel = new DateTime(dto.PaymentYear, dto.PaymentMonth, 1).ToString("MMMM yyyy");
 
         foreach (var item in dto.Payments)
         {
@@ -3229,6 +3309,7 @@ public class TeachersController : ControllerBase
             var payment = new TeacherSalaryPayment
             {
                 TenantId = _currentUser.TenantId,
+                BranchId = teacher.BranchId ?? _currentUser.BranchId,
                 TeacherId = item.TeacherId,
                 PaymentMonth = dto.PaymentMonth,
                 PaymentYear = dto.PaymentYear,
@@ -3253,15 +3334,53 @@ public class TeachersController : ControllerBase
 
             if (advance > 0)
             {
+                decimal remainingToDeduct = advance;
                 var advances = await _db.TeacherSalaryAdvances
                     .Where(a => a.TeacherId == item.TeacherId && a.Status == AdvanceStatus.Approved)
+                    .OrderBy(a => a.RequestDate)
                     .ToListAsync();
                 foreach (var adv in advances)
                 {
-                    adv.Status = AdvanceStatus.Adjusted;
-                    adv.AdjustedInMonth = dto.PaymentMonth;
-                    adv.AdjustedInYear = dto.PaymentYear;
+                    if (remainingToDeduct <= 0) break;
+                    decimal unpaid = Math.Max(0m, adv.Amount - adv.RecoveredAmount);
+                    decimal rec = Math.Min(unpaid, remainingToDeduct);
+                    adv.RecoveredAmount += rec;
+                    remainingToDeduct -= rec;
+                    if (adv.RecoveredAmount >= adv.Amount)
+                    {
+                        adv.Status = AdvanceStatus.Adjusted;
+                        adv.AdjustedInMonth = dto.PaymentMonth;
+                        adv.AdjustedInYear = dto.PaymentYear;
+                    }
                 }
+            }
+
+            // Auto-post Day Book & P&L expense voucher
+            if (salaryCategory != null && net > 0)
+            {
+                var voucher = new ExpenseVoucher
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = teacher.BranchId,
+                    ExpenseCategoryId = salaryCategory.Id,
+                    Title = $"Salary Disbursal - {teacher.FullName} ({bulkMonthLabel})",
+                    Amount = net,
+                    PaymentMode = mode switch
+                    {
+                        SalaryPaymentMode.Cash => ExpensePaymentMode.Cash,
+                        SalaryPaymentMode.BankTransfer => ExpensePaymentMode.BankTransfer,
+                        SalaryPaymentMode.UPI => ExpensePaymentMode.UPI,
+                        SalaryPaymentMode.Cheque => ExpensePaymentMode.Cheque,
+                        _ => ExpensePaymentMode.BankTransfer
+                    },
+                    VendorName = teacher.FullName,
+                    BillInvoiceNo = payment.ReceiptNumber,
+                    Description = $"Bulk payroll: Gross ₹{payment.GrossAmount}, Deductions ₹{payment.Deductions}, Advance ₹{payment.AdvanceAdjusted}, Net Paid ₹{payment.NetPaid}. TxnRef: {payment.TransactionRef ?? "N/A"}",
+                    ExpenseDate = payment.PaymentDate,
+                    CreatedByUserId = _currentUser.UserId,
+                    CreatedAt = now
+                };
+                _db.ExpenseVouchers.Add(voucher);
             }
 
             successCount++;
@@ -3321,12 +3440,20 @@ public class TeachersController : ControllerBase
         var istToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
         var monthEndDate = new DateTime(dto.PaymentYear, dto.PaymentMonth, lastDayOfTargetMonth);
 
-        if (istToday < monthEndDate)
+        if (istToday < monthEndDate && !dto.AllowEarlyDisbursal)
         {
             var mName = new DateTime(dto.PaymentYear, dto.PaymentMonth, 1).ToString("MMMM yyyy");
             return BadRequest(new { 
                 message = $"Cannot record salary: {mName} is currently in progress (Day {istToday.Day} of {lastDayOfTargetMonth}). Full-month attendance is incomplete. Regular monthly salary can only be processed on or after the last day of the month ({monthEndDate:dd MMM yyyy})." 
             });
+        }
+
+        // Check if payroll month is locked
+        var isMonthLocked = await _db.TeacherPayrollMonthLocks.AsNoTracking()
+            .AnyAsync(l => l.TenantId == _currentUser.TenantId && l.Month == dto.PaymentMonth && l.Year == dto.PaymentYear && l.IsLocked);
+        if (isMonthLocked)
+        {
+            return BadRequest(new { message = $"Cannot record salary: Payroll for {dto.PaymentMonth:D2}/{dto.PaymentYear} is locked. Please unlock the month in Payroll Settings." });
         }
 
         if (!Enum.TryParse<SalaryPaymentMode>(dto.PaymentMode, true, out var mode))
@@ -3341,6 +3468,7 @@ public class TeachersController : ControllerBase
         var payment = new TeacherSalaryPayment
         {
             TenantId = _currentUser.TenantId,
+            BranchId = teacher.BranchId ?? _currentUser.BranchId,
             TeacherId = dto.TeacherId,
             PaymentMonth = dto.PaymentMonth,
             PaymentYear = dto.PaymentYear,
@@ -3363,18 +3491,76 @@ public class TeachersController : ControllerBase
 
         _db.TeacherSalaryPayments.Add(payment);
 
-        // Mark related advances as adjusted
+        // Incremental advance recovery (handles EMI / partial repayment cleanly)
         if (dto.AdvanceAdjusted > 0)
         {
+            decimal remainingToDeduct = dto.AdvanceAdjusted;
             var advances = await _db.TeacherSalaryAdvances
                 .Where(a => a.TeacherId == dto.TeacherId && a.Status == AdvanceStatus.Approved)
+                .OrderBy(a => a.RequestDate)
                 .ToListAsync();
+
             foreach (var adv in advances)
             {
-                adv.Status = AdvanceStatus.Adjusted;
-                adv.AdjustedInMonth = dto.PaymentMonth;
-                adv.AdjustedInYear = dto.PaymentYear;
+                if (remainingToDeduct <= 0) break;
+                decimal unpaid = Math.Max(0m, adv.Amount - adv.RecoveredAmount);
+                decimal rec = Math.Min(unpaid, remainingToDeduct);
+                adv.RecoveredAmount += rec;
+                remainingToDeduct -= rec;
+                if (adv.RecoveredAmount >= adv.Amount)
+                {
+                    adv.Status = AdvanceStatus.Adjusted;
+                    adv.AdjustedInMonth = dto.PaymentMonth;
+                    adv.AdjustedInYear = dto.PaymentYear;
+                }
             }
+        }
+
+        // Auto-post Day Book & Financial expense voucher
+        var payrollPolicy = await _db.LeaveAndAttendancePolicies.AsNoTracking().FirstOrDefaultAsync(p => p.TenantId == _currentUser.TenantId);
+        if ((payrollPolicy == null || payrollPolicy.AutoPostPayrollToDayBook) && dto.NetPaid > 0)
+        {
+            var salaryCategory = await _db.ExpenseCategories
+                .FirstOrDefaultAsync(c => c.TenantId == _currentUser.TenantId && (c.Code == "SALARY" || c.Name.Contains("Salary")));
+            if (salaryCategory == null)
+            {
+                salaryCategory = new ExpenseCategory
+                {
+                    TenantId = _currentUser.TenantId,
+                    Name = "Staff Salaries",
+                    Code = "SALARY",
+                    Description = "Automated payroll disbursals linked from HRMS",
+                    SortOrder = 1,
+                    IsActive = true
+                };
+                _db.ExpenseCategories.Add(salaryCategory);
+                await _db.SaveChangesAsync();
+            }
+
+            string monthLabel = new DateTime(dto.PaymentYear, dto.PaymentMonth, 1).ToString("MMMM yyyy");
+            var voucher = new ExpenseVoucher
+            {
+                TenantId = _currentUser.TenantId,
+                BranchId = teacher.BranchId,
+                ExpenseCategoryId = salaryCategory.Id,
+                Title = $"Salary Disbursal - {teacher.FullName} ({monthLabel})",
+                Amount = dto.NetPaid,
+                PaymentMode = mode switch
+                {
+                    SalaryPaymentMode.Cash => ExpensePaymentMode.Cash,
+                    SalaryPaymentMode.BankTransfer => ExpensePaymentMode.BankTransfer,
+                    SalaryPaymentMode.UPI => ExpensePaymentMode.UPI,
+                    SalaryPaymentMode.Cheque => ExpensePaymentMode.Cheque,
+                    _ => ExpensePaymentMode.BankTransfer
+                },
+                VendorName = teacher.FullName,
+                BillInvoiceNo = payment.ReceiptNumber,
+                Description = $"Monthly payroll for {monthLabel}. Gross: ₹{payment.GrossAmount}, Deductions: ₹{payment.Deductions}, Advance: ₹{payment.AdvanceAdjusted}, Net Paid: ₹{payment.NetPaid}. TxnRef: {payment.TransactionRef ?? "N/A"}",
+                ExpenseDate = payment.PaymentDate,
+                CreatedByUserId = _currentUser.UserId,
+                CreatedAt = now
+            };
+            _db.ExpenseVouchers.Add(voucher);
         }
 
         await _db.SaveChangesAsync();
@@ -3389,20 +3575,37 @@ public class TeachersController : ControllerBase
         var payment = await _db.TeacherSalaryPayments.FirstOrDefaultAsync(p => p.Id == paymentId && p.TenantId == tenantId);
         if (payment == null) return NotFound(new { message = "Payment not found." });
 
-        // If advances were adjusted in this payment, restore them to Approved status
+        // If advances were adjusted in this payment, restore them
         if (payment.AdvanceAdjusted > 0)
         {
             var advances = await _db.TeacherSalaryAdvances
-                .Where(a => a.TeacherId == payment.TeacherId && a.Status == AdvanceStatus.Adjusted &&
-                            a.AdjustedInMonth == payment.PaymentMonth && a.AdjustedInYear == payment.PaymentYear)
+                .Where(a => a.TeacherId == payment.TeacherId)
+                .OrderByDescending(a => a.RequestDate)
                 .ToListAsync();
 
+            decimal toRollback = payment.AdvanceAdjusted;
             foreach (var adv in advances)
             {
-                adv.Status = AdvanceStatus.Approved;
-                adv.AdjustedInMonth = null;
-                adv.AdjustedInYear = null;
+                if (toRollback <= 0) break;
+                decimal canRollback = Math.Min(adv.RecoveredAmount, toRollback);
+                adv.RecoveredAmount -= canRollback;
+                toRollback -= canRollback;
+                if (adv.RecoveredAmount < adv.Amount && adv.Status == AdvanceStatus.Adjusted)
+                {
+                    adv.Status = AdvanceStatus.Approved;
+                    adv.AdjustedInMonth = null;
+                    adv.AdjustedInYear = null;
+                }
             }
+        }
+
+        // Remove corresponding Day Book / Financial expense vouchers
+        var linkedVouchers = await _db.ExpenseVouchers
+            .Where(v => v.TenantId == tenantId && v.BillInvoiceNo == payment.ReceiptNumber)
+            .ToListAsync();
+        if (linkedVouchers.Count > 0)
+        {
+            _db.ExpenseVouchers.RemoveRange(linkedVouchers);
         }
 
         _db.TeacherSalaryPayments.Remove(payment);
@@ -3454,12 +3657,61 @@ public class TeachersController : ControllerBase
         if (teacher == null) return NotFound();
 
         var list = await _db.TeacherSalaryAdvances.AsNoTracking()
+            .Include(a => a.Branch)
             .Where(a => a.TeacherId == id)
             .OrderByDescending(a => a.RequestDate)
             .Select(a => new TeacherSalaryAdvanceDto(
                 a.Id, a.TeacherId, teacher.FullName, teacher.EmployeeCode,
                 a.Amount, a.RequestDate, a.ApprovedDate, a.Reason,
-                a.Status.ToString(), a.AdjustedInMonth, a.AdjustedInYear))
+                a.Status.ToString(), a.AdjustedInMonth, a.AdjustedInYear,
+                a.MonthlyInstallment, a.RecoveredAmount, a.InstallmentTenureMonths,
+                Math.Max(0m, a.Amount - a.RecoveredAmount),
+                a.BranchId, a.Branch != null ? a.Branch.Name : null))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpGet("all-advances")]
+    public async Task<ActionResult<IEnumerable<TeacherSalaryAdvanceDto>>> GetAllAdvances(
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] int? month = null,
+        [FromQuery] int? year = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var query = _db.TeacherSalaryAdvances.AsNoTracking()
+            .Include(a => a.Teacher)
+            .Include(a => a.Branch)
+            .Where(a => a.TenantId == tenantId);
+
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<AdvanceStatus>(status, true, out var st))
+        {
+            query = query.Where(a => a.Status == st);
+        }
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            query = query.Where(a => a.BranchId == branchId.Value || (a.Teacher != null && a.Teacher.BranchId == branchId.Value));
+        }
+        if (month.HasValue && month.Value > 0)
+        {
+            query = query.Where(a => a.RequestDate.Month == month.Value || a.AdjustedInMonth == month.Value);
+        }
+        if (year.HasValue && year.Value > 0)
+        {
+            query = query.Where(a => a.RequestDate.Year == year.Value || a.AdjustedInYear == year.Value);
+        }
+
+        var list = await query
+            .OrderByDescending(a => a.RequestDate)
+            .Select(a => new TeacherSalaryAdvanceDto(
+                a.Id, a.TeacherId, a.Teacher != null ? a.Teacher.FullName : "Unknown",
+                a.Teacher != null ? a.Teacher.EmployeeCode : "—",
+                a.Amount, a.RequestDate, a.ApprovedDate, a.Reason,
+                a.Status.ToString(), a.AdjustedInMonth, a.AdjustedInYear,
+                a.MonthlyInstallment, a.RecoveredAmount, a.InstallmentTenureMonths,
+                Math.Max(0m, a.Amount - a.RecoveredAmount),
+                a.BranchId, a.Branch != null ? a.Branch.Name : null))
             .ToListAsync();
 
         return Ok(list);
@@ -3471,11 +3723,19 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers.FindAsync(dto.TeacherId);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
+        decimal monthly = dto.MonthlyInstallment > 0
+            ? dto.MonthlyInstallment
+            : (dto.InstallmentTenureMonths > 0 ? Math.Round(dto.Amount / dto.InstallmentTenureMonths, 2) : dto.Amount);
+
         var advance = new TeacherSalaryAdvance
         {
             TenantId = _currentUser.TenantId,
+            BranchId = dto.BranchId ?? teacher.BranchId,
             TeacherId = dto.TeacherId,
             Amount = dto.Amount,
+            MonthlyInstallment = monthly,
+            InstallmentTenureMonths = dto.InstallmentTenureMonths > 0 ? dto.InstallmentTenureMonths : 1,
+            RecoveredAmount = 0m,
             Reason = dto.Reason?.Trim(),
             Status = AdvanceStatus.Pending,
             RequestDate = DateTime.UtcNow,
@@ -3488,7 +3748,10 @@ public class TeachersController : ControllerBase
         return Ok(new TeacherSalaryAdvanceDto(
             advance.Id, advance.TeacherId, teacher.FullName, teacher.EmployeeCode,
             advance.Amount, advance.RequestDate, advance.ApprovedDate, advance.Reason,
-            advance.Status.ToString(), advance.AdjustedInMonth, advance.AdjustedInYear));
+            advance.Status.ToString(), advance.AdjustedInMonth, advance.AdjustedInYear,
+            advance.MonthlyInstallment, advance.RecoveredAmount, advance.InstallmentTenureMonths,
+            Math.Max(0m, advance.Amount - advance.RecoveredAmount),
+            advance.BranchId, null));
     }
 
     [HttpPut("advances/{advanceId}/approve")]
@@ -3503,6 +3766,14 @@ public class TeachersController : ControllerBase
         {
             advance.AdjustedInMonth = dto.AdjustedInMonth;
             advance.AdjustedInYear = dto.AdjustedInYear;
+            if (dto.MonthlyInstallment.HasValue && dto.MonthlyInstallment.Value > 0)
+            {
+                advance.MonthlyInstallment = dto.MonthlyInstallment.Value;
+            }
+            if (dto.InstallmentTenureMonths.HasValue && dto.InstallmentTenureMonths.Value > 0)
+            {
+                advance.InstallmentTenureMonths = dto.InstallmentTenureMonths.Value;
+            }
         }
 
         await _db.SaveChangesAsync();
@@ -4294,6 +4565,10 @@ public class TeachersController : ControllerBase
             .Where(l => l.TeacherId == teacherId && l.FromDate >= startOfYear && l.FromDate <= endOfYear)
             .ToListAsync();
 
+        var accrualLogsThisYear = await _db.TeacherLeaveAccrualLogs.AsNoTracking()
+            .Where(l => l.TeacherId == teacherId && l.Year == now.Year)
+            .ToListAsync();
+
         var balances = new List<TeacherLeaveBalanceItemDto>();
 
         decimal GetEffectiveLeaveDays(TeacherLeave l)
@@ -4314,9 +4589,11 @@ public class TeachersController : ControllerBase
 
         // Casual Leave
         decimal clAllocated = policy.AnnualCasualLeaveQuota;
-        decimal clAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
-            ? Math.Min(clAllocated, policy.MonthlyCasualLeaveAccrual * monthsElapsed)
-            : clAllocated;
+        decimal clAccrued = accrualLogsThisYear.Count > 0
+            ? accrualLogsThisYear.Sum(l => l.CasualLeaveAdded)
+            : (policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
+                ? Math.Min(clAllocated, policy.MonthlyCasualLeaveAccrual * monthsElapsed)
+                : clAllocated);
         decimal clUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
             .Sum(l => GetEffectiveLeaveDays(l));
         decimal clPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.CasualLeave && l.Status == LeaveStatus.Pending)
@@ -4326,9 +4603,11 @@ public class TeachersController : ControllerBase
 
         // Sick Leave
         decimal slAllocated = policy.AnnualSickLeaveQuota;
-        decimal slAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
-            ? Math.Min(slAllocated, Math.Round((slAllocated / 12.0m) * monthsElapsed, 1))
-            : slAllocated;
+        decimal slAccrued = accrualLogsThisYear.Count > 0
+            ? accrualLogsThisYear.Sum(l => l.SickLeaveAdded)
+            : (policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
+                ? Math.Min(slAllocated, Math.Round((slAllocated / 12.0m) * monthsElapsed, 1))
+                : slAllocated);
         decimal slUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
             .Sum(l => GetEffectiveLeaveDays(l));
         decimal slPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.SickLeave && l.Status == LeaveStatus.Pending)
@@ -4338,9 +4617,11 @@ public class TeachersController : ControllerBase
 
         // Earned Leave
         decimal elAllocated = policy.AnnualEarnedLeaveQuota;
-        decimal elAccrued = policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
-            ? Math.Min(elAllocated, Math.Round((elAllocated / 12.0m) * monthsElapsed, 1))
-            : elAllocated;
+        decimal elAccrued = accrualLogsThisYear.Count > 0
+            ? accrualLogsThisYear.Sum(l => l.EarnedLeaveAdded)
+            : (policy.LeaveAccrualFrequency.Equals("Monthly", StringComparison.OrdinalIgnoreCase)
+                ? Math.Min(elAllocated, Math.Round((elAllocated / 12.0m) * monthsElapsed, 1))
+                : elAllocated);
         decimal elUsed = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && (l.Status == LeaveStatus.Approved || l.Status == LeaveStatus.CancellationRequested || l.Status == LeaveStatus.PartiallyCancelled))
             .Sum(l => GetEffectiveLeaveDays(l));
         decimal elPending = leavesThisYear.Where(l => l.LeaveType == LeaveType.EarnedLeave && l.Status == LeaveStatus.Pending)
@@ -4379,7 +4660,16 @@ public class TeachersController : ControllerBase
             policy.AutoCancelLeaveOnBiometricPunch,
             policy.AllowFullDayLeaveIfMarkedPresent,
             policy.ExcludeHolidaysFromLeaveCount,
-            policy.ExcludeSundaysFromLeaveCount
+            policy.ExcludeSundaysFromLeaveCount,
+            policy.SalaryDivisorMode,
+            policy.LatePenaltyMode,
+            policy.LatePenaltyThresholdDays,
+            policy.LatePenaltyDeductionFactor,
+            policy.AutoCalculateStatutoryPF,
+            policy.AutoCalculateStatutoryESI,
+            policy.AutoPostPayrollToDayBook,
+            policy.AutoSendWhatsAppPayslip,
+            policy.NoticePeriodDays
         ));
     }
 
@@ -4404,6 +4694,15 @@ public class TeachersController : ControllerBase
         policy.AllowFullDayLeaveIfMarkedPresent = dto.AllowFullDayLeaveIfMarkedPresent;
         policy.ExcludeHolidaysFromLeaveCount = dto.ExcludeHolidaysFromLeaveCount;
         policy.ExcludeSundaysFromLeaveCount = dto.ExcludeSundaysFromLeaveCount;
+        policy.SalaryDivisorMode = !string.IsNullOrWhiteSpace(dto.SalaryDivisorMode) ? dto.SalaryDivisorMode : "WorkingDays";
+        policy.LatePenaltyMode = !string.IsNullOrWhiteSpace(dto.LatePenaltyMode) ? dto.LatePenaltyMode : "StandardRule";
+        policy.LatePenaltyThresholdDays = dto.LatePenaltyThresholdDays > 0 ? dto.LatePenaltyThresholdDays : 3;
+        policy.LatePenaltyDeductionFactor = dto.LatePenaltyDeductionFactor > 0 ? dto.LatePenaltyDeductionFactor : 0.5m;
+        policy.AutoCalculateStatutoryPF = dto.AutoCalculateStatutoryPF;
+        policy.AutoCalculateStatutoryESI = dto.AutoCalculateStatutoryESI;
+        policy.AutoPostPayrollToDayBook = dto.AutoPostPayrollToDayBook;
+        policy.AutoSendWhatsAppPayslip = dto.AutoSendWhatsAppPayslip;
+        policy.NoticePeriodDays = dto.NoticePeriodDays > 0 ? dto.NoticePeriodDays : 30;
         policy.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -4419,7 +4718,16 @@ public class TeachersController : ControllerBase
             policy.AutoCancelLeaveOnBiometricPunch,
             policy.AllowFullDayLeaveIfMarkedPresent,
             policy.ExcludeHolidaysFromLeaveCount,
-            policy.ExcludeSundaysFromLeaveCount
+            policy.ExcludeSundaysFromLeaveCount,
+            policy.SalaryDivisorMode,
+            policy.LatePenaltyMode,
+            policy.LatePenaltyThresholdDays,
+            policy.LatePenaltyDeductionFactor,
+            policy.AutoCalculateStatutoryPF,
+            policy.AutoCalculateStatutoryESI,
+            policy.AutoPostPayrollToDayBook,
+            policy.AutoSendWhatsAppPayslip,
+            policy.NoticePeriodDays
         ));
     }
 
@@ -4865,10 +5173,11 @@ public class TeachersController : ControllerBase
             .FirstOrDefaultAsync(t => t.Id == id);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
 
-        // 1. Advance balance
-        var advances = await _db.TeacherSalaryAdvances
-            .Where(a => a.TeacherId == id && a.Status == AdvanceStatus.Approved)
-            .SumAsync(a => a.Amount);
+        // 1. Advance balance (Outstanding remaining balance after prior monthly EMI deductions)
+        var advancesList = await _db.TeacherSalaryAdvances
+            .Where(a => a.TeacherId == id && (a.Status == AdvanceStatus.Approved || (a.Status == AdvanceStatus.Adjusted && a.RecoveredAmount < a.Amount)))
+            .ToListAsync();
+        var advances = advancesList.Sum(a => Math.Max(0m, a.Amount - a.RecoveredAmount));
 
         // 2. Library checkouts and fines
         var circulations = await _db.LibraryCirculations
@@ -4943,6 +5252,17 @@ public class TeachersController : ControllerBase
             .FirstOrDefaultAsync(a => a.TeacherId == id && a.Status == "Active");
         bool isHostelResident = hostelAlloc != null;
 
+        // 9. Dynamic Leave Encashment & Notice Period Shortfall
+        var policy = await GetOrCreateLeavePolicyAsync(teacher.TenantId);
+        var leaveBalances = await ComputeTeacherLeaveBalancesAsync(id, policy);
+        var elAvailable = leaveBalances.Balances.FirstOrDefault(b => b.LeaveType == "EarnedLeave")?.AvailableBalance ?? 0m;
+        decimal elEncashment = Math.Round(elAvailable * (basic > 0 ? Math.Round(basic / 30m, 2) : perDayRate), 2);
+
+        int noticeRequired = policy.NoticePeriodDays > 0 ? policy.NoticePeriodDays : 30;
+        int noticeServed = noticeRequired;
+        int shortfallDays = 0;
+        decimal shortfallAmount = 0m;
+
         return Ok(new TeacherFnFPreviewDto(
             teacher.Id,
             teacher.FullName,
@@ -4979,7 +5299,16 @@ public class TeachersController : ControllerBase
             finalMonthSalaryReceiptNumber,
             finalMonthSalaryPaidAmount,
             finalMonthSalaryPaymentDate,
-            isFnFAlreadySettled
+            isFnFAlreadySettled,
+            // Dynamic Leave Encashment & Notice Shortfall calculation
+            elAvailable,
+            elEncashment,
+            noticeRequired,
+            noticeServed,
+            shortfallDays,
+            shortfallAmount,
+            teacher.BranchId,
+            teacher.Branch?.Name
         ));
     }
 
@@ -5242,10 +5571,11 @@ public class TeachersController : ControllerBase
             if (dto.PendingAdvanceDeduction > 0)
             {
                 var advances = await _db.TeacherSalaryAdvances
-                    .Where(a => a.TeacherId == id && a.Status == AdvanceStatus.Approved)
+                    .Where(a => a.TeacherId == id && (a.Status == AdvanceStatus.Approved || (a.Status == AdvanceStatus.Adjusted && a.RecoveredAmount < a.Amount)))
                     .ToListAsync();
                 foreach (var a in advances)
                 {
+                    a.RecoveredAmount = a.Amount;
                     a.Status = AdvanceStatus.Adjusted;
                     a.AdjustedInMonth = dto.LastWorkingDate.Month;
                     a.AdjustedInYear = dto.LastWorkingDate.Year;
@@ -5258,6 +5588,44 @@ public class TeachersController : ControllerBase
             teacher.IsHostelResident = false;
             teacher.TransportAllocationId = null;
             teacher.IsTransportStaff = false;
+
+            // 7. Auto-post FNF payout to Day Book & P&L
+            if (netPayable > 0)
+            {
+                var salaryCategory = await _db.ExpenseCategories
+                    .FirstOrDefaultAsync(c => c.TenantId == _currentUser.TenantId && (c.Code == "SALARY" || c.Name.Contains("Salary")));
+                if (salaryCategory == null)
+                {
+                    salaryCategory = new ExpenseCategory
+                    {
+                        TenantId = _currentUser.TenantId,
+                        Name = "Staff Salaries",
+                        Code = "SALARY",
+                        Description = "Automated payroll disbursals linked from HRMS",
+                        SortOrder = 1,
+                        IsActive = true
+                    };
+                    _db.ExpenseCategories.Add(salaryCategory);
+                    await _db.SaveChangesAsync();
+                }
+
+                var voucher = new ExpenseVoucher
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = teacher.BranchId,
+                    ExpenseCategoryId = salaryCategory.Id,
+                    Title = $"FNF Settlement - {teacher.FullName} ({voucherNo})",
+                    Amount = netPayable,
+                    PaymentMode = ExpensePaymentMode.BankTransfer,
+                    VendorName = teacher.FullName,
+                    BillInvoiceNo = voucherNo,
+                    Description = $"Full & Final Settlement for {teacher.FullName}. Total Earnings: ₹{totalEarnings}, Total Deductions: ₹{totalDeductions}, Net Paid: ₹{netPayable}. Ref: {dto.PaymentReference ?? "N/A"}",
+                    ExpenseDate = dto.LastWorkingDate,
+                    CreatedByUserId = _currentUser.UserId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _db.ExpenseVouchers.Add(voucher);
+            }
         }
 
         await _db.SaveChangesAsync();
@@ -5814,5 +6182,334 @@ public class TeachersController : ControllerBase
         });
 
         return Ok(cards);
+    }
+
+    // =========================================================================
+    // PART 3: ADVANCED HRMS PAYROLL LOCK, BANK EXPORT, ACCRUAL & AUDIT AGENT
+    // =========================================================================
+
+    [HttpGet("salary-payments/month-lock")]
+    public async Task<ActionResult<TeacherPayrollMonthLockDto?>> GetMonthLock(
+        [FromQuery] int month, [FromQuery] int year, [FromQuery] Guid? branchId = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var lockRecord = await _db.TeacherPayrollMonthLocks.AsNoTracking()
+            .Include(l => l.Branch)
+            .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.Month == month && l.Year == year &&
+                                      (branchId == null ? l.BranchId == null : l.BranchId == branchId));
+
+        if (lockRecord == null)
+        {
+            return Ok(new TeacherPayrollMonthLockDto(
+                Guid.Empty, tenantId, branchId, null, month, year, false, null, null, null));
+        }
+
+        return Ok(new TeacherPayrollMonthLockDto(
+            lockRecord.Id, lockRecord.TenantId, lockRecord.BranchId, lockRecord.Branch?.Name,
+            lockRecord.Month, lockRecord.Year, lockRecord.IsLocked, lockRecord.LockedAt,
+            lockRecord.LockedBy, lockRecord.Remarks));
+    }
+
+    [HttpPost("salary-payments/toggle-month-lock")]
+    public async Task<ActionResult<TeacherPayrollMonthLockDto>> ToggleMonthLock([FromBody] ToggleMonthLockDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var lockRecord = await _db.TeacherPayrollMonthLocks
+            .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.Month == dto.Month && l.Year == dto.Year &&
+                                      (dto.BranchId == null ? l.BranchId == null : l.BranchId == dto.BranchId));
+
+        var userName = _currentUser.Username ?? "Administrator";
+        if (lockRecord == null)
+        {
+            lockRecord = new TeacherPayrollMonthLock
+            {
+                TenantId = tenantId,
+                BranchId = dto.BranchId,
+                Month = dto.Month,
+                Year = dto.Year,
+                IsLocked = dto.Lock,
+                LockedAt = dto.Lock ? DateTime.UtcNow : null,
+                LockedBy = dto.Lock ? userName : null,
+                Remarks = dto.Remarks,
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.TeacherPayrollMonthLocks.Add(lockRecord);
+        }
+        else
+        {
+            lockRecord.IsLocked = dto.Lock;
+            lockRecord.LockedAt = dto.Lock ? DateTime.UtcNow : null;
+            lockRecord.LockedBy = dto.Lock ? userName : null;
+            lockRecord.Remarks = dto.Remarks;
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new TeacherPayrollMonthLockDto(
+            lockRecord.Id, lockRecord.TenantId, lockRecord.BranchId, null,
+            lockRecord.Month, lockRecord.Year, lockRecord.IsLocked, lockRecord.LockedAt,
+            lockRecord.LockedBy, lockRecord.Remarks));
+    }
+
+    [HttpGet("salary-payments/bank-export")]
+    public async Task<IActionResult> ExportBankNeftAdvice(
+        [FromQuery] int month, [FromQuery] int year, [FromQuery] Guid? branchId = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        if (month == 0) month = DateTime.UtcNow.Month;
+        if (year == 0) year = DateTime.UtcNow.Year;
+
+        var paymentsQuery = _db.TeacherSalaryPayments
+            .AsNoTracking()
+            .Include(p => p.Teacher)
+            .Where(p => p.TenantId == tenantId && p.PaymentMonth == month && p.PaymentYear == year);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            paymentsQuery = paymentsQuery.Where(p => p.BranchId == branchId.Value || (p.Teacher != null && p.Teacher.BranchId == branchId.Value));
+        }
+
+        var payments = await paymentsQuery.OrderBy(p => p.Teacher != null ? p.Teacher.FullName : "").ToListAsync();
+
+        var csvBuilder = new System.Text.StringBuilder();
+        csvBuilder.AppendLine("SrNo,EmployeeCode,EmployeeName,BankAccountNumber,IFSCCode,BankName,NetSalaryAmount,PaymentMonthYear,PaymentDate,PaymentMode,TransactionRef,Narration");
+
+        int srNo = 1;
+        string monthLabel = new DateTime(year, month, 1).ToString("MMMM yyyy");
+        foreach (var p in payments)
+        {
+            var t = p.Teacher;
+            string empCode = t?.EmployeeCode ?? "—";
+            string empName = (t?.FullName ?? "Unknown").Replace(",", " ");
+            string bankAcc = !string.IsNullOrWhiteSpace(t?.BankAccountNumber) ? t.BankAccountNumber : "NOT_CONFIGURED";
+            string ifsc = !string.IsNullOrWhiteSpace(t?.BankIfscCode) ? t.BankIfscCode : "NOT_CONFIGURED";
+            string bankName = !string.IsNullOrWhiteSpace(t?.BankName) ? t.BankName.Replace(",", " ") : "NOT_CONFIGURED";
+            decimal net = p.NetPaid;
+            string payDate = p.PaymentDate.ToString("yyyy-MM-dd");
+            string mode = p.PaymentMode.ToString();
+            string txnRef = p.TransactionRef ?? p.ReceiptNumber;
+            string narration = $"Salary for {monthLabel} - {empName}";
+
+            csvBuilder.AppendLine($"{srNo},{empCode},{empName},{bankAcc},{ifsc},{bankName},{net:F2},{monthLabel},{payDate},{mode},{txnRef},{narration}");
+            srNo++;
+        }
+
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(csvBuilder.ToString());
+        return File(bytes, "text/csv", $"IMSERP_Salary_NEFT_{year}_{month:D2}.csv");
+    }
+
+    [HttpPost("leaves/accrue-monthly")]
+    public async Task<ActionResult<TriggerLeaveAccrualResultDto>> AccrueMonthlyLeaves([FromBody] TriggerLeaveAccrualRequestDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        int targetMonth = dto.Month ?? DateTime.UtcNow.Month;
+        int targetYear = dto.Year ?? DateTime.UtcNow.Year;
+
+        var policy = await GetOrCreateLeavePolicyAsync(tenantId);
+        decimal clPerMonth = policy.MonthlyCasualLeaveAccrual > 0 ? policy.MonthlyCasualLeaveAccrual : 1.0m;
+        decimal slPerMonth = policy.AnnualSickLeaveQuota > 0 ? Math.Round(policy.AnnualSickLeaveQuota / 12.0m, 2) : 0.83m;
+        decimal elPerMonth = policy.AnnualEarnedLeaveQuota > 0 ? Math.Round(policy.AnnualEarnedLeaveQuota / 12.0m, 2) : 1.25m;
+
+        var teachersQuery = _db.Teachers.Where(t => t.TenantId == tenantId && t.IsActive && t.EmploymentType != "Deleted");
+        if (dto.BranchId.HasValue && dto.BranchId.Value != Guid.Empty)
+        {
+            teachersQuery = teachersQuery.Where(t => t.BranchId == dto.BranchId.Value);
+        }
+
+        var teachers = await teachersQuery.ToListAsync();
+
+        var existingLogs = await _db.TeacherLeaveAccrualLogs
+            .Where(l => l.TenantId == tenantId && l.Month == targetMonth && l.Year == targetYear)
+            .ToDictionaryAsync(l => l.TeacherId);
+
+        int processedCount = 0;
+        decimal totalCl = 0m, totalSl = 0m, totalEl = 0m;
+        var now = DateTime.UtcNow;
+
+        foreach (var t in teachers)
+        {
+            decimal staffCl = clPerMonth;
+            decimal staffSl = slPerMonth;
+            decimal staffEl = elPerMonth;
+
+            if (t.JoiningDate.Year == targetYear && t.JoiningDate.Month == targetMonth)
+            {
+                int daysInM = DateTime.DaysInMonth(targetYear, targetMonth);
+                int remainingDays = Math.Max(1, daysInM - t.JoiningDate.Day + 1);
+                decimal ratio = (decimal)remainingDays / daysInM;
+                staffCl = Math.Round(clPerMonth * ratio, 2);
+                staffSl = Math.Round(slPerMonth * ratio, 2);
+                staffEl = Math.Round(elPerMonth * ratio, 2);
+            }
+            else if (t.JoiningDate > new DateTime(targetYear, targetMonth, DateTime.DaysInMonth(targetYear, targetMonth)))
+            {
+                continue;
+            }
+
+            if (existingLogs.TryGetValue(t.Id, out var existingLog))
+            {
+                existingLog.CasualLeaveAdded = staffCl;
+                existingLog.SickLeaveAdded = staffSl;
+                existingLog.EarnedLeaveAdded = staffEl;
+                existingLog.AccruedAt = now;
+                existingLog.Remarks = $"Monthly auto-accrual re-synced ({staffCl} CL, {staffSl} SL, {staffEl} EL)";
+            }
+            else
+            {
+                var log = new TeacherLeaveAccrualLog
+                {
+                    TenantId = tenantId,
+                    TeacherId = t.Id,
+                    Month = targetMonth,
+                    Year = targetYear,
+                    CasualLeaveAdded = staffCl,
+                    SickLeaveAdded = staffSl,
+                    EarnedLeaveAdded = staffEl,
+                    Remarks = $"Monthly auto-accrual ({staffCl} CL, {staffSl} SL, {staffEl} EL)",
+                    AccruedAt = now
+                };
+                _db.TeacherLeaveAccrualLogs.Add(log);
+            }
+
+            totalCl += staffCl;
+            totalSl += staffSl;
+            totalEl += staffEl;
+            processedCount++;
+        }
+
+        await _db.SaveChangesAsync();
+
+        string monthName = new DateTime(targetYear, targetMonth, 1).ToString("MMMM yyyy");
+        return Ok(new TriggerLeaveAccrualResultDto(
+            targetMonth, targetYear, processedCount, totalCl, totalSl, totalEl,
+            $"Successfully accrued monthly leaves for {processedCount} staff member(s) for {monthName} (+{totalCl:F1} CL, +{totalSl:F1} SL, +{totalEl:F1} EL)."));
+    }
+
+    [HttpGet("leaves/accrual-logs")]
+    public async Task<ActionResult<List<TeacherLeaveAccrualLogDto>>> GetLeaveAccrualLogs(
+        [FromQuery] int? month = null, [FromQuery] int? year = null, [FromQuery] Guid? teacherId = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var query = _db.TeacherLeaveAccrualLogs
+            .AsNoTracking()
+            .Include(l => l.Teacher)
+            .Where(l => l.TenantId == tenantId);
+
+        if (month.HasValue && month.Value > 0) query = query.Where(l => l.Month == month.Value);
+        if (year.HasValue && year.Value > 0) query = query.Where(l => l.Year == year.Value);
+        if (teacherId.HasValue && teacherId.Value != Guid.Empty) query = query.Where(l => l.TeacherId == teacherId.Value);
+
+        var list = await query
+            .OrderByDescending(l => l.Year).ThenByDescending(l => l.Month)
+            .Select(l => new TeacherLeaveAccrualLogDto(
+                l.Id, l.TeacherId, l.Teacher != null ? l.Teacher.FullName : "Unknown",
+                l.Teacher != null ? l.Teacher.EmployeeCode : "—",
+                l.Month, l.Year, l.CasualLeaveAdded, l.SickLeaveAdded, l.EarnedLeaveAdded,
+                l.Remarks, l.AccruedAt
+            ))
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpGet("payroll/audit")]
+    public async Task<ActionResult<PayrollAuditSummaryDto>> RunPayrollAudit(
+        [FromQuery] int month = 0, [FromQuery] int year = 0, [FromQuery] Guid? branchId = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        if (month == 0) month = DateTime.UtcNow.Month;
+        if (year == 0) year = DateTime.UtcNow.Year;
+
+        var teachersQuery = _db.Teachers
+            .AsNoTracking()
+            .Include(t => t.Salaries)
+            .Where(t => t.TenantId == tenantId && t.IsActive && t.EmploymentType != "Deleted");
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            teachersQuery = teachersQuery.Where(t => t.BranchId == branchId.Value);
+        }
+
+        var teachers = await teachersQuery.ToListAsync();
+        var existingPayments = await _db.TeacherSalaryPayments
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.PaymentMonth == month && p.PaymentYear == year)
+            .ToDictionaryAsync(p => p.TeacherId);
+
+        var issues = new List<PayrollAuditIssueDto>();
+        int readyCount = 0;
+
+        int totalStaffScore = 0;
+
+        foreach (var t in teachers)
+        {
+            int staffScore = 100;
+            bool staffHasCritical = false;
+            var activeSalary = t.Salaries.FirstOrDefault(s => s.IsActive);
+
+            // 1. Unconfigured salary structure
+            if (activeSalary == null || activeSalary.GrossSalary <= 0)
+            {
+                issues.Add(new PayrollAuditIssueDto(
+                    "Critical", "SalaryStructure", t.Id, t.FullName, t.EmployeeCode,
+                    $"Salary structure not configured or gross is ₹0.",
+                    "Configure basic salary and allowances in Salary Structure before running disbursal."
+                ));
+                staffHasCritical = true;
+                staffScore -= 50;
+            }
+
+            // 2. Missing Bank Details (Direct NEFT transfer blocker)
+            if (string.IsNullOrWhiteSpace(t.BankAccountNumber) || string.IsNullOrWhiteSpace(t.BankIfscCode))
+            {
+                issues.Add(new PayrollAuditIssueDto(
+                    "Warning", "Banking", t.Id, t.FullName, t.EmployeeCode,
+                    $"Missing bank account number or IFSC code.",
+                    "Update staff bank details in Staff Directory to allow automated bank advice export."
+                ));
+                staffScore -= 15;
+            }
+
+            // 3. Missing Statutory Identifiers (PAN/Aadhaar in KYC Documents)
+            bool hasKyc = await _db.TeacherDocuments.AsNoTracking()
+                .AnyAsync(d => d.TeacherId == t.Id && (d.DocumentType == "PAN" || d.DocumentType == "Aadhaar"));
+            if (!hasKyc)
+            {
+                issues.Add(new PayrollAuditIssueDto(
+                    "Warning", "Compliance", t.Id, t.FullName, t.EmployeeCode,
+                    $"Neither PAN nor Aadhaar KYC document has been uploaded.",
+                    "Upload government tax/identity KYC documents in Teacher Documents for statutory compliance."
+                ));
+                staffScore -= 10;
+            }
+
+            // 4. Duplicate payment check
+            if (existingPayments.ContainsKey(t.Id))
+            {
+                issues.Add(new PayrollAuditIssueDto(
+                    "Info", "PaymentStatus", t.Id, t.FullName, t.EmployeeCode,
+                    $"Salary already disbursed for this month ({existingPayments[t.Id].ReceiptNumber}).",
+                    "No action required; payment record is frozen."
+                ));
+            }
+            else if (!staffHasCritical)
+            {
+                readyCount++;
+            }
+
+            totalStaffScore += Math.Max(0, staffScore);
+        }
+
+        int criticalCount = issues.Count(i => i.Severity == "Critical");
+        int warningCount = issues.Count(i => i.Severity == "Warning");
+        int totalStaff = teachers.Count;
+
+        int healthScore = totalStaff > 0
+            ? (int)Math.Round((double)totalStaffScore / totalStaff)
+            : 100;
+
+        return Ok(new PayrollAuditSummaryDto(
+            month, year, healthScore, totalStaff, readyCount, criticalCount, warningCount, issues
+        ));
     }
 }

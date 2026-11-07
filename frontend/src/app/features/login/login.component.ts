@@ -28,7 +28,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       <div class="ambient-glow-left"></div>
       <div class="ambient-glow-right"></div>
 
-      <div class="login-split-container">
+      <div class="login-split-container" [class.drawer-collapsed]="!isDrawerOpen">
         <!-- LEFT SIDE: Enterprise ERP Feature Showcase -->
         <div class="hero-showcase">
           <div class="hero-top-badge">
@@ -46,6 +46,16 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
             One unified multi-tenant command center to automate Admissions, Biometric &amp; RFID Attendance, Fee Ledgers, HRMS Payroll, Inventory &amp; Parent Communication across all branches.
           </p>
 
+          @if (!isDrawerOpen) {
+            <div class="hero-cta-wrap">
+              <button type="button" class="hero-open-drawer-cta" (click)="openDrawer()">
+                <mat-icon>login</mat-icon>
+                <span>Sign In to Institute Portal</span>
+                <mat-icon class="cta-arrow">arrow_forward</mat-icon>
+              </button>
+            </div>
+          }
+
           <!-- Point-Wise Feature Highlights Grid -->
           <div class="feature-points-grid">
             <!-- 1. Student Fee Ledger & FIFO -->
@@ -58,7 +68,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                   <span class="fp-title">Student Fee Ledger &amp; Advance Wallet</span>
                   <span class="fp-check">✓</span>
                 </div>
-                <p class="fp-desc">12-Month Passbook, FIFO Auto-Settlement, Dynamic UPI QR &amp; 1-Click WhatsApp Receipts.</p>
+                <p class="fp-desc">12-Month Passbook, FIFO Auto-Settlement, Dynamic UPI QR &amp; Auto WhatsApp Receipts.</p>
               </div>
             </div>
 
@@ -72,21 +82,21 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                   <span class="fp-title">Biometric, RFID &amp; Daily CW/HW Diary</span>
                   <span class="fp-hw-tag">LIVE SYNC</span>
                 </div>
-                <p class="fp-desc">Biometric Thumb, RFID Smart Card &amp; QR Attendance, Daily CW/HW Diary &amp; Instant Parent WhatsApp Alerts.</p>
+                <p class="fp-desc">Biometric Thumb, RFID Smart Attendance, Daily CW/HW Diary &amp; WhatsApp Alerts.</p>
               </div>
             </div>
 
-            <!-- 3. AI Recovery & Accounting -->
+            <!-- 3. AI WhatsApp Voice & Fee Recovery -->
             <div class="feature-point-card">
               <div class="fp-icon-box violet-glow">
-                <mat-icon>psychology</mat-icon>
+                <mat-icon>record_voice_over</mat-icon>
               </div>
               <div class="fp-content">
                 <div class="fp-title-row">
-                  <span class="fp-title">AI Fee Recovery &amp; Financial Accounting</span>
-                  <span class="fp-check">✓</span>
+                  <span class="fp-title">AI WhatsApp Voice &amp; Fee Recovery</span>
+                  <span class="fp-voice-tag">AI VOICE + WA</span>
                 </div>
-                <p class="fp-desc">Predictive Defaulter Follow-ups, Live Day Book, Profit &amp; Loss &amp; Automated Balance Sheet.</p>
+                <p class="fp-desc">Automated WhatsApp AI Voice Notes, Normal Text Messages, Defaulter Recovery &amp; Day Book.</p>
               </div>
             </div>
 
@@ -154,9 +164,18 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
           </div>
         </div>
 
-        <!-- RIGHT SIDE: Bold Executive Login Command Card -->
-        <div class="login-panel-right">
+        <!-- RIGHT SIDE: Bold Executive Login Command Card / Slide Drawer -->
+        <div class="login-panel-right" [class.drawer-open]="isDrawerOpen" [class.drawer-closed]="!isDrawerOpen">
           <div class="login-card">
+            <!-- Left Edge Pull / Collapse Tab -->
+            <button
+              type="button"
+              class="card-edge-tab"
+              (click)="closeDrawer()"
+              title="Minimize to View Full Campus">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+
             <!-- Signature Light-Blue Gradient Header (Strict ERP Standard) -->
             <div class="login-exec-header">
               <div class="exec-top-row">
@@ -170,7 +189,16 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                   </div>
                 </div>
                 <div class="exec-badges-right">
-                  <span class="tenant-pill">MULTI-TENANT</span>
+                  <div class="badges-dock-row">
+                    <span class="tenant-pill">MULTI-TENANT</span>
+                    <button
+                      type="button"
+                      class="card-dock-collapse-btn"
+                      (click)="closeDrawer()"
+                      title="Minimize to View Full Campus">
+                      <mat-icon>chevron_right</mat-icon>
+                    </button>
+                  </div>
                   <span class="cloud-pill">ENTERPRISE SAAS</span>
                 </div>
               </div>
@@ -198,7 +226,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
 
               <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
                 <!-- Company / Tenant Code -->
-                <mat-form-field appearance="outline" class="full-width macho-field">
+                <mat-form-field appearance="outline" class="full-width macho-field" subscriptSizing="dynamic">
                   <mat-label>Institute / Company Code</mat-label>
                   <input matInput formControlName="tenantCode" placeholder="e.g. JNANDEEP, APEX, ZENITH" (input)="onTenantCodeInput($event)">
                   <mat-icon matSuffix class="field-suffix-icon">corporate_fare</mat-icon>
@@ -208,7 +236,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                 </mat-form-field>
 
                 <!-- Username -->
-                <mat-form-field appearance="outline" class="full-width macho-field">
+                <mat-form-field appearance="outline" class="full-width macho-field" subscriptSizing="dynamic">
                   <mat-label>Username / Login ID</mat-label>
                   <input matInput formControlName="username" placeholder="e.g. admin, principal, accountant">
                   <mat-icon matSuffix class="field-suffix-icon">person</mat-icon>
@@ -218,7 +246,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                 </mat-form-field>
 
                 <!-- Password -->
-                <mat-form-field appearance="outline" class="full-width macho-field">
+                <mat-form-field appearance="outline" class="full-width macho-field" subscriptSizing="dynamic">
                   <mat-label>Security Password</mat-label>
                   <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password">
                   <button matSuffix (click)="hidePassword = !hidePassword" type="button" mat-icon-button>
@@ -262,12 +290,12 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                 <div class="demo-actions-row">
                   <button id="app-filled-btn" type="button" class="create-tenant-btn" (click)="openRegisterTrialDialog()">
                     <mat-icon>rocket_launch</mat-icon>
-                    <span>Launch New Institute (14-Day Free Trial)</span>
+                    <span>14-Day Free Trial</span>
                   </button>
 
                   <button id="app-filled-btn" type="button" class="quick-demo-btn" (click)="fillDemoCredentials()">
                     <mat-icon>bolt</mat-icon>
-                    <span>1-Click Instant Live Demo Access</span>
+                    <span>1-Click Live Demo</span>
                   </button>
                 </div>
 
@@ -281,6 +309,24 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
           </div>
         </div>
       </div>
+
+      <!-- Floating Dock Tab when Drawer is Minimized -->
+      <button
+        type="button"
+        class="floating-portal-dock"
+        [class.dock-visible]="!isDrawerOpen"
+        (click)="openDrawer()"
+        title="Open Portal Login">
+        <div class="dock-pulse-ring"></div>
+        <div class="dock-icon-box">
+          <mat-icon>admin_panel_settings</mat-icon>
+        </div>
+        <div class="dock-content">
+          <span class="dock-tag">SECURE ACCESS</span>
+          <span class="dock-title">PORTAL LOGIN</span>
+        </div>
+        <mat-icon class="dock-arrow-icon">arrow_back</mat-icon>
+      </button>
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -316,11 +362,10 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       background-position: center center;
       background-size: cover;
       background-repeat: no-repeat;
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: hidden;
       overscroll-behavior: none;
       -webkit-overflow-scrolling: touch;
-      padding: 14px 36px;
+      padding: 20px 36px 16px;
       box-sizing: border-box;
     }
 
@@ -328,19 +373,19 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       position: fixed;
       inset: 0;
       background:
-        linear-gradient(102deg, rgba(6, 12, 30, 0.80) 0%, rgba(10, 20, 48, 0.58) 42%, rgba(15, 23, 42, 0.16) 72%, rgba(10, 18, 40, 0.35) 100%),
-        radial-gradient(circle at 20% 25%, rgba(37, 99, 235, 0.15) 0%, transparent 55%);
+        linear-gradient(102deg, rgba(6, 12, 30, 0.85) 0%, rgba(10, 20, 48, 0.62) 36%, rgba(15, 23, 42, 0.12) 65%, rgba(10, 18, 40, 0.35) 100%),
+        radial-gradient(circle at 18% 22%, rgba(37, 99, 235, 0.14) 0%, transparent 52%);
       pointer-events: none;
       z-index: 1;
     }
 
     .ambient-glow-left {
       position: fixed;
-      width: 540px;
-      height: 540px;
-      background: radial-gradient(circle, rgba(56, 189, 248, 0.16) 0%, rgba(37, 99, 235, 0.06) 50%, transparent 70%);
-      top: 15%;
-      left: 8%;
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.14) 0%, rgba(37, 99, 235, 0.05) 50%, transparent 70%);
+      top: 10%;
+      left: 5%;
       pointer-events: none;
       filter: blur(50px);
       z-index: 2;
@@ -348,9 +393,9 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
 
     .ambient-glow-right {
       position: fixed;
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, rgba(37, 99, 235, 0.28) 0%, rgba(245, 158, 11, 0.14) 55%, transparent 75%);
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, rgba(245, 158, 11, 0.12) 55%, transparent 75%);
       top: 50%;
       right: 5%;
       transform: translateY(-50%);
@@ -363,70 +408,127 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       position: relative;
       z-index: 10;
       width: 100%;
-      max-width: 1380px;
+      max-width: 1440px;
       display: grid;
-      grid-template-columns: minmax(0, 1.36fr) 435px;
-      gap: 40px;
+      grid-template-columns: minmax(0, 420px) 420px;
+      justify-content: space-between;
+      gap: 30px;
       align-items: center;
       margin: 0 auto;
+      transition: all 0.48s cubic-bezier(0.16, 1, 0.3, 1);
+
+      &.drawer-collapsed {
+        grid-template-columns: minmax(0, 420px) 0px;
+        gap: 0;
+      }
     }
 
-    /* ─── LEFT HERO SHOWCASE ──────────────────────────────────────────────── */
+    /* ─── LEFT HERO SHOWCASE (SINGLE SLIM COLUMN ON FAR LEFT) ──────────────── */
     .hero-showcase {
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 11px;
       color: #ffffff;
-      padding-right: 8px;
+      padding-right: 0;
       min-width: 0;
       width: 100%;
+      max-width: 420px;
       box-sizing: border-box;
+      transition: all 0.4s ease;
+    }
+
+    .hero-cta-wrap {
+      margin-top: 2px;
+      animation: ctaFadeIn 0.35s ease;
+    }
+
+    .hero-open-drawer-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border: 1px solid rgba(147, 197, 253, 0.6);
+      border-radius: 10px;
+      padding: 9px 20px;
+      font-size: 0.84rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+      transition: all 0.22s ease;
+      width: fit-content;
+
+      &:hover {
+        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 26px rgba(37, 99, 235, 0.6);
+
+        .cta-arrow {
+          transform: translateX(4px);
+        }
+      }
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      .cta-arrow {
+        transition: transform 0.2s ease;
+      }
+    }
+
+    @keyframes ctaFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .hero-top-badge {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       align-self: flex-start;
       max-width: 100%;
       box-sizing: border-box;
-      background: rgba(37, 99, 235, 0.32);
-      border: 1px solid rgba(96, 165, 250, 0.5);
+      background: rgba(37, 99, 235, 0.35);
+      border: 1px solid rgba(96, 165, 250, 0.55);
       backdrop-filter: blur(10px);
-      padding: 5px 14px;
+      padding: 4px 11px;
       border-radius: 999px;
-      font-size: 0.72rem;
+      font-size: 0.64rem;
       font-weight: 800;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       color: #e0f2fe;
-      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 
       .pulse-dot {
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
         background: #4ade80;
-        box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.28);
+        box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3);
         flex-shrink: 0;
       }
 
       .badge-sparkle {
-        font-size: 15px;
-        width: 15px;
-        height: 15px;
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
         color: #fbbf24;
         flex-shrink: 0;
       }
     }
 
     .hero-main-title {
-      font-size: clamp(1.65rem, 2.35vw, 2.35rem);
+      font-size: 1.42rem;
       font-weight: 800;
-      line-height: 1.15;
-      letter-spacing: -0.025em;
+      line-height: 1.22;
+      letter-spacing: -0.02em;
       margin: 0;
       color: #ffffff;
-      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
 
       .hero-gradient-text {
         display: block;
@@ -438,51 +540,51 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     }
 
     .hero-subtitle {
-      font-size: 0.88rem;
-      line-height: 1.48;
+      font-size: 0.75rem;
+      line-height: 1.38;
       color: #cbd5e1;
       margin: 0;
-      max-width: 700px;
       font-weight: 500;
-      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
     }
 
-    /* Point-Wise Feature Cards Grid */
+    /* Point-Wise Feature Cards Grid (Single Column Left Stack with comfortable gap) */
     .feature-points-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 11px;
-      margin-top: 2px;
+      grid-template-columns: 1fr;
+      gap: 9px;
+      margin-top: 3px;
+      width: 100%;
     }
 
     .feature-point-card {
       display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 11px 14px;
-      border-radius: 14px;
-      background: rgba(15, 23, 42, 0.66);
+      align-items: center;
+      gap: 11px;
+      padding: 8px 12px;
+      border-radius: 11px;
+      background: rgba(15, 23, 42, 0.74);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.4);
-      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.45);
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 
       &.highlight-card {
         border-color: rgba(56, 189, 248, 0.45);
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.78) 0%, rgba(12, 74, 110, 0.55) 100%);
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.84) 0%, rgba(12, 74, 110, 0.58) 100%);
       }
 
       &:hover {
-        transform: translateY(-2px);
-        background: rgba(15, 23, 42, 0.82);
-        border-color: rgba(96, 165, 250, 0.55);
+        transform: translateX(3px);
+        background: rgba(15, 23, 42, 0.90);
+        border-color: rgba(96, 165, 250, 0.6);
       }
 
       .fp-icon-box {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -490,34 +592,34 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         color: #ffffff;
 
         mat-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
         }
 
         &.emerald-glow {
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
         }
         &.sky-glow {
           background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
-          box-shadow: 0 4px 12px rgba(14, 165, 233, 0.45);
+          box-shadow: 0 2px 8px rgba(14, 165, 233, 0.45);
         }
         &.violet-glow {
           background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35);
+          box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
         }
         &.amber-glow {
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
         }
         &.rose-glow {
           background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-          box-shadow: 0 4px 12px rgba(244, 63, 94, 0.35);
+          box-shadow: 0 2px 8px rgba(244, 63, 94, 0.35);
         }
         &.cyan-glow {
           background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
-          box-shadow: 0 4px 12px rgba(6, 182, 212, 0.35);
+          box-shadow: 0 2px 8px rgba(6, 182, 212, 0.35);
         }
       }
 
@@ -530,27 +632,30 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
           align-items: center;
           justify-content: space-between;
           gap: 6px;
-          margin-bottom: 3px;
+          margin-bottom: 2px;
         }
 
         .fp-title {
-          font-size: 0.84rem;
+          font-size: 0.79rem;
           font-weight: 700;
           color: #f8fafc;
           letter-spacing: -0.01em;
           line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .fp-check {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 17px;
-          height: 17px;
+          width: 15px;
+          height: 15px;
           border-radius: 50%;
           background: rgba(74, 222, 128, 0.2);
           color: #4ade80;
-          font-size: 0.68rem;
+          font-size: 0.62rem;
           font-weight: 800;
           flex-shrink: 0;
         }
@@ -558,12 +663,26 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         .fp-hw-tag {
           display: inline-flex;
           align-items: center;
-          padding: 1px 6px;
+          padding: 1px 5px;
           border-radius: 999px;
           background: rgba(56, 189, 248, 0.22);
           border: 1px solid rgba(56, 189, 248, 0.5);
           color: #7dd3fc;
-          font-size: 0.6rem;
+          font-size: 0.56rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          flex-shrink: 0;
+        }
+
+        .fp-voice-tag {
+          display: inline-flex;
+          align-items: center;
+          padding: 1px 5px;
+          border-radius: 999px;
+          background: rgba(168, 85, 247, 0.22);
+          border: 1px solid rgba(168, 85, 247, 0.5);
+          color: #d8b4fe;
+          font-size: 0.56rem;
           font-weight: 800;
           letter-spacing: 0.04em;
           flex-shrink: 0;
@@ -571,109 +690,180 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
 
         .fp-desc {
           margin: 0;
-          font-size: 0.74rem;
-          line-height: 1.38;
-          color: #cbd5e1;
+          font-size: 0.69rem;
+          line-height: 1.26;
+          color: #94a3b8;
           font-weight: 400;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       }
     }
 
-    /* Bottom Trust Strip */
+    /* Bottom Trust Strip (2x2 Grid under the left column) */
     .hero-trust-strip {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
-      margin-top: 2px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+      width: 100%;
 
       .trust-pill {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 5px 12px;
-        border-radius: 999px;
-        background: rgba(15, 23, 42, 0.65);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        justify-content: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.16);
         backdrop-filter: blur(8px);
-        font-size: 0.73rem;
+        font-size: 0.66rem;
         font-weight: 600;
-        color: #f1f5f9;
+        color: #e2e8f0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
 
         mat-icon {
-          font-size: 15px;
-          width: 15px;
-          height: 15px;
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
           color: #38bdf8;
+          flex-shrink: 0;
         }
       }
     }
 
-    /* ─── RIGHT LOGIN CARD PANEL (MACHO EXECUTIVE EDITION) ────────────────── */
+    /* ─── RIGHT LOGIN CARD PANEL (ANIMATED SLIDE DRAWER EDITION) ─────────── */
     .login-panel-right {
       display: flex;
       justify-content: flex-end;
       width: 100%;
       min-width: 0;
       box-sizing: border-box;
+      transition: transform 0.48s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.38s ease;
+
+      &.drawer-open {
+        transform: translateX(0);
+        opacity: 1;
+        pointer-events: auto;
+        animation: drawerSlideIn 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      &.drawer-closed {
+        transform: translateX(calc(100% + 80px)) !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    }
+
+    @keyframes drawerSlideIn {
+      0% {
+        transform: translateX(110%);
+        opacity: 0;
+      }
+      100% {
+        transform: translateX(0);
+        opacity: 1;
+      }
     }
 
     .login-card {
       position: relative;
       z-index: 10;
       width: 100%;
-      max-width: 435px;
+      max-width: 420px;
       min-width: 0;
       box-sizing: border-box;
-      border-radius: 22px;
+      border-radius: 18px;
       box-shadow:
-        0 30px 70px -12px rgba(2, 6, 23, 0.8),
+        0 24px 50px -10px rgba(2, 6, 23, 0.75),
         0 0 0 1px rgba(255, 255, 255, 0.28),
-        0 0 35px rgba(37, 99, 235, 0.25) !important;
+        0 0 30px rgba(37, 99, 235, 0.20) !important;
       background: #ffffff;
-      overflow: hidden;
+      overflow: visible;
       display: flex;
       flex-direction: column;
+    }
+
+    .card-edge-tab {
+      position: absolute;
+      left: -22px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 50px;
+      border-radius: 8px 0 0 8px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      border: 1px solid #1e40af;
+      border-right: none;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: -4px 6px 14px rgba(37, 99, 235, 0.35);
+      z-index: 25;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      outline: none;
+
+      mat-icon {
+        font-size: 17px;
+        width: 17px;
+        height: 17px;
+        color: #ffffff !important;
+        font-weight: 700;
+      }
+
+      &:hover {
+        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+        left: -26px;
+        width: 28px;
+        box-shadow: -6px 8px 18px rgba(37, 99, 235, 0.45);
+      }
     }
 
     /* Signature Light-Blue Gradient Header Banner (Strict ERP Standard) */
     .login-exec-header {
       position: relative;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-      padding: 18px 22px 14px;
+      padding: 12px 18px 10px;
       border-bottom: 1px solid #bfdbfe;
+      border-radius: 18px 18px 0 0;
       overflow: hidden;
 
       .exec-top-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        gap: 10px;
       }
 
       .exec-brand-left {
         display: flex;
         align-items: center;
-        gap: 14px;
+        gap: 10px;
         min-width: 0;
       }
 
       .brand-crest-shield {
-        width: 46px;
-        height: 46px;
-        border-radius: 12px;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
         background: #2563eb;
         color: #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
+        box-shadow: 0 4px 8px rgba(37, 99, 235, 0.25);
         flex-shrink: 0;
 
         .brand-icon {
-          font-size: 26px;
-          width: 26px;
-          height: 26px;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
           color: #ffffff;
         }
       }
@@ -684,19 +874,19 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         min-width: 0;
 
         .brand-title {
-          font-size: 1.25rem;
+          font-size: 1.10rem;
           font-weight: 800;
           color: #1e3a8a;
           letter-spacing: -0.02em;
           margin: 0;
-          line-height: 1.2;
+          line-height: 1.15;
         }
 
         .brand-sub {
-          font-size: 0.76rem;
+          font-size: 0.70rem;
           color: #3b82f6;
           font-weight: 600;
-          margin: 2px 0 0;
+          margin: 1px 0 0;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -707,17 +897,54 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 5px;
+        gap: 3px;
         flex-shrink: 0;
+
+        .badges-dock-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .card-dock-collapse-btn {
+          width: 26px;
+          height: 24px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          border: 1px solid #1e40af;
+          color: #ffffff;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          outline: none;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+          transition: all 0.18s ease;
+
+          mat-icon {
+            font-size: 17px;
+            width: 17px;
+            height: 17px;
+            color: #ffffff !important;
+            font-weight: 700;
+          }
+
+          &:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+            border-color: #172554;
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.5);
+          }
+        }
 
         .tenant-pill {
           background: #eff6ff;
           color: #1d4ed8;
           border: 1px solid #bfdbfe;
-          font-size: 0.62rem;
+          font-size: 0.58rem;
           font-weight: 800;
-          padding: 2.5px 8px;
-          border-radius: 6px;
+          padding: 2px 6px;
+          border-radius: 4px;
           letter-spacing: 0.04em;
           text-transform: uppercase;
         }
@@ -726,10 +953,10 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
           background: #ecfdf5;
           color: #047857;
           border: 1px solid #a7f3d0;
-          font-size: 0.62rem;
+          font-size: 0.58rem;
           font-weight: 800;
-          padding: 2px 8px;
-          border-radius: 6px;
+          padding: 1.5px 6px;
+          border-radius: 4px;
           letter-spacing: 0.04em;
           text-transform: uppercase;
         }
@@ -740,19 +967,19 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         align-items: center;
         justify-content: space-between;
         flex-wrap: wrap;
-        gap: 5px;
-        margin-top: 12px;
-        padding-top: 10px;
+        gap: 4px;
+        margin-top: 8px;
+        padding-top: 7px;
         border-top: 1px solid rgba(191, 219, 254, 0.7);
 
         .module-chip {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
-          font-size: 0.65rem;
+          gap: 3px;
+          font-size: 0.62rem;
           font-weight: 700;
-          padding: 3px 7px;
-          border-radius: 6px;
+          padding: 2px 6px;
+          border-radius: 4px;
           background: #ffffff;
           border: 1px solid #cbd5e1;
           color: #334155;
@@ -761,9 +988,9 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
           box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 
           mat-icon {
-            font-size: 12px;
-            width: 12px;
-            height: 12px;
+            font-size: 11px;
+            width: 11px;
+            height: 11px;
             color: #2563eb;
           }
 
@@ -782,7 +1009,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
 
     /* Form Section */
     .form-content {
-      padding: 14px 24px 16px;
+      padding: 10px 18px 12px;
       background: linear-gradient(180deg, #f8fafc 0%, #ffffff 35%);
     }
 
@@ -790,7 +1017,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
 
       .p-line {
         flex: 1;
@@ -802,19 +1029,19 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        font-size: 0.66rem;
+        font-size: 0.62rem;
         font-weight: 800;
         color: #1e3a8a;
         background: #eff6ff;
         border: 1px solid #bfdbfe;
-        padding: 2px 10px;
+        padding: 1.5px 8px;
         border-radius: 999px;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.05em;
 
         mat-icon {
-          font-size: 13px;
-          width: 13px;
-          height: 13px;
+          font-size: 12px;
+          width: 12px;
+          height: 12px;
           color: #2563eb;
         }
       }
@@ -822,36 +1049,71 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
 
     .full-width {
       width: 100%;
-      margin-bottom: 2px;
+    }
+
+    .macho-field {
+      margin-bottom: 5px;
+
+      ::ng-deep {
+        .mat-mdc-form-field-subscript-wrapper {
+          font-size: 0.68rem;
+          padding: 0 4px;
+        }
+        .mat-mdc-text-field-wrapper {
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
+        }
+        .mat-mdc-form-field-infix {
+          min-height: 40px !important;
+          padding-top: 7px !important;
+          padding-bottom: 7px !important;
+        }
+        .mat-mdc-input-element {
+          font-size: 0.86rem;
+          font-weight: 600;
+          color: #0f172a;
+        }
+        .mat-mdc-form-field-label {
+          font-size: 0.82rem;
+        }
+        .mat-mdc-form-field-icon-suffix {
+          align-self: center;
+          display: inline-flex;
+          align-items: center;
+        }
+      }
     }
 
     .field-suffix-icon {
       color: #1e40af;
+      font-size: 18px !important;
+      width: 18px !important;
+      height: 18px !important;
     }
 
     /* High-Impact Macho Sign-In Button */
     .macho-submit-btn {
       width: 100%;
-      height: 44px;
+      height: 38px;
       background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 45%, #2563eb 100%) !important;
       color: #ffffff !important;
-      font-size: 0.88rem;
+      font-size: 0.82rem;
       font-weight: 800;
       letter-spacing: 0.05em;
-      border-radius: 11px;
+      border-radius: 9px;
       border: 1px solid rgba(96, 165, 250, 0.4) !important;
-      margin-top: 2px;
+      margin-top: 4px;
       cursor: pointer;
-      box-shadow: 0 10px 24px -4px rgba(30, 58, 138, 0.55);
+      box-shadow: 0 8px 18px -4px rgba(30, 58, 138, 0.50);
       transition: all 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
 
       &:hover:not([disabled]) {
         background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #0284c7 100%) !important;
-        box-shadow: 0 14px 28px -4px rgba(37, 99, 235, 0.65);
+        box-shadow: 0 10px 22px -4px rgba(37, 99, 235, 0.60);
         transform: translateY(-1px);
       }
 
@@ -861,16 +1123,16 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       }
 
       .btn-lock-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
         color: #38bdf8;
       }
 
       .btn-arrow {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
         margin-left: 2px;
       }
     }
@@ -878,15 +1140,15 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     .or-divider {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin: 10px 0 8px;
+      gap: 8px;
+      margin: 6px 0 5px;
       .line {
         flex: 1;
         height: 1px;
         background: #e2e8f0;
       }
       .text {
-        font-size: 0.68rem;
+        font-size: 0.62rem;
         color: #64748b;
         font-weight: 700;
         text-transform: uppercase;
@@ -896,57 +1158,59 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
 
     .demo-actions-row {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 7px;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
       width: 100%;
     }
 
     .create-tenant-btn {
       width: 100%;
-      height: 38px;
+      height: 32px;
       border: 1.5px solid #93c5fd !important;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
       color: #1e3a8a !important;
       font-weight: 800 !important;
-      border-radius: 10px !important;
-      font-size: 0.8rem !important;
+      border-radius: 8px !important;
+      font-size: 0.72rem !important;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 7px;
+      gap: 5px;
       transition: all 0.2s ease;
+      white-space: nowrap;
 
       &:hover {
         background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
         border-color: #60a5fa !important;
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.16);
       }
 
       mat-icon {
-        font-size: 17px;
-        width: 17px;
-        height: 17px;
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
         color: #2563eb;
       }
     }
 
     .quick-demo-btn {
       width: 100%;
-      height: 34px;
+      height: 32px;
       background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
       border: 1px solid #fcd34d !important;
       color: #92400e !important;
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       font-weight: 800;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      border-radius: 9px;
+      gap: 5px;
+      border-radius: 8px;
       transition: all 0.15s ease;
+      white-space: nowrap;
 
       &:hover {
         background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
@@ -955,9 +1219,9 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       }
 
       mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
         color: #d97706;
       }
     }
@@ -966,17 +1230,17 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      margin-top: 10px;
-      padding-top: 8px;
+      gap: 5px;
+      margin-top: 6px;
+      padding-top: 5px;
       border-top: 1px dashed #e2e8f0;
-      font-size: 0.69rem;
+      font-size: 0.65rem;
       color: #475569;
       font-weight: 600;
       .sec-icon {
-        font-size: 15px;
-        width: 15px;
-        height: 15px;
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
         color: #10b981;
       }
     }
@@ -984,33 +1248,153 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     .info-banner {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       background-color: #eff6ff;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 0.78rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
       font-weight: 500;
-      margin: 2px 0 6px;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
-      span { flex: 1; line-height: 1.3; }
+      margin: 2px 0 5px;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; flex-shrink: 0; }
+      span { flex: 1; line-height: 1.25; }
     }
 
     .error-banner {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       background-color: #fef2f2;
       color: #b91c1c;
       border: 1px solid #fecaca;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 0.78rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
       font-weight: 500;
-      margin: 2px 0 6px;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; color: #dc2626 !important; }
-      span { flex: 1; line-height: 1.3; }
+      margin: 2px 0 5px;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; flex-shrink: 0; color: #dc2626 !important; }
+      span { flex: 1; line-height: 1.25; }
+    }
+
+    /* ─── FLOATING PORTAL DOCK (When drawer is collapsed) ─────────────────── */
+    .floating-portal-dock {
+      position: fixed;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%) translateX(110%);
+      z-index: 999;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 18px 10px 14px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(30, 58, 138, 0.94) 100%);
+      border: 1.5px solid rgba(96, 165, 250, 0.6);
+      border-right: none;
+      border-radius: 36px 0 0 36px;
+      box-shadow: -8px 14px 36px rgba(2, 6, 23, 0.65), 0 0 30px rgba(37, 99, 235, 0.4);
+      backdrop-filter: blur(14px);
+      cursor: pointer;
+      color: #ffffff;
+      outline: none;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+      pointer-events: none;
+      opacity: 0;
+
+      &.dock-visible {
+        transform: translateY(-50%) translateX(0);
+        pointer-events: auto;
+        opacity: 1;
+      }
+
+      &:hover {
+        padding-left: 20px;
+        background: linear-gradient(135deg, rgba(30, 58, 138, 0.98) 0%, rgba(37, 99, 235, 0.98) 100%);
+        border-color: #93c5fd;
+        box-shadow: -10px 18px 42px rgba(2, 6, 23, 0.75), 0 0 40px rgba(59, 130, 246, 0.6);
+
+        .dock-icon-box {
+          transform: rotate(-10deg) scale(1.1);
+          background: #ffffff;
+          color: #1e40af;
+        }
+
+        .dock-arrow-icon {
+          transform: translateX(-4px);
+        }
+      }
+
+      .dock-pulse-ring {
+        position: absolute;
+        inset: -3px;
+        border-radius: 38px 0 0 38px;
+        border: 2px solid rgba(147, 197, 253, 0.5);
+        animation: dockGlowPulse 2.4s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+        pointer-events: none;
+      }
+
+      .dock-icon-box {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        transition: all 0.25s ease;
+
+        mat-icon {
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
+        }
+      }
+
+      .dock-content {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        line-height: 1.15;
+      }
+
+      .dock-tag {
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        color: #93c5fd;
+        text-transform: uppercase;
+      }
+
+      .dock-title {
+        font-size: 0.88rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        color: #ffffff;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      }
+
+      .dock-arrow-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #60a5fa;
+        margin-left: 2px;
+        transition: transform 0.2s ease;
+      }
+    }
+
+    @keyframes dockGlowPulse {
+      0%, 100% {
+        opacity: 0.3;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.85;
+        transform: scale(1.02);
+      }
     }
 
     /* ─── RESPONSIVE BREAKPOINTS (Tablet & Mobile) ────────────────────────── */
@@ -1019,6 +1403,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         align-items: flex-start;
         justify-content: center;
         padding: 18px 16px 32px;
+        overflow-y: auto;
       }
 
       .login-split-container {
@@ -1033,6 +1418,31 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         order: 1;
         justify-content: center;
         width: 100%;
+
+        &.drawer-closed {
+          display: none;
+        }
+
+        &.drawer-open {
+          animation: none;
+          transform: none;
+        }
+      }
+
+      .card-edge-tab {
+        display: none;
+      }
+
+      .floating-portal-dock {
+        bottom: 24px;
+        top: auto;
+        right: 20px;
+        border-radius: 30px;
+        border-right: 1.5px solid rgba(96, 165, 250, 0.6);
+        transform: translateY(140%);
+        &.dock-visible {
+          transform: translateY(0);
+        }
       }
 
       .login-card {
@@ -1215,6 +1625,21 @@ export class LoginComponent implements OnInit, OnDestroy {
   loading = false;
   errorMessage = '';
   sessionNotice = '';
+
+  /** Sliding Drawer state: panel is open by default, animated from right */
+  isDrawerOpen = true;
+
+  toggleDrawer(): void {
+    this.isDrawerOpen = !this.isDrawerOpen;
+  }
+
+  openDrawer(): void {
+    this.isDrawerOpen = true;
+  }
+
+  closeDrawer(): void {
+    this.isDrawerOpen = false;
+  }
 
   constructor(
     private fb: FormBuilder,
