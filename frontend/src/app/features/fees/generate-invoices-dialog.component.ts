@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -266,9 +266,15 @@ interface BillingCycleOption {
                       </span>
                     }
                     @if (!isJoiningMonthAfterCutoffSelected() && !isRolledOverMonthSelected()) {
-                      <span style="color: #2563eb;">
-                        👤 Target student admission date: {{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}
-                      </span>
+                      @if (isHybridStudent && hasDifferentStreamDates) {
+                        <span style="color: #2563eb;">
+                          👤 Hybrid DOJ: 🏫 School {{ targetSchoolJoiningDate | date:'dd MMM yyyy' }} • 🎯 Coaching {{ targetCoachingJoiningDate | date:'dd MMM yyyy' }}
+                        </span>
+                      } @else {
+                        <span style="color: #2563eb;">
+                          👤 Target student admission date: {{ getSelectedStudentJoiningDate() | date:'dd MMM yyyy' }}
+                        </span>
+                      }
                     }
                   </mat-hint>
                 }
@@ -338,7 +344,7 @@ interface BillingCycleOption {
               @if (!data.targetStudentName && scopeMode === 'school' && hasSchoolModule) {
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Target School Class</mat-label>
-                  <mat-select formControlName="classId" panelClass="smart-batch-panel" (selectionChange)="onClassSelectionChange($event.value)">
+                  <mat-select formControlName="classId" panelClass="smart-batch-panel invoice-dialog-select-panel" (selectionChange)="onClassSelectionChange($event.value)">
                     <mat-option value="">✨ All School Classes</mat-option>
                     @for (c of data.classes; track c) {
                       <mat-option [value]="c.id">
@@ -367,12 +373,13 @@ interface BillingCycleOption {
               @if (!data.targetStudentName && scopeMode === 'school' && form.get('classId')?.value && classStudents.length > 0) {
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Target Student (Optional - Defaults to All)</mat-label>
-                  <mat-select formControlName="studentId" panelClass="smart-batch-panel" (closed)="studentSearchQuery = ''">
+                  <mat-select formControlName="studentId" panelClass="smart-batch-panel invoice-dialog-select-panel" (closed)="studentSearchQuery = ''" (opened)="focusSearchInput()">
                     <!-- Sticky Search Box inside dropdown -->
-                    <mat-option disabled class="dropdown-search-option">
-                      <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                    <div class="dropdown-header-container" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                      <div class="dropdown-search-box">
                         <mat-icon class="search-box-icon">search</mat-icon>
                         <input
+                          #classStudentSearchInput
                           type="text"
                           class="search-inner-input"
                           placeholder="Search student in class..."
@@ -381,6 +388,7 @@ interface BillingCycleOption {
                           (click)="$event.stopPropagation()"
                           (mousedown)="$event.stopPropagation()"
                           (keydown)="$event.stopPropagation()"
+                          (input)="$event.stopPropagation()"
                           />
                         @if (studentSearchQuery) {
                           <button
@@ -392,7 +400,7 @@ interface BillingCycleOption {
                           </button>
                         }
                       </div>
-                    </mat-option>
+                    </div>
                     <mat-option value="">✨ All Students in Class ({{ classStudents.length }} {{ classStudents.length === 1 ? 'Student' : 'Students' }})</mat-option>
                     @for (s of filteredClassStudents; track s) {
                       <mat-option [value]="s.id">
@@ -419,7 +427,7 @@ interface BillingCycleOption {
               @if (!data.targetStudentName && scopeMode === 'coaching' && hasSchoolModule) {
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Filter by Academic Class (Optional)</mat-label>
-                  <mat-select [value]="coachingClassFilter" (selectionChange)="onCoachingClassFilterChange($event.value)" panelClass="smart-batch-panel">
+                  <mat-select [value]="coachingClassFilter" (selectionChange)="onCoachingClassFilterChange($event.value)" panelClass="smart-batch-panel invoice-dialog-select-panel">
                     <mat-option value="">✨ All Academic Classes</mat-option>
                     @for (c of data.classes; track c) {
                       <mat-option [value]="c.id">
@@ -435,7 +443,7 @@ interface BillingCycleOption {
               @if (!data.targetStudentName && scopeMode === 'coaching' && hasCoachingModule) {
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Target Coaching Batch</mat-label>
-                  <mat-select formControlName="batchId" panelClass="smart-batch-panel" (selectionChange)="onBatchSelectionChange($event.value)">
+                  <mat-select formControlName="batchId" panelClass="smart-batch-panel invoice-dialog-select-panel" (selectionChange)="onBatchSelectionChange($event.value)">
                     <mat-option value="">✨ All Coaching Batches {{ coachingClassFilter ? '(for selected class)' : '' }}</mat-option>
                     @for (b of filteredCoachingBatches; track b) {
                       <mat-option [value]="b.id">
@@ -470,12 +478,13 @@ interface BillingCycleOption {
               @if (!data.targetStudentName && scopeMode === 'coaching' && form.get('batchId')?.value && batchStudents.length > 0) {
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Target Student (Optional - Defaults to All)</mat-label>
-                  <mat-select formControlName="studentId" panelClass="smart-batch-panel" (closed)="studentSearchQuery = ''">
+                  <mat-select formControlName="studentId" panelClass="smart-batch-panel invoice-dialog-select-panel" (closed)="studentSearchQuery = ''" (opened)="focusSearchInput()">
                     <!-- Sticky Search Box inside dropdown -->
-                    <mat-option disabled class="dropdown-search-option">
-                      <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                    <div class="dropdown-header-container" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                      <div class="dropdown-search-box">
                         <mat-icon class="search-box-icon">search</mat-icon>
                         <input
+                          #coachingStudentSearchInput
                           type="text"
                           class="search-inner-input"
                           placeholder="Search student in batch..."
@@ -484,6 +493,7 @@ interface BillingCycleOption {
                           (click)="$event.stopPropagation()"
                           (mousedown)="$event.stopPropagation()"
                           (keydown)="$event.stopPropagation()"
+                          (input)="$event.stopPropagation()"
                           />
                         @if (studentSearchQuery) {
                           <button
@@ -495,7 +505,7 @@ interface BillingCycleOption {
                           </button>
                         }
                       </div>
-                    </mat-option>
+                    </div>
                     <mat-option value="">✨ All Students in Batch ({{ batchStudents.length }} {{ batchStudents.length === 1 ? 'Student' : 'Students' }})</mat-option>
                     @for (s of filteredBatchStudents; track s) {
                       <mat-option [value]="s.id">
@@ -558,7 +568,29 @@ interface BillingCycleOption {
                 </div>
               </div>
             }
-    
+
+            <!-- Partial Stream Hybrid Notice (When one stream is active and the other is future) -->
+            @if (!isPreAdmissionMonthSelected() && isPartialStreamActive()) {
+              @if (getPartialStreamInfo(); as info) {
+                <div class="partial-stream-callout">
+                  <div class="stream-icon-wrap">
+                    <mat-icon>alt_route</mat-icon>
+                  </div>
+                  <div class="stream-body">
+                    <div class="stream-header">
+                      <strong>Dual-Stream Hybrid Timeline</strong>
+                      <span class="stream-badge">{{ info.activeStream | uppercase }} ONLY</span>
+                    </div>
+                    <p class="stream-desc">
+                      <strong>{{ getSelectedStudentName() }}</strong> joined <strong>{{ info.activeStream }}</strong> on <strong>{{ info.activeDoj | date:'dd MMM yyyy' }}</strong> (Active).
+                      Admission in <strong>{{ info.inactiveStream }}</strong> is on <strong>{{ info.inactiveDoj | date:'dd MMM yyyy' }}</strong>.
+                      For <strong>{{ getPeriodLabel() }}</strong>, only <strong>{{ info.activeStream }}</strong> fee will be billed ({{ info.inactiveStream }} fee is ₹0).
+                    </p>
+                  </div>
+                </div>
+              }
+            }
+
             <!-- Cutoff Admission Policy Callout (Single student selected & joining month chosen when DOJ > cutoffDay) -->
             @if (isJoiningMonthAfterCutoffSelected()) {
               <div class="cutoff-policy-callout">
@@ -642,7 +674,7 @@ interface BillingCycleOption {
               <span>
                 {{ saving ? 'Generating...' :
                 (isPreAdmissionMonthSelected() ? 'Cannot Bill Pre-Admission Period' :
-                (data.targetStudentName ? 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoice for ' + data.targetStudentName : 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoices')) }}
+                (getSelectedStudentName() ? 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoice for ' + getSelectedStudentName() : 'Generate ' + (getSelectedCycleOption()?.label || 'Monthly') + ' Invoices')) }}
               </span>
             </button>
           </mat-dialog-actions>
@@ -1115,7 +1147,14 @@ interface BillingCycleOption {
       gap: 14px;
       .field-month { flex: 1 1 260px; min-width: 220px; }
       .field-year  { flex: 0 0 150px; min-width: 140px; }
-      .full-width  { width: 100%; flex: 1 1 100%; }
+      .full-width  {
+        width: 100%;
+        flex: 1 1 100%;
+        mat-select {
+          width: 100%;
+          display: block;
+        }
+      }
 
       .class-structure-warning-pill {
         display: flex;
@@ -1432,6 +1471,69 @@ interface BillingCycleOption {
       }
     }
 
+    .partial-stream-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #2563eb;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      animation: fadeInWarning 0.22s ease-in-out;
+
+      .stream-icon-wrap {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #2563eb;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.35);
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .stream-body {
+        flex: 1;
+
+        .stream-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+          strong {
+            color: #1e3a8a;
+            font-size: 0.84rem;
+            font-weight: 700;
+          }
+          .stream-badge {
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.04em;
+          }
+        }
+
+        .stream-desc {
+          font-size: 0.78rem;
+          color: #1e40af;
+          line-height: 1.45;
+          margin: 0;
+          strong {
+            font-weight: 700;
+            color: #0f172a;
+          }
+        }
+      }
+    }
+
     @keyframes fadeInWarning {
       from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
@@ -1472,53 +1574,83 @@ interface BillingCycleOption {
       }
     }
 
+    ::ng-deep .cdk-overlay-pane.invoice-dialog-select-panel,
+    ::ng-deep .cdk-overlay-pane:has(.invoice-dialog-select-panel) {
+      min-width: min(720px, calc(100vw - 48px)) !important;
+      width: 100% !important;
+      max-width: min(780px, calc(100vw - 32px)) !important;
+    }
+
+    ::ng-deep .mat-mdc-select-panel.invoice-dialog-select-panel,
     ::ng-deep .smart-batch-panel {
+      min-width: 100% !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+
+      .dropdown-header-container,
       .dropdown-search-option {
         position: sticky !important;
         top: 0 !important;
-        z-index: 10 !important;
+        z-index: 100 !important;
         background: #ffffff !important;
-        padding: 8px 12px !important;
+        padding: 10px 14px !important;
         height: auto !important;
         border-bottom: 1px solid #e2e8f0 !important;
         cursor: default !important;
         opacity: 1 !important;
         line-height: normal !important;
+        display: block !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
 
         .dropdown-search-box {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           background: #f8fafc;
-          border: 1px solid #cbd5e1;
-          border-radius: 8px;
-          padding: 6px 10px;
+          border: 1.5px solid #cbd5e1;
+          border-radius: 10px;
+          padding: 8px 12px;
           width: 100%;
           box-sizing: border-box;
+          pointer-events: auto !important;
+          cursor: text !important;
+          transition: border-color 0.2s, box-shadow 0.2s;
 
           &:focus-within {
             border-color: #2563eb;
             background: #ffffff;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
           }
 
           .search-box-icon {
-            font-size: 18px;
-            width: 18px;
-            height: 18px;
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
             color: #64748b;
             flex-shrink: 0;
+            pointer-events: none;
           }
 
           .search-inner-input {
             border: none;
             outline: none;
             background: transparent;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             color: #0f172a;
             width: 100%;
+            min-width: 0;
             flex: 1;
             font-family: inherit;
+            pointer-events: auto !important;
+            cursor: text !important;
+            user-select: text !important;
+
+            &::placeholder {
+              color: #94a3b8;
+              font-size: 0.88rem;
+            }
           }
 
           .clear-mini-btn {
@@ -1530,9 +1662,32 @@ interface BillingCycleOption {
             align-items: center;
             justify-content: center;
             padding: 2px;
+            width: 24px;
+            height: 24px;
+            pointer-events: auto !important;
             mat-icon { font-size: 16px; width: 16px; height: 16px; }
             &:hover { color: #475569; }
           }
+        }
+      }
+
+      .mat-mdc-option {
+        min-height: 44px !important;
+        padding: 0 16px !important;
+
+        .mdc-list-item__primary-text {
+          width: 100% !important;
+          display: block !important;
+          font-size: 0.9rem;
+          color: #1e293b;
+        }
+
+        &:hover:not(.mat-mdc-option-disabled) {
+          background-color: #f1f5f9 !important;
+        }
+
+        &.mat-mdc-option-active {
+          background-color: #eff6ff !important;
         }
       }
 
@@ -1540,12 +1695,26 @@ interface BillingCycleOption {
         font-style: italic;
         color: #94a3b8;
         text-align: center;
-        height: 40px;
+        height: 44px;
+        padding: 12px 16px !important;
       }
     }
   `]
 })
 export class GenerateInvoicesDialogComponent implements OnInit {
+  @ViewChild('coachingStudentSearchInput') coachingStudentSearchInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('classStudentSearchInput') classStudentSearchInput?: ElementRef<HTMLInputElement>;
+
+  focusSearchInput(): void {
+    setTimeout(() => {
+      if (this.coachingStudentSearchInput?.nativeElement) {
+        this.coachingStudentSearchInput.nativeElement.focus();
+      } else if (this.classStudentSearchInput?.nativeElement) {
+        this.classStudentSearchInput.nativeElement.focus();
+      }
+    }, 100);
+  }
+
   form: FormGroup;
   saving = false;
   selectedCycle = 1;
@@ -1648,7 +1817,9 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     return (this.data.batches || []).filter(b => b.classId === this.coachingClassFilter || !b.classId);
   }
 
-  get isTargetStudent(): boolean { return !!this.data?.targetStudentName; }
+  get isTargetStudent(): boolean {
+    return !!this.data?.targetStudentName || !!this.form?.get('studentId')?.value;
+  }
   get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
   get hasCoachingModule(): boolean { return this.authService.hasCoachingModule(); }
 
@@ -1663,25 +1834,38 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   }
 
   get isHybridStudent(): boolean {
+    const student = this.getSelectedStudent();
+    if (student) {
+      const isSchool = student.isSchoolStudent || !!student.classId;
+      const isCoach = student.isCoachingStudent || !!student.batchId;
+      if (isSchool && isCoach) return true;
+      if (student.joiningDate && student.coachingJoiningDate) return true;
+    }
     return !!((this.data?.isSchoolStudent && this.data?.isCoachingStudent) ||
               (this.data?.targetJoiningDate && this.data?.targetCoachingJoiningDate && this.data.targetJoiningDate !== this.data.targetCoachingJoiningDate));
   }
 
   get targetSchoolJoiningDate(): Date | null {
-    if (!this.data?.targetJoiningDate) return null;
-    const d = new Date(this.data.targetJoiningDate);
+    const student = this.getSelectedStudent();
+    const str = student?.joiningDate || this.data?.targetJoiningDate;
+    if (!str) return null;
+    const d = new Date(str);
     return isNaN(d.getTime()) ? null : d;
   }
 
   get targetCoachingJoiningDate(): Date | null {
-    if (!this.data?.targetCoachingJoiningDate) return null;
-    const d = new Date(this.data.targetCoachingJoiningDate);
+    const student = this.getSelectedStudent();
+    const str = student?.coachingJoiningDate || this.data?.targetCoachingJoiningDate;
+    if (!str) return null;
+    const d = new Date(str);
     return isNaN(d.getTime()) ? null : d;
   }
 
   get hasDifferentStreamDates(): boolean {
-    if (!this.data?.targetJoiningDate || !this.data?.targetCoachingJoiningDate) return false;
-    return this.data.targetJoiningDate !== this.data.targetCoachingJoiningDate;
+    const s = this.targetSchoolJoiningDate;
+    const c = this.targetCoachingJoiningDate;
+    if (!s || !c) return false;
+    return s.getTime() !== c.getTime();
   }
 
   getInstitutePolicyName(): string {
@@ -1935,39 +2119,94 @@ export class GenerateInvoicesDialogComponent implements OnInit {
   getSelectedStudent(): any | null {
     const selectedStudentId = this.form?.get('studentId')?.value;
     if (selectedStudentId) {
-      if (this.scopeMode === 'coaching') {
-        return this.batchStudents.find(s => s.id === selectedStudentId) || null;
-      }
-      if (this.scopeMode === 'school') {
-        return this.classStudents.find(s => s.id === selectedStudentId) || null;
-      }
+      const fromBatch = this.batchStudents.find(s => s.id === selectedStudentId);
+      if (fromBatch) return fromBatch;
+      const fromClass = this.classStudents.find(s => s.id === selectedStudentId);
+      if (fromClass) return fromClass;
     }
     return null;
   }
 
   getSelectedStudentJoiningDate(): Date | null {
-    if (this.data?.targetJoiningDate || this.data?.targetCoachingJoiningDate) {
-      if (this.data.isSchoolStudent && this.data.isCoachingStudent) {
-        const dSchool = this.data.targetJoiningDate ? new Date(this.data.targetJoiningDate) : null;
-        const dCoach = this.data.targetCoachingJoiningDate ? new Date(this.data.targetCoachingJoiningDate) : null;
-        if (dSchool && !isNaN(dSchool.getTime()) && dCoach && !isNaN(dCoach.getTime())) {
-          return dSchool.getTime() <= dCoach.getTime() ? dSchool : dCoach;
-        }
-        if (dCoach && !isNaN(dCoach.getTime())) return dCoach;
-        if (dSchool && !isNaN(dSchool.getTime())) return dSchool;
-      } else if (this.data.isCoachingStudent && !this.data.isSchoolStudent && this.data.targetCoachingJoiningDate) {
-        const d = new Date(this.data.targetCoachingJoiningDate);
-        return isNaN(d.getTime()) ? null : d;
-      }
-      if (this.data.targetJoiningDate) {
-        const d = new Date(this.data.targetJoiningDate);
-        return isNaN(d.getTime()) ? null : d;
-      }
-    }
     const student = this.getSelectedStudent();
-    if (student?.joiningDate) {
-      const d = new Date(student.joiningDate);
-      return isNaN(d.getTime()) ? null : d;
+
+    let dSchool: Date | null = null;
+    let dCoach: Date | null = null;
+
+    const schoolStr = student?.joiningDate || this.data?.targetJoiningDate;
+    if (schoolStr) {
+      const d = new Date(schoolStr);
+      if (!isNaN(d.getTime())) dSchool = d;
+    }
+
+    const coachStr = student?.coachingJoiningDate || this.data?.targetCoachingJoiningDate;
+    if (coachStr) {
+      const d = new Date(coachStr);
+      if (!isNaN(d.getTime())) dCoach = d;
+    }
+
+    const isSchool = student?.isSchoolStudent ?? this.data?.isSchoolStudent ?? !!student?.classId;
+    const isCoach = student?.isCoachingStudent ?? this.data?.isCoachingStudent ?? !!student?.batchId;
+
+    if (isSchool && isCoach) {
+      if (dSchool && dCoach) {
+        return dSchool.getTime() <= dCoach.getTime() ? dSchool : dCoach;
+      }
+      return dCoach || dSchool || null;
+    }
+
+    if (isCoach && !isSchool) {
+      return dCoach || dSchool || null;
+    }
+
+    return dSchool || dCoach || null;
+  }
+
+  isPartialStreamActive(): boolean {
+    if (!this.isHybridStudent) return false;
+    const dSchool = this.targetSchoolJoiningDate;
+    const dCoach = this.targetCoachingJoiningDate;
+    if (!dSchool || !dCoach || dSchool.getTime() === dCoach.getTime()) return false;
+
+    const month = Number(this.form?.get('month')?.value);
+    const year = Number(this.form?.get('year')?.value);
+    if (!month || !year) return false;
+
+    const periodEnd = new Date(year, month - 1 + this.selectedCycle, 0, 23, 59, 59, 999);
+    const schoolActive = dSchool.getTime() <= periodEnd.getTime();
+    const coachActive = dCoach.getTime() <= periodEnd.getTime();
+
+    return (schoolActive && !coachActive) || (!schoolActive && coachActive);
+  }
+
+  getPartialStreamInfo(): { activeStream: string; inactiveStream: string; activeDoj: Date; inactiveDoj: Date } | null {
+    const dSchool = this.targetSchoolJoiningDate;
+    const dCoach = this.targetCoachingJoiningDate;
+    if (!dSchool || !dCoach) return null;
+
+    const month = Number(this.form?.get('month')?.value);
+    const year = Number(this.form?.get('year')?.value);
+    if (!month || !year) return null;
+
+    const periodEnd = new Date(year, month - 1 + this.selectedCycle, 0, 23, 59, 59, 999);
+    const schoolActive = dSchool.getTime() <= periodEnd.getTime();
+    const coachActive = dCoach.getTime() <= periodEnd.getTime();
+
+    if (!schoolActive && coachActive) {
+      return {
+        activeStream: 'Coaching',
+        inactiveStream: 'School',
+        activeDoj: dCoach,
+        inactiveDoj: dSchool
+      };
+    }
+    if (schoolActive && !coachActive) {
+      return {
+        activeStream: 'School',
+        inactiveStream: 'Coaching',
+        activeDoj: dSchool,
+        inactiveDoj: dCoach
+      };
     }
     return null;
   }

@@ -2725,9 +2725,8 @@ public class FeesController : ControllerBase
             .Include(s => s.Class)
             .Include(s => s.Batch)
             .Where(s => s.TenantId == tenantId && s.IsActive &&
-                ((s.IsCoachingStudent && !s.IsSchoolStudent && s.CoachingJoiningDate != null)
-                    ? s.CoachingJoiningDate.Value.Date <= periodEnd.Date
-                    : s.JoiningDate.Date <= periodEnd.Date));
+                (s.JoiningDate.Date <= periodEnd.Date ||
+                 (s.IsCoachingStudent && s.CoachingJoiningDate != null && s.CoachingJoiningDate.Value.Date <= periodEnd.Date)));
 
         if (targetBranchId.HasValue && targetBranchId.Value != Guid.Empty)
         {
@@ -2747,7 +2746,7 @@ public class FeesController : ControllerBase
         }
 
         var pendingStudents = await studentsQuery
-            .OrderByDescending(s => (s.IsCoachingStudent && !s.IsSchoolStudent && s.CoachingJoiningDate != null) ? s.CoachingJoiningDate.Value : s.JoiningDate)
+            .OrderByDescending(s => (s.IsCoachingStudent && s.CoachingJoiningDate != null && s.CoachingJoiningDate.Value < s.JoiningDate) ? s.CoachingJoiningDate.Value : s.JoiningDate)
             .Select(s => new PendingInvoicingStudentDto(
                 s.Id,
                 s.StudentName,

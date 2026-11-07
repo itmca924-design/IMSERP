@@ -28,6 +28,136 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       <div class="ambient-glow-left"></div>
       <div class="ambient-glow-right"></div>
 
+      <!-- Interactive Live Campus Clock Tower Overlay (Synchronized to Indian Standard Time) -->
+      <svg
+        class="campus-clock-tower-svg"
+        viewBox="0 0 1376 768"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
+        role="img"
+        aria-label="Live Campus Clock Tower">
+        <defs>
+          <!-- Red Neon LED Glow Filter for Digital Clock -->
+          <filter id="tower-led-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="0.7" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          <!-- Analog Clock Dial Gradient & Shadow -->
+          <radialGradient id="dial-face-gradient" cx="45%" cy="38%" r="60%">
+            <stop offset="0%" stop-color="#ffffff" />
+            <stop offset="80%" stop-color="#f8fafc" />
+            <stop offset="100%" stop-color="#cbd5e1" />
+          </radialGradient>
+
+          <!-- Subtle Bezel Gradient -->
+          <linearGradient id="bezel-metal-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#475569" />
+            <stop offset="50%" stop-color="#1e293b" />
+            <stop offset="100%" stop-color="#0f172a" />
+          </linearGradient>
+        </defs>
+
+        <g class="tower-clock-cluster">
+          <title>Campus Tower Clock • Live Indian Standard Time (IST): {{ liveTimeFullTooltip }}</title>
+
+          <!-- ─── 1. GRAND ANALOG ROUND CLOCK (Full Space Coverage: Center 688.5, 216.5 | Outer Radius: 23.0) ─── -->
+          <!-- Outer Bezel Ring (Completely fills the full recessed tower wall space) -->
+          <circle cx="688.5" cy="216.5" r="23.0" fill="url(#bezel-metal-gradient)" stroke="#090d16" stroke-width="1.2" />
+          <!-- Dial Face -->
+          <circle cx="688.5" cy="216.5" r="21.6" fill="url(#dial-face-gradient)" stroke="#64748b" stroke-width="0.6" />
+          <!-- Minute Track Ring -->
+          <circle cx="688.5" cy="216.5" r="19.5" fill="none" stroke="#94a3b8" stroke-width="0.45" stroke-dasharray="0.6 2.0" />
+
+          <!-- Hour Markers (Cardinal 12, 3, 6, 9) -->
+          <line x1="688.5" y1="197" x2="688.5" y2="201.2" stroke="#0f172a" stroke-width="1.7" stroke-linecap="round" />
+          <line x1="708" y1="216.5" x2="703.8" y2="216.5" stroke="#0f172a" stroke-width="1.7" stroke-linecap="round" />
+          <line x1="688.5" y1="236" x2="688.5" y2="231.8" stroke="#0f172a" stroke-width="1.7" stroke-linecap="round" />
+          <line x1="669" y1="216.5" x2="673.2" y2="216.5" stroke="#0f172a" stroke-width="1.7" stroke-linecap="round" />
+
+          <!-- Minor Hour Markers (1, 2, 4, 5, 7, 8, 10, 11) -->
+          <line x1="698.25" y1="199.6" x2="696.75" y2="202.2" stroke="#64748b" stroke-width="0.9" stroke-linecap="round" />
+          <line x1="705.4" y1="206.75" x2="702.8" y2="208.25" stroke="#64748b" stroke-width="0.9" stroke-linecap="round" />
+          <line x1="705.4" y1="226.25" x2="702.8" y2="224.75" stroke="#64748b" stroke-width="0.9" stroke-linecap="round" />
+          <line x1="698.25" y1="233.4" x2="696.75" y2="230.8" stroke="#64748b" stroke-width="0.9" stroke-linecap="round" />
+          <line x1="678.75" y1="233.4" x2="680.25" y2="230.8" stroke="#64748b" stroke-width="0.9" stroke-linecap="round" />
+          <line x1="671.6" y1="226.25" x2="674.2" y2="224.75" stroke="#64748b" stroke-width="0.9" stroke-linecap="round" />
+          <line x1="671.6" y1="206.75" x2="674.2" y2="208.25" stroke="#64748b" stroke-width="0.9" stroke-linecap="round" />
+          <line x1="678.75" y1="199.6" x2="680.25" y2="202.2" stroke="#64748b" stroke-width="0.9" stroke-linecap="round" />
+
+          <!-- Hour Hand -->
+          <line
+            x1="688.5" y1="216.5"
+            x2="688.5" y2="204.5"
+            stroke="#0f172a"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            [attr.transform]="'rotate(' + hourAngle + ' 688.5 216.5)'" />
+
+          <!-- Minute Hand -->
+          <line
+            x1="688.5" y1="216.5"
+            x2="688.5" y2="199"
+            stroke="#1e293b"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            [attr.transform]="'rotate(' + minuteAngle + ' 688.5 216.5)'" />
+
+          <!-- Second Hand (Vibrant Red with Extended Tail) -->
+          <line
+            x1="688.5" y1="221"
+            x2="688.5" y2="198"
+            stroke="#ef4444"
+            stroke-width="0.85"
+            stroke-linecap="round"
+            [attr.transform]="'rotate(' + secondAngle + ' 688.5 216.5)'" />
+
+          <!-- Center Pivot Pin -->
+          <circle cx="688.5" cy="216.5" r="1.8" fill="#f59e0b" stroke="#78350f" stroke-width="0.5" />
+
+          <!-- Glass Reflection Highlight -->
+          <path
+            d="M 672 208 A 18 18 0 0 1 705 208 A 17 6.5 0 0 0 672 208 Z"
+            fill="rgba(255, 255, 255, 0.28)"
+            pointer-events="none" />
+
+          <!-- ─── 2. DIGITAL LED CLOCK (Center: 686.5, 256 | UNTOUCHED) ─── -->
+          <!-- Outer Black Metal Box (Spans entire alcove seamlessly from left 668.5) -->
+          <rect x="668.5" y="248.5" width="36" height="15" rx="2" fill="#090d16" stroke="#1e293b" stroke-width="0.8" />
+          <!-- Inner Recessed LED Display Screen -->
+          <rect x="669.5" y="249.5" width="34" height="13" rx="1.2" fill="#020408" />
+
+          <!-- Ghost Inactive 7-Segment Digits (88:88) for authentic LCD/LED realism -->
+          <text
+            x="686.5"
+            y="259.2"
+            text-anchor="middle"
+            fill="rgba(239, 68, 68, 0.12)"
+            font-size="8.2"
+            font-family="'Consolas', 'Courier New', monospace"
+            font-weight="900"
+            letter-spacing="0.6">88:88</text>
+
+          <!-- Glowing Active Red LED Digits with Blinking Colon -->
+          <text
+            x="686.5"
+            y="259.2"
+            text-anchor="middle"
+            fill="#ff2b2b"
+            filter="url(#tower-led-glow)"
+            font-size="8.2"
+            font-family="'Consolas', 'Courier New', monospace"
+            font-weight="900"
+            letter-spacing="0.6">{{ digitalHours }}<tspan [attr.fill]="isSecondTickEven ? '#ff2b2b' : 'rgba(255,43,43,0.18)'">:</tspan>{{ digitalMinutes }}</text>
+
+          <!-- Subtle Top Border Highlight on Digital Display -->
+          <line x1="670" y1="250" x2="703" y2="250" stroke="rgba(255,255,255,0.08)" stroke-width="0.5" />
+        </g>
+      </svg>
+
       <div class="login-split-container" [class.drawer-collapsed]="!isDrawerOpen">
         <!-- LEFT SIDE: Enterprise ERP Feature Showcase -->
         <div class="hero-showcase">
@@ -389,6 +519,25 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       pointer-events: none;
       filter: blur(50px);
       z-index: 2;
+    }
+
+    .campus-clock-tower-svg {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 2;
+
+      .tower-clock-cluster {
+        cursor: pointer;
+        pointer-events: auto;
+        transition: filter 0.25s ease;
+
+        &:hover {
+          filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.5));
+        }
+      }
     }
 
     .ambient-glow-right {
@@ -777,7 +926,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       max-width: 420px;
       min-width: 0;
       box-sizing: border-box;
-      border-radius: 18px;
+      border-radius: 20px;
       box-shadow:
         0 24px 50px -10px rgba(2, 6, 23, 0.75),
         0 0 0 1px rgba(255, 255, 255, 0.28),
@@ -831,7 +980,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       padding: 12px 18px 10px;
       border-bottom: 1px solid #bfdbfe;
-      border-radius: 18px 18px 0 0;
+      border-radius: 20px 20px 0 0;
       overflow: hidden;
 
       .exec-top-row {
@@ -1011,6 +1160,8 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     .form-content {
       padding: 10px 18px 12px;
       background: linear-gradient(180deg, #f8fafc 0%, #ffffff 35%);
+      border-radius: 0 0 20px 20px;
+      overflow: hidden;
     }
 
     .portal-divider-bar {
@@ -1619,6 +1770,53 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
   `]
 })
 export class LoginComponent implements OnInit, OnDestroy {
+  // ─── Live Campus Clock Tower Engine (IST Asia/Kolkata) ──────
+  hourAngle = 0;
+  minuteAngle = 0;
+  secondAngle = 0;
+  digitalHours = '12';
+  digitalMinutes = '00';
+  isSecondTickEven = true;
+  liveTimeFullTooltip = '';
+  private clockTimerId: any;
+
+  private updateCampusClock(): void {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: true
+    });
+
+    const parts = formatter.formatToParts(now);
+    let hour12 = 12;
+    let minute = 0;
+    let second = 0;
+    let dayPeriod = 'AM';
+
+    for (const part of parts) {
+      if (part.type === 'hour') hour12 = parseInt(part.value, 10) || 12;
+      else if (part.type === 'minute') minute = parseInt(part.value, 10) || 0;
+      else if (part.type === 'second') second = parseInt(part.value, 10) || 0;
+      else if (part.type === 'dayPeriod') dayPeriod = part.value.toUpperCase();
+    }
+
+    // Mathematical rotation angles for analog clock hands
+    this.secondAngle = Math.round(second * 6);
+    this.minuteAngle = Number((minute * 6 + second * 0.1).toFixed(1));
+    this.hourAngle = Number(((hour12 % 12) * 30 + minute * 0.5 + second * (0.5 / 60)).toFixed(1));
+
+    // Digital LED clock formatted display
+    this.digitalHours = hour12 < 10 ? '0' + hour12 : '' + hour12;
+    this.digitalMinutes = minute < 10 ? '0' + minute : '' + minute;
+    this.isSecondTickEven = second % 2 === 0;
+
+    const secStr = second < 10 ? '0' + second : '' + second;
+    this.liveTimeFullTooltip = `${this.digitalHours}:${this.digitalMinutes}:${secStr} ${dayPeriod} IST`;
+  }
+
   private dialog = inject(MatDialog, { optional: true });
   loginForm: FormGroup;
   hidePassword = true;
@@ -1656,6 +1854,11 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.updateCampusClock();
+    this.clockTimerId = setInterval(() => {
+      this.updateCampusClock();
+    }, 1000);
+
     // Lock body and html scrolling on mobile while on login screen
     try {
       document.body.classList.add('login-page-active');
@@ -1680,6 +1883,11 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.clockTimerId) {
+      clearInterval(this.clockTimerId);
+      this.clockTimerId = null;
+    }
+
     // Release mobile viewport lock upon leaving login screen
     try {
       document.body.classList.remove('login-page-active');

@@ -1721,23 +1721,26 @@ mat-icon.wa-mat-icon {
 
 // Notice Form Coaching Batch Dropdown Panel (Full width, no clipping)
 .cdk-overlay-pane.notice-batch-select-panel,
-.cdk-overlay-pane:has(.notice-batch-select-panel) {
-  min-width: 580px !important;
-  width: max-content !important;
-  max-width: min(860px, 96vw) !important;
+.cdk-overlay-pane:has(.notice-batch-select-panel),
+.cdk-overlay-pane.invoice-dialog-select-panel,
+.cdk-overlay-pane:has(.invoice-dialog-select-panel) {
+  min-width: min(720px, calc(100vw - 48px)) !important;
+  width: 100% !important;
+  max-width: min(780px, calc(100vw - 32px)) !important;
 }
 
-.mat-mdc-select-panel.notice-batch-select-panel {
-  min-width: 580px !important;
+.mat-mdc-select-panel.notice-batch-select-panel,
+.mat-mdc-select-panel.invoice-dialog-select-panel {
+  min-width: 100% !important;
   width: 100% !important;
-  max-width: min(860px, 96vw) !important;
+  max-width: 100% !important;
   max-height: 420px !important;
   box-sizing: border-box !important;
   border-radius: 12px !important;
   background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
+  border: 1.5px solid #94a3b8 !important;
   box-shadow: 0 20px 40px -8px rgba(15, 23, 42, 0.22), 0 8px 16px -4px rgba(15, 23, 42, 0.1) !important;
-  padding: 6px 4px !important;
+  padding: 0 !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
 
@@ -2128,7 +2131,7 @@ body.erp-compact {
 // ============================================================================
 // 5. Global Mat-Select & Dropdown Panel Clear Visibility & Elevation
 // ============================================================================
-.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(> .mat-mdc-select-panel) {
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):not(:has(.invoice-dialog-select-panel)):not(:has(.notice-batch-select-panel)):has(> .mat-mdc-select-panel) {
   min-width: 280px !important;
   max-width: 520px !important;
 }

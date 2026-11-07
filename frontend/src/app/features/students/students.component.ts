@@ -975,11 +975,18 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                         matInput
                         [(ngModel)]="searchTerm"
                         (keyup.enter)="onSearch()"
+                        (input)="onSearchInput()"
                         placeholder="Search by Roll No, Name, Phone, SR No, Lib Card..."
                         />
-                        <button matSuffix (click)="onSearch()" aria-label="Search" mat-icon-button>
-                          <mat-icon>search</mat-icon>
-                        </button>
+                        @if (searchTerm) {
+                          <button matSuffix (click)="clearSearch()" aria-label="Clear Search" matTooltip="Clear search & refresh" mat-icon-button>
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        } @else {
+                          <button matSuffix (click)="onSearch()" aria-label="Search" mat-icon-button>
+                            <mat-icon>search</mat-icon>
+                          </button>
+                        }
                       </mat-form-field>
                       <!-- Academic Class Filter (Available for School, Coaching, All) -->
                       <mat-form-field appearance="outline" class="filter-select">
@@ -4451,6 +4458,21 @@ export class StudentsComponent implements OnInit, OnDestroy {
   onSearch(): void {
     this.pageIndex = 0;
     this.loadStudents();
+  }
+
+  clearSearch(): void {
+    if (this.searchTerm) {
+      this.searchTerm = '';
+      this.pageIndex = 0;
+      this.loadStudents();
+    }
+  }
+
+  onSearchInput(): void {
+    if (!this.searchTerm || !this.searchTerm.trim()) {
+      this.pageIndex = 0;
+      this.loadStudents();
+    }
   }
 
   onPageChange(event: PageEvent): void {
