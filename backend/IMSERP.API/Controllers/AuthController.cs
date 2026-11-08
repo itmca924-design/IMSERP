@@ -7,6 +7,7 @@ using IMSERP.Domain.Entities;
 using IMSERP.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -27,6 +28,7 @@ public class AuthController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly PresenceTracker _presenceTracker;
     private readonly IHubContext<PresenceHub> _presenceHubContext;
+    private readonly ILoginAttemptTracker _loginTracker;
 
     public AuthController(
         IIMSERPDbContext dbContext,
@@ -34,7 +36,8 @@ public class AuthController : ControllerBase
         IConfiguration config,
         IWebHostEnvironment env,
         PresenceTracker presenceTracker,
-        IHubContext<PresenceHub> presenceHubContext)
+        IHubContext<PresenceHub> presenceHubContext,
+        ILoginAttemptTracker loginTracker)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
@@ -42,10 +45,12 @@ public class AuthController : ControllerBase
         _env = env;
         _presenceTracker = presenceTracker;
         _presenceHubContext = presenceHubContext;
+        _loginTracker = loginTracker;
     }
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth-rate-limit")]
     public async Task<ActionResult<LoginResponseDto>> Login([FromBody] LoginRequestDto request)
     {
         if (string.IsNullOrWhiteSpace(request.TenantCode) ||
@@ -53,6 +58,20 @@ public class AuthController : ControllerBase
             string.IsNullOrWhiteSpace(request.Password))
         {
             return BadRequest(new { message = "Institute Code, Username, and Password are all required." });
+        }
+
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString()
+            ?? HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+            ?? "0.0.0.0";
+
+        // 0. Anti-Brute Force: Check if Account/IP is currently locked out
+        if (_loginTracker.IsLockedOut(request.TenantCode, request.Username, clientIp, out var remainingTime))
+        {
+            var mins = Math.Ceiling(remainingTime.TotalMinutes);
+            return StatusCode(StatusCodes.Status429TooManyRequests, new
+            {
+                message = $"Too many failed login attempts for this account. Locked out for security. Please try again in {(int)mins} minute(s)."
+            });
         }
 
         // 1. Locate and validate active tenant by Code
@@ -75,8 +94,22 @@ public class AuthController : ControllerBase
 
         if (user == null || !isValidPassword)
         {
-            return Unauthorized(new { message = $"Invalid username or password for {tenant.Name}." });
+            var attempts = _loginTracker.RecordFailedAttempt(request.TenantCode, request.Username, clientIp, out var nowLockedOut, out var lockoutDuration);
+            if (nowLockedOut)
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, new
+                {
+                    message = $"Account temporarily locked due to 5 consecutive failed attempts. Please try again in {(int)lockoutDuration.TotalMinutes} minutes."
+                });
+            }
+
+            var remaining = Math.Max(0, 5 - attempts);
+            var warningSuffix = remaining > 0 ? $" ({remaining} attempt(s) remaining before security lockout.)" : string.Empty;
+            return Unauthorized(new { message = $"Invalid username or password for {tenant.Name}.{warningSuffix}" });
         }
+
+        // Reset failed attempt counter upon successful authentication
+        _loginTracker.ResetAttempts(request.TenantCode, request.Username, clientIp);
 
         HttpContext.Items["TrustedTenantWrite"] = true;
 

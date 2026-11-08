@@ -172,23 +172,35 @@ export interface BreadcrumbItem {
                   <a
                     mat-icon-button
                     class="rail-nav-btn"
+                    [style.--menu-accent-bg]="getMenuColorTheme(item).bg"
+                    [style.--menu-accent-color]="getMenuColorTheme(item).color"
+                    [style.--menu-accent-border]="getMenuColorTheme(item).border"
+                    [style.--menu-active-bg]="getMenuColorTheme(item).activeBg"
                     [routerLink]="item.routeUrl"
                     routerLinkActive="rail-active"
                     [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
                     [matTooltip]="item.title"
                     matTooltipPosition="right">
-                    <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
+                    <div class="rail-icon-box">
+                      <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
+                    </div>
                   </a>
                 }
                 @if (item.children && item.children.length > 0) {
                   <button
                     type="button"
                     class="rail-nav-btn"
+                    [style.--menu-accent-bg]="getMenuColorTheme(item).bg"
+                    [style.--menu-accent-color]="getMenuColorTheme(item).color"
+                    [style.--menu-accent-border]="getMenuColorTheme(item).border"
+                    [style.--menu-active-bg]="getMenuColorTheme(item).activeBg"
                     [class.rail-active]="isParentActive(item)"
                     [matMenuTriggerFor]="railSubMenu"
                     [matTooltip]="item.title"
                     matTooltipPosition="right" mat-icon-button>
-                    <mat-icon>{{ item.icon || 'category' }}</mat-icon>
+                    <div class="rail-icon-box">
+                      <mat-icon>{{ item.icon || 'category' }}</mat-icon>
+                    </div>
                   </button>
                   <mat-menu #railSubMenu="matMenu" xPosition="after" yPosition="below" [overlapTrigger]="false">
                     @for (sub of item.children; track sub.id) {
@@ -2843,18 +2855,69 @@ export interface BreadcrumbItem {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       width: 100%;
       padding: 8px 0;
     }
 
     .rail-nav-btn {
-      color: #526179;
+      width: 42px !important;
+      height: 42px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 8px !important;
+      background: transparent !important;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      .rail-icon-box {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--menu-accent-bg, #f1f5f9);
+        color: var(--menu-accent-color, #475569);
+        border: 1px solid var(--menu-accent-border, #e2e8f0);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+        mat-icon {
+          font-size: 19px;
+          width: 19px;
+          height: 19px;
+          line-height: 19px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+
+      &:hover .rail-icon-box {
+        transform: scale(1.08);
+        box-shadow: 0 4px 8px -2px rgba(15, 23, 42, 0.12);
+        filter: brightness(0.97);
+      }
+
+      &.rail-active .rail-icon-box {
+        background: var(--menu-active-bg, #2563eb) !important;
+        color: #ffffff !important;
+        border-color: var(--menu-active-bg, #2563eb) !important;
+        box-shadow: 0 4px 10px -2px rgba(37, 99, 235, 0.45) !important;
+        transform: scale(1.05);
+      }
     }
 
-    .rail-nav-btn.rail-active {
-      color: var(--erp-primary);
-      background: var(--erp-primary-light);
+    ::ng-deep .active-rail-sub {
+      background: #eff6ff !important;
+      color: #1d4ed8 !important;
+      font-weight: 600 !important;
+
+      mat-icon {
+        color: #2563eb !important;
+      }
     }
 
     .rail-footer-actions {

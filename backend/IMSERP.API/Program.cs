@@ -1,8 +1,10 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using IMSERP.Application.Interfaces;
 using IMSERP.Infrastructure.Persistence;
 using IMSERP.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -108,6 +110,29 @@ builder.Services.AddAuthorization();
 builder.Services.AddSignalR(options =>
     options.AddFilter<IMSERP.API.Services.DynamicMenuPermissionHubFilter>());
 builder.Services.AddSingleton<IMSERP.API.Services.PresenceTracker>();
+builder.Services.AddSingleton<IMSERP.API.Services.ILoginAttemptTracker, IMSERP.API.Services.LoginAttemptTracker>();
+
+// Enterprise Rate Limiting Policy (Anti-Brute Force Protection)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth-rate-limit", httpContext =>
+    {
+        var clientIp = httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+            ?? "anonymous";
+        clientIp = clientIp.Split(',')[0].Trim();
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: clientIp,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 15,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+    });
+});
 
 // 4. Controllers & OpenAPI
 builder.Services.AddControllers(options =>
@@ -3120,6 +3145,25 @@ app.Use(async (context, next) =>
 });
 
 app.UseCors("AllowAngular");
+
+// Enterprise Security Headers Middleware (OWASP Security Hardening)
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+
+    if (context.Request.IsHttps || !app.Environment.IsDevelopment())
+    {
+        context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+    }
+
+    await next();
+});
+
+app.UseRateLimiter();
 
 // Rewrite /api/uploads/* to /uploads/* so Nginx /api proxy serves static uploads seamlessly,
 // and gracefully handle missing upload images without throwing 404 console errors.
