@@ -648,7 +648,8 @@ const API_BASE = environment.apiBaseUrl;
                           </span>
                           @if (log.captureSource) {
                             <span class="att-source">
-                              <mat-icon class="inline-icon">fingerprint</mat-icon> {{ log.captureSource }}
+                              <mat-icon class="inline-icon">{{ getCaptureSourceIcon(log.captureSource) }}</mat-icon>
+                              <span>{{ formatCaptureSource(log.captureSource) }}</span>
                             </span>
                           }
                         </div>
@@ -2823,7 +2824,8 @@ const API_BASE = environment.apiBaseUrl;
     }
 
     .att-log-item {
-      display: flex;
+      display: grid;
+      grid-template-columns: 60px auto 1fr;
       align-items: center;
       gap: 16px;
       padding: 10px 14px;
@@ -2846,23 +2848,30 @@ const API_BASE = environment.apiBaseUrl;
       display: flex;
       align-items: center;
       gap: 8px;
-      width: 160px;
+      flex-wrap: wrap;
     }
 
     .att-source {
       font-size: 0.72rem;
-      color: #64748b;
+      font-weight: 600;
+      color: #475569;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 2px 8px;
       display: inline-flex;
       align-items: center;
-      gap: 2px;
+      gap: 4px;
+      white-space: nowrap;
 
-      .inline-icon { font-size: 14px; width: 14px; height: 14px; }
+      .inline-icon { font-size: 14px; width: 14px; height: 14px; color: #64748b; }
     }
 
     .att-remarks-col {
-      flex: 1;
       font-size: 0.8rem;
       color: #475569;
+      word-break: break-word;
+      min-width: 0;
     }
 
     /* ΓöÇΓöÇ Facilities Grid ΓöÇΓöÇ */
@@ -5464,4 +5473,24 @@ export class StudentProfile360DialogComponent implements OnInit {
     this.dialogRef.close();
     this.router.navigate(['/inventory/sale-returns']);
   }
+  formatCaptureSource(source?: string | null): string {
+    if (!source) return '';
+    const s = source.trim();
+    const lower = s.toLowerCase();
+    if (lower === 'manualschoolbatch' || lower === 'manualschool' || lower === 'manual') return 'Manual (School)';
+    if (lower === 'manualcoachingbatch' || lower === 'manualcoaching') return 'Manual (Coaching)';
+    if (lower.includes('biometric') || lower.includes('hikvision')) return 'Biometric';
+    if (lower.includes('rfid')) return 'RFID Card';
+    return s.replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+
+  getCaptureSourceIcon(source?: string | null): string {
+    if (!source) return 'how_to_reg';
+    const lower = source.toLowerCase();
+    if (lower.includes('biometric') || lower.includes('hikvision')) return 'fingerprint';
+    if (lower.includes('rfid') || lower.includes('card')) return 'badge';
+    if (lower.includes('manual')) return 'edit_note';
+    return 'how_to_reg';
+  }
 }
+

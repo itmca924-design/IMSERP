@@ -25,7 +25,7 @@ bootstrapApplication(AppComponent, {
   .then(() => {
     // ── Progressive Web App (PWA) Service Worker Registration ──
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
+      const registerSW = () => {
         let refreshing = false;
         // Only trigger reload if page was ALREADY controlled by an older worker
         const hadController = !!navigator.serviceWorker.controller;
@@ -45,7 +45,13 @@ bootstrapApplication(AppComponent, {
           .catch((err) => {
             console.warn('[PWA] Service Worker registration failed:', err);
           });
-      });
+      };
+
+      if (document.readyState === 'complete') {
+        registerSW();
+      } else {
+        window.addEventListener('load', registerSW);
+      }
     }
   })
   .catch((err) => {

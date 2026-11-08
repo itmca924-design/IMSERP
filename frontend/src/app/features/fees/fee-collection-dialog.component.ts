@@ -3259,10 +3259,10 @@ export class FeeCollectionDialogComponent implements OnInit {
     const upiUri = `upi://pay?pa=${vpa}&pn=${payee}&am=${formattedAmt}&cu=INR&tn=${note}&tr=${txnRef}&mc=8211`;
 
     QRCode.toCanvas(this.counterQrCanvas.nativeElement, upiUri, {
-      width: 130,
-      margin: 1,
+      width: 240,
+      margin: 4,
       color: {
-        dark: '#0f172a',
+        dark: '#000000',
         light: '#ffffff'
       },
       errorCorrectionLevel: 'M'

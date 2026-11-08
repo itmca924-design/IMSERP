@@ -557,7 +557,12 @@ export class PublicInvoicePayComponent implements OnInit {
         }
 
         if (intent.upiIntentUri) {
-          QRCode.toDataURL(intent.upiIntentUri, { margin: 1, width: 220 })
+          QRCode.toDataURL(intent.upiIntentUri, {
+            margin: 4,
+            width: 320,
+            color: { dark: '#000000', light: '#ffffff' },
+            errorCorrectionLevel: 'M'
+          })
             .then((url) => (this.qrDataUrl = url))
             .catch((err) => console.error('QR generation error', err));
         }

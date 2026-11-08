@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imserp-cache-v11';
+const CACHE_NAME = 'imserp-cache-v14';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -58,16 +58,77 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         let branding = activeTenantBranding;
-        if (!branding || (!branding.instituteName && !branding.dynamicManifest)) {
-          try {
-            const brandingCache = await caches.open('imserp-dynamic-branding');
-            const cachedRes = await brandingCache.match('/__tenant_manifest_data__');
-            if (cachedRes) {
-              branding = await cachedRes.json();
-            }
-          } catch (e) {
-            console.warn('[PWA SW] Error reading cached branding:', e);
+        try {
+          const brandingCache = await caches.open('imserp-dynamic-branding');
+          const cachedManifest = (await brandingCache.match(req.url)) ||
+                                 (await brandingCache.match('/manifest.webmanifest')) ||
+                                 (await brandingCache.match('/manifest.json'));
+          if (cachedManifest) {
+            return cachedManifest;
           }
+          const cachedData = await brandingCache.match('/__tenant_manifest_data__');
+          if (cachedData) {
+            branding = await cachedData.json();
+          }
+        } catch (e) {
+          console.warn('[PWA SW] Error reading cached branding:', e);
+        }
+
+        // Check if a specific tenant is requested via query string or active session
+        const tenantParam = (url.searchParams.get('tenant') || (branding && (branding.shortName || branding.tenantCode)) || '').trim().toUpperCase();
+        if (tenantParam && tenantParam !== 'SMSERP' && tenantParam !== 'IMSERP') {
+          const compName = (branding && branding.instituteName) || tenantParam;
+          const shortName = tenantParam;
+          const logo = (branding && branding.logoUrl) || '/assets/icons/icon-192x192.png';
+          const dynamicManifest = {
+            name: shortName,
+            short_name: shortName,
+            description: `${compName} Enterprise ERP Portal`,
+            start_url: '/',
+            scope: '/',
+            display: 'standalone',
+            display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
+            background_color: '#ffffff',
+            theme_color: '#2563eb',
+            orientation: 'any',
+            lang: 'en-IN',
+            dir: 'ltr',
+            categories: ['education', 'business', 'productivity'],
+            icons: [
+              {
+                src: '/assets/icons/icon-192x192.png',
+                sizes: '192x192',
+                type: 'image/png',
+                purpose: 'any'
+              },
+              {
+                src: '/assets/icons/icon-512x512.png',
+                sizes: '512x512',
+                type: 'image/png',
+                purpose: 'any'
+              },
+              {
+                src: '/assets/icons/icon-maskable-192x192.png',
+                sizes: '192x192',
+                type: 'image/png',
+                purpose: 'maskable'
+              },
+              {
+                src: '/assets/icons/icon-maskable-512x512.png',
+                sizes: '512x512',
+                type: 'image/png',
+                purpose: 'maskable'
+              }
+            ]
+          };
+
+          return new Response(JSON.stringify(dynamicManifest, null, 2), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/manifest+json; charset=utf-8',
+              'Cache-Control': 'no-cache, no-store, must-revalidate'
+            }
+          });
         }
 
         if (branding) {
@@ -83,6 +144,7 @@ self.addEventListener('fetch', (event) => {
 
           if (branding.instituteName && branding.instituteName.trim()) {
             const compName = branding.instituteName.trim();
+            const shortName = (branding.shortName || branding.tenantCode || (compName.length > 12 ? compName.split(' ')[0] : compName)).trim();
             const logo = branding.logoUrl || '/assets/icons/icon-192x192.png';
             const icon192 = branding.icon192 || logo;
             const icon512 = branding.icon512 || logo;
@@ -90,9 +152,9 @@ self.addEventListener('fetch', (event) => {
             const maskable512 = branding.maskable512 || icon512;
 
             const dynamicManifest = {
-              name: `${compName} - School ERP`,
-              short_name: compName,
-              description: `${compName} Enterprise ERP solution for School Classes, Coaching Batches, Hybrid Admissions, Fee Collections, and Student Portals.`,
+              name: shortName,
+              short_name: shortName,
+              description: `${compName || shortName} Enterprise ERP Portal`,
               start_url: '/',
               scope: '/',
               display: 'standalone',
@@ -104,6 +166,18 @@ self.addEventListener('fetch', (event) => {
               dir: 'ltr',
               categories: ['education', 'business', 'productivity'],
               icons: [
+                {
+                  src: logo,
+                  sizes: '192x192',
+                  type: 'image/png',
+                  purpose: 'any'
+                },
+                {
+                  src: logo,
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'any'
+                },
                 {
                   src: icon192,
                   sizes: '192x192',
@@ -182,14 +256,38 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname === '/__tenant_icon_192.png' ||
       url.pathname === '/__tenant_icon_maskable_192.png' ||
       url.pathname === '/__tenant_icon_512.png' ||
-      url.pathname === '/__tenant_icon_maskable_512.png') {
+      url.pathname === '/__tenant_icon_maskable_512.png' ||
+      url.pathname === '/__tenant_apple_touch_icon.png' ||
+      url.pathname === '/apple-touch-icon.png' ||
+      url.pathname === '/apple-touch-icon-precomposed.png' ||
+      url.pathname === '/assets/icons/icon-192x192.png' ||
+      url.pathname === '/assets/icons/icon-maskable-192x192.png' ||
+      url.pathname === '/assets/icons/icon-512x512.png' ||
+      url.pathname === '/assets/icons/icon-maskable-512x512.png') {
     event.respondWith(
       (async () => {
         try {
           const brandingCache = await caches.open('imserp-dynamic-branding');
-          const cached = (await brandingCache.match(url.pathname)) || (await brandingCache.match(req.url));
-          if (cached) return cached;
+          // If a tenant icon exists, serve it even for standard icon requests
+          const dynamicTenantIcon = (await brandingCache.match('/assets/icons/icon-192x192.png')) ||
+                                    (await brandingCache.match('/__tenant_icon_192.png')) ||
+                                    (await brandingCache.match(url.pathname)) ||
+                                    (await brandingCache.match(req.url));
+          if (dynamicTenantIcon) return dynamicTenantIcon;
         } catch (e) {}
+
+        const targetLogo = (activeTenantBranding && activeTenantBranding.logoUrl);
+        if (targetLogo) {
+          try {
+            const logoRes = await fetch(targetLogo);
+            if (logoRes.ok) {
+              const bCache = await caches.open('imserp-dynamic-branding');
+              bCache.put('/assets/icons/icon-192x192.png', logoRes.clone()).catch(() => {});
+              bCache.put('/__tenant_icon_192.png', logoRes.clone()).catch(() => {});
+              return logoRes;
+            }
+          } catch (_) {}
+        }
         const fallback = url.pathname.includes('512') ? '/assets/icons/icon-512x512.png' : '/assets/icons/icon-192x192.png';
         return (await caches.match(fallback)) || fetch(fallback);
       })()
@@ -200,11 +298,21 @@ self.addEventListener('fetch', (event) => {
   // 4. Proxy uploaded logos/documents to backend if requested on frontend origin
   if (url.pathname.startsWith('/uploads/')) {
     event.respondWith(
-      fetch(req).catch(async () => {
-        const cached = await caches.match(req);
-        if (cached) return cached;
-        return new Response('', { status: 503, statusText: 'Upload unavailable' });
-      })
+      (async () => {
+        try {
+          const cached = await caches.match(req);
+          if (cached) return cached;
+          const apiBase = (activeTenantBranding && activeTenantBranding.apiBaseUrl)
+            ? activeTenantBranding.apiBaseUrl.replace(/\/+$/, '')
+            : self.location.origin;
+          const fetchUrl = (self.location.port === '4200' && apiBase !== self.location.origin)
+            ? (apiBase + url.pathname + url.search)
+            : req.url;
+          return await fetch(fetchUrl);
+        } catch (e) {
+          return new Response('', { status: 503, statusText: 'Upload unavailable' });
+        }
+      })()
     );
     return;
   }
@@ -245,7 +353,7 @@ self.addEventListener('fetch', (event) => {
             return cachedIndex;
           }
           return new Response(
-            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>IMSERP</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:50px 20px;"><h3>Connection Error</h3><p>Please check your internet connection and reload.</p><button onclick="window.location.reload()" style="padding:10px 20px;border-radius:6px;border:none;background:#2563eb;color:#fff;cursor:pointer;">Retry</button></body></html>',
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SMSERP</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:50px 20px;"><h3>Connection Error</h3><p>Please check your internet connection and reload.</p><button onclick="window.location.reload()" style="padding:10px 20px;border-radius:6px;border:none;background:#2563eb;color:#fff;cursor:pointer;">Retry</button></body></html>',
             {
               status: 200,
               headers: { 'Content-Type': 'text/html; charset=utf-8' }

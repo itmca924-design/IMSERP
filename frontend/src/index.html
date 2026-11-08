@@ -2,23 +2,160 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>School ERP - Unified Education Management</title>
+  <title>SMSERP</title>
   <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta id="app-mobile-title" name="apple-mobile-web-app-title" content="School ERP">
-  <meta id="app-meta-description" name="description" content="Unified Education Management ERP for School Classes, Coaching Batches, Hybrid Admissions, Attendance, and Fees.">
-  <link id="app-manifest" rel="manifest" href="manifest.webmanifest">
-  <link id="app-apple-touch-icon" rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <script src="assets/env.js"></script>
+  <script>
+    (function() {
+      try {
+        var user = null;
+        var raw = localStorage.getItem('user_info') || sessionStorage.getItem('user_info');
+        if (raw) { user = JSON.parse(raw); }
+        var code = (user && user.tenantCode) || localStorage.getItem('last_tenant_code');
+        if (!code) {
+          var h = window.location.hostname.toLowerCase();
+          var isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(h);
+          if (h !== 'localhost' && !isIp) {
+            var p = h.split('.');
+            if (p.length >= 2 && p[0] !== 'www' && p[0] !== 'app' && p[0] !== 'erp') code = p[0];
+          }
+        }
+        var photo = (user && user.profilePhoto) || localStorage.getItem('profilePhoto') || sessionStorage.getItem('profilePhoto');
+        var appTitle = code ? code.trim().toUpperCase() : 'SMSERP';
+        document.title = appTitle;
+
+        var logoUrl = 'assets/icons/icon-192x192.png';
+        if (photo && typeof photo === 'string') {
+          var trimmed = photo.trim();
+          if (trimmed.startsWith('data:image/') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            logoUrl = trimmed;
+          } else {
+            var cleanPath = trimmed.startsWith('/') ? trimmed : ('/' + trimmed);
+            var apiBase = (typeof window !== 'undefined' && window.__env && window.__env.API_BASE_URL)
+              ? window.__env.API_BASE_URL.replace(/\/+$/, '')
+              : window.location.origin;
+            logoUrl = apiBase + cleanPath;
+          }
+        }
+
+        var dynamicManifest = {
+          name: appTitle,
+          short_name: appTitle,
+          description: appTitle + " Enterprise ERP Portal",
+          start_url: "/",
+          scope: "/",
+          display: "standalone",
+          display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+          background_color: "#ffffff",
+          theme_color: "#2563eb",
+          orientation: "any",
+          lang: "en-IN",
+          dir: "ltr",
+          categories: ["education", "business", "productivity"],
+          icons: [
+            {
+              src: "/assets/icons/icon-192x192.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "any"
+            },
+            {
+              src: "/assets/icons/icon-512x512.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any"
+            },
+            {
+              src: "/assets/icons/icon-maskable-192x192.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "maskable"
+            },
+            {
+              src: "/assets/icons/icon-maskable-512x512.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable"
+            },
+            {
+              src: "/__tenant_icon_192.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "any"
+            },
+            {
+              src: "/__tenant_icon_512.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any"
+            }
+          ]
+        };
+
+        var manifestHref = code ? ('manifest.webmanifest?tenant=' + encodeURIComponent(code.trim().toUpperCase()) + '&t=' + Date.now()) : 'manifest.webmanifest';
+
+        if (typeof window !== 'undefined' && 'caches' in window && code) {
+          try {
+            caches.open('imserp-dynamic-branding').then(function(c) {
+              var mfRes = new Response(JSON.stringify(dynamicManifest, null, 2), {
+                headers: {
+                  'Content-Type': 'application/manifest+json; charset=utf-8',
+                  'Cache-Control': 'no-cache, no-store, must-revalidate'
+                }
+              });
+              c.put('/manifest.webmanifest', mfRes.clone());
+              c.put('/' + manifestHref, mfRes.clone());
+              c.put('/__tenant_manifest_data__', mfRes.clone());
+
+              if (photo && logoUrl && logoUrl !== 'assets/icons/icon-192x192.png') {
+                fetch(logoUrl).then(function(r) {
+                  if (r.ok) return r.blob();
+                }).then(function(b) {
+                  if (b) {
+                    var imgRes = new Response(b, {
+                      headers: {
+                        'Content-Type': 'image/png',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate'
+                      }
+                    });
+                    c.put('/__tenant_icon_192.png', imgRes.clone());
+                    c.put('/__tenant_icon_512.png', imgRes.clone());
+                    c.put('/assets/icons/icon-192x192.png', imgRes.clone());
+                    c.put('/assets/icons/icon-512x512.png', imgRes.clone());
+                    c.put('/assets/icons/icon-maskable-192x192.png', imgRes.clone());
+                    c.put('/assets/icons/icon-maskable-512x512.png', imgRes.clone());
+                  }
+                }).catch(function() {});
+              }
+            }).catch(function() {});
+          } catch(e) {}
+        }
+
+        document.write('<meta id="app-mobile-title" name="apple-mobile-web-app-title" content="' + appTitle + '">');
+        document.write('<meta id="app-application-name" name="application-name" content="' + appTitle + '">');
+        document.write('<link id="app-manifest" rel="manifest" href="' + manifestHref + '">');
+        document.write('<link id="app-apple-touch-icon" rel="apple-touch-icon" href="' + logoUrl + '">');
+        document.write('<link id="app-apple-touch-icon-precomposed" rel="apple-touch-icon-precomposed" href="' + logoUrl + '">');
+
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/sw.js').then(function(r) { r.update(); }).catch(function() {});
+        }
+      } catch(e) {
+        document.write('<link id="app-manifest" rel="manifest" href="manifest.webmanifest">');
+      }
+    })();
+  </script>
+  <meta id="app-meta-description" name="description" content="Unified Education Management ERP Portal.">
   <link id="app-favicon" rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Alex+Brush&family=Caveat:wght@600;700&family=Sacramento&display=swap" rel="stylesheet">
   <link rel="preload" href="assets/fonts/material-icons.woff2" as="font" type="font/woff2" crossorigin>
-  <script src="assets/env.js"></script>
   <script>
     // Safeguard against third-party translation script errors (e.g. Google Translate reading 'link')
     window.addEventListener('error', function(e) {

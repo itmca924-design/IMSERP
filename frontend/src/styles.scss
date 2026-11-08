@@ -635,9 +635,17 @@ mat-icon.wa-mat-icon {
   }
 }
 
-// Global Sidenav Drawer Custom Hover-Only Scrollbar
+// Global Sidenav Drawer Custom Hover-Only Scrollbar & Mobile PWA Viewport Support
 .sidenav.mat-drawer {
+  height: 100% !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+
   .mat-drawer-inner-container {
+    height: 100% !important;
+    max-height: 100% !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
     scrollbar-width: thin !important;
     scrollbar-color: transparent transparent !important;
     transition: scrollbar-color 0.25s ease !important;

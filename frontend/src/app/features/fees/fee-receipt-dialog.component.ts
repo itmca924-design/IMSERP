@@ -1211,7 +1211,7 @@ export interface FeeReceiptDialogData {
 
     /* Mini QR in Signatures Row */
     .sig-col-qr {
-      width: 52px;
+      width: 82px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -1219,18 +1219,22 @@ export interface FeeReceiptDialogData {
       justify-content: flex-end;
     }
     .receipt-mini-qr {
-      width: 48px;
-      height: 48px;
+      width: 76px;
+      height: 76px;
       object-fit: contain;
-      border: 1px solid #e2e8f0;
-      border-radius: 2px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 2px;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
     .qr-label {
-      font-size: 0.5rem;
+      font-size: 0.54rem;
       font-weight: 700;
-      color: #475569;
-      margin-top: 1px;
+      color: #334155;
+      margin-top: 2px;
       white-space: nowrap;
+      text-align: center;
     }
 
     @media print {
@@ -1250,6 +1254,12 @@ export interface FeeReceiptDialogData {
         page-break-inside: avoid !important;
       }
       .uploaded-official-seal-img, .digital-sign-img {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .receipt-mini-qr {
+        width: 76px !important;
+        height: 76px !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -1603,19 +1613,27 @@ export class FeeReceiptDialogComponent implements OnInit {
 
     if (rcpt.remainingDue > 0) {
       const amount = rcpt.remainingDue;
-      const payee = this.payeeUpiId;
-      const name = this.payeeMerchantName || this.data.instituteName || this.authService.getInstituteName();
-      const student = rcpt.studentName;
-      const roll = rcpt.rollNumber || '';
-      const note = `Fee Bal ${student}${roll ? ' Roll ' + roll : ''} ${rcpt.receiptNumber}`;
+      const payee = (this.payeeUpiId || '').trim();
+      if (!payee) {
+        this.qrDataUrl = null;
+        return;
+      }
 
-      const upiUri = `upi://pay?pa=${encodeURIComponent(payee)}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note.substring(0, 50))}`;
+      const name = (this.payeeMerchantName || this.data.instituteName || this.authService.getInstituteName() || 'Institute').trim();
+      const student = (rcpt.studentName || '').trim();
+      const roll = (rcpt.rollNumber || '').trim();
+      const noteRaw = `Fee Bal ${student}${roll ? ' Roll ' + roll : ''} ${rcpt.receiptNumber}`;
+      const cleanNote = noteRaw.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 50);
+
+      // NPCI standard UPI URI (unencoded @ in pa for complete UPI app compatibility)
+      const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}&mc=8211`;
 
       QRCode.toDataURL(upiUri, {
-        width: 140,
-        margin: 1,
+        width: 360,
+        margin: 4,
+        errorCorrectionLevel: 'M',
         color: {
-          dark: '#0f172a',
+          dark: '#000000',
           light: '#ffffff'
         }
       }).then(url => {
@@ -1627,10 +1645,11 @@ export class FeeReceiptDialogComponent implements OnInit {
       const verifyPayload = `IMSERP_FEE_VERIFIED|${rcpt.receiptNumber}|${rcpt.studentName}|Roll:${rcpt.rollNumber || 'NA'}|Paid:INR_${rcpt.amountPaid}|Date:${rcpt.paymentDate}|Status:CLEARED`;
 
       QRCode.toDataURL(verifyPayload, {
-        width: 110,
-        margin: 1,
+        width: 360,
+        margin: 4,
+        errorCorrectionLevel: 'M',
         color: {
-          dark: '#0f172a',
+          dark: '#000000',
           light: '#ffffff'
         }
       }).then(url => {
@@ -1770,9 +1789,9 @@ export class FeeReceiptDialogComponent implements OnInit {
       '.arrears-chip { display: inline-flex; align-items: center; gap: 3px; background: #fff; border: 1px solid #fecaca; border-radius: 2px; padding: 0 4px; font-size: 0.58rem; line-height: 1.4; }' +
       '.arr-name { color: #92400e; font-weight: 600; }' +
       '.arr-amt { color: #dc2626; font-weight: 800; }' +
-      '.sig-col-qr { width: 52px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }' +
-      '.receipt-mini-qr { width: 48px; height: 48px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 2px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
-      '.qr-label { font-size: 0.5rem; font-weight: 700; color: #475569; margin-top: 1px; white-space: nowrap; }' +
+      '.sig-col-qr { width: 82px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }' +
+      '.receipt-mini-qr { width: 76px; height: 76px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 3px; background: #ffffff; padding: 2px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.qr-label { font-size: 0.52rem; font-weight: 700; color: #334155; margin-top: 2px; white-space: nowrap; text-align: center; }' +
       '.paper-footer { text-align: center; font-size: 0.54rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 1px; margin-top: 1px; }' +
       '.text-center { text-align: center; }' +
       '.text-right { text-align: right; }' +

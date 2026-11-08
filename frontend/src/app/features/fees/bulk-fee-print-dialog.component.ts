@@ -2174,21 +2174,26 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       await Promise.all(slips.map(async slip => {
         if (slip.totalBalanceDue > 0) {
           const amount = slip.totalBalanceDue;
-          const payee = this.payeeUpiId;
-          const name = this.payeeMerchantName || instituteName;
-          const student = slip.studentName;
-          const roll = slip.rollNumber || '';
-          const invRef = slip.invoices?.[0]?.invoiceNumber || '';
-          const note = `Fee Due ${student}${roll ? ' Roll ' + roll : ''} ${invRef}`.trim();
-          const upiUri = `upi://pay?pa=${encodeURIComponent(payee)}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note.substring(0, 50))}`;
-          try {
-            slip.qrDataUrl = await QRCode.toDataURL(upiUri, {
-              width: 140,
-              margin: 1,
-              color: { dark: '#0f172a', light: '#ffffff' }
-            });
-          } catch (err) {
-            console.error('Failed to generate due slip QR code:', err);
+          const payee = (this.payeeUpiId || '').trim();
+          const name = (this.payeeMerchantName || instituteName || 'Institute').trim();
+          const student = (slip.studentName || '').trim();
+          const roll = (slip.rollNumber || '').trim();
+          const invRef = (slip.invoices?.[0]?.invoiceNumber || '').trim();
+          const noteRaw = `Fee Due ${student}${roll ? ' Roll ' + roll : ''} ${invRef}`;
+          const cleanNote = noteRaw.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 50);
+
+          if (payee) {
+            const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}&mc=8211`;
+            try {
+              slip.qrDataUrl = await QRCode.toDataURL(upiUri, {
+                width: 360,
+                margin: 4,
+                errorCorrectionLevel: 'M',
+                color: { dark: '#000000', light: '#ffffff' }
+              });
+            } catch (err) {
+              console.error('Failed to generate due slip QR code:', err);
+            }
           }
         }
       }));
@@ -2204,21 +2209,27 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         try {
           if (rcp.remainingDue > 0) {
             const amount = rcp.remainingDue;
-            const payee = this.payeeUpiId;
-            const name = this.payeeMerchantName || instituteName;
-            const note = `Fee Bal ${rcp.studentName}${rcp.rollNumber ? ' Roll ' + rcp.rollNumber : ''} ${rcp.receiptNumber}`.trim();
-            const upiUri = `upi://pay?pa=${encodeURIComponent(payee)}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note.substring(0, 50))}`;
-            rcp.qrDataUrl = await QRCode.toDataURL(upiUri, {
-              width: 140,
-              margin: 1,
-              color: { dark: '#0f172a', light: '#ffffff' }
-            });
+            const payee = (this.payeeUpiId || '').trim();
+            const name = (this.payeeMerchantName || instituteName || 'Institute').trim();
+            const noteRaw = `Fee Bal ${rcp.studentName || ''}${rcp.rollNumber ? ' Roll ' + rcp.rollNumber : ''} ${rcp.receiptNumber || ''}`;
+            const cleanNote = noteRaw.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 50);
+
+            if (payee) {
+              const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}&mc=8211`;
+              rcp.qrDataUrl = await QRCode.toDataURL(upiUri, {
+                width: 360,
+                margin: 4,
+                errorCorrectionLevel: 'M',
+                color: { dark: '#000000', light: '#ffffff' }
+              });
+            }
           } else {
             const verifyPayload = `IMSERP_FEE_VERIFIED|${rcp.receiptNumber}|${rcp.studentName}|Roll:${rcp.rollNumber || 'NA'}|Paid:INR_${rcp.amountPaid}|Date:${rcp.paymentDate}|Status:CLEARED`;
             rcp.qrDataUrl = await QRCode.toDataURL(verifyPayload, {
-              width: 120,
-              margin: 1,
-              color: { dark: '#0f172a', light: '#ffffff' }
+              width: 360,
+              margin: 4,
+              errorCorrectionLevel: 'M',
+              color: { dark: '#000000', light: '#ffffff' }
             });
           }
         } catch (err) {
@@ -2568,9 +2579,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .slip-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; }
           .note { font-size: 9.5px; color: #475569; max-width: 48%; line-height: 1.35; }
           .qr-box { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; flex-shrink: 0; }
-          .qr-img { width: 54px; height: 54px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 4px; background: #ffffff; padding: 2px; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .qr-lbl { font-size: 8px; font-weight: 800; color: #0f172a; margin-top: 2px; white-space: nowrap; }
-          .qr-sub { font-size: 7.5px; font-weight: 600; color: #64748b; white-space: nowrap; }
+          .qr-img { width: 76px; height: 76px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 4px; background: #ffffff; padding: 2px; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .qr-lbl { font-size: 8.5px; font-weight: 800; color: #0f172a; margin-top: 3px; white-space: nowrap; }
+          .qr-sub { font-size: 8px; font-weight: 600; color: #64748b; white-space: nowrap; }
           .sig-box { text-align: center; min-width: 130px; }
           .sig-img { max-height: 28px; object-fit: contain; display: block; margin: 0 auto 2px; }
           .sig-line { font-size: 10.5px; font-weight: 700; border-top: 1px solid #334155; padding-top: 2px; }

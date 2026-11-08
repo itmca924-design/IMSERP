@@ -1172,13 +1172,13 @@ export class UpiPaymentDialogComponent implements OnInit, AfterViewInit {
   renderQrCode(uri: string): void {
     if (!this.qrCanvasRef || !this.qrCanvasRef.nativeElement) return;
     QRCode.toCanvas(this.qrCanvasRef.nativeElement, uri, {
-      width: 175,
-      margin: 1,
+      width: 280,
+      margin: 4,
       color: {
-        dark: '#0f172a',
+        dark: '#000000',
         light: '#ffffff'
       },
-      errorCorrectionLevel: 'H'
+      errorCorrectionLevel: 'M'
     }, (error) => {
       if (error) {
         console.error('QR generation error:', error);

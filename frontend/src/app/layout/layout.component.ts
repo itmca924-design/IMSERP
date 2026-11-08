@@ -101,6 +101,13 @@ export interface BreadcrumbItem {
                   @if (item.children && item.children.length > 0) {
                     <mat-expansion-panel
                       class="menu-section-panel mat-elevation-z0"
+                      [style.--menu-accent-bg]="getMenuColorTheme(item).bg"
+                      [style.--menu-accent-color]="getMenuColorTheme(item).color"
+                      [style.--menu-accent-border]="getMenuColorTheme(item).border"
+                      [style.--menu-active-bg]="getMenuColorTheme(item).activeBg"
+                      [style.--menu-header-active-bg]="getMenuColorTheme(item).headerActiveBg"
+                      [style.--menu-header-active-border]="getMenuColorTheme(item).headerActiveBorder"
+                      [style.--menu-header-title-color]="getMenuColorTheme(item).headerTitleColor"
                       [expanded]="isParentActive(item)"
                       (opened)="onPanelOpened(item.id)"
                       (closed)="onPanelClosed(item.id)">
@@ -132,14 +139,24 @@ export interface BreadcrumbItem {
                   @if (!item.children || item.children.length === 0) {
                     <a
                       mat-list-item
+                      class="menu-standalone-link"
+                      [style.--menu-accent-bg]="getMenuColorTheme(item).bg"
+                      [style.--menu-accent-color]="getMenuColorTheme(item).color"
+                      [style.--menu-accent-border]="getMenuColorTheme(item).border"
+                      [style.--menu-active-bg]="getMenuColorTheme(item).activeBg"
+                      [style.--menu-header-active-bg]="getMenuColorTheme(item).headerActiveBg"
+                      [style.--menu-header-active-border]="getMenuColorTheme(item).headerActiveBorder"
+                      [style.--menu-header-title-color]="getMenuColorTheme(item).headerTitleColor"
                       [routerLink]="item.routeUrl"
                       routerLinkActive="active-link"
                       [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
                       [matTooltip]="item.title"
                       matTooltipPosition="right"
                       (click)="onNavClick(drawer)">
-                      <mat-icon matListItemIcon class="menu-item-icon">{{ item.icon || 'space_dashboard' }}</mat-icon>
-                      <span matListItemTitle class="menu-label">{{ item.title }}</span>
+                      <div class="standalone-item-content">
+                        <mat-icon class="menu-item-icon">{{ item.icon || 'space_dashboard' }}</mat-icon>
+                        <span class="menu-label">{{ item.title }}</span>
+                      </div>
                     </a>
                   }
                 }
@@ -347,6 +364,11 @@ export interface BreadcrumbItem {
               </div>
             </button>
           </div>
+        }
+
+        <!-- Bottom Safe Area Spacer on Mobile / iPhone -->
+        @if (isMobile()) {
+          <div class="sidebar-bottom-safe-spacer"></div>
         }
       </mat-sidenav>
 
@@ -721,6 +743,9 @@ export interface BreadcrumbItem {
     .sidenav {
       width: 320px !important;
       max-width: 85vw !important;
+      height: 100% !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
       background-color: #ffffff !important;
       border-right: 1px solid #e2e8f0;
       display: flex;
@@ -757,6 +782,10 @@ export interface BreadcrumbItem {
         transition: scrollbar-color 0.25s ease !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-y !important;
+        overscroll-behavior-y: contain !important;
+        height: 100% !important;
+        max-height: 100% !important;
 
         &::-webkit-scrollbar {
           width: 5px !important;
@@ -790,27 +819,87 @@ export interface BreadcrumbItem {
         }
       }
 
-      @media (max-width: 768px) {
+      // Responsive Mobile & iPhone PWA Drawer Styles
+      @media (max-width: 960px) {
         width: min(85vw, 320px) !important;
+        height: 100% !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        position: fixed !important;
+        top: 0 !important;
+        bottom: 0 !important;
 
         ::ng-deep .mat-drawer-inner-container {
-          padding-bottom: max(40px, env(safe-area-inset-bottom, 40px)) !important;
-          overflow-y: auto !important;
+          height: 100% !important;
+          height: 100dvh !important;
+          max-height: 100dvh !important;
+          display: flex !important;
+          flex-direction: column !important;
+          overflow-y: scroll !important;
+          overflow-x: hidden !important;
           -webkit-overflow-scrolling: touch !important;
+          touch-action: pan-y !important;
+          overscroll-behavior-y: contain !important;
+          box-sizing: border-box !important;
+        }
+
+        .brand-section {
+          flex-shrink: 0 !important;
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 10 !important;
+          background: #ffffff !important;
+          box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+          padding-top: env(safe-area-inset-top, 0px) !important;
+          height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+          min-height: calc(56px + env(safe-area-inset-top, 0px)) !important;
         }
 
         .nav-container {
-          flex: none !important;
-          overflow-y: visible !important;
+          flex: 1 0 auto !important;
+          overflow: visible !important;
           height: auto !important;
+          max-height: none !important;
+          padding-bottom: 8px !important;
+          touch-action: pan-y !important;
+        }
+
+        .menu-list, .menu-accordion {
+          touch-action: pan-y !important;
+        }
+
+        .menu-section-panel {
+          touch-action: pan-y !important;
+
+          ::ng-deep .mat-expansion-panel-content {
+            overflow: visible !important;
+          }
+
+          ::ng-deep .mat-expansion-panel-body {
+            overflow: visible !important;
+            padding: 0 !important;
+          }
+        }
+
+        .sub-nav-list {
+          touch-action: pan-y !important;
         }
 
         .sidebar-calendar {
           flex-shrink: 0 !important;
+          margin-top: 6px !important;
         }
 
         .sidebar-pwa-strip {
           flex-shrink: 0 !important;
+        }
+
+        .sidebar-bottom-safe-spacer {
+          height: calc(48px + env(safe-area-inset-bottom, 24px)) !important;
+          min-height: calc(48px + env(safe-area-inset-bottom, 24px)) !important;
+          width: 100% !important;
+          flex-shrink: 0 !important;
+          display: block !important;
         }
       }
     }
@@ -910,7 +999,19 @@ export interface BreadcrumbItem {
     .nav-container {
       flex: 1;
       overflow-y: auto;
-      padding: 12px 10px;
+      padding: 8px 10px;
+
+      /* Sleek custom scrollbar */
+      &::-webkit-scrollbar {
+        width: 4px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
     }
 
     .menu-list {
@@ -918,42 +1019,135 @@ export interface BreadcrumbItem {
     }
 
     .menu-accordion {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
       width: 100%;
       padding: 0;
     }
 
     .sub-nav-list {
-      padding: 0 0 6px 8px;
+      padding: 4px 0 4px 12px;
+      margin-inline-start: 22px;
+      border-inline-start: 1.5px solid #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
     .menu-section-panel {
-      margin: 0;
-      background: transparent;
+      margin: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      border-radius: 8px !important;
+      border: 1px solid transparent;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &.mat-expanded {
+        margin: 0 !important;
+
+        > .menu-section-header {
+          background: var(--menu-header-active-bg, #eff6ff) !important;
+          border: 1px solid var(--menu-header-active-border, #bfdbfe) !important;
+
+          .module-title {
+            color: var(--menu-header-title-color, #1e40af) !important;
+            font-weight: 600;
+          }
+
+          .menu-item-icon {
+            background: var(--menu-active-bg, #2563eb) !important;
+            color: #ffffff !important;
+            border-color: var(--menu-active-bg, #2563eb) !important;
+            box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.2) !important;
+          }
+
+          ::ng-deep .mat-expansion-indicator {
+            color: var(--menu-accent-color, #2563eb) !important;
+            opacity: 1 !important;
+          }
+        }
+      }
+
+      ::ng-deep .mat-expansion-panel-content {
+        overflow: visible !important;
+      }
+      ::ng-deep .mat-expansion-panel-body {
+        overflow: visible !important;
+        padding: 0 !important;
+      }
     }
 
     .menu-section-header {
-      height: auto !important;
-      min-height: 52px !important;
-      padding: 8px 10px !important;
+      height: 38px !important;
+      min-height: 38px !important;
+      max-height: 38px !important;
+      padding: 0 10px !important;
+      border-radius: 8px !important;
+      border: 1px solid transparent;
+      --mat-expansion-header-collapsed-state-height: 38px;
+      --mat-expansion-header-expanded-state-height: 38px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &:hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+
+        .menu-item-icon {
+          background: #eff6ff;
+          color: #2563eb;
+          border-color: #bfdbfe;
+          transform: scale(1.04);
+        }
+
+        .module-title {
+          color: #0f172a;
+        }
+
+        ::ng-deep .mat-expansion-indicator {
+          opacity: 0.85;
+        }
+      }
+
+      ::ng-deep .mat-content {
+        align-items: center;
+        overflow: hidden;
+      }
+
+      ::ng-deep .mat-expansion-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        margin-inline-start: 4px;
+        color: #64748b;
+        opacity: 0.6;
+        transition: transform 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+      }
     }
 
     .accordion-title {
+      display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       min-width: 0;
+      margin: 0;
     }
 
     .module-title {
       display: block;
       flex: 1 1 auto;
       min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      overflow-wrap: normal;
-      word-break: normal;
-      line-height: 1.35;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      line-height: 1.25;
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: #334155;
+      letter-spacing: -0.01em;
+      transition: color 0.15s ease;
     }
 
     .menu-label {
@@ -963,54 +1157,169 @@ export interface BreadcrumbItem {
       white-space: nowrap !important;
       overflow: hidden !important;
       text-overflow: ellipsis !important;
-      overflow-wrap: normal;
-      word-break: normal;
-      line-height: 1.35;
+      line-height: 1.25;
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: #334155;
+      letter-spacing: -0.01em;
+      transition: color 0.15s ease;
     }
 
     .submenu-label {
       white-space: nowrap !important;
       overflow: hidden !important;
       text-overflow: ellipsis !important;
-      overflow-wrap: normal !important;
-      word-break: normal !important;
+      font-size: 0.8rem;
     }
 
     .menu-item-icon {
-      color: #526179;
-      flex: 0 0 24px;
-      margin-inline-end: 6px !important;
+      width: 26px !important;
+      height: 26px !important;
+      font-size: 16px !important;
+      line-height: 26px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 6px !important;
+      background: var(--menu-accent-bg, #f1f5f9) !important;
+      color: var(--menu-accent-color, #475569) !important;
+      border: 1px solid var(--menu-accent-border, #e2e8f0) !important;
+      flex: 0 0 26px !important;
+      margin-inline-end: 10px !important;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    .menu-standalone-link,
     .menu-list a[mat-list-item] {
-      height: auto !important;
-      min-height: 48px !important;
-      padding-inline: 8px !important;
-      padding-top: 8px;
-      padding-bottom: 8px;
-    }
+      height: 38px !important;
+      min-height: 38px !important;
+      max-height: 38px !important;
+      padding: 0 10px !important;
+      border-radius: 8px !important;
+      margin: 0 !important;
+      border: 1px solid transparent;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --mdc-list-list-item-one-line-container-height: 38px;
+      --mdc-list-list-item-leading-spacing: 0px !important;
+      --mdc-list-list-item-trailing-spacing: 0px !important;
 
-    .menu-list a[mat-list-item] {
-      border-radius: 12px;
-      margin: 2px 0;
+      ::ng-deep .mdc-list-item__content {
+        padding: 0 !important;
+        align-items: center;
+        width: 100%;
+        display: flex;
+      }
+
+      ::ng-deep .mdc-list-item__start {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .standalone-item-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        width: 100%;
+      }
+
+      &:hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+
+        .menu-item-icon {
+          background: #eff6ff;
+          color: #2563eb;
+          border-color: #bfdbfe;
+          transform: scale(1.04);
+        }
+
+        .menu-label {
+          color: #0f172a;
+        }
+      }
+
+      &.active-link {
+        background: var(--menu-header-active-bg, #eff6ff) !important;
+        border: 1px solid var(--menu-header-active-border, #bfdbfe) !important;
+
+        .menu-label {
+          color: var(--menu-header-title-color, #1e40af) !important;
+          font-weight: 600;
+        }
+
+        .menu-item-icon {
+          background: var(--menu-active-bg, #2563eb) !important;
+          color: #ffffff !important;
+          border-color: var(--menu-active-bg, #2563eb) !important;
+          box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.2) !important;
+        }
+      }
     }
 
     .sub-nav-list a[mat-list-item] {
-      margin: 2px 0;
-    }
+      height: 32px !important;
+      min-height: 32px !important;
+      max-height: 32px !important;
+      padding: 0 8px !important;
+      border-radius: 6px !important;
+      margin: 0 !important;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      --mdc-list-list-item-one-line-container-height: 32px;
 
-    .menu-list a[mat-list-item].active-link {
-      --mdc-list-list-item-label-text-color: var(--erp-primary);
-      --mdc-list-list-item-hover-label-text-color: var(--erp-primary);
-      background: var(--erp-primary-light);
-      font-weight: 600;
-    }
+      ::ng-deep .mdc-list-item__content {
+        align-items: center;
+      }
 
-    .menu-list a[mat-list-item].active-link .menu-item-icon,
-    .menu-section-panel.mat-expanded .accordion-title .menu-item-icon {
-      color: var(--erp-primary);
-    }
+      .menu-item-icon {
+        width: 18px !important;
+        height: 18px !important;
+        font-size: 13px !important;
+        line-height: 18px !important;
+        flex: 0 0 18px !important;
+        margin-inline-end: 8px !important;
+        border-radius: 4px !important;
+        border: none;
+        background: transparent;
+        color: #94a3b8;
+      }
 
+      .submenu-label {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #475569;
+        transition: color 0.15s ease;
+      }
+
+      &:hover {
+        background: #f8fafc;
+        transform: translateX(2px);
+
+        .menu-item-icon {
+          color: #2563eb;
+        }
+
+        .submenu-label {
+          color: #1e293b;
+        }
+      }
+
+      &.active-link {
+        background: #eff6ff !important;
+        border: 1px solid #dbeafe !important;
+
+        .menu-item-icon {
+          background: #2563eb !important;
+          color: #ffffff !important;
+        }
+
+        .submenu-label {
+          color: #1d4ed8 !important;
+          font-weight: 600;
+        }
+      }
+    }
     .user-footer {
       display: none;
     }
@@ -2763,6 +3072,77 @@ export class LayoutComponent implements OnInit {
       this.activeExpandedPanelId.set(null);
     }
   }
+
+  // --- Dynamic Google Material 3 Menu Palettes ---
+  private readonly materialMenuPalettes = [
+    // 0. Indigo / Royal Blue (Executive / Dashboard)
+    { bg: '#e0e7ff', color: '#4338ca', border: '#c7d2fe', activeBg: '#4f46e5', activeColor: '#ffffff', headerActiveBg: '#eef2ff', headerActiveBorder: '#c7d2fe', headerTitleColor: '#3730a3' },
+    // 1. Teal (Structure / Operations / Batches)
+    { bg: '#ccfbf1', color: '#0f766e', border: '#99f6e4', activeBg: '#0d9488', activeColor: '#ffffff', headerActiveBg: '#f0fdfa', headerActiveBorder: '#99f6e4', headerTitleColor: '#115e59' },
+    // 2. Emerald / Green (Attendance / Positive / Live)
+    { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0', activeBg: '#16a34a', activeColor: '#ffffff', headerActiveBg: '#f0fdf4', headerActiveBorder: '#bbf7d0', headerTitleColor: '#166534' },
+    // 3. Sky Blue / Cyan (Staff / People / HRMS)
+    { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd', activeBg: '#0284c7', activeColor: '#ffffff', headerActiveBg: '#f0f9ff', headerActiveBorder: '#bae6fd', headerTitleColor: '#075985' },
+    // 4. Purple / Violet (Faculty / Academics)
+    { bg: '#f3e8ff', color: '#7e22ce', border: '#e9d5ff', activeBg: '#9333ea', activeColor: '#ffffff', headerActiveBg: '#faf5ff', headerActiveBorder: '#e9d5ff', headerTitleColor: '#6b21a8' },
+    // 5. Amber / Golden Orange (Courses / Tests / Exams)
+    { bg: '#fef3c7', color: '#b45309', border: '#fde68a', activeBg: '#d97706', activeColor: '#ffffff', headerActiveBg: '#fffbeb', headerActiveBorder: '#fde68a', headerTitleColor: '#92400e' },
+    // 6. Rose / Ruby (Finance / Billing / Fees)
+    { bg: '#ffe4e6', color: '#be123c', border: '#fecdd3', activeBg: '#e11d48', activeColor: '#ffffff', headerActiveBg: '#fff1f2', headerActiveBorder: '#fecdd3', headerTitleColor: '#9f1239' },
+    // 7. Slate / Steel (Settings / Security / Admin)
+    { bg: '#f1f5f9', color: '#334155', border: '#cbd5e1', activeBg: '#475569', activeColor: '#ffffff', headerActiveBg: '#f8fafc', headerActiveBorder: '#cbd5e1', headerTitleColor: '#1e293b' },
+    // 8. Blue / Sapphire (Front Desk / Inquiries)
+    { bg: '#dbeafe', color: '#1d4ed8', border: '#bfdbfe', activeBg: '#2563eb', activeColor: '#ffffff', headerActiveBg: '#eff6ff', headerActiveBorder: '#bfdbfe', headerTitleColor: '#1e40af' },
+    // 9. Warm Orange / Bronze (Inventory / Store / Goods)
+    { bg: '#ffedd5', color: '#c2410c', border: '#fed7aa', activeBg: '#ea580c', activeColor: '#ffffff', headerActiveBg: '#fff7ed', headerActiveBorder: '#fed7aa', headerTitleColor: '#9a3412' },
+    // 10. Fuchsia / Magenta (Chat / Messaging / Alerts)
+    { bg: '#fae8ff', color: '#a21caf', border: '#f5d0fe', activeBg: '#c026d3', activeColor: '#ffffff', headerActiveBg: '#fdf4ff', headerActiveBorder: '#f5d0fe', headerTitleColor: '#86198f' },
+    // 11. Cyan / Turquoise (Transport / Mobility / Fleet)
+    { bg: '#cffafe', color: '#0e7490', border: '#a5f3fc', activeBg: '#0891b2', activeColor: '#ffffff', headerActiveBg: '#ecfeff', headerActiveBorder: '#a5f3fc', headerTitleColor: '#155e75' }
+  ];
+
+  private menuThemeCache = new Map<string, any>();
+
+  getMenuColorTheme(item: MenuItem): any {
+    if (!item) return this.materialMenuPalettes[0];
+    const key = item.id || item.title || 'default';
+    if (this.menuThemeCache.has(key)) {
+      return this.menuThemeCache.get(key);
+    }
+    const theme = this.computeMenuColorTheme(item);
+    this.menuThemeCache.set(key, theme);
+    return theme;
+  }
+
+  private computeMenuColorTheme(item: MenuItem): any {
+    const t = (item.title || '').toLowerCase().trim();
+
+    // 1. Semantic Domain Matching (Smart recognition)
+    if (t.includes('dashboard') || t.includes('home')) return this.materialMenuPalettes[0];
+    if (t.includes('master') || t.includes('setup') || t.includes('structure')) return this.materialMenuPalettes[1];
+    if (t.includes('attend') || t.includes('biometric') || t.includes('punch')) return this.materialMenuPalettes[2];
+    if (t.includes('hrms') || t.includes('staff') || t.includes('employee') || t.includes('payroll')) return this.materialMenuPalettes[3];
+    if (t.includes('faculty') || t.includes('teacher') || t.includes('lecture')) return this.materialMenuPalettes[4];
+    if (t.includes('academic') || t.includes('syllabus') || t.includes('exam') || t.includes('test') || t.includes('homework')) return this.materialMenuPalettes[5];
+    if (t.includes('finance') || t.includes('fee') || t.includes('account') || t.includes('payment') || t.includes('billing')) return this.materialMenuPalettes[6];
+    if (t.includes('admin') || t.includes('setting') || t.includes('config') || t.includes('role')) return this.materialMenuPalettes[7];
+    if (t.includes('front') || t.includes('desk') || t.includes('inquiry') || t.includes('visitor')) return this.materialMenuPalettes[8];
+    if (t.includes('inventory') || t.includes('stock') || t.includes('store') || t.includes('kit') || t.includes('asset')) return this.materialMenuPalettes[9];
+    if (t.includes('chat') || t.includes('message') || t.includes('communication') || t.includes('notice')) return this.materialMenuPalettes[10];
+    if (t.includes('transport') || t.includes('fleet') || t.includes('bus') || t.includes('vehicle')) return this.materialMenuPalettes[11];
+    if (t.includes('hostel') || t.includes('bed') || t.includes('room')) return this.materialMenuPalettes[1];
+    if (t.includes('library') || t.includes('book')) return this.materialMenuPalettes[4];
+
+    // 2. Deterministic Hash Fallback for any NEW or FUTURE Menu Item
+    let hash = 0;
+    const str = item.id ? (item.id + item.title) : (item.title || 'menu');
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const index = Math.abs(hash) % this.materialMenuPalettes.length;
+    return this.materialMenuPalettes[index];
+  }
   headerSearch = '';
   headerSearchFocused = false;
   headerSearchResults: Array<{ title: string; route: string; icon: string }> = [];
@@ -3205,16 +3585,6 @@ export class LayoutComponent implements OnInit {
         this.canInstallPwa.set(false);
         this.deferredPrompt = null;
         this.isAppInstalled.set(true);
-        const instName = this.authService.getInstituteName() || 'Campus ERP';
-        this.confirmDialog.bilingualAlert({
-          titleEn: 'App Installed Successfully',
-          titleHi: 'ऐप सफलतापूर्वक इंस्टॉल हो गया',
-          messageEn: `${instName} has been installed on your device. You can now launch it anytime directly from your desktop or home screen like a native app!`,
-          messageHi: `${instName} आपके डिवाइस पर सफलतापूर्वक इंस्टॉल हो गया है। अब आप इसे सीधे अपने डेस्कटॉप या होम स्क्रीन से आसानी से खोल सकते हैं!`,
-          confirmTextEn: 'Launch App',
-          confirmTextHi: 'ठीक है (OK)',
-          type: 'success'
-        });
       });
 
       window.addEventListener('online', () => this.isOnline.set(true));

@@ -474,8 +474,13 @@ export interface InventoryInwardReceiptDialogData {
       gap: 2px;
     }
     .qr-img {
-      width: 64px;
-      height: 64px;
+      width: 76px;
+      height: 76px;
+      object-fit: contain;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 2px;
+      background: #ffffff;
     }
     .qr-caption {
       font-size: 0.65rem;
@@ -648,7 +653,12 @@ export class InventoryInwardReceiptDialogComponent implements OnInit {
 
     // Generate Verification QR Code
     const verifyString = `IMSERP-GRN|${this.data.inward.inwardNumber}|BILL:${this.data.inward.invoiceBillNumber || 'NA'}|DATE:${this.data.inward.inwardDate}|AMT:${this.data.inward.netAmount}`;
-    QRCode.toDataURL(verifyString, { width: 120, margin: 1 })
+    QRCode.toDataURL(verifyString, {
+      width: 320,
+      margin: 4,
+      color: { dark: '#000000', light: '#ffffff' },
+      errorCorrectionLevel: 'M'
+    })
       .then(url => { this.qrCodeUrl = url; })
       .catch(() => { this.qrCodeUrl = null; });
   }
@@ -720,8 +730,8 @@ export class InventoryInwardReceiptDialogComponent implements OnInit {
             .p-val.bold-text { color: #0f172a; font-weight: 700; font-size: 0.9rem; }
             .notes-val { color: #334155; font-style: italic; }
             .qr-box { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-            .qr-img { width: 64px; height: 64px; }
-            .qr-caption { font-size: 0.65rem; color: #64748b; }
+            .qr-img { width: 76px; height: 76px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .qr-caption { font-size: 0.65rem; color: #64748b; font-weight: 700; margin-top: 2px; }
             .items-table-wrap { margin-bottom: 14px; }
             .receipt-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
             .receipt-table th { background: #f1f5f9; color: #1e3a8a; font-weight: 700; padding: 8px 10px; border: 1px solid #cbd5e1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

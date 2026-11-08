@@ -36,13 +36,15 @@ export function toCanvas(
     qr.addData(value, 'Byte');
     qr.make();
 
-    const margin = Math.max(0, options.margin ?? 4);
+    // Standard ISO/IEC 18004 Quiet Zone: minimum 4 modules for reliable camera optical recognition
+    const margin = Math.max(4, options.margin !== undefined ? options.margin : 4);
     const moduleCount = qr.getModuleCount();
-    const dimension = Math.max(
-      Math.floor(options.width ?? 256),
-      moduleCount + margin * 2
-    );
-    const moduleSize = dimension / (moduleCount + margin * 2);
+    const totalModules = moduleCount + margin * 2;
+
+    // High-resolution integer pixel module size to eliminate any fractional anti-aliasing distortion
+    const targetWidth = Math.max(options.width ?? 320, 256);
+    const moduleSize = Math.max(3, Math.round(targetWidth / totalModules));
+    const dimension = totalModules * moduleSize;
     const context = canvas.getContext('2d');
 
     if (!context) {
@@ -52,18 +54,20 @@ export function toCanvas(
     canvas.width = dimension;
     canvas.height = dimension;
     context.imageSmoothingEnabled = false;
+
+    // Solid White Quiet Zone Background
     context.fillStyle = options.color?.light ?? '#ffffff';
     context.fillRect(0, 0, dimension, dimension);
+
+    // Pure Dark Contrast Modules
     context.fillStyle = options.color?.dark ?? '#000000';
 
     for (let row = 0; row < moduleCount; row++) {
       for (let column = 0; column < moduleCount; column++) {
         if (qr.isDark(row, column)) {
-          const x = Math.floor((column + margin) * moduleSize);
-          const y = Math.floor((row + margin) * moduleSize);
-          const right = Math.ceil((column + margin + 1) * moduleSize);
-          const bottom = Math.ceil((row + margin + 1) * moduleSize);
-          context.fillRect(x, y, right - x, bottom - y);
+          const x = (column + margin) * moduleSize;
+          const y = (row + margin) * moduleSize;
+          context.fillRect(x, y, moduleSize, moduleSize);
         }
       }
     }

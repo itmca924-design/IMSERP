@@ -368,6 +368,123 @@ public class AuthController : ControllerBase
         return Ok(new { available = true, message = $"Code '{normalized}' is available." });
     }
 
+    [HttpGet("public-branding")]
+    [AllowAnonymous]
+    public async Task<ActionResult> GetPublicBranding([FromQuery] string? code = null, [FromQuery] string? host = null)
+    {
+        string? targetCode = code?.Trim();
+        if (string.IsNullOrWhiteSpace(targetCode) && !string.IsNullOrWhiteSpace(host))
+        {
+            var parts = host.Split(':', StringSplitOptions.RemoveEmptyEntries)[0].Split('.');
+            if (parts.Length > 0 && parts[0] != "localhost" && parts[0] != "127" && parts[0] != "www")
+            {
+                targetCode = parts[0];
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(targetCode))
+        {
+            var hostHeader = Request.Host.Host;
+            var parts = hostHeader.Split('.');
+            if (parts.Length > 0 && parts[0] != "localhost" && parts[0] != "127" && parts[0] != "www")
+            {
+                targetCode = parts[0];
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(targetCode))
+        {
+            return Ok(new
+            {
+                found = false,
+                shortName = "SMSERP",
+                instituteName = "SMSERP",
+                logoUrl = (string?)null
+            });
+        }
+
+        var tenant = await _dbContext.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Code.ToLower() == targetCode.ToLower() && t.IsActive);
+
+        if (tenant == null)
+        {
+            return Ok(new
+            {
+                found = false,
+                shortName = targetCode.ToUpper(),
+                instituteName = targetCode.ToUpper(),
+                logoUrl = (string?)null
+            });
+        }
+
+        return Ok(new
+        {
+            found = true,
+            tenantId = tenant.Id,
+            tenantCode = tenant.Code,
+            shortName = tenant.Code,
+            instituteName = tenant.Name,
+            logoUrl = !string.IsNullOrWhiteSpace(tenant.ProfilePhoto) ? tenant.ProfilePhoto : null
+        });
+    }
+
+    [HttpGet("manifest.webmanifest")]
+    [HttpGet("public-manifest")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetPublicManifest([FromQuery] string? code = null, [FromQuery] string? tenant = null)
+    {
+        var targetCode = code ?? tenant;
+        if (string.IsNullOrWhiteSpace(targetCode))
+        {
+            var hostHeader = Request.Host.Host;
+            var parts = hostHeader.Split('.');
+            if (parts.Length > 0 && parts[0] != "localhost" && parts[0] != "127" && parts[0] != "www")
+            {
+                targetCode = parts[0];
+            }
+        }
+
+        Tenant? foundTenant = null;
+        if (!string.IsNullOrWhiteSpace(targetCode))
+        {
+            foundTenant = await _dbContext.Tenants
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Code.ToLower() == targetCode.Trim().ToLower() && t.IsActive);
+        }
+
+        var compName = foundTenant?.Name?.Trim() ?? "SMSERP";
+        var shortName = foundTenant?.Code?.Trim() ?? (compName.Length > 12 ? compName.Split(' ')[0] : compName);
+
+        var manifestObj = new
+        {
+            name = shortName,
+            short_name = shortName,
+            description = $"{(!string.IsNullOrWhiteSpace(compName) ? compName : shortName)} Enterprise ERP Portal",
+            start_url = "/",
+            scope = "/",
+            display = "standalone",
+            display_override = new[] { "window-controls-overlay", "standalone", "minimal-ui" },
+            background_color = "#ffffff",
+            theme_color = "#2563eb",
+            orientation = "any",
+            lang = "en-IN",
+            dir = "ltr",
+            categories = new[] { "education", "business", "productivity" },
+            icons = new object[]
+            {
+                new { src = !string.IsNullOrWhiteSpace(foundTenant?.ProfilePhoto) ? foundTenant.ProfilePhoto : "/assets/icons/icon-192x192.png", sizes = "192x192", type = "image/png", purpose = "any" },
+                new { src = !string.IsNullOrWhiteSpace(foundTenant?.ProfilePhoto) ? foundTenant.ProfilePhoto : "/assets/icons/icon-512x512.png", sizes = "512x512", type = "image/png", purpose = "any" },
+                new { src = "/__tenant_icon_maskable_192.png", sizes = "192x192", type = "image/png", purpose = "maskable" },
+                new { src = "/__tenant_icon_maskable_512.png", sizes = "512x512", type = "image/png", purpose = "maskable" }
+            }
+        };
+
+        return new JsonResult(manifestObj)
+        {
+            ContentType = "application/manifest+json; charset=utf-8"
+        };
+    }
+
     [HttpPost("register-trial")]
     [AllowAnonymous]
     public async Task<ActionResult<LoginResponseDto>> RegisterTrialTenant([FromBody] RegisterTrialTenantDto dto)

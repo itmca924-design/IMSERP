@@ -363,10 +363,10 @@ export class StudentIdCardDialogComponent implements OnInit {
       try {
         const payload = card.qrCodeData || `ADM:${card.admissionNumber || card.id}|NAME:${card.studentName}|CLASS:${card.className || ''}`;
         const dataUrl = await QRCode.toDataURL(payload, {
-          width: 90,
-          margin: 1,
+          width: 200,
+          margin: 4,
           color: {
-            dark: '#0f172a',
+            dark: '#000000',
             light: '#ffffff'
           },
           errorCorrectionLevel: 'M'

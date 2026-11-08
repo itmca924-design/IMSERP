@@ -1,7 +1,7 @@
 {
-  "name": "School ERP - Unified Education Management",
-  "short_name": "School ERP",
-  "description": "Enterprise ERP solution for School Classes, Coaching Batches, Hybrid Admissions, Fee Collections, and Student Portals.",
+  "name": "SMSERP",
+  "short_name": "SMSERP",
+  "description": "Unified Education Management ERP Portal",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

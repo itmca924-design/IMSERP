@@ -1203,7 +1203,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
     }
 
     .macho-field {
-      margin-bottom: 5px;
+      margin-bottom: 6px;
 
       ::ng-deep {
         .mat-mdc-form-field-subscript-wrapper {
@@ -1211,26 +1211,45 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
           padding: 0 4px;
         }
         .mat-mdc-text-field-wrapper {
+          height: 44px !important;
           padding-top: 0 !important;
           padding-bottom: 0 !important;
+          box-sizing: border-box !important;
+        }
+        .mat-mdc-form-field-flex {
+          height: 44px !important;
+          align-items: center !important;
+          box-sizing: border-box !important;
         }
         .mat-mdc-form-field-infix {
-          min-height: 40px !important;
-          padding-top: 7px !important;
-          padding-bottom: 7px !important;
+          min-height: unset !important;
+          height: 44px !important;
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          box-sizing: border-box !important;
         }
         .mat-mdc-input-element {
-          font-size: 0.86rem;
-          font-weight: 600;
-          color: #0f172a;
+          font-size: 0.88rem !important;
+          font-weight: 600 !important;
+          color: #0f172a !important;
+          line-height: normal !important;
+          height: 100% !important;
         }
-        .mat-mdc-form-field-label {
-          font-size: 0.82rem;
+        .mat-mdc-floating-label {
+          font-size: 0.84rem !important;
+          top: 50% !important;
+          transform: translateY(-50%) !important;
+        }
+        .mat-mdc-floating-label.mdc-floating-label--float-above {
+          top: 0 !important;
+          transform: translateY(-50%) scale(0.75) !important;
         }
         .mat-mdc-form-field-icon-suffix {
-          align-self: center;
-          display: inline-flex;
-          align-items: center;
+          align-self: center !important;
+          display: inline-flex !important;
+          align-items: center !important;
         }
       }
     }

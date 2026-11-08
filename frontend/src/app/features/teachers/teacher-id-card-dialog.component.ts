@@ -746,10 +746,10 @@ export class TeacherIdCardDialogComponent implements OnInit {
       try {
         const payload = card.qrCodeData || `EMP:${card.employeeCode || card.id}|NAME:${card.fullName}|DESIG:${card.designation || 'Staff'}`;
         const dataUrl = await QRCode.toDataURL(payload, {
-          width: 90,
-          margin: 1,
+          width: 200,
+          margin: 4,
           color: {
-            dark: '#0f172a',
+            dark: '#000000',
             light: '#ffffff'
           },
           errorCorrectionLevel: 'M'
