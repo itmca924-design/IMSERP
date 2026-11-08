@@ -474,12 +474,11 @@ export interface InventoryInwardReceiptDialogData {
       gap: 2px;
     }
     .qr-img {
-      width: 76px;
-      height: 76px;
+      width: 96px;
+      height: 96px;
       object-fit: contain;
-      border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      padding: 2px;
+      border: none;
+      padding: 0;
       background: #ffffff;
     }
     .qr-caption {
@@ -654,7 +653,7 @@ export class InventoryInwardReceiptDialogComponent implements OnInit {
     // Generate Verification QR Code
     const verifyString = `IMSERP-GRN|${this.data.inward.inwardNumber}|BILL:${this.data.inward.invoiceBillNumber || 'NA'}|DATE:${this.data.inward.inwardDate}|AMT:${this.data.inward.netAmount}`;
     QRCode.toDataURL(verifyString, {
-      width: 320,
+      width: 420,
       margin: 4,
       color: { dark: '#000000', light: '#ffffff' },
       errorCorrectionLevel: 'M'
@@ -730,7 +729,7 @@ export class InventoryInwardReceiptDialogComponent implements OnInit {
             .p-val.bold-text { color: #0f172a; font-weight: 700; font-size: 0.9rem; }
             .notes-val { color: #334155; font-style: italic; }
             .qr-box { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-            .qr-img { width: 76px; height: 76px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .qr-img { width: 96px; height: 96px; object-fit: contain; border: none; padding: 0; background: #ffffff; display: block; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .qr-caption { font-size: 0.65rem; color: #64748b; font-weight: 700; margin-top: 2px; }
             .items-table-wrap { margin-bottom: 14px; }
             .receipt-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }

@@ -1211,7 +1211,7 @@ export interface FeeReceiptDialogData {
 
     /* Mini QR in Signatures Row */
     .sig-col-qr {
-      width: 82px;
+      width: 104px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -1219,14 +1219,14 @@ export interface FeeReceiptDialogData {
       justify-content: flex-end;
     }
     .receipt-mini-qr {
-      width: 76px;
-      height: 76px;
+      width: 96px;
+      height: 96px;
       object-fit: contain;
-      border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      padding: 2px;
+      border: none;
+      border-radius: 0;
+      padding: 0;
       background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      box-shadow: none;
     }
     .qr-label {
       font-size: 0.54rem;
@@ -1258,8 +1258,13 @@ export interface FeeReceiptDialogData {
         print-color-adjust: exact !important;
       }
       .receipt-mini-qr {
-        width: 76px !important;
-        height: 76px !important;
+        width: 96px !important;
+        height: 96px !important;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -1620,16 +1625,14 @@ export class FeeReceiptDialogComponent implements OnInit {
       }
 
       const name = (this.payeeMerchantName || this.data.instituteName || this.authService.getInstituteName() || 'Institute').trim();
-      const student = (rcpt.studentName || '').trim();
-      const roll = (rcpt.rollNumber || '').trim();
-      const noteRaw = `Fee Bal ${student}${roll ? ' Roll ' + roll : ''} ${rcpt.receiptNumber}`;
-      const cleanNote = noteRaw.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 50);
+      const shortRef = (rcpt.receiptNumber || '').replace(/[^a-zA-Z0-9]/g, '').slice(-12);
+      const cleanNote = shortRef ? `Fee Receipt ${shortRef}` : 'Fee Payment';
 
-      // NPCI standard UPI URI (unencoded @ in pa for complete UPI app compatibility)
-      const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}&mc=8211`;
+      // Universal NPCI standard UPI URI (omitting mc allows personal & merchant VPAs to scan cleanly in PhonePe/GPay)
+      const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
 
       QRCode.toDataURL(upiUri, {
-        width: 360,
+        width: 420,
         margin: 4,
         errorCorrectionLevel: 'M',
         color: {
@@ -1789,9 +1792,9 @@ export class FeeReceiptDialogComponent implements OnInit {
       '.arrears-chip { display: inline-flex; align-items: center; gap: 3px; background: #fff; border: 1px solid #fecaca; border-radius: 2px; padding: 0 4px; font-size: 0.58rem; line-height: 1.4; }' +
       '.arr-name { color: #92400e; font-weight: 600; }' +
       '.arr-amt { color: #dc2626; font-weight: 800; }' +
-      '.sig-col-qr { width: 82px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }' +
-      '.receipt-mini-qr { width: 76px; height: 76px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 3px; background: #ffffff; padding: 2px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
-      '.qr-label { font-size: 0.52rem; font-weight: 700; color: #334155; margin-top: 2px; white-space: nowrap; text-align: center; }' +
+      '.sig-col-qr { width: 104px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }' +
+      '.receipt-mini-qr { width: 96px; height: 96px; object-fit: contain; border: none; background: #ffffff; padding: 0; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.qr-label { font-size: 0.54rem; font-weight: 700; color: #334155; margin-top: 2px; white-space: nowrap; text-align: center; }' +
       '.paper-footer { text-align: center; font-size: 0.54rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 1px; margin-top: 1px; }' +
       '.text-center { text-align: center; }' +
       '.text-right { text-align: right; }' +

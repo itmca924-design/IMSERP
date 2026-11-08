@@ -2177,16 +2177,14 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           const payee = (this.payeeUpiId || '').trim();
           const name = (this.payeeMerchantName || instituteName || 'Institute').trim();
           const student = (slip.studentName || '').trim();
-          const roll = (slip.rollNumber || '').trim();
-          const invRef = (slip.invoices?.[0]?.invoiceNumber || '').trim();
-          const noteRaw = `Fee Due ${student}${roll ? ' Roll ' + roll : ''} ${invRef}`;
-          const cleanNote = noteRaw.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 50);
+          const shortRef = (slip.invoices?.[0]?.invoiceNumber || slip.studentId || '').replace(/[^a-zA-Z0-9]/g, '').slice(-12);
+          const cleanNote = shortRef ? `Fee Due ${shortRef}` : 'Fee Payment';
 
           if (payee) {
-            const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}&mc=8211`;
+            const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
             try {
               slip.qrDataUrl = await QRCode.toDataURL(upiUri, {
-                width: 360,
+                width: 420,
                 margin: 4,
                 errorCorrectionLevel: 'M',
                 color: { dark: '#000000', light: '#ffffff' }
@@ -2211,13 +2209,13 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             const amount = rcp.remainingDue;
             const payee = (this.payeeUpiId || '').trim();
             const name = (this.payeeMerchantName || instituteName || 'Institute').trim();
-            const noteRaw = `Fee Bal ${rcp.studentName || ''}${rcp.rollNumber ? ' Roll ' + rcp.rollNumber : ''} ${rcp.receiptNumber || ''}`;
-            const cleanNote = noteRaw.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 50);
+            const shortRef = (rcp.receiptNumber || '').replace(/[^a-zA-Z0-9]/g, '').slice(-12);
+            const cleanNote = shortRef ? `Fee Receipt ${shortRef}` : 'Fee Payment';
 
             if (payee) {
-              const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}&mc=8211`;
+              const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
               rcp.qrDataUrl = await QRCode.toDataURL(upiUri, {
-                width: 360,
+                width: 420,
                 margin: 4,
                 errorCorrectionLevel: 'M',
                 color: { dark: '#000000', light: '#ffffff' }
@@ -2578,8 +2576,8 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .bal-strip { display: flex; justify-content: space-between; font-size: 11px; background: #f8fafc; padding: 5px 8px; border: 1px dashed #cbd5e1; border-radius: 4px; margin-bottom: 6px; }
           .slip-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; }
           .note { font-size: 9.5px; color: #475569; max-width: 48%; line-height: 1.35; }
-          .qr-box { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; flex-shrink: 0; }
-          .qr-img { width: 76px; height: 76px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 4px; background: #ffffff; padding: 2px; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .qr-box { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; flex-shrink: 0; min-width: 104px; }
+          .qr-img { width: 96px; height: 96px; object-fit: contain; border: none; background: #ffffff; padding: 0; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .qr-lbl { font-size: 8.5px; font-weight: 800; color: #0f172a; margin-top: 3px; white-space: nowrap; }
           .qr-sub { font-size: 8px; font-weight: 600; color: #64748b; white-space: nowrap; }
           .sig-box { text-align: center; min-width: 130px; }

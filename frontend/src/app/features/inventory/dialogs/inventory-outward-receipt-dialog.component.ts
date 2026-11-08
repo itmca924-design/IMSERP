@@ -546,12 +546,11 @@ export interface InventoryOutwardReceiptDialogData {
     }
 
     .receipt-qr-img {
-      width: 76px;
-      height: 76px;
+      width: 96px;
+      height: 96px;
       object-fit: contain;
-      border-radius: 4px;
-      border: 1px solid #cbd5e1;
-      padding: 2px;
+      border: none;
+      padding: 0;
       background: #ffffff;
     }
 
@@ -845,7 +844,7 @@ export class InventoryOutwardReceiptDialogComponent implements OnInit {
     });
 
     QRCode.toDataURL(qrPayload, {
-      width: 320,
+      width: 420,
       margin: 4,
       color: { dark: '#000000', light: '#ffffff' },
       errorCorrectionLevel: 'M'
@@ -926,7 +925,7 @@ export class InventoryOutwardReceiptDialogComponent implements OnInit {
             .p-val { color: #0f172a; font-weight: 600; }
             .p-val.bold-text { color: #1e3a8a; font-weight: 700; font-size: 0.88rem; }
             .qr-col { display: flex; flex-direction: column; align-items: center; padding-left: 10px; border-left: 1px dashed #cbd5e1; }
-            .receipt-qr-img { width: 76px; height: 76px; object-fit: contain; border-radius: 4px; border: 1px solid #cbd5e1; padding: 2px; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .receipt-qr-img { width: 96px; height: 96px; object-fit: contain; border: none; padding: 0; background: #ffffff; display: block; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .qr-caption { font-size: 0.6rem; color: #64748b; font-weight: 700; margin-top: 3px; }
             .receipt-items-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
             .receipt-items-table th { background: #f1f5f9; color: #334155; padding: 8px 10px; font-size: 0.76rem; font-weight: 700; text-transform: uppercase; border: 1px solid #cbd5e1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

@@ -41,8 +41,8 @@ export function toCanvas(
     const moduleCount = qr.getModuleCount();
     const totalModules = moduleCount + margin * 2;
 
-    // High-resolution integer pixel module size to eliminate any fractional anti-aliasing distortion
-    const targetWidth = Math.max(options.width ?? 320, 256);
+    // High-resolution integer pixel module size to eliminate any fractional anti-aliasing distortion on physical paper
+    const targetWidth = Math.max(options.width ?? 400, 320);
     const moduleSize = Math.max(3, Math.round(targetWidth / totalModules));
     const dimension = totalModules * moduleSize;
     const context = canvas.getContext('2d');

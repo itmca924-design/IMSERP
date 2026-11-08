@@ -281,7 +281,7 @@ export interface StudentIdCardDialogData {
     .red{color:#dc2626}
     .card-foot{padding:6px 12px 8px;display:flex;align-items:center;justify-content:space-between;border-top:1px dashed #cbd5e1;background:#fff;flex-shrink:0;margin-top:auto}
     .qr-box{display:flex;flex-direction:column;align-items:center;justify-content:center}
-    .real-qr-img{width:32px;height:32px;object-fit:contain;image-rendering:pixelated;display:block;border-radius:2px;background:#fff}
+    .real-qr-img{width:38px;height:38px;object-fit:contain;display:block;background:#fff}
     .qr-ic{font-size:26px;width:26px;height:26px;line-height:26px;color:#1e3a8a}
     .qr-lbl{font-size:7.5px;font-weight:700;color:#64748b;letter-spacing:.3px;margin-top:1px}
     .sign-box{text-align:center;width:95px;display:flex;flex-direction:column;align-items:center}
@@ -363,7 +363,7 @@ export class StudentIdCardDialogComponent implements OnInit {
       try {
         const payload = card.qrCodeData || `ADM:${card.admissionNumber || card.id}|NAME:${card.studentName}|CLASS:${card.className || ''}`;
         const dataUrl = await QRCode.toDataURL(payload, {
-          width: 200,
+          width: 320,
           margin: 4,
           color: {
             dark: '#000000',

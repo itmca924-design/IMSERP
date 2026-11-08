@@ -516,12 +516,10 @@ export interface TeacherIdCardDialogData {
       align-items: center;
 
       .real-qr-img {
-        width: 32px;
-        height: 32px;
+        width: 38px;
+        height: 38px;
         object-fit: contain;
-        image-rendering: pixelated;
         display: block;
-        border-radius: 2px;
         background: #fff;
       }
     }
@@ -746,7 +744,7 @@ export class TeacherIdCardDialogComponent implements OnInit {
       try {
         const payload = card.qrCodeData || `EMP:${card.employeeCode || card.id}|NAME:${card.fullName}|DESIG:${card.designation || 'Staff'}`;
         const dataUrl = await QRCode.toDataURL(payload, {
-          width: 200,
+          width: 320,
           margin: 4,
           color: {
             dark: '#000000',

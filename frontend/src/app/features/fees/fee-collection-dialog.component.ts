@@ -3256,7 +3256,7 @@ export class FeeCollectionDialogComponent implements OnInit {
     const note = encodeURIComponent(`Fee ${this.data?.studentName || ''}`);
     const txnRef = `FEE${Date.now().toString().slice(-6)}`;
 
-    const upiUri = `upi://pay?pa=${vpa}&pn=${payee}&am=${formattedAmt}&cu=INR&tn=${note}&tr=${txnRef}&mc=8211`;
+    const upiUri = `upi://pay?pa=${vpa}&pn=${payee}&am=${formattedAmt}&cu=INR&tn=${note}&tr=${txnRef}`;
 
     QRCode.toCanvas(this.counterQrCanvas.nativeElement, upiUri, {
       width: 240,
