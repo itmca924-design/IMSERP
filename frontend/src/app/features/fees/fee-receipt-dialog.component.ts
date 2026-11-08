@@ -886,11 +886,12 @@ export interface FeeReceiptDialogData {
 
       .prof-row {
         display: flex;
+        align-items: baseline;
+        gap: 6px;
         font-size: 0.72rem;
         line-height: 1.35;
         .k {
-          width: 135px;
-          white-space: nowrap;
+          min-width: 120px;
           color: #475569;
           font-weight: 600;
           flex-shrink: 0;
@@ -898,6 +899,7 @@ export interface FeeReceiptDialogData {
         .v {
           color: #0f172a;
           flex: 1;
+          min-width: 0;
           &.student-highlight {
             color: #15803d;
             font-weight: 800;
@@ -1753,9 +1755,9 @@ export class FeeReceiptDialogComponent implements OnInit {
       '.scope-meta-pill.coaching-pill { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }' +
       '.scope-meta-pill.school-pill { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }' +
       '.student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; padding: 3px 5px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; margin-bottom: 3px; }' +
-      '.prof-row { display: flex; font-size: 0.65rem; line-height: 1.25; }' +
-      '.prof-row .k { width: 110px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }' +
-      '.prof-row .v { color: #0f172a; flex: 1; }' +
+      '.prof-row { display: flex; align-items: baseline; gap: 6px; font-size: 0.65rem; line-height: 1.25; }' +
+      '.prof-row .k { min-width: 110px; color: #475569; font-weight: 600; flex-shrink: 0; }' +
+      '.prof-row .v { color: #0f172a; flex: 1; min-width: 0; }' +
       '.student-highlight { font-weight: 800; color: #15803d; }' +
       '.status-pill { background: #e0f2fe; color: #0369a1; padding: 0 3px; border-radius: 2px; font-size: 0.6rem; }' +
       '.table-section { margin-bottom: 2px; }' +

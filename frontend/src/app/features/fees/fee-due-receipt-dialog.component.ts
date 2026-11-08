@@ -172,7 +172,7 @@ export interface FeeDueReceiptDialogData {
                     <span class="v"><strong>{{ dueSlip.rollNumber || 'N/A' }}</strong></span>
                   </div>
                   <div class="prof-row">
-                    <span class="k">Assigned Batch / Class:</span>
+                    <span class="k">Batch / Class:</span>
                     <span class="v">{{ dueSlip.batchName || 'General Coaching Batch' }}</span>
                   </div>
                 </div>
@@ -740,12 +740,13 @@ export interface FeeDueReceiptDialogData {
 
       .prof-row {
         display: flex;
+        align-items: baseline;
+        gap: 6px;
         font-size: 0.68rem;
-        line-height: 1.3;
+        line-height: 1.35;
 
         .k {
-          width: 120px;
-          white-space: nowrap;
+          min-width: 110px;
           color: #475569;
           font-weight: 600;
           flex-shrink: 0;
@@ -753,6 +754,7 @@ export interface FeeDueReceiptDialogData {
         .v {
           color: #0f172a;
           flex: 1;
+          min-width: 0;
         }
         .student-highlight {
           font-weight: 800;
@@ -1315,9 +1317,9 @@ export class FeeDueReceiptDialogComponent implements OnInit {
       '.meta-val.branch-val { color: #b91c1c; }' +
       '.status-badge-due { background: #fee2e2; color: #991b1b; padding: 0 3px; border-radius: 2px; font-size: 0.6rem; font-weight: 800; }' +
       '.student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; padding: 3px 5px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; margin-bottom: 3px; }' +
-      '.prof-row { display: flex; font-size: 0.65rem; line-height: 1.25; }' +
-      '.prof-row .k { width: 110px; white-space: nowrap; color: #475569; font-weight: 600; flex-shrink: 0; }' +
-      '.prof-row .v { color: #0f172a; flex: 1; }' +
+      '.prof-row { display: flex; align-items: baseline; gap: 6px; font-size: 0.65rem; line-height: 1.25; }' +
+      '.prof-row .k { min-width: 110px; color: #475569; font-weight: 600; flex-shrink: 0; }' +
+      '.prof-row .v { color: #0f172a; flex: 1; min-width: 0; }' +
       '.student-highlight { font-weight: 800; color: #991b1b; }' +
       '.hostel-info-pill { background: #e0f2fe; color: #0369a1; padding: 0 3px; border-radius: 2px; font-size: 0.6rem; }' +
       '.table-section { margin-bottom: 2px; }' +

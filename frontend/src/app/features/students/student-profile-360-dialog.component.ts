@@ -2522,11 +2522,22 @@ const API_BASE = environment.apiBaseUrl;
     }
 
     .tab-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      margin-right: 6px;
-      vertical-align: middle;
+      font-size: 18px !important;
+      width: 18px !important;
+      height: 18px !important;
+      line-height: 18px !important;
+      margin-right: 6px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
+    }
+
+    ::ng-deep .mat-mdc-tab .mdc-tab__text-label {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
     }
 
     /* ΓöÇΓöÇ Cards Grid ΓöÇΓöÇ */
@@ -3155,6 +3166,62 @@ const API_BASE = environment.apiBaseUrl;
     }
 
     /* ΓöÇΓöÇ Empty State ΓöÇΓöÇ */
+    /* Universal Button & Icon Alignment Standards */
+    button[matButton],
+    button[mat-button],
+    button[mat-flat-button],
+    button[mat-raised-button],
+    .action-btn,
+    .upload-btn,
+    .primary-gradient-btn,
+    .print-medical-btn,
+    .app-button-save,
+    .app-button-cancel {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
+      gap: 6px !important;
+
+      ::ng-deep .mdc-button__label {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        vertical-align: middle !important;
+        gap: 6px !important;
+      }
+
+      mat-icon {
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+        line-height: 18px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        vertical-align: middle !important;
+        flex-shrink: 0 !important;
+      }
+    }
+
+    button[mat-icon-button] {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
+
+      ::ng-deep .mdc-icon-button__icon,
+      mat-icon {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        vertical-align: middle !important;
+        margin: 0 !important;
+      }
+    }
+
     .empty-state-box {
       display: flex;
       flex-direction: column;
@@ -3164,8 +3231,31 @@ const API_BASE = environment.apiBaseUrl;
       color: #94a3b8;
       text-align: center;
 
-      mat-icon { font-size: 40px; width: 40px; height: 40px; margin-bottom: 8px; }
-      p { margin: 0 0 12px; font-size: 0.85rem; }
+      > mat-icon,
+      .empty-icon {
+        font-size: 42px !important;
+        width: 42px !important;
+        height: 42px !important;
+        line-height: 42px !important;
+        margin-bottom: 10px !important;
+        color: #94a3b8 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+
+      h5 {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #475569;
+      }
+
+      p {
+        margin: 0 0 16px;
+        font-size: 0.85rem;
+        color: #64748b;
+      }
     }
 
     /* ΓöÇΓöÇ Modal Footer ΓöÇΓöÇ */
@@ -3319,20 +3409,45 @@ const API_BASE = environment.apiBaseUrl;
 
     .banner-quick-actions {
       display: flex;
+      align-items: center;
       gap: 6px;
       flex-shrink: 0;
 
       .action-btn {
-        font-size: 0.75rem;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        color: #334155;
-        height: 30px;
-        line-height: 28px;
-        padding: 0 10px;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        vertical-align: middle !important;
+        font-size: 0.75rem !important;
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 6px !important;
+        color: #334155 !important;
+        height: 30px !important;
+        line-height: 1 !important;
+        padding: 0 10px !important;
+        gap: 5px !important;
 
-        mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 4px; }
+        ::ng-deep .mdc-button__label {
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          vertical-align: middle !important;
+          gap: 5px !important;
+        }
+
+        mat-icon {
+          font-size: 15px !important;
+          width: 15px !important;
+          height: 15px !important;
+          line-height: 15px !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          vertical-align: middle !important;
+        }
         &:hover { background: #f8fafc; border-color: #cbd5e1; }
       }
     }
@@ -3704,13 +3819,27 @@ const API_BASE = environment.apiBaseUrl;
       padding-top: 8px;
 
       .print-cert-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        vertical-align: middle !important;
+        gap: 4px !important;
         color: #b45309;
         border-color: #fde68a;
         background: #fefce8;
         font-size: 0.75rem;
         font-weight: 600;
 
-        mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 4px; }
+        mat-icon {
+          font-size: 15px !important;
+          width: 15px !important;
+          height: 15px !important;
+          line-height: 15px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          margin: 0 !important;
+        }
         &:hover { background: #fef9c3; border-color: #facc15; }
       }
     }
