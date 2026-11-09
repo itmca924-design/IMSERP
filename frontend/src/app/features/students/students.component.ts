@@ -930,37 +930,37 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               <div class="directory-container">
                 <!-- Stream Switcher Tabs -->
                 <div class="stream-switcher-bar">
-                  <button type="button" class="stream-tab" [class.active]="selectedStreamFilter === 'all'" (click)="setStreamFilter('all')" matButton="filled">
-                    <mat-icon>dashboard</mat-icon>
+                  <button type="button" class="stream-tab all-tab" [class.active]="selectedStreamFilter === 'all'" (click)="setStreamFilter('all')">
+                    <mat-icon>groups</mat-icon>
                     <span>All Enrolled</span>
                     <span class="tab-count">{{ totalCount }}</span>
                   </button>
                   @if (authService.hasSchoolModule()) {
-                    <button type="button" class="stream-tab school-tab" [class.active]="selectedStreamFilter === 'school'" (click)="setStreamFilter('school')" matButton="filled">
-                      <mat-icon>domain</mat-icon>
+                    <button type="button" class="stream-tab school-tab" [class.active]="selectedStreamFilter === 'school'" (click)="setStreamFilter('school')">
+                      <mat-icon>menu_book</mat-icon>
                       <span>School Students</span>
                     </button>
                   }
                   @if (authService.hasCoachingModule()) {
-                    <button type="button" class="stream-tab coaching-tab" [class.active]="selectedStreamFilter === 'coaching'" (click)="setStreamFilter('coaching')" matButton="filled">
+                    <button type="button" class="stream-tab coaching-tab" [class.active]="selectedStreamFilter === 'coaching'" (click)="setStreamFilter('coaching')">
                       <mat-icon>school</mat-icon>
                       <span>Coaching Batches</span>
                     </button>
                   }
                   @if (authService.hasHostelModule()) {
-                    <button type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')" matButton="filled">
+                    <button type="button" class="stream-tab hostel-tab" [class.active]="selectedStreamFilter === 'hostel'" (click)="setStreamFilter('hostel')">
                       <mat-icon>apartment</mat-icon>
                       <span>Hostel Residents</span>
                     </button>
                   }
                   @if (authService.hasLibraryModule()) {
-                    <button type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')" matButton="filled">
+                    <button type="button" class="stream-tab library-tab" [class.active]="selectedStreamFilter === 'library'" (click)="setStreamFilter('library')">
                       <mat-icon>local_library</mat-icon>
                       <span>Library Members</span>
                     </button>
                   }
                   @if (authService.hasHostelModule()) {
-                    <button type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')" matButton="filled">
+                    <button type="button" class="stream-tab dayscholar-tab" [class.active]="selectedStreamFilter === 'dayscholar'" (click)="setStreamFilter('dayscholar')">
                       <mat-icon>directions_walk</mat-icon>
                       <span>Day Scholars</span>
                     </button>
@@ -1045,7 +1045,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                       <table mat-table [dataSource]="students" matSort (matSortChange)="onSortChange($event)" class="full-width">
                         <!-- Photo Column -->
                         <ng-container matColumnDef="photo">
-                          <th mat-header-cell *matHeaderCellDef></th>
+                          <th mat-header-cell *matHeaderCellDef class="photo-cell">Photo</th>
                           <td mat-cell *matCellDef="let s" class="photo-cell">
                             <div class="avatar-wrap">
                               @if (s.profilePhoto) {
@@ -1062,16 +1062,6 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                           <th mat-header-cell *matHeaderCellDef mat-sort-header="rollNumber">Identifiers</th>
                           <td mat-cell *matCellDef="let s">
                             <div class="id-stack">
-                              @if (s.admissionNumber) {
-                                <div class="school-adm-pill">
-                                  <span class="lbl">Adm:</span> <strong>{{ s.admissionNumber }}</strong>
-                                </div>
-                              }
-                              @if (!s.admissionNumber && (s.admissionNo || s.rollNumber || s.coachingRollNumber)) {
-                                <div class="school-adm-pill">
-                                  <span class="lbl">Adm:</span> <strong>{{ s.admissionNo || s.rollNumber || s.coachingRollNumber }}</strong>
-                                </div>
-                              }
                               @if (s.joiningDate) {
                                 <div class="school-adm-date-pill">
                                   <span class="lbl">DOJ:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
@@ -1086,6 +1076,9 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                                 <div class="lib-card-pill">
                                   <span class="lbl">Lib:</span> <strong>{{ s.libraryCardNumber }}</strong>
                                 </div>
+                              }
+                              @if (!s.joiningDate && !(s.isCoachingStudent && s.coachingJoiningDate && s.isSchoolStudent) && !(s.isLibraryMember && s.libraryCardNumber)) {
+                                <span class="text-muted">-</span>
                               }
                             </div>
                           </td>
@@ -1122,6 +1115,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                                   @if (s.bloodGroup) {
                                     <span class="bg-badge">{{ s.bloodGroup }}</span>
                                   }
+                                </div>
+                              }
+                              @if (s.admissionNumber || s.admissionNo || s.rollNumber || s.coachingRollNumber) {
+                                <div class="student-adm-sub">
+                                  <span>Adm: {{ s.admissionNumber || s.admissionNo || s.rollNumber || s.coachingRollNumber }}</span>
                                 </div>
                               }
                             </div>
@@ -1254,7 +1252,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                         </ng-container>
                         <!-- Actions Column -->
                         <ng-container matColumnDef="actions">
-                          <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+                          <th mat-header-cell *matHeaderCellDef class="text-right actions-th"><mat-icon class="actions-header-icon" matTooltip="Actions">settings</mat-icon></th>
                           <td mat-cell *matCellDef="let s" class="text-right">
                             <div class="action-buttons">
                               <!-- Primary 1: Student 360° Profile & KYC Dossier -->
@@ -1264,15 +1262,18 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                                 matTooltip="Student 360° Dossier &amp; KYC Vault" mat-icon-button>
                                 <mat-icon>account_circle</mat-icon>
                               </button>
-                              <!-- Primary 2: Edit Student Record -->
-                              <button color="primary" (click)="editStudent(s)" matTooltip="Edit Student" mat-icon-button>
-                                <mat-icon>edit</mat-icon>
-                              </button>
-                              <!-- Primary 3: More Actions Dropdown Menu (⋮) -->
+                              <!-- Primary 2: More Actions Dropdown Menu (⋮) -->
                               <button [matMenuTriggerFor]="studentActionMenu" matTooltip="More Actions" mat-icon-button>
                                 <mat-icon>more_vert</mat-icon>
                               </button>
                               <mat-menu #studentActionMenu="matMenu" xPosition="before" class="student-actions-dropdown">
+                                <!-- Edit Student Record -->
+                                <button
+                                  mat-menu-item
+                                  (click)="editStudent(s)">
+                                  <mat-icon style="color: #2563eb;">edit</mat-icon>
+                                  <span>Edit Student Details</span>
+                                </button>
                                 <!-- 1-Click Coaching Enrollment Button for School Students -->
                                 @if (authService.hasCoachingModule() && s.isSchoolStudent && !s.isCoachingStudent && s.isActive !== false) {
                                   <button
@@ -1559,8 +1560,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     /* Stream Switcher Tabs */
     .stream-switcher-bar {
       display: flex;
-      gap: 8px;
-      margin-bottom: 2px;
+      gap: 10px;
+      margin-bottom: 6px;
       overflow-x: auto;
       flex-wrap: nowrap;
       padding-bottom: 6px;
@@ -1577,70 +1578,117 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       }
     }
     .stream-tab {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 9px 18px;
-      border: 1px solid #e2e8f0;
-      background: #ffffff;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px;
+      padding: 8px 18px;
+      border: 1.5px solid #e2e8f0;
+      background: #ffffff !important;
       border-radius: 24px;
       font-size: 0.88rem;
       font-weight: 600;
       color: #475569;
       cursor: pointer;
-      transition: all 0.2s ease;
+      user-select: none;
+      white-space: nowrap;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
-      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #64748b; }
+      mat-icon {
+        font-size: 19px !important;
+        width: 19px !important;
+        height: 19px !important;
+        line-height: 19px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        flex-shrink: 0 !important;
+        transition: transform 0.2s ease;
+      }
+
+      /* Distinct Material Colors for each button icon (Always Visible in both normal & active states) */
+      &.all-tab mat-icon { color: #2563eb !important; }
+      &.school-tab mat-icon { color: #059669 !important; }
+      &.coaching-tab mat-icon { color: #7c3aed !important; }
+      &.hostel-tab mat-icon { color: #c026d3 !important; }
+      &.library-tab mat-icon { color: #0d9488 !important; }
+      &.dayscholar-tab mat-icon { color: #ea580c !important; }
 
       .tab-count {
         background: #f1f5f9;
         color: #475569;
-        font-size: 0.76rem;
-        padding: 2px 7px;
+        font-size: 0.75rem;
+        padding: 2px 8px;
         border-radius: 12px;
         font-weight: 700;
+        border: 1px solid #e2e8f0;
+        line-height: 1.3;
       }
 
       &:hover {
-        background: #f8fafc;
+        background: #f8fafc !important;
         border-color: #cbd5e1;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
       }
 
+      /* Active States - Prominent, high-contrast, theme-matched */
       &.active {
-        background: #1e3a8a;
-        color: #ffffff;
-        border-color: #1e3a8a;
-        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
+        font-weight: 700 !important;
+        transform: translateY(-1px);
 
-        mat-icon { color: #ffffff; }
-        .tab-count { background: rgba(255,255,255,0.25); color: #ffffff; }
+        mat-icon {
+          transform: scale(1.1);
+        }
+      }
+
+      &.all-tab.active {
+        background: #eff6ff !important;
+        border-color: #2563eb !important;
+        color: #1d4ed8 !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.22) !important;
+        .tab-count {
+          background: #2563eb !important;
+          color: #ffffff !important;
+          border-color: #2563eb !important;
+        }
       }
 
       &.school-tab.active {
-        background: #0284c7;
-        border-color: #0284c7;
-        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+        background: #ecfdf5 !important;
+        border-color: #059669 !important;
+        color: #065f46 !important;
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.22) !important;
       }
 
       &.coaching-tab.active {
-        background: #7c3aed;
-        border-color: #7c3aed;
-        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+        background: #f5f3ff !important;
+        border-color: #7c3aed !important;
+        color: #5b21b6 !important;
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.22) !important;
       }
+
       &.hostel-tab.active {
-        background: #7e22ce;
-        border-color: #7e22ce;
-        box-shadow: 0 4px 12px rgba(126, 34, 206, 0.2);
+        background: #fdf4ff !important;
+        border-color: #c026d3 !important;
+        color: #86198f !important;
+        box-shadow: 0 4px 12px rgba(192, 38, 211, 0.22) !important;
       }
+
       &.library-tab.active {
-        background: #0f766e;
-        border-color: #0f766e;
-        box-shadow: 0 4px 12px rgba(15, 118, 110, 0.2);
+        background: #f0fdfa !important;
+        border-color: #0d9488 !important;
+        color: #115e59 !important;
+        box-shadow: 0 4px 12px rgba(13, 148, 136, 0.22) !important;
       }
+
       &.dayscholar-tab.active {
-        background: #475569;
-        border-color: #475569;
-        box-shadow: 0 4px 12px rgba(71, 85, 105, 0.2);
+        background: #fff7ed !important;
+        border-color: #ea580c !important;
+        color: #9a3412 !important;
+        box-shadow: 0 4px 12px rgba(234, 88, 12, 0.22) !important;
       }
     }
 
@@ -2519,7 +2567,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     }
     .full-width {
       width: 100%;
-      min-width: 860px;
+      min-width: 960px;
 
       tr.mat-mdc-row {
         height: auto !important;
@@ -2535,9 +2583,50 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         padding-top: 8px !important;
         padding-bottom: 8px !important;
         font-weight: 700;
+        white-space: nowrap !important;
+
+        ::ng-deep .mat-sort-header-container {
+          white-space: nowrap !important;
+          flex-wrap: nowrap !important;
+        }
+
+        ::ng-deep .mat-sort-header-content {
+          white-space: nowrap !important;
+        }
+      }
+
+      .mat-column-studentName {
+        white-space: nowrap !important;
+        min-width: 140px;
+      }
+
+      .mat-column-whatsappPhone {
+        white-space: nowrap !important;
+      }
+
+      th.actions-th {
+        text-align: right;
+        padding-right: 18px !important;
+
+        .actions-header-icon {
+          font-size: 18px !important;
+          width: 18px !important;
+          height: 18px !important;
+          line-height: 18px !important;
+          color: #64748b;
+          vertical-align: middle;
+          display: inline-flex !important;
+          align-items: center;
+          justify-content: center;
+        }
       }
     }
-    .photo-cell { width: 48px; padding-right: 0 !important; }
+    .photo-cell {
+      width: 54px;
+      min-width: 54px;
+      padding-right: 6px !important;
+      white-space: nowrap !important;
+    }
     .avatar-wrap {
       width: 36px;
       height: 36px;
@@ -2631,6 +2720,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
           font-size: 0.68rem;
         }
       }
+      .student-adm-sub {
+        font-size: 0.75rem;
+        color: #64748b;
+        white-space: nowrap;
+      }
     }
 
     /* Stream Badges */
@@ -2642,14 +2736,29 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     .badge-pill {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      justify-content: center;
+      vertical-align: middle;
+      gap: 5px;
       padding: 3px 8px;
       border-radius: 12px;
       font-size: 0.74rem;
       font-weight: 700;
+      line-height: normal;
       width: fit-content;
+      white-space: nowrap;
 
-      mat-icon { font-size: 13px; width: 13px; height: 13px; }
+      mat-icon {
+        font-size: 14px !important;
+        width: 14px !important;
+        height: 14px !important;
+        line-height: 14px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        vertical-align: middle !important;
+        overflow: visible !important;
+        flex-shrink: 0 !important;
+      }
 
       &.dual {
         background: #fdf4ff;
@@ -2700,7 +2809,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         align-items: center;
         gap: 4px;
         color: #047857;
-        .icon-school { font-size: 14px; width: 14px; height: 14px; color: #10b981; }
+        .icon-school { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #10b981; }
       }
       .teacher-alloc {
         display: flex;
@@ -2713,35 +2822,35 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         border-radius: 4px;
         padding: 1px 6px;
         width: fit-content;
-        .icon-teacher { font-size: 13px; width: 13px; height: 13px; color: #2563eb; }
+        .icon-teacher { font-size: 13px; width: 13px; height: 13px; line-height: 13px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #2563eb; }
       }
       .coaching-alloc {
         display: flex;
         align-items: center;
         gap: 4px;
         color: #4338ca;
-        .icon-coaching { font-size: 14px; width: 14px; height: 14px; color: #6366f1; }
+        .icon-coaching { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #6366f1; }
       }
       .hostel-alloc {
         display: flex;
         align-items: center;
         gap: 4px;
         color: #7e22ce;
-        .icon-hostel { font-size: 14px; width: 14px; height: 14px; color: #a855f7; }
+        .icon-hostel { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #a855f7; }
       }
       .library-alloc {
         display: flex;
         align-items: center;
         gap: 4px;
         color: #0f766e;
-        .icon-library { font-size: 14px; width: 14px; height: 14px; color: #14b8a6; }
+        .icon-library { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #14b8a6; }
       }
       .transport-alloc {
         display: flex;
         align-items: center;
         gap: 4px;
         color: #c2410c;
-        .icon-transport { font-size: 14px; width: 14px; height: 14px; color: #f97316; }
+        .icon-transport { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #f97316; }
       }
       .kit-alloc {
         display: inline-flex;
@@ -2869,6 +2978,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         font-size: 12px;
         width: 12px;
         height: 12px;
+        line-height: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
       }
     }
 
@@ -2888,6 +3002,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         font-size: 12px;
         width: 12px;
         height: 12px;
+        line-height: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
       }
     }
 
