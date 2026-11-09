@@ -117,9 +117,10 @@ import { AuthService } from '../../core/services/auth.service';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      max-width: 100%;
+      gap: 14px;
+      flex-wrap: nowrap;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     /* Left Section */
@@ -127,6 +128,8 @@ import { AuthService } from '../../core/services/auth.service';
       display: flex;
       flex-direction: column;
       gap: 2px;
+      flex-shrink: 0;
+      white-space: nowrap;
 
       .brand-line {
         display: flex;
@@ -134,6 +137,7 @@ import { AuthService } from '../../core/services/auth.service';
         gap: 6px;
         color: #334155;
         font-weight: 500;
+        font-size: 0.78rem;
 
         .footer-brand-icon {
           font-size: 16px;
@@ -149,7 +153,7 @@ import { AuthService } from '../../core/services/auth.service';
       }
 
       .tagline {
-        font-size: 0.72rem;
+        font-size: 0.7rem;
         color: #94a3b8;
         padding-left: 22px;
       }
@@ -159,14 +163,16 @@ import { AuthService } from '../../core/services/auth.service';
     .footer-center {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 10px;
-      flex-wrap: wrap;
+      flex-shrink: 1;
+      white-space: nowrap;
 
       .footer-link {
         color: #64748b;
         text-decoration: none;
         font-weight: 500;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         transition: color 0.15s ease-in-out;
 
         &:hover {
@@ -185,7 +191,9 @@ import { AuthService } from '../../core/services/auth.service';
     .footer-right {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      flex-shrink: 0;
+      white-space: nowrap;
 
       .status-indicator {
         display: flex;
@@ -345,26 +353,85 @@ import { AuthService } from '../../core/services/auth.service';
       }
     }
 
-    /* Responsive adjustments */
-    @media (max-width: 960px) and (min-width: 641px) {
-      .footer-container {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
+    /* Compact Desktops, 19-inch Monitors (1366x768, 1440x900) & Laptops */
+    @media (max-width: 1440px) {
+      .app-footer {
+        padding: 7px 18px;
       }
 
-      .footer-left .tagline {
-        padding-left: 0;
+      .footer-container {
+        gap: 10px;
+        flex-wrap: nowrap !important;
+      }
+
+      .footer-left {
+        .brand-line {
+          font-size: 0.75rem;
+        }
+        .tagline {
+          display: none !important;
+        }
       }
 
       .footer-center {
-        width: 100%;
-        justify-content: flex-start;
+        gap: 8px;
+        .footer-link {
+          font-size: 0.74rem;
+        }
       }
 
       .footer-right {
-        width: 100%;
+        gap: 7px;
+        .status-indicator {
+          padding: 2px 8px;
+          font-size: 0.7rem;
+        }
+        .version-badge {
+          padding: 2px 7px;
+          font-size: 0.68rem;
+        }
+        .footer-toggle-btn {
+          width: 22px;
+          height: 22px;
+          .toggle-icon {
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
+          }
+        }
+      }
+    }
+
+    /* Tablet & Smaller Desktop Screens (641px - 1024px) */
+    @media (max-width: 1024px) and (min-width: 641px) {
+      .app-footer {
+        padding: 7px 14px;
+      }
+
+      .footer-container {
+        flex-direction: row;
+        flex-wrap: nowrap !important;
         justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .footer-left {
+        .brand-line {
+          font-size: 0.74rem;
+        }
+        .tagline {
+          display: none !important;
+        }
+      }
+
+      .footer-center {
+        display: none !important;
+      }
+
+      .footer-right {
+        gap: 6px;
+        flex-shrink: 0;
       }
     }
 

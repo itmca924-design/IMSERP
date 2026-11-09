@@ -417,26 +417,37 @@ interface BiometricMappingPagedResult {
                   @if (activeCategory === 'School') {
                     <div class="badge-primary-row">
                       @if (p.className) {
-                        <span class="group-badge school">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
+                        <span class="group-badge school" [matTooltip]="p.className + (p.sectionName ? ' - ' + p.sectionName : '')">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
                       }
-                      @if (isHybrid(p)) {
+                      @if (isHybrid(p) && !p.batchName) {
                         <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
                       }
                     </div>
-                    @if (p.batchName) {
-                      <span class="group-badge batch secondary-badge">📚 {{ p.batchName }}</span>
+                    @if (p.batchName || (isHybrid(p) && p.batchName)) {
+                      <div class="badge-secondary-row">
+                        @if (p.batchName) {
+                          <span class="group-badge batch secondary-badge" [matTooltip]="p.batchName">📚 {{ p.batchName }}</span>
+                        }
+                        @if (isHybrid(p)) {
+                          <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
+                        }
+                      </div>
                     }
                   } @else if (activeCategory === 'Coaching') {
                     <div class="badge-primary-row">
                       @if (p.batchName) {
-                        <span class="group-badge batch">📚 {{ p.batchName }}</span>
-                      }
-                      @if (isHybrid(p)) {
-                        <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
+                        <span class="group-badge batch" [matTooltip]="p.batchName">📚 {{ p.batchName }}</span>
                       }
                     </div>
-                    @if (p.className) {
-                      <span class="group-badge school secondary-badge">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
+                    @if (p.className || isHybrid(p)) {
+                      <div class="badge-secondary-row">
+                        @if (p.className) {
+                          <span class="group-badge school secondary-badge" [matTooltip]="p.className + (p.sectionName ? ' - ' + p.sectionName : '')">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
+                        }
+                        @if (isHybrid(p)) {
+                          <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
+                        }
+                      </div>
                     }
                   } @else {
                     @if (p.personType === 'Teacher') {
@@ -468,7 +479,7 @@ interface BiometricMappingPagedResult {
                     <mat-icon>check_circle</mat-icon> Apply {{ p.suggestedBiometricId }}
                   </button>
                 }
-                <button class="btn-icon-xs" (click)="selectPersonForEdit(p)" matTooltip="Select for Edit" mat-icon-button>
+                <button type="button" class="btn-icon-xs" (click)="selectPersonForEdit(p)" matTooltip="Select for Edit">
                   <mat-icon>edit</mat-icon>
                 </button>
               </td>
@@ -1355,12 +1366,21 @@ interface BiometricMappingPagedResult {
   background: #fffdf7;
 }
 .col-sno {
-  width: 40px;
+  width: 44px;
+  min-width: 36px;
   color: #94a3b8;
   text-align: center;
 }
+.col-name {
+  min-width: 130px;
+  max-width: 180px;
+}
 .col-name strong {
+  display: block;
   color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .badge-code {
   background: #f1f5f9;
@@ -1371,18 +1391,33 @@ interface BiometricMappingPagedResult {
   font-size: 0.82rem;
   font-weight: 600;
 }
+.col-code {
+  width: 95px;
+  min-width: 80px;
+  white-space: nowrap;
+}
+.col-group {
+  min-width: 170px;
+  max-width: 260px;
+  overflow: hidden;
+}
 .group-badge-container {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   gap: 3px;
+  max-width: 100%;
+  overflow: hidden;
 }
-.badge-primary-row {
-  display: inline-flex;
+.badge-primary-row,
+.badge-secondary-row {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
+  gap: 5px;
+  max-width: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 .hybrid-badge {
   display: inline-flex;
@@ -1399,25 +1434,34 @@ interface BiometricMappingPagedResult {
   line-height: 1.25;
   box-shadow: 0 1px 2px rgba(245, 158, 11, 0.12);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .group-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
+  gap: 4px;
+  padding: 3px 8px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.25;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   transition: all 0.15s ease;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 .group-badge.secondary-badge {
   font-size: 0.74rem;
   padding: 2px 7px;
   border-radius: 5px;
   opacity: 0.9;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .group-badge.school {
   background: #f0fdf4;
@@ -1434,19 +1478,25 @@ interface BiometricMappingPagedResult {
   color: #7e22ce;
   border: 1px solid #e9d5ff;
 }
+.col-device-id {
+  width: 140px;
+  min-width: 125px;
+  white-space: nowrap;
+}
 .bio-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 4px 9px;
   border-radius: 8px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 .bio-tag mat-icon {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
 }
 .bio-tag.mapped {
   background: #dcfce7;
@@ -1475,21 +1525,72 @@ interface BiometricMappingPagedResult {
   margin-right: 4px;
 }
 .btn-icon-xs {
-  width: 32px;
-  height: 32px;
-  line-height: 32px;
-  color: #64748b;
-}
-.btn-icon-xs mat-icon {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  box-sizing: border-box !important;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  mat-icon {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #475569;
+    transition: color 0.15s ease;
+  }
+
+  &:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), 0 0 8px rgba(37, 99, 235, 0.28) !important;
+    transform: scale(1.08);
+
+    mat-icon {
+      color: #2563eb;
+    }
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
 }
 .empty-cell {
   text-align: center;
   padding: 30px;
   color: #64748b;
   font-style: italic;
+}
+.col-action {
+  text-align: right;
+  white-space: nowrap;
+  width: 110px;
+  min-width: 95px;
+}
+.header-main-row th.col-action {
+  text-align: right;
+}
+.header-filter-row th.col-action {
+  text-align: right;
 }
 .col-span-2 {
   grid-column: 1 / -1;
@@ -1594,6 +1695,94 @@ interface BiometricMappingPagedResult {
   border-color: #86efac !important;
   font-weight: 600 !important;
 }
+@media (max-width: 1440px) {
+  .enroll-table th {
+    padding: 8px 8px;
+    font-size: 0.73rem;
+  }
+  .enroll-table td {
+    padding: 7px 8px;
+    font-size: 0.8rem;
+  }
+  .col-sno {
+    width: 32px;
+    min-width: 28px;
+  }
+  .col-name {
+    min-width: 110px;
+    max-width: 140px;
+  }
+  .col-code {
+    width: 78px;
+    min-width: 68px;
+  }
+  .col-group {
+    min-width: 140px;
+    max-width: 210px;
+  }
+  .group-badge {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+  }
+  .hybrid-badge {
+    font-size: 0.66rem;
+    padding: 1px 5px;
+  }
+  .col-device-id {
+    width: 120px;
+    min-width: 110px;
+  }
+  .bio-tag {
+    font-size: 0.74rem;
+    padding: 2px 6px;
+  }
+  .bio-tag mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+  .sub-filter-input {
+    min-width: 45px;
+    font-size: 0.73rem;
+    padding: 2px 0;
+  }
+  .sub-filter-select {
+    font-size: 0.73rem;
+    padding: 2px 4px;
+  }
+  .btn-reset-filters {
+    padding: 3px 6px;
+    font-size: 0.7rem;
+  }
+  .col-action {
+    width: 95px;
+    min-width: 85px;
+  }
+  .btn-xs {
+    font-size: 0.7rem;
+    line-height: 22px;
+    padding: 0 6px;
+  }
+  .btn-xs mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+  .btn-icon-xs {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    max-width: 26px !important;
+
+    mat-icon {
+      font-size: 14px !important;
+      width: 14px !important;
+      height: 14px !important;
+      line-height: 14px !important;
+    }
+  }
+}
+
 @media (max-width: 1024px) {
   .guidelines-grid {
     grid-template-columns: repeat(2, 1fr);

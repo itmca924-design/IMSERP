@@ -466,10 +466,11 @@ import { environment } from '../../../environments/environment';
                   (input)="onTextInput()"></textarea>
                 </div>
                 <button
-                  color="primary"
+                  type="button"
                   class="send-message-btn"
                   [disabled]="(!messageControl.value || !messageControl.value.trim()) && !pendingAttachment()"
-                  (click)="onSendMessage()" matButton="filled">
+                  (click)="onSendMessage()"
+                  matTooltip="Send message">
                   <mat-icon>send</mat-icon>
                 </button>
               </div>
@@ -1405,12 +1406,67 @@ import { environment } from '../../../environments/environment';
       }
 
       .send-message-btn {
-        height: 38px;
-        min-width: 44px;
-        padding: 0 14px;
-        border-radius: 19px;
-        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
-        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        max-width: 38px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border-radius: 50% !important;
+        aspect-ratio: 1 / 1 !important;
+        box-sizing: border-box !important;
+        border: none !important;
+        background: #2563eb;
+        color: #ffffff;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15), 0 0 8px rgba(37, 99, 235, 0.35) !important;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        flex-shrink: 0;
+
+        mat-icon {
+          font-size: 18px !important;
+          width: 18px !important;
+          height: 18px !important;
+          line-height: 18px !important;
+          color: #ffffff;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          transition: transform 0.15s ease;
+        }
+
+        &:not(:disabled):hover {
+          background: #1d4ed8;
+          transform: scale(1.06);
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22), 0 0 12px rgba(37, 99, 235, 0.48) !important;
+
+          mat-icon {
+            transform: translateX(1px);
+          }
+        }
+
+        &:not(:disabled):active {
+          transform: scale(0.95);
+        }
+
+        &:disabled {
+          background: #f1f5f9 !important;
+          color: #94a3b8 !important;
+          border: 1px solid #e2e8f0 !important;
+          cursor: not-allowed !important;
+          box-shadow: none !important;
+          opacity: 0.8;
+
+          mat-icon {
+            color: #94a3b8 !important;
+          }
+        }
       }
     }
 
@@ -1709,10 +1765,15 @@ import { environment } from '../../../environments/environment';
         }
 
         .send-message-btn {
-          height: 34px;
-          min-width: 38px;
-          padding: 0 8px;
-          mat-icon { font-size: 16px; width: 16px; height: 16px; }
+          width: 36px !important;
+          height: 36px !important;
+          min-width: 36px !important;
+          max-width: 36px !important;
+          padding: 0 !important;
+          border-radius: 50% !important;
+          aspect-ratio: 1 / 1 !important;
+          box-sizing: border-box !important;
+          mat-icon { font-size: 17px !important; width: 17px !important; height: 17px !important; }
         }
       }
 
