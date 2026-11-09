@@ -136,7 +136,7 @@ import { environment } from '../../../environments/environment';
           type="button"
           class="scope-pill"
           [class.active]="currentScope === 'All'"
-          (click)="setScope('All')" matButton="filled">
+          (click)="setScope('All')">
           <mat-icon>public</mat-icon>
           <span>All Materials</span>
         </button>
@@ -145,7 +145,7 @@ import { environment } from '../../../environments/environment';
             type="button"
             class="scope-pill"
             [class.active]="currentScope === 'School'"
-            (click)="setScope('School')" matButton="filled">
+            (click)="setScope('School')">
             <mat-icon>school</mat-icon>
             <span>🏫 School Classes</span>
           </button>
@@ -155,7 +155,7 @@ import { environment } from '../../../environments/environment';
             type="button"
             class="scope-pill"
             [class.active]="currentScope === 'Coaching'"
-            (click)="setScope('Coaching')" matButton="filled">
+            (click)="setScope('Coaching')">
             <mat-icon>psychology</mat-icon>
             <span>🎯 Coaching Batches</span>
           </button>
@@ -184,42 +184,42 @@ import { environment } from '../../../environments/environment';
         type="button"
         class="type-tab"
         [class.active]="activeType === 'All'"
-        (click)="setType('All')" matButton="filled">
+        (click)="setType('All')">
         All Types
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'Notes'"
-        (click)="setType('Notes')" matButton="filled">
+        (click)="setType('Notes')">
         📝 Concept Notes
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'PYQ'"
-        (click)="setType('PYQ')" matButton="filled">
+        (click)="setType('PYQ')">
         🎯 PYQs
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'QuestionBank'"
-        (click)="setType('QuestionBank')" matButton="filled">
+        (click)="setType('QuestionBank')">
         📚 Question Bank &amp; DPP
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'FormulaSheet'"
-        (click)="setType('FormulaSheet')" matButton="filled">
+        (click)="setType('FormulaSheet')">
         ⚡ Formula Sheets &amp; Mindmaps
       </button>
       <button
         type="button"
         class="type-tab"
         [class.active]="activeType === 'SamplePaper'"
-        (click)="setType('SamplePaper')" matButton="filled">
+        (click)="setType('SamplePaper')">
         📄 Sample &amp; Model Papers
       </button>
     </div>
@@ -583,21 +583,24 @@ import { environment } from '../../../environments/environment';
       align-items: center;
       gap: 6px;
       padding: 6px 14px;
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
+      background: #f1f5f9 !important;
+      border: 1.5px solid #cbd5e1;
       border-radius: 20px;
       font-size: 0.82rem;
       font-weight: 600;
       color: #475569;
       cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
       transition: all 0.15s ease;
       mat-icon { font-size: 18px; width: 18px; height: 18px; }
-      &:hover { background: #e2e8f0; }
+      &:hover { background: #e2e8f0 !important; }
       &.active {
-        background: #2563eb;
-        border-color: #2563eb;
-        color: #ffffff;
-        box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+        background: #2563eb !important;
+        border-color: #2563eb !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.3) !important;
+        mat-icon { color: #ffffff !important; }
       }
     }
 
@@ -637,25 +640,50 @@ import { environment } from '../../../environments/environment';
       align-items: center;
       gap: 8px;
       overflow-x: auto;
-      padding-bottom: 2px;
+      overflow-y: hidden !important;
+      padding: 4px 2px 6px 2px;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
+
+      &::-webkit-scrollbar {
+        height: 4px;
+        width: 0px !important;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
     }
     .type-tab {
-      padding: 6px 14px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 16px;
+      background: #ffffff !important;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 20px;
+      font-size: 0.84rem;
       font-weight: 600;
-      color: #64748b;
+      color: #475569;
       cursor: pointer;
+      user-select: none;
       white-space: nowrap;
-      transition: all 0.15s ease;
-      &:hover { background: #f1f5f9; color: #1e293b; }
+      box-sizing: border-box;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+      &:hover {
+        background: #f8fafc !important;
+        border-color: #cbd5e1;
+        color: #1e293b;
+      }
+
       &.active {
-        background: #eff6ff;
-        border-color: #bfdbfe;
-        color: #2563eb;
-        font-weight: 700;
+        background: #eff6ff !important;
+        border: 2px solid #2563eb !important;
+        color: #1d4ed8 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 3px 10px rgba(37, 99, 235, 0.22) !important;
       }
     }
 
@@ -995,7 +1023,7 @@ import { environment } from '../../../environments/environment';
       .scope-bar { flex-direction: column; align-items: stretch; gap: 10px; }
       .scope-pills { overflow-x: auto; width: 100%; padding-bottom: 4px; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
       .search-box { max-width: 100%; width: 100%; }
-      .type-tabs-row { overflow-x: auto; width: 100%; padding-bottom: 4px; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+      .type-tabs-row { overflow-x: auto; overflow-y: hidden !important; width: 100%; padding-bottom: 4px; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
       .dropdowns-row { flex-direction: column; align-items: stretch; }
       .filter-field { max-width: 100%; width: 100%; }
       .filter-toggle-btn { width: 100%; justify-content: center; }
