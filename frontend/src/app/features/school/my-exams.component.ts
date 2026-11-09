@@ -559,11 +559,15 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
                       <span>| {{ myData.student.dateOfBirth | date:'dd-MMM-yyyy' }}</span>
                     }</strong></div>
                   </div>
-                  <div class="photo-placeholder-box">
-                    <div class="photo-inner">
-                      <mat-icon>person</mat-icon>
-                      <span>Candidate Photo</span>
-                    </div>
+                  <div class="photo-placeholder-box" [class.has-img]="candidatePhotoUrl && !candidatePhotoFailed">
+                    @if (candidatePhotoUrl && !candidatePhotoFailed) {
+                      <img [src]="candidatePhotoUrl" alt="Candidate Photo" class="candidate-photo-img" (error)="onCandidatePhotoError()" />
+                    } @else {
+                      <div class="photo-inner">
+                        <mat-icon>person</mat-icon>
+                        <span>Candidate Photo</span>
+                      </div>
+                    }
                   </div>
                 </div>
                 <!-- Scheduled Papers Table on Admit Card -->
@@ -1723,6 +1727,21 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
           align-items: center;
           justify-content: center;
           background: #f8fafc;
+          overflow: hidden;
+
+          &.has-img {
+            border: 1.5px solid #cbd5e1;
+            background: #ffffff;
+            padding: 2px;
+          }
+
+          .candidate-photo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 6px;
+            display: block;
+          }
 
           @media (max-width: 768px) {
             height: 120px;
@@ -1890,6 +1909,17 @@ export class MyExamsComponent implements OnInit {
   selectedExamType = 'All';
   selectedCategory: 'all' | 'school' | 'coaching' = 'all';
   logoImgFailed = false;
+  candidatePhotoFailed = false;
+
+  get candidatePhotoUrl(): string | null {
+    const raw = this.myData?.student?.profilePhoto || this.myData?.consolidatedResult?.photoUrl;
+    if (!raw) return null;
+    return this.authService.resolveLogoUrl(raw);
+  }
+
+  onCandidatePhotoError(): void {
+    this.candidatePhotoFailed = true;
+  }
 
   get instituteLogo(): string | null {
     return this.authService.getInstituteLogoUrl();
@@ -1958,6 +1988,7 @@ export class MyExamsComponent implements OnInit {
 
   loadMyExams(): void {
     this.loading = true;
+    this.candidatePhotoFailed = false;
     this.schoolService.getMyExams(this.selectedSession || undefined, this.selectedExamType, this.selectedCategory).subscribe({
       next: (data) => {
         this.loading = false;
@@ -2241,7 +2272,9 @@ export class MyExamsComponent implements OnInit {
           .session-badge { background: #000; color: #fff; padding: 2px 8px; font-size: 11px; border-radius: 4px; }
           .admit-meta-grid { display: grid; grid-template-columns: 1fr 1fr 120px; gap: 12px; border-bottom: 1px solid #ccc; padding-bottom: 14px; margin-bottom: 14px; font-size: 12px; }
           .meta-col { display: flex; flex-direction: column; gap: 4px; }
-          .photo-placeholder-box { border: 1px dashed #666; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+          .photo-placeholder-box { border: 1px dashed #666; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 11px; overflow: hidden; }
+          .photo-placeholder-box.has-img { border: 1px solid #000; padding: 2px; }
+          .candidate-photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
           .admit-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
           .admit-table th, .admit-table td { border: 1px solid #999; padding: 6px 8px; }
           .admit-table th { background: #eee; }
