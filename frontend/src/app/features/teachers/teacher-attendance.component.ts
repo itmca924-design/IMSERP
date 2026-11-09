@@ -249,73 +249,117 @@ export interface CalendarDayItem {
         </div>
         <!-- Floating Action Bar (Unified Single & Multi-Day) -->
         @if (selectedMatrixDates.size > 0) {
-          <div class="matrix-floating-bar">
-            <div class="mfb-left">
-              <div class="mfb-badge">{{ selectedMatrixDates.size }}</div>
-              <div class="mfb-text">
-                <strong>{{ getSelectedDateSummaryTitle() }}</strong>
-                <small>{{ selectedMatrixDates.size === 1 ? 'Choose status, timings & click Save' : 'Apply status & timings to all ' + selectedMatrixDates.size + ' selected dates' }}</small>
+          <div class="matrix-floating-bar" role="region" aria-label="Staff Attendance Quick Action Bar">
+            <!-- Primary Action Bar (Top Row) -->
+            <div class="mfb-main-row">
+              <!-- Left: Selection Info -->
+              <div class="mfb-left">
+                <div class="mfb-badge">
+                  <mat-icon class="mfb-badge-icon">event_available</mat-icon>
+                  <span class="mfb-badge-count">{{ selectedMatrixDates.size }}</span>
+                </div>
+                <div class="mfb-text">
+                  <div class="mfb-title-line">
+                    <strong>{{ getSelectedDateSummaryTitle() }}</strong>
+                    <span class="mfb-mode-chip">{{ selectedMatrixDates.size === 1 ? 'Single Day' : 'Bulk Select' }}</span>
+                  </div>
+                  <small class="mfb-sub-text">{{ selectedMatrixDates.size === 1 ? 'Choose status, timings & click Save' : 'Apply status & timings to all ' + selectedMatrixDates.size + ' selected dates' }}</small>
+                </div>
+              </div>
+
+              <!-- Center: Status Selector Segment -->
+              <div class="mfb-status-group" role="radiogroup" aria-label="Teacher Attendance Status">
+                <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'" matButton="filled">
+                  <mat-icon>check_circle</mat-icon>
+                  <span>Present</span>
+                </button>
+                <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'" matButton="filled">
+                  <mat-icon>cancel</mat-icon>
+                  <span>Absent</span>
+                </button>
+                <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus ='Late'" matButton="filled">
+                  <mat-icon>schedule</mat-icon>
+                  <span>Late</span>
+                </button>
+                <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'" matButton="filled">
+                  <mat-icon>hourglass_bottom</mat-icon>
+                  <span>Half Day</span>
+                </button>
+                <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'" matButton="filled">
+                  <mat-icon>event_busy</mat-icon>
+                  <span>Leave</span>
+                </button>
+              </div>
+
+              <!-- Right: Actions -->
+              <div class="mfb-right">
+                <button type="button" class="mfb-save-btn app-button-save" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()" matButton="filled">
+                  @if (!batchSavingDates) {
+                    <mat-icon>save</mat-icon>
+                  }
+                  @if (batchSavingDates) {
+                    <mat-icon class="spin">refresh</mat-icon>
+                  }
+                  <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
+                </button>
+                <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Clear selection (Esc)" mat-icon-button>
+                  <mat-icon>close</mat-icon>
+                </button>
               </div>
             </div>
-            <div class="mfb-center">
-              <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'" matButton="filled">
-                <mat-icon>check_circle</mat-icon> Present
-              </button>
-              <button type="button" class="mfb-pill pill-a" [class.active]="batchTargetStatus === 'Absent'" (click)="batchTargetStatus = 'Absent'" matButton="filled">
-                <mat-icon>cancel</mat-icon> Absent
-              </button>
-              <button type="button" class="mfb-pill pill-lt" [class.active]="batchTargetStatus === 'Late'" (click)="batchTargetStatus ='Late'" matButton="filled">
-                <mat-icon>schedule</mat-icon> Late
-              </button>
-              <button type="button" class="mfb-pill pill-hd" [class.active]="batchTargetStatus === 'HalfDay'" (click)="batchTargetStatus = 'HalfDay'" matButton="filled">
-                <mat-icon>hourglass_bottom</mat-icon> Half Day
-              </button>
-              <button type="button" class="mfb-pill pill-l" [class.active]="batchTargetStatus === 'Leave'" (click)="batchTargetStatus = 'Leave'" matButton="filled">
-                <mat-icon>event_busy</mat-icon> Leave
-              </button>
-              <!-- Quick Shift Presets (School Day Shift vs Coaching Morning vs Coaching Evening) -->
-              @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
-                <div class="mfb-shift-presets">
-                  <button type="button" class="mfb-shift-btn" [class.active]="activeShiftType === 'school'" (click)="setShiftType('school')" matTooltip="Standard School / Day Shift" matButton="filled">
+
+            <!-- Secondary Context Bar (Bottom Row) -->
+            @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
+              <div class="mfb-detail-row">
+                <!-- Quick Shift Presets -->
+                <div class="mfb-shift-group">
+                  <span class="mfb-group-label"><mat-icon>tune</mat-icon> Shift:</span>
+                  <button type="button" class="mfb-shift-pill school" [class.active]="activeShiftType === 'school'" (click)="setShiftType('school')" matTooltip="Standard School / Day Shift" matButton="filled">
                     <mat-icon>school</mat-icon> Day Shift
                   </button>
-                  <button type="button" class="mfb-shift-btn morning" [class.active]="activeShiftType === 'coaching_morning'" (click)="setShiftType('coaching_morning')" matTooltip="Coaching Morning Shift" matButton="filled">
+                  <button type="button" class="mfb-shift-pill morning" [class.active]="activeShiftType === 'coaching_morning'" (click)="setShiftType('coaching_morning')" matTooltip="Coaching Morning Shift" matButton="filled">
                     <mat-icon>wb_sunny</mat-icon> Morn
                   </button>
-                  <button type="button" class="mfb-shift-btn evening" [class.active]="activeShiftType === 'coaching_evening'" (click)="setShiftType('coaching_evening')" matTooltip="Coaching Evening Shift" matButton="filled">
+                  <button type="button" class="mfb-shift-pill evening" [class.active]="activeShiftType === 'coaching_evening'" (click)="setShiftType('coaching_evening')" matTooltip="Coaching Evening Shift" matButton="filled">
                     <mat-icon>nights_stay</mat-icon> Eve
                   </button>
                 </div>
-              }
-              <!-- Timings Inputs -->
-              @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
-                <div class="mfb-time-wrap">
-                  <label>In:</label>
-                  <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
+
+                <!-- Timings Inputs -->
+                <div class="mfb-timing-group">
+                  <div class="mfb-time-wrap">
+                    <mat-icon class="time-ico in-ico">login</mat-icon>
+                    <label>In</label>
+                    <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckIn" title="In Time">
+                  </div>
+                  <div class="mfb-time-wrap">
+                    <mat-icon class="time-ico out-ico">logout</mat-icon>
+                    <label>Out</label>
+                    <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
+                  </div>
+                  @if (calculateDuration(batchTargetCheckIn, batchTargetCheckOut)) {
+                    <span class="mfb-dur-badge" matTooltip="Net work hours">
+                      <mat-icon>timelapse</mat-icon>
+                      {{ calculateDuration(batchTargetCheckIn, batchTargetCheckOut) }}
+                    </span>
+                  }
                 </div>
-              }
-              @if (batchTargetStatus !== 'Absent' && batchTargetStatus !== 'Leave') {
-                <div class="mfb-time-wrap">
-                  <label>Out:</label>
-                  <input type="time" class="mfb-time-input" [(ngModel)]="batchTargetCheckOut" title="Out Time">
+
+                <!-- Remarks Input -->
+                <div class="mfb-remarks-wrap">
+                  <mat-icon class="notes-ico">edit_note</mat-icon>
+                  <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / attendance remarks...">
                 </div>
-              }
-              <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" placeholder="Optional notes / remarks...">
-            </div>
-            <div class="mfb-right">
-              <button type="button" class="mfb-save-btn app-button-save" [disabled]="batchSavingDates" (click)="applyMultiDatesAttendance()" matButton="filled">
-                @if (!batchSavingDates) {
-                  <mat-icon>save</mat-icon>
-                }
-                @if (batchSavingDates) {
-                  <mat-icon class="spin">refresh</mat-icon>
-                }
-                <span>{{ selectedMatrixDates.size === 1 ? 'Save Record' : 'Save (' + selectedMatrixDates.size + ' Days)' }}</span>
-              </button>
-              <button type="button" class="mfb-close-btn" (click)="clearDateSelection()" matTooltip="Cancel selection" mat-icon-button>
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
+              </div>
+            } @else {
+              <!-- Absent / Leave remarks bar -->
+              <div class="mfb-detail-row absent-mode">
+                <div class="mfb-remarks-wrap full-width">
+                  <mat-icon class="notes-ico">edit_note</mat-icon>
+                  <input type="text" class="mfb-remarks-input" [(ngModel)]="batchTargetRemarks" [placeholder]="batchTargetStatus === 'Absent' ? 'Reason for absence (optional notes / remarks)...' : 'Reason for leave / approved leave note (optional)...'">
+                </div>
+              </div>
+            }
           </div>
         }
       </div>
@@ -613,124 +657,7 @@ export interface CalendarDayItem {
       border-radius: 12px;
     }
 
-    .matrix-floating-bar {
-      position: sticky;
-      bottom: 12px;
-      margin-top: 14px;
-      background: #0f172a;
-      color: #ffffff;
-      border-radius: 12px;
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-      z-index: 50;
-      border: 1px solid rgba(255,255,255,0.15);
-      animation: mfbSlideUp 0.22s ease-out;
-    }
-    @keyframes mfbSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-    .mfb-left { display: flex; align-items: center; gap: 10px; }
-    .mfb-badge {
-      background: #2563eb;
-      color: #fff;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 0.88rem;
-    }
-    .mfb-text { display: flex; flex-direction: column; }
-    .mfb-text strong { font-size: 0.85rem; color: #f8fafc; }
-    .mfb-text small { font-size: 0.7rem; color: #94a3b8; }
-    .mfb-center { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; justify-content: center; }
-    .mfb-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.74rem;
-      font-weight: 700;
-      padding: 5px 11px;
-      border-radius: 20px;
-      border: 1.5px solid transparent;
-      cursor: pointer;
-      background: #1e293b;
-      color: #cbd5e1;
-      transition: all 0.15s ease;
-      mat-icon { font-size: 16px; width: 16px; height: 16px; }
-      &:hover { background: #334155; color: #ffffff; }
-      &.pill-p.active { background: #16a34a; color: #fff; border-color: #22c55e; }
-      &.pill-a.active { background: #dc2626; color: #fff; border-color: #ef4444; }
-      &.pill-lt.active { background: #d97706; color: #fff; border-color: #f59e0b; }
-      &.pill-hd.active { background: #7c3aed; color: #fff; border-color: #8b5cf6; }
-      &.pill-l.active { background: #ea580c; color: #fff; border-color: #f97316; }
-    }
-    .mfb-remarks-input {
-      background: #1e293b;
-      border: 1px solid #334155;
-      color: #ffffff;
-      font-size: 0.76rem;
-      padding: 6px 10px;
-      border-radius: 6px;
-      outline: none;
-      min-width: 170px;
-      &:focus { border-color: #3b82f6; }
-    }
-    .mfb-time-wrap {
-      display: inline-flex; align-items: center; gap: 4px; background: #1e293b;
-      padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;
-      label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; }
-    }
-    .mfb-time-input {
-      background: transparent; border: none; color: #ffffff; font-size: 0.74rem;
-      font-weight: 700; outline: none; width: 82px;
-      color-scheme: dark;
-      &::-webkit-calendar-picker-indicator {
-        filter: brightness(0) invert(1);
-        cursor: pointer;
-        opacity: 0.9;
-        padding: 0;
-        margin-left: 2px;
-        &:hover { opacity: 1; }
-      }
-    }
-    .mfb-right { display: flex; align-items: center; gap: 8px; }
-    .mfb-save-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-      color: #ffffff;
-      border: none;
-      padding: 7px 16px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 0.82rem;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-      transition: all 0.15s ease;
-      &:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.45); }
-      mat-icon { font-size: 18px; width: 18px; height: 18px; }
-      mat-icon.spin { animation: spin 1s linear infinite; }
-    }
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .mfb-close-btn {
-      background: transparent;
-      border: none;
-      color: #94a3b8;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px;
-      border-radius: 6px;
-      &:hover { background: #334155; color: #ffffff; }
-    }
+
     .legend-chips { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.76rem; font-weight:600;
       .leg.present{color:#16a34a;} .leg.leave{color:#d97706;font-weight:700;} .leg.cancel-req{color:#ea580c;font-weight:700;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
       .leg.half{color:#9333ea;} .leg.pub-holiday{color:#b45309;font-weight:700;}
@@ -938,136 +865,422 @@ export interface CalendarDayItem {
       border-radius: 12px;
     }
 
-    /* Floating Action Bar (Single & Multi-Select) */
+    /* ====================================================================
+       MODERN EXECUTIVE FLOATING ACTION DOCK (TEACHER SINGLE & MULTI-DAY)
+       ==================================================================== */
     .matrix-floating-bar {
       position: sticky;
-      bottom: 12px;
-      margin-top: 14px;
-      background: #0f172a;
+      bottom: 16px;
+      margin-top: 18px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.98) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       color: #ffffff;
-      border-radius: 12px;
-      padding: 10px 16px;
+      border-radius: 16px;
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      z-index: 60;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      animation: mfbDockIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes mfbDockIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Primary Row (Header + Status Pills + Actions) */
+    .mfb-main-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 14px;
       flex-wrap: wrap;
-      gap: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-      z-index: 50;
-      border: 1px solid rgba(255,255,255,0.15);
-      animation: mfbSlideUp 0.22s ease-out;
     }
-    @keyframes mfbSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-    .mfb-left { display: flex; align-items: center; gap: 10px; }
+
+    /* Left Info */
+    .mfb-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
     .mfb-badge {
-      background: #2563eb;
-      color: #fff;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      min-width: 38px;
+      height: 38px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 900;
-      font-size: 0.88rem;
+      gap: 3px;
+      padding: 0 8px;
+      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    .mfb-text { display: flex; flex-direction: column; }
-    .mfb-text strong { font-size: 0.85rem; color: #f8fafc; }
-    .mfb-text small { font-size: 0.7rem; color: #94a3b8; }
-    .mfb-center { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; justify-content: center; }
+    .mfb-badge-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+    .mfb-badge-count {
+      font-size: 0.94rem;
+      line-height: 1;
+    }
+    .mfb-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .mfb-title-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mfb-title-line strong {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.2px;
+    }
+    .mfb-mode-chip {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(96, 165, 250, 0.35);
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 1px 7px;
+      border-radius: 10px;
+    }
+    .mfb-sub-text {
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+
+    /* Status Selector Segment */
+    .mfb-status-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.55);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+    }
     .mfb-pill {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      font-size: 0.74rem;
+      gap: 6px;
+      font-size: 0.78rem;
       font-weight: 700;
-      padding: 5px 11px;
-      border-radius: 20px;
+      padding: 6px 13px;
+      border-radius: 9px;
       border: 1.5px solid transparent;
       cursor: pointer;
-      background: #1e293b;
-      color: #cbd5e1;
-      transition: all 0.15s ease;
+      background: transparent;
+      color: #94a3b8;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
     }
-    .mfb-pill mat-icon { font-size: 16px; width: 16px; height: 16px; }
-    .mfb-pill:hover { background: #334155; color: #ffffff; }
-    .mfb-pill.pill-p.active { background: #16a34a; color: #fff; border-color: #22c55e; }
-    .mfb-pill.pill-a.active { background: #dc2626; color: #fff; border-color: #ef4444; }
-    .mfb-pill.pill-lt.active { background: #d97706; color: #fff; border-color: #f59e0b; }
-    .mfb-pill.pill-hd.active { background: #7c3aed; color: #fff; border-color: #8b5cf6; }
-    .mfb-pill.pill-l.active { background: #ea580c; color: #fff; border-color: #f97316; }
-    .mfb-shift-presets { display: inline-flex; align-items: center; gap: 4px; background: #0f172a; padding: 2px 4px; border-radius: 8px; border: 1px solid #334155; }
-    .mfb-shift-btn {
-      display: inline-flex; align-items: center; gap: 4px; background: transparent; border: none;
-      color: #94a3b8; font-size: 0.72rem; font-weight: 700; padding: 4px 8px; border-radius: 6px;
-      cursor: pointer; transition: all 0.2s ease;
+    .mfb-pill mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      transition: transform 0.18s ease;
     }
-    .mfb-shift-btn mat-icon { font-size: 14px; width: 14px; height: 14px; }
-    .mfb-shift-btn:hover { background: #1e293b; color: #f8fafc; }
-    .mfb-shift-btn.active { background: #2563eb; color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-    .mfb-shift-btn.morning.active { background: #d97706; color: #ffffff; }
-    .mfb-shift-btn.evening.active { background: #7c3aed; color: #ffffff; }
-    .mfb-remarks-input {
-      background: #1e293b;
-      border: 1px solid #334155;
+    .mfb-pill:hover {
+      color: #f8fafc;
+      background: rgba(255, 255, 255, 0.06);
+      transform: translateY(-1px);
+    }
+    .mfb-pill:hover mat-icon {
+      transform: scale(1.1);
+    }
+
+    .mfb-pill.pill-p { color: #86efac; }
+    .mfb-pill.pill-p:hover { background: rgba(34, 197, 94, 0.14); }
+    .mfb-pill.pill-p.active {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
       color: #ffffff;
-      font-size: 0.76rem;
-      padding: 6px 10px;
-      border-radius: 6px;
-      outline: none;
-      min-width: 170px;
+      border-color: #4ade80;
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.45);
     }
-    .mfb-remarks-input:focus { border-color: #3b82f6; }
+
+    .mfb-pill.pill-a { color: #fca5a5; }
+    .mfb-pill.pill-a:hover { background: rgba(239, 68, 68, 0.14); }
+    .mfb-pill.pill-a.active {
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      color: #ffffff;
+      border-color: #f87171;
+      box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45);
+    }
+
+    .mfb-pill.pill-lt { color: #fcd34d; }
+    .mfb-pill.pill-lt:hover { background: rgba(245, 158, 11, 0.14); }
+    .mfb-pill.pill-lt.active {
+      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+      color: #ffffff;
+      border-color: #fbbf24;
+      box-shadow: 0 4px 14px rgba(217, 119, 6, 0.45);
+    }
+
+    .mfb-pill.pill-hd { color: #d8b4fe; }
+    .mfb-pill.pill-hd:hover { background: rgba(139, 92, 246, 0.14); }
+    .mfb-pill.pill-hd.active {
+      background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+      color: #ffffff;
+      border-color: #a78bfa;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.45);
+    }
+
+    .mfb-pill.pill-l { color: #fdba74; }
+    .mfb-pill.pill-l:hover { background: rgba(249, 115, 22, 0.14); }
+    .mfb-pill.pill-l.active {
+      background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+      color: #ffffff;
+      border-color: #fb923c;
+      box-shadow: 0 4px 14px rgba(234, 88, 12, 0.45);
+    }
+
+    /* Right Actions */
+    .mfb-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    .mfb-save-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 8px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.84rem;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+    .mfb-save-btn:hover:not([disabled]) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.55);
+    }
+    .mfb-save-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+    .mfb-close-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+    .mfb-close-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.35);
+      transform: rotate(90deg);
+    }
+    .mfb-close-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Secondary Detail Row (Timings, Shifts, Duration & Remarks) */
+    .mfb-detail-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .mfb-detail-row.absent-mode {
+      padding-top: 8px;
+    }
+
+    /* Shift Presets */
+    .mfb-shift-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 3px 6px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .mfb-shift-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: transparent;
+      color: #94a3b8;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .mfb-shift-pill:hover {
+      color: #f1f5f9;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .mfb-shift-pill.school.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #3b82f6;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+    }
+    .mfb-shift-pill.morning.active {
+      background: #d97706;
+      color: #ffffff;
+      border-color: #f59e0b;
+      box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
+    }
+    .mfb-shift-pill.evening.active {
+      background: #7c3aed;
+      color: #ffffff;
+      border-color: #8b5cf6;
+      box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+    }
+
+    /* Timings Inputs */
+    .mfb-timing-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
     .mfb-time-wrap {
-      display: inline-flex; align-items: center; gap: 4px; background: #1e293b;
-      padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.7);
+      padding: 4px 10px;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: border-color 0.15s ease;
     }
-    .mfb-time-wrap label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; }
+    .mfb-time-wrap:focus-within {
+      border-color: #3b82f6;
+    }
+    .mfb-time-wrap .time-ico {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+    }
+    .mfb-time-wrap .time-ico.in-ico { color: #4ade80; }
+    .mfb-time-wrap .time-ico.out-ico { color: #f43f5e; }
+    .mfb-time-wrap label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
     .mfb-time-input {
-      background: transparent; border: none; color: #ffffff; font-size: 0.74rem;
-      font-weight: 700; outline: none; width: 82px;
+      background: transparent;
+      border: none;
+      color: #f8fafc;
+      font-size: 0.78rem;
+      font-weight: 700;
+      outline: none;
+      width: 78px;
       color-scheme: dark;
     }
     .mfb-time-input::-webkit-calendar-picker-indicator {
       filter: brightness(0) invert(1);
       cursor: pointer;
-      opacity: 0.9;
+      opacity: 0.85;
       padding: 0;
       margin-left: 2px;
     }
     .mfb-time-input::-webkit-calendar-picker-indicator:hover {
       opacity: 1;
     }
-    .mfb-right { display: flex; align-items: center; gap: 8px; }
-    .mfb-save-btn {
+    .mfb-dur-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-      color: #ffffff;
-      border: none;
-      padding: 7px 16px;
-      border-radius: 8px;
+      gap: 5px;
+      padding: 4px 10px;
+      font-size: 0.74rem;
       font-weight: 700;
-      font-size: 0.82rem;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-      transition: all 0.15s ease;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      white-space: nowrap;
     }
-    .mfb-save-btn:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.45); }
-    .mfb-save-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
-    .mfb-close-btn {
-      background: transparent;
-      border: none;
-      color: #94a3b8;
-      cursor: pointer;
+    .mfb-dur-badge mat-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+    }
+
+    /* Remarks Input */
+    .mfb-remarks-wrap {
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 4px;
-      border-radius: 6px;
+      gap: 7px;
+      flex: 1;
+      min-width: 180px;
+      background: rgba(15, 23, 42, 0.7);
+      padding: 4px 12px;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: all 0.15s ease;
     }
-    .mfb-close-btn:hover { background: #334155; color: #ffffff; }
+    .mfb-remarks-wrap:focus-within {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+    }
+    .mfb-remarks-wrap.full-width {
+      width: 100%;
+    }
+    .mfb-remarks-wrap .notes-ico {
+      color: #64748b;
+      font-size: 17px;
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+    }
+    .mfb-remarks-input {
+      background: transparent;
+      border: none;
+      color: #f8fafc;
+      font-size: 0.78rem;
+      outline: none;
+      width: 100%;
+    }
+    .mfb-remarks-input::placeholder {
+      color: #64748b;
+      font-style: italic;
+    }
 
     /* Table */
     .table-card { border-radius:12px; overflow:hidden; padding:0; border:1px solid #e2e8f0; width:100%; max-width:100%; box-sizing:border-box; }
@@ -1092,7 +1305,56 @@ export interface CalendarDayItem {
     .work-duration { background:#f1f5f9; color:#334155; padding:2px 8px; border-radius:6px; font-weight:600; font-size:.78rem; }
     .no-dur { color:#94a3b8; }
     .time-main { font-weight:600; color:#1e293b; }
-    .actions-col { text-align:right; width:100px; white-space:nowrap; }
+    .actions-col {
+      text-align: right;
+      width: 100px;
+      white-space: nowrap;
+
+      button.mat-mdc-icon-button, button {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        padding: 0 !important;
+        margin: 0 2px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        vertical-align: middle !important;
+        line-height: 1 !important;
+        border-radius: 50% !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+
+        .mat-icon {
+          font-size: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+          line-height: 20px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          transform: none !important;
+        }
+
+        .mat-mdc-button-persistent-ripple,
+        .mat-mdc-button-ripple {
+          border-radius: 50% !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          margin: 0 !important;
+          transform: none !important;
+        }
+
+        .mat-mdc-button-touch-target {
+          display: none !important;
+        }
+      }
+    }
     .action-btn-wrapper {
       display: inline-flex;
       align-items: center;
@@ -1271,6 +1533,117 @@ export interface CalendarDayItem {
         width: 100%;
         text-align: center;
         box-sizing: border-box;
+      }
+
+      /* Matrix floating bar — Tablet adaptive */
+      .matrix-floating-bar {
+        padding: 12px 14px;
+        gap: 10px;
+      }
+      .mfb-main-row {
+        gap: 10px;
+      }
+      .mfb-status-group {
+        order: 3;
+        width: 100%;
+        justify-content: space-between;
+      }
+      .mfb-status-group .mfb-pill {
+        flex: 1;
+        justify-content: center;
+        padding: 6px 8px;
+        font-size: 0.74rem;
+      }
+      .mfb-detail-row {
+        gap: 8px;
+      }
+      .mfb-remarks-wrap {
+        width: 100%;
+        min-width: 100%;
+      }
+      .mfb-right {
+        margin-left: auto;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .matrix-floating-bar {
+        padding: 10px 12px;
+        border-radius: 14px;
+        bottom: 8px;
+        gap: 9px;
+      }
+      .mfb-badge {
+        min-width: 34px;
+        height: 34px;
+        border-radius: 10px;
+      }
+      .mfb-badge-count { font-size: 0.86rem; }
+      .mfb-title-line strong { font-size: 0.82rem; }
+      .mfb-sub-text { font-size: 0.67rem; }
+      .mfb-status-group {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        padding: 3px;
+        width: 100%;
+      }
+      .mfb-status-group .mfb-pill {
+        padding: 5px 6px;
+        font-size: 0.7rem;
+        gap: 4px;
+        justify-content: center;
+      }
+      .mfb-status-group .mfb-pill mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+      .mfb-timing-group {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .mfb-time-wrap {
+        flex: 1;
+        justify-content: center;
+        padding: 4px 6px;
+      }
+      .mfb-time-input {
+        width: 68px;
+        font-size: 0.74rem;
+      }
+      .mfb-dur-badge {
+        width: 100%;
+        justify-content: center;
+      }
+      .mfb-shift-group {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .mfb-shift-pill {
+        padding: 3px 7px;
+        font-size: 0.66rem;
+      }
+      .mfb-right {
+        order: 4;
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        margin-left: 0;
+      }
+      .mfb-save-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 9px 12px;
+        font-size: 0.82rem;
+      }
+      .mfb-close-btn {
+        width: 38px;
+        height: 38px;
       }
     }
   `]

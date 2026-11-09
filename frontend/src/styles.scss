@@ -274,15 +274,55 @@ body {
   }
 }
 
-.mat-column-actions, td.mat-column-actions, th.mat-column-actions {
+.mat-column-actions, td.mat-column-actions, th.mat-column-actions, .actions-col, td.actions-col, th.actions-col {
   width: 130px !important;
   min-width: 130px !important;
   white-space: nowrap !important;
   text-align: right !important;
 
-  button, .mat-mdc-icon-button {
-    display: inline-inline-flex !important;
+  button.mat-mdc-icon-button, .mat-mdc-icon-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    margin: 0 2px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     vertical-align: middle !important;
+    line-height: 1 !important;
+    border-radius: 50% !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+
+    .mat-icon {
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
+      line-height: 20px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      transform: none !important;
+    }
+
+    .mat-mdc-button-persistent-ripple,
+    .mat-mdc-button-ripple {
+      border-radius: 50% !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      transform: none !important;
+    }
+
+    .mat-mdc-button-touch-target {
+      display: none !important;
+    }
   }
 }
 
