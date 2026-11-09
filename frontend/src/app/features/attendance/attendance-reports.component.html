@@ -1004,15 +1004,15 @@
             {{ reportType === 'student' ? 'students' : 'teachers' }}
           </div>
           <div class="page-btns">
-            <button class="page-btn" (click)="goToPage(pageIndex - 1)" [disabled]="pageIndex === 0" mat-icon-button>
+            <button type="button" class="page-btn page-arrow" (click)="goToPage(pageIndex - 1)" [disabled]="pageIndex === 0" matTooltip="Previous Page">
               <mat-icon>chevron_left</mat-icon>
             </button>
             @for (p of pageNumbers; track p) {
-              <button class="page-btn page-num"
+              <button type="button" class="page-btn page-num"
                 [class.active-page]="p === pageIndex + 1"
-              (click)="goToPage(p - 1)" matButton="filled">{{ p }}</button>
+                (click)="goToPage(p - 1)">{{ p }}</button>
             }
-            <button class="page-btn" (click)="goToPage(pageIndex + 1)" [disabled]="pageIndex>= totalPages - 1" matButton="filled">
+            <button type="button" class="page-btn page-arrow" (click)="goToPage(pageIndex + 1)" [disabled]="pageIndex >= totalPages - 1" matTooltip="Next Page">
               <mat-icon>chevron_right</mat-icon>
             </button>
           </div>

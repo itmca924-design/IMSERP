@@ -48,18 +48,18 @@ public class MasterImportController : ControllerBase
         sb.AppendLine("Nursery,NUR,Both,2");
         sb.AppendLine("LKG,LKG,Both,3");
         sb.AppendLine("UKG,UKG,Both,4");
-        sb.AppendLine("Class 1,CLS01,Both,5");
-        sb.AppendLine("Class 2,CLS02,Both,6");
-        sb.AppendLine("Class 3,CLS03,Both,7");
-        sb.AppendLine("Class 4,CLS04,Both,8");
-        sb.AppendLine("Class 5,CLS05,Both,9");
-        sb.AppendLine("Class 6,CLS06,Both,10");
-        sb.AppendLine("Class 7,CLS07,Both,11");
-        sb.AppendLine("Class 8,CLS08,Both,12");
-        sb.AppendLine("Class 9,CLS09,Both,13");
-        sb.AppendLine("Class 10,CLS10,Both,14");
-        sb.AppendLine("Class 11,CLS11,Both,15");
-        sb.AppendLine("Class 12,CLS12,Both,16");
+        sb.AppendLine("Class 1st,C01,Both,5");
+        sb.AppendLine("Class 2nd,C02,Both,6");
+        sb.AppendLine("Class 3rd,C03,Both,7");
+        sb.AppendLine("Class 4th,C04,Both,8");
+        sb.AppendLine("Class 5th,C05,Both,9");
+        sb.AppendLine("Class 6th,C06,Both,10");
+        sb.AppendLine("Class 7th,C07,Both,11");
+        sb.AppendLine("Class 8th,C08,Both,12");
+        sb.AppendLine("Class 9th,C09,Both,13");
+        sb.AppendLine("Class 10th,C10,Both,14");
+        sb.AppendLine("Class 11th,C11,Both,15");
+        sb.AppendLine("Class 12th,C12,Both,16");
 
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
         return File(bytes, "text/csv", "IMSERP_Classes_Master_Template.csv");
@@ -89,6 +89,7 @@ public class MasterImportController : ControllerBase
             .ToListAsync();
 
         var existingNames = existingClasses.Select(c => c.Name.Trim().ToLowerInvariant()).ToHashSet();
+        var existingCanonicalNames = existingClasses.Select(c => CanonicalClassName(c.Name)).ToHashSet();
         var existingCodes = existingClasses.Where(c => !string.IsNullOrWhiteSpace(c.Code))
             .Select(c => c.Code!.Trim().ToLowerInvariant()).ToHashSet();
 
@@ -148,7 +149,7 @@ public class MasterImportController : ControllerBase
                     seenNamesInFile.Add(lowerName);
                     if (lowerCode != null) seenCodesInFile.Add(lowerCode);
 
-                    if (existingNames.Contains(lowerName))
+                    if (existingNames.Contains(lowerName) || existingCanonicalNames.Contains(CanonicalClassName(className)))
                     {
                         item.Status = "Existing";
                         item.ErrorMessage = $"Class '{className}' already exists in your institute.";
@@ -207,6 +208,11 @@ public class MasterImportController : ControllerBase
             .GroupBy(c => c.Name.Trim().ToLowerInvariant())
             .ToDictionary(g => g.Key, g => g.First());
 
+        var existingByCanonical = existingClasses
+            .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+            .GroupBy(c => CanonicalClassName(c.Name))
+            .ToDictionary(g => g.Key, g => g.First());
+
         var existingByCode = existingClasses
             .Where(c => !string.IsNullOrWhiteSpace(c.Code))
             .GroupBy(c => c.Code!.Trim().ToLowerInvariant())
@@ -226,6 +232,10 @@ public class MasterImportController : ControllerBase
             if (existingDict.TryGetValue(lowerName, out var byName))
             {
                 existing = byName;
+            }
+            else if (existingByCanonical.TryGetValue(CanonicalClassName(item.ClassName), out var byCanonical))
+            {
+                existing = byCanonical;
             }
             else if (lowerCode != null && existingByCode.TryGetValue(lowerCode, out var byCode))
             {
@@ -918,6 +928,16 @@ public class MasterImportController : ControllerBase
         if (f.Contains("annu") || f.Contains("year")) return "Annual";
         if (f.Contains("one") || f.Contains("admis")) return "OneTime";
         return "Monthly";
+    }
+
+    private static string CanonicalClassName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+        var s = name.Trim().ToLowerInvariant();
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\bclass\s*0*(\d+)(st|nd|rd|th)?\b", "class $1");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"^0*(\d+)(st|nd|rd|th)?$", "class $1");
+        return s;
     }
 
     #endregion

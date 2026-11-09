@@ -2005,6 +2005,17 @@ public record BiometricMappingPersonDto(
     string? SuggestedBiometricId = null
 );
 
+public record BiometricMappingPagedResultDto(
+    IEnumerable<BiometricMappingPersonDto> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize,
+    int TotalPages,
+    int CoachingCount,
+    int SchoolCount,
+    int TeacherCount
+);
+
 public record BulkAttendanceEntryItem(
     Guid TeacherId,
     string Status,

@@ -215,6 +215,244 @@ public class AttendanceController : ControllerBase
         return Ok(students.Concat(teachers).OrderBy(x => x.Name));
     }
 
+    [HttpGet("mappings/paged")]
+    public async Task<ActionResult<BiometricMappingPagedResultDto>> GetPagedMappings(
+        [FromQuery] string category = "all",       // "coaching" | "school" | "teacher" | "all"
+        [FromQuery] string? searchName = null,
+        [FromQuery] string? searchCode = null,
+        [FromQuery] string? searchGroup = null,    // batchName, className, sectionName, or staff
+        [FromQuery] string? mappingStatus = null,  // "all" | "mapped" | "unmapped"
+        [FromQuery] string? sortBy = "name",       // "name" | "code" | "group" | "biometricId"
+        [FromQuery] string? sortDir = "asc",       // "asc" | "desc"
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25
+    )
+    {
+        if (!await HasPermissionAsync(MappingRoute, IMSERP.API.Services.MenuPermissionOperation.Edit)) return Forbid();
+
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 5, 200);
+
+        var studentQuery = _db.Students.AsNoTracking()
+            .Where(s => s.TenantId == _currentUser.TenantId && s.IsActive && !s.IsDeleted);
+        if (_currentUser.BranchId.HasValue)
+        {
+            studentQuery = studentQuery.Where(s => s.BranchId == null || s.BranchId == _currentUser.BranchId);
+        }
+
+        var teacherQuery = _db.Teachers.AsNoTracking()
+            .Where(t => t.TenantId == _currentUser.TenantId && t.IsActive);
+        if (_currentUser.BranchId.HasValue)
+        {
+            teacherQuery = teacherQuery.Where(t => t.BranchId == null || t.BranchId == _currentUser.BranchId);
+        }
+
+        int coachingCount = await studentQuery.CountAsync(s => s.IsCoachingStudent || s.BatchId != null);
+        int schoolCount = await studentQuery.CountAsync(s => s.IsSchoolStudent || s.ClassId != null);
+        int teacherCount = await teacherQuery.CountAsync();
+
+        var sUsed = await studentQuery.Where(s => !string.IsNullOrEmpty(s.BiometricUserId)).Select(s => s.BiometricUserId!).ToListAsync();
+        var tUsed = await teacherQuery.Where(t => !string.IsNullOrEmpty(t.BiometricUserId)).Select(t => t.BiometricUserId!).ToListAsync();
+        var usedIds = new HashSet<string>(sUsed.Concat(tUsed), StringComparer.OrdinalIgnoreCase);
+
+        var cat = (category ?? "all").Trim().ToLowerInvariant();
+        bool includeStudents = cat == "all" || cat == "school" || cat == "coaching";
+        bool includeTeachers = cat == "all" || cat == "teacher";
+
+        var students = new List<BiometricMappingPersonDto>();
+        if (includeStudents)
+        {
+            var sq = studentQuery;
+            if (cat == "school")
+            {
+                sq = sq.Where(s => s.IsSchoolStudent || s.ClassId != null);
+            }
+            else if (cat == "coaching")
+            {
+                sq = sq.Where(s => s.IsCoachingStudent || s.BatchId != null);
+            }
+
+            var rawStudents = await sq
+                .Include(s => s.Class)
+                .Include(s => s.Section)
+                .Include(s => s.Batch)
+                .OrderBy(s => s.StudentName)
+                .ToListAsync();
+
+            var batches = rawStudents.Where(s => s.BatchId != null)
+                .Select(s => s.Batch!)
+                .DistinctBy(b => b.Id)
+                .OrderBy(b => b.Name)
+                .ToList();
+            var batchIndexMap = batches.Select((b, idx) => new { b.Id, Index = idx + 1 }).ToDictionary(x => x.Id, x => x.Index);
+
+            for (int idx = 0; idx < rawStudents.Count; idx++)
+            {
+                var s = rawStudents[idx];
+                var roll = s.IsSchoolStudent && !string.IsNullOrEmpty(s.SchoolRollNumber)
+                    ? s.SchoolRollNumber
+                    : (!string.IsNullOrEmpty(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber);
+                var stream = s.IsSchoolStudent && s.IsCoachingStudent ? "Both" : (s.IsSchoolStudent ? "School" : "Coaching");
+
+                string suggested = "";
+                if (string.IsNullOrWhiteSpace(s.BiometricUserId))
+                {
+                    if (s.IsSchoolStudent)
+                    {
+                        int cCode = GetClassNumericCode(s.Class?.Name);
+                        int rNum = ExtractNumericRoll(roll, idx + 1);
+                        string candidate = $"{cCode}{rNum:D2}";
+                        int offset = 1;
+                        while (usedIds.Contains(candidate))
+                        {
+                            candidate = $"{cCode}{(rNum + offset):D2}";
+                            offset++;
+                        }
+                        suggested = candidate;
+                        usedIds.Add(suggested);
+                    }
+                    else if (s.IsCoachingStudent || s.BatchId != null)
+                    {
+                        int bIdx = s.BatchId != null && batchIndexMap.TryGetValue(s.BatchId.Value, out int bi) ? bi : 1;
+                        int bPrefix = 80 + (bIdx % 10);
+                        int rNum = ExtractNumericRoll(roll, idx + 1);
+                        string candidate = $"{bPrefix}{rNum:D2}";
+                        int offset = 1;
+                        while (usedIds.Contains(candidate))
+                        {
+                            candidate = $"{bPrefix}{(rNum + offset):D2}";
+                            offset++;
+                        }
+                        suggested = candidate;
+                        usedIds.Add(suggested);
+                    }
+                }
+
+                students.Add(new BiometricMappingPersonDto(
+                    s.Id,
+                    "Student",
+                    s.StudentName,
+                    roll ?? "",
+                    s.BiometricUserId,
+                    s.Batch?.Name,
+                    s.Class?.Name,
+                    s.Section?.Name,
+                    stream,
+                    suggested
+                ));
+            }
+        }
+
+        var teachers = new List<BiometricMappingPersonDto>();
+        if (includeTeachers)
+        {
+            var rawTeachers = await teacherQuery
+                .OrderBy(t => t.EmployeeCode)
+                .ThenBy(t => t.FullName)
+                .ToListAsync();
+
+            for (int idx = 0; idx < rawTeachers.Count; idx++)
+            {
+                var t = rawTeachers[idx];
+                string suggested = "";
+                if (string.IsNullOrWhiteSpace(t.BiometricUserId))
+                {
+                    int empDigits = ExtractNumericRoll(t.EmployeeCode, idx + 1);
+                    string candidate = (empDigits > 0 && empDigits < 1000) ? $"9{empDigits:D3}" : $"9{(idx + 1):D3}";
+                    int offset = 1;
+                    while (usedIds.Contains(candidate))
+                    {
+                        candidate = $"9{(idx + 1 + offset):D3}";
+                        offset++;
+                    }
+                    suggested = candidate;
+                    usedIds.Add(suggested);
+                }
+
+                teachers.Add(new BiometricMappingPersonDto(
+                    t.Id,
+                    "Teacher",
+                    t.FullName,
+                    t.EmployeeCode ?? "",
+                    t.BiometricUserId,
+                    null,
+                    null,
+                    null,
+                    null,
+                    suggested
+                ));
+            }
+        }
+
+        IEnumerable<BiometricMappingPersonDto> combined = students.Concat(teachers);
+
+        if (!string.IsNullOrWhiteSpace(searchName))
+        {
+            var nameTerm = searchName.Trim().ToLowerInvariant();
+            combined = combined.Where(x => x.Name != null && x.Name.ToLowerInvariant().Contains(nameTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchCode))
+        {
+            var codeTerm = searchCode.Trim().ToLowerInvariant();
+            combined = combined.Where(x => (x.Code ?? "").ToLowerInvariant().Contains(codeTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchGroup))
+        {
+            var groupTerm = searchGroup.Trim().ToLowerInvariant();
+            combined = combined.Where(x =>
+                (x.BatchName ?? "").ToLowerInvariant().Contains(groupTerm) ||
+                (x.ClassName ?? "").ToLowerInvariant().Contains(groupTerm) ||
+                (x.SectionName ?? "").ToLowerInvariant().Contains(groupTerm) ||
+                (x.PersonType == "Teacher" && "faculty staff teacher".Contains(groupTerm))
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(mappingStatus) && !mappingStatus.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            if (mappingStatus.Equals("mapped", StringComparison.OrdinalIgnoreCase))
+            {
+                combined = combined.Where(x => !string.IsNullOrEmpty(x.BiometricUserId));
+            }
+            else if (mappingStatus.Equals("unmapped", StringComparison.OrdinalIgnoreCase))
+            {
+                combined = combined.Where(x => string.IsNullOrEmpty(x.BiometricUserId));
+            }
+        }
+
+        var isDesc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+        var sortKey = (sortBy ?? "name").Trim().ToLowerInvariant();
+
+        combined = (sortKey, isDesc) switch
+        {
+            ("name", false) => combined.OrderBy(x => x.Name),
+            ("name", true) => combined.OrderByDescending(x => x.Name),
+            ("code", false) => combined.OrderBy(x => x.Code),
+            ("code", true) => combined.OrderByDescending(x => x.Code),
+            ("group", false) => combined.OrderBy(x => x.BatchName ?? x.ClassName ?? (x.PersonType == "Teacher" ? "Staff" : "")),
+            ("group", true) => combined.OrderByDescending(x => x.BatchName ?? x.ClassName ?? (x.PersonType == "Teacher" ? "Staff" : "")),
+            ("biometricid", false) => combined.OrderBy(x => x.BiometricUserId ?? x.SuggestedBiometricId ?? "ZZZ"),
+            ("biometricid", true) => combined.OrderByDescending(x => x.BiometricUserId ?? x.SuggestedBiometricId ?? ""),
+            _ => isDesc ? combined.OrderByDescending(x => x.Name) : combined.OrderBy(x => x.Name)
+        };
+
+        var totalCount = combined.Count();
+        var totalPages = pageSize > 0 ? (int)Math.Ceiling(totalCount / (double)pageSize) : 1;
+        var pagedItems = combined.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        return Ok(new BiometricMappingPagedResultDto(
+            pagedItems,
+            totalCount,
+            page,
+            pageSize,
+            totalPages,
+            coachingCount,
+            schoolCount,
+            teacherCount
+        ));
+    }
+
     [HttpPut("settings")]
     public async Task<ActionResult<AttendanceSettingsDto>> UpdateSettings([FromBody] AttendanceSettingsDto dto)
     {
@@ -598,6 +836,93 @@ public class AttendanceController : ControllerBase
 
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpPost("mappings/enroll-admin")]
+    public async Task<IActionResult> EnrollAdminAsStaff()
+    {
+        if (!await HasPermissionAsync(MappingRoute, IMSERP.API.Services.MenuPermissionOperation.Edit))
+            return Forbid();
+
+        var userId = _currentUser.UserId;
+        if (userId == Guid.Empty)
+            return Unauthorized(new { message = "User session expired or not authenticated." });
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == _currentUser.TenantId);
+        if (user == null)
+            return NotFound(new { message = "Administrator user account not found." });
+
+        // Check if an employee record is already linked to this User or has same phone
+        var existingStaff = await _db.Teachers.FirstOrDefaultAsync(t => t.TenantId == _currentUser.TenantId && (t.UserId == user.Id || (!string.IsNullOrEmpty(user.PhoneNumber) && t.PhoneNumber == user.PhoneNumber)));
+
+        if (existingStaff != null)
+        {
+            existingStaff.UserId = user.Id;
+            existingStaff.IsActive = true;
+            if (string.IsNullOrWhiteSpace(existingStaff.BiometricUserId))
+            {
+                var used = await _db.Teachers.Where(t => t.TenantId == _currentUser.TenantId && !string.IsNullOrEmpty(t.BiometricUserId)).Select(t => t.BiometricUserId!).ToHashSetAsync();
+                var sUsed = await _db.Students.Where(s => s.TenantId == _currentUser.TenantId && !string.IsNullOrEmpty(s.BiometricUserId)).Select(s => s.BiometricUserId!).ToListAsync();
+                foreach (var s in sUsed) used.Add(s);
+                int num = 9001;
+                while (used.Contains(num.ToString())) num++;
+                existingStaff.BiometricUserId = num.ToString();
+            }
+            await _db.SaveChangesAsync();
+            return Ok(new { 
+                message = $"{user.FullName} is already linked as Staff ({existingStaff.Designation}) with Biometric Device ID {existingStaff.BiometricUserId}.",
+                personId = existingStaff.Id,
+                biometricUserId = existingStaff.BiometricUserId
+            });
+        }
+
+        // Generate next Employee Code
+        var teacherCount = await _db.Teachers.CountAsync(t => t.TenantId == _currentUser.TenantId);
+        var empCode = $"ADM-{(teacherCount + 1):D3}";
+
+        // Generate unique BiometricUserId starting at 9001
+        var allUsed = await _db.Teachers.Where(t => t.TenantId == _currentUser.TenantId && !string.IsNullOrEmpty(t.BiometricUserId)).Select(t => t.BiometricUserId!).ToHashSetAsync();
+        var allStudentUsed = await _db.Students.Where(s => s.TenantId == _currentUser.TenantId && !string.IsNullOrEmpty(s.BiometricUserId)).Select(s => s.BiometricUserId!).ToListAsync();
+        foreach (var s in allStudentUsed) allUsed.Add(s);
+
+        int candidateNum = 9001;
+        while (allUsed.Contains(candidateNum.ToString())) candidateNum++;
+        string bioId = candidateNum.ToString();
+
+        var phone = !string.IsNullOrWhiteSpace(user.PhoneNumber) ? user.PhoneNumber.Trim() : "9999999999";
+        if (await _db.Teachers.AnyAsync(t => t.TenantId == _currentUser.TenantId && t.PhoneNumber == phone))
+        {
+            phone = "9" + new Random().Next(100000000, 999999999).ToString();
+        }
+
+        var newStaff = new Teacher
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _currentUser.TenantId,
+            BranchId = user.BranchId ?? _currentUser.BranchId,
+            UserId = user.Id,
+            EmployeeCode = empCode,
+            FullName = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName.Trim() : "Administrator",
+            PhoneNumber = phone,
+            Email = user.Email?.Trim(),
+            Designation = "Principal / Administrator",
+            Department = "Administration & Management",
+            StaffType = StaffType.NonTeaching,
+            Gender = Gender.Male,
+            JoiningDate = DateTime.UtcNow,
+            IsActive = true,
+            BiometricUserId = bioId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.Teachers.Add(newStaff);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { 
+            message = $"Successfully enrolled {newStaff.FullName} (Principal / Administrator) as Staff with Biometric Device ID {bioId}.",
+            personId = newStaff.Id,
+            biometricUserId = bioId
+        });
     }
 
     public record AutoGenerateMappingRequest(string? Category = "all", bool OverwriteExisting = false);

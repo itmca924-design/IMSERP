@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
-
-import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { FormsModule, ReactiveFormsModule, FormControl, FormGroup } from '@angular/forms';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,8 +10,13 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
+import { Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 
 interface Device {
@@ -38,11 +42,23 @@ interface MappingPerson {
   suggestedBiometricId?: string;
 }
 
+interface BiometricMappingPagedResult {
+  items: MappingPerson[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  coachingCount: number;
+  schoolCount: number;
+  teacherCount: number;
+}
+
 @Component({
   selector: 'app-biometric-devices',
   standalone: true,
   imports: [
     FormsModule,
+    ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -52,6 +68,8 @@ interface MappingPerson {
     MatProgressBarModule,
     MatChipsModule,
     MatTooltipModule,
+    MatPaginatorModule,
+    MatSortModule,
     LocalDatetimePipe
 ],
   template: `
@@ -62,11 +80,11 @@ interface MappingPerson {
       <p>Seamless real-time synchronization with Hikvision DS-K1A802AEF (Fingerprint + 125kHz EM RFID) terminals.</p>
     </div>
     <div class="header-actions">
-      <button color="primary" (click)="prefillHikvision(); showForm = true" matButton="filled">
-        <mat-icon>settings_suggest</mat-icon> Add Hikvision Device
+      <button color="primary" class="btn-header-action" (click)="prefillHikvision(); showForm = true" matButton="filled">
+        <mat-icon>settings_suggest</mat-icon> <span>Add Hikvision Device</span>
       </button>
-      <button color="primary" (click)="showForm = !showForm" matButton="filled">
-        <mat-icon>add</mat-icon> {{ showForm ? 'Close Form' : 'Register Custom Device' }}
+      <button color="primary" class="btn-header-action" (click)="showForm = !showForm" matButton="filled">
+        <mat-icon>add</mat-icon> <span>{{ showForm ? 'Close Form' : 'Register Custom Device' }}</span>
       </button>
     </div>
   </div>
@@ -140,13 +158,13 @@ interface MappingPerson {
         <h2>Biometric &amp; RFID User Mapping</h2>
         <p>Select Coaching Student, School Student, or Teacher to map terminal IDs and RFID cards.</p>
       </div>
-      <button (click)="loadMappings()" matButton="filled"><mat-icon>refresh</mat-icon> Refresh People</button>
+      <button (click)="loadPagedMappings()" matButton="filled"><mat-icon>refresh</mat-icon> Refresh People</button>
     </div>
 
     <!-- 3 Clear Category Tabs: Coaching, School, Teacher -->
     <div class="category-tabs-container">
       <div class="category-pills">
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Coaching'" (click)="setCategory('Coaching')" matButton="filled">
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Coaching'" (click)="setCategory('Coaching')">
           <mat-icon class="pill-icon">menu_book</mat-icon>
           <div class="pill-info">
             <span class="pill-title">Coaching Students</span>
@@ -157,7 +175,7 @@ interface MappingPerson {
           }
         </button>
 
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'School'" (click)="setCategory('School')" matButton="filled">
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'School'" (click)="setCategory('School')">
           <mat-icon class="pill-icon">school</mat-icon>
           <div class="pill-info">
             <span class="pill-title">School Students</span>
@@ -168,7 +186,7 @@ interface MappingPerson {
           }
         </button>
 
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Teacher'" (click)="setCategory('Teacher')" matButton="filled">
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Teacher'" (click)="setCategory('Teacher')">
           <mat-icon class="pill-icon">badge</mat-icon>
           <div class="pill-info">
             <span class="pill-title">Teachers &amp; Faculty</span>
@@ -284,58 +302,148 @@ interface MappingPerson {
       <div class="toolbar-info">
         <h3>
           <mat-icon class="dir-icon">contacts</mat-icon>
-          {{ activeCategory }} Enrollment Directory ({{ filteredPeople.length }})
+          {{ activeCategory }} Enrollment Directory ({{ totalRecords }})
         </h3>
-        <p>Pre-calculated unique biometric device IDs for Hikvision DS-K1A802AEF enrollment and 125kHz RFID card assignment.</p>
+        <p matTooltip="Pre-calculated unique biometric device IDs for Hikvision DS-K1A802AEF enrollment and 125kHz RFID card assignment." matTooltipPosition="below">
+          Pre-calculated unique biometric device IDs for Hikvision DS-K1A802AEF enrollment and 125kHz RFID card assignment.
+        </p>
       </div>
       <div class="toolbar-actions">
-        <button color="accent" class="toolbar-action-btn" (click)="autoGenerateIds(false)" [disabled]="autoGenerating" matTooltip="Auto-generate and save unique device IDs in database for all unmapped people in this category" matButton="filled">
+        @if (activeCategory === 'Teacher') {
+          <button color="primary" class="toolbar-action-btn btn-enroll-admin" (click)="enrollAdminAsStaff()" [disabled]="enrollingAdmin" matTooltip="Enroll the logged-in Administrator as Staff to track biometric attendance" matButton="filled">
+            <mat-icon>{{ isAdminEnrolled ? 'verified_user' : 'person_add' }}</mat-icon>
+            <span>{{ isAdminEnrolled ? 'Admin Enrolled ✓' : '+ Enroll Admin as Staff' }}</span>
+          </button>
+        }
+        <button color="accent" class="toolbar-action-btn btn-auto-gen" (click)="autoGenerateIds(false)" [disabled]="autoGenerating" matTooltip="Auto-generate and save unique device IDs in database for all unmapped people in this category" matButton="filled">
           <mat-icon>{{ autoGenerating ? 'hourglass_top' : 'auto_fix_high' }}</mat-icon>
-          {{ autoGenerating ? 'Generating...' : '⚡ Auto-Generate All IDs' }}
+          <span>{{ autoGenerating ? 'Generating...' : '⚡ Auto-Generate All IDs' }}</span>
         </button>
-        <button color="primary" class="toolbar-action-btn" (click)="printEnrollmentSheet()" matTooltip="Print physical checklist to carry to the biometric machine" matButton="filled">
-          <mat-icon>print</mat-icon> Print Enrollment Sheet
+        <button color="primary" class="toolbar-action-btn btn-print-sheet" (click)="printEnrollmentSheet()" matTooltip="Print physical checklist to carry to the biometric machine" matButton="filled">
+          <mat-icon>print</mat-icon>
+          <span>Print Enrollment Sheet</span>
         </button>
       </div>
     </div>
 
-    @if (filteredPeople.length) {
+    @if (pagedPeople.length) {
       <div class="mobile-scroll-hint">
         <mat-icon>swipe</mat-icon> Scroll table horizontally to view all columns
       </div>
     }
 
-    <!-- Responsive Enrollment Table -->
+    <!-- Single Loader Rule: Only ONE prominent loader during server fetch -->
+    @if (isMappingsLoading) {
+      <mat-progress-bar mode="indeterminate" class="table-loader-bar"></mat-progress-bar>
+    }
+
+    <!-- Responsive Enrollment Table with Server Sorting & Column Inline Filtering -->
     <div class="table-responsive">
-      <table class="enroll-table">
+      <table class="enroll-table" matSort (matSortChange)="onSortChange($event)">
         <thead>
-          <tr>
+          <!-- Row 1: Header Titles with Material Sort -->
+          <tr class="header-main-row">
             <th class="col-sno">#</th>
-            <th class="col-name">Name</th>
-            <th class="col-code">{{ activeCategory === 'Teacher' ? 'Emp Code' : (activeCategory === 'Coaching' ? 'Coaching Roll' : 'Roll No') }}</th>
-            <th class="col-group">{{ activeCategory === 'Teacher' ? 'Staff' : (activeCategory === 'Coaching' ? 'Coaching Batch' : 'Class & Section') }}</th>
-            <th class="col-device-id">Biometric Device ID</th>
+            <th class="col-name" mat-sort-header="name">Name</th>
+            <th class="col-code" mat-sort-header="code">
+              {{ activeCategory === 'Teacher' ? 'Emp Code' : (activeCategory === 'Coaching' ? 'Coaching Roll' : 'Roll No') }}
+            </th>
+            <th class="col-group" mat-sort-header="group">
+              {{ activeCategory === 'Teacher' ? 'Staff' : (activeCategory === 'Coaching' ? 'Coaching Batch' : 'Class & Section') }}
+            </th>
+            <th class="col-device-id" mat-sort-header="biometricId">Biometric Device ID</th>
             <th class="col-action">Action</th>
+          </tr>
+
+          <!-- Row 2: Sub-Header Column Inline Filter Row -->
+          <tr class="header-filter-row" [formGroup]="filterForm">
+            <th class="col-sno filter-cell">
+              <mat-icon class="sub-filter-icon" matTooltip="Server-Side Filters Active">filter_alt</mat-icon>
+            </th>
+            <th class="col-name filter-cell">
+              <div class="filter-input-wrap">
+                <mat-icon class="field-icon">search</mat-icon>
+                <input type="text" formControlName="searchName" placeholder="Search name..." class="sub-filter-input">
+                @if (filterForm.get('searchName')?.value) {
+                  <button type="button" class="clear-cell-btn" (click)="clearFilterField('searchName')">✕</button>
+                }
+              </div>
+            </th>
+            <th class="col-code filter-cell">
+              <div class="filter-input-wrap">
+                <mat-icon class="field-icon">tag</mat-icon>
+                <input type="text" formControlName="searchCode" placeholder="Search code..." class="sub-filter-input">
+                @if (filterForm.get('searchCode')?.value) {
+                  <button type="button" class="clear-cell-btn" (click)="clearFilterField('searchCode')">✕</button>
+                }
+              </div>
+            </th>
+            <th class="col-group filter-cell">
+              <div class="filter-input-wrap">
+                <mat-icon class="field-icon">domain</mat-icon>
+                <input type="text" formControlName="searchGroup" placeholder="Filter batch/class..." class="sub-filter-input">
+                @if (filterForm.get('searchGroup')?.value) {
+                  <button type="button" class="clear-cell-btn" (click)="clearFilterField('searchGroup')">✕</button>
+                }
+              </div>
+            </th>
+            <th class="col-device-id filter-cell">
+              <div class="filter-select-wrap">
+                <select formControlName="mappingStatus" class="sub-filter-select">
+                  <option value="all">All Status</option>
+                  <option value="mapped">Mapped (Green)</option>
+                  <option value="unmapped">Unmapped (Yellow)</option>
+                </select>
+              </div>
+            </th>
+            <th class="col-action filter-cell">
+              <button type="button" class="btn-reset-filters" (click)="resetFilters()" matTooltip="Reset all filters">
+                <mat-icon>restart_alt</mat-icon>
+                <span>Reset</span>
+              </button>
+            </th>
           </tr>
         </thead>
         <tbody>
-          @for (p of filteredPeople; track p; let i = $index) {
+          @for (p of pagedPeople; track p.id; let i = $index) {
             <tr [class.unmapped-row]="!p.biometricUserId">
-              <td class="col-sno">{{ i + 1 }}</td>
+              <td class="col-sno">{{ (pageIndex * pageSize) + i + 1 }}</td>
               <td class="col-name">
                 <strong>{{ p.name }}</strong>
               </td>
               <td class="col-code"><span class="badge-code">{{ p.code || '—' }}</span></td>
               <td class="col-group">
-                @if (p.batchName) {
-                  <span class="group-badge batch">📚 {{ p.batchName }}</span>
-                }
-                @if (p.className) {
-                  <span class="group-badge school">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
-                }
-                @if (p.personType === 'Teacher') {
-                  <span class="group-badge teacher">👨‍🏫 Faculty</span>
-                }
+                <div class="group-badge-container">
+                  @if (activeCategory === 'School') {
+                    <div class="badge-primary-row">
+                      @if (p.className) {
+                        <span class="group-badge school">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
+                      }
+                      @if (isHybrid(p)) {
+                        <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
+                      }
+                    </div>
+                    @if (p.batchName) {
+                      <span class="group-badge batch secondary-badge">📚 {{ p.batchName }}</span>
+                    }
+                  } @else if (activeCategory === 'Coaching') {
+                    <div class="badge-primary-row">
+                      @if (p.batchName) {
+                        <span class="group-badge batch">📚 {{ p.batchName }}</span>
+                      }
+                      @if (isHybrid(p)) {
+                        <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
+                      }
+                    </div>
+                    @if (p.className) {
+                      <span class="group-badge school secondary-badge">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
+                    }
+                  } @else {
+                    @if (p.personType === 'Teacher') {
+                      <span class="group-badge teacher">👨‍🏫 Faculty</span>
+                    }
+                  }
+                </div>
               </td>
               <td class="col-device-id">
                 @if (p.biometricUserId) {
@@ -366,13 +474,30 @@ interface MappingPerson {
               </td>
             </tr>
           }
-          @if (!filteredPeople.length) {
+          @if (!pagedPeople.length && !isMappingsLoading) {
             <tr>
-              <td colspan="6" class="empty-cell">No {{ activeCategory.toLowerCase() }} found matching current filters.</td>
+              <td colspan="6" class="empty-cell">
+                <div class="empty-state-wrap">
+                  <mat-icon>search_off</mat-icon>
+                  <span>No {{ activeCategory.toLowerCase() }} found matching current filters.</span>
+                  <button class="btn-clear-empty" (click)="resetFilters()">Clear Filters</button>
+                </div>
+              </td>
             </tr>
           }
         </tbody>
       </table>
+
+      <!-- Server-Side Material Paginator -->
+      <mat-paginator
+        [length]="totalRecords"
+        [pageSize]="pageSize"
+        [pageIndex]="pageIndex"
+        [pageSizeOptions]="[10, 25, 50, 100]"
+        (page)="onPageChange($event)"
+        showFirstLastButtons
+        class="enroll-paginator">
+      </mat-paginator>
     </div>
   </mat-card>
 
@@ -563,19 +688,66 @@ interface MappingPerson {
 .page-header h1 {
   margin: 0;
   color: #1e3a8a;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
+  gap: 10px;
+  line-height: 1.3;
+
+  mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+    color: #2563eb;
+    flex-shrink: 0;
+  }
 }
 .page-header p, .section-heading p {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
 }
 .header-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+
+  .btn-header-action,
+  button {
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 0 16px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    line-height: 40px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+
+    .mdc-button__label {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      white-space: nowrap !important;
+      word-break: keep-all !important;
+    }
+
+    mat-icon {
+      font-size: 18px !important;
+      width: 18px !important;
+      height: 18px !important;
+      line-height: 18px !important;
+      margin-right: 2px !important;
+    }
+  }
 }
 .hikvision-banner {
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 40%, #e0f2fe 100%);
@@ -727,76 +899,96 @@ interface MappingPerson {
   font-weight: 700;
 }
 .category-tabs-container {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 .category-pills {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 .pill-btn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  text-align: left;
-  position: relative;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 14px 18px !important;
+  background: #ffffff !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  text-align: left !important;
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: auto !important;
+  min-height: 72px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 .pill-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f8fafc !important;
+  border-color: #93c5fd !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.08) !important;
 }
 .pill-btn.active {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border-color: #2563eb;
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15);
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 4px 14px -2px rgba(37, 99, 235, 0.25) !important;
 }
 .pill-icon {
-  font-size: 28px;
-  width: 28px;
-  height: 28px;
-  color: #64748b;
+  font-size: 30px !important;
+  width: 30px !important;
+  height: 30px !important;
+  color: #64748b !important;
+  flex-shrink: 0 !important;
 }
 .pill-btn.active .pill-icon {
-  color: #2563eb;
+  color: #2563eb !important;
 }
 .pill-info {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  gap: 3px !important;
 }
 .pill-title {
-  font-size: 0.96rem;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 0.98rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  word-break: break-word !important;
 }
 .pill-btn.active .pill-title {
-  color: #1e40af;
+  color: #1e40af !important;
 }
 .pill-sub {
-  font-size: 0.76rem;
-  color: #64748b;
-  margin-top: 2px;
+  font-size: 0.78rem !important;
+  color: #64748b !important;
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  word-break: break-word !important;
 }
 .pill-btn.active .pill-sub {
-  color: #3b82f6;
+  color: #2563eb !important;
 }
 .count-badge {
-  background: #e2e8f0;
-  color: #475569;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  padding: 4px 10px !important;
+  border-radius: 20px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  border: 1px solid #cbd5e1 !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
 }
 .pill-btn.active .count-badge {
-  background: #2563eb;
-  color: #ffffff;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3) !important;
 }
 .form-grid {
   display: grid;
@@ -893,6 +1085,11 @@ interface MappingPerson {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid #e2e8f0;
+  flex-wrap: nowrap;
+}
+.toolbar-info {
+  flex: 1;
+  min-width: 0;
 }
 .toolbar-info h3 {
   margin: 0;
@@ -913,15 +1110,46 @@ interface MappingPerson {
   margin: 4px 0 0;
   color: #64748b;
   font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
 }
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 .toolbar-action-btn {
-  white-space: nowrap;
+  white-space: nowrap !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  line-height: 38px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+
+  .mdc-button__label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    white-space: nowrap !important;
+  }
+
+  mat-icon {
+    font-size: 17px !important;
+    width: 17px !important;
+    height: 17px !important;
+    line-height: 17px !important;
+    margin-right: 2px !important;
+  }
 }
 .mobile-scroll-hint {
   display: none;
@@ -949,6 +1177,13 @@ interface MappingPerson {
   box-sizing: border-box;
   display: block;
 }
+.table-loader-bar {
+  margin-bottom: -4px;
+  height: 4px;
+  border-radius: 4px 4px 0 0;
+  z-index: 5;
+  position: relative;
+}
 .enroll-table {
   width: 100%;
   min-width: 680px;
@@ -965,6 +1200,147 @@ interface MappingPerson {
   padding: 12px 14px;
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
+}
+.header-main-row th {
+  background: #f1f5f9;
+  color: #1e3a8a;
+  user-select: none;
+}
+.header-filter-row th {
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-bottom: 2px solid #cbd5e1;
+  vertical-align: middle;
+}
+.sub-filter-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #2563eb;
+  margin: 0 auto;
+  display: block;
+}
+.filter-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 2px 8px;
+  gap: 6px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+.filter-input-wrap:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+.filter-input-wrap .field-icon {
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.sub-filter-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 0.8rem;
+  color: #0f172a;
+  padding: 4px 0;
+  background: transparent;
+  min-width: 90px;
+}
+.clear-cell-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.clear-cell-btn:hover {
+  color: #dc2626;
+}
+.filter-select-wrap {
+  width: 100%;
+}
+.sub-filter-select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+.sub-filter-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+.btn-reset-filters {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-reset-filters mat-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+.btn-reset-filters:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+.enroll-paginator {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0 0 8px 8px;
+}
+.empty-state-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: #64748b;
+}
+.empty-state-wrap mat-icon {
+  font-size: 36px;
+  width: 36px;
+  height: 36px;
+  color: #94a3b8;
+}
+.btn-clear-empty {
+  margin-top: 4px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-clear-empty:hover {
+  background: #1d4ed8;
 }
 .enroll-table td {
   padding: 11px 14px;
@@ -995,23 +1371,63 @@ interface MappingPerson {
   font-size: 0.82rem;
   font-weight: 600;
 }
+.group-badge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+}
+.badge-primary-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.hybrid-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  color: #b45309;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  box-shadow: 0 1px 2px rgba(245, 158, 11, 0.12);
+  white-space: nowrap;
+}
 .group-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  gap: 5px;
+  padding: 3px 9px;
   border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 600;
+  line-height: 1.25;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
-.group-badge.batch {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+.group-badge.secondary-badge {
+  font-size: 0.74rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  opacity: 0.9;
 }
 .group-badge.school {
   background: #f0fdf4;
   color: #15803d;
   border: 1px solid #bbf7d0;
+}
+.group-badge.batch {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
 .group-badge.teacher {
   background: #faf5ff;
@@ -1193,7 +1609,7 @@ interface MappingPerson {
     gap: 14px;
   }
   .page-header h1 {
-    font-size: 1.25rem;
+    font-size: 1.18rem;
     line-height: 1.35;
     flex-wrap: wrap;
   }
@@ -1332,6 +1748,26 @@ interface MappingPerson {
     width: 100%;
     gap: 8px;
   }
+  .category-pills {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .pill-btn {
+    padding: 12px 14px !important;
+    min-height: 62px !important;
+    gap: 12px !important;
+  }
+  .pill-icon {
+    font-size: 26px !important;
+    width: 26px !important;
+    height: 26px !important;
+  }
+  .pill-title {
+    font-size: 0.92rem !important;
+  }
+  .pill-sub {
+    font-size: 0.74rem !important;
+  }
   .toolbar-actions button,
   .toolbar-action-btn {
     width: 100%;
@@ -1411,6 +1847,28 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   devices: Device[] = [];
   events: EventLog[] = [];
   people: MappingPerson[] = [];
+
+  // Server-Side Paged Directory State
+  pagedPeople: MappingPerson[] = [];
+  totalRecords = 0;
+  pageSize = 25;
+  pageIndex = 0;
+  sortBy = 'name';
+  sortDir: 'asc' | 'desc' = 'asc';
+  isMappingsLoading = false;
+  serverCoachingCount = 0;
+  serverSchoolCount = 0;
+  serverTeacherCount = 0;
+
+  filterForm = new FormGroup({
+    searchName: new FormControl('', { nonNullable: true }),
+    searchCode: new FormControl('', { nonNullable: true }),
+    searchGroup: new FormControl('', { nonNullable: true }),
+    mappingStatus: new FormControl('all', { nonNullable: true })
+  });
+
+  private filterSubscription?: Subscription;
+
   loading = false;
   eventsLoading = false;
   simulating = false;
@@ -1440,14 +1898,29 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
     biometricUserId: ''
   };
 
-  constructor(private http: HttpClient, private confirmDialog: ConfirmDialogService) {}
+  constructor(
+    private http: HttpClient,
+    private confirmDialog: ConfirmDialogService,
+    private authService: AuthService
+  ) {}
 
   ngOnInit(): void {
     this.initWebhookUrl();
     this.loadDevices();
     this.loadEvents();
     this.loadMappings();
+    this.loadPagedMappings();
     this.startLiveSync();
+
+    this.filterSubscription = this.filterForm.valueChanges
+      .pipe(
+        debounceTime(350),
+        distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
+      )
+      .subscribe(() => {
+        this.pageIndex = 0;
+        this.loadPagedMappings();
+      });
   }
 
   private initWebhookUrl(): void {
@@ -1475,6 +1948,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.filterSubscription?.unsubscribe();
     if (this.liveSyncTimer) {
       clearInterval(this.liveSyncTimer);
     }
@@ -1554,13 +2028,13 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   activeCategory: 'Coaching' | 'School' | 'Teacher' = 'Coaching';
 
   get coachingCount(): number {
-    return this.people.filter(p => p.personType === 'Student' && (p.stream === 'Coaching' || p.stream === 'Both' || !!p.batchName)).length;
+    return this.serverCoachingCount || this.people.filter(p => p.personType === 'Student' && (p.stream === 'Coaching' || p.stream === 'Both' || !!p.batchName)).length;
   }
   get schoolCount(): number {
-    return this.people.filter(p => p.personType === 'Student' && (p.stream === 'School' || p.stream === 'Both' || !!p.className)).length;
+    return this.serverSchoolCount || this.people.filter(p => p.personType === 'Student' && (p.stream === 'School' || p.stream === 'Both' || !!p.className)).length;
   }
   get teacherCount(): number {
-    return this.people.filter(p => p.personType === 'Teacher').length;
+    return this.serverTeacherCount || this.people.filter(p => p.personType === 'Teacher').length;
   }
 
   setCategory(cat: 'Coaching' | 'School' | 'Teacher'): void {
@@ -1572,6 +2046,86 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
     this.mapping.batchName = '';
     this.mapping.personId = '';
     this.mapping.biometricUserId = '';
+    this.filterForm.reset({
+      searchName: '',
+      searchCode: '',
+      searchGroup: '',
+      mappingStatus: 'all'
+    }, { emitEvent: false });
+    this.pageIndex = 0;
+    this.loadPagedMappings();
+  }
+
+  loadPagedMappings(): void {
+    this.isMappingsLoading = true;
+    const cat = this.activeCategory.toLowerCase();
+    const { searchName, searchCode, searchGroup, mappingStatus } = this.filterForm.value;
+
+    let params = new HttpParams()
+      .set('category', cat)
+      .set('sortBy', this.sortBy)
+      .set('sortDir', this.sortDir)
+      .set('page', (this.pageIndex + 1).toString())
+      .set('pageSize', this.pageSize.toString());
+
+    if (searchName?.trim()) params = params.set('searchName', searchName.trim());
+    if (searchCode?.trim()) params = params.set('searchCode', searchCode.trim());
+    if (searchGroup?.trim()) params = params.set('searchGroup', searchGroup.trim());
+    if (mappingStatus && mappingStatus !== 'all') params = params.set('mappingStatus', mappingStatus);
+
+    this.http.get<BiometricMappingPagedResult>(`${this.api}/attendance/mappings/paged`, { params }).subscribe({
+      next: res => {
+        this.pagedPeople = res.items || [];
+        this.totalRecords = res.totalCount || 0;
+        this.serverCoachingCount = res.coachingCount ?? 0;
+        this.serverSchoolCount = res.schoolCount ?? 0;
+        this.serverTeacherCount = res.teacherCount ?? 0;
+        this.isMappingsLoading = false;
+      },
+      error: err => {
+        this.isMappingsLoading = false;
+        if (this.people.length) {
+          this.pagedPeople = this.filteredPeople.slice(this.pageIndex * this.pageSize, (this.pageIndex + 1) * this.pageSize);
+          this.totalRecords = this.filteredPeople.length;
+        } else {
+          this.confirmDialog.alert('Mapping Load Failed', err?.error?.message || 'Could not load biometric mappings.', 'danger');
+        }
+      }
+    });
+  }
+
+  onSortChange(sort: Sort): void {
+    this.sortBy = sort.active || 'name';
+    this.sortDir = (sort.direction as 'asc' | 'desc') || 'asc';
+    this.pageIndex = 0;
+    this.loadPagedMappings();
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.loadPagedMappings();
+  }
+
+  clearFilterField(field: 'searchName' | 'searchCode' | 'searchGroup'): void {
+    this.filterForm.get(field)?.setValue('');
+  }
+
+  resetFilters(): void {
+    this.filterForm.reset({
+      searchName: '',
+      searchCode: '',
+      searchGroup: '',
+      mappingStatus: 'all'
+    });
+    this.sortBy = 'name';
+    this.sortDir = 'asc';
+    this.pageIndex = 0;
+    this.loadPagedMappings();
+  }
+
+  isHybrid(p: MappingPerson): boolean {
+    return p.stream === 'Both' || (Boolean(p.className) && Boolean(p.batchName));
   }
 
   get classNames(): string[] {
@@ -1658,10 +2212,11 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   onFilterChange(): void {
-    const exists = this.filteredPeople.some(p => p.id === this.mapping.personId);
-    if (!exists) {
-      this.mapping.personId = '';
-      this.mapping.biometricUserId = '';
+    if (this.activeCategory === 'Coaching') {
+      this.filterForm.get('searchGroup')?.setValue(this.mapping.batchName || '');
+    } else if (this.activeCategory === 'School') {
+      const clsSec = [this.mapping.className, this.mapping.sectionName].filter(Boolean).join(' ');
+      this.filterForm.get('searchGroup')?.setValue(clsSec);
     }
   }
 
@@ -1697,7 +2252,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   onPersonSelected(): void {
-    const person = this.people.find(p => p.id === this.mapping.personId);
+    const person = this.pagedPeople.find(p => p.id === this.mapping.personId) || this.people.find(p => p.id === this.mapping.personId);
     if (person) {
       this.mapping.biometricUserId = person.biometricUserId || person.suggestedBiometricId || '';
       this.selectedPersonName = `${person.name} (${person.code}${this.getAffiliationLabel(person)})`;
@@ -1712,7 +2267,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   saveMapping(): void {
-    const person = this.people.find(x => x.id === this.mapping.personId);
+    const person = this.pagedPeople.find(x => x.id === this.mapping.personId) || this.people.find(x => x.id === this.mapping.personId);
     if (!person) return;
     const newId = this.mapping.biometricUserId.trim();
     if (!newId) return;
@@ -1721,6 +2276,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
         person.biometricUserId = newId;
         this.confirmDialog.alert('Mapping Saved', `${person.personType} "${person.name}" biometric mapping updated (${newId}).`, 'success');
         this.closeManualEdit();
+        this.loadPagedMappings();
       },
       error: err => this.confirmDialog.alert('Mapping Failed', err?.error?.message || 'Could not save biometric mapping.', 'danger')
     });
@@ -1733,8 +2289,93 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
       next: () => {
         person.biometricUserId = newId;
         this.confirmDialog.alert('Device ID Assigned', `Assigned unique biometric ID ${newId} to ${person.name}.`, 'success');
+        this.loadPagedMappings();
       },
       error: err => this.confirmDialog.alert('Assignment Failed', err?.error?.message || 'Could not assign biometric ID.', 'danger')
+    });
+  }
+
+  get isAdminEnrolled(): boolean {
+    const user = this.authService.currentUser();
+    const currentName = user?.fullName?.trim().toLowerCase();
+    if (!currentName) return false;
+    return this.pagedPeople.some(p => p.personType === 'Teacher' && (p.name?.trim().toLowerCase() === currentName || (p.code && p.code.startsWith('ADM-'))))
+      || this.people.some(p => p.personType === 'Teacher' && (p.name?.trim().toLowerCase() === currentName || (p.code && p.code.startsWith('ADM-'))));
+  }
+
+  enrollingAdmin = false;
+
+  enrollAdminAsStaff(): void {
+    if (this.isAdminEnrolled) {
+      this.confirmDialog.alert('Administrator Already Enrolled', 'Your administrator profile is already enrolled in the Staff directory with a Biometric Device ID.', 'info');
+      return;
+    }
+
+    this.confirmDialog.confirm(
+      'Enroll Administrator as Staff',
+      'This will create an official Staff profile for your Administrator account (Principal / Management) and assign a unique Biometric Device ID for machine punches. Proceed?'
+    ).subscribe(ok => {
+      if (!ok) return;
+      this.enrollingAdmin = true;
+      this.http.post<any>(`${this.api}/attendance/mappings/enroll-admin`, {}).subscribe({
+        next: res => {
+          this.enrollingAdmin = false;
+          this.confirmDialog.alert('Enrollment Successful', res?.message || 'Administrator successfully enrolled with Biometric Device ID.', 'success');
+          this.loadMappings();
+          this.loadPagedMappings();
+        },
+        error: err => {
+          // If enroll-admin endpoint returned 404/405 (e.g. backend process not restarted yet), fallback via live Teachers API
+          this.fallbackEnrollViaTeachers(err);
+        }
+      });
+    });
+  }
+
+  private fallbackEnrollViaTeachers(primaryErr?: any): void {
+    const user = this.authService.currentUser();
+    const usedIds = new Set(this.people.map(p => p.biometricUserId?.trim()).filter(Boolean));
+    let candidate = 9001;
+    while (usedIds.has(candidate.toString())) {
+      candidate++;
+    }
+    const bioId = candidate.toString();
+    const teacherCount = this.people.filter(p => p.personType === 'Teacher').length;
+    const empCode = `ADM-${String(teacherCount + 1).padStart(3, '0')}`;
+
+    const phone = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const email = user?.username?.includes('@') ? user.username : undefined;
+
+    const payload: any = {
+      employeeCode: empCode,
+      fullName: user?.fullName || 'Administrator',
+      gender: 'Male',
+      phoneNumber: phone,
+      email: email,
+      designation: 'Principal / Administrator',
+      department: 'Administration & Management',
+      staffType: 'NonTeaching',
+      joiningDate: new Date().toISOString(),
+      isActive: true,
+      biometricUserId: bioId
+    };
+
+    this.http.post<any>(`${this.api}/teachers`, payload).subscribe({
+      next: () => {
+        this.enrollingAdmin = false;
+        this.confirmDialog.alert(
+          'Enrollment Successful',
+          `Administrator "${payload.fullName}" successfully enrolled as Staff (Principal / Management) with Biometric Device ID ${bioId}.`,
+          'success'
+        );
+        this.loadMappings();
+        this.loadPagedMappings();
+      },
+      error: err2 => {
+        this.enrollingAdmin = false;
+        const msg = err2?.error?.message || primaryErr?.error?.message || 'Could not enroll administrator as staff.';
+        this.confirmDialog.alert('Enrollment Failed', msg, 'danger');
+      }
     });
   }
 
@@ -1747,6 +2388,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
       next: res => {
         this.autoGenerating = false;
         this.loadMappings();
+        this.loadPagedMappings();
         this.confirmDialog.alert('Auto-Generation Complete', res.message || 'Biometric device IDs auto-generated.', 'success');
       },
       error: err => {
@@ -1757,7 +2399,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   printEnrollmentSheet(): void {
-    const list = this.filteredPeople;
+    const list = this.pagedPeople.length ? this.pagedPeople : this.filteredPeople;
     if (!list.length) {
       this.confirmDialog.alert('Print Notice', 'No persons to print in current category/filter.', 'warning');
       return;

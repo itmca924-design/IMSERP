@@ -24,6 +24,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { ApplyStudentRegularizationDialogComponent, ReviewStudentRegularizationDialogComponent, StudentAttendanceRegularizationDto } from './student-regularization-dialog.component';
 import { AttendanceShiftSettingsDialogComponent } from '../../shared/components/attendance-shift-settings-dialog.component';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
+import { ClassAttendanceReportDialogComponent } from './class-attendance-report-dialog.component';
+import { StudentMonthlySlipDialogComponent } from './student-monthly-slip-dialog.component';
 
 interface StudentItem {
   id: string;
@@ -309,6 +311,9 @@ interface CalendarDay {
         <button class="btn-bulk-absent" (click)="markAllActiveStatus('Absent')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Absent" matButton="filled">
           <mat-icon>highlight_off</mat-icon> Mark All Absent
         </button>
+        <button class="btn-class-report" (click)="openClassAttendanceReport()" [disabled]="activeStudents.length === 0" matTooltip="View &amp; Print Official A4 Class Attendance Report, or Share on WhatsApp" matButton="filled">
+          <mat-icon>print</mat-icon> <span>Class Report &amp; WhatsApp</span>
+        </button>
       </div>
     </div>
     <!-- Quick Default Timings Strip -->
@@ -479,13 +484,23 @@ interface CalendarDay {
               </td>
               <td class="whatsapp-cell">
                 @if (s.parentWhatsAppPhone) {
-                  <a [href]="'https://wa.me/' + cleanPhone(s.parentWhatsAppPhone)" target="_blank" class="wa-link" matTooltip="Chat on WhatsApp">
-                    <mat-icon>chat</mat-icon>
-                    <span>{{ s.parentWhatsAppPhone }}</span>
-                  </a>
+                  <div class="wa-action-group">
+                    <a [href]="'https://wa.me/' + cleanPhone(s.parentWhatsAppPhone)" target="_blank" class="wa-link" matTooltip="Chat on WhatsApp">
+                      <mat-icon>chat</mat-icon>
+                      <span>{{ s.parentWhatsAppPhone }}</span>
+                    </a>
+                    @if (s.status === 'Absent' || s.status === 'Late') {
+                      <button type="button" class="btn-row-wa-alert" (click)="sendDirectWhatsAppAlert(s)" matTooltip="Send instant attendance notice to parent on WhatsApp">
+                        <mat-icon>send</mat-icon>
+                      </button>
+                    }
+                  </div>
                 }
                 @if (!s.parentWhatsAppPhone) {
-                  <span class="text-muted">—</span>
+                  <button type="button" class="btn-add-phone-wa" (click)="promptPhoneAndAlert(s)" matTooltip="Add phone &amp; send WhatsApp notice">
+                    <mat-icon>add_call</mat-icon>
+                    <span>Add Phone</span>
+                  </button>
                 }
               </td>
               <td class="status-cell">
@@ -542,6 +557,9 @@ interface CalendarDay {
         </mat-checkbox>
       </div>
       <div class="save-actions">
+        <button type="button" class="btn-report-bottom" (click)="openClassAttendanceReport()" [disabled]="activeStudents.length === 0" matTooltip="Print Official A4 Class Register or Share on WhatsApp" matButton="filled">
+          <mat-icon>print</mat-icon> <span>Class Report (A4)</span>
+        </button>
         @if (isBatchPastLocked) {
           <div class="batch-locked-badge">
             <mat-icon>lock</mat-icon>
@@ -710,6 +728,9 @@ interface CalendarDay {
           <mat-form-field appearance="outline"><mat-label>Year</mat-label><mat-select [(ngModel)]="attYear" (selectionChange)="loadAttendance()">@for (year of years; track year) {
           <mat-option [value]="year">{{ year }}</mat-option>
         }</mat-select></mat-form-field>
+        <button type="button" class="btn-monthly-slip" (click)="openStudentMonthlySlip()" [disabled]="!selectedStudentId" matTooltip="Print Official A4 Monthly Attendance Slip or WhatsApp to Parent" matButton="filled">
+          <mat-icon>receipt_long</mat-icon> <span>Monthly Slip (A4 &amp; WhatsApp)</span>
+        </button>
       </div>
     </mat-card>
     @if (effectiveSummary; as sum) {
@@ -741,9 +762,9 @@ interface CalendarDay {
         </div>
       </div>
     }
-    <mat-accordion multi="true" class="attendance-accordion">
+    <mat-accordion [multi]="false" class="attendance-accordion">
       <!-- 1. Attendance Matrix Expansion Panel -->
-      <mat-expansion-panel class="att-expansion-panel calendar-panel mat-elevation-z1" [expanded]="true">
+      <mat-expansion-panel class="att-expansion-panel calendar-panel mat-elevation-z1" [expanded]="expandedPanel === 'matrix'" (opened)="expandedPanel = 'matrix'">
         <mat-expansion-panel-header class="att-panel-header">
           <mat-panel-title class="att-panel-title">
             <mat-icon class="panel-title-icon">calendar_month</mat-icon>
@@ -971,18 +992,22 @@ interface CalendarDay {
       </mat-expansion-panel>
 
       <!-- 2. Detailed Attendance Register Expansion Panel -->
-      @if (records.length > 0) {
-        <mat-expansion-panel class="att-expansion-panel table-panel mat-elevation-z1" [expanded]="true">
-          <mat-expansion-panel-header class="att-panel-header">
-            <mat-panel-title class="att-panel-title">
-              <mat-icon class="panel-title-icon table-icon">event_note</mat-icon>
-              <strong>Detailed Attendance Register ({{ records.length }} Records)</strong>
-            </mat-panel-title>
-            <mat-panel-description class="att-panel-desc" (click)="$event.stopPropagation()">
+      <mat-expansion-panel class="att-expansion-panel table-panel mat-elevation-z1" [expanded]="expandedPanel === 'register'" (opened)="expandedPanel = 'register'">
+        <mat-expansion-panel-header class="att-panel-header">
+          <mat-panel-title class="att-panel-title">
+            <mat-icon class="panel-title-icon table-icon">event_note</mat-icon>
+            <strong>Detailed Attendance Register ({{ records.length }} Records)</strong>
+          </mat-panel-title>
+          <mat-panel-description class="att-panel-desc" (click)="$event.stopPropagation()">
+            @if (records.length > 0) {
               <span class="table-scroll-hint"><mat-icon>swap_horiz</mat-icon> Swipe to view all columns &amp; actions</span>
-            </mat-panel-description>
-          </mat-expansion-panel-header>
+            } @else {
+              <span class="table-scroll-hint text-muted">No records logged for this month</span>
+            }
+          </mat-panel-description>
+        </mat-expansion-panel-header>
 
+        @if (records.length > 0) {
           <div class="table-responsive">
             <table class="att-table">
               <thead>
@@ -1066,16 +1091,17 @@ interface CalendarDay {
               </tbody>
             </table>
           </div>
-        </mat-expansion-panel>
-      }
+        } @else {
+          <div class="panel-empty-state">
+            <div class="empty-icon-box">
+              <mat-icon>event_busy</mat-icon>
+            </div>
+            <h4>No Attendance Records Found</h4>
+            <p>No day-by-day attendance records logged for <strong>{{ months[attMonth - 1] }} {{ attYear }}</strong>. Select dates on the Attendance Matrix above or click <em>Auto-Fill Full Month Register</em> to begin logging attendance.</p>
+          </div>
+        }
+      </mat-expansion-panel>
     </mat-accordion>
-    @if (records.length === 0 && !loading) {
-      <div class="empty-state">
-        <mat-icon>event_busy</mat-icon>
-        <h3>No Attendance Records Found</h3>
-        <p>No records found for {{ months[attMonth - 1] }} {{ attYear }}. Select dates on the calendar matrix above to begin logging attendance.</p>
-      </div>
-    }
   </div>
 }
 </div>
@@ -1590,6 +1616,87 @@ interface CalendarDay {
       font-weight: 600;
     }
     .btn-bulk-absent:hover { --mat-button-filled-container-color: #fee2e2; }
+
+    .btn-class-report {
+      --mat-button-filled-container-color: #eff6ff;
+      --mat-button-filled-label-text-color: #1e40af;
+      --mat-button-filled-state-layer-color: #1e40af;
+      --mat-button-filled-ripple-color: rgba(30, 64, 175, 0.16);
+      font-weight: 600;
+      border: 1px solid #bfdbfe;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      &:hover { --mat-button-filled-container-color: #dbeafe; }
+    }
+
+    .btn-report-bottom {
+      --mat-button-filled-container-color: #f0fdf4;
+      --mat-button-filled-label-text-color: #15803d;
+      --mat-button-filled-state-layer-color: #15803d;
+      --mat-button-filled-ripple-color: rgba(21, 128, 61, 0.16);
+      font-weight: 600;
+      border: 1px solid #bbf7d0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      &:hover { --mat-button-filled-container-color: #dcfce7; }
+    }
+
+    .btn-monthly-slip {
+      --mat-button-filled-container-color: #eff6ff;
+      --mat-button-filled-label-text-color: #1d4ed8;
+      --mat-button-filled-state-layer-color: #1d4ed8;
+      --mat-button-filled-ripple-color: rgba(29, 78, 216, 0.16);
+      font-weight: 600;
+      border: 1px solid #bfdbfe;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 16px;
+      height: 48px;
+      mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      &:hover { --mat-button-filled-container-color: #dbeafe; }
+    }
+
+    .whatsapp-cell {
+      .wa-action-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-row-wa-alert {
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        color: #059669;
+        border-radius: 6px;
+        padding: 4px 6px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        mat-icon { font-size: 15px; width: 15px; height: 15px; }
+        &:hover { background: #059669; color: #ffffff; }
+      }
+      .btn-add-phone-wa {
+        background: #f1f5f9;
+        border: 1px dashed #cbd5e1;
+        color: #64748b;
+        border-radius: 6px;
+        padding: 3px 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.72rem;
+        transition: all 0.15s ease;
+        mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        &:hover { background: #e2e8f0; color: #1e293b; }
+      }
+    }
 
     /* Roll Call Default Timings Strip & Shift Switcher */
     .roll-call-timings-bar {
@@ -3490,6 +3597,58 @@ interface CalendarDay {
         padding: 0 !important;
       }
     }
+
+    .panel-empty-state {
+      padding: 44px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: #f8fafc;
+      border-radius: 10px;
+      margin: 16px;
+      border: 1px dashed #cbd5e1;
+
+      .empty-icon-box {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 1px solid #bfdbfe;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #2563eb;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15);
+
+        mat-icon {
+          font-size: 26px;
+          width: 26px;
+          height: 26px;
+        }
+      }
+
+      h4 {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+
+      p {
+        margin: 0;
+        font-size: 0.86rem;
+        color: #64748b;
+        max-width: 480px;
+        line-height: 1.5;
+
+        strong {
+          color: #1e40af;
+        }
+      }
+    }
     .att-panel-header {
       background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
       padding: 14px 20px !important;
@@ -3656,6 +3815,9 @@ export class StudentAttendanceComponent implements OnInit {
 
   // Mode Tabs
   activeTab: 'batch' | 'single' | 'regularization' = 'batch';
+
+  // Mutual exclusion panel tracking ('matrix' | 'register')
+  expandedPanel: 'matrix' | 'register' = 'matrix';
 
   // Roll Call Scope ('school' | 'coaching')
   rollCallScope: 'school' | 'coaching' = 'school';
@@ -5572,6 +5734,140 @@ export class StudentAttendanceComponent implements OnInit {
         alert(err.error?.message || 'Failed to cancel request.');
       }
     });
+  }
+
+  // ================= CLASS & MONTHLY ATTENDANCE REPORTS & WHATSAPP =================
+
+  openClassAttendanceReport(): void {
+    if (this.activeStudents.length === 0) {
+      this.confirmDialog.alert('No Student Records', 'No student records available for the selected class/batch.', 'warning');
+      return;
+    }
+    const className = this.rollCallScope === 'school'
+      ? (this.schoolClasses.find(c => c.id === this.selectedClassId)?.name || 'Class')
+      : (this.filteredCoachingBatches.find(b => b.id === this.selectedBatchId)?.className || 'Coaching Class');
+
+    const sectionName = this.rollCallScope === 'school'
+      ? (this.classSections.find(s => s.id === this.selectedSectionId)?.name || (this.selectedSectionId ? 'Section' : 'All Sections'))
+      : undefined;
+
+    const batchName = this.rollCallScope === 'coaching'
+      ? (this.filteredCoachingBatches.find(b => b.id === this.selectedBatchId)?.name || 'Coaching Batch')
+      : undefined;
+
+    this.dialog.open(ClassAttendanceReportDialogComponent, {
+      width: '960px',
+      maxWidth: '96vw',
+      data: {
+        scope: this.rollCallScope,
+        className,
+        sectionName,
+        batchName,
+        attendanceDate: this.selectedBatchDate,
+        students: this.activeStudents.map(s => ({
+          studentId: s.studentId,
+          studentName: s.studentName,
+          rollNumber: s.rollNumber,
+          schoolRollNumber: s.schoolRollNumber,
+          admissionNumber: s.admissionNumber,
+          className: s.className,
+          sectionName: s.sectionName,
+          profilePhoto: s.profilePhoto,
+          parentWhatsAppPhone: s.parentWhatsAppPhone,
+          status: s.status,
+          remarks: s.remarks,
+          checkInTime: s.checkInTime,
+          checkOutTime: s.checkOutTime
+        })),
+        teacherName: this.isTeacher && this.teacherClassSection?.isClassTeacher
+          ? this.authService.currentUser()?.fullName
+          : undefined
+      }
+    });
+  }
+
+  openStudentMonthlySlip(): void {
+    if (!this.selectedStudentId) {
+      this.confirmDialog.alert('No Student Selected', 'Please select a student to print their monthly attendance slip.', 'warning');
+      return;
+    }
+    const student = this.selectedStudent || this.students.find(s => s.id === this.selectedStudentId);
+    if (!student) return;
+    const sum = this.effectiveSummary;
+    this.dialog.open(StudentMonthlySlipDialogComponent, {
+      width: '920px',
+      maxWidth: '96vw',
+      data: {
+        student: {
+          id: student.id,
+          studentName: student.studentName,
+          rollNumber: student.rollNumber,
+          admissionNumber: student.admissionNumber,
+          className: (student as any).schoolClassName || (student as any).className,
+          sectionName: student.sectionName,
+          parentWhatsAppPhone: (student as any).parentWhatsAppPhone,
+          parentPhone: (student as any).parentPhone || (student as any).phone,
+          profilePhoto: (student as any).profilePhoto
+        },
+        month: this.attMonth,
+        year: this.attYear,
+        monthName: this.months[this.attMonth - 1],
+        stats: {
+          present: sum?.presentDays || 0,
+          absent: sum?.absentDays || 0,
+          late: sum?.lateDays || 0,
+          halfDay: sum?.halfDays || 0,
+          holidays: sum?.holidayDays || 0,
+          totalHeld: sum?.elapsedWorkingDays || sum?.totalWorkingDays || 0,
+          totalMonthDays: sum?.totalWorkingDays || 30,
+          compliancePct: sum?.attendancePercentage || 0
+        },
+        records: (this.records || []).map(r => ({
+          attendanceDate: r.attendanceDate,
+          status: r.status,
+          checkInTime: r.checkInTime || (r as any).CheckInTime,
+          checkOutTime: r.checkOutTime || (r as any).CheckOutTime,
+          remarks: r.remarks
+        }))
+      }
+    });
+  }
+
+  sendDirectWhatsAppAlert(student: BatchStudentRow): void {
+    const phone = this.cleanPhone(student.parentWhatsAppPhone || '');
+    if (!phone) {
+      this.promptPhoneAndAlert(student);
+      return;
+    }
+    const dStr = new Date(this.selectedBatchDate).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+    const instName = this.authService.getInstituteName() || 'Institution';
+    const statusText = student.status === 'Absent' ? 'ABSENT' : student.status.toUpperCase();
+    const targetName = this.rollCallScope === 'school'
+      ? (this.schoolClasses.find(c => c.id === this.selectedClassId)?.name || 'Class')
+      : (this.filteredCoachingBatches.find(b => b.id === this.selectedBatchId)?.name || 'Batch');
+    const rollStr = student.schoolRollNumber || student.rollNumber ? ` (Roll: ${student.schoolRollNumber || student.rollNumber})` : '';
+
+    const msg =
+`Dear Parent,
+This is an official notice from *${instName}*.
+Your ward *${student.studentName}*${rollStr}, ${targetName}, was marked *${statusText}* today, *${dStr}*.
+For any queries or leave requests, please contact the campus office.
+Regards,
+*${instName}*`;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  }
+
+  promptPhoneAndAlert(student: BatchStudentRow): void {
+    const entered = window.prompt(`Enter parent WhatsApp number for ${student.studentName}:`, student.parentWhatsAppPhone || '');
+    if (!entered) return;
+    student.parentWhatsAppPhone = entered.trim();
+    this.sendDirectWhatsAppAlert(student);
   }
 
   // ================= MULTI-DATE SELECTION METHODS =================

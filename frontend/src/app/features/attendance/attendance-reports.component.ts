@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -15,6 +16,7 @@ import { API_BASE } from '../teachers/teacher.models';
 import { AuthService } from '../../core/services/auth.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { BatchDto } from '../../core/services/batches.service';
+import { AttendanceReportPrintDialogComponent, ReportPrintRow } from './attendance-report-print-dialog.component';
 
 interface ReportRow {
   personId: string;
@@ -86,6 +88,7 @@ type SortDir = 'asc' | 'desc';
     FormsModule,
     MatButtonModule,
     MatCardModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatProgressBarModule,
@@ -204,7 +207,8 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   constructor(
     private http: HttpClient,
     private authService: AuthService,
-    private schoolService: SchoolService
+    private schoolService: SchoolService,
+    private dialog: MatDialog
   ) {}
 
   logoFailed = false;
@@ -1091,5 +1095,43 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     a.click(); URL.revokeObjectURL(url);
   }
 
-  printReport(): void { window.print(); }
+  printReport(): void {
+    const rowsToPrint = this.filteredAndSortedRows.length > 0 ? this.filteredAndSortedRows : (this.report?.rows || []);
+    const printRows: ReportPrintRow[] = rowsToPrint.map(r => ({
+      personId: r.personId,
+      personName: r.personName,
+      code: r.code,
+      groupName: r.groupName,
+      presentDays: r.presentDays || 0,
+      absentDays: r.absentDays || 0,
+      lateDays: r.lateDays || 0,
+      halfDays: r.halfDays || 0,
+      holidayDays: r.holidayDays || 0,
+      totalWorkingDays: r.totalWorkingDays || this.totalWorkingDaysInMonth,
+      attendancePercentage: r.attendancePercentage || 0,
+      schoolClass: r.schoolClass || (r.groupName?.includes('Class') ? r.groupName : null),
+      coachingBatch: r.coachingBatch || (r.groupName?.includes('Batch') ? r.groupName : null),
+      schoolRoll: r.schoolRoll || r.code,
+      coachingRoll: r.coachingRoll || r.code
+    }));
+
+    this.dialog.open(AttendanceReportPrintDialogComponent, {
+      width: '1260px',
+      maxWidth: '96vw',
+      maxHeight: '94vh',
+      autoFocus: false,
+      panelClass: 'attendance-report-print-dialog-panel',
+      data: {
+        reportType: this.reportType,
+        month: this.selectedMonth,
+        year: this.selectedYear,
+        monthName: this.months[this.selectedMonth - 1],
+        scopeText: this.reportType === 'student' ? this.getSelectedFilterSubTitle() : 'Faculty & Staff Roster',
+        totalCount: printRows.length,
+        rows: printRows,
+        totalWorkingDays: this.totalWorkingDaysInMonth,
+        elapsedWorkingDays: this.elapsedWorkingDaysInMonth
+      }
+    });
+  }
 }

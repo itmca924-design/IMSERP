@@ -104,7 +104,7 @@ body, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea,
   --mat-button-filled-ripple-color: rgba(59, 72, 88, 0.14);
 }
 
-html body :is(button, a).mat-mdc-unelevated-button.mat-mdc-button-base:not(#app-filled-btn):not(.status-pill):not(.quick-settings-drawer .theme-mode-selector .mode-btn):not(.quick-settings-drawer .drawer-tabs .tab-btn):not(.quick-settings-drawer .density-selector .density-btn):not(.quick-settings-drawer .lang-toggle-options .lang-opt-btn) {
+html body :is(button, a).mat-mdc-unelevated-button.mat-mdc-button-base:not(#app-filled-btn):not(.status-pill):not(.pill-btn):not(.type-btn):not(.quick-settings-drawer .theme-mode-selector .mode-btn):not(.quick-settings-drawer .drawer-tabs .tab-btn):not(.quick-settings-drawer .density-selector .density-btn):not(.quick-settings-drawer .lang-toggle-options .lang-opt-btn) {
   height: var(--mat-button-filled-container-height, 40px) !important;
   min-height: var(--mat-button-filled-container-height, 40px) !important;
   border-radius: var(--mat-sys-corner-full, 9999px) !important;
@@ -962,6 +962,7 @@ mat-icon.wa-mat-icon {
 }
 
 // Custom panel for Exam Result & Report Cards Dialog
+.attendance-report-print-dialog-panel,
 .result-dialog-panel {
   max-width: 96vw !important;
   width: 1260px !important;
@@ -2736,6 +2737,9 @@ mat-sidenav-container {
     .page-container,
     .modal-header,
     .cdk-overlay-backdrop,
+    .mat-mdc-tooltip,
+    .mat-mdc-tooltip-panel,
+    .cdk-overlay-container:has(.mat-mdc-tooltip),
     .no-print {
       display: none !important;
       visibility: hidden !important;
@@ -2866,6 +2870,117 @@ mat-sidenav-container {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         visibility: visible !important;
+      }
+    }
+  }
+
+  // Global Print Handler for Monthly Attendance Register Preview (A4)
+  body:has(#printable-attendance-register),
+  body.printing-attendance-register {
+    app-root,
+    .layout-container,
+    .sidebar,
+    .header-toolbar,
+    .page-container,
+    .report-page,
+    .dialog-header,
+    .action-toolbar,
+    .cdk-overlay-backdrop,
+    .no-print {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    html, body {
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+      width: 100% !important;
+      height: auto !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .cdk-overlay-container,
+    .cdk-global-overlay-wrapper,
+    .cdk-overlay-pane,
+    .mat-mdc-dialog-container,
+    .mat-mdc-dialog-surface,
+    .print-preview-modal,
+    .document-container,
+    #printable-attendance-register {
+      display: block !important;
+      visibility: visible !important;
+      position: static !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+      background: #ffffff !important;
+    }
+
+    #printable-attendance-register {
+      padding: 5mm 6mm !important;
+      box-sizing: border-box !important;
+
+      * {
+        visibility: visible !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .report-header {
+        border-bottom: 2px solid #1e3a8a !important;
+        padding-bottom: 10px !important;
+        margin-bottom: 12px !important;
+      }
+
+      .summary-metric-deck {
+        display: flex !important;
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+
+        .metric-card {
+          border: 1px solid #cbd5e1 !important;
+          box-shadow: none !important;
+          padding: 6px 10px !important;
+        }
+      }
+
+      .roster-table-wrapper {
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        min-height: auto !important;
+
+        .roster-table {
+          width: 100% !important;
+          min-width: 100% !important;
+
+          th {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+            font-size: 8.5pt !important;
+            padding: 5px 6px !important;
+            border-bottom: 1.5px solid #0f172a !important;
+          }
+
+          td {
+            font-size: 8.5pt !important;
+            padding: 5px 6px !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+          }
+        }
+      }
+
+      .report-footer-signatures {
+        margin-top: 16px !important;
+        page-break-inside: avoid !important;
       }
     }
   }
