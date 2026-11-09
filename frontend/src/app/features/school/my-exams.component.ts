@@ -609,14 +609,25 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
                 </div>
                 <div class="signatures-row">
                   <div class="sign-box">
+                    <div class="sig-space"></div>
                     <div class="sign-line"></div>
                     <span>Candidate Signature</span>
                   </div>
                   <div class="sign-box">
+                    <div class="sig-space">
+                      @if (classTeacherSignatureUrl) {
+                        <img [src]="classTeacherSignatureUrl" alt="Class Teacher Signature" class="digital-sign-img" />
+                      }
+                    </div>
                     <div class="sign-line"></div>
                     <span>Class Teacher Signature</span>
                   </div>
                   <div class="sign-box">
+                    <div class="sig-space">
+                      @if (digitalSignatureUrl) {
+                        <img [src]="digitalSignatureUrl" alt="Principal / Exam Controller Signature" class="digital-sign-img" />
+                      }
+                    </div>
                     <div class="sign-line"></div>
                     <span>Principal / Exam Controller</span>
                   </div>
@@ -1793,11 +1804,32 @@ import { SchoolReportCardDialogComponent } from './school-report-card-dialog.com
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
+          gap: 4px;
+          min-width: 160px;
+
+          .sig-space {
+            height: 42px;
+            min-height: 42px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            width: 100%;
+          }
+
+          .digital-sign-img {
+            max-height: 40px;
+            max-width: 130px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+            mix-blend-mode: multiply;
+            filter: contrast(1.1);
+          }
 
           .sign-line {
             width: 160px;
             border-bottom: 1px solid #475569;
+            margin-top: 2px;
           }
 
           span {
@@ -1891,9 +1923,31 @@ export class MyExamsComponent implements OnInit {
     this.logoImgFailed = true;
   }
 
+  get digitalSignatureUrl(): string | null {
+    return this.authService.getDigitalSignatureUrl();
+  }
+
+  get officialSealUrl(): string | null {
+    return this.authService.getOfficialSealUrl();
+  }
+
+  get classTeacherSignatureUrl(): string | null {
+    const sigs = this.authService.getDigitalSignatures();
+    const teacherSig = sigs.find(s =>
+      s.title?.toLowerCase().includes('teacher') ||
+      s.name?.toLowerCase().includes('teacher')
+    );
+    if (teacherSig?.url) return this.authService.resolveLogoUrl(teacherSig.url);
+
+    const secondarySig = sigs.find(s => !s.isDefault);
+    if (secondarySig?.url) return this.authService.resolveLogoUrl(secondarySig.url);
+
+    return this.digitalSignatureUrl;
+  }
+
   constructor(
     private schoolService: SchoolService,
-    private authService: AuthService,
+    public authService: AuthService,
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog
   ) {}
@@ -2195,6 +2249,8 @@ export class MyExamsComponent implements OnInit {
           .signatures-row { display: flex; justify-content: space-between; margin-top: 30px; font-size: 12px; }
           .sign-box { text-align: center; }
           .sign-line { border-bottom: 1px solid #000; width: 150px; margin-bottom: 4px; }
+          .digital-sign-img { max-height: 40px; max-width: 130px; object-fit: contain; display: block; margin: 0 auto; mix-blend-mode: multiply; }
+          .sig-space { height: 42px; display: flex; align-items: flex-end; justify-content: center; }
         </style>
       </head>
       <body>
