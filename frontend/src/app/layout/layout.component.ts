@@ -1155,9 +1155,9 @@ export interface BreadcrumbItem {
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       line-height: 1.25;
-      font-size: 0.84rem;
-      font-weight: 500;
-      color: #334155;
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: #1e293b;
       letter-spacing: -0.01em;
       transition: color 0.15s ease;
     }
@@ -1170,9 +1170,9 @@ export interface BreadcrumbItem {
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       line-height: 1.25;
-      font-size: 0.84rem;
-      font-weight: 500;
-      color: #334155;
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: #1e293b;
       letter-spacing: -0.01em;
       transition: color 0.15s ease;
     }
@@ -1181,7 +1181,9 @@ export interface BreadcrumbItem {
       white-space: nowrap !important;
       overflow: hidden !important;
       text-overflow: ellipsis !important;
-      font-size: 0.8rem;
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: #334155;
     }
 
     .menu-item-icon {
@@ -1270,15 +1272,15 @@ export interface BreadcrumbItem {
     }
 
     .sub-nav-list a[mat-list-item] {
-      height: 32px !important;
-      min-height: 32px !important;
-      max-height: 32px !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      max-height: 34px !important;
       padding: 0 8px !important;
       border-radius: 6px !important;
       margin: 0 !important;
       border: 1px solid transparent;
       transition: all 0.15s ease;
-      --mdc-list-list-item-one-line-container-height: 32px;
+      --mdc-list-list-item-one-line-container-height: 34px;
 
       ::ng-deep .mdc-list-item__content {
         align-items: center;
@@ -1287,7 +1289,7 @@ export interface BreadcrumbItem {
       .menu-item-icon {
         width: 18px !important;
         height: 18px !important;
-        font-size: 13px !important;
+        font-size: 14px !important;
         line-height: 18px !important;
         flex: 0 0 18px !important;
         margin-inline-end: 8px !important;
@@ -1298,9 +1300,9 @@ export interface BreadcrumbItem {
       }
 
       .submenu-label {
-        font-size: 0.8rem;
+        font-size: 0.84rem;
         font-weight: 500;
-        color: #475569;
+        color: #334155;
         transition: color 0.15s ease;
       }
 
@@ -1313,7 +1315,7 @@ export interface BreadcrumbItem {
         }
 
         .submenu-label {
-          color: #1e293b;
+          color: #0f172a;
         }
       }
 
