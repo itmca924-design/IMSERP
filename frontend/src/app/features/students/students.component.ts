@@ -1560,11 +1560,13 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     /* Stream Switcher Tabs */
     .stream-switcher-bar {
       display: flex;
+      align-items: center;
       gap: 10px;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       overflow-x: auto;
+      overflow-y: hidden;
       flex-wrap: nowrap;
-      padding-bottom: 6px;
+      padding: 6px 4px 8px 4px; /* Generous padding-top & bottom prevents any border or shadow clipping */
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       max-width: 100%;
@@ -1582,8 +1584,8 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       align-items: center !important;
       justify-content: center !important;
       gap: 8px;
-      padding: 8px 18px;
-      border: 1.5px solid #e2e8f0;
+      padding: 7px 18px;
+      border: 2px solid #e2e8f0;
       background: #ffffff !important;
       border-radius: 24px;
       font-size: 0.88rem;
@@ -1592,6 +1594,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       cursor: pointer;
       user-select: none;
       white-space: nowrap;
+      box-sizing: border-box;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
@@ -1630,14 +1633,12 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       &:hover {
         background: #f8fafc !important;
         border-color: #cbd5e1;
-        transform: translateY(-1px);
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
       }
 
       /* Active States - Prominent, high-contrast, theme-matched */
       &.active {
         font-weight: 700 !important;
-        transform: translateY(-1px);
 
         mat-icon {
           transform: scale(1.1);
@@ -1648,7 +1649,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         background: #eff6ff !important;
         border-color: #2563eb !important;
         color: #1d4ed8 !important;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.22) !important;
+        box-shadow: 0 3px 10px rgba(37, 99, 235, 0.2) !important;
         .tab-count {
           background: #2563eb !important;
           color: #ffffff !important;
@@ -1660,35 +1661,35 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         background: #ecfdf5 !important;
         border-color: #059669 !important;
         color: #065f46 !important;
-        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.22) !important;
+        box-shadow: 0 3px 10px rgba(5, 150, 105, 0.2) !important;
       }
 
       &.coaching-tab.active {
         background: #f5f3ff !important;
         border-color: #7c3aed !important;
         color: #5b21b6 !important;
-        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.22) !important;
+        box-shadow: 0 3px 10px rgba(124, 58, 237, 0.2) !important;
       }
 
       &.hostel-tab.active {
         background: #fdf4ff !important;
         border-color: #c026d3 !important;
         color: #86198f !important;
-        box-shadow: 0 4px 12px rgba(192, 38, 211, 0.22) !important;
+        box-shadow: 0 3px 10px rgba(192, 38, 211, 0.2) !important;
       }
 
       &.library-tab.active {
         background: #f0fdfa !important;
         border-color: #0d9488 !important;
         color: #115e59 !important;
-        box-shadow: 0 4px 12px rgba(13, 148, 136, 0.22) !important;
+        box-shadow: 0 3px 10px rgba(13, 148, 136, 0.2) !important;
       }
 
       &.dayscholar-tab.active {
         background: #fff7ed !important;
         border-color: #ea580c !important;
         color: #9a3412 !important;
-        box-shadow: 0 4px 12px rgba(234, 88, 12, 0.22) !important;
+        box-shadow: 0 3px 10px rgba(234, 88, 12, 0.2) !important;
       }
     }
 
