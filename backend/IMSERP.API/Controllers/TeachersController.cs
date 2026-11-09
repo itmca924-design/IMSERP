@@ -744,7 +744,8 @@ public class TeachersController : ControllerBase
         teacher.BloodGroup = dto.BloodGroup?.Trim();
         teacher.EmergencyContactName = dto.EmergencyContactName?.Trim();
         teacher.EmergencyContactPhone = dto.EmergencyContactPhone?.Trim();
-        teacher.BiometricUserId = string.IsNullOrWhiteSpace(dto.BiometricUserId) ? null : dto.BiometricUserId.Trim();
+        // BiometricUserId is locked and managed exclusively via Biometric Devices mapping (/attendance/devices)
+        // Existing teacher.BiometricUserId cannot be updated or overwritten here.
 
         if (string.IsNullOrWhiteSpace(dto.PhotoUrl))
         {

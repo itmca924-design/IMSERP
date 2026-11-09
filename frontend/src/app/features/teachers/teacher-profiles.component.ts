@@ -170,9 +170,9 @@ import { environment } from '../../../environments/environment';
         <!-- Biometric User ID -->
         <mat-form-field appearance="outline">
           <mat-label>Biometric Machine Punch ID</mat-label>
-          <input matInput formControlName="biometricUserId" placeholder="e.g. 102 or BIO-040">
-          <mat-icon matSuffix matTooltip="Device ID on Fingerprint / Facial Attendance Machine" style="color:#64748b;font-size:16px">fingerprint</mat-icon>
-          <mat-hint>Links biometric punch records</mat-hint>
+          <input matInput formControlName="biometricUserId" [readonly]="true" [class.readonly-field]="true" placeholder="Managed in Biometric Devices">
+          <mat-icon matSuffix matTooltip="Biometric punch ID is configured in Biometric Devices and cannot be changed here" style="color:#64748b;font-size:16px">lock</mat-icon>
+          <mat-hint>Locked: permanent biometric ID</mat-hint>
         </mat-form-field>
         <!-- ── SECTION 2: PERSONAL & CONTACT DETAILS ── -->
         <div class="form-section-title">
