@@ -40,6 +40,7 @@ import { StudentPortalLoginDialogComponent } from './student-portal-login-dialog
 import { AuthService } from '../../core/services/auth.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryItem } from '../inventory/inventory.models';
+import { AiAdmissionAssistantService, AiParsedAdmissionData } from '../../core/services/ai-admission-assistant.service';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiBaseUrl;
@@ -146,10 +147,138 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       @if (showForm) {
         <mat-card class="form-card mat-elevation-z2">
           <mat-card-content>
-            <div class="form-title">
-              <mat-icon color="primary">{{ isEditMode ? 'edit' : 'person_add' }}</mat-icon>
-              <span>{{ isEditMode ? 'Edit Student Record' : 'New Student Admission &amp; Enrollment' }}</span>
+            <div class="form-title-bar full-span">
+              <div class="form-title">
+                <mat-icon color="primary">{{ isEditMode ? 'edit' : 'person_add' }}</mat-icon>
+                <span>{{ isEditMode ? 'Edit Student Record' : 'New Student Admission &amp; Enrollment' }}</span>
+              </div>
+              @if (!isEditMode) {
+                <button type="button" class="ai-copilot-toggle-btn" (click)="toggleAiCopilot()" [class.active-btn]="isAiCopilotOpen">
+                  <mat-icon class="ai-sparkle-anim">auto_awesome</mat-icon>
+                  <span>{{ isAiCopilotOpen ? 'Hide AI Assistant' : '✨ Agentic AI Copilot (बोलकर फॉर्म भरें)' }}</span>
+                  <span class="free-badge">100% FREE</span>
+                </button>
+              }
             </div>
+
+            <!-- Agentic AI Smart Admission Copilot Deck -->
+            @if (!isEditMode && isAiCopilotOpen) {
+              <div class="ai-copilot-container full-span">
+                <div class="ai-copilot-card">
+                  <!-- Copilot Header -->
+                  <div class="ai-copilot-header">
+                    <div class="ai-copilot-title-group">
+                      <div class="ai-avatar-icon">
+                        <mat-icon>psychology</mat-icon>
+                      </div>
+                      <div class="ai-title-text">
+                        <div class="ai-main-title-row">
+                          <h4>Agentic AI Smart Admission Copilot</h4>
+                          <span class="ai-pill-active">⚡ Instant Voice &amp; Text</span>
+                        </div>
+                        <p>Mic दबाकर बोलें या नीचे टेक्स्ट पेस्ट करें — AI अपने आप फॉर्म भर देगा।</p>
+                      </div>
+                    </div>
+                    <div class="ai-header-controls">
+                      <button type="button" class="ai-engine-tag-btn" (click)="openGeminiKeyModal()" matTooltip="Google Gemini 2.0 Flash Free Key (Optional)">
+                        <mat-icon>vpn_key</mat-icon>
+                        <span>{{ hasGeminiKey ? 'Gemini 2.0 Flash (Active)' : 'Free Built-in AI (Active)' }}</span>
+                      </button>
+                      <button type="button" class="ai-minimize-btn" (click)="isAiCopilotOpen = false" matTooltip="Hide Copilot">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Listening Visualizer -->
+                  @if (isAiListening) {
+                    <div class="ai-mic-listening-banner">
+                      <div class="wave-visualizer">
+                        <span class="wave-bar w1"></span>
+                        <span class="wave-bar w2"></span>
+                        <span class="wave-bar w3"></span>
+                        <span class="wave-bar w4"></span>
+                        <span class="wave-bar w5"></span>
+                      </div>
+                      <div class="listening-status-text">
+                        <strong>🔴 AI सुन रहा है... (Listening in {{ aiSpeechLang === 'hi-IN' ? 'हिन्दी / Hinglish' : 'English' }})</strong>
+                        <span>बोलिए: "Student Name, Class, Father Name, Mobile Number, DOB, Address, Stream या Batch..."</span>
+                      </div>
+                      <button type="button" class="stop-speech-action-btn" (click)="toggleAiSpeech()">
+                        <mat-icon>mic_off</mat-icon> Stop
+                      </button>
+                    </div>
+                  }
+
+                  <!-- Input Textarea & Action Bar -->
+                  <div class="ai-prompt-box">
+                    <textarea
+                      class="ai-prompt-textarea"
+                      rows="3"
+                      [(ngModel)]="aiInputText"
+                      [ngModelOptions]="{standalone: true}"
+                      placeholder="यहाँ बोलें या टाइप/पेस्ट करें... (उदा: 'Student Name, Class, Father Name, Mobile Number, DOB, Address, Stream या Coaching Batch...')"></textarea>
+
+                    <div class="ai-prompt-toolbar">
+                      <div class="toolbar-left">
+                        <button
+                          type="button"
+                          class="ai-speech-mic-btn"
+                          [class.recording]="isAiListening"
+                          (click)="toggleAiSpeech()">
+                          <mat-icon>{{ isAiListening ? 'mic_off' : 'mic' }}</mat-icon>
+                          <span>{{ isAiListening ? 'Stop Mic' : '🎙️ Mic से बोलें (Voice)' }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="ai-lang-switch-btn"
+                          (click)="toggleAiSpeechLang()"
+                          [matTooltip]="'Current language: ' + (aiSpeechLang === 'hi-IN' ? 'Hindi / Hinglish' : 'English')">
+                          <mat-icon>language</mat-icon>
+                          <span>{{ aiSpeechLang === 'hi-IN' ? 'हिन्दी / Hinglish' : 'English' }}</span>
+                        </button>
+                      </div>
+                      <div class="toolbar-right">
+                        @if (aiInputText) {
+                          <button type="button" class="ai-reset-btn" (click)="clearAiInput()">
+                            <mat-icon>clear</mat-icon> Clear
+                          </button>
+                        }
+                        <button
+                          type="button"
+                          class="ai-autofill-btn"
+                          [disabled]="!aiInputText.trim() || aiIsProcessing"
+                          (click)="parseAndAutoFillForm()">
+                          <mat-icon [class.spin-anim]="aiIsProcessing">{{ aiIsProcessing ? 'sync' : 'auto_fix_high' }}</mat-icon>
+                          <span>{{ aiIsProcessing ? 'AI Processing...' : '✨ Auto-Fill Form (फॉर्म भरें)' }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Parsed Feedback Summary Banner -->
+                  @if (aiParsedResult) {
+                    <div class="ai-success-feedback-box">
+                      <div class="feedback-top-row">
+                        <div class="feedback-icon">
+                          <mat-icon>verified</mat-icon>
+                        </div>
+                        <div>
+                          <strong>AI ने सफलतापूर्वक {{ aiParsedResult.summaryList.length }} फ़ील्ड्स भर दिए हैं!</strong>
+                          <p>नीचे फॉर्म में वैल्यूज चेक कर लें और अंत में <strong>"Confirm Admission"</strong> दबाएं।</p>
+                        </div>
+                      </div>
+                      <div class="feedback-tags-row">
+                        @for (item of aiParsedResult.summaryList; track item) {
+                          <span class="ai-extracted-tag">{{ item }}</span>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
             <form [formGroup]="studentForm" (ngSubmit)="onSubmitStudent()" class="form-grid">
               <!-- Profile Photo Upload (full-width, centered) -->
               <div class="photo-upload-area full-span">
@@ -218,10 +347,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                   </div>
                 }
               </div>
-              <mat-accordion class="admission-sections" [multi]="false">
+              <mat-accordion class="admission-sections" [multi]="true">
               <!-- School Section Details (if School is checked) -->
               @if (studentForm.value.isSchoolStudent) {
-                <mat-expansion-panel #schoolAdmissionPanel class="enrollment-panel full-span school-panel">
+                <mat-expansion-panel #schoolAdmissionPanel [expanded]="true" class="enrollment-panel full-span school-panel">
                   <mat-expansion-panel-header>
                     <mat-panel-title>
                       <mat-icon>domain</mat-icon>
@@ -295,7 +424,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               }
               <!-- Coaching Section Details (if Coaching is checked) -->
               @if (studentForm.value.isCoachingStudent) {
-                <mat-expansion-panel #coachingAdmissionPanel class="enrollment-panel full-span coaching-panel">
+                <mat-expansion-panel #coachingAdmissionPanel [expanded]="true" class="enrollment-panel full-span coaching-panel">
                   <mat-expansion-panel-header>
                     <mat-panel-title>
                       <mat-icon>school</mat-icon>
@@ -330,7 +459,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     <mat-label>Coaching Entry Date (Optional)</mat-label>
                     <input matInput type="date" formControlName="coachingJoiningDate" [min]="minDoj" [max]="maxDoj" />
                     <mat-icon matSuffix>event</mat-icon>
-                    <mat-hint>Format: DD-MM-YYYY • Coaching start date (defaults to School admission date if blank)</mat-hint>
+                    <mat-hint class="single-line-hint" title="Coaching start date (defaults to School admission date if blank)">Format: DD-MM-YYYY • Defaults to School admission date</mat-hint>
                   </mat-form-field>
                 }
                 <!-- Academic Class Selection for Coaching Student (if not a School Student) -->
@@ -412,7 +541,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               }
               <!-- Hostel Residential Details (if Hostel is checked) -->
               @if (studentForm.value.isHostelStudent) {
-                <mat-expansion-panel #hostelAdmissionPanel class="enrollment-panel full-span hostel-panel">
+                <mat-expansion-panel #hostelAdmissionPanel [expanded]="true" class="enrollment-panel full-span hostel-panel">
                   <mat-expansion-panel-header>
                     <mat-panel-title>
                       <mat-icon>apartment</mat-icon>
@@ -449,7 +578,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               }
               <!-- Transport Facility Details (if Transport is checked) -->
               @if (studentForm.value.isTransportStudent) {
-                <mat-expansion-panel #transportAdmissionPanel class="enrollment-panel full-span transport-panel">
+                <mat-expansion-panel #transportAdmissionPanel [expanded]="true" class="enrollment-panel full-span transport-panel">
                   <mat-expansion-panel-header>
                     <mat-panel-title>
                       <mat-icon>directions_bus</mat-icon>
@@ -503,7 +632,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
               }
               <!-- Library Membership Details (if Library is checked) -->
               @if (studentForm.value.isLibraryMember) {
-                <mat-expansion-panel #libraryAdmissionPanel class="enrollment-panel full-span library-panel">
+                <mat-expansion-panel #libraryAdmissionPanel [expanded]="true" class="enrollment-panel full-span library-panel">
                   <mat-expansion-panel-header>
                     <mat-panel-title>
                       <mat-icon>local_library</mat-icon>
@@ -551,7 +680,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 </mat-expansion-panel>
               }
               <!-- Personal Information Section -->
-              <mat-expansion-panel #personalAdmissionPanel class="enrollment-panel full-span personal-panel">
+              <mat-expansion-panel #personalAdmissionPanel [expanded]="true" class="enrollment-panel full-span personal-panel">
                 <mat-expansion-panel-header>
                   <mat-panel-title>
                     <mat-icon>person</mat-icon>
@@ -807,7 +936,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 </div>
                     <!-- Government Compliance & Student Identifiers (UDISE+ / NEP 2020) -->
                     </mat-expansion-panel>
-                    <mat-expansion-panel #complianceAdmissionPanel class="enrollment-panel full-span compliance-panel">
+                    <mat-expansion-panel #complianceAdmissionPanel [expanded]="true" class="enrollment-panel full-span compliance-panel">
                       <mat-expansion-panel-header>
                         <mat-panel-title>
                           <mat-icon>verified_user</mat-icon>
@@ -861,7 +990,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     <!-- Previous School & Emergency Contacts -->
                       </div>
                     </mat-expansion-panel>
-                    <mat-expansion-panel #historyAdmissionPanel class="enrollment-panel full-span history-panel">
+                    <mat-expansion-panel #historyAdmissionPanel [expanded]="true" class="enrollment-panel full-span history-panel">
                       <mat-expansion-panel-header>
                         <mat-panel-title>
                           <mat-icon>history_edu</mat-icon>
@@ -1480,6 +1609,13 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
+    .single-line-hint {
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      display: block !important;
+      max-width: 100%;
+    }
     .students-wrapper {
       display: flex;
       flex-direction: column;
@@ -1737,15 +1873,402 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     /* Form Styles */
     .form-card {
       border-radius: 10px;
-      .form-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 12px;
+    }
+    .form-title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .form-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .ai-copilot-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 9999px;
+      color: #1e40af;
+      font-size: 0.825rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
+      &:hover {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
       }
+      &.active-btn {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        border-color: #1d4ed8;
+      }
+    }
+    .ai-sparkle-anim {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #2563eb;
+    }
+    .ai-copilot-toggle-btn.active-btn .ai-sparkle-anim {
+      color: #ffd700;
+    }
+    .free-badge {
+      background: #10b981;
+      color: #ffffff;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    /* AI Copilot Card */
+    .ai-copilot-container {
+      margin-bottom: 20px;
+    }
+    .ai-copilot-card {
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+      position: relative;
+    }
+    .ai-copilot-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .ai-copilot-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ai-avatar-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 8px rgba(37, 99, 235, 0.25);
+      mat-icon { font-size: 24px; width: 24px; height: 24px; }
+    }
+    .ai-main-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      h4 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+    }
+    .ai-pill-active {
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      color: #1d4ed8;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+    .ai-title-text p {
+      margin: 2px 0 0;
+      font-size: 0.825rem;
+      color: #64748b;
+    }
+    .ai-header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ai-engine-tag-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 9999px;
+      color: #475569;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      &:hover {
+        background: #e2e8f0;
+      }
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    }
+    .ai-minimize-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      &:hover { background: #f8fafc; color: #1e293b; }
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    }
+
+    /* Listening wave */
+    .ai-mic-listening-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .wave-visualizer {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 22px;
+    }
+    .wave-bar {
+      width: 4px;
+      height: 100%;
+      background: #ef4444;
+      border-radius: 2px;
+      animation: micWave 1s ease-in-out infinite alternate;
+    }
+    .w1 { animation-delay: 0.1s; height: 60%; }
+    .w2 { animation-delay: 0.3s; height: 100%; }
+    .w3 { animation-delay: 0.2s; height: 80%; }
+    .w4 { animation-delay: 0.4s; height: 95%; }
+    .w5 { animation-delay: 0.15s; height: 70%; }
+    @keyframes micWave {
+      0% { transform: scaleY(0.3); }
+      100% { transform: scaleY(1); }
+    }
+    .listening-status-text {
+      flex: 1;
+      min-width: 200px;
+      font-size: 0.825rem;
+      color: #991b1b;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      span { color: #b91c1c; font-size: 0.775rem; }
+    }
+    .stop-speech-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      background: #ef4444;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    }
+
+    /* Prompt Box */
+    .ai-prompt-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #ffffff;
+      overflow: hidden;
+      margin-bottom: 12px;
+      transition: border-color 0.2s ease;
+      &:focus-within {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      }
+    }
+    .ai-prompt-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: none;
+      outline: none;
+      padding: 12px 14px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      color: #1e293b;
+      resize: vertical;
+      min-height: 70px;
+      &::placeholder {
+        color: #94a3b8;
+        font-style: italic;
+      }
+    }
+    .ai-prompt-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-top: 1px solid #f1f5f9;
+    }
+    .toolbar-left, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ai-speech-mic-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      color: #1e293b;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+      &:hover {
+        background: #eff6ff;
+        border-color: #93c5fd;
+      }
+      &.recording {
+        background: #ef4444;
+        color: #ffffff;
+        border-color: #dc2626;
+        mat-icon { color: #ffffff; }
+      }
+    }
+    .ai-lang-switch-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      color: #475569;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; color: #64748b; }
+      &:hover { background: #e2e8f0; }
+    }
+    .ai-reset-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      background: transparent;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      color: #64748b;
+      font-size: 0.78rem;
+      cursor: pointer;
+      &:hover { background: #f1f5f9; color: #334155; }
+      mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    }
+    .ai-autofill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+      transition: all 0.2s ease;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      &:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35);
+      }
+      &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+    }
+    .spin-anim {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Success Feedback Card */
+    .ai-success-feedback-box {
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1px solid #86efac;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .feedback-top-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      strong { color: #166534; font-size: 0.875rem; }
+      p { margin: 2px 0 0; color: #15803d; font-size: 0.775rem; }
+    }
+    .feedback-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #16a34a;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    }
+    .feedback-tags-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ai-extracted-tag {
+      background: #ffffff;
+      border: 1px solid #bbf7d0;
+      color: #14532d;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
     .form-grid {
       display: grid;
@@ -3649,6 +4172,19 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }, 60);
   }
 
+  // Agentic AI Smart Admission Copilot Properties
+  isAiCopilotOpen = true;
+  isAiListening = false;
+  aiInputText = '';
+  aiIsProcessing = false;
+  aiParsedResult: AiParsedAdmissionData | null = null;
+  aiSpeechLang = 'hi-IN';
+  private aiSpeechSub?: Subscription;
+
+  get hasGeminiKey(): boolean {
+    return !!this.aiAdmissionService.getSavedGeminiKey();
+  }
+
   constructor(
     private coachingService: CoachingService,
     private schoolService: SchoolService,
@@ -3660,7 +4196,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private router: Router,
     public authService: AuthService,
-    private inventoryService: InventoryService
+    private inventoryService: InventoryService,
+    private aiAdmissionService: AiAdmissionAssistantService
   ) {
     const hasSchool = this.authService.hasSchoolModule();
     const hasCoaching = this.authService.hasCoachingModule();
@@ -3850,6 +4387,201 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.batchIdSub?.unsubscribe();
     this.phoneSub?.unsubscribe();
     this.studentNameSub?.unsubscribe();
+    this.aiSpeechSub?.unsubscribe();
+    this.aiAdmissionService.stopListening();
+  }
+
+  // --- Agentic AI Smart Admission Copilot Methods ---
+  toggleAiCopilot(): void {
+    this.isAiCopilotOpen = !this.isAiCopilotOpen;
+  }
+
+  toggleAiSpeechLang(): void {
+    this.aiSpeechLang = this.aiSpeechLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+    if (this.isAiListening) {
+      this.aiAdmissionService.restartWithLanguage(this.aiSpeechLang);
+    }
+  }
+
+  toggleAiSpeech(): void {
+    if (!this.aiAdmissionService.isSpeechSupported()) {
+      this.confirmDialog.alert(
+        'Speech Recognition Unavailable',
+        'Aapka browser native Speech Recognition support nahi karta. Behtar anubhav ke liye Google Chrome ya Microsoft Edge browser use karein, ya neeche prompt box me text type/paste karein.',
+        'warning'
+      );
+      return;
+    }
+
+    if (this.isAiListening) {
+      this.aiAdmissionService.stopListening();
+      this.isAiListening = false;
+    } else {
+      this.isAiListening = true;
+      this.aiAdmissionService.startListening(this.aiSpeechLang);
+      if (!this.aiSpeechSub) {
+        this.aiSpeechSub = this.aiAdmissionService.getSpeechTranscript().subscribe(transcript => {
+          this.aiInputText = transcript;
+        });
+        this.aiAdmissionService.getSpeechStatus().subscribe(status => {
+          if (status === 'started') {
+            this.isAiListening = true;
+          } else if (status === 'stopped' || status === 'error') {
+            this.isAiListening = false;
+          }
+        });
+      }
+    }
+  }
+
+  clearAiInput(): void {
+    this.aiInputText = '';
+    this.aiParsedResult = null;
+    if (this.isAiListening) {
+      this.toggleAiSpeech();
+    }
+  }
+
+  async parseAndAutoFillForm(): Promise<void> {
+    if (!this.aiInputText?.trim()) return;
+
+    this.aiIsProcessing = true;
+    try {
+      const parsed = await this.aiAdmissionService.parseAdmissionInput(
+        this.aiInputText,
+        this.schoolClasses,
+        this.formSections,
+        this.batches
+      );
+
+      this.aiParsedResult = parsed;
+
+      // 1. Streams
+      const schoolOpt = parsed.isSchoolStudent ?? this.studentForm.value.isSchoolStudent;
+      const coachingOpt = parsed.isCoachingStudent ?? this.studentForm.value.isCoachingStudent;
+
+      this.studentForm.patchValue({
+        isSchoolStudent: schoolOpt,
+        isCoachingStudent: coachingOpt,
+        isHostelStudent: parsed.isHostelStudent ?? false,
+        isLibraryMember: parsed.isLibraryMember ?? false,
+        isTransportStudent: parsed.isTransportStudent ?? false
+      });
+      this.onStreamCheckChanged();
+
+      // 2. Class & Section
+      if (parsed.classId) {
+        this.studentForm.get('classId')?.setValue(parsed.classId);
+        this.onClassSelectionChange(parsed.classId);
+
+        // If specific section matched
+        if (parsed.sectionId) {
+          this.studentForm.get('sectionId')?.setValue(parsed.sectionId);
+        } else if (parsed.sectionName && this.formSections.length > 0) {
+          const matchedSec = this.formSections.find(s => ((s.name || (s as any).sectionName) || '').toUpperCase() === parsed.sectionName?.toUpperCase());
+          if (matchedSec) {
+            this.studentForm.get('sectionId')?.setValue(matchedSec.id);
+          }
+        }
+      }
+
+      // 3. Coaching Batch & Fee
+      if (coachingOpt && parsed.batchId) {
+        this.studentForm.get('batchId')?.setValue(parsed.batchId);
+        if (parsed.customMonthlyFee) {
+          this.studentForm.get('monthlyTuitionFee')?.setValue(parsed.customMonthlyFee);
+        }
+      } else if (!coachingOpt) {
+        this.studentForm.get('batchId')?.setValue('');
+        this.studentForm.get('batchId')?.clearValidators();
+        this.studentForm.get('batchId')?.updateValueAndValidity();
+        this.studentForm.get('rollNumber')?.setValue('');
+        this.studentForm.get('rollNumber')?.clearValidators();
+        this.studentForm.get('rollNumber')?.updateValueAndValidity();
+      }
+
+      // 4. Personal Information
+      const patchData: any = {};
+      if (parsed.studentName) patchData.studentName = parsed.studentName;
+      if (parsed.parentName) patchData.parentName = parsed.parentName;
+      if (parsed.motherName) patchData.motherName = parsed.motherName;
+      if (parsed.parentWhatsAppPhone) {
+        let phoneDigits = parsed.parentWhatsAppPhone.replace(/\D/g, '');
+        if (phoneDigits.length === 12 && phoneDigits.startsWith('91')) phoneDigits = phoneDigits.substring(2);
+        if (phoneDigits.length > 10) phoneDigits = phoneDigits.substring(0, 10);
+        let formattedPhone = phoneDigits;
+        if (phoneDigits.length > 5) {
+          formattedPhone = `${phoneDigits.substring(0, 5)} ${phoneDigits.substring(5)}`;
+        }
+        patchData.parentWhatsAppPhone = formattedPhone;
+        this.validatePhoneNumber(phoneDigits);
+      }
+      if (parsed.gender) patchData.gender = parsed.gender;
+      if (parsed.dateOfBirth) patchData.dateOfBirth = parsed.dateOfBirth;
+      if (parsed.address) patchData.address = parsed.address;
+      if (parsed.category) patchData.category = parsed.category;
+      if (parsed.bloodGroup) patchData.bloodGroup = parsed.bloodGroup;
+      if (parsed.aadhaarNumber) patchData.aadhaarNumber = parsed.aadhaarNumber;
+      if (coachingOpt && !schoolOpt) {
+        const coachDate = parsed.coachingJoiningDate || parsed.joiningDate;
+        if (coachDate) {
+          patchData.joiningDate = coachDate;
+          this.studentForm.get('joiningDate')?.setValue(coachDate);
+        }
+      } else {
+        if (parsed.joiningDate) {
+          patchData.joiningDate = parsed.joiningDate;
+          this.studentForm.get('joiningDate')?.setValue(parsed.joiningDate);
+        }
+        if (coachingOpt && parsed.coachingJoiningDate) {
+          patchData.coachingJoiningDate = parsed.coachingJoiningDate;
+          this.studentForm.get('coachingJoiningDate')?.setValue(parsed.coachingJoiningDate);
+        } else if (!coachingOpt) {
+          patchData.coachingJoiningDate = '';
+          this.studentForm.get('coachingJoiningDate')?.setValue('');
+        }
+      }
+
+      this.studentForm.patchValue(patchData);
+
+      // 5. Expand ALL panels so user sees all fields open
+      setTimeout(() => {
+        this.schoolAdmissionPanel?.open();
+        this.coachingAdmissionPanel?.open();
+        this.hostelAdmissionPanel?.open();
+        this.transportAdmissionPanel?.open();
+        this.libraryAdmissionPanel?.open();
+        this.personalAdmissionPanel?.open();
+        this.complianceAdmissionPanel?.open();
+        this.historyAdmissionPanel?.open();
+      }, 100);
+
+    } catch (err: any) {
+      console.error('AI Parse error:', err);
+      this.confirmDialog.alert('AI Processing Error', 'Form fill karte waqt koi samasya aayi: ' + (err?.message || err), 'danger');
+    } finally {
+      this.aiIsProcessing = false;
+      if (this.isAiListening) {
+        this.toggleAiSpeech();
+      }
+    }
+  }
+
+  openGeminiKeyModal(): void {
+    const currentKey = this.aiAdmissionService.getSavedGeminiKey();
+    const promptMsg = currentKey
+      ? `Aapki Google Gemini API Key pehle se saved hai.\nNayi key daalni hai toh yahan paste karein, ya hatane ke liye blank chhod kar OK dabayein:`
+      : `Google Gemini 2.0 Flash 100% FREE API Key paste karein (Optional):\n(Aap ise https://aistudio.google.com/app/apikey se muft le sakte hain).\nAgar nahi hai toh Cancel karein, inbuilt AI bina kisi key ke free chalega!`;
+
+    const input = window.prompt(promptMsg, currentKey);
+    if (input !== null) {
+      this.aiAdmissionService.saveGeminiKey(input.trim());
+      if (input.trim()) {
+        this.confirmDialog.alert('Gemini Flash Active', 'Aapki Google Gemini 2.0 Flash API Key successfully save ho gayi hai! Ab AI aur bhi smart tareeqe se form bharega.', 'info');
+      } else {
+        this.confirmDialog.alert('Key Removed', 'Gemini Key hata di gayi hai. Inbuilt free AI engine active hai.', 'info');
+      }
+    }
   }
 
   onStreamCheckChanged(): void {
@@ -4845,6 +5577,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
         isCoachingStudent: initCoaching
       });
       this.onStreamCheckChanged();
+      setTimeout(() => {
+        this.schoolAdmissionPanel?.open();
+        this.coachingAdmissionPanel?.open();
+        this.hostelAdmissionPanel?.open();
+        this.transportAdmissionPanel?.open();
+        this.libraryAdmissionPanel?.open();
+        this.personalAdmissionPanel?.open();
+        this.complianceAdmissionPanel?.open();
+        this.historyAdmissionPanel?.open();
+      }, 100);
     }
   }
 
@@ -4852,6 +5594,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
     this.selectedStudent = student;
     this.isEditMode = true;
     this.showForm = true;
+    setTimeout(() => {
+      this.schoolAdmissionPanel?.open();
+      this.coachingAdmissionPanel?.open();
+      this.hostelAdmissionPanel?.open();
+      this.transportAdmissionPanel?.open();
+      this.libraryAdmissionPanel?.open();
+      this.personalAdmissionPanel?.open();
+      this.complianceAdmissionPanel?.open();
+      this.historyAdmissionPanel?.open();
+    }, 100);
     this.siblingInfo = null;
     this.phoneDuplicateError = '';
     this.photoPreview = student.profilePhoto ? this.getPhotoUrl(student.profilePhoto) : null;
