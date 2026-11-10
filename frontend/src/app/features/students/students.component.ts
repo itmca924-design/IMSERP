@@ -1218,7 +1218,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                           <td mat-cell *matCellDef="let s">
                             <div class="name-cell-wrap">
                               <div class="name-row-header">
-                                <span class="student-name-text student-name-clickable" (click)="openStudent360(s)" matTooltip="Click to open Student 360° Dossier & KYC Vault">{{ s.studentName }}</span>
+                                <span class="student-name-text">{{ s.studentName }}</span>
                                 @if (s.isActive === false && isStudentPassedOut(s)) {
                                   <span class="slc-badge-pill" matTooltip="Terminal Pass-Out Alumnus - SLC: {{ s.tcNumber || 'Issued' }}">
                                     <mat-icon class="tc-icon-mini">school</mat-icon>
@@ -3095,6 +3095,37 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
 
       tr.mat-mdc-row {
         height: auto !important;
+        transition: background-color 0.16s ease-in-out, box-shadow 0.16s ease-in-out;
+        position: relative;
+        cursor: default;
+
+        &:nth-child(even) {
+          background-color: #fbfcfe;
+        }
+
+        &:hover {
+          background: #eff6ff !important;
+          box-shadow: inset 4px 0 0 0 #2563eb, 0 3px 12px -2px rgba(37, 99, 235, 0.12) !important;
+
+          td.mat-mdc-cell {
+            background-color: transparent !important;
+          }
+
+          .student-name-text {
+            color: #1e3a8a;
+          }
+
+          .avatar-wrap {
+            box-shadow: 0 0 0 2px #3b82f6 !important;
+            transform: scale(1.06);
+            transition: transform 0.16s ease, box-shadow 0.16s ease;
+          }
+
+          .school-adm-date-pill {
+            border-color: #93c5fd !important;
+            background: #ffffff !important;
+          }
+        }
       }
 
       td.mat-mdc-cell {
