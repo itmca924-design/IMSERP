@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -38,6 +38,7 @@ import { FeeInvoiceBreakdownDialogComponent, BreakdownDialogResult } from './fee
 import { BulkFeePrintDialogComponent } from './bulk-fee-print-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
+import { AiErpCopilotService } from '../../core/services/ai-erp-copilot.service';
 
 export interface UpcomingBillingCycleInfo {
   month: number;
@@ -103,29 +104,45 @@ export interface UpcomingBillingCycleInfo {
     
       <!-- Module Navigation / Mode Switcher -->
       <div class="fees-nav-bar">
-        <button
-          type="button"
-          class="fees-nav-tab"
-          [class.active]="currentActiveTab === 'invoices'"
-          (click)="switchTab('invoices')" matButton="filled">
-          <mat-icon>receipt_long</mat-icon>
-          <span>Fee Invoices &amp; Counter Dues</span>
-          @if (totalCount > 0) {
-            <span class="nav-count">{{ totalCount }}</span>
-          }
-        </button>
-    
-        <button
-          type="button"
-          class="fees-nav-tab upi-nav-tab"
-          [class.active]="currentActiveTab === 'upi'"
-          (click)="switchTab('upi')" matButton="filled">
-          <mat-icon class="upi-nav-icon">qr_code_2</mat-icon>
-          <span>Online UPI Collections &amp; Audit</span>
-          @if (upiTotalCount > 0) {
-            <span class="nav-count upi-count">{{ upiTotalCount }}</span>
-          }
-        </button>
+        <div class="fees-nav-left">
+          <button
+            type="button"
+            class="fees-nav-tab"
+            [class.active]="currentActiveTab === 'invoices'"
+            (click)="switchTab('invoices')" matButton="filled">
+            <mat-icon>receipt_long</mat-icon>
+            <span>Fee Invoices &amp; Counter Dues</span>
+            @if (totalCount > 0) {
+              <span class="nav-count">{{ totalCount }}</span>
+            }
+          </button>
+      
+          <button
+            type="button"
+            class="fees-nav-tab upi-nav-tab"
+            [class.active]="currentActiveTab === 'upi'"
+            (click)="switchTab('upi')" matButton="filled">
+            <mat-icon class="upi-nav-icon">qr_code_2</mat-icon>
+            <span>Online UPI Collections &amp; Audit</span>
+            @if (upiTotalCount > 0) {
+              <span class="nav-count upi-count">{{ upiTotalCount }}</span>
+            }
+          </button>
+        </div>
+
+        <div class="fees-nav-right">
+          <button type="button" 
+            class="ai-toggle-action-btn" 
+            [class.active]="isAiFeeOpen" 
+            (click)="toggleAiFeePanel()" 
+            [matTooltip]="isAiFeeOpen ? 'Hide AI Voice Copilot' : 'Open AI Voice Copilot'">
+            <mat-icon>{{ isAiFeeOpen ? 'visibility_off' : 'psychology' }}</mat-icon>
+            <span>{{ isAiFeeOpen ? 'Hide Voice Assistant' : '✨ AI Fee Copilot' }}</span>
+            @if (!isAiFeeOpen) {
+              <span class="ai-pill-tag">Voice</span>
+            }
+          </button>
+        </div>
       </div>
     
       <!-- Smart Alert Banner: New Admissions Awaiting Invoicing -->
@@ -264,6 +281,83 @@ export interface UpcomingBillingCycleInfo {
     
       <!-- Main Invoices Directory Card -->
       @if (currentActiveTab === 'invoices') {
+        <!-- Agentic AI Quick Fee Collection Copilot Deck -->
+        @if (isAiFeeOpen) {
+          <div class="ai-copilot-card">
+            <div class="ai-copilot-header">
+              <div class="ai-copilot-title-group">
+                <div class="ai-avatar-icon">
+                  <mat-icon>payments</mat-icon>
+                </div>
+                <div class="ai-title-text">
+                  <div class="ai-main-title-row">
+                    <h4>Agentic AI Smart Fee Collector</h4>
+                    <span class="ai-pill-active">⚡ Instant Voice &amp; Auto-Collect</span>
+                  </div>
+                  <p>Mic दबाकर बोलें या नीचे लिखें — जैसे "Aman Kumar 2000 cash" या "Roll 12 1500 UPI", AI छात्र को खोजकर तुरंत रसीद विंडो खोल देगा।</p>
+                </div>
+              </div>
+              <div class="ai-header-controls">
+                <button type="button" class="ai-minimize-btn" (click)="toggleAiFeePanel()" matTooltip="Hide Copilot">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            @if (isAiFeeListening) {
+              <div class="ai-listening-bar">
+                <div class="ai-wave-wrap">
+                  <mat-icon class="ai-wave-icon">graphic_eq</mat-icon>
+                  <div class="ai-listening-text">
+                    <span>AI सुन रहा है... ({{ aiFeeSpeechLang === 'hi-IN' ? 'Listening in Hindi / Hinglish' : 'Listening in English' }})</span>
+                    <span class="ai-mic-hint">बोलिए: "छात्र का नाम/रोल नंबर, फीस राशि और भुगतान माध्यम (Cash/UPI)..."</span>
+                  </div>
+                </div>
+                <button type="button" class="ai-stop-btn" (click)="toggleAiFeeSpeech()">
+                  <mat-icon>mic_off</mat-icon>
+                  <span>Stop</span>
+                </button>
+              </div>
+            }
+
+            <div class="ai-input-wrap">
+              <textarea
+                class="ai-textarea"
+                rows="2"
+                [(ngModel)]="aiFeePromptText"
+                (input)="onAiFeePromptInput()"
+                (keydown.enter)="$event.preventDefault(); executeAiFeeCollection()"
+                placeholder="यहाँ बोलें या टाइप करें... (उदा: 'Aman Kumar 2000 cash' या 'Roll 15 1500 UPI')"></textarea>
+
+              <div class="ai-footer-bar">
+                <div class="ai-footer-left">
+                  <button type="button" class="ai-mic-btn" [class.listening]="isAiFeeListening" (click)="toggleAiFeeSpeech()">
+                    <mat-icon>{{ isAiFeeListening ? 'mic' : 'mic_none' }}</mat-icon>
+                    <span>{{ isAiFeeListening ? 'Stop Mic' : 'Start Voice' }}</span>
+                  </button>
+                  <button type="button" class="ai-lang-pill-btn" (click)="toggleAiFeeLang()" matTooltip="Switch Language">
+                    <mat-icon>language</mat-icon>
+                    <span>{{ aiFeeSpeechLang === 'hi-IN' ? 'हिंदी (Hindi)' : 'English' }}</span>
+                  </button>
+                </div>
+                <div class="ai-footer-right">
+                  @if (aiFeePromptText) {
+                    <button type="button" class="ai-clear-btn" (click)="clearAiFee()">Clear</button>
+                  }
+                  <button
+                    type="button"
+                    class="ai-submit-action-btn"
+                    [disabled]="!aiFeePromptText.trim()"
+                    (click)="executeAiFeeCollection()">
+                    <mat-icon>auto_awesome</mat-icon>
+                    <span>Auto-Collect (फीस जमा करें)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
         <mat-card class="table-card mat-elevation-z2">
           <!-- Filter Toolbar -->
           <div class="filter-toolbar">
@@ -943,13 +1037,27 @@ export interface UpcomingBillingCycleInfo {
     /* Fees Nav Switcher */
     .fees-nav-bar {
       display: flex;
+      justify-content: space-between;
       gap: 12px;
       align-items: center;
-      background: #f8fafc;
-      padding: 6px;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      width: fit-content;
+      width: 100%;
+      flex-wrap: wrap;
+
+      .fees-nav-left {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        background: #f8fafc;
+        padding: 5px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+      }
+
+      .fees-nav-right {
+        display: flex;
+        align-items: center;
+        margin-left: auto;
+      }
 
       .fees-nav-tab {
         border: none;
@@ -2922,6 +3030,44 @@ export interface UpcomingBillingCycleInfo {
     }
 
     @media (max-width: 768px) {
+      .fees-nav-bar {
+        gap: 10px;
+
+        .fees-nav-left {
+          flex: 1 1 auto;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .fees-nav-right {
+          flex-shrink: 0;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .fees-nav-bar {
+          flex-direction: column;
+          align-items: stretch;
+
+          .fees-nav-left {
+            width: 100%;
+            justify-content: flex-start;
+            overflow-x: auto;
+            padding: 4px;
+          }
+
+          .fees-nav-right {
+            width: 100%;
+            margin-left: 0;
+
+            .ai-toggle-action-btn {
+              width: 100%;
+              justify-content: center;
+            }
+          }
+        }
+      }
+
       .header-actions {
         flex-direction: column;
         align-items: stretch;
@@ -3191,6 +3337,13 @@ export class FeesComponent implements OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
+  // Agentic AI Smart Fee Collector Properties (defaults to hidden on page load)
+  isAiFeeOpen = false;
+  isAiFeeListening = false;
+  aiFeePromptText = '';
+  aiFeeSpeechLang = 'hi-IN';
+  private aiFeeSub?: Subscription;
+
   constructor(
     private feesService: FeesService,
     private batchesService: BatchesService,
@@ -3199,7 +3352,9 @@ export class FeesComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private hostelService: HostelService,
     public settingsService: QuickSettingsService,
-    private dialog: MatDialog
+    private aiCopilotService: AiErpCopilotService,
+    private dialog: MatDialog,
+    private cdr: ChangeDetectorRef
   ) {}
 
   get hasSchoolModule(): boolean { return this.authService.hasSchoolModule(); }
@@ -3219,6 +3374,13 @@ export class FeesComponent implements OnInit, OnDestroy {
       this.loadInvoices();
       this.loadPendingStudents();
       this.loadUpcomingBillingCycle();
+    });
+
+    this.aiFeeSub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
+      if (this.isAiFeeListening) {
+        this.aiFeePromptText = text;
+        this.cdr.markForCheck();
+      }
     });
   }
 
@@ -3420,6 +3582,10 @@ export class FeesComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.refreshSub?.unsubscribe();
+    this.aiFeeSub?.unsubscribe();
+    if (this.isAiFeeListening) {
+      this.aiCopilotService.stopListening();
+    }
   }
 
   loadBatches(): void {
@@ -3529,7 +3695,281 @@ export class FeesComponent implements OnInit, OnDestroy {
     });
   }
 
-  openCollectFeeModal(inv: FeeInvoicePagedItem): void {
+  // ════════════════════════════════════════════════════════════
+  // AGENTIC AI SMART FEE COLLECTOR COPILOT METHODS
+  // ════════════════════════════════════════════════════════════
+  toggleAiFeePanel(): void {
+    this.isAiFeeOpen = !this.isAiFeeOpen;
+    if (!this.isAiFeeOpen) {
+      this.clearAiFee();
+    }
+  }
+
+  toggleAiFeeSpeech(): void {
+    if (!this.aiCopilotService.isSpeechSupported()) {
+      this.confirmDialog.alert(
+        'Speech Recognition Unavailable',
+        'Web Speech API is not supported in this browser. Please use Google Chrome or type your command directly.',
+        'warning'
+      );
+      return;
+    }
+    if (this.isAiFeeListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiFeeListening = false;
+    } else {
+      this.isAiFeeListening = true;
+      this.aiCopilotService.startListening(this.aiFeeSpeechLang);
+    }
+  }
+
+  toggleAiFeeLang(): void {
+    this.aiFeeSpeechLang = this.aiFeeSpeechLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+    if (this.isAiFeeListening) {
+      this.aiCopilotService.restartWithLanguage(this.aiFeeSpeechLang);
+    }
+  }
+
+  onAiFeePromptInput(): void {
+    if (this.isAiFeeListening && (!this.aiFeePromptText || !this.aiFeePromptText.trim())) {
+      this.aiCopilotService.restartListening(this.aiFeeSpeechLang);
+    }
+  }
+
+  clearAiFee(): void {
+    this.aiFeePromptText = '';
+    this.aiCopilotService.stopListening();
+    this.isAiFeeListening = false;
+  }
+
+  private levenshtein(a: string, b: string): number {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const matrix: number[][] = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    return matrix[b.length][a.length];
+  }
+
+  private normalizePhonetic(str: string): string {
+    return (str || '')
+      .toLowerCase()
+      .trim()
+      .replace(/ee/g, 'i')
+      .replace(/oo/g, 'u')
+      .replace(/w/g, 'v')
+      .replace(/k/g, 'c')
+      .replace(/sh/g, 's')
+      .replace(/th/g, 't')
+      .replace(/ph/g, 'f')
+      .replace(/aa/g, 'a')
+      .replace(/e/g, 'i') // Indian phonetic vowel normalization: e -> i (e.g. renu/reenu -> rinu)
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  executeAiFeeCollection(): void {
+    const raw = (this.aiFeePromptText || '').trim();
+    if (!raw) return;
+
+    const parsed = this.aiCopilotService.parseFeeCommand(raw);
+    const qInv = (parsed.invoiceNumber || '').toLowerCase().trim();
+    const qName = (parsed.studentName || '').toLowerCase().trim();
+    const qRoll = (parsed.rollNumber || '').toLowerCase().trim();
+    const latinQ = this.aiCopilotService.devanagariToLatin(qName);
+    const normQ = this.normalizePhonetic(latinQ || qName);
+
+    // 1. Direct, Invoice Number, or Phonetic Match in loaded page
+    let match = this.invoices.find(inv => {
+      const iNum = (inv.invoiceNumber || '').toLowerCase();
+      const matchInv = qInv && (
+        iNum === qInv ||
+        iNum.includes(qInv) ||
+        qInv.includes(iNum)
+      );
+      const matchRoll = qRoll && (
+        (inv.rollNumber && inv.rollNumber.toLowerCase() === qRoll) ||
+        (inv.invoiceNumber && inv.invoiceNumber.toLowerCase() === qRoll)
+      );
+      const sName = (inv.studentName || '').toLowerCase();
+      const normS = this.normalizePhonetic(sName);
+      const matchName = qName && (
+        sName.includes(qName) ||
+        (latinQ && sName.includes(latinQ)) ||
+        (normQ.length >= 2 && normS === normQ) ||
+        (normQ.length >= 2 && normS.includes(normQ)) ||
+        (normQ.length >= 2 && normQ.includes(normS)) ||
+        (normS.length >= 2 && normQ.length >= 2 && normS[0] === normQ[0] && this.levenshtein(normS, normQ) <= 1)
+      );
+      return matchInv || matchRoll || matchName;
+    });
+
+    // 2. Intelligent Roster Matching (resolves voice acoustic mishearings like "रीमिक्स" / "रेणु" -> "rinu")
+    if (!match && !qInv && (normQ.length >= 2 || latinQ.length >= 2)) {
+      const queryStr = normQ || latinQ;
+      match = this.invoices.find(inv => {
+        const normS = this.normalizePhonetic(inv.studentName || '');
+        if (!normS || normS.length < 2) return false;
+        if (normS === normQ || (normS[0] === queryStr[0] && this.levenshtein(normS, queryStr) <= 1)) return true;
+        const prefixLen = Math.min(2, Math.min(queryStr.length, normS.length));
+        return queryStr.substring(0, prefixLen) === normS.substring(0, prefixLen);
+      });
+    }
+
+    if (match) {
+      this.openCollectFeeModal(match, parsed.amount, parsed.paymentModeId);
+      if (this.isAiFeeListening) {
+        this.aiCopilotService.stopListening();
+        this.isAiFeeListening = false;
+      }
+    } else {
+      // Check if student exists in pending admissions awaiting invoice
+      const pendingMatch = this.pendingStudents.find(s => 
+        (s.studentName && s.studentName.toLowerCase() === qName) ||
+        (normQ.length >= 2 && this.normalizePhonetic(s.studentName || '') === normQ) ||
+        (normQ.length >= 2 && s.studentName && this.normalizePhonetic(s.studentName)[0] === normQ[0] && this.levenshtein(this.normalizePhonetic(s.studentName), normQ) <= 1)
+      );
+
+      if (pendingMatch) {
+        this.confirmDialog.confirm(
+          'New Admission Awaiting Invoice',
+          `"${pendingMatch.studentName}" naya admission hai aur iska abhi tak koi fee invoice generate nahi hua hai. Kya aap abhi invoice generate karna chahte hain?`,
+          'primary',
+          'Generate Invoice'
+        ).subscribe((confirmed: boolean) => {
+          if (confirmed) {
+            this.generateForPendingStudent(pendingMatch);
+          }
+        });
+        if (this.isAiFeeListening) {
+          this.aiCopilotService.stopListening();
+          this.isAiFeeListening = false;
+        }
+        return;
+      }
+
+      // Resolve acoustic variations (e.g. voice transcribed "रेणु" / "reenu" -> mapped to DB name "rinu")
+      let resolvedDbName = '';
+      const allRosterNames = [
+        ...this.invoices.map(i => i.studentName),
+        ...this.pendingStudents.map(s => s.studentName)
+      ].filter(Boolean);
+
+      for (const realName of allRosterNames) {
+        const normReal = this.normalizePhonetic(realName);
+        if (
+          normReal === normQ ||
+          (normReal.length >= 2 && normQ.length >= 2 && normReal[0] === normQ[0] && this.levenshtein(normReal, normQ) <= 1) ||
+          (normQ.length >= 2 && normReal.startsWith(normQ.substring(0, 2)))
+        ) {
+          resolvedDbName = realName;
+          break;
+        }
+      }
+
+      const searchTarget = qInv || qRoll || resolvedDbName || latinQ || qName;
+      if (searchTarget) {
+        this.searchTerm = searchTarget;
+        this.loading = true;
+        this.feesService.getInvoicesPaged(
+          1,
+          this.pageSize,
+          this.searchTerm,
+          this.selectedBatchFilter,
+          this.selectedClassFilter,
+          this.selectedStatusFilter,
+          this.sortBy,
+          this.sortDescending
+        ).subscribe({
+          next: (res) => {
+            this.loading = false;
+            this.invoices = res.items || [];
+            this.totalCount = res.totalCount || 0;
+            this.cdr.markForCheck();
+            if (this.invoices.length > 0) {
+              // Direct auto-open fee collection popup with loaded data
+              this.openCollectFeeModal(this.invoices[0], parsed.amount, parsed.paymentModeId);
+              if (this.isAiFeeListening) {
+                this.aiCopilotService.stopListening();
+                this.isAiFeeListening = false;
+              }
+            } else if (normQ && normQ.length >= 2 && normQ !== searchTarget) {
+              // Secondary phonetic query retry (e.g. voice parsed "renu" but DB student is spelled "rinu")
+              this.searchTerm = normQ;
+              this.loading = true;
+              this.feesService.getInvoicesPaged(
+                1,
+                this.pageSize,
+                normQ,
+                this.selectedBatchFilter,
+                this.selectedClassFilter,
+                this.selectedStatusFilter,
+                this.sortBy,
+                this.sortDescending
+              ).subscribe({
+                next: (fallbackRes) => {
+                  this.loading = false;
+                  this.invoices = fallbackRes.items || [];
+                  this.totalCount = fallbackRes.totalCount || 0;
+                  this.cdr.markForCheck();
+                  if (this.invoices.length > 0) {
+                    this.openCollectFeeModal(this.invoices[0], parsed.amount, parsed.paymentModeId);
+                    if (this.isAiFeeListening) {
+                      this.aiCopilotService.stopListening();
+                      this.isAiFeeListening = false;
+                    }
+                  } else {
+                    this.confirmDialog.alert(
+                      'No Invoices Found',
+                      `No fee invoices found matching "${searchTarget}". Please verify the student name, roll number, or invoice number.`,
+                      'warning'
+                    );
+                  }
+                },
+                error: () => {
+                  this.loading = false;
+                  this.cdr.markForCheck();
+                  this.confirmDialog.alert('No Invoices Found', `No fee invoices found matching "${searchTarget}".`, 'warning');
+                }
+              });
+            } else {
+              this.confirmDialog.alert(
+                'No Invoices Found',
+                `No fee invoices found matching "${searchTarget}". Please verify the student name, roll number, or invoice number.`,
+                'warning'
+              );
+            }
+          },
+          error: (err) => {
+            this.loading = false;
+            this.cdr.markForCheck();
+            this.confirmDialog.alert('Search Error', 'Failed to retrieve invoice. Please try again.', 'danger');
+          }
+        });
+      } else {
+        this.confirmDialog.alert(
+          'Student Not Found',
+          `Could not locate student or invoice from "${raw}". Please verify the student name, roll number, or invoice number.`,
+          'warning'
+        );
+      }
+    }
+  }
+
+  openCollectFeeModal(inv: FeeInvoicePagedItem, initialAmount?: number, initialPaymentMode?: number): void {
     // Lookup active hostel allocation for this student to show bed info in dialog
     this.hostelService.getAllocations('Active', inv.studentId).subscribe({
       next: (allocations) => {
@@ -3551,6 +3991,8 @@ export class FeesComponent implements OnInit, OnDestroy {
             batchName: inv.batchName,
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
+            initialAmount: initialAmount,
+            initialPaymentMode: initialPaymentMode,
             hostelInfo,
             items: inv.items,
             branchName: inv.branchName || this.authService.getCurrentBranchName(),
@@ -3593,6 +4035,8 @@ export class FeesComponent implements OnInit, OnDestroy {
             batchName: inv.batchName,
             parentWhatsAppPhone: inv.parentWhatsAppPhone,
             totalOutstandingDue: inv.dueAmount,
+            initialAmount: initialAmount,
+            initialPaymentMode: initialPaymentMode,
             items: inv.items,
             branchName: inv.branchName || this.authService.getCurrentBranchName(),
             invoiceDueDate: inv.dueDate,

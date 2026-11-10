@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone, signal, computed, effect, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,7 +10,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { skip } from 'rxjs';
+import { skip, Subscription } from 'rxjs';
 import { CoachingService, StudentDashboardSummary, TeacherDashboardSummary } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -17,6 +18,7 @@ import { EventsService, DashboardCelebrationsSummary, SchoolEvent, BirthdayItem 
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { EventFormDialogComponent } from '../events/event-form-dialog.component';
 import { EventGalleryDialogComponent } from '../events/event-gallery-dialog.component';
+import { AiErpCopilotService, ExecutiveQueryResult } from '../../core/services/ai-erp-copilot.service';
 import ApexCharts from 'apexcharts';
 
 @Component({
@@ -25,6 +27,7 @@ import ApexCharts from 'apexcharts';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
+    FormsModule,
     MatCardModule,
     MatIconModule,
     MatButtonModule,
@@ -891,7 +894,102 @@ import ApexCharts from 'apexcharts';
       <!-- ========================================== -->
       @if (!authService.isStudentOrParent() && !authService.isTeacher()) {
         @if (summary(); as summary) {
-    
+
+          <!-- Agentic AI Executive Director Voice Copilot -->
+          @if (isAiDirectorOpen) {
+            <div class="ai-copilot-card">
+              <div class="ai-copilot-header">
+                <div class="ai-copilot-title-group">
+                  <div class="ai-avatar-icon">
+                    <mat-icon>psychology</mat-icon>
+                  </div>
+                  <div class="ai-title-text">
+                    <div class="ai-main-title-row">
+                      <h4>Executive Director Voice Copilot</h4>
+                      <span class="ai-pill-active">⚡ Ask IMSERP Anything</span>
+                    </div>
+                    <p>बोलें या लिखें — जैसे "Total fee collected this month?", "Active students kitne hain?", "Pending fee dues?", AI तुरंत आंकड़े बताएगा।</p>
+                  </div>
+                </div>
+                <div class="ai-header-controls">
+                  <button type="button" class="ai-minimize-btn" (click)="isAiDirectorOpen = false" matTooltip="Hide Copilot">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              </div>
+
+              @if (isAiDirectorListening) {
+                <div class="ai-listening-bar">
+                  <div class="ai-wave-wrap">
+                    <mat-icon class="ai-wave-icon">graphic_eq</mat-icon>
+                    <div class="ai-listening-text">
+                      <span>AI सुन रहा है... ({{ aiDirectorSpeechLang === 'hi-IN' ? 'Listening in Hindi / Hinglish' : 'Listening in English' }})</span>
+                      <span class="ai-mic-hint">बोलिए: "आज का कलेक्शन, कुल छात्र संख्या, बकाया फीस, या शिक्षक विवरण..."</span>
+                    </div>
+                  </div>
+                  <button type="button" class="ai-stop-btn" (click)="toggleAiDirectorSpeech()">
+                    <mat-icon>mic_off</mat-icon>
+                    <span>Stop</span>
+                  </button>
+                </div>
+              }
+
+              <div class="ai-input-wrap">
+                <textarea
+                  class="ai-textarea"
+                  rows="2"
+                  [(ngModel)]="aiDirectorPromptText"
+                  (input)="onAiDirectorPromptInput()"
+                  (keydown.enter)="$event.preventDefault(); processAiDirectorQuery(summary)"
+                  placeholder="यहाँ बोलें या टाइप करें... (उदा: 'Total fee collected this month?' या 'Total active students kitne hain?')"></textarea>
+
+                <div class="ai-footer-bar">
+                  <div class="ai-footer-left">
+                    <button type="button" class="ai-mic-btn" [class.listening]="isAiDirectorListening" (click)="toggleAiDirectorSpeech()">
+                      <mat-icon>{{ isAiDirectorListening ? 'mic' : 'mic_none' }}</mat-icon>
+                      <span>{{ isAiDirectorListening ? 'Stop Mic' : 'Start Voice' }}</span>
+                    </button>
+                    <button type="button" class="ai-lang-pill-btn" (click)="toggleAiDirectorLang()" matTooltip="Switch Language">
+                      <mat-icon>language</mat-icon>
+                      <span>{{ aiDirectorSpeechLang === 'hi-IN' ? 'हिंदी (Hindi)' : 'English' }}</span>
+                    </button>
+                  </div>
+                  <div class="ai-footer-right">
+                    @if (aiDirectorPromptText) {
+                      <button type="button" class="ai-clear-btn" (click)="clearAiDirector()">Clear</button>
+                    }
+                    <button
+                      type="button"
+                      class="ai-submit-action-btn"
+                      [disabled]="!aiDirectorPromptText.trim()"
+                      (click)="processAiDirectorQuery(summary)">
+                      <mat-icon>auto_awesome</mat-icon>
+                      <span>Ask Copilot (पूछें)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- AI Answer Box -->
+              @if (aiDirectorAnswer) {
+                <div class="ai-executive-answer-box" style="margin-top: 12px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; display: flex; align-items: flex-start; gap: 12px;">
+                  <div style="width: 34px; height: 34px; border-radius: 8px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <mat-icon style="font-size: 18px; width: 18px; height: 18px;">insights</mat-icon>
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+                      <span style="font-size: 0.8rem; font-weight: 700; color: #1e3a8a;">IMSERP Executive Intelligence</span>
+                      @if (aiDirectorAnswer.highlightValue) {
+                        <span style="font-size: 0.78rem; font-weight: 700; background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 6px;">{{ aiDirectorAnswer.highlightValue }}</span>
+                      }
+                    </div>
+                    <p style="margin: 0; font-size: 0.88rem; color: #1e293b; line-height: 1.5;">{{ aiDirectorAnswer.answer }}</p>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+
           <!-- 1. Top KPI Stat Cards -->
           <div class="card-container">
             <mat-card class="stat-card blue mat-elevation-z2">
@@ -3649,6 +3747,22 @@ import ApexCharts from 'apexcharts';
   `]
 })
 export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
+  // Agentic AI Executive Director Voice Copilot Properties (defaults to hidden on page load)
+  get isAiDirectorOpen(): boolean {
+    return this.aiCopilotService.isExecutiveCopilotVisible();
+  }
+  set isAiDirectorOpen(val: boolean) {
+    this.aiCopilotService.setExecutiveCopilotVisible(val);
+    if (!val) {
+      this.clearAiDirector();
+    }
+  }
+  isAiDirectorListening = false;
+  aiDirectorPromptText = '';
+  aiDirectorSpeechLang = 'hi-IN';
+  aiDirectorAnswer: ExecutiveQueryResult | null = null;
+  private aiDirectorSub?: Subscription;
+
   summary = signal<any>(null);
   studentSummary = signal<StudentDashboardSummary | null>(null);
   teacherSummary = signal<TeacherDashboardSummary | null>(null);
@@ -3721,7 +3835,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     private eventsService: EventsService,
     private dialog: MatDialog,
     private ngZone: NgZone,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private aiCopilotService: AiErpCopilotService
   ) {
     // Reactively refresh dashboard when branch changes after initial load
     toObservable(this.authService.selectedBranchId)
@@ -3732,16 +3847,95 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(() => {
         setTimeout(() => this.loadSummary(), 0);
       });
+
+    toObservable(this.aiCopilotService.isExecutiveCopilotVisible)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(visible => {
+        if (!visible) {
+          this.clearAiDirector();
+        }
+      });
   }
 
   ngOnInit(): void {
     this.loadSummary();
+
+    this.aiDirectorSub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
+      if (this.isAiDirectorListening) {
+        this.aiDirectorPromptText = text;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   ngAfterViewInit(): void {}
 
   ngOnDestroy(): void {
     this.destroyCharts();
+    this.aiDirectorSub?.unsubscribe();
+    if (this.isAiDirectorListening) {
+      this.aiCopilotService.stopListening();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // AGENTIC AI EXECUTIVE DIRECTOR VOICE COPILOT METHODS
+  // ════════════════════════════════════════════════════════════
+  onAiDirectorPromptInput(): void {
+    if (!this.aiDirectorPromptText?.trim() && this.isAiDirectorListening) {
+      this.aiCopilotService.restartListening(this.aiDirectorSpeechLang);
+    }
+  }
+
+  toggleAiDirectorSpeech(): void {
+    if (!this.aiCopilotService.isSpeechSupported()) {
+      this.confirmDialog.alert(
+        'Speech Recognition Unavailable',
+        'Web Speech API is not supported in this browser. Please use Google Chrome or type your query directly.',
+        'warning'
+      );
+      return;
+    }
+    if (this.isAiDirectorListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiDirectorListening = false;
+    } else {
+      this.isAiDirectorListening = true;
+      this.aiCopilotService.startListening(this.aiDirectorSpeechLang);
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleAiDirectorLang(): void {
+    this.aiDirectorSpeechLang = this.aiDirectorSpeechLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+    if (this.isAiDirectorListening) {
+      this.aiCopilotService.restartWithLanguage(this.aiDirectorSpeechLang);
+    }
+    this.cdr.markForCheck();
+  }
+
+  clearAiDirector(): void {
+    this.aiDirectorPromptText = '';
+    this.aiDirectorAnswer = null;
+    if (this.isAiDirectorListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiDirectorListening = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  processAiDirectorQuery(summary: any): void {
+    const raw = (this.aiDirectorPromptText || '').trim();
+    if (!raw) return;
+
+    const instName = this.authService.getInstituteName() || 'Our Educational Institution';
+    this.aiDirectorAnswer = this.aiCopilotService.queryExecutiveDashboard(raw, summary, instName);
+
+    if (this.isAiDirectorListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiDirectorListening = false;
+    }
+    this.cdr.markForCheck();
   }
 
   loadSummary(): void {

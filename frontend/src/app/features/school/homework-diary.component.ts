@@ -1,8 +1,10 @@
-import { Component, OnInit, Inject, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
+import { AiErpCopilotService } from '../../core/services/ai-erp-copilot.service';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -191,7 +193,11 @@ export interface DailyDiaryReportHeader {
             <span>Refresh</span>
           </button>
     
-          @if (activeTab === 'teacher' && diarySubTab === 'worksheets') {
+          @if (activeTab === 'teacher') {
+            <button type="button" class="ai-header-shortcut-btn" (click)="openHomeworkDialog(undefined, true)" matTooltip="Assign Homework with Voice / AI Assistant">
+              <mat-icon>auto_awesome</mat-icon>
+              <span>✨ AI Voice HW</span>
+            </button>
             <button class="create-btn" (click)="openHomeworkDialog()" matButton="filled">
               <mat-icon>add_circle</mat-icon>
               <span>Assign Homework</span>
@@ -1582,6 +1588,41 @@ export interface DailyDiaryReportHeader {
     .page-title { margin: 0; font-size: 20px; font-weight: 800; color: #1e3a8a; }
     .page-subtitle { margin: 4px 0 0; font-size: 13px; color: #64748b; }
     .header-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .ai-header-shortcut-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 16px;
+      height: 42px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      color: #1e40af;
+      border: 1.5px solid #93c5fd;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+      }
+
+      &:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        border-color: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+
+        mat-icon {
+          color: #ffffff;
+        }
+      }
+    }
     .create-btn { background: #2563eb !important; color: #fff !important; font-weight: 700; padding: 0 20px; height: 42px; border-radius: 8px; }
     .refresh-btn { border-color: #cbd5e1; color: #475569; height: 42px; border-radius: 8px; }
     .spin { animation: spin 1s linear infinite; }
@@ -1724,7 +1765,33 @@ export interface DailyDiaryReportHeader {
     .action-ic.delete { color: #ef4444; }
 
     /* Table Layout */
-    .hw-table-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .hw-table-wrap {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow-x: auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      -webkit-overflow-scrolling: touch;
+
+      &::-webkit-scrollbar {
+        height: 6px;
+        width: 6px;
+      }
+      &::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+        transition: background 0.2s ease;
+      }
+      &::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 #f1f5f9;
+    }
     .hw-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
     .hw-table th { background: #f8fafc; color: #475569; font-weight: 700; padding: 14px 16px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
     .hw-table td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; color: #1e293b; vertical-align: middle; }
@@ -2759,6 +2826,26 @@ export interface DailyDiaryReportHeader {
     .diary-table-responsive {
       width: 100%;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+
+      &::-webkit-scrollbar {
+        height: 6px;
+        width: 6px;
+      }
+      &::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+        transition: background 0.2s ease;
+      }
+      &::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 #f1f5f9;
     }
     .diary-entry-table {
       width: 100%;
@@ -5466,7 +5553,7 @@ export class HomeworkDiaryComponent implements OnInit {
     return diffHours <= 24;
   }
 
-  openHomeworkDialog(item?: StudentHomeworkDto): void {
+  openHomeworkDialog(item?: StudentHomeworkDto, openWithAi: boolean = false): void {
     const ref = this.dialog.open(HomeworkFormDialogComponent, {
       width: '680px',
       maxWidth: '95vw',
@@ -5477,7 +5564,8 @@ export class HomeworkDiaryComponent implements OnInit {
         batches: this.batches,
         teachers: this.teachers,
         subjects: this.subjects,
-        currentUser: this.authService.currentUser()
+        currentUser: this.authService.currentUser(),
+        openWithAi: openWithAi
       }
     });
 
@@ -5596,32 +5684,151 @@ export class HomeworkDiaryComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
-          <mat-icon>close</mat-icon>
-        </button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          @if (!isEdit) {
+            <button type="button" 
+              class="ai-toggle-action-btn" 
+              [class.active]="isAiHomeworkOpen" 
+              (click)="toggleAiHomeworkPanel()" 
+              [title]="isAiHomeworkOpen ? 'Hide Voice Homework Assistant' : 'Open Voice Homework Assistant'">
+              <mat-icon>{{ isAiHomeworkOpen ? 'visibility_off' : 'psychology' }}</mat-icon>
+              <span>{{ isAiHomeworkOpen ? 'Hide Voice' : '✨ AI Homework' }}</span>
+              @if (!isAiHomeworkOpen) {
+                <span class="ai-pill-tag">Voice</span>
+              }
+            </button>
+          }
+          <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
       </div>
     
       <!-- Form Body -->
       <div class="modal-body">
-        <!-- Scope Switcher Pill Tabs -->
+        <!-- Agentic AI Smart Homework Voice Copilot -->
+        @if (isAiHomeworkOpen && !isEdit) {
+          <div class="ai-copilot-card">
+            <div class="ai-copilot-header">
+              <div class="ai-copilot-title-group">
+                <div class="ai-avatar-icon">
+                  <mat-icon>menu_book</mat-icon>
+                </div>
+                <div class="ai-title-text">
+                  <div class="ai-main-title-row">
+                    <h4>Agentic AI Homework Copilot</h4>
+                    <span class="ai-pill-active">⚡ Instant Voice &amp; Auto-Fill</span>
+                  </div>
+                  <p>गृहकार्य बोलें या लिखें — जैसे "Class 10th Math: Chapter 4 Quadratic Equations due date kal", AI फॉर्म तुरंत भर देगा।</p>
+                </div>
+              </div>
+              <div class="ai-header-controls">
+                <button type="button" class="ai-minimize-btn" (click)="toggleAiHomeworkPanel()" matTooltip="Hide Copilot">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            @if (isAiHomeworkListening) {
+              <div class="ai-listening-bar">
+                <div class="ai-wave-wrap">
+                  <mat-icon class="ai-wave-icon">graphic_eq</mat-icon>
+                  <div class="ai-listening-text">
+                    <span>AI सुन रहा है... ({{ aiHomeworkSpeechLang === 'hi-IN' ? 'Listening in Hindi / Hinglish' : 'Listening in English' }})</span>
+                    <span class="ai-mic-hint">बोलिए: "कक्षा, विषय, पाठ का शीर्षक, निर्देश और जमा करने की अंतिम तिथि..."</span>
+                  </div>
+                </div>
+                <button type="button" class="ai-stop-btn" (click)="toggleAiHomeworkSpeech()">
+                  <mat-icon>mic_off</mat-icon>
+                  <span>Stop</span>
+                </button>
+              </div>
+            }
+
+            <div class="ai-input-wrap">
+              <textarea
+                class="ai-textarea"
+                rows="2"
+                [(ngModel)]="aiHomeworkPromptText"
+                (input)="onAiHomeworkPromptInput()"
+                (keydown.enter)="$event.preventDefault(); processAiHomeworkCommand()"
+                placeholder="यहाँ बोलें या टाइप करें... (उदा: 'Class 10th Math: Chapter 4 Exercise 4.2 solve all questions due date kal')"></textarea>
+
+              <div class="ai-footer-bar">
+                <div class="ai-footer-left">
+                  <button type="button" class="ai-mic-btn" [class.listening]="isAiHomeworkListening" (click)="toggleAiHomeworkSpeech()">
+                    <mat-icon>{{ isAiHomeworkListening ? 'mic' : 'mic_none' }}</mat-icon>
+                    <span>{{ isAiHomeworkListening ? 'Stop Mic' : 'Start Voice' }}</span>
+                  </button>
+                  <button type="button" class="ai-lang-pill-btn" (click)="toggleAiHomeworkLang()" matTooltip="Switch Language">
+                    <mat-icon>language</mat-icon>
+                    <span>{{ aiHomeworkSpeechLang === 'hi-IN' ? 'हिंदी (Hindi)' : 'English' }}</span>
+                  </button>
+                </div>
+                <div class="ai-footer-right">
+                  @if (aiHomeworkPromptText) {
+                    <button type="button" class="ai-clear-btn" (click)="clearAiHomework()">Clear</button>
+                  }
+                  <button
+                    type="button"
+                    class="ai-submit-action-btn"
+                    [disabled]="!aiHomeworkPromptText.trim()"
+                    (click)="processAiHomeworkCommand()">
+                    <mat-icon>auto_awesome</mat-icon>
+                    <span>Auto-Fill Homework (फॉर्म भरें)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Smart Material Scope Switcher Deck -->
         @if (!isEdit) {
           <div class="scope-nav-container">
-            <div class="scope-pills">
+            <div class="scope-pills" role="tablist" aria-label="Assignment Scope Selection">
               <button
                 type="button"
                 class="scope-pill-btn"
                 [class.active]="targetScope === 'school'"
-                (click)="targetScope = 'school'" matButton="filled">
-                <mat-icon>school</mat-icon>
-                <span>School Class</span>
+                (click)="targetScope = 'school'"
+                role="tab"
+                [attr.aria-selected]="targetScope === 'school'">
+                <div class="scope-icon-box">
+                  <mat-icon>school</mat-icon>
+                </div>
+                <div class="scope-text-wrap">
+                  <div class="scope-label-row">
+                    <span class="scope-main-title">School Class</span>
+                    <span class="scope-hindi-tag">कक्षा</span>
+                  </div>
+                  <span class="scope-sub-desc">Academic Curriculum &amp; Sections</span>
+                </div>
+                @if (targetScope === 'school') {
+                  <mat-icon class="scope-check-mark">check_circle</mat-icon>
+                }
               </button>
+
               <button
                 type="button"
                 class="scope-pill-btn"
                 [class.active]="targetScope === 'coaching'"
-                (click)="targetScope = 'coaching'" matButton="filled">
-                <mat-icon>groups</mat-icon>
-                <span>Coaching Batch</span>
+                (click)="targetScope = 'coaching'"
+                role="tab"
+                [attr.aria-selected]="targetScope === 'coaching'">
+                <div class="scope-icon-box">
+                  <mat-icon>groups</mat-icon>
+                </div>
+                <div class="scope-text-wrap">
+                  <div class="scope-label-row">
+                    <span class="scope-main-title">Coaching Batch</span>
+                    <span class="scope-hindi-tag">कोचिंग बैच</span>
+                  </div>
+                  <span class="scope-sub-desc">Batch DPP &amp; Daily Practice</span>
+                </div>
+                @if (targetScope === 'coaching') {
+                  <mat-icon class="scope-check-mark">check_circle</mat-icon>
+                }
               </button>
             </div>
           </div>
@@ -5823,18 +6030,222 @@ export class HomeworkDiaryComponent implements OnInit {
     .close-btn { color: #64748b; }
     .close-btn:hover { color: #1e293b; }
 
-    .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; max-height: 70vh; overflow-y: auto; }
+    .ai-copilot-card {
+      margin-top: 0 !important;
+      margin-bottom: 8px !important;
+    }
+
+    .modal-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: 70vh;
+      overflow-y: auto;
+
+      &::-webkit-scrollbar {
+        height: 6px;
+        width: 6px;
+      }
+      &::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 #f1f5f9;
+    }
     .form-row { display: flex; gap: 14px; }
     .form-field { flex: 1; }
     .full-field { width: 100%; }
 
-    /* Scope Switcher Pill Tabs */
-    .scope-nav-container { display: flex; align-items: center; margin-bottom: 4px; }
-    .scope-pills { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; gap: 4px; }
-    .scope-pill-btn { display: inline-flex; align-items: center; gap: 8px; border: none; background: transparent; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-    .scope-pill-btn:hover { color: #1e293b; }
-    .scope-pill-btn.active { background: #ffffff; color: #1d4ed8; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); font-weight: 700; }
-    .scope-pill-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    /* Smart Material Scope Switcher Deck */
+    .scope-nav-container {
+      display: flex;
+      width: 100%;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+    .scope-pills {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      width: 100%;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 5px;
+      gap: 8px;
+      box-sizing: border-box;
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .scope-pill-btn {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 11px;
+      border: 1.5px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      min-width: 0;
+      box-sizing: border-box;
+      transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.65);
+        border-color: #cbd5e1;
+      }
+
+      &.active {
+        background: #ffffff;
+        border-color: #93c5fd;
+        box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.18), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+
+        .scope-icon-box {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          color: #ffffff;
+          box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+        }
+
+        .scope-main-title {
+          color: #1e3a8a;
+          font-weight: 700;
+        }
+
+        .scope-hindi-tag {
+          background: #eff6ff;
+          color: #1d4ed8;
+          border-color: #bfdbfe;
+        }
+
+        .scope-sub-desc {
+          color: #3b82f6;
+          font-weight: 600;
+        }
+      }
+    }
+
+    .scope-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: #e2e8f0;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease-in-out;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+    }
+
+    .scope-text-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .scope-label-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .scope-main-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.15s ease-in-out;
+    }
+
+    .scope-hindi-tag {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #64748b;
+      background: #e2e8f0;
+      border: 1px solid #cbd5e1;
+      padding: 1px 6px;
+      border-radius: 5px;
+      flex-shrink: 0;
+      line-height: 1.3;
+    }
+
+    .scope-sub-desc {
+      font-size: 11px;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.15s ease-in-out;
+    }
+
+    .scope-check-mark {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #2563eb;
+      flex-shrink: 0;
+      margin-left: auto;
+      animation: scopeCheckPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes scopeCheckPop {
+      0% { transform: scale(0.6); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @media (max-width: 560px) {
+      .scope-pills {
+        gap: 6px;
+        padding: 4px;
+      }
+      .scope-pill-btn {
+        padding: 8px 10px;
+        gap: 8px;
+      }
+      .scope-icon-box {
+        width: 30px;
+        height: 30px;
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+      }
+      .scope-main-title {
+        font-size: 12.5px;
+      }
+      .scope-hindi-tag {
+        display: none;
+      }
+      .scope-sub-desc {
+        font-size: 10px;
+      }
+      .scope-check-mark {
+        display: none;
+      }
+    }
 
     /* Assigned hints & IST Badge */
     .assigned-hint { color: #0284c7; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
@@ -5861,9 +6272,47 @@ export class HomeworkDiaryComponent implements OnInit {
     .modal-footer { padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
     .cancel-btn { color: #64748b; }
     .save-btn { background: #2563eb !important; color: #fff !important; font-weight: 700; }
+
+    @media (max-width: 640px) {
+      .modal-header {
+        padding: 12px 14px;
+        flex-wrap: wrap;
+        gap: 10px;
+
+        .header-left {
+          gap: 10px;
+          .header-icon-box {
+            width: 36px;
+            height: 36px;
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          }
+          .modal-title { font-size: 1rem; }
+          .modal-subtitle { font-size: 0.74rem; }
+        }
+      }
+
+      .modal-body {
+        padding: 14px 12px;
+        gap: 10px;
+      }
+
+      .form-row {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .modal-footer {
+        padding: 12px 14px;
+        flex-direction: column-reverse;
+        button {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
   `]
 })
-export class HomeworkFormDialogComponent implements OnInit {
+export class HomeworkFormDialogComponent implements OnInit, OnDestroy {
   isEdit = false;
   saving = false;
   uploading = false;
@@ -5876,6 +6325,13 @@ export class HomeworkFormDialogComponent implements OnInit {
   dueDateStr = '';
   dueDatePreviewIso = '';
   dialogCoachingClassId = '';
+
+  // Agentic AI Smart Homework Copilot Properties (defaults to hidden on open)
+  isAiHomeworkOpen = false;
+  isAiHomeworkListening = false;
+  aiHomeworkPromptText = '';
+  aiHomeworkSpeechLang = 'hi-IN';
+  private aiHomeworkSub?: Subscription;
 
   get filteredDialogBatches(): any[] {
     if (!this.dialogCoachingClassId) {
@@ -5915,7 +6371,8 @@ export class HomeworkFormDialogComponent implements OnInit {
     public dialogRef: MatDialogRef<HomeworkFormDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: any,
     private http: HttpClient,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private aiCopilotService: AiErpCopilotService
   ) {}
 
   private formatLocalIsoDatetime(d: Date): string {
@@ -6001,6 +6458,114 @@ export class HomeworkFormDialogComponent implements OnInit {
         this.autopopulateTeacherClass(currentTeacher);
       }
     }
+
+    if (this.data?.openWithAi && !this.isEdit) {
+      this.isAiHomeworkOpen = true;
+    }
+
+    this.aiHomeworkSub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
+      if (this.isAiHomeworkListening) {
+        this.aiHomeworkPromptText = text;
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.aiHomeworkSub?.unsubscribe();
+    if (this.isAiHomeworkListening) {
+      this.aiCopilotService.stopListening();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // AGENTIC AI HOMEWORK COPILOT METHODS
+  // ════════════════════════════════════════════════════════════
+  toggleAiHomeworkPanel(): void {
+    this.isAiHomeworkOpen = !this.isAiHomeworkOpen;
+    if (!this.isAiHomeworkOpen) {
+      this.clearAiHomework();
+    }
+  }
+
+  onAiHomeworkPromptInput(): void {
+    if (!this.aiHomeworkPromptText?.trim() && this.isAiHomeworkListening) {
+      this.aiCopilotService.restartListening(this.aiHomeworkSpeechLang);
+    }
+  }
+
+  clearAiHomework(): void {
+    this.aiHomeworkPromptText = '';
+    this.aiCopilotService.stopListening();
+    this.isAiHomeworkListening = false;
+  }
+
+  toggleAiHomeworkSpeech(): void {
+    if (!this.aiCopilotService.isSpeechSupported()) {
+      return;
+    }
+    if (this.isAiHomeworkListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiHomeworkListening = false;
+    } else {
+      this.isAiHomeworkListening = true;
+      this.aiCopilotService.startListening(this.aiHomeworkSpeechLang);
+    }
+  }
+
+  toggleAiHomeworkLang(): void {
+    this.aiHomeworkSpeechLang = this.aiHomeworkSpeechLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+    if (this.isAiHomeworkListening) {
+      this.aiCopilotService.restartWithLanguage(this.aiHomeworkSpeechLang);
+    }
+  }
+
+  processAiHomeworkCommand(): void {
+    const raw = (this.aiHomeworkPromptText || '').trim();
+    if (!raw) return;
+
+    const subjectsList = [
+      ...this.allSubjects.map((s: any) => s.name || s.subjectName || ''),
+      ...this.classSubjects.map((s: any) => s.name || s.subjectName || '')
+    ].filter(Boolean);
+
+    const parsed = this.aiCopilotService.parseHomeworkCommand(
+      raw,
+      this.data?.classes || [],
+      subjectsList,
+      this.data?.teachers || []
+    );
+
+    if (parsed.teacherId) {
+      this.model.teacherId = parsed.teacherId;
+      this.onTeacherSelect();
+    }
+
+    if (parsed.classId) {
+      this.model.classId = parsed.classId;
+      this.onClassSelect(parsed.subject);
+      if (parsed.sectionId) {
+        this.model.sectionId = parsed.sectionId;
+      }
+    } else if (parsed.subject) {
+      this.model.subjectName = parsed.subject;
+    }
+
+    if (parsed.title) {
+      this.model.title = parsed.title;
+    }
+    if (parsed.description) {
+      this.model.description = parsed.description;
+    }
+
+    if (parsed.dueDate) {
+      this.dueDateStr = `${parsed.dueDate}T17:00`;
+      this.updatePreviewIso();
+    }
+
+    if (this.isAiHomeworkListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiHomeworkListening = false;
+    }
   }
 
   private autopopulateTeacherClass(teacher: any): void {
@@ -6080,7 +6645,7 @@ export class HomeworkFormDialogComponent implements OnInit {
   classSubjects: any[] = [];
   loadingClassSubjects = false;
 
-  onClassSelect(): void {
+  onClassSelect(desiredSubjectName?: string): void {
     const found = this.data.classes?.find((c: any) => c.id === this.model.classId);
     this.dialogSections = found?.sections || [];
 
@@ -6091,9 +6656,19 @@ export class HomeworkFormDialogComponent implements OnInit {
           this.loadingClassSubjects = false;
           this.classSubjects = subs || [];
           if (!this.isEdit && this.classSubjects.length > 0) {
-            this.onSubjectSelect(this.classSubjects[0].subjectName);
+            const target = (desiredSubjectName || this.model.subjectName || '').toLowerCase().trim();
+            const matchSub = target ? this.classSubjects.find(cs =>
+              cs.subjectName.toLowerCase() === target ||
+              cs.subjectName.toLowerCase().includes(target) ||
+              target.includes(cs.subjectName.toLowerCase())
+            ) : null;
+            if (matchSub) {
+              this.onSubjectSelect(matchSub.subjectName);
+            } else {
+              this.onSubjectSelect(this.classSubjects[0].subjectName);
+            }
           } else if (!this.isEdit && !this.model.subjectName && this.allSubjects.length > 0) {
-            this.model.subjectName = this.allSubjects[0].name || this.allSubjects[0].subjectName;
+            this.model.subjectName = desiredSubjectName || this.allSubjects[0].name || this.allSubjects[0].subjectName;
           }
         },
         error: () => {

@@ -29,6 +29,7 @@ import { PresenceService } from '../core/services/presence.service';
 import { ChatService } from '../core/services/chat.service';
 import { ConfirmDialogService } from '../core/services/confirm-dialog.service';
 import { StudentDuesAssistantComponent } from '../shared/components/student-dues-assistant.component';
+import { AiErpCopilotService } from '../core/services/ai-erp-copilot.service';
 import { environment } from '../../environments/environment';
 
 export interface BreadcrumbItem {
@@ -698,6 +699,23 @@ export interface BreadcrumbItem {
                   </li>
                 }
               </ol>
+
+              <!-- Right side of breadcrumb line: Smart AI Copilot Toggle Button -->
+              @if (isDashboardRoute()) {
+                <div class="breadcrumb-actions">
+                  <button type="button" 
+                    class="breadcrumb-ai-toggle-btn" 
+                    [class.active]="copilotService.isExecutiveCopilotVisible()"
+                    (click)="copilotService.toggleExecutiveCopilot()" 
+                    [matTooltip]="copilotService.isExecutiveCopilotVisible() ? 'Hide Executive AI Voice Copilot' : 'Open Executive Director AI Voice Copilot'">
+                    <mat-icon class="ai-spark-icon">{{ copilotService.isExecutiveCopilotVisible() ? 'visibility_off' : 'psychology' }}</mat-icon>
+                    <span>{{ copilotService.isExecutiveCopilotVisible() ? 'Hide AI Copilot' : '✨ Executive AI Copilot' }}</span>
+                    @if (!copilotService.isExecutiveCopilotVisible()) {
+                      <span class="ai-chip-pill">Voice</span>
+                    }
+                  </button>
+                </div>
+              }
             </nav>
           }
     
@@ -2673,6 +2691,44 @@ export interface BreadcrumbItem {
         padding: 0;
       }
 
+      @media (max-width: 640px) {
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 8px;
+
+        .breadcrumb-list {
+          flex: 1 1 auto;
+        }
+
+        .breadcrumb-actions {
+          margin-left: auto;
+
+          .breadcrumb-ai-toggle-btn {
+            height: 30px;
+            padding: 0 10px;
+            font-size: 0.76rem;
+            gap: 4px;
+
+            .ai-spark-icon {
+              font-size: 15px;
+              width: 15px;
+              height: 15px;
+            }
+
+            .ai-chip-pill {
+              font-size: 0.62rem;
+              padding: 1px 4px;
+            }
+          }
+        }
+      }
+
+      @media (max-width: 420px) {
+        .breadcrumb-actions .breadcrumb-ai-toggle-btn .ai-chip-pill {
+          display: none;
+        }
+      }
+
       .breadcrumb-list {
         display: flex;
         align-items: center;
@@ -2742,6 +2798,64 @@ export interface BreadcrumbItem {
             color: #cbd5e1;
             margin: 0;
             flex-shrink: 0;
+          }
+        }
+      }
+
+      .breadcrumb-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+
+        .breadcrumb-ai-toggle-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          height: 32px;
+          padding: 0 12px;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          border: 1px solid #bfdbfe;
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          color: #1e40af;
+          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.08);
+          transition: all 0.2s ease;
+
+          &:hover {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e3a8a;
+            box-shadow: 0 3px 6px rgba(37, 99, 235, 0.15);
+            transform: translateY(-1px);
+          }
+
+          &.active {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #1d4ed8;
+
+            .ai-spark-icon {
+              color: #ffffff;
+            }
+          }
+
+          .ai-spark-icon {
+            font-size: 17px;
+            width: 17px;
+            height: 17px;
+            color: #2563eb;
+          }
+
+          .ai-chip-pill {
+            font-size: 0.68rem;
+            padding: 1px 6px;
+            border-radius: 10px;
+            background: #2563eb;
+            color: #ffffff;
+            font-weight: 700;
+            letter-spacing: 0.3px;
           }
         }
       }
@@ -3489,7 +3603,8 @@ export class LayoutComponent implements OnInit {
     private menuService: MenuService,
     private idleTimeout: IdleTimeoutService,
     private breakpointObserver: BreakpointObserver,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    public copilotService: AiErpCopilotService
   ) {
     effect(() => {
       const user = this.currentUser();
@@ -3523,6 +3638,11 @@ export class LayoutComponent implements OnInit {
 
   getInstituteLogoUrl(): string | null {
     return this.authService.getInstituteLogoUrl();
+  }
+
+  isDashboardRoute(): boolean {
+    const u = (this.router.url || '').split('?')[0].split('#')[0].toLowerCase();
+    return (u === '/' || u === '/dashboard') && !this.authService.isStudentOrParent() && !this.authService.isTeacher();
   }
 
   onLogoImgError(): void {

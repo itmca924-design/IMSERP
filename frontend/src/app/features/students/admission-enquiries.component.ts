@@ -1,7 +1,8 @@
-import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,6 +14,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AiErpCopilotService } from '../../core/services/ai-erp-copilot.service';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiUrl;
@@ -1014,13 +1016,105 @@ export class AdmissionEnquiriesComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
-          <mat-icon>close</mat-icon>
-        </button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          @if (!isEdit) {
+            <button type="button" 
+              class="ai-toggle-action-btn" 
+              [class.active]="isAiEnquiryOpen" 
+              (click)="toggleAiEnquiryPanel()" 
+              [title]="isAiEnquiryOpen ? 'Hide Voice Enquiry Assistant' : 'Open Voice Enquiry Assistant'">
+              <mat-icon>{{ isAiEnquiryOpen ? 'visibility_off' : 'psychology' }}</mat-icon>
+              <span>{{ isAiEnquiryOpen ? 'Hide Voice' : '✨ AI Enquiry' }}</span>
+              @if (!isAiEnquiryOpen) {
+                <span class="ai-pill-tag">Voice</span>
+              }
+            </button>
+          }
+          <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
       </div>
     
       <!-- Form Body -->
       <div class="modal-body">
+        <!-- Agentic AI Smart Enquiry Voice Copilot -->
+        @if (isAiEnquiryOpen && !isEdit) {
+          <div class="ai-copilot-card">
+            <div class="ai-copilot-header">
+              <div class="ai-copilot-title-group">
+                <div class="ai-avatar-icon">
+                  <mat-icon>contact_phone</mat-icon>
+                </div>
+                <div class="ai-title-text">
+                  <div class="ai-main-title-row">
+                    <h4>Agentic AI Admission Enquiry Copilot</h4>
+                    <span class="ai-pill-active">⚡ Instant Voice &amp; Auto-Fill</span>
+                  </div>
+                  <p>पूछताछ विवरण बोलें या लिखें — जैसे "Rahul Verma father Suresh Verma phone 9876543210 class 9th coaching interested", AI फॉर्म तुरंत भर देगा।</p>
+                </div>
+              </div>
+              <div class="ai-header-controls">
+                <button type="button" class="ai-minimize-btn" (click)="toggleAiEnquiryPanel()" matTooltip="Hide Copilot">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            @if (isAiEnquiryListening) {
+              <div class="ai-listening-bar">
+                <div class="ai-wave-wrap">
+                  <mat-icon class="ai-wave-icon">graphic_eq</mat-icon>
+                  <div class="ai-listening-text">
+                    <span>AI सुन रहा है... ({{ aiEnquirySpeechLang === 'hi-IN' ? 'Listening in Hindi / Hinglish' : 'Listening in English' }})</span>
+                    <span class="ai-mic-hint">बोलिए: "छात्र का नाम, अभिभावक का नाम, मोबाइल नंबर, कक्षा और स्ट्रीम..."</span>
+                  </div>
+                </div>
+                <button type="button" class="ai-stop-btn" (click)="toggleAiEnquirySpeech()">
+                  <mat-icon>mic_off</mat-icon>
+                  <span>Stop</span>
+                </button>
+              </div>
+            }
+
+            <div class="ai-input-wrap">
+              <textarea
+                class="ai-textarea"
+                rows="2"
+                [(ngModel)]="aiEnquiryPromptText"
+                (input)="onAiEnquiryPromptInput()"
+                (keydown.enter)="$event.preventDefault(); processAiEnquiryCommand()"
+                placeholder="यहाँ बोलें या टाइप करें... (उदा: 'Rahul Verma father Suresh Verma phone 9876543210 class 9th coaching')"></textarea>
+
+              <div class="ai-footer-bar">
+                <div class="ai-footer-left">
+                  <button type="button" class="ai-mic-btn" [class.listening]="isAiEnquiryListening" (click)="toggleAiEnquirySpeech()">
+                    <mat-icon>{{ isAiEnquiryListening ? 'mic' : 'mic_none' }}</mat-icon>
+                    <span>{{ isAiEnquiryListening ? 'Stop Mic' : 'Start Voice' }}</span>
+                  </button>
+                  <button type="button" class="ai-lang-pill-btn" (click)="toggleAiEnquiryLang()" matTooltip="Switch Language">
+                    <mat-icon>language</mat-icon>
+                    <span>{{ aiEnquirySpeechLang === 'hi-IN' ? 'हिंदी (Hindi)' : 'English' }}</span>
+                  </button>
+                </div>
+                <div class="ai-footer-right">
+                  @if (aiEnquiryPromptText) {
+                    <button type="button" class="ai-clear-btn" (click)="clearAiEnquiry()">Clear</button>
+                  }
+                  <button
+                    type="button"
+                    class="ai-submit-action-btn"
+                    [disabled]="!aiEnquiryPromptText.trim()"
+                    (click)="processAiEnquiryCommand()">
+                    <mat-icon>auto_awesome</mat-icon>
+                    <span>Auto-Fill Enquiry (फॉर्म भरें)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
         <div class="form-row">
           <mat-form-field appearance="outline" class="form-field">
             <mat-label>Student Name (विद्यार्थी का नाम)</mat-label>
@@ -1146,12 +1240,57 @@ export class AdmissionEnquiriesComponent implements OnInit {
     .modal-footer { padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
     .cancel-btn { color: #64748b; }
     .save-btn { background: #2563eb !important; color: #fff !important; font-weight: 700; }
+
+    @media (max-width: 640px) {
+      .modal-header {
+        padding: 12px 14px;
+        flex-wrap: wrap;
+        gap: 10px;
+
+        .header-left {
+          gap: 10px;
+          .header-icon-box {
+            width: 36px;
+            height: 36px;
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          }
+          .modal-title { font-size: 1rem; }
+          .modal-subtitle { font-size: 0.74rem; }
+        }
+      }
+
+      .modal-body {
+        padding: 14px 12px;
+        gap: 10px;
+      }
+
+      .form-row {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .modal-footer {
+        padding: 12px 14px;
+        flex-direction: column-reverse;
+        button {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
   `]
 })
-export class EnquiryFormDialogComponent implements OnInit {
+export class EnquiryFormDialogComponent implements OnInit, OnDestroy {
   isEdit = false;
   saving = false;
   followUpDateStr = '';
+
+  // Agentic AI Smart Enquiry Copilot Properties (defaults to hidden on open)
+  isAiEnquiryOpen = false;
+  isAiEnquiryListening = false;
+  aiEnquiryPromptText = '';
+  aiEnquirySpeechLang = 'hi-IN';
+  private aiEnquirySub?: Subscription;
 
   model: any = {
     studentName: '',
@@ -1173,7 +1312,8 @@ export class EnquiryFormDialogComponent implements OnInit {
     public dialogRef: MatDialogRef<EnquiryFormDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: any,
     private http: HttpClient,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private aiCopilotService: AiErpCopilotService
   ) {}
 
   ngOnInit(): void {
@@ -1194,6 +1334,81 @@ export class EnquiryFormDialogComponent implements OnInit {
       d.setDate(d.getDate() + 2);
       const pad = (n: number) => n.toString().padStart(2, '0');
       this.followUpDateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    this.aiEnquirySub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
+      if (this.isAiEnquiryListening) {
+        this.aiEnquiryPromptText = text;
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.aiEnquirySub?.unsubscribe();
+    if (this.isAiEnquiryListening) {
+      this.aiCopilotService.stopListening();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // AGENTIC AI ENQUIRY COPILOT METHODS
+  // ════════════════════════════════════════════════════════════
+  toggleAiEnquiryPanel(): void {
+    this.isAiEnquiryOpen = !this.isAiEnquiryOpen;
+    if (!this.isAiEnquiryOpen) {
+      this.clearAiEnquiry();
+    }
+  }
+
+  onAiEnquiryPromptInput(): void {
+    if (!this.aiEnquiryPromptText?.trim() && this.isAiEnquiryListening) {
+      this.aiCopilotService.restartListening(this.aiEnquirySpeechLang);
+    }
+  }
+
+  clearAiEnquiry(): void {
+    this.aiEnquiryPromptText = '';
+    this.aiCopilotService.stopListening();
+    this.isAiEnquiryListening = false;
+  }
+
+  toggleAiEnquirySpeech(): void {
+    if (!this.aiCopilotService.isSpeechSupported()) {
+      return;
+    }
+    if (this.isAiEnquiryListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiEnquiryListening = false;
+    } else {
+      this.isAiEnquiryListening = true;
+      this.aiCopilotService.startListening(this.aiEnquirySpeechLang);
+    }
+  }
+
+  toggleAiEnquiryLang(): void {
+    this.aiEnquirySpeechLang = this.aiEnquirySpeechLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+    if (this.isAiEnquiryListening) {
+      this.aiCopilotService.restartWithLanguage(this.aiEnquirySpeechLang);
+    }
+  }
+
+  processAiEnquiryCommand(): void {
+    const raw = (this.aiEnquiryPromptText || '').trim();
+    if (!raw) return;
+
+    const parsed = this.aiCopilotService.parseEnquiryCommand(raw, this.data?.classes || []);
+    if (parsed.studentName) this.model.studentName = parsed.studentName;
+    if (parsed.parentName) this.model.parentName = parsed.parentName;
+    if (parsed.phone) this.model.phone = parsed.phone;
+    if (parsed.priority) this.model.priority = parsed.priority;
+    if (parsed.classId) {
+      this.model.interestedClassId = parsed.classId;
+      this.model.interestedClassName = parsed.className || '';
+    }
+
+    if (this.isAiEnquiryListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiEnquiryListening = false;
     }
   }
 
@@ -1279,9 +1494,11 @@ export class EnquiryFormDialogComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
-          <mat-icon>close</mat-icon>
-        </button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button (click)="dialogRef.close(false)" class="close-btn" mat-icon-button>
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
       </div>
     
       <div class="modal-body">

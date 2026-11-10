@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 import { SchoolClassDto, SchoolSectionDto } from './school.service';
@@ -64,7 +64,10 @@ export class AiAdmissionAssistantService {
   private transcript$ = new Subject<string>();
   private speechStatus$ = new Subject<'started' | 'stopped' | 'error' | 'unsupported'>();
 
-  constructor(private http: HttpClient) {
+  constructor(
+    private http: HttpClient,
+    private ngZone: NgZone
+  ) {
     this.initSpeechRecognition();
   }
 
@@ -85,34 +88,40 @@ export class AiAdmissionAssistantService {
         }
         const text = fullTranscript.trim();
         if (text) {
-          this.transcript$.next(text);
+          this.ngZone.run(() => {
+            this.transcript$.next(text);
+          });
         }
       };
 
       this.recognition.onerror = (err: any) => {
         console.warn('AI Speech error:', err?.error || err);
-        if (err?.error === 'not-allowed') {
-          this.shouldBeListening = false;
-          this.isListening = false;
-          this.speechStatus$.next('error');
-        }
+        this.ngZone.run(() => {
+          if (err?.error === 'not-allowed') {
+            this.shouldBeListening = false;
+            this.isListening = false;
+            this.speechStatus$.next('error');
+          }
+        });
       };
 
       this.recognition.onend = () => {
-        if (this.shouldBeListening) {
-          try {
-            this.recognition.start();
-            this.isListening = true;
-            this.speechStatus$.next('started');
-          } catch {
+        this.ngZone.run(() => {
+          if (this.shouldBeListening) {
+            try {
+              this.recognition.start();
+              this.isListening = true;
+              this.speechStatus$.next('started');
+            } catch {
+              this.isListening = false;
+              this.shouldBeListening = false;
+              this.speechStatus$.next('stopped');
+            }
+          } else {
             this.isListening = false;
-            this.shouldBeListening = false;
             this.speechStatus$.next('stopped');
           }
-        } else {
-          this.isListening = false;
-          this.speechStatus$.next('stopped');
-        }
+        });
       };
     }
   }
@@ -187,6 +196,13 @@ export class AiAdmissionAssistantService {
         this.startListening(lang);
       }
     }, 200);
+  }
+
+  public restartListening(lang: string = 'hi-IN'): void {
+    this.stopListening();
+    setTimeout(() => {
+      this.startListening(lang);
+    }, 80);
   }
 
   // --- 2. OPTIONAL GEMINI FREE API INTEGRATION ---

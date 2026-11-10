@@ -8,27 +8,160 @@
 .header-actions { display:flex; align-items:center; gap:8px; }
 .action-btn { display:inline-flex; align-items:center; gap:6px; font-weight:600; border-radius:8px; }
 
-/* Dual Mode Switcher Bar */
-.report-type-bar { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.type-btn { display:flex; align-items:center; gap:12px; padding:12px 18px; border:1.5px solid #e2e8f0; background:#fff; border-radius:10px; cursor:pointer; text-align:left; transition:all .2s; }
-.type-btn:hover { border-color:#93c5fd; background:#f8fafc; }
-.type-btn.active { border-color:#0284c7; background:#f0f9ff; box-shadow:0 2px 8px rgba(2,132,199,0.12); }
-.type-btn mat-icon { font-size:28px; width:28px; height:28px; color:#64748b; }
-.type-btn.active mat-icon { color:#0284c7; }
-.type-text strong { display:block; font-size:.92rem; color:#1e293b; font-weight:700; }
-.type-btn.active .type-text strong { color:#0284c7; }
-.type-text small { font-size:.76rem; color:#64748b; }
+/* ==========================================================================
+   PRIMARY REGISTER MODE SWITCHER (Student Register vs Teacher Register)
+   ========================================================================== */
+.report-type-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 2px;
+  width: 100%;
+}
 
-/* Division Scope Deck (Tri-Modal: Combined, School, Coaching) */
+.type-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+
+  .type-icon-box {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 11px;
+    background: #f1f5f9;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+
+    mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  .type-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    .type-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+
+      strong {
+        font-size: 0.96rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.25;
+      }
+
+      .active-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        background: #2563eb;
+        color: #ffffff;
+        padding: 3px 8px;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+        flex-shrink: 0;
+
+        mat-icon {
+          font-size: 13px;
+          width: 13px;
+          height: 13px;
+        }
+      }
+    }
+
+    small {
+      font-size: 0.76rem;
+      color: #64748b;
+      line-height: 1.35;
+    }
+  }
+
+  &:hover:not(.active) {
+    transform: translateY(-2px);
+    border-color: #cbd5e1;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+
+    .type-icon-box {
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+  }
+
+  &.active {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-color: #93c5fd;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.14);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3.5px;
+      background: #2563eb;
+    }
+
+    .type-icon-box {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+    }
+
+    .type-title-row strong {
+      color: #1e40af;
+    }
+
+    small {
+      color: #2563eb;
+    }
+  }
+}
+
+/* ==========================================================================
+   OPERATIONAL SCOPE DECK (Tri-Modal: Combined vs School vs Coaching)
+   ========================================================================== */
 .division-scope-deck {
-  background: linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%);
-  border: 1.5px solid #bae6fd;
-  border-radius: 12px;
-  padding: 14px 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.06);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  position: relative;
 }
 
 .scope-header-strip {
@@ -37,62 +170,140 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 10px;
 }
 
 .scope-title {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
-.scope-icon {
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
-  color: #0284c7;
+.scope-header-icon-box {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
 }
 
 .scope-text {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-.scope-text strong {
-  font-size: 0.92rem;
-  color: #0f172a;
-  font-weight: 700;
+.scope-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  strong {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .scope-tag {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    background: #f1f5f9;
+    color: #475569;
+    padding: 2px 7px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+  }
 }
 
-.scope-text span {
-  font-size: 0.78rem;
+.scope-subtitle {
+  font-size: 0.76rem;
   color: #64748b;
 }
 
 .scope-badge {
-  font-size: 0.76rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
   font-weight: 700;
-  padding: 4px 12px;
+  padding: 5px 12px;
   border-radius: 20px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  .badge-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-scope 2s infinite ease-in-out;
+  }
+
+  .badge-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+  }
+
+  &.scope-all {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+
+    .badge-dot {
+      background: #2563eb;
+    }
+  }
+
+  &.scope-school {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+
+    .badge-dot {
+      background: #16a34a;
+    }
+  }
+
+  &.scope-coaching {
+    background: #faf5ff;
+    color: #6b21a8;
+    border: 1px solid #e9d5ff;
+
+    .badge-dot {
+      background: #7c3aed;
+    }
+  }
 }
 
-.scope-badge.scope-all {
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
-}
-
-.scope-badge.scope-school {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-}
-
-.scope-badge.scope-coaching {
-  background: #faf5ff;
-  color: #7c3aed;
-  border: 1px solid #e9d5ff;
+@keyframes pulse-scope {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
 }
 
 .scope-pill-group {
@@ -104,66 +315,227 @@
 }
 
 .scope-pill-btn {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px 14px;
   background: #ffffff;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
   cursor: pointer;
   text-align: left;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-}
+  overflow: hidden;
 
-.scope-pill-btn:hover {
-  border-color: #38bdf8;
-  background: #f0f9ff;
-  transform: translateY(-1px);
-}
+  .pill-icon-box {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
 
-.scope-pill-btn.active {
-  border-color: #0284c7;
-  background: #f0f9ff;
-  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2), 0 4px 6px -1px rgba(2, 132, 199, 0.1);
-}
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
 
-.scope-pill-btn mat-icon.pill-ico {
-  font-size: 26px;
-  width: 26px;
-  height: 26px;
-  color: #64748b;
-  flex-shrink: 0;
-  transition: color 0.2s;
-}
+    &.all-ico-box {
+      background: #f0f9ff;
+      color: #0284c7;
+    }
 
-.scope-pill-btn.active mat-icon.pill-ico {
-  color: #0284c7;
-}
+    &.school-ico-box {
+      background: #f0fdf4;
+      color: #16a34a;
+    }
 
-.pill-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
+    &.coaching-ico-box {
+      background: #faf5ff;
+      color: #7c3aed;
+    }
+  }
 
-.pill-title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #1e293b;
-}
+  .pill-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
 
-.scope-pill-btn.active .pill-title {
-  color: #0284c7;
-}
+    .pill-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
 
-.pill-sub {
-  font-size: 0.74rem;
-  color: #64748b;
+      .pill-title {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.25;
+      }
+
+      .pill-chip {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        padding: 1px 6px;
+        border-radius: 4px;
+
+        &.chip-all {
+          background: #e0f2fe;
+          color: #0369a1;
+        }
+
+        &.chip-school {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+        &.chip-coaching {
+          background: #f3e8ff;
+          color: #7e22ce;
+        }
+      }
+    }
+
+    .pill-sub {
+      font-size: 0.74rem;
+      color: #64748b;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .pill-check-indicator {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+
+  &:hover:not(.active) {
+    transform: translateY(-2px);
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+  }
+
+  &.scope-all-btn.active {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-color: #93c5fd;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.14);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: #2563eb;
+    }
+
+    .pill-icon-box {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3);
+    }
+
+    .pill-title {
+      color: #1e40af;
+    }
+
+    .pill-sub {
+      color: #2563eb;
+    }
+
+    .pill-check-indicator {
+      color: #2563eb;
+    }
+  }
+
+  &.scope-school-btn.active {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border-color: #86efac;
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.14);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: #16a34a;
+    }
+
+    .pill-icon-box {
+      background: #16a34a;
+      color: #ffffff;
+      box-shadow: 0 3px 8px rgba(22, 163, 74, 0.3);
+    }
+
+    .pill-title {
+      color: #166534;
+    }
+
+    .pill-sub {
+      color: #15803d;
+    }
+
+    .pill-check-indicator {
+      color: #16a34a;
+    }
+  }
+
+  &.scope-coaching-btn.active {
+    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+    border-color: #d8b4fe;
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.14);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: #7c3aed;
+    }
+
+    .pill-icon-box {
+      background: #7c3aed;
+      color: #ffffff;
+      box-shadow: 0 3px 8px rgba(124, 58, 237, 0.3);
+    }
+
+    .pill-title {
+      color: #6b21a8;
+    }
+
+    .pill-sub {
+      color: #7c3aed;
+    }
+
+    .pill-check-indicator {
+      color: #7c3aed;
+    }
+  }
 }
 
 /* Filter Card */
@@ -2019,20 +2391,87 @@
   .type-btn {
     width: 100%;
     box-sizing: border-box;
-    padding: 10px 14px;
-    gap: 10px;
+    padding: 10px 12px;
+    gap: 12px;
   }
-  .type-btn mat-icon {
-    font-size: 24px;
-    width: 24px;
-    height: 24px;
+  .type-btn .type-icon-box {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 9px;
   }
-  .type-text strong {
+  .type-btn .type-icon-box mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+  .type-text .type-title-row strong {
     font-size: 0.88rem;
   }
   .type-text small {
     font-size: 0.72rem;
     line-height: 1.2;
+  }
+  .division-scope-deck {
+    padding: 12px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+  .scope-header-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .scope-title {
+    gap: 8px;
+  }
+  .scope-header-icon-box {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 8px;
+  }
+  .scope-header-icon-box mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+  .scope-title-line strong {
+    font-size: 0.88rem;
+  }
+  .scope-subtitle {
+    font-size: 0.72rem;
+  }
+  .scope-badge {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+  }
+  .scope-pill-group {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .scope-pill-btn {
+    padding: 10px 12px;
+    gap: 10px;
+    width: 100%;
+  }
+  .scope-pill-btn .pill-icon-box {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 8px;
+  }
+  .scope-pill-btn .pill-icon-box mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+  .scope-pill-btn .pill-title-row .pill-title {
+    font-size: 0.84rem;
+  }
+  .scope-pill-btn .pill-sub {
+    font-size: 0.7rem;
   }
   .filter-card {
     padding: 12px;

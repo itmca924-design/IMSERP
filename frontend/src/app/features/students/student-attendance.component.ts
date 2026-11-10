@@ -1,8 +1,10 @@
-import { Component, OnInit, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, RouterModule } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { AiErpCopilotService } from '../../core/services/ai-erp-copilot.service';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -150,26 +152,47 @@ interface CalendarDay {
     <p class="page-subtitle">{{ hasSchool && hasCoaching ? 'Mark daily roll call for School Classes or Coaching Batches, or view individual student monthly registers.' : (hasSchool ? 'Mark daily roll call for School Classes and Sections, or view individual student monthly registers.' : 'Mark daily roll call for Coaching Batches, or view individual student monthly registers.') }}</p>
   </div>
 
-  <!-- Mode Tab Switcher -->
+  <!-- Mode Tab Switcher (Segmented Action Deck) -->
   <div class="view-mode-tabs">
-    <button type="button" class="tab-btn" [class.active]="activeTab === 'batch'" (click)="setTab('batch')" matButton="filled">
-      <mat-icon>groups</mat-icon>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'batch'" (click)="setTab('batch')">
+      <div class="tab-icon-box">
+        <mat-icon>groups</mat-icon>
+      </div>
       <div class="tab-text">
-        <strong>Roll Call (Bulk)</strong>
+        <div class="tab-title-row">
+          <strong>Roll Call (Bulk)</strong>
+          @if (activeTab === 'batch') {
+            <span class="active-badge">Active</span>
+          }
+        </div>
         <small>{{ hasSchool && hasCoaching ? 'School Classes & Coaching Batches attendance in 1 click' : (hasSchool ? 'School Classes daily roll call in 1 click' : 'Coaching Batches attendance in 1 click') }}</small>
       </div>
     </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab === 'single'" (click)="setTab('single')" matButton="filled">
-      <mat-icon>person_search</mat-icon>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'single'" (click)="setTab('single')">
+      <div class="tab-icon-box">
+        <mat-icon>person_search</mat-icon>
+      </div>
       <div class="tab-text">
-        <strong>Individual Student Register</strong>
+        <div class="tab-title-row">
+          <strong>Individual Student Register</strong>
+          @if (activeTab === 'single') {
+            <span class="active-badge">Active</span>
+          }
+        </div>
         <small>Monthly calendar, leave logs & compliance</small>
       </div>
     </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab === 'regularization'" (click)="setTab('regularization')" matButton="filled">
-      <mat-icon>assignment_turned_in</mat-icon>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'regularization'" (click)="setTab('regularization')">
+      <div class="tab-icon-box">
+        <mat-icon>assignment_turned_in</mat-icon>
+      </div>
       <div class="tab-text">
-        <strong>{{ isTeacher ? 'Regularization Approvals' : 'Attendance Regularization' }}</strong>
+        <div class="tab-title-row">
+          <strong>{{ isTeacher ? 'Regularization Approvals' : 'Attendance Regularization' }}</strong>
+          @if (activeTab === 'regularization') {
+            <span class="active-badge">Active</span>
+          }
+        </div>
         <small>{{ isTeacher ? 'Review & approve student OD / leave requests' : 'Student corrections & OD requests' }}</small>
       </div>
       @if (regularizationStats.pendingRequests > 0) {
@@ -186,19 +209,35 @@ interface CalendarDay {
       <!-- Scope Selector: School Class vs Coaching Batch (Only shown if both modules are active) -->
       @if (hasSchool && hasCoaching) {
         <div class="roll-call-scope-bar">
-          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'school'" (click)="setRollCallScope('school')" matButton="filled">
-            <mat-icon>school</mat-icon>
+          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'school'" (click)="setRollCallScope('school')">
+            <div class="scope-icon-box">
+              <mat-icon>school</mat-icon>
+            </div>
             <div class="scope-btn-text">
-              <strong>School Class Roll Call</strong>
+              <div class="scope-title-row">
+                <strong>School Class Roll Call</strong>
+                <span class="scope-chip school">School Scope</span>
+              </div>
               <small>Class & Section daily attendance</small>
             </div>
+            @if (rollCallScope === 'school') {
+              <mat-icon class="scope-check">check_circle</mat-icon>
+            }
           </button>
-          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'coaching'" (click)="setRollCallScope('coaching')" matButton="filled">
-            <mat-icon>menu_book</mat-icon>
+          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'coaching'" (click)="setRollCallScope('coaching')">
+            <div class="scope-icon-box">
+              <mat-icon>menu_book</mat-icon>
+            </div>
             <div class="scope-btn-text">
-              <strong>Coaching Batch Roll Call</strong>
+              <div class="scope-title-row">
+                <strong>Coaching Batch Roll Call</strong>
+                <span class="scope-chip coaching">Coaching Scope</span>
+              </div>
               <small>Batch & Subject attendance</small>
             </div>
+            @if (rollCallScope === 'coaching') {
+              <mat-icon class="scope-check">check_circle</mat-icon>
+            }
           </button>
         </div>
       }
@@ -294,7 +333,98 @@ interface CalendarDay {
         <input matInput [(ngModel)]="batchSearchQuery" placeholder="Filter by name / roll...">
         <mat-icon matPrefix>search</mat-icon>
       </mat-form-field>
+
+      @if (isScopeSelected) {
+        <button type="button" 
+          class="ai-toggle-action-btn" 
+          [class.active]="isAiAttendanceOpen" 
+          (click)="toggleAiAttendancePanel()" 
+          [matTooltip]="isAiAttendanceOpen ? 'Hide Voice Attendance Marker' : 'Open Voice Attendance Marker'">
+          <mat-icon>{{ isAiAttendanceOpen ? 'visibility_off' : 'psychology' }}</mat-icon>
+          <span>{{ isAiAttendanceOpen ? 'Hide Voice Call' : '✨ AI Roll Call' }}</span>
+          @if (!isAiAttendanceOpen) {
+            <span class="ai-pill-tag">Voice</span>
+          }
+        </button>
+      }
     </div>
+    <!-- Agentic AI Smart Attendance Voice Copilot -->
+    @if (isScopeSelected && isAiAttendanceOpen) {
+      <div class="ai-copilot-card">
+        <div class="ai-copilot-header">
+          <div class="ai-copilot-title-group">
+            <div class="ai-avatar-icon">
+              <mat-icon>how_to_reg</mat-icon>
+            </div>
+            <div class="ai-title-text">
+              <div class="ai-main-title-row">
+                <h4>Agentic AI Voice Attendance Marker</h4>
+                <span class="ai-pill-active">⚡ Instant Roll Call</span>
+              </div>
+              <p>रोल कॉल बोलें या लिखें — जैसे "Roll 5, 12, 18 absent baaki sab present" या "Roll 3 late, 8 absent", AI तुरंत अटेंडेंस मार्क कर देगा।</p>
+            </div>
+          </div>
+          <div class="ai-header-controls">
+            <button type="button" class="ai-minimize-btn" (click)="toggleAiAttendancePanel()" matTooltip="Hide Copilot">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        @if (isAiAttendanceListening) {
+          <div class="ai-listening-bar">
+            <div class="ai-wave-wrap">
+              <mat-icon class="ai-wave-icon">graphic_eq</mat-icon>
+              <div class="ai-listening-text">
+                <span>AI सुन रहा है... ({{ aiAttendanceSpeechLang === 'hi-IN' ? 'Listening in Hindi / Hinglish' : 'Listening in English' }})</span>
+                <span class="ai-mic-hint">बोलिए: "रोल नंबर और अनुपस्थित/उपस्थित/देर (उदा: 'Roll 5, 12, 18 absent baaki present')..."</span>
+              </div>
+            </div>
+            <button type="button" class="ai-stop-btn" (click)="toggleAiAttendanceSpeech()">
+              <mat-icon>mic_off</mat-icon>
+              <span>Stop</span>
+            </button>
+          </div>
+        }
+
+        <div class="ai-input-wrap">
+          <textarea
+            class="ai-textarea"
+            rows="2"
+            [(ngModel)]="aiAttendancePromptText"
+            (input)="onAiAttendancePromptInput()"
+            (keydown.enter)="$event.preventDefault(); processAiAttendanceCommand()"
+            placeholder="यहाँ बोलें या टाइप करें... (उदा: 'Roll 5, 12, 18 absent baaki sab present' या 'Roll 3 late, roll 7 absent')"></textarea>
+
+          <div class="ai-footer-bar">
+            <div class="ai-footer-left">
+              <button type="button" class="ai-mic-btn" [class.listening]="isAiAttendanceListening" (click)="toggleAiAttendanceSpeech()">
+                <mat-icon>{{ isAiAttendanceListening ? 'mic' : 'mic_none' }}</mat-icon>
+                <span>{{ isAiAttendanceListening ? 'Stop Mic' : 'Start Voice' }}</span>
+              </button>
+              <button type="button" class="ai-lang-pill-btn" (click)="toggleAiAttendanceLang()" matTooltip="Switch Language">
+                <mat-icon>language</mat-icon>
+                <span>{{ aiAttendanceSpeechLang === 'hi-IN' ? 'हिंदी (Hindi)' : 'English' }}</span>
+              </button>
+            </div>
+            <div class="ai-footer-right">
+              @if (aiAttendancePromptText) {
+                <button type="button" class="ai-clear-btn" (click)="clearAiAttendance()">Clear</button>
+              }
+              <button
+                type="button"
+                class="ai-submit-action-btn"
+                [disabled]="!aiAttendancePromptText.trim()"
+                (click)="processAiAttendanceCommand()">
+                <mat-icon>done_all</mat-icon>
+                <span>Apply Attendance (अटेंडेंस लगाएं)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Live Counters & Bulk Actions -->
     <div class="stats-and-actions">
       <div class="stats-counters">
@@ -1469,69 +1599,295 @@ interface CalendarDay {
       }
     }
     
-    /* View Mode Tabs */
-    .view-mode-tabs { display: flex; gap: 12px; margin-bottom: 4px; width: 100%; }
-    .tab-btn {
-      flex: 1; display: flex; align-items: center; justify-content: flex-start; gap: 12px;
-      padding: 12px 18px; border: 1.5px solid #cbd5e1; border-radius: 12px;
-      background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;
-      height: auto !important; min-height: 64px; white-space: normal;
-      text-align: left; color: #475569;
-    }
-    :host ::ng-deep .tab-btn .mdc-button__label {
-      display: flex;
-      align-items: center;
+    /* View Mode Tabs (Primary Navigation Action Deck) */
+    .view-mode-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
+      margin-bottom: 12px;
       width: 100%;
-      min-width: 0;
-      white-space: normal;
-      text-align: left;
     }
-    .tab-btn mat-icon { flex: 0 0 28px; font-size: 28px; width: 28px; height: 28px; color: #64748b; }
-    .tab-text { flex: 1 1 auto; min-width: 0; white-space: normal; }
-    .tab-text strong { display: block; font-size: 0.95rem; line-height: 1.25; color: #1e293b; white-space: normal; }
-    .tab-text small { display: block; font-size: 0.75rem; line-height: 1.3; color: #64748b; white-space: normal; overflow-wrap: anywhere; }
-    .tab-btn.active {
-      border-color: #2563eb; background: #eff6ff; color: #1d4ed8;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
-    }
-    .tab-btn.active mat-icon { color: #2563eb; }
-    .tab-btn.active .tab-text strong { color: #1e40af; }
 
-    /* Scope Toggle Bar */
-    .roll-call-scope-bar {
-      display: flex; gap: 12px; margin-bottom: 4px; width: 100%;
-    }
-    .scope-pill-btn {
-      flex: 1 1 0; min-width: 0; min-height: 64px; height: auto !important;
-      display: flex; align-items: center; justify-content: flex-start; gap: 12px;
-      padding: 12px 18px; border: 1.5px solid #cbd5e1; border-radius: 12px;
-      background: #ffffff; cursor: pointer; transition: all 0.2s ease;
-      text-align: left; color: #475569; white-space: normal;
-    }
-    :host ::ng-deep .scope-pill-btn .mdc-button__label {
+    .tab-btn {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 12px;
-      width: 100%;
-      min-width: 0;
-      white-space: normal;
+      padding: 12px 16px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      background: #ffffff;
+      cursor: pointer;
+      transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
       text-align: left;
+      overflow: hidden;
+
+      .tab-icon-box {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 11px;
+        background: #f1f5f9;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
+        }
+      }
+
+      .tab-text {
+        flex: 1 1 auto;
+        min-width: 0;
+
+        .tab-title-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+
+          strong {
+            font-size: 0.94rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .active-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #2563eb;
+            color: #ffffff;
+            padding: 2px 7px;
+            border-radius: 10px;
+            flex-shrink: 0;
+          }
+        }
+
+        small {
+          display: block;
+          margin-top: 3px;
+          font-size: 0.74rem;
+          line-height: 1.3;
+          color: #64748b;
+          white-space: normal;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+      }
+
+      .tab-pending-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        padding: 2px 8px;
+        border-radius: 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      &:hover:not(.active) {
+        transform: translateY(-2px);
+        border-color: #cbd5e1;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+
+        .tab-icon-box {
+          background: #e2e8f0;
+          color: #334155;
+        }
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-color: #93c5fd;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.14);
+
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3.5px;
+          background: #2563eb;
+        }
+
+        .tab-icon-box {
+          background: #2563eb;
+          color: #ffffff;
+          box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+        }
+
+        .tab-text {
+          .tab-title-row strong {
+            color: #1e40af;
+          }
+          small {
+            color: #2563eb;
+          }
+        }
+      }
     }
-    .scope-pill-btn mat-icon { flex: 0 0 26px; font-size: 26px; width: 26px; height: 26px; color: #64748b; }
-    .scope-btn-text { flex: 1 1 auto; min-width: 0; white-space: normal; }
-    .scope-btn-text strong { display: block; font-size: 0.92rem; line-height: 1.25; color: #1e293b; white-space: normal; }
-    .scope-btn-text small { display: block; font-size: 0.72rem; line-height: 1.3; color: #64748b; white-space: normal; overflow-wrap: anywhere; }
-    .scope-pill-btn.active {
-      border-color: #2563eb; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-      color: #1d4ed8; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
+
+    /* Scope Toggle Bar (School Scope vs Coaching Scope Dual Control) */
+    .roll-call-scope-bar {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 8px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      margin-bottom: 12px;
     }
-    .scope-pill-btn.active mat-icon { color: #2563eb; }
-    .scope-pill-btn.active .scope-btn-text strong { color: #1e40af; }
+
+    .scope-pill-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: #ffffff;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+      color: #475569;
+
+      .scope-icon-box {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 9px;
+        background: #f1f5f9;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .scope-btn-text {
+        flex: 1 1 auto;
+        min-width: 0;
+
+        .scope-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          strong {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.25;
+          }
+
+          .scope-chip {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+
+            &.school {
+              background: #dbeafe;
+              color: #1e40af;
+            }
+
+            &.coaching {
+              background: #f3e8ff;
+              color: #7e22ce;
+            }
+          }
+        }
+
+        small {
+          display: block;
+          margin-top: 2px;
+          font-size: 0.72rem;
+          color: #64748b;
+          line-height: 1.3;
+        }
+      }
+
+      .scope-check {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #2563eb;
+        flex-shrink: 0;
+      }
+
+      &:hover:not(.active) {
+        border-color: #cbd5e1;
+        background: #ffffff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+
+        .scope-icon-box {
+          background: #e2e8f0;
+          color: #334155;
+        }
+      }
+
+      &.active {
+        background: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+
+        .scope-icon-box {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          color: #ffffff;
+          box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25);
+        }
+
+        .scope-btn-text {
+          strong {
+            color: #1e40af;
+          }
+          small {
+            color: #2563eb;
+          }
+        }
+      }
+    }
 
     /* Batch View & Controls Card */
     .batch-view { display: flex; flex-direction: column; gap: 14px; }
-    .batch-controls-card { padding: 16px 20px; border-radius: 12px; background: #ffffff; margin-bottom: 4px; }
+    .batch-controls-card {
+      padding: 16px 20px;
+      border-radius: 12px;
+      background: #ffffff;
+      margin-bottom: 8px;
+
+      .ai-copilot-card {
+        margin-top: 18px;
+        margin-bottom: 18px;
+      }
+    }
     .controls-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .batch-select { flex: 1 1 200px; min-width: 170px; margin: 0; }
     .class-select { flex: 1 1 180px; min-width: 150px; margin: 0; }
@@ -3043,10 +3399,8 @@ interface CalendarDay {
       .period-card { flex-wrap: wrap !important; }
       .legend { flex-wrap: wrap; }
       .form-row { flex-wrap: wrap; }
-      .view-mode-tabs { flex-direction: column; }
-      .tab-btn { max-width: 100%; }
-      .roll-call-scope-bar { flex-direction: column; }
-      .scope-pill-btn { max-width: 100%; }
+      .view-mode-tabs { grid-template-columns: 1fr; gap: 10px; }
+      .roll-call-scope-bar { grid-template-columns: 1fr; gap: 8px; }
       .reg-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
       .table-scroll-hint { display: inline-flex !important; }
     }
@@ -3170,44 +3524,36 @@ interface CalendarDay {
         }
       }
       .view-mode-tabs {
-        display: flex;
-        flex-direction: column;
+        grid-template-columns: 1fr;
         gap: 8px;
         width: 100%;
       }
       .tab-btn {
         width: 100%;
         box-sizing: border-box;
-        padding: 10px 14px;
-        min-height: 60px;
-        mat-icon { flex-basis: 24px; font-size: 24px; width: 24px; height: 24px; }
-        .tab-text strong { font-size: 0.88rem; }
-        .tab-text small { font-size: 0.72rem; line-height: 1.2; }
+        padding: 10px 12px;
       }
       .roll-call-scope-bar {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+        grid-template-columns: 1fr;
+        gap: 6px;
         width: 100%;
       }
       .scope-pill-btn {
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
-        min-height: 60px;
-        padding: 10px 14px;
-        mat-icon { flex-basis: 24px; font-size: 24px; width: 24px; height: 24px; }
-        .scope-btn-text {
-          flex: 1;
-          min-width: 0;
-          strong { font-size: 0.88rem; }
-          small { font-size: 0.72rem; line-height: 1.2; display: block; }
-        }
+        padding: 8px 12px;
       }
       .controls-row {
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
+
+        .ai-toggle-action-btn {
+          width: 100% !important;
+          justify-content: center !important;
+          box-sizing: border-box;
+        }
       }
       .class-select, .section-select, .batch-select, .search-input {
         flex: 0 0 auto !important;
@@ -3809,7 +4155,13 @@ interface CalendarDay {
     }
   `]
 })
-export class StudentAttendanceComponent implements OnInit {
+export class StudentAttendanceComponent implements OnInit, OnDestroy {
+  // Agentic AI Voice Attendance Marker Properties (defaults to hidden on page load)
+  isAiAttendanceOpen = false;
+  isAiAttendanceListening = false;
+  aiAttendancePromptText = '';
+  aiAttendanceSpeechLang = 'hi-IN';
+  private aiAttendanceSub?: Subscription;
   private api = API_BASE;
   hasWaImg = false;
 
@@ -4025,6 +4377,7 @@ export class StudentAttendanceComponent implements OnInit {
     private coachingService: CoachingService,
     private schoolService: SchoolService,
     public authService: AuthService,
+    private aiCopilotService: AiErpCopilotService,
     private dialog: MatDialog
   ) {}
 
@@ -4072,6 +4425,11 @@ export class StudentAttendanceComponent implements OnInit {
     }
 
     this.loadAttendanceSettings();
+    this.aiAttendanceSub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
+      if (this.isAiAttendanceListening) {
+        this.aiAttendancePromptText = text;
+      }
+    });
     this.http.get<AttendancePermissionsDto>(`${this.api}/attendance/permissions`, {
       headers: { 'X-Skip-Loader': 'true' }
     }).subscribe({
@@ -4196,6 +4554,199 @@ export class StudentAttendanceComponent implements OnInit {
 
   get halfDayActiveCount(): number {
     return this.activeStudents.filter(s => s.status === 'HalfDay').length;
+  }
+
+  ngOnDestroy(): void {
+    this.aiAttendanceSub?.unsubscribe();
+    if (this.isAiAttendanceListening) {
+      this.aiCopilotService.stopListening();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // AGENTIC AI VOICE ATTENDANCE MARKER METHODS
+  // ════════════════════════════════════════════════════════════
+  toggleAiAttendancePanel(): void {
+    this.isAiAttendanceOpen = !this.isAiAttendanceOpen;
+    if (!this.isAiAttendanceOpen) {
+      this.clearAiAttendance();
+    }
+  }
+
+  onAiAttendancePromptInput(): void {
+    if (!this.aiAttendancePromptText?.trim() && this.isAiAttendanceListening) {
+      this.aiCopilotService.restartListening(this.aiAttendanceSpeechLang);
+    }
+  }
+
+  clearAiAttendance(): void {
+    this.aiAttendancePromptText = '';
+    this.aiCopilotService.stopListening();
+    this.isAiAttendanceListening = false;
+  }
+
+  toggleAiAttendanceSpeech(): void {
+    if (!this.aiCopilotService.isSpeechSupported()) {
+      this.confirmDialog.alert(
+        'Speech Recognition Unavailable',
+        'Web Speech API is not supported in this browser. Please use Google Chrome or type your command directly.',
+        'warning'
+      );
+      return;
+    }
+    if (this.isAiAttendanceListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiAttendanceListening = false;
+    } else {
+      this.isAiAttendanceListening = true;
+      this.aiCopilotService.startListening(this.aiAttendanceSpeechLang);
+    }
+  }
+
+  toggleAiAttendanceLang(): void {
+    this.aiAttendanceSpeechLang = this.aiAttendanceSpeechLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+    if (this.isAiAttendanceListening) {
+      this.aiCopilotService.restartWithLanguage(this.aiAttendanceSpeechLang);
+    }
+  }
+
+  processAiAttendanceCommand(): void {
+    const raw = (this.aiAttendancePromptText || '').trim();
+    if (!raw) return;
+
+    if (this.isBatchPastLocked) {
+      this.confirmDialog.alert(
+        'Permission Denied',
+        'Past date attendance cannot be marked or modified without Admin Attendance Correction permission.',
+        'warning'
+      );
+      return;
+    }
+
+    if (this.activeStudents.length === 0) {
+      this.confirmDialog.alert(
+        'No Students Loaded',
+        'Please select a Class or Coaching Batch first to load the student roll call.',
+        'info'
+      );
+      return;
+    }
+
+    const res = this.aiCopilotService.parseAttendanceCommand(raw);
+
+    const findStudent = (token: string): BatchStudentRow | undefined => {
+      const t = token.toLowerCase().trim();
+      const tNoZero = t.replace(/^0+/, '');
+      return this.activeStudents.find(st => {
+        const sRoll = String(st.schoolRollNumber || st.rollNumber || '').toLowerCase().trim();
+        const sRollNoZero = sRoll.replace(/^0+/, '');
+        if (sRoll && (sRoll === t || sRollNoZero === tNoZero)) return true;
+        const sName = (st.studentName || '').toLowerCase().trim();
+        if (sName && (sName === t || sName.includes(t) || t.includes(sName))) return true;
+        return false;
+      });
+    };
+
+    // Fallback: If no roll numbers detected, check if any student's name was mentioned in raw text
+    if (res.absentRolls.length === 0 && res.lateRolls.length === 0 && res.halfDayRolls.length === 0 && res.presentRolls.length === 0) {
+      const rawLower = raw.toLowerCase();
+      for (const st of this.activeStudents) {
+        const sName = (st.studentName || '').toLowerCase().trim();
+        if (sName && sName.length >= 3 && rawLower.includes(sName)) {
+          const roll = String(st.schoolRollNumber || st.rollNumber || st.studentId);
+          if (/late|लेट|देर/i.test(raw)) {
+            res.lateRolls.push(roll);
+          } else if (/half\s*day|halfday|हाफ\s*डे|हाफडे/i.test(raw)) {
+            res.halfDayRolls.push(roll);
+          } else if (/absent|एब्सेंट|अनुपस्थित|गैरहाजिर/i.test(raw)) {
+            res.absentRolls.push(roll);
+          } else if (/present|प्रेजेंट|उपस्थित|हाजिर/i.test(raw)) {
+            res.presentRolls.push(roll);
+          }
+        }
+      }
+    }
+
+    // 1. If markRestAbsent is true, set all students to Absent first
+    if (res.markRestAbsent) {
+      for (const st of this.activeStudents) {
+        this.setStudentActiveStatus(st, 'Absent');
+      }
+    } else if (res.markRestPresent) {
+      // If markRestPresent is true, set all students to Present first
+      for (const st of this.activeStudents) {
+        this.setStudentActiveStatus(st, 'Present');
+      }
+    }
+
+    // 2. Mark Absent rolls
+    let markedAbsent = 0;
+    for (const roll of res.absentRolls) {
+      const match = findStudent(roll);
+      if (match) {
+        this.setStudentActiveStatus(match, 'Absent');
+        markedAbsent++;
+      }
+    }
+
+    // 3. Mark Late rolls
+    let markedLate = 0;
+    for (const roll of res.lateRolls) {
+      const match = findStudent(roll);
+      if (match) {
+        this.setStudentActiveStatus(match, 'Late');
+        markedLate++;
+      }
+    }
+
+    // 4. Mark Half-Day rolls
+    let markedHalfDay = 0;
+    for (const roll of res.halfDayRolls) {
+      const match = findStudent(roll);
+      if (match) {
+        this.setStudentActiveStatus(match, 'HalfDay');
+        markedHalfDay++;
+      }
+    }
+
+    // 5. Mark Present rolls (if explicitly specified)
+    let markedPresent = 0;
+    for (const roll of res.presentRolls) {
+      const match = findStudent(roll);
+      if (match) {
+        this.setStudentActiveStatus(match, 'Present');
+        markedPresent++;
+      }
+    }
+
+    if (this.isAiAttendanceListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiAttendanceListening = false;
+    }
+
+    const totalModified = markedAbsent + markedLate + markedHalfDay + markedPresent;
+    if (totalModified === 0 && !res.markRestPresent && !res.markRestAbsent) {
+      this.confirmDialog.alert(
+        'Roll Call Notice',
+        `No matching student rolls or names could be identified from "${raw}".\n\nTips:\n• "रोल नंबर 1 को लेट कर दो" या "Roll 1 late"\n• "रोल 2, 5 absent baaki present"`,
+        'info'
+      );
+      return;
+    }
+
+    const summaryParts: string[] = [];
+    if (markedLate > 0) summaryParts.push(`${markedLate} student(s) marked Late`);
+    if (markedAbsent > 0) summaryParts.push(`${markedAbsent} student(s) marked Absent`);
+    if (markedHalfDay > 0) summaryParts.push(`${markedHalfDay} student(s) marked Half-Day`);
+    if (markedPresent > 0) summaryParts.push(`${markedPresent} student(s) marked Present`);
+    if (res.markRestAbsent) summaryParts.push('all other students set to Absent');
+    else if (res.markRestPresent) summaryParts.push('all other students set to Present');
+
+    this.confirmDialog.alert(
+      'AI Roll Call Applied! ✅',
+      `Summary: ${summaryParts.join(', ')}.\n\nPlease review the roster and click "Save & Lock Attendance" to submit.`,
+      'success'
+    );
   }
 
   markAllActiveStatus(status: string): void {

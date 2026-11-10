@@ -1,7 +1,9 @@
-import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
+import { AiErpCopilotService } from '../../core/services/ai-erp-copilot.service';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -1004,14 +1006,107 @@ export class SchoolNoticesComponent implements OnInit {
             </p>
           </div>
         </div>
-        <button (click)="dialogRef.close(false)" class="close-btn" type="button" matTooltip="Close (Esc)" mat-icon-button>
-          <mat-icon>close</mat-icon>
-        </button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          @if (!isEdit) {
+            <button type="button" 
+              class="ai-toggle-action-btn" 
+              [class.active]="isAiNoticeOpen" 
+              (click)="toggleAiNoticePanel()" 
+              [matTooltip]="isAiNoticeOpen ? 'Hide Voice Circular Generator' : 'Open Voice Circular Generator'">
+              <mat-icon>{{ isAiNoticeOpen ? 'visibility_off' : 'psychology' }}</mat-icon>
+              <span>{{ isAiNoticeOpen ? 'Hide Voice' : '✨ AI Circular' }}</span>
+              @if (!isAiNoticeOpen) {
+                <span class="ai-pill-tag">Voice</span>
+              }
+            </button>
+          }
+          <button (click)="dialogRef.close(false)" class="close-btn" type="button" matTooltip="Close (Esc)" mat-icon-button>
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
       </div>
     
       <!-- Form Body with Reactive Forms -->
       <form [formGroup]="form" (ngSubmit)="saveNotice()" class="dialog-form-container">
         <div class="modal-body">
+          <!-- Agentic AI Smart Notice & Circular Generator -->
+          @if (isAiNoticeOpen && !isEdit) {
+            <div class="ai-copilot-card">
+              <div class="ai-copilot-header">
+                <div class="ai-copilot-title-group">
+                  <div class="ai-avatar-icon">
+                    <mat-icon>campaign</mat-icon>
+                  </div>
+                  <div class="ai-title-text">
+                    <div class="ai-main-title-row">
+                      <h4>Agentic AI Circular &amp; Notice Generator</h4>
+                      <span class="ai-pill-active">⚡ Instant Voice &amp; Letterhead Draft</span>
+                    </div>
+                    <p>संक्षिप्त में विषय बोलें या लिखें — जैसे "Winter vacation notice 25 Dec to 1 Jan reopen 2 Jan", AI औपचारिक परिपत्र तुरंत लिख देगा।</p>
+                  </div>
+                </div>
+                <div class="ai-header-controls">
+                  <button type="button" class="ai-minimize-btn" (click)="toggleAiNoticePanel()" matTooltip="Hide Copilot">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              </div>
+
+              @if (isAiNoticeListening) {
+                <div class="ai-listening-bar">
+                  <div class="ai-wave-wrap">
+                    <mat-icon class="ai-wave-icon">graphic_eq</mat-icon>
+                    <div class="ai-listening-text">
+                      <span>AI सुन रहा है... ({{ aiNoticeSpeechLang === 'hi-IN' ? 'Listening in Hindi / Hinglish' : 'Listening in English' }})</span>
+                      <span class="ai-mic-hint">बोलिए: "परिपत्र का विषय, मुख्य तिथियाँ या निर्देश..."</span>
+                    </div>
+                  </div>
+                  <button type="button" class="ai-stop-btn" (click)="toggleAiNoticeSpeech()">
+                    <mat-icon>mic_off</mat-icon>
+                    <span>Stop</span>
+                  </button>
+                </div>
+              }
+
+              <div class="ai-input-wrap">
+                <textarea
+                  class="ai-textarea"
+                  rows="2"
+                  [(ngModel)]="aiNoticePromptText"
+                  [ngModelOptions]="{standalone: true}"
+                  (input)="onAiNoticePromptInput()"
+                  (keydown.enter)="$event.preventDefault(); processAiNoticeCommand()"
+                  placeholder="यहाँ बोलें या टाइप करें... (उदा: 'Winter vacation notice 25 December to 1 January school reopening 2 January')"></textarea>
+
+                <div class="ai-footer-bar">
+                  <div class="ai-footer-left">
+                    <button type="button" class="ai-mic-btn" [class.listening]="isAiNoticeListening" (click)="toggleAiNoticeSpeech()">
+                      <mat-icon>{{ isAiNoticeListening ? 'mic' : 'mic_none' }}</mat-icon>
+                      <span>{{ isAiNoticeListening ? 'Stop Mic' : 'Start Voice' }}</span>
+                    </button>
+                    <button type="button" class="ai-lang-pill-btn" (click)="toggleAiNoticeLang()" matTooltip="Switch Language">
+                      <mat-icon>language</mat-icon>
+                      <span>{{ aiNoticeSpeechLang === 'hi-IN' ? 'हिंदी (Hindi)' : 'English' }}</span>
+                    </button>
+                  </div>
+                  <div class="ai-footer-right">
+                    @if (aiNoticePromptText) {
+                      <button type="button" class="ai-clear-btn" (click)="clearAiNotice()">Clear</button>
+                    }
+                    <button
+                      type="button"
+                      class="ai-submit-action-btn"
+                      [disabled]="!aiNoticePromptText.trim()"
+                      (click)="processAiNoticeCommand()">
+                      <mat-icon>auto_awesome</mat-icon>
+                      <span>Generate Circular (परिपत्र तैयार करें)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
           <!-- Notice Title -->
           <mat-form-field appearance="outline" class="full-field">
             <mat-label>Notice / Circular Title (परिपत्र का शीर्षक) *</mat-label>
@@ -1699,20 +1794,48 @@ export class SchoolNoticesComponent implements OnInit {
     }
 
     @media (max-width: 640px) {
-      .modal-header { padding: 14px 16px; }
-      .modal-body { padding: 14px 16px; }
-      .modal-footer { padding: 12px 16px; }
+      .modal-header {
+        padding: 12px 14px;
+        flex-wrap: wrap;
+        gap: 10px;
+
+        .header-left {
+          gap: 10px;
+          .header-icon-box {
+            width: 36px;
+            height: 36px;
+            mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          }
+          .modal-title { font-size: 1rem; }
+          .modal-subtitle { font-size: 0.74rem; }
+        }
+      }
+      .modal-body { padding: 14px 12px; }
+      .modal-footer {
+        padding: 12px 14px;
+        flex-direction: column-reverse;
+        button { width: 100%; justify-content: center; }
+      }
+      .form-grid-3 { grid-template-columns: 1fr; }
+      .batch-opt-item { min-width: 0 !important; }
       .scope-selection-grid,
       .scope-selection-combined { grid-template-columns: 1fr; }
     }
   `]
 })
-export class NoticeFormDialogComponent implements OnInit {
+export class NoticeFormDialogComponent implements OnInit, OnDestroy {
   isEdit = false;
   saving = false;
   editNoticeNumber = '';
   editNoticeId = '';
   dateError = '';
+
+  // Agentic AI Circular & Notice Generator Properties
+  isAiNoticeOpen = false;
+  isAiNoticeListening = false;
+  aiNoticePromptText = '';
+  aiNoticeSpeechLang = 'hi-IN';
+  private aiNoticeSub?: Subscription;
 
   filterCoachingClassCtrl = new FormControl('');
   batchScope: 'single' | 'combined' | 'all' = 'all';
@@ -1732,7 +1855,9 @@ export class NoticeFormDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: any,
     private fb: FormBuilder,
     private http: HttpClient,
-    private batchesService: BatchesService
+    private batchesService: BatchesService,
+    private authService: AuthService,
+    private aiCopilotService: AiErpCopilotService
   ) {
     const pad = (n: number) => n.toString().padStart(2, '0');
     const now = new Date();
@@ -1945,6 +2070,79 @@ export class NoticeFormDialogComponent implements OnInit {
           this.selectedBatchDisplay = `${found.name}${shift ? ' • [' + shift + ' Shift]' : ''}`;
         }
       }
+    }
+
+    this.aiNoticeSub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
+      if (this.isAiNoticeListening) {
+        this.aiNoticePromptText = text;
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.aiNoticeSub?.unsubscribe();
+    if (this.isAiNoticeListening) {
+      this.aiCopilotService.stopListening();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // AGENTIC AI NOTICE & CIRCULAR GENERATOR METHODS
+  // ════════════════════════════════════════════════════════════
+  toggleAiNoticePanel(): void {
+    this.isAiNoticeOpen = !this.isAiNoticeOpen;
+    if (!this.isAiNoticeOpen) {
+      this.clearAiNotice();
+    }
+  }
+
+  onAiNoticePromptInput(): void {
+    if (!this.aiNoticePromptText?.trim() && this.isAiNoticeListening) {
+      this.aiCopilotService.restartListening(this.aiNoticeSpeechLang);
+    }
+  }
+
+  toggleAiNoticeSpeech(): void {
+    if (!this.aiCopilotService.isSpeechSupported()) {
+      return;
+    }
+    if (this.isAiNoticeListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiNoticeListening = false;
+    } else {
+      this.isAiNoticeListening = true;
+      this.aiCopilotService.startListening(this.aiNoticeSpeechLang);
+    }
+  }
+
+  toggleAiNoticeLang(): void {
+    this.aiNoticeSpeechLang = this.aiNoticeSpeechLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+    if (this.isAiNoticeListening) {
+      this.aiCopilotService.restartWithLanguage(this.aiNoticeSpeechLang);
+    }
+  }
+
+  clearAiNotice(): void {
+    this.aiNoticePromptText = '';
+    if (this.isAiNoticeListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiNoticeListening = false;
+    }
+  }
+
+  processAiNoticeCommand(): void {
+    const raw = (this.aiNoticePromptText || '').trim();
+    if (!raw) return;
+
+    const instName = this.authService.getInstituteName() || 'Our Educational Institution';
+    const draft = this.aiCopilotService.generateNoticeDraft(raw, instName, this.form.get('category')?.value || 'General Notice');
+
+    if (draft.title) this.form.patchValue({ title: draft.title });
+    if (draft.content) this.form.patchValue({ content: draft.content });
+
+    if (this.isAiNoticeListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiNoticeListening = false;
     }
   }
 

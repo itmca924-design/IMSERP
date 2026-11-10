@@ -20,17 +20,36 @@
 
   @if (!isStudentOrParent) {
     <div class="report-type-bar no-print">
-      <button type="button" class="type-btn" [class.active]="reportType === 'student'" (click)="changeReportType('student')" matButton="filled">
-        <mat-icon>groups</mat-icon>
+      <button type="button" class="type-btn" [class.active]="reportType === 'student'" (click)="changeReportType('student')">
+        <div class="type-icon-box">
+          <mat-icon>groups</mat-icon>
+        </div>
         <div class="type-text">
-          <strong>{{ isTeacherSelfMode ? 'Assigned Students Register' : 'Student Attendance Register' }}</strong>
+          <div class="type-title-row">
+            <strong>{{ isTeacherSelfMode ? 'Assigned Students Register' : 'Student Attendance Register' }}</strong>
+            @if (reportType === 'student') {
+              <span class="active-badge">
+                <mat-icon>check_circle</mat-icon> Active Register
+              </span>
+            }
+          </div>
           <small>{{ isTeacherSelfMode ? 'Roll-call register for your assigned classes &amp; batches' : 'Batch-wise monthly registers, roll numbers &amp; daily matrix' }}</small>
         </div>
       </button>
-      <button type="button" class="type-btn" [class.active]="reportType === 'teacher'" (click)="changeReportType('teacher')" matButton="filled">
-        <mat-icon>badge</mat-icon>
+
+      <button type="button" class="type-btn" [class.active]="reportType === 'teacher'" (click)="changeReportType('teacher')">
+        <div class="type-icon-box">
+          <mat-icon>badge</mat-icon>
+        </div>
         <div class="type-text">
-          <strong>{{ isTeacherSelfMode ? 'My Attendance Register' : 'Teacher / Faculty Register' }}</strong>
+          <div class="type-title-row">
+            <strong>{{ isTeacherSelfMode ? 'My Attendance Register' : 'Teacher / Faculty Register' }}</strong>
+            @if (reportType === 'teacher') {
+              <span class="active-badge">
+                <mat-icon>check_circle</mat-icon> Active Register
+              </span>
+            }
+          </div>
           <small>{{ isTeacherSelfMode ? 'My personal attendance, punctuality &amp; working days' : 'Faculty attendance, punctuality &amp; working days' }}</small>
         </div>
       </button>
@@ -42,40 +61,71 @@
     <div class="division-scope-deck no-print">
       <div class="scope-header-strip">
         <div class="scope-title">
-          <mat-icon class="scope-icon">hub</mat-icon>
+          <div class="scope-header-icon-box">
+            <mat-icon>hub</mat-icon>
+          </div>
           <div class="scope-text">
-            <strong>Operational Scope / डिवीजन मोड:</strong>
-            <span>Single Division or Consolidated Hybrid View</span>
+            <div class="scope-title-line">
+              <strong>Operational Scope / डिवीजन मोड:</strong>
+              <span class="scope-tag">Enterprise Tri-Modal</span>
+            </div>
+            <span class="scope-subtitle">Single Division or Consolidated Hybrid View</span>
           </div>
         </div>
         <div class="scope-badge" [ngClass]="'scope-' + studentFilterMode">
-          {{ studentFilterMode === 'all' ? '🌐 Combined Consolidated' : (studentFilterMode === 'school' ? '🏫 School Only (Single)' : '📚 Coaching Only (Single)') }}
+          <span class="badge-dot"></span>
+          <mat-icon class="badge-icon">{{ studentFilterMode === 'all' ? 'hub' : (studentFilterMode === 'school' ? 'domain' : 'school') }}</mat-icon>
+          <span>{{ studentFilterMode === 'all' ? 'Combined Consolidated' : (studentFilterMode === 'school' ? 'School Division Only' : 'Coaching Division Only') }}</span>
         </div>
       </div>
 
       <div class="scope-pill-group">
-        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'all'" (click)="setScopeMode('all')" matButton="filled">
-          <mat-icon class="pill-ico">hub</mat-icon>
-          <div class="pill-body">
-            <span class="pill-title">🌐 All / Combined (Hybrid)</span>
-            <span class="pill-sub">Consolidated School &amp; Coaching</span>
+        <button type="button" class="scope-pill-btn scope-all-btn" [class.active]="studentFilterMode === 'all'" (click)="setScopeMode('all')">
+          <div class="pill-icon-box all-ico-box">
+            <mat-icon>hub</mat-icon>
           </div>
+          <div class="pill-body">
+            <div class="pill-title-row">
+              <span class="pill-title">All / Combined (Hybrid)</span>
+              <span class="pill-chip chip-all">Consolidated</span>
+            </div>
+            <span class="pill-sub">Consolidated School &amp; Coaching Analytics</span>
+          </div>
+          @if (studentFilterMode === 'all') {
+            <mat-icon class="pill-check-indicator">check_circle</mat-icon>
+          }
         </button>
 
-        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'school'" (click)="setScopeMode('school')" matButton="filled">
-          <mat-icon class="pill-ico">domain</mat-icon>
+        <button type="button" class="scope-pill-btn scope-school-btn" [class.active]="studentFilterMode === 'school'" (click)="setScopeMode('school')">
+          <div class="pill-icon-box school-ico-box">
+            <mat-icon>domain</mat-icon>
+          </div>
           <div class="pill-body">
-            <span class="pill-title">🏫 School Division (Single)</span>
+            <div class="pill-title-row">
+              <span class="pill-title">School Division (Single)</span>
+              <span class="pill-chip chip-school">School Only</span>
+            </div>
             <span class="pill-sub">Class &amp; Section Roster</span>
           </div>
+          @if (studentFilterMode === 'school') {
+            <mat-icon class="pill-check-indicator">check_circle</mat-icon>
+          }
         </button>
 
-        <button type="button" class="scope-pill-btn" [class.active]="studentFilterMode === 'coaching'" (click)="setScopeMode('coaching')" matButton="filled">
-          <mat-icon class="pill-ico">school</mat-icon>
+        <button type="button" class="scope-pill-btn scope-coaching-btn" [class.active]="studentFilterMode === 'coaching'" (click)="setScopeMode('coaching')">
+          <div class="pill-icon-box coaching-ico-box">
+            <mat-icon>school</mat-icon>
+          </div>
           <div class="pill-body">
-            <span class="pill-title">📚 Coaching Division (Single)</span>
+            <div class="pill-title-row">
+              <span class="pill-title">Coaching Division (Single)</span>
+              <span class="pill-chip chip-coaching">Coaching Only</span>
+            </div>
             <span class="pill-sub">Class ➔ Batches Hierarchy</span>
           </div>
+          @if (studentFilterMode === 'coaching') {
+            <mat-icon class="pill-check-indicator">check_circle</mat-icon>
+          }
         </button>
       </div>
     </div>

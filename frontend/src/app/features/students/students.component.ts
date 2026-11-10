@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, HostListener, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, HostListener, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -184,7 +184,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                         <mat-icon>vpn_key</mat-icon>
                         <span>{{ hasGeminiKey ? 'Gemini 2.0 Flash (Active)' : 'Free Built-in AI (Active)' }}</span>
                       </button>
-                      <button type="button" class="ai-minimize-btn" (click)="isAiCopilotOpen = false" matTooltip="Hide Copilot">
+                      <button type="button" class="ai-minimize-btn" (click)="toggleAiCopilot()" matTooltip="Hide Copilot">
                         <mat-icon>close</mat-icon>
                       </button>
                     </div>
@@ -217,6 +217,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                       rows="3"
                       [(ngModel)]="aiInputText"
                       [ngModelOptions]="{standalone: true}"
+                      (input)="onAiInputTextInput()"
                       placeholder="यहाँ बोलें या टाइप/पेस्ट करें... (उदा: 'Student Name, Class, Father Name, Mobile Number, DOB, Address, Stream या Coaching Batch...')"></textarea>
 
                     <div class="ai-prompt-toolbar">
@@ -1609,12 +1610,15 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
-    .single-line-hint {
+    .single-line-hint,
+    mat-hint {
       white-space: nowrap !important;
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       display: block !important;
-      max-width: 100%;
+      max-width: 100% !important;
+      font-size: 0.74rem !important;
+      line-height: 1.2 !important;
     }
     .students-wrapper {
       display: flex;
@@ -1883,6 +1887,18 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       margin-bottom: 16px;
       padding-bottom: 8px;
       border-bottom: 1px solid #e2e8f0;
+
+      @media (max-width: 640px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+
+        .ai-copilot-toggle-btn {
+          width: 100%;
+          justify-content: center;
+          padding: 8px 12px;
+        }
+      }
     }
     .form-title {
       display: flex;
@@ -3108,7 +3124,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
           box-shadow: inset 4px 0 0 0 #2563eb, 0 3px 12px -2px rgba(37, 99, 235, 0.12) !important;
 
           td.mat-mdc-cell {
-            background-color: transparent !important;
+            background-color: #eff6ff !important;
           }
 
           .student-name-text {
@@ -4204,7 +4220,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
   }
 
   // Agentic AI Smart Admission Copilot Properties
-  isAiCopilotOpen = true;
+  isAiCopilotOpen = false;
   isAiListening = false;
   aiInputText = '';
   aiIsProcessing = false;
@@ -4228,7 +4244,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
     private router: Router,
     public authService: AuthService,
     private inventoryService: InventoryService,
-    private aiAdmissionService: AiAdmissionAssistantService
+    private aiAdmissionService: AiAdmissionAssistantService,
+    private cdr: ChangeDetectorRef
   ) {
     const hasSchool = this.authService.hasSchoolModule();
     const hasCoaching = this.authService.hasCoachingModule();
@@ -4425,6 +4442,18 @@ export class StudentsComponent implements OnInit, OnDestroy {
   // --- Agentic AI Smart Admission Copilot Methods ---
   toggleAiCopilot(): void {
     this.isAiCopilotOpen = !this.isAiCopilotOpen;
+    if (!this.isAiCopilotOpen) {
+      this.aiInputText = '';
+      this.aiParsedResult = null;
+      this.aiAdmissionService.stopListening();
+      this.isAiListening = false;
+    }
+  }
+
+  onAiInputTextInput(): void {
+    if (!this.aiInputText?.trim() && this.isAiListening) {
+      this.aiAdmissionService.restartListening(this.aiSpeechLang);
+    }
   }
 
   toggleAiSpeechLang(): void {
@@ -4453,6 +4482,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       if (!this.aiSpeechSub) {
         this.aiSpeechSub = this.aiAdmissionService.getSpeechTranscript().subscribe(transcript => {
           this.aiInputText = transcript;
+          this.cdr.markForCheck();
         });
         this.aiAdmissionService.getSpeechStatus().subscribe(status => {
           if (status === 'started') {
@@ -4460,6 +4490,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
           } else if (status === 'stopped' || status === 'error') {
             this.isAiListening = false;
           }
+          this.cdr.markForCheck();
         });
       }
     }

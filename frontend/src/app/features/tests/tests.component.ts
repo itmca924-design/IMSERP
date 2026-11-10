@@ -1,10 +1,11 @@
-import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormsModule, ReactiveFormsModule, FormBuilder,
   FormGroup, FormArray, Validators, AbstractControl
 } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
+import { AiErpCopilotService } from '../../core/services/ai-erp-copilot.service';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, MatPaginator, PageEvent } from '@angular/material/paginator';
@@ -516,6 +517,21 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   </mat-chip>
                 </mat-chip-set>
               </div>
+              @if (!selectedTest.isMarksLocked) {
+                <div class="test-header-ai-toggle" style="margin-left: auto; display: flex; align-items: center;">
+                  <button type="button" 
+                    class="ai-toggle-action-btn" 
+                    [class.active]="isAiMarksOpen" 
+                    (click)="toggleAiMarksPanel()" 
+                    [matTooltip]="isAiMarksOpen ? 'Hide Voice Marks Evaluator' : 'Open Voice Marks Evaluator'">
+                    <mat-icon>{{ isAiMarksOpen ? 'visibility_off' : 'psychology' }}</mat-icon>
+                    <span>{{ isAiMarksOpen ? 'Hide Voice Marks' : '✨ AI Marks' }}</span>
+                    @if (!isAiMarksOpen) {
+                      <span class="ai-pill-tag">Voice</span>
+                    }
+                  </button>
+                </div>
+              }
             </div>
           </mat-card-header>
           <!-- Locked Banner -->
@@ -556,6 +572,83 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
           <mat-card-content class="marks-card-content">
             <!-- Desktop / Laptop / Tablet: Pure Angular Material Table -->
             @if (!marksLoading) {
+              <!-- Agentic AI Smart Exam Marks Evaluator Copilot -->
+              @if (isAiMarksOpen && !selectedTest.isMarksLocked) {
+                <div class="ai-copilot-card">
+                  <div class="ai-copilot-header">
+                    <div class="ai-copilot-title-group">
+                      <div class="ai-avatar-icon">
+                        <mat-icon>grading</mat-icon>
+                      </div>
+                      <div class="ai-title-text">
+                        <div class="ai-main-title-row">
+                          <h4>Agentic AI Test Marks Evaluator</h4>
+                          <span class="ai-pill-active">⚡ Sequential Voice Marks Entry</span>
+                        </div>
+                        <p>मार्क्स बोलें या लिखें — जैसे "Roll 1 ko 45, Roll 2 ko 38, Roll 3 absent, Roll 4 ko 42", AI नीचे ग्रिड में अंक तुरंत भर देगा।</p>
+                      </div>
+                    </div>
+                    <div class="ai-header-controls">
+                      <button type="button" class="ai-minimize-btn" (click)="toggleAiMarksPanel()" matTooltip="Hide Copilot">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  @if (isAiMarksListening) {
+                    <div class="ai-listening-bar">
+                      <div class="ai-wave-wrap">
+                        <mat-icon class="ai-wave-icon">graphic_eq</mat-icon>
+                        <div class="ai-listening-text">
+                          <span>AI सुन रहा है... ({{ aiMarksSpeechLang === 'hi-IN' ? 'Listening in Hindi / Hinglish' : 'Listening in English' }})</span>
+                          <span class="ai-mic-hint">बोलिए: "रोल नंबर और प्राप्त अंक या अनुपस्थित (उदा: 'Roll 1 ko 45, Roll 2 ko 38, Roll 3 absent')..."</span>
+                        </div>
+                      </div>
+                      <button type="button" class="ai-stop-btn" (click)="toggleAiMarksSpeech()">
+                        <mat-icon>mic_off</mat-icon>
+                        <span>Stop</span>
+                      </button>
+                    </div>
+                  }
+
+                  <div class="ai-input-wrap">
+                    <textarea
+                      class="ai-textarea"
+                      rows="2"
+                      [(ngModel)]="aiMarksPromptText"
+                      (input)="onAiMarksPromptInput()"
+                      (keydown.enter)="$event.preventDefault(); processAiMarksCommand()"
+                      placeholder="यहाँ बोलें या टाइप करें... (उदा: 'Roll 1 ko 45, Roll 2 ko 38, Roll 3 absent, Roll 4 ko 42')"></textarea>
+
+                    <div class="ai-footer-bar">
+                      <div class="ai-footer-left">
+                        <button type="button" class="ai-mic-btn" [class.listening]="isAiMarksListening" (click)="toggleAiMarksSpeech()">
+                          <mat-icon>{{ isAiMarksListening ? 'mic' : 'mic_none' }}</mat-icon>
+                          <span>{{ isAiMarksListening ? 'Stop Mic' : 'Start Voice' }}</span>
+                        </button>
+                        <button type="button" class="ai-lang-pill-btn" (click)="toggleAiMarksLang()" matTooltip="Switch Language">
+                          <mat-icon>language</mat-icon>
+                          <span>{{ aiMarksSpeechLang === 'hi-IN' ? 'हिंदी (Hindi)' : 'English' }}</span>
+                        </button>
+                      </div>
+                      <div class="ai-footer-right">
+                        @if (aiMarksPromptText) {
+                          <button type="button" class="ai-clear-btn" (click)="clearAiMarks()">Clear</button>
+                        }
+                        <button
+                          type="button"
+                          class="ai-submit-action-btn"
+                          [disabled]="!aiMarksPromptText.trim()"
+                          (click)="processAiMarksCommand()">
+                          <mat-icon>auto_awesome</mat-icon>
+                          <span>Apply Marks (अंक दर्ज करें)</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+
               <div class="desktop-marks-container">
                 <table mat-table [dataSource]="marksGrid" class="full-width marks-mat-table">
                   <!-- # / Rank Column -->
@@ -784,25 +877,70 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
             <!-- Hybrid Module Category Tabs (Only if institute has both School & Coaching) -->
             @if (isHybridInstitute) {
               <div class="category-tabs-bar">
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'all'" (click)="setCategoryFilter('all')" matButton="filled">
-                  <mat-icon>grid_view</mat-icon> All Exams
+                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'all'" (click)="setCategoryFilter('all')">
+                  <div class="tab-icon-box">
+                    <mat-icon>hub</mat-icon>
+                  </div>
+                  <div class="tab-content-box">
+                    <div class="tab-title-line">
+                      <strong class="tab-title">All Exams (सभी परीक्षा)</strong>
+                      @if (selectedCategory === 'all') {
+                        <span class="active-badge"><mat-icon>check_circle</mat-icon> Active</span>
+                      }
+                    </div>
+                    <span class="tab-subtitle">Consolidated School &amp; Coaching</span>
+                  </div>
                 </button>
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'school'" (click)="setCategoryFilter('school')" matButton="filled">
-                  <mat-icon>school</mat-icon> School Classes
+
+                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'school'" (click)="setCategoryFilter('school')">
+                  <div class="tab-icon-box">
+                    <mat-icon>school</mat-icon>
+                  </div>
+                  <div class="tab-content-box">
+                    <div class="tab-title-line">
+                      <strong class="tab-title">School Classes (स्कूल)</strong>
+                      @if (selectedCategory === 'school') {
+                        <span class="active-badge"><mat-icon>check_circle</mat-icon> Active</span>
+                      }
+                    </div>
+                    <span class="tab-subtitle">Class &amp; Section Term Exams</span>
+                  </div>
                 </button>
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'coaching'" (click)="setCategoryFilter('coaching')" matButton="filled">
-                  <mat-icon>groups</mat-icon> Coaching Batches
+
+                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'coaching'" (click)="setCategoryFilter('coaching')">
+                  <div class="tab-icon-box">
+                    <mat-icon>groups</mat-icon>
+                  </div>
+                  <div class="tab-content-box">
+                    <div class="tab-title-line">
+                      <strong class="tab-title">Coaching Batches (कोचिंग)</strong>
+                      @if (selectedCategory === 'coaching') {
+                        <span class="active-badge"><mat-icon>check_circle</mat-icon> Active</span>
+                      }
+                    </div>
+                    <span class="tab-subtitle">Batch &amp; Subject-Wise Tests</span>
+                  </div>
                 </button>
               </div>
             }
             <!-- Coaching Batch Scope Toggle (Single vs Multi-Class Combined vs All) -->
             @if (hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')) {
               <div class="scope-filter-toolbar-row">
+                <div class="scope-label-wrapper">
+                  <div class="scope-indicator-icon">
+                    <mat-icon>tune</mat-icon>
+                  </div>
+                  <div class="scope-label-text">
+                    <span class="scope-label-title">Batch Grouping Scope / बैच वर्गीकरण:</span>
+                    <span class="scope-label-desc">Academic Hierarchy &amp; Multi-Class Batches</span>
+                  </div>
+                </div>
+
                 <div class="scope-filter-toggle">
                   <button type="button"
                     class="scope-filter-btn"
                     [class.active]="batchScopeFilter === 'all'"
-                    (click)="setBatchScopeFilter('all')" matButton="filled">
+                    (click)="setBatchScopeFilter('all')">
                     <mat-icon>apps</mat-icon>
                     <span>All Batches (सभी बैच)</span>
                     <span class="scope-pill">{{ batches.length }}</span>
@@ -810,7 +948,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <button type="button"
                     class="scope-filter-btn"
                     [class.active]="batchScopeFilter === 'single'"
-                    (click)="setBatchScopeFilter('single')" matButton="filled">
+                    (click)="setBatchScopeFilter('single')">
                     <mat-icon>school</mat-icon>
                     <span>Single Class (एकल कक्षा)</span>
                     <span class="scope-pill">{{ singleClassBatchCount }}</span>
@@ -818,7 +956,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   <button type="button"
                     class="scope-filter-btn"
                     [class.active]="batchScopeFilter === 'combined'"
-                    (click)="setBatchScopeFilter('combined')" matButton="filled">
+                    (click)="setBatchScopeFilter('combined')">
                     <mat-icon>layers</mat-icon>
                     <span>Multi-Class Combined (संयुक्त कक्षा)</span>
                     <span class="scope-pill">{{ combinedBatchCount }}</span>
@@ -2511,142 +2649,301 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       border-bottom: 1px solid #f1f5f9;
     }
     .category-tabs-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
       width: 100%;
-      padding-bottom: 12px;
+      padding-bottom: 14px;
       border-bottom: 1px solid #e2e8f0;
-      flex-wrap: wrap;
 
       .cat-tab-btn {
-        display: inline-flex;
+        display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 6px;
-        padding: 8px 16px;
-        border-radius: 8px;
-        border: 1px solid #cbd5e1;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1.5px solid #cbd5e1;
         background: #ffffff;
-        color: #475569;
-        font-size: 0.85rem;
-        font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
-        white-space: nowrap;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        text-align: left;
+        width: 100%;
+        box-sizing: border-box;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 
-        mat-icon {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
-          color: #64748b;
+        .tab-icon-box {
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          border-radius: 10px;
+          background: #f1f5f9;
+          color: #475569;
+          border: 1px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.25s ease;
+
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+          }
         }
 
-        &:hover {
-          border-color: #94a3b8;
-          color: #0f172a;
+        .tab-content-box {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+          flex: 1;
+
+          .tab-title-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+
+            .tab-title {
+              font-size: 0.88rem;
+              font-weight: 700;
+              color: #1e293b;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            .active-badge {
+              display: inline-flex;
+              align-items: center;
+              gap: 3px;
+              font-size: 0.65rem;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.4px;
+              background: #2563eb;
+              color: #ffffff;
+              padding: 2px 7px;
+              border-radius: 10px;
+              box-shadow: 0 2px 5px rgba(37, 99, 235, 0.28);
+              flex-shrink: 0;
+
+              mat-icon {
+                font-size: 11px;
+                width: 11px;
+                height: 11px;
+              }
+            }
+          }
+
+          .tab-subtitle {
+            font-size: 0.74rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+
+        &:hover:not(.active) {
+          transform: translateY(-2px);
+          border-color: #93c5fd;
           background: #f8fafc;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+
+          .tab-icon-box {
+            background: #eff6ff;
+            color: #2563eb;
+            border-color: #bfdbfe;
+          }
+
+          .tab-title {
+            color: #1e40af;
+          }
         }
 
         &.active {
-          background: #2563eb;
-          border-color: #2563eb;
-          color: #ffffff;
-          box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.3);
+          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+          border-color: #3b82f6;
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.16);
 
-          mat-icon {
+          &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3.5px;
+            background: #2563eb;
+          }
+
+          .tab-icon-box {
+            background: #2563eb;
             color: #ffffff;
+            border-color: #2563eb;
+            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+          }
+
+          .tab-title {
+            color: #1e40af;
+          }
+
+          .tab-subtitle {
+            color: #2563eb;
+            font-weight: 500;
           }
         }
       }
     }
+
     .scope-filter-toolbar-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 14px;
       flex-wrap: wrap;
-      padding-top: 2px;
-    }
-
-    .scope-filter-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: #f1f5f9;
-      border-radius: 10px;
-      padding: 3px;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
       border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
 
-      .scope-filter-btn {
+      .scope-label-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+
+        .scope-indicator-icon {
+          width: 32px;
+          height: 32px;
+          min-width: 32px;
+          border-radius: 8px;
+          background: #eff6ff;
+          color: #2563eb;
+          border: 1px solid #bfdbfe;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+        }
+
+        .scope-label-text {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+
+          .scope-label-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #1e293b;
+          }
+
+          .scope-label-desc {
+            font-size: 0.72rem;
+            color: #64748b;
+          }
+        }
+      }
+
+      .scope-filter-toggle {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 6px 14px;
-        border: 1.5px solid transparent;
-        border-radius: 7px;
-        background: transparent;
-        cursor: pointer;
-        font-size: 0.82rem;
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 4px;
+        border: 1.5px solid #cbd5e1;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        flex-wrap: wrap;
+
+        .scope-filter-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 7px 14px;
+          border: 1.5px solid transparent;
+          border-radius: 8px;
+          background: transparent;
+          cursor: pointer;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #475569;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          white-space: nowrap;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            color: #64748b;
+            transition: color 0.2s ease;
+          }
+
+          .scope-pill {
+            background: #e2e8f0;
+            color: #475569;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            transition: all 0.2s ease;
+          }
+
+          &:hover:not(.active) {
+            background: #f1f5f9;
+            color: #1e293b;
+
+            mat-icon {
+              color: #1e293b;
+            }
+          }
+
+          &.active {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-color: #2563eb;
+            color: #1e40af;
+            font-weight: 700;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
+
+            mat-icon {
+              color: #2563eb;
+            }
+
+            .scope-pill {
+              background: #2563eb;
+              color: #ffffff;
+              box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+            }
+          }
+        }
+      }
+
+      .combined-info-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.76rem;
+        color: #0369a1;
+        background: #e0f2fe;
+        border: 1px solid #bae6fd;
+        padding: 5px 12px;
+        border-radius: 8px;
         font-weight: 600;
-        color: #64748b;
-        transition: all 0.15s ease;
-        white-space: nowrap;
 
         mat-icon {
           font-size: 16px;
           width: 16px;
           height: 16px;
-          color: #64748b;
+          color: #0284c7;
         }
-
-        .scope-pill {
-          background: #cbd5e1;
-          color: #475569;
-          padding: 1px 6px;
-          border-radius: 10px;
-          font-size: 0.7rem;
-          font-weight: 700;
-        }
-
-        &:hover {
-          background: #e2e8f0;
-          color: #334155;
-        }
-
-        &.active {
-          background: #ffffff;
-          border-color: #2563eb;
-          color: #1e40af;
-          box-shadow: 0 1px 3px rgba(37,99,235,0.15);
-
-          mat-icon { color: #2563eb; }
-
-          .scope-pill {
-            background: #dbeafe;
-            color: #1d4ed8;
-          }
-        }
-      }
-    }
-
-    .combined-info-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.78rem;
-      color: #047857;
-      background: #ecfdf5;
-      border: 1px solid #a7f3d0;
-      padding: 5px 12px;
-      border-radius: 20px;
-      font-weight: 600;
-
-      mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
-        color: #059669;
       }
     }
 
@@ -3894,6 +4191,17 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         gap: 8px !important;
       }
 
+      .test-header-ai-toggle {
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-top: 8px;
+
+        .ai-toggle-action-btn {
+          width: 100% !important;
+          justify-content: center !important;
+        }
+      }
+
       .award-sheet-dialog {
         width: min(96vw, 680px) !important;
         max-width: 96vw !important;
@@ -4269,20 +4577,32 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         gap: 10px;
 
         .category-tabs-bar {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 6px;
-          padding-bottom: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding-bottom: 12px;
 
           .cat-tab-btn {
-            width: 100%;
-            padding: 7px 10px;
-            font-size: 0.8rem;
-            min-height: 38px;
+            width: 100% !important;
+            padding: 10px 14px;
             box-sizing: border-box;
+          }
+        }
 
-            &:nth-child(3) {
-              grid-column: span 2;
+        .scope-filter-toolbar-row {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 10px !important;
+
+          .scope-filter-toggle {
+            width: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 6px !important;
+
+            .scope-filter-btn {
+              width: 100% !important;
+              justify-content: space-between !important;
             }
           }
         }
@@ -4331,7 +4651,15 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
           .cat-tab-btn {
             width: 100% !important;
-            padding: 8px 12px;
+            padding: 8px 10px;
+
+            .tab-title {
+              font-size: 0.82rem;
+            }
+
+            .tab-subtitle {
+              font-size: 0.7rem;
+            }
           }
         }
       }
@@ -4563,6 +4891,17 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         display: block !important;
         box-shadow: none !important;
       }
+      .test-header-ai-toggle {
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-top: 8px;
+
+        .ai-toggle-action-btn {
+          width: 100% !important;
+          justify-content: center !important;
+        }
+      }
+
       .award-sheet-dialog {
         max-width: 100% !important;
         width: 100% !important;
@@ -4607,7 +4946,13 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
     }
   `]
 })
-export class TestsComponent implements OnInit {
+export class TestsComponent implements OnInit, OnDestroy {
+  // Agentic AI Test Marks Evaluator Properties (defaults to hidden on load)
+  isAiMarksOpen = false;
+  isAiMarksListening = false;
+  aiMarksPromptText = '';
+  aiMarksSpeechLang = 'hi-IN';
+  private aiMarksSub?: Subscription;
   // Tests List
   tests: any[] = [];
   batches: any[] = [];
@@ -4717,7 +5062,8 @@ export class TestsComponent implements OnInit {
     private subjectsService: SubjectsService,
     private fb: FormBuilder,
     private dialog: MatDialog,
-    public authService: AuthService
+    public authService: AuthService,
+    private aiCopilotService: AiErpCopilotService
   ) {
     this.bulkForm = this.fb.group({ exams: this.fb.array([]) });
     this.bundleForm = this.fb.group({
@@ -4889,6 +5235,104 @@ export class TestsComponent implements OnInit {
     this.loadTests();
     this.loadSubjects();
     this.loadTeachers();
+
+    this.aiMarksSub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
+      if (this.isAiMarksListening) {
+        this.aiMarksPromptText = text;
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.aiMarksSub?.unsubscribe();
+    if (this.isAiMarksListening) {
+      this.aiCopilotService.stopListening();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // AGENTIC AI TEST MARKS EVALUATOR COPILOT METHODS
+  // ════════════════════════════════════════════════════════════
+  toggleAiMarksPanel(): void {
+    this.isAiMarksOpen = !this.isAiMarksOpen;
+    if (!this.isAiMarksOpen) {
+      this.clearAiMarks();
+    }
+  }
+
+  onAiMarksPromptInput(): void {
+    if (!this.aiMarksPromptText?.trim() && this.isAiMarksListening) {
+      this.aiCopilotService.restartListening(this.aiMarksSpeechLang);
+    }
+  }
+
+  clearAiMarks(): void {
+    this.aiMarksPromptText = '';
+    this.aiCopilotService.stopListening();
+    this.isAiMarksListening = false;
+  }
+
+  toggleAiMarksSpeech(): void {
+    if (!this.aiCopilotService.isSpeechSupported()) {
+      this.confirmDialog.alert(
+        'Speech Recognition Unavailable',
+        'Web Speech API is not supported in this browser. Please use Google Chrome or type directly.',
+        'warning'
+      );
+      return;
+    }
+    if (this.isAiMarksListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiMarksListening = false;
+    } else {
+      this.isAiMarksListening = true;
+      this.aiCopilotService.startListening(this.aiMarksSpeechLang);
+    }
+  }
+
+  toggleAiMarksLang(): void {
+    this.aiMarksSpeechLang = this.aiMarksSpeechLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+    if (this.isAiMarksListening) {
+      this.aiCopilotService.restartWithLanguage(this.aiMarksSpeechLang);
+    }
+  }
+
+  processAiMarksCommand(): void {
+    const raw = (this.aiMarksPromptText || '').trim();
+    if (!raw) return;
+    if (!this.selectedTest || this.selectedTest.isMarksLocked) return;
+
+    const maxM = this.selectedTest.maxMarks || 100;
+    const res = this.aiCopilotService.parseMarksCommand(raw, maxM);
+
+    let updatedCount = 0;
+    for (const entry of res.entries) {
+      const match = this.marksGrid.find(m => {
+        const r = (m.rollNumber || '').toLowerCase().trim();
+        return r === entry.rollNumber.toLowerCase().trim() || r === entry.rollNumber.replace(/^0+/, '');
+      });
+      if (match) {
+        if (entry.isAbsent) {
+          match.isAbsent = true;
+          match.marksObtained = 0;
+        } else if (entry.marks !== undefined) {
+          match.isAbsent = false;
+          match.marksObtained = entry.marks;
+        }
+        updatedCount++;
+      }
+    }
+
+    if (this.isAiMarksListening) {
+      this.aiCopilotService.stopListening();
+      this.isAiMarksListening = false;
+    }
+
+    this.confirmDialog.alert(
+      'Marks Evaluated! 🎯',
+      `Applied marks for ${updatedCount} student(s) based on your voice input.\n\nPlease review the table below and click "Save Marks Draft" or "Save & Submit to Principal".`,
+      'success'
+    );
   }
 
   loadTeachers(): void {

@@ -27,6 +27,7 @@ export interface FeeDialogData {
   parentWhatsAppPhone: string;
   totalOutstandingDue: number;
   initialAmount?: number;
+  initialPaymentMode?: number;
   selectedInvoicesCount?: number;
   selectedInvoicesDetails?: string;
   hostelInfo?: string;
@@ -2584,9 +2585,14 @@ export class FeeCollectionDialogComponent implements OnInit {
       ? `Multi-Invoice Settlement (${this.data.selectedInvoicesCount} Invoices)`
       : (isPureAdvanceMode ? 'Advance Fee Deposit (FIFO Carry-Forward)' : 'Fee Payment');
 
+    const initialAmt = (this.data.initialAmount !== undefined && this.data.initialAmount > 0)
+      ? this.data.initialAmount
+      : (this.baseTuitionAmount + this.customAdvanceCreditAmount);
+    const initialMode = this.data.initialPaymentMode || 1;
+
     this.feeForm = this.fb.group({
-      amountPaid: [this.baseTuitionAmount + this.customAdvanceCreditAmount, [Validators.required, Validators.min(1)]],
-      mode: [1, [Validators.required]], // Default to UPI
+      amountPaid: [initialAmt, [Validators.required, Validators.min(1)]],
+      mode: [initialMode, [Validators.required]],
       transactionRef: [''],
       remarks: [defaultRemarks],
       sendWhatsAppReceipt: [this.quickSettings.whatsappFeeAlerts()],
