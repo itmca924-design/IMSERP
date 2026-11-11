@@ -912,7 +912,23 @@ public record FeeInvoiceDto(
     decimal PaidAmount,
     decimal DueAmount,
     DateTime DueDate,
-    string Status
+    string Status,
+    string? ClassName = null,
+    string? ProfilePhoto = null,
+    bool AlreadyRemindedToday = false,
+    DateTime? LastRemindedAt = null,
+    string? LastReminderType = null,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = false,
+    string? ScopeTag = null
+);
+
+public record LogReminderDispatchedDto(
+    Guid StudentId,
+    string? StudentName,
+    string? RecipientPhone,
+    string? ReminderType,
+    Guid? InvoiceId
 );
 
 public record CreateInvoiceDto(

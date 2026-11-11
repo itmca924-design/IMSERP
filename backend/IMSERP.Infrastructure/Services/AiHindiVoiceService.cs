@@ -64,12 +64,44 @@ public class AiHindiVoiceService : IAiVoiceService
         var cleanStudent = !string.IsNullOrWhiteSpace(studentName) ? studentName.Trim() : "आपके बच्चे";
         var cleanInst = PhoneticNormalize(instituteName);
         var cleanClass = FormatClassForHindiSpeech(className);
-        var cleanMonth = !string.IsNullOrWhiteSpace(monthName) ? monthName.Trim() : "वर्तमान";
+
+        var (hindiMonth, yearStr) = ParseHindiMonthAndYear(monthName);
 
         var classPhrase = !string.IsNullOrWhiteSpace(cleanClass) ? $", {cleanClass}," : "";
         var amountText = dueAmount > 0 ? $"रुपये {dueAmount:N0}" : "बकाया शुल्क";
 
-        return $"नमस्ते {cleanParent} जी! {cleanInst} से सादर अनुरोध है। {cleanStudent}{classPhrase} की {cleanMonth} माह की फीस {amountText} देय है। फीस जमा करने की नियत तारीख {dueDay} तारीख है। कृपया समय पर फीस जमा कराकर सहयोग करें। धन्यवाद!";
+        return $"नमस्ते {cleanParent} जी! {cleanInst} से सादर अनुरोध है। आपके सुपुत्र या सुपुत्री {cleanStudent}{classPhrase} की फीस {amountText} देय है। फीस जमा करने की नियत तारीख {dueDay} {hindiMonth} {yearStr} है। कृपया समय पर फीस जमा कराकर सहयोग प्रदान करें। धन्यवाद!";
+    }
+
+    private static (string MonthHindi, string Year) ParseHindiMonthAndYear(string? rawMonth)
+    {
+        var currentYear = DateTime.UtcNow.AddHours(5.5).Year.ToString();
+        if (string.IsNullOrWhiteSpace(rawMonth))
+            return ("वर्तमान", currentYear);
+
+        var text = rawMonth.Trim();
+        var yearMatch = Regex.Match(text, @"\b(20\d{2})\b");
+        var year = yearMatch.Success ? yearMatch.Groups[1].Value : currentYear;
+        var monthPart = Regex.Replace(text, @"\b20\d{2}\b", "").Trim('-', ' ', ',');
+
+        var monthHindi = monthPart.ToLowerInvariant() switch
+        {
+            "january" or "jan" => "जनवरी",
+            "february" or "feb" => "फ़रवरी",
+            "march" or "mar" => "मार्च",
+            "april" or "apr" => "अप्रैल",
+            "may" => "मई",
+            "june" or "jun" => "जून",
+            "july" or "jul" => "जुलाई",
+            "august" or "aug" => "अगस्त",
+            "september" or "sep" or "sept" => "सितंबर",
+            "october" or "oct" => "अक्टूबर",
+            "november" or "nov" => "नवंबर",
+            "december" or "dec" => "दिसंबर",
+            _ => !string.IsNullOrWhiteSpace(monthPart) ? monthPart : "वर्तमान"
+        };
+
+        return (monthHindi, year);
     }
 
     public static string PhoneticNormalize(string? text)

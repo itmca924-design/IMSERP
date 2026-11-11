@@ -342,6 +342,11 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
             decimal dueAmount = inv.TotalAmount - inv.PaidAmount;
             if (dueAmount <= 0) continue;
 
+            bool isPartial = inv.PaidAmount > 0;
+            string amountSummaryLine = isPartial
+                ? $"• Total Fee: ₹{inv.TotalAmount:N0} | Paid (Partial): ₹{inv.PaidAmount:N0}\n• Remaining Balance Due: *₹{dueAmount:N0}*"
+                : $"• Outstanding Amount: *₹{dueAmount:N0}*";
+
             int daysOverdue = Math.Max(0, (today - inv.DueDate.Date).Days);
             if (daysOverdue < request.MinDaysOverdue && daysOverdue > 0)
                 continue;
@@ -413,7 +418,7 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
                     $"🚨 *FINAL FEE DEMAND NOTICE* - {instituteName}\n\n" +
                     $"{parentGreeting},\n" +
                     $"This is a critical reminder regarding the outstanding educational fee for your ward *{student.StudentName}* (Adm/Roll: {rollOrAdm}, Class: {studentClass}).\n\n" +
-                    $"• Total Overdue Balance: *₹{dueAmount:N0}*\n" +
+                    $"{amountSummaryLine}\n" +
                     $"• Pending Since: *{inv.DueDate:dd-MMM-yyyy}* ({daysOverdue} days overdue)\n" +
                     $"• Invoice Reference: *#{inv.InvoiceNumber}*\n\n" +
                     upiPaymentBlock +
@@ -423,8 +428,8 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
                 RecoveryRiskLevel.High =>
                     $"⚠️ *URGENT FEE PAYMENT REMINDER* - {instituteName}\n\n" +
                     $"{parentGreeting},\n" +
-                    $"Please note that tuition fees for *{student.StudentName}* (Roll: {rollOrAdm}) remain unpaid past the due date.\n\n" +
-                    $"• Outstanding Amount: *₹{dueAmount:N0}*\n" +
+                    $"Please note that tuition fees for *{student.StudentName}* (Roll: {rollOrAdm}, Class: {studentClass}) remain pending past the due date.\n\n" +
+                    $"{amountSummaryLine}\n" +
                     $"• Due Date: *{inv.DueDate:dd-MMM-yyyy}*\n" +
                     $"• Invoice: *#{inv.InvoiceNumber}*\n\n" +
                     upiPaymentBlock +
@@ -434,7 +439,8 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
                 RecoveryRiskLevel.Moderate =>
                     $"🔔 *FEE PAYMENT NOTICE* - {instituteName}\n\n" +
                     $"{parentGreeting},\n" +
-                    $"This is a friendly reminder that fee bill of *₹{dueAmount:N0}* for *{student.StudentName}* ({studentClass}) was due on *{inv.DueDate:dd-MMM-yyyy}*.\n\n" +
+                    $"This is a friendly reminder regarding the fee invoice *#{inv.InvoiceNumber}* for *{student.StudentName}* (Roll: {rollOrAdm}, Class: {studentClass}) due on *{inv.DueDate:dd-MMM-yyyy}*:\n" +
+                    $"{amountSummaryLine}\n\n" +
                     upiPaymentBlock +
                     $"Kindly remit the payment via the UPI link above or at the school counter to avoid late fee charges.\n\n" +
                     $"— {instituteName}",
@@ -442,7 +448,8 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
                 _ =>
                     $"🌸 *FEE INVOICE COURTESY NUDGE* - {instituteName}\n\n" +
                     $"{parentGreeting},\n" +
-                    $"Tuition fee invoice *#{inv.InvoiceNumber}* for *{student.StudentName}* (₹{dueAmount:N0}) has been generated with due date *{inv.DueDate:dd-MMM-yyyy}*.\n\n" +
+                    $"Tuition fee invoice *#{inv.InvoiceNumber}* for *{student.StudentName}* (Roll: {rollOrAdm}, Class: {studentClass}) has due date *{inv.DueDate:dd-MMM-yyyy}*:\n" +
+                    $"{amountSummaryLine}\n\n" +
                     upiPaymentBlock +
                     $"Thank you for your continued support.\n\n" +
                     $"— {instituteName}"
@@ -517,7 +524,25 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
             ? request.CustomMessage
             : plan.GeneratedMessage;
 
-        // Dispatch via WhatsAppService
+        var ist = GetIstTimeZone();
+        var todayIst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, ist).Date;
+        var todayStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayIst, ist);
+        var sNameNorm = plan.Student.StudentName.Trim().ToLower();
+
+        // Enforce 1 message per student per day (Siblings with Full or Partial dues are tracked individually by StudentName)
+        var alreadySentToday = await _db.WhatsAppLogs
+            .AsNoTracking()
+            .AnyAsync(l => l.TenantId == tenantId &&
+                           l.MessageType == MessageType.FeeReminder &&
+                           l.SentAt >= todayStartUtc &&
+                           l.StudentName.ToLower() == sNameNorm);
+
+        if (alreadySentToday)
+        {
+            throw new InvalidOperationException($"Fee reminder has already been dispatched to {plan.Student.StudentName} today. Per-day single message limit is active.");
+        }
+
+        // Dispatch via WhatsAppService & record as FeeReminder so Dashboard & AI Agent share daily deduplication state
         var dispatched = await _whatsAppService.SendDailyDiaryAlertAsync(
             tenantId,
             phone,
@@ -526,6 +551,14 @@ public class FeeRecoveryAgentService : IFeeRecoveryAgentService
             DateTime.UtcNow.ToString("dd-MMM-yyyy"),
             message
         );
+
+        var latestLog = await _db.WhatsAppLogs
+            .OrderByDescending(l => l.SentAt)
+            .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.StudentName == plan.Student.StudentName);
+        if (latestLog != null)
+        {
+            latestLog.MessageType = MessageType.FeeReminder;
+        }
 
         plan.Status = RecoveryPlanStatus.Dispatched;
         plan.FollowUpCount++;

@@ -81,9 +81,6 @@ public class EventsController : ControllerBase
         {
             var studentTodayQuery = _db.Students
                 .AsNoTracking()
-                .Include(s => s.Batch)
-                .Include(s => s.Class)
-                .Include(s => s.Section)
                 .Where(s => s.IsActive && s.DateOfBirth.HasValue 
                          && s.DateOfBirth.Value.Month == todayMonth 
                          && s.DateOfBirth.Value.Day == todayDay);
@@ -134,38 +131,59 @@ public class EventsController : ControllerBase
 
         // 3. Upcoming Birthdays in Next 7 Days (excluding today)
         var upcomingDays = Enumerable.Range(1, 7).Select(offset => today.AddDays(offset)).ToList();
-        var upcomingMonthDays = upcomingDays.Select(d => new { d.Month, d.Day, DateObj = d }).ToList();
+        var d1 = upcomingDays[0];
+        var d2 = upcomingDays[1];
+        var d3 = upcomingDays[2];
+        var d4 = upcomingDays[3];
+        var d5 = upcomingDays[4];
+        var d6 = upcomingDays[5];
+        var d7 = upcomingDays[6];
 
         var upcomingStudentBirthdays = new List<BirthdayItemDto>();
         if (birthdayScope.CanViewStudents)
         {
             var upcomingStudentQuery = _db.Students
                 .AsNoTracking()
-                .Include(s => s.Batch)
-                .Include(s => s.Class)
-                .Include(s => s.Section)
-                .Where(s => s.IsActive && s.DateOfBirth.HasValue);
+                .Where(s => s.IsActive && s.DateOfBirth.HasValue &&
+                    (
+                        (s.DateOfBirth.Value.Month == d1.Month && s.DateOfBirth.Value.Day == d1.Day) ||
+                        (s.DateOfBirth.Value.Month == d2.Month && s.DateOfBirth.Value.Day == d2.Day) ||
+                        (s.DateOfBirth.Value.Month == d3.Month && s.DateOfBirth.Value.Day == d3.Day) ||
+                        (s.DateOfBirth.Value.Month == d4.Month && s.DateOfBirth.Value.Day == d4.Day) ||
+                        (s.DateOfBirth.Value.Month == d5.Month && s.DateOfBirth.Value.Day == d5.Day) ||
+                        (s.DateOfBirth.Value.Month == d6.Month && s.DateOfBirth.Value.Day == d6.Day) ||
+                        (s.DateOfBirth.Value.Month == d7.Month && s.DateOfBirth.Value.Day == d7.Day)
+                    ));
 
             if (birthdayScope.AllowedStudentIds != null)
             {
                 upcomingStudentQuery = upcomingStudentQuery.Where(s => birthdayScope.AllowedStudentIds.Contains(s.Id));
             }
 
-            var allUpcomingStudents = await upcomingStudentQuery.ToListAsync();
+            var rawUpcomingStudents = await upcomingStudentQuery
+                .Select(s => new {
+                    s.Id,
+                    s.StudentName,
+                    ClassName = s.Class != null ? $"{s.Class.Name}{(s.Section != null ? " - " + s.Section.Name : "")}" : (s.Batch != null ? s.Batch.Name : "Classroom Student"),
+                    s.RollNumber,
+                    s.ProfilePhoto,
+                    DateOfBirth = s.DateOfBirth!.Value,
+                    s.ParentWhatsAppPhone
+                })
+                .ToListAsync();
 
-            upcomingStudentBirthdays = allUpcomingStudents
-                .Where(s => upcomingDays.Any(d => d.Month == s.DateOfBirth!.Value.Month && d.Day == s.DateOfBirth!.Value.Day))
+            upcomingStudentBirthdays = rawUpcomingStudents
                 .Select(s => {
-                    var nextMatch = upcomingDays.First(d => d.Month == s.DateOfBirth!.Value.Month && d.Day == s.DateOfBirth!.Value.Day);
+                    var nextMatch = upcomingDays.First(d => d.Month == s.DateOfBirth.Month && d.Day == s.DateOfBirth.Day);
                     return new BirthdayItemDto(
                         s.Id,
                         s.StudentName,
                         "Student",
-                        s.Class != null ? $"{s.Class.Name}{(s.Section != null ? " - " + s.Section.Name : "")}" : (s.Batch != null ? s.Batch.Name : "Classroom Student"),
+                        s.ClassName,
                         s.RollNumber,
                         s.ProfilePhoto,
-                        s.DateOfBirth!.Value,
-                        today.Year - s.DateOfBirth!.Value.Year,
+                        s.DateOfBirth,
+                        today.Year - s.DateOfBirth.Year,
                         birthdayScope.HideStudentContact ? null : s.ParentWhatsAppPhone,
                         nextMatch.ToString("dd MMM"),
                         false
@@ -174,25 +192,44 @@ public class EventsController : ControllerBase
                 .ToList();
         }
 
-        var allUpcomingTeachers = await _db.Teachers
+        var upcomingTeacherQuery = _db.Teachers
             .AsNoTracking()
-            .Where(t => t.IsActive && t.DateOfBirth.HasValue)
+            .Where(t => t.IsActive && t.DateOfBirth.HasValue &&
+                (
+                    (t.DateOfBirth.Value.Month == d1.Month && t.DateOfBirth.Value.Day == d1.Day) ||
+                    (t.DateOfBirth.Value.Month == d2.Month && t.DateOfBirth.Value.Day == d2.Day) ||
+                    (t.DateOfBirth.Value.Month == d3.Month && t.DateOfBirth.Value.Day == d3.Day) ||
+                    (t.DateOfBirth.Value.Month == d4.Month && t.DateOfBirth.Value.Day == d4.Day) ||
+                    (t.DateOfBirth.Value.Month == d5.Month && t.DateOfBirth.Value.Day == d5.Day) ||
+                    (t.DateOfBirth.Value.Month == d6.Month && t.DateOfBirth.Value.Day == d6.Day) ||
+                    (t.DateOfBirth.Value.Month == d7.Month && t.DateOfBirth.Value.Day == d7.Day)
+                ));
+
+        var rawUpcomingTeachers = await upcomingTeacherQuery
+            .Select(t => new {
+                t.Id,
+                t.FullName,
+                Department = t.Department ?? t.Specialization ?? "Faculty Staff",
+                t.EmployeeCode,
+                t.PhotoUrl,
+                DateOfBirth = t.DateOfBirth!.Value,
+                Phone = t.WhatsAppPhone ?? t.PhoneNumber
+            })
             .ToListAsync();
 
-        var upcomingTeacherBirthdays = allUpcomingTeachers
-            .Where(t => upcomingDays.Any(d => d.Month == t.DateOfBirth!.Value.Month && d.Day == t.DateOfBirth!.Value.Day))
+        var upcomingTeacherBirthdays = rawUpcomingTeachers
             .Select(t => {
-                var nextMatch = upcomingDays.First(d => d.Month == t.DateOfBirth!.Value.Month && d.Day == t.DateOfBirth!.Value.Day);
+                var nextMatch = upcomingDays.First(d => d.Month == t.DateOfBirth.Month && d.Day == t.DateOfBirth.Day);
                 return new BirthdayItemDto(
                     t.Id,
                     t.FullName,
                     "Staff",
-                    t.Department ?? t.Specialization ?? "Faculty Staff",
+                    t.Department,
                     t.EmployeeCode,
                     t.PhotoUrl,
-                    t.DateOfBirth!.Value,
-                    today.Year - t.DateOfBirth!.Value.Year,
-                    t.WhatsAppPhone ?? t.PhoneNumber,
+                    t.DateOfBirth,
+                    today.Year - t.DateOfBirth.Year,
+                    t.Phone,
                     nextMatch.ToString("dd MMM"),
                     false
                 );
@@ -589,7 +626,6 @@ public class EventsController : ControllerBase
 
         // 3. Birthdays in this month (Role-scoped)
         var calBirthdayScope = await GetBirthdayScopeAsync();
-        var studentBirthdays = new List<Student>();
         if (calBirthdayScope.CanViewStudents)
         {
             var studentMonthQuery = _db.Students
@@ -601,37 +637,48 @@ public class EventsController : ControllerBase
                 studentMonthQuery = studentMonthQuery.Where(s => calBirthdayScope.AllowedStudentIds.Contains(s.Id));
             }
 
-            studentBirthdays = await studentMonthQuery.ToListAsync();
-        }
+            var studentBirthdays = await studentMonthQuery
+                .Select(s => new {
+                    s.StudentName,
+                    s.RollNumber,
+                    DateOfBirth = s.DateOfBirth!.Value
+                })
+                .ToListAsync();
 
-        foreach (var s in studentBirthdays)
-        {
-            var day = s.DateOfBirth!.Value.Day;
-            var dateStr = $"{year}-{month:D2}-{day:D2}";
-            items.Add(new CalendarActivityItemDto(
-                dateStr,
-                "Birthday",
-                $"🎂 {s.StudentName}'s Birthday",
-                $"Student • {s.RollNumber}",
-                "#f59e0b",
-                null
-            ));
+            foreach (var s in studentBirthdays)
+            {
+                var day = s.DateOfBirth.Day;
+                var dateStr = $"{year}-{month:D2}-{day:D2}";
+                items.Add(new CalendarActivityItemDto(
+                    dateStr,
+                    "Birthday",
+                    $"🎂 {s.StudentName}'s Birthday",
+                    $"Student • {s.RollNumber}",
+                    "#f59e0b",
+                    null
+                ));
+            }
         }
 
         var teacherBirthdays = await _db.Teachers
             .AsNoTracking()
             .Where(t => t.IsActive && t.DateOfBirth.HasValue && t.DateOfBirth.Value.Month == month)
+            .Select(t => new {
+                t.FullName,
+                Department = t.Department ?? "Faculty",
+                DateOfBirth = t.DateOfBirth!.Value
+            })
             .ToListAsync();
 
         foreach (var t in teacherBirthdays)
         {
-            var day = t.DateOfBirth!.Value.Day;
+            var day = t.DateOfBirth.Day;
             var dateStr = $"{year}-{month:D2}-{day:D2}";
             items.Add(new CalendarActivityItemDto(
                 dateStr,
                 "Birthday",
                 $"🎂 {t.FullName}'s Birthday",
-                $"Staff • {t.Department ?? "Faculty"}",
+                $"Staff • {t.Department}",
                 "#10b981",
                 null
             ));

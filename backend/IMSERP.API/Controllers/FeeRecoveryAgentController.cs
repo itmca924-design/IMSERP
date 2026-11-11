@@ -139,7 +139,7 @@ public class FeeRecoveryAgentController : ControllerBase
     public async Task<ActionResult<PreviewDuesVoiceResultDto>> PreviewVoice([FromBody] PreviewDuesVoiceRequestDto request)
     {
         var dueDay = request.DueDay > 0 ? request.DueDay : 10;
-        var month = !string.IsNullOrWhiteSpace(request.MonthName) ? request.MonthName : DateTime.UtcNow.ToString("MMMM");
+        var month = !string.IsNullOrWhiteSpace(request.MonthName) ? request.MonthName : DateTime.UtcNow.ToString("MMMM yyyy");
         var instName = !string.IsNullOrWhiteSpace(request.InstituteName) ? request.InstituteName : "विद्यालय प्रशासन";
 
         var script = _voiceService.BuildHindiScript(
@@ -172,51 +172,127 @@ public class FeeRecoveryAgentController : ControllerBase
         ));
     }
 
+    private record FeeVoiceTargetDetails(
+        Guid TenantId,
+        string InstName,
+        string StudentName,
+        string ParentName,
+        string ClassName,
+        decimal DueAmount,
+        DateTime DueDate,
+        string? ContactPhone
+    );
+
+    private async Task<FeeVoiceTargetDetails?> ResolveVoiceTargetAsync(Guid targetId)
+    {
+        // 1. Check FeeRecoveryPlans by Id, InvoiceId, or StudentId
+        var plan = await _dbContext.FeeRecoveryPlans
+            .IgnoreQueryFilters()
+            .Include(p => p.Student).ThenInclude(s => s!.Class)
+            .Include(p => p.Invoice)
+            .FirstOrDefaultAsync(p => p.Id == targetId || p.InvoiceId == targetId || p.StudentId == targetId);
+
+        if (plan != null)
+        {
+            if (plan.Student == null)
+            {
+                plan.Student = await _dbContext.Students.IgnoreQueryFilters().Include(s => s.Class).FirstOrDefaultAsync(s => s.Id == plan.StudentId);
+            }
+            if (plan.Invoice == null && plan.InvoiceId.HasValue)
+            {
+                plan.Invoice = await _dbContext.FeeInvoices.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.Id == plan.InvoiceId.Value);
+            }
+
+            var tenantObj = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == plan.TenantId);
+
+            return new FeeVoiceTargetDetails(
+                TenantId: plan.TenantId,
+                InstName: tenantObj?.Name ?? "Jnandeep Campus",
+                StudentName: plan.Student?.StudentName ?? "प्रिय छात्र",
+                ParentName: !string.IsNullOrWhiteSpace(plan.Student?.ParentName) ? plan.Student.ParentName : "अभिभावक",
+                ClassName: !string.IsNullOrWhiteSpace(plan.Invoice?.ClassName) ? plan.Invoice.ClassName : (plan.Student?.Class?.Name ?? "Class"),
+                DueAmount: plan.TotalOverdueAmount,
+                DueDate: plan.Invoice?.DueDate ?? DateTime.UtcNow.Date.AddDays(7),
+                ContactPhone: tenantObj?.ContactPhone
+            );
+        }
+
+        // 2. Fallback to FeeInvoices directly by Id
+        var invoice = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
+            .Include(i => i.Student).ThenInclude(s => s!.Class)
+            .FirstOrDefaultAsync(i => i.Id == targetId);
+
+        if (invoice != null)
+        {
+            var tenantObj = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == invoice.TenantId);
+
+            return new FeeVoiceTargetDetails(
+                TenantId: invoice.TenantId,
+                InstName: tenantObj?.Name ?? "Jnandeep Campus",
+                StudentName: invoice.Student?.StudentName ?? "प्रिय छात्र",
+                ParentName: !string.IsNullOrWhiteSpace(invoice.Student?.ParentName) ? invoice.Student.ParentName : "अभिभावक",
+                ClassName: !string.IsNullOrWhiteSpace(invoice.ClassName) ? invoice.ClassName : (invoice.Student?.Class?.Name ?? "Class"),
+                DueAmount: invoice.DueAmount,
+                DueDate: invoice.DueDate,
+                ContactPhone: tenantObj?.ContactPhone
+            );
+        }
+
+        // 3. Fallback to Students directly by Id
+        var student = await _dbContext.Students
+            .IgnoreQueryFilters()
+            .Include(s => s.Class)
+            .FirstOrDefaultAsync(s => s.Id == targetId);
+
+        if (student != null)
+        {
+            var tenantObj = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == student.TenantId);
+
+            var latestDueInvoice = await _dbContext.FeeInvoices
+                .IgnoreQueryFilters()
+                .Where(i => i.StudentId == student.Id && i.DueAmount > 0)
+                .OrderByDescending(i => i.DueDate)
+                .FirstOrDefaultAsync();
+
+            return new FeeVoiceTargetDetails(
+                TenantId: student.TenantId,
+                InstName: tenantObj?.Name ?? "Jnandeep Campus",
+                StudentName: student.StudentName ?? "प्रिय छात्र",
+                ParentName: !string.IsNullOrWhiteSpace(student.ParentName) ? student.ParentName : "अभिभावक",
+                ClassName: !string.IsNullOrWhiteSpace(latestDueInvoice?.ClassName) ? latestDueInvoice.ClassName : (student.Class?.Name ?? "Class"),
+                DueAmount: latestDueInvoice?.DueAmount ?? 0,
+                DueDate: latestDueInvoice?.DueDate ?? DateTime.UtcNow.Date.AddDays(7),
+                ContactPhone: tenantObj?.ContactPhone
+            );
+        }
+
+        return null;
+    }
+
     [AllowAnonymous]
     [HttpGet("student-voice/{planId}")]
     public async Task<IActionResult> GetStudentVoiceAudio(Guid planId, [FromQuery] string? gender = "Female")
     {
-        var plan = await _dbContext.FeeRecoveryPlans
-            .IgnoreQueryFilters()
-            .Include(p => p.Student)
-            .Include(p => p.Invoice)
-            .FirstOrDefaultAsync(p => p.Id == planId);
+        var target = await ResolveVoiceTargetAsync(planId);
+        if (target == null)
+            return NotFound(new { message = "Recovery plan, invoice, or student not found." });
 
-        if (plan == null)
-            return NotFound(new { message = "Recovery plan not found." });
-
-        if (plan.Student == null)
-        {
-            plan.Student = await _dbContext.Students.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == plan.StudentId);
-        }
-        if (plan.Invoice == null && plan.InvoiceId.HasValue)
-        {
-            plan.Invoice = await _dbContext.FeeInvoices.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.Id == plan.InvoiceId.Value);
-        }
-
-        var tenant = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == plan.TenantId);
-        var instName = tenant?.Name ?? "Jnandeep Campus";
-        var studentName = plan.Student?.StudentName ?? "प्रिय छात्र";
-        var parentName = !string.IsNullOrWhiteSpace(plan.Student?.ParentName) ? plan.Student.ParentName : "अभिभावक";
-        var className = !string.IsNullOrWhiteSpace(plan.Invoice?.ClassName) ? plan.Invoice.ClassName : "Class";
-        var dueAmount = plan.TotalOverdueAmount;
-        var dueDate = plan.Invoice?.DueDate ?? DateTime.UtcNow.Date.AddDays(7);
-        var monthName = dueDate.ToString("MMMM");
-
+        var monthName = target.DueDate.ToString("MMMM yyyy");
         var voiceGender = string.Equals(gender, "Male", StringComparison.OrdinalIgnoreCase) ? "Male" : "Female";
 
         var audioBytes = await _voiceService.GenerateDuesReminderVoiceAsync(
-            parentName,
-            studentName,
-            className,
-            dueAmount,
+            target.ParentName,
+            target.StudentName,
+            target.ClassName,
+            target.DueAmount,
             monthName,
-            dueDate.Day,
-            instName,
+            target.DueDate.Day,
+            target.InstName,
             voiceGender
         );
 
-        return File(audioBytes, "audio/mpeg", $"{studentName}_fee_reminder.mp3", enableRangeProcessing: true);
+        return File(audioBytes, "audio/mpeg", $"{target.StudentName}_fee_reminder.mp3", enableRangeProcessing: true);
     }
 
     [AllowAnonymous]
@@ -227,34 +303,11 @@ public class FeeRecoveryAgentController : ControllerBase
         [FromQuery] string? format = null)
     {
         // Publicly accessed from WhatsApp / external link: must bypass tenant query filters
-        var plan = await _dbContext.FeeRecoveryPlans
-            .IgnoreQueryFilters()
-            .Include(p => p.Student)
-            .Include(p => p.Invoice)
-            .FirstOrDefaultAsync(p => p.Id == planId);
-
-        if (plan == null)
+        var target = await ResolveVoiceTargetAsync(planId);
+        if (target == null)
             return NotFound("Fee reminder audio note not found.");
 
-        if (plan.Student == null)
-        {
-            plan.Student = await _dbContext.Students.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == plan.StudentId);
-        }
-
-        if (plan.Invoice == null && plan.InvoiceId.HasValue)
-        {
-            plan.Invoice = await _dbContext.FeeInvoices.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.Id == plan.InvoiceId.Value);
-        }
-
-        var tenant = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == plan.TenantId);
-        var instName = tenant?.Name ?? "Jnandeep Campus";
-        var studentName = plan.Student?.StudentName ?? "प्रिय छात्र";
-        var parentName = !string.IsNullOrWhiteSpace(plan.Student?.ParentName) ? plan.Student.ParentName : "अभिभावक";
-        var className = !string.IsNullOrWhiteSpace(plan.Invoice?.ClassName) ? plan.Invoice.ClassName : "Class";
-        var dueAmount = plan.TotalOverdueAmount;
-        var dueDate = plan.Invoice?.DueDate ?? DateTime.UtcNow.Date.AddDays(7);
-        var monthName = dueDate.ToString("MMMM");
-
+        var monthName = target.DueDate.ToString("MMMM yyyy");
         var voiceGender = string.Equals(gender, "Male", StringComparison.OrdinalIgnoreCase) ? "Male" : "Female";
 
         var isAudioStream = (format == "audio") ||
@@ -265,21 +318,21 @@ public class FeeRecoveryAgentController : ControllerBase
         if (isAudioStream)
         {
             var audioBytes = await _voiceService.GenerateDuesReminderVoiceAsync(
-                parentName,
-                studentName,
-                className,
-                dueAmount,
+                target.ParentName,
+                target.StudentName,
+                target.ClassName,
+                target.DueAmount,
                 monthName,
-                dueDate.Day,
-                instName,
+                target.DueDate.Day,
+                target.InstName,
                 voiceGender
             );
 
-            return File(audioBytes, "audio/mpeg", $"{studentName}_fee_reminder.mp3", enableRangeProcessing: true);
+            return File(audioBytes, "audio/mpeg", $"{target.StudentName}_fee_reminder.mp3", enableRangeProcessing: true);
         }
 
         // Return a modern, mobile-friendly HTML audio player page
-        var html = GetBrandedAudioPlayerHtml(instName, studentName, parentName, className, dueAmount, dueDate.Day, planId, voiceGender, tenant?.ContactPhone);
+        var html = GetBrandedAudioPlayerHtml(target.InstName, target.StudentName, target.ParentName, target.ClassName, target.DueAmount, target.DueDate, planId, voiceGender, target.ContactPhone);
         return Content(html, "text/html; charset=utf-8");
     }
 
@@ -289,11 +342,13 @@ public class FeeRecoveryAgentController : ControllerBase
         string parentName, 
         string className, 
         decimal dueAmount, 
-        int dueDay, 
+        DateTime dueDate, 
         Guid planId, 
         string gender, 
         string? contactPhone)
     {
+        var dueDay = dueDate.Day;
+        var dueFormatted = dueDate.ToString("dd-MMM-yyyy");
         var femaleActive = gender == "Female" ? "active" : "";
         var maleActive = gender == "Male" ? "active" : "";
         var phoneHtml = !string.IsNullOrWhiteSpace(contactPhone)
@@ -509,7 +564,7 @@ public class FeeRecoveryAgentController : ControllerBase
         </div>
         <div class=""detail-item"">
           <span class=""detail-label"">नियत देय तिथि</span>
-          <span class=""detail-val"">{dueDay} तारीख</span>
+          <span class=""detail-val"">{dueFormatted}</span>
         </div>
       </div>
 

@@ -807,9 +807,8 @@ export interface BreadcrumbItem {
       ::ng-deep .mat-drawer-inner-container {
         display: flex !important;
         flex-direction: column !important;
-        scrollbar-width: thin !important;
-        scrollbar-color: transparent transparent !important;
-        transition: scrollbar-color 0.25s ease !important;
+        scrollbar-width: auto !important;
+        scrollbar-color: auto !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
         touch-action: pan-y !important;
@@ -818,7 +817,9 @@ export interface BreadcrumbItem {
         max-height: 100% !important;
 
         &::-webkit-scrollbar {
-          width: 5px !important;
+          width: 4px !important;
+          height: 4px !important;
+          background: transparent !important;
         }
         &::-webkit-scrollbar-track {
           background: transparent !important;
@@ -830,21 +831,28 @@ export interface BreadcrumbItem {
         }
         &::-webkit-scrollbar-thumb {
           background: transparent !important;
-          border-radius: 5px !important;
+          border-radius: 4px !important;
           transition: background-color 0.25s ease !important;
+        }
+
+        @supports (-moz-appearance: none) {
+          scrollbar-width: thin !important;
+          scrollbar-color: transparent transparent !important;
         }
       }
 
       &:hover {
         ::ng-deep .mat-drawer-inner-container {
-          scrollbar-color: rgba(148, 163, 184, 0.5) transparent !important;
-
           &::-webkit-scrollbar-thumb {
-            background: rgba(148, 163, 184, 0.4) !important;
+            background: rgba(148, 163, 184, 0.45) !important;
 
             &:hover {
-              background: rgba(100, 116, 139, 0.6) !important;
+              background: rgba(100, 116, 139, 0.65) !important;
             }
+          }
+
+          @supports (-moz-appearance: none) {
+            scrollbar-color: rgba(148, 163, 184, 0.45) transparent !important;
           }
         }
       }
@@ -1030,17 +1038,46 @@ export interface BreadcrumbItem {
       flex: 1;
       overflow-y: auto;
       padding: 8px 10px;
+      scrollbar-width: auto !important;
+      scrollbar-color: auto !important;
 
-      /* Sleek custom scrollbar */
+      /* Sleek custom scrollbar - hidden until mouse enters menu */
       &::-webkit-scrollbar {
-        width: 4px;
+        width: 4px !important;
+        height: 4px !important;
+        background: transparent !important;
+      }
+      &::-webkit-scrollbar-track {
+        background: transparent !important;
+      }
+      &::-webkit-scrollbar-button {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
       }
       &::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
+        background: transparent !important;
+        border-radius: 4px !important;
+        transition: background-color 0.25s ease !important;
       }
-      &::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+
+      @supports (-moz-appearance: none) {
+        scrollbar-width: thin !important;
+        scrollbar-color: transparent transparent !important;
+      }
+
+      &:hover {
+        &::-webkit-scrollbar-thumb {
+          background: #cbd5e1 !important;
+
+          &:hover {
+            background: #94a3b8 !important;
+          }
+        }
+
+        @supports (-moz-appearance: none) {
+          scrollbar-color: #cbd5e1 transparent !important;
+        }
       }
     }
 
@@ -1088,7 +1125,7 @@ export interface BreadcrumbItem {
           .menu-item-icon {
             background: var(--menu-active-bg, #2563eb) !important;
             color: #ffffff !important;
-            border-color: var(--menu-active-bg, #2563eb) !important;
+            border: none !important;
             box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.2) !important;
           }
 
@@ -1126,7 +1163,7 @@ export interface BreadcrumbItem {
         .menu-item-icon {
           background: #eff6ff;
           color: #2563eb;
-          border-color: #bfdbfe;
+          border: none !important;
           transform: scale(1.04);
         }
 
@@ -1215,7 +1252,7 @@ export interface BreadcrumbItem {
       border-radius: 6px !important;
       background: var(--menu-accent-bg, #f1f5f9) !important;
       color: var(--menu-accent-color, #475569) !important;
-      border: 1px solid var(--menu-accent-border, #e2e8f0) !important;
+      border: none !important;
       flex: 0 0 26px !important;
       margin-inline-end: 10px !important;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1262,7 +1299,7 @@ export interface BreadcrumbItem {
         .menu-item-icon {
           background: #eff6ff;
           color: #2563eb;
-          border-color: #bfdbfe;
+          border: none !important;
           transform: scale(1.04);
         }
 
@@ -1283,7 +1320,7 @@ export interface BreadcrumbItem {
         .menu-item-icon {
           background: var(--menu-active-bg, #2563eb) !important;
           color: #ffffff !important;
-          border-color: var(--menu-active-bg, #2563eb) !important;
+          border: none !important;
           box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.2) !important;
         }
       }
@@ -1307,14 +1344,15 @@ export interface BreadcrumbItem {
       .menu-item-icon {
         width: 18px !important;
         height: 18px !important;
-        font-size: 14px !important;
+        font-size: 15px !important;
         line-height: 18px !important;
         flex: 0 0 18px !important;
         margin-inline-end: 8px !important;
-        border-radius: 4px !important;
-        border: none;
-        background: transparent;
-        color: #94a3b8;
+        border-radius: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: var(--menu-accent-color, #64748b) !important;
       }
 
       .submenu-label {
@@ -1329,7 +1367,11 @@ export interface BreadcrumbItem {
         transform: translateX(2px);
 
         .menu-item-icon {
-          color: #2563eb;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          color: #2563eb !important;
+          transform: none;
         }
 
         .submenu-label {
@@ -1342,8 +1384,10 @@ export interface BreadcrumbItem {
         border: 1px solid #dbeafe !important;
 
         .menu-item-icon {
-          background: #2563eb !important;
-          color: #ffffff !important;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          color: #1d4ed8 !important;
         }
 
         .submenu-label {

@@ -221,6 +221,37 @@ export class CoachingService {
     return this.http.post(`${this.BASE_URL}/fees/send-reminder/${invoiceId}`, {});
   }
 
+  getUrgentFeeReminders(
+    pageIndex: number = 0,
+    pageSize: number = 10,
+    search: string = '',
+    scope: string = 'All',
+    classId: string = '',
+    sortField: string = '',
+    sortOrder: string = 'desc'
+  ): Observable<any> {
+    const params: any = {
+      pageIndex,
+      pageSize,
+      search: search || '',
+      scope: scope || 'All',
+      sortField: sortField || '',
+      sortOrder: sortOrder || 'desc'
+    };
+    if (classId) params.classId = classId;
+    return this.http.get<any>(`${this.BASE_URL}/dashboard/urgent-fee-reminders`, { params });
+  }
+
+  logReminderDispatched(payload: {
+    studentId: string;
+    studentName?: string;
+    recipientPhone?: string;
+    reminderType?: string;
+    invoiceId?: string;
+  }): Observable<any> {
+    return this.http.post(`${this.BASE_URL}/dashboard/log-reminder-dispatched`, payload);
+  }
+
   getTests(batchId?: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.BASE_URL}/tests`, { params: batchId ? { batchId } : {} });
   }

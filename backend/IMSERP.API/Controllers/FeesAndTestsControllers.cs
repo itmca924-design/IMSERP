@@ -2661,6 +2661,26 @@ public class FeesController : ControllerBase
 
         if (invoice == null || invoice.Student == null) return NotFound("Invoice or Student not found");
 
+        // Deduplication check: enforce maximum 1 reminder message per student per day in IST
+        var todayStartUtc = GetTodayStartUtcInIst();
+        var rawPhone = invoice.Student.ParentWhatsAppPhone ?? "";
+        var phoneDigits = new string(rawPhone.Where(char.IsDigit).ToArray());
+        var normPhone = phoneDigits.Length == 12 && phoneDigits.StartsWith("91") ? phoneDigits.Substring(2) : (phoneDigits.Length == 11 && phoneDigits.StartsWith("0") ? phoneDigits.Substring(1) : phoneDigits);
+        var sName = (invoice.Student.StudentName ?? "").Trim().ToLower();
+
+        var alreadySentToday = await _dbContext.WhatsAppLogs
+            .AsNoTracking()
+            .AnyAsync(l => l.TenantId == _currentUser.TenantId &&
+                           l.MessageType == MessageType.FeeReminder &&
+                           l.SentAt >= todayStartUtc &&
+                           ((normPhone != "" && l.RecipientPhone.Contains(normPhone)) ||
+                            (sName != "" && l.StudentName.ToLower() == sName)));
+
+        if (alreadySentToday)
+        {
+            return BadRequest(new { message = "Fee reminder has already been dispatched to this student today. Per-day single message limit enforced." });
+        }
+
         await _whatsAppService.SendFeeReminderAsync(
             _currentUser.TenantId,
             invoice.Student.ParentWhatsAppPhone,
@@ -2671,6 +2691,22 @@ public class FeesController : ControllerBase
         );
 
         return Ok(new { message = "WhatsApp Fee Reminder dispatched successfully!" });
+    }
+
+    private static DateTime GetTodayStartUtcInIst()
+    {
+        TimeZoneInfo istZone;
+        try
+        {
+            istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        }
+        catch
+        {
+            istZone = TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromHours(5.5), "India Standard Time", "IST");
+        }
+        var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone);
+        var istMidnight = new DateTime(istNow.Year, istNow.Month, istNow.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(istMidnight, istZone);
     }
 
     [HttpGet("pending-invoicing-students")]

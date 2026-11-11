@@ -1,16 +1,20 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone, signal, computed, effect, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
 import { RouterModule } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { skip, Subscription } from 'rxjs';
+import { skip, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import { CoachingService, StudentDashboardSummary, TeacherDashboardSummary } from '../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -18,7 +22,10 @@ import { EventsService, DashboardCelebrationsSummary, SchoolEvent, BirthdayItem 
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { EventFormDialogComponent } from '../events/event-form-dialog.component';
 import { EventGalleryDialogComponent } from '../events/event-gallery-dialog.component';
+import { StudentVoiceDialogComponent } from '../finance/dialogs/student-voice-dialog.component';
+import { FeeReminderDispatchDialogComponent } from './dialogs/fee-reminder-dispatch-dialog.component';
 import { AiErpCopilotService, ExecutiveQueryResult } from '../../core/services/ai-erp-copilot.service';
+import { environment } from '../../../environments/environment';
 import ApexCharts from 'apexcharts';
 
 @Component({
@@ -28,13 +35,18 @@ import ApexCharts from 'apexcharts';
   imports: [
     CommonModule,
     FormsModule,
+    ReactiveFormsModule,
     MatCardModule,
     MatIconModule,
     MatButtonModule,
     MatTableModule,
     MatProgressSpinnerModule,
+    MatProgressBarModule,
+    MatPaginatorModule,
+    MatSortModule,
     MatChipsModule,
     MatTooltipModule,
+    MatMenuModule,
     MatDialogModule,
     RouterModule
   ],
@@ -1437,63 +1449,209 @@ import ApexCharts from 'apexcharts';
                     <p>Students with overdue fee invoices</p>
                   </div>
                 </div>
-                <a matButton="filled" color="warn" routerLink="/fees" class="view-all-btn">
-                  View All <mat-icon>arrow_forward</mat-icon>
-                </a>
+                <div class="section-actions-group">
+                  @if (feeTotalCount() > 0) {
+                    <button
+                      type="button"
+                      class="bulk-wa-header-btn"
+                      (click)="openBulkWhatsAppModal()"
+                      matTooltip="Bulk WhatsApp Reminders (Invoice & Normal AI Message)"
+                      matButton="filled">
+                      <mat-icon>campaign</mat-icon>
+                      <span class="bulk-text">Bulk Reminders</span>
+                    </button>
+                  }
+                  <a matButton="filled" color="warn" routerLink="/fees" class="view-all-btn">
+                    <span class="view-all-text">View All</span> <mat-icon>arrow_forward</mat-icon>
+                  </a>
+                </div>
               </div>
-              <mat-card-content>
-                <table mat-table [dataSource]="summary.overdueInvoices" class="full-width">
-                  <ng-container matColumnDef="studentName">
-                    <th mat-header-cell *matHeaderCellDef>Student</th>
-                    <td mat-cell *matCellDef="let el">
-                      <div class="student-cell">
-                        <span class="student-avatar-badge">{{ (el.studentName || 'S').charAt(0).toUpperCase() }}</span>
-                        <div class="student-info">
-                          <strong>{{ el.studentName }}</strong>
-                          <small>{{ el.rollNumber }}</small>
+
+              <!-- Compact Controls Bar: Search & Scope Filter -->
+              <div class="fee-control-deck">
+                <div class="fee-search-box">
+                  <mat-icon class="search-ico">search</mat-icon>
+                  <input
+                    type="text"
+                    [formControl]="feeSearchControl"
+                    placeholder="Search student name, roll number, class..."
+                    class="fee-search-input" />
+                  @if (feeSearchControl.value) {
+                    <button type="button" class="clear-search-btn" (click)="feeSearchControl.setValue('')" aria-label="Clear Search">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </div>
+
+                <!-- Tri-Modal Division Scope Selector (All, School, Coaching) -->
+                <div class="fee-scope-toggle">
+                  <button
+                    type="button"
+                    class="scope-pill-btn"
+                    [class.active]="feeScopeControl.value === 'All'"
+                    (click)="feeScopeControl.setValue('All')">
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    class="scope-pill-btn"
+                    [class.active]="feeScopeControl.value === 'School'"
+                    (click)="feeScopeControl.setValue('School')">
+                    School
+                  </button>
+                  <button
+                    type="button"
+                    class="scope-pill-btn"
+                    [class.active]="feeScopeControl.value === 'Coaching'"
+                    (click)="feeScopeControl.setValue('Coaching')">
+                    Coaching
+                  </button>
+                </div>
+              </div>
+
+              <!-- Single Prominent Smooth Loader -->
+              @if (feeRemindersLoading()) {
+                <mat-progress-bar mode="indeterminate" class="fee-smooth-loader"></mat-progress-bar>
+              }
+
+              <mat-card-content class="fee-table-content">
+                <div class="table-responsive">
+                  <table mat-table [dataSource]="feeRemindersList()" matSort (matSortChange)="onFeeSortChange($event)" class="full-width">
+                    <!-- Student Column with Dynamic Photo & Fallback Initials -->
+                    <ng-container matColumnDef="studentName">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName">Student</th>
+                      <td mat-cell *matCellDef="let el">
+                        <div class="student-cell">
+                          <div class="student-avatar-container">
+                            @if (el.profilePhoto) {
+                              <img [src]="getStudentPhotoUrl(el.profilePhoto)" [alt]="el.studentName" class="student-avatar-img" (error)="onAvatarError($event)" />
+                            }
+                            <span class="student-avatar-badge" [style.display]="el.profilePhoto ? 'none' : 'inline-flex'">
+                              {{ (el.studentName || 'S').charAt(0).toUpperCase() }}
+                            </span>
+                          </div>
+                          <div class="student-info">
+                            <div class="stu-name-row">
+                              <strong>{{ el.studentName }}</strong>
+                              @if (isSibling(el)) {
+                                <span class="sibling-badge" matTooltip="Shares phone with sibling in campus">
+                                  <mat-icon>people</mat-icon> Sibling
+                                </span>
+                              }
+                            </div>
+                            <small>{{ el.rollNumber }}</small>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </ng-container>
-    
-                  <ng-container matColumnDef="invoiceNumber">
-                    <th mat-header-cell *matHeaderCellDef>Invoice</th>
-                    <td mat-cell *matCellDef="let el">{{ el.invoiceNumber }}</td>
-                  </ng-container>
-    
-                  <ng-container matColumnDef="dueAmount">
-                    <th mat-header-cell *matHeaderCellDef class="text-right">Amount Due</th>
-                    <td mat-cell *matCellDef="let el" class="amount-due text-right">
-                      ₹{{ el.dueAmount | number:'1.0-0' }}
-                    </td>
-                  </ng-container>
-    
-                  <ng-container matColumnDef="dueDate">
-                    <th mat-header-cell *matHeaderCellDef>Due Date</th>
-                    <td mat-cell *matCellDef="let el">{{ el.dueDate | date:'mediumDate' }}</td>
-                  </ng-container>
-    
-                  <ng-container matColumnDef="actions">
-                    <th mat-header-cell *matHeaderCellDef class="text-right">WhatsApp</th>
-                    <td mat-cell *matCellDef="let el" class="text-right">
-                      <button class="wa-remind-btn" (click)="sendReminder(el)" matTooltip="Send Fee Reminder on WhatsApp" matButton="filled">
-                        <mat-icon>chat</mat-icon> Remind
-                      </button>
-                    </td>
-                  </ng-container>
-    
-                  <tr mat-header-row *matHeaderRowDef="feeColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: feeColumns;"></tr>
-    
-                  <tr class="mat-row" *matNoDataRow>
-                    <td class="mat-cell" [attr.colspan]="feeColumns.length">
-                      <div class="empty-inline">
-                        <mat-icon style="color:#16a34a">check_circle</mat-icon>
-                        <span>No overdue fee invoices. All fees are up to date! 🎉</span>
-                      </div>
-                    </td>
-                  </tr>
-                </table>
+                      </td>
+                    </ng-container>
+
+                    <!-- Class Column with Due Date Badge & Admission Scope -->
+                    <ng-container matColumnDef="className">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header="className">Class</th>
+                      <td mat-cell *matCellDef="let el">
+                        <div class="class-cell-wrap">
+                          <div class="class-badge-row">
+                            <span class="class-pill">{{ el.className || 'General' }}</span>
+                            <span class="admission-scope-badge" [ngClass]="getScopeBadgeClass(el)">
+                              {{ getScopeBadgeLabel(el) }}
+                            </span>
+                          </div>
+                          @if (el.dueDate) {
+                            <span class="due-date-badge">
+                              <mat-icon class="due-clock-icon">event</mat-icon>
+                              Due: {{ el.dueDate | date:'mediumDate' }}
+                            </span>
+                          }
+                        </div>
+                      </td>
+                    </ng-container>
+
+                    <!-- Dues Column -->
+                    <ng-container matColumnDef="dueAmount">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header="dueAmount" class="text-right">Dues</th>
+                      <td mat-cell *matCellDef="let el" class="amount-due text-right">
+                        <div class="due-cell-stack">
+                          <span>₹{{ el.dueAmount | number:'1.0-0' }}</span>
+                          @if ((el.paidAmount || 0) > 0 && (el.dueAmount || 0) > 0) {
+                            <span class="partial-paid-badge" [matTooltip]="'Total: ₹' + (el.totalAmount || (el.paidAmount + el.dueAmount)) + ' | Paid: ₹' + el.paidAmount">
+                              Partial • Paid ₹{{ el.paidAmount | number:'1.0-0' }}
+                            </span>
+                          }
+                        </div>
+                      </td>
+                    </ng-container>
+
+                    <!-- Actions Column with Deduplication Per Day Badge -->
+                    <ng-container matColumnDef="actions">
+                      <th mat-header-cell *matHeaderCellDef class="text-center actions-th" matTooltip="Action Menu">
+                        <mat-icon class="th-action-icon">settings</mat-icon>
+                      </th>
+                      <td mat-cell *matCellDef="let el" class="text-right actions-td">
+                        <div class="row-actions-group">
+                          @if (el.alreadyRemindedToday) {
+                            <span class="reminded-today-pill" [matTooltip]="'Sent Today' + (el.lastRemindedAt ? ' (' + formatIstTime(el.lastRemindedAt) + ')' : '')">
+                              <mat-icon>done_all</mat-icon>
+                            </span>
+                          } @else {
+                            <button
+                              type="button"
+                              class="mini-voice-btn"
+                              (click)="openVoiceReminder(el)"
+                              matTooltip="AI Hindi Voice Note & Audio"
+                              aria-label="AI Hindi Voice Note">
+                              <mat-icon style="color: #7c3aed;">mic</mat-icon>
+                            </button>
+                            <button
+                              type="button"
+                              class="more-action-btn"
+                              [matMenuTriggerFor]="remindMenu"
+                              matTooltip="More Actions"
+                              aria-label="More Actions">
+                              <mat-icon>more_vert</mat-icon>
+                            </button>
+                            <mat-menu #remindMenu="matMenu" xPosition="before">
+                              <button mat-menu-item (click)="openSingleWhatsAppModal(el)">
+                                <mat-icon style="color: #16a34a;">chat</mat-icon>
+                                <span>Send WhatsApp Reminder</span>
+                              </button>
+                              <button mat-menu-item (click)="openVoiceReminder(el)">
+                                <mat-icon style="color: #7c3aed;">mic</mat-icon>
+                                <span>AI Hindi Voice Note</span>
+                              </button>
+                            </mat-menu>
+                          }
+                        </div>
+                      </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="feeColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: feeColumns;"></tr>
+
+                    <tr class="mat-row" *matNoDataRow>
+                      <td class="mat-cell" [attr.colspan]="feeColumns.length">
+                        <div class="empty-inline">
+                          @if (feeRemindersLoading()) {
+                            <span>Loading urgent fee reminders...</span>
+                          } @else {
+                            <mat-icon style="color:#16a34a">check_circle</mat-icon>
+                            <span>No overdue fee invoices match the filter. All fees are up to date! 🎉</span>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+
+                <!-- Server-Side Pagination -->
+                <mat-paginator
+                  [length]="feeTotalCount()"
+                  [pageSize]="feePageSize"
+                  [pageIndex]="feePageIndex"
+                  [pageSizeOptions]="[5, 10, 20]"
+                  (page)="onFeePageChange($event)"
+                  showFirstLastButtons
+                  class="compact-fee-paginator">
+                </mat-paginator>
               </mat-card-content>
             </mat-card>
     
@@ -2141,10 +2299,16 @@ import ApexCharts from 'apexcharts';
       background: #ffffff;
       box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
       overflow: hidden;
+      min-width: 0;
 
       mat-card-content {
         padding: 0 10px 14px 10px !important;
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+
+        table {
+          min-width: 520px;
+        }
       }
     }
 
@@ -2152,32 +2316,98 @@ import ApexCharts from 'apexcharts';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 20px;
+      padding: 12px 18px;
       border-bottom: 1px solid #f1f5f9;
+      gap: 12px;
 
       .section-title {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
+        flex: 1 1 auto;
+        min-width: 0;
+
+        > div {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+        }
 
         .section-icon {
           font-size: 24px;
           width: 24px;
           height: 24px;
+          flex-shrink: 0;
           &.warning-icon { color: #f59e0b; }
           &.test-icon    { color: #8b5cf6; }
         }
 
         h3 {
           margin: 0;
-          font-size: 1rem;
+          font-size: 0.94rem;
           font-weight: 700;
           color: #0f172a;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         p {
           margin: 2px 0 0;
-          font-size: 0.78rem;
+          font-size: 0.74rem;
           color: #64748b;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+
+      .section-actions-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        margin-left: 12px;
+
+        @media (max-width: 640px) {
+          gap: 6px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        flex-wrap: wrap;
+        .section-actions-group {
+          width: 100%;
+          justify-content: flex-end;
+          margin-top: 6px;
+          margin-left: 0;
+        }
+      }
+
+      .bulk-wa-header-btn {
+        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+        color: #ffffff !important;
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+        height: 32px !important;
+        padding: 0 12px !important;
+        border-radius: 6px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+        box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3) !important;
+        border: none !important;
+        cursor: pointer !important;
+        transition: all 0.15s ease !important;
+
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 10px rgba(22, 163, 74, 0.45) !important;
+        }
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
         }
       }
 
@@ -2192,31 +2422,321 @@ import ApexCharts from 'apexcharts';
 
     .full-width { width: 100%; }
 
+    /* Controls Bar: Search & Scope Filter */
+    .fee-control-deck {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+
+      .fee-search-box {
+        display: flex;
+        align-items: center;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 0 8px;
+        height: 32px;
+        flex: 1;
+        min-width: 180px;
+        transition: border-color 0.15s ease;
+
+        &:focus-within {
+          border-color: #2563eb;
+          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
+
+        .search-ico {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #94a3b8;
+          margin-right: 6px;
+        }
+
+        .fee-search-input {
+          border: none;
+          outline: none;
+          background: transparent;
+          font-size: 0.78rem;
+          color: #0f172a;
+          width: 100%;
+
+          &::placeholder {
+            color: #94a3b8;
+          }
+        }
+
+        .clear-search-btn {
+          width: 22px;
+          height: 22px;
+          min-width: 22px;
+          min-height: 22px;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: #f1f5f9;
+          border: none;
+          cursor: pointer;
+          transition: background 0.15s ease;
+
+          &:hover {
+            background: #e2e8f0;
+            mat-icon {
+              color: #0f172a;
+            }
+          }
+
+          mat-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+            line-height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            margin: 0;
+          }
+        }
+      }
+
+      .fee-scope-toggle {
+        display: inline-flex;
+        background: #e2e8f0;
+        border-radius: 6px;
+        padding: 2px;
+        gap: 2px;
+
+        .scope-pill-btn {
+          border: none;
+          background: transparent;
+          font-size: 0.74rem;
+          font-weight: 600;
+          color: #475569;
+          padding: 4px 10px;
+          border-radius: 5px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+
+          &.active {
+            background: #2563eb;
+            color: #ffffff;
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+          }
+
+          &:hover:not(.active) {
+            background: #cbd5e1;
+            color: #1e293b;
+          }
+        }
+      }
+    }
+
+    .fee-smooth-loader {
+      height: 3px !important;
+    }
+
+    .fee-table-content {
+      padding: 0 !important;
+      overflow-x: hidden !important;
+
+      .table-responsive {
+        overflow-x: hidden !important;
+        width: 100%;
+      }
+
+      table {
+        min-width: 0 !important;
+        width: 100% !important;
+      }
+
+      th.mat-mdc-header-cell,
+      td.mat-mdc-cell {
+        padding: 6px 6px !important;
+      }
+
+      th.mat-mdc-header-cell:first-of-type,
+      td.mat-mdc-cell:first-of-type {
+        padding-left: 12px !important;
+      }
+
+      th.mat-mdc-header-cell:last-of-type,
+      td.mat-mdc-cell:last-of-type {
+        padding-right: 10px !important;
+      }
+
+      tr.mat-mdc-row {
+        transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+
+        td.mat-mdc-cell {
+          transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        &:hover {
+          background-color: #f0f7ff !important;
+          box-shadow: inset 3px 0 0 #3b82f6;
+
+          td.mat-mdc-cell {
+            background-color: transparent !important;
+          }
+        }
+      }
+    }
+
     .student-cell {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
 
-      .student-avatar-badge {
+      .student-avatar-container {
+        position: relative;
         width: 34px;
         height: 34px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 0.82rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         flex-shrink: 0;
-        box-shadow: 0 2px 6px rgba(99, 102, 241, 0.35);
+
+        .student-avatar-img {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          object-fit: cover;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          border: 1px solid #e2e8f0;
+        }
+
+        .student-avatar-badge {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+          color: #ffffff;
+          font-weight: 700;
+          font-size: 0.82rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 6px rgba(99, 102, 241, 0.35);
+        }
       }
 
       .student-info {
         display: flex;
         flex-direction: column;
+        .stu-name-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
         strong { font-size: 0.86rem; color: #0f172a; }
         small  { font-size: 0.74rem; color: #64748b; }
+      }
+    }
+
+    .sibling-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+      line-height: 1.4;
+      white-space: nowrap;
+
+      mat-icon {
+        font-size: 11px;
+        width: 11px;
+        height: 11px;
+        line-height: 11px;
+      }
+    }
+
+    .class-cell-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+
+      .class-badge-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+    }
+
+    .admission-scope-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      line-height: 1.4;
+      white-space: nowrap;
+
+      &.badge-school {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+      }
+
+      &.badge-coaching {
+        background: #f5f3ff;
+        color: #6d28d9;
+        border: 1px solid #ddd6fe;
+      }
+
+      &.badge-hybrid {
+        background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%);
+        color: #047857;
+        border: 1px solid #86efac;
+      }
+    }
+
+    .class-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+      white-space: nowrap;
+    }
+
+    .due-date-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      white-space: nowrap;
+      line-height: 1.2;
+
+      .due-clock-icon {
+        font-size: 11px;
+        width: 11px;
+        height: 11px;
+        color: #ef4444;
       }
     }
 
@@ -2224,6 +2744,122 @@ import ApexCharts from 'apexcharts';
       color: #dc2626;
       font-weight: 700;
       font-size: 0.92rem;
+
+      .due-cell-stack {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+      }
+
+      .partial-paid-badge {
+        font-size: 0.62rem;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: #fffbeb;
+        color: #b45309;
+        border: 1px solid #fde68a;
+        white-space: nowrap;
+        line-height: 1.25;
+      }
+    }
+
+    .row-actions-group {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .mini-voice-btn {
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      min-height: 30px;
+      padding: 0;
+      box-sizing: border-box;
+      border: 1px solid #ddd6fe;
+      border-radius: 50%;
+      background: #f5f3ff;
+      color: #7c3aed;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(124, 58, 237, 0.15);
+      transition: all 0.18s ease;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &:hover {
+        background: #ede9fe;
+        border-color: #c4b5fd;
+        transform: scale(1.06);
+      }
+    }
+
+    .actions-th {
+      text-align: right !important;
+      padding-right: 12px !important;
+
+      .th-action-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #64748b;
+        vertical-align: middle;
+      }
+    }
+
+    .actions-td {
+      padding-right: 8px !important;
+      white-space: nowrap;
+    }
+
+    .more-action-btn {
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      min-height: 30px;
+      padding: 0;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 50%;
+      background: #f8fafc;
+      color: #475569;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+      transition: all 0.18s ease;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &:hover {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1e40af;
+        transform: scale(1.06);
+      }
     }
 
     .wa-remind-btn {
@@ -2231,11 +2867,11 @@ import ApexCharts from 'apexcharts';
       color: white !important;
       font-size: 0.76rem !important;
       font-weight: 600 !important;
-      height: 32px !important;
-      line-height: 32px !important;
-      padding: 0 12px !important;
+      height: 30px !important;
+      line-height: 30px !important;
+      padding: 0 10px !important;
       border-radius: 20px !important;
-      box-shadow: 0 3px 10px rgba(34, 197, 94, 0.35) !important;
+      box-shadow: 0 2px 6px rgba(34, 197, 94, 0.3) !important;
       display: inline-flex !important;
       align-items: center !important;
       gap: 4px !important;
@@ -2243,9 +2879,49 @@ import ApexCharts from 'apexcharts';
 
       &:hover {
         transform: translateY(-1px);
-        box-shadow: 0 5px 14px rgba(34, 197, 94, 0.5) !important;
+        box-shadow: 0 4px 10px rgba(34, 197, 94, 0.45) !important;
       }
       mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    }
+
+    .reminded-today-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      min-height: 30px;
+      padding: 0;
+      box-sizing: border-box;
+      color: #047857;
+      background: #ecfdf5;
+      border: 1px solid #86efac;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(16, 185, 129, 0.18);
+      cursor: default;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #10b981;
+      }
+    }
+
+    .compact-fee-paginator {
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.75rem;
+
+      ::ng-deep .mat-mdc-paginator-container {
+        min-height: 40px;
+        padding: 0 12px;
+      }
     }
 
     .test-cell {
@@ -3798,7 +4474,18 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     return `6-Month Fee Collections Breakdown\n\n` + lines.join('\n') + `\n\nTotal Collected: ₹${this.totalCollected().toLocaleString('en-IN')}`;
   });
 
-  feeColumns = ['studentName', 'invoiceNumber', 'dueAmount', 'dueDate', 'actions'];
+  feeColumns = ['studentName', 'className', 'dueAmount', 'actions'];
+
+  // Server-Side Urgent Fee Reminders Signals & State
+  feeRemindersList = signal<any[]>([]);
+  feeTotalCount = signal<number>(0);
+  feeRemindersLoading = signal<boolean>(false);
+  feePageIndex = 0;
+  feePageSize = 10;
+  feeSearchControl = new FormControl<string>('', { nonNullable: true });
+  feeScopeControl = new FormControl<'All' | 'School' | 'Coaching'>('All', { nonNullable: true });
+  feeSortField = 'createdAt';
+  feeSortOrder: 'asc' | 'desc' = 'desc';
   testColumns = ['title', 'batchName', 'maxMarks', 'marksEnteredCount', 'testDate'];
   batchViewFilter: 'top10' | 'active' | 'all' = 'top10';
   revenueChartType: 'area' | 'bar' = 'area';
@@ -3859,6 +4546,26 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadSummary();
+
+    this.feeSearchControl.valueChanges
+      .pipe(
+        debounceTime(350),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => {
+        this.feePageIndex = 0;
+        this.loadUrgentFeeReminders();
+      });
+
+    this.feeScopeControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.feePageIndex = 0;
+        this.loadUrgentFeeReminders();
+      });
+
+    this.loadUrgentFeeReminders();
 
     this.aiDirectorSub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
       if (this.isAiDirectorListening) {
@@ -4495,6 +5202,226 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           this.confirmDialog.alert('Failed', err?.error?.message || 'Could not send WhatsApp message.', 'danger');
         }
       });
+    });
+  }
+
+  loadUrgentFeeReminders(): void {
+    if (this.authService.isStudentOrParent()) return;
+
+    this.feeRemindersLoading.set(true);
+    this.cdr.markForCheck();
+
+    this.coachingService
+      .getUrgentFeeReminders(
+        this.feePageIndex,
+        this.feePageSize,
+        this.feeSearchControl.value || '',
+        this.feeScopeControl.value || 'All',
+        '',
+        this.feeSortField,
+        this.feeSortOrder
+      )
+      .subscribe({
+        next: (res: any) => {
+          this.feeRemindersList.set(res?.items || []);
+          this.feeTotalCount.set(res?.totalCount || 0);
+          this.feeRemindersLoading.set(false);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.feeRemindersLoading.set(false);
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  onFeeSortChange(sort: Sort): void {
+    this.feeSortField = sort.active || 'createdAt';
+    this.feeSortOrder = (sort.direction as 'asc' | 'desc') || 'desc';
+    this.feePageIndex = 0;
+    this.loadUrgentFeeReminders();
+  }
+
+  onFeePageChange(event: PageEvent): void {
+    this.feePageIndex = event.pageIndex;
+    this.feePageSize = event.pageSize;
+    this.loadUrgentFeeReminders();
+  }
+
+  getStudentPhotoUrl(path: string | null | undefined): string {
+    if (!path) return '';
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    const base = environment.apiBaseUrl;
+    return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+  }
+
+  onAvatarError(event: Event): void {
+    const target = event.target as HTMLImageElement;
+    if (target) {
+      target.style.display = 'none';
+      const parent = target.parentElement;
+      if (parent) {
+        const fallback = parent.querySelector('.student-avatar-badge') as HTMLElement;
+        if (fallback) fallback.style.display = 'inline-flex';
+      }
+    }
+  }
+
+  openVoiceReminder(invoice: any): void {
+    if (!invoice) return;
+
+    if (invoice.alreadyRemindedToday) {
+      this.confirmDialog.alert('Already Reminded Today', `Fee reminder has already been dispatched to ${invoice.studentName} today. Per-day single message limit is active.`, 'info');
+      return;
+    }
+
+    const dialogRef = this.dialog.open(StudentVoiceDialogComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      data: {
+        plan: {
+          id: invoice.id,
+          studentId: invoice.studentId,
+          studentName: invoice.studentName,
+          rollNumber: invoice.rollNumber,
+          className: invoice.className || '',
+          totalOverdueAmount: invoice.dueAmount,
+          parentPhone: invoice.parentWhatsAppPhone,
+          invoiceNumber: invoice.invoiceNumber,
+          dueDate: invoice.dueDate,
+          alreadyRemindedToday: invoice.alreadyRemindedToday
+        },
+        instituteName: this.authService.getInstituteName(),
+        dueDay: invoice.dueDate ? new Date(invoice.dueDate).getDate() : 10,
+        initialGender: 'Female'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.dispatched) {
+        invoice.alreadyRemindedToday = true;
+        this.loadUrgentFeeReminders();
+      }
+    });
+  }
+
+  formatIstTime(rawDate: any): string {
+    if (!rawDate) return '';
+    let str = String(rawDate).trim();
+    if (str.includes('T') && !str.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
+      str += 'Z';
+    }
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).toUpperCase() + ' IST';
+  }
+
+  getScopeBadgeLabel(s: any): string {
+    if (s?.scopeTag) return s.scopeTag;
+    if (s?.isSchoolStudent && s?.isCoachingStudent) return 'School + Coaching';
+    if (s?.isCoachingStudent) return 'Coaching';
+    return 'School';
+  }
+
+  getScopeBadgeClass(s: any): string {
+    const label = this.getScopeBadgeLabel(s);
+    if (label.includes('+')) return 'badge-hybrid';
+    if (label === 'Coaching') return 'badge-coaching';
+    return 'badge-school';
+  }
+
+  isSibling(s: any): boolean {
+    if (!s?.parentWhatsAppPhone) return false;
+    const clean = s.parentWhatsAppPhone.replace(/\D/g, '');
+    if (clean.length < 10) return false;
+    const target = clean.slice(-10);
+    return this.feeRemindersList().filter((x: any) => x.parentWhatsAppPhone && x.parentWhatsAppPhone.replace(/\D/g, '').endsWith(target)).length > 1;
+  }
+
+  openSingleWhatsAppModal(invoice: any): void {
+    if (!invoice) return;
+
+    if (invoice.alreadyRemindedToday) {
+      this.confirmDialog.alert('Already Reminded Today', `Fee reminder has already been dispatched to ${invoice.studentName} today. Per-day single message limit is active.`, 'info');
+      return;
+    }
+
+    const dialogRef = this.dialog.open(FeeReminderDispatchDialogComponent, {
+      width: '640px',
+      maxWidth: '96vw',
+      data: {
+        mode: 'single',
+        invoice: {
+          id: invoice.id,
+          studentId: invoice.studentId,
+          studentName: invoice.studentName,
+          rollNumber: invoice.rollNumber,
+          className: invoice.className,
+          profilePhoto: invoice.profilePhoto,
+          invoiceNumber: invoice.invoiceNumber,
+          totalAmount: invoice.totalAmount,
+          paidAmount: invoice.paidAmount,
+          dueAmount: invoice.dueAmount,
+          status: invoice.status,
+          dueDate: invoice.dueDate,
+          parentWhatsAppPhone: invoice.parentWhatsAppPhone,
+          alreadyRemindedToday: invoice.alreadyRemindedToday,
+          isSchoolStudent: invoice.isSchoolStudent,
+          isCoachingStudent: invoice.isCoachingStudent,
+          scopeTag: invoice.scopeTag
+        },
+        instituteName: this.authService.getInstituteName()
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      this.loadUrgentFeeReminders();
+    });
+  }
+
+  openBulkWhatsAppModal(): void {
+    const list = this.feeRemindersList().length ? this.feeRemindersList() : (this.summary()?.overdueInvoices || []);
+    if (!list.length) {
+      this.confirmDialog.alert('No Invoices', 'There are no overdue fee invoices to remind at this time.', 'info');
+      return;
+    }
+    const dialogRef = this.dialog.open(FeeReminderDispatchDialogComponent, {
+      width: '860px',
+      maxWidth: '96vw',
+      data: {
+        mode: 'bulk',
+        invoices: list.map((x: any) => ({
+          id: x.id,
+          studentId: x.studentId,
+          studentName: x.studentName,
+          rollNumber: x.rollNumber,
+          className: x.className,
+          profilePhoto: x.profilePhoto,
+          invoiceNumber: x.invoiceNumber,
+          totalAmount: x.totalAmount,
+          paidAmount: x.paidAmount,
+          dueAmount: x.dueAmount,
+          status: x.status,
+          dueDate: x.dueDate,
+          parentWhatsAppPhone: x.parentWhatsAppPhone,
+          alreadyRemindedToday: x.alreadyRemindedToday,
+          lastRemindedAt: x.lastRemindedAt,
+          lastReminderType: x.lastReminderType,
+          isSchoolStudent: x.isSchoolStudent,
+          isCoachingStudent: x.isCoachingStudent,
+          scopeTag: x.scopeTag
+        })),
+        instituteName: this.authService.getInstituteName()
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      this.loadUrgentFeeReminders();
     });
   }
 

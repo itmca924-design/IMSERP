@@ -178,7 +178,7 @@ import { environment } from '../../../environments/environment';
               <strong>AI Hindi Voice Script Preview (उच्चारण एवं संदेश प्रारूप):</strong>
             </div>
             <p class="script-text">
-              "नमस्ते <strong>राजेश कुमार</strong> जी! <strong>{{ instituteDisplayName }}</strong> से सादर अनुरोध है। आपके सुपुत्र/सुपुत्री <strong>रोहित कुमार</strong>, कक्षा <strong>Class 10 (PCM)</strong>, की चालू माह की फीस <strong>₹2,500</strong> देय है। फीस जमा करने की नियत तारीख <strong>{{ automationStatus?.feeDueReminderDayOfMonth || 10 }} तारीख</strong> है। कृपया समय पर फीस जमा कराकर सहयोग करें। धन्यवाद!"
+              "नमस्ते <strong>राजेश कुमार</strong> जी! <strong>{{ instituteDisplayName }}</strong> से सादर अनुरोध है। आपके सुपुत्र/सुपुत्री <strong>रोहित कुमार</strong>, कक्षा <strong>Class 10 (PCM)</strong>, की चालू माह की फीस <strong>₹2,500</strong> देय है। फीस जमा करने की नियत तारीख <strong>{{ automationStatus?.feeDueReminderDayOfMonth || 10 }} तारीख {{ currentYear }}</strong> है। कृपया समय पर फीस जमा कराकर सहयोग करें। धन्यवाद!"
             </p>
           </div>
         }
@@ -467,7 +467,12 @@ import { environment } from '../../../environments/environment';
                               }
                             </div>
                             <div class="stu-details">
-                              <span class="stu-name">{{ p.studentName }}</span>
+                              <div class="stu-name-row">
+                                <span class="stu-name">{{ p.studentName }}</span>
+                                @if (hasSharedPhone(p)) {
+                                  <span class="sibling-badge" matTooltip="Sibling Account (Shared Parent Mobile Number)">👥 Sibling</span>
+                                }
+                              </div>
                               <span class="stu-roll">Roll: {{ p.rollNumber || p.admissionNumber || 'N/A' }}</span>
                               @if (p.parentPhone) {
                                 <span class="stu-parent"><span class="phone-icon">📱</span><span class="phone-num">{{ p.parentPhone }}</span></span>
@@ -1570,9 +1575,30 @@ import { environment } from '../../../environments/environment';
         flex-direction: column;
         min-width: 0;
 
+        .stu-name-row {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          flex-wrap: wrap;
+        }
+
         .stu-name {
           font-weight: 700;
           color: #0f172a;
+          white-space: nowrap;
+        }
+
+        .sibling-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          font-size: 0.62rem;
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 999px;
+          background: #fdf4ff;
+          color: #a21caf;
+          border: 1px solid #f0abfc;
           white-space: nowrap;
         }
 
@@ -2032,6 +2058,7 @@ export class FeeRecoveryAgentComponent implements OnInit, OnDestroy {
 
   // Automated WhatsApp & AI Hindi Voice Engine state
   automationStatus: FeeDueAutomationStatus | null = null;
+  currentYear = new Date().getFullYear();
   isLoadingAutomation = false;
   isPlayingVoice = false;
   currentAudio: HTMLAudioElement | null = null;
@@ -2257,10 +2284,12 @@ export class FeeRecoveryAgentComponent implements OnInit, OnDestroy {
     const cleanPhone = this.normalizePhoneForWhatsApp(rawPhone);
     const instName = this.instituteDisplayName;
     const dueDay = this.automationStatus?.feeDueReminderDayOfMonth || 10;
+    const now = new Date();
+    const currentMonthYear = now.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
     const text = `🔔 *फीस भुगतान अनुस्मारक | FEE PAYMENT NOTICE*\n\n` +
       `नमस्ते राजेश कुमार जी,\n` +
       `${instName} से सादर अनुरोध है कि आपके सुपुत्र/सुपुत्री *रोहित कुमार* (Class 10) की फीस *₹2,500* देय है।\n\n` +
-      `📅 नियत देय तिथि: *${dueDay} तारीख*\n\n` +
+      `📅 नियत देय तिथि: *${dueDay} ${currentMonthYear}*\n\n` +
       `कृपया समय पर फीस जमा कराकर सहयोग प्रदान करें।\nधन्यवाद,\n*${instName}*`;
 
     const encoded = encodeURIComponent(text);
@@ -2298,10 +2327,26 @@ export class FeeRecoveryAgentComponent implements OnInit, OnDestroy {
     }
 
     const cleanPhone = this.normalizePhoneForWhatsApp(rawPhone);
-    const message = plan.generatedMessage || `🔔 *फीस बकाया रिमाइंडर*\n\nनमस्ते!\nआपके सुपुत्र/सुपुत्री *${plan.studentName}* की फीस ₹${plan.totalOverdueAmount} देय है। कृपया समय पर फीस जमा कराकर सहयोग करें। धन्यवाद!`;
+    const classPart = plan.className ? ` (${plan.className})` : '';
+    const rollPart = plan.rollNumber ? ` [Roll: ${plan.rollNumber}]` : '';
+    const invPart = plan.invoiceNumber ? ` [Invoice: #${plan.invoiceNumber}]` : '';
+    const message = plan.generatedMessage || `🔔 *फीस बकाया रिमाइंडर*\n\nनमस्ते!\nआपके सुपुत्र/सुपुत्री *${plan.studentName}*${classPart}${rollPart}${invPart} की फीस *₹${plan.totalOverdueAmount}* देय है। कृपया समय पर फीस जमा कराकर सहयोग करें। धन्यवाद!`;
     const encoded = encodeURIComponent(message);
     const waUrl = `https://wa.me/${cleanPhone}?text=${encoded}`;
     window.open(waUrl, '_blank');
+  }
+
+  hasSharedPhone(plan: FeeRecoveryPlanItemDto): boolean {
+    const raw = (plan.parentPhone || '').replace(/\D/g, '');
+    if (raw.length < 10) return false;
+    const norm = raw.slice(-10);
+    const sName = (plan.studentName || '').trim().toLowerCase();
+    return this.filteredPlans.some((other) => {
+      const otherName = (other.studentName || '').trim().toLowerCase();
+      if (otherName === sName) return false;
+      const otherRaw = (other.parentPhone || '').replace(/\D/g, '');
+      return otherRaw.length >= 10 && otherRaw.slice(-10) === norm;
+    });
   }
 
   private normalizePhoneForWhatsApp(phone: string): string {

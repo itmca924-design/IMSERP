@@ -59,7 +59,7 @@ public class WhatsAppService : IWhatsAppService
         var instName = await GetTenantNameAsync(tenantId);
         var pName = !string.IsNullOrWhiteSpace(parentName) ? parentName : "अभिभावक";
         var cName = !string.IsNullOrWhiteSpace(className) ? className : "कक्षा";
-        var monthName = dueDate.ToString("MMMM");
+        var monthName = dueDate.ToString("MMMM yyyy");
         var dueDay = dueDate.Day;
 
         var upiBlock = !string.IsNullOrWhiteSpace(upiPaymentUrl)
@@ -69,7 +69,7 @@ public class WhatsAppService : IWhatsAppService
         var content = $"🔔 *फीस भुगतान अनुस्मारक | FEE PAYMENT NOTICE*\n\n" +
                       $"नमस्ते {pName} जी,\n" +
                       $"{instName} से सादर अनुरोध है कि आपके सुपुत्र/सुपुत्री *{studentName}* ({cName}) की *{monthName}* माह की फीस *₹{amountDue:N0}* देय है।\n\n" +
-                      $"📅 नियत देय तिथि: *{dueDate:dd-MMM-yyyy} ({dueDay} तारीख)*\n" +
+                      $"📅 नियत देय तिथि: *{dueDate:dd-MMM-yyyy}*\n" +
                       $"🧾 इनवॉइस संख्या: *#{invoiceNo}*{upiBlock}\n\n" +
                       (includeVoiceNote ? "🎙️ *(कृपया इस संदेश के साथ प्रेषित AI वॉयस मैसेज भी अवश्य सुनें)*\n\n" : "") +
                       $"कृपया समय पर फीस जमा कराकर सहयोग प्रदान करें।\nधन्यवाद,\n*{instName}*";

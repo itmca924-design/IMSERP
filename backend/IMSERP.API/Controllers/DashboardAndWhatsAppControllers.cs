@@ -57,10 +57,23 @@ public class DashboardController : ControllerBase
         var whatsAppSent = await whatsAppQuery.CountAsync();
 
         var overdueInvoices = await feeInvoicesQuery
+            .AsNoTracking()
             .Include(i => i.Student)
-            .Where(i => i.Status == InvoiceStatus.Overdue || (i.Status != InvoiceStatus.Paid && i.DueDate < DateTime.UtcNow))
-            .OrderBy(i => i.DueDate)
-            .Take(5)
+                .ThenInclude(s => s.Class)
+            .Include(i => i.Student)
+                .ThenInclude(s => s.Section)
+            .Include(i => i.Student)
+                .ThenInclude(s => s.Batch)
+            .Where(i => i.Student != null &&
+                        !i.Student.IsDeleted &&
+                        i.Student.IsActive &&
+                        i.Status != InvoiceStatus.Paid &&
+                        i.Status != InvoiceStatus.Cancelled &&
+                        (i.TotalAmount - i.PaidAmount) > 0 &&
+                        (i.Status == InvoiceStatus.Overdue || i.DueDate <= DateTime.UtcNow || i.Status == InvoiceStatus.Pending || i.Status == InvoiceStatus.Partial))
+            .OrderByDescending(i => i.CreatedAt)
+            .ThenBy(i => i.DueDate)
+            .Take(10)
             .Select(i => new FeeInvoiceDto(
                 i.Id,
                 i.StudentId,
@@ -73,7 +86,18 @@ public class DashboardController : ControllerBase
                 i.PaidAmount,
                 i.TotalAmount - i.PaidAmount,
                 i.DueDate,
-                i.Status.ToString()
+                i.Status.ToString(),
+                !string.IsNullOrEmpty(i.ClassName) ? (!string.IsNullOrEmpty(i.SectionName) ? $"{i.ClassName} ({i.SectionName})" : i.ClassName) :
+                (i.Student != null && i.Student.Class != null ? (i.Student.Section != null ? $"{i.Student.Class.Name} ({i.Student.Section.Name})" : i.Student.Class.Name) :
+                (i.Student != null && i.Student.Batch != null ? i.Student.Batch.Name : "General")),
+                i.Student != null ? i.Student.ProfilePhoto : null,
+                false,
+                null,
+                null,
+                i.Student != null && i.Student.IsSchoolStudent,
+                i.Student != null && i.Student.IsCoachingStudent,
+                (i.Student != null && i.Student.IsSchoolStudent && i.Student.IsCoachingStudent) ? "School + Coaching" :
+                (i.Student != null && i.Student.IsCoachingStudent) ? "Coaching" : "School"
             )).ToListAsync();
 
         var recentTests = await testsQuery
@@ -197,6 +221,236 @@ public class DashboardController : ControllerBase
             feeBreakdown,
             todayAttendance
         ));
+    }
+
+    [HttpGet("urgent-fee-reminders")]
+    public async Task<ActionResult<PagedResultDto<FeeInvoiceDto>>> GetUrgentFeeReminders(
+        [FromQuery] int pageIndex = 0,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        [FromQuery] string? scope = null, // "All", "School", "Coaching"
+        [FromQuery] Guid? classId = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = "desc")
+    {
+        if (!await _menuPermissions.HasPermissionAsync("/dashboard", MenuPermissionOperation.View))
+            return Forbid();
+
+        bool isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+        var tenantId = _currentUser.TenantId;
+        var activeBranchId = _currentUser.BranchId;
+
+        var feeInvoicesQuery = isSuperAdmin ? _dbContext.FeeInvoices.IgnoreQueryFilters() : _dbContext.FeeInvoices;
+
+        var query = feeInvoicesQuery
+            .AsNoTracking()
+            .Include(i => i.Student)
+                .ThenInclude(s => s.Class)
+            .Include(i => i.Student)
+                .ThenInclude(s => s.Section)
+            .Include(i => i.Student)
+                .ThenInclude(s => s.Batch)
+            .Where(i => i.Student != null &&
+                        !i.Student.IsDeleted &&
+                        i.Student.IsActive &&
+                        i.Status != InvoiceStatus.Paid &&
+                        i.Status != InvoiceStatus.Cancelled &&
+                        (i.TotalAmount - i.PaidAmount) > 0 &&
+                        (i.Status == InvoiceStatus.Overdue || i.DueDate <= DateTime.UtcNow || i.Status == InvoiceStatus.Pending || i.Status == InvoiceStatus.Partial));
+
+        // Branch filtering per AGENTS.md
+        if (activeBranchId.HasValue && !isSuperAdmin)
+        {
+            query = query.Where(i => i.BranchId == activeBranchId || (i.Student != null && i.Student.BranchId == activeBranchId));
+        }
+
+        // Division Scope filtering per AGENTS.md Tri-Modal Division Architecture
+        if (!string.IsNullOrWhiteSpace(scope) && !scope.Equals("All", StringComparison.OrdinalIgnoreCase))
+        {
+            if (scope.Equals("School", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Student.IsSchoolStudent);
+            }
+            else if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Student.IsCoachingStudent);
+            }
+        }
+
+        // Class / Batch filtering
+        if (classId.HasValue && classId.Value != Guid.Empty)
+        {
+            query = query.Where(i => i.ClassId == classId || (i.Student != null && (i.Student.ClassId == classId || i.Student.BatchId == classId)));
+        }
+
+        // Search filtering (student name, roll no, invoice no, phone, class)
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(i => (i.Student.StudentName != null && i.Student.StudentName.ToLower().Contains(term)) ||
+                                     (i.Student.RollNumber != null && i.Student.RollNumber.ToLower().Contains(term)) ||
+                                     (i.InvoiceNumber != null && i.InvoiceNumber.ToLower().Contains(term)) ||
+                                     (i.Student.ParentWhatsAppPhone != null && i.Student.ParentWhatsAppPhone.Contains(term)) ||
+                                     (i.ClassName != null && i.ClassName.ToLower().Contains(term)) ||
+                                     (i.Student.Class != null && i.Student.Class.Name.ToLower().Contains(term)) ||
+                                     (i.Student.Batch != null && i.Student.Batch.Name.ToLower().Contains(term)));
+        }
+
+        // Sorting
+        bool isAsc = string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase);
+        query = (sortField?.ToLower()) switch
+        {
+            "studentname" => isAsc ? query.OrderBy(i => i.Student.StudentName) : query.OrderByDescending(i => i.Student.StudentName),
+            "classname" => isAsc ? query.OrderBy(i => i.ClassName ?? (i.Student.Class != null ? i.Student.Class.Name : "")) : query.OrderByDescending(i => i.ClassName ?? (i.Student.Class != null ? i.Student.Class.Name : "")),
+            "dueamount" => isAsc ? query.OrderBy(i => i.TotalAmount - i.PaidAmount) : query.OrderByDescending(i => i.TotalAmount - i.PaidAmount),
+            "duedate" => isAsc ? query.OrderBy(i => i.DueDate) : query.OrderByDescending(i => i.DueDate),
+            _ => isAsc ? query.OrderBy(i => i.CreatedAt) : query.OrderByDescending(i => i.CreatedAt)
+        };
+
+        var totalCount = await query.CountAsync();
+
+        var pagedInvoices = await query
+            .Skip(pageIndex * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        // Check deduplication logs for today in IST - Student-Specific (Handles Siblings sharing parent phone)
+        var todayStartUtc = GetTodayStartUtcInIst();
+        var todayLogs = await _dbContext.WhatsAppLogs
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId &&
+                        l.MessageType == MessageType.FeeReminder &&
+                        l.SentAt >= todayStartUtc)
+            .Select(l => new { l.RecipientPhone, l.StudentName, l.SentAt, l.Content })
+            .ToListAsync();
+
+        var remindedComposite = new HashSet<string>(
+            todayLogs.Where(l => !string.IsNullOrWhiteSpace(l.StudentName))
+                     .Select(l => $"{NormalizePhone(l.RecipientPhone)}::{l.StudentName.Trim().ToLower()}")
+        );
+
+        var remindedStudentNames = new HashSet<string>(
+            todayLogs.Where(l => !string.IsNullOrWhiteSpace(l.StudentName))
+                     .Select(l => l.StudentName.Trim().ToLower())
+        );
+
+        var items = pagedInvoices.Select(i =>
+        {
+            var phoneNorm = NormalizePhone(i.Student?.ParentWhatsAppPhone);
+            var nameNorm = i.Student?.StudentName?.Trim().ToLower() ?? "";
+            string compositeKey = $"{phoneNorm}::{nameNorm}";
+
+            // Student-specific deduplication: Must match the student specifically so siblings with the same parent phone are never locked out
+            bool alreadyReminded = !string.IsNullOrEmpty(nameNorm) &&
+                                   (remindedComposite.Contains(compositeKey) || remindedStudentNames.Contains(nameNorm));
+
+            var logMatch = alreadyReminded
+                ? todayLogs.FirstOrDefault(l => l.StudentName.Trim().ToLower() == nameNorm)
+                : null;
+
+            string className = !string.IsNullOrEmpty(i.ClassName)
+                ? (!string.IsNullOrEmpty(i.SectionName) ? $"{i.ClassName} ({i.SectionName})" : i.ClassName)
+                : (i.Student != null && i.Student.Class != null
+                    ? (i.Student.Section != null ? $"{i.Student.Class.Name} ({i.Student.Section.Name})" : i.Student.Class.Name)
+                    : (i.Student != null && i.Student.Batch != null ? i.Student.Batch.Name : "General"));
+
+            bool isSchool = i.Student?.IsSchoolStudent ?? false;
+            bool isCoaching = i.Student?.IsCoachingStudent ?? false;
+            string scopeTag = (isSchool && isCoaching) ? "School + Coaching" : (isCoaching ? "Coaching" : "School");
+
+            return new FeeInvoiceDto(
+                i.Id,
+                i.StudentId,
+                i.Student?.StudentName ?? "",
+                i.Student?.RollNumber ?? "",
+                i.Student?.ParentWhatsAppPhone ?? "",
+                i.InvoiceNumber,
+                i.Title,
+                i.TotalAmount,
+                i.PaidAmount,
+                i.TotalAmount - i.PaidAmount,
+                i.DueDate,
+                i.Status.ToString(),
+                className,
+                i.Student?.ProfilePhoto,
+                alreadyReminded,
+                logMatch != null ? DateTime.SpecifyKind(logMatch.SentAt, DateTimeKind.Utc) : null,
+                logMatch?.Content?.Contains("AI Voice") == true ? "Voice" : "WhatsApp",
+                isSchool,
+                isCoaching,
+                scopeTag
+            );
+        }).ToList();
+
+        return Ok(new PagedResultDto<FeeInvoiceDto>(items, totalCount, pageIndex + 1, pageSize));
+    }
+
+    [HttpPost("log-reminder-dispatched")]
+    public async Task<ActionResult> LogReminderDispatched([FromBody] LogReminderDispatchedDto req)
+    {
+        if (!await _menuPermissions.HasPermissionAsync("/dashboard", MenuPermissionOperation.Create) &&
+            !await _menuPermissions.HasPermissionAsync("/fees", MenuPermissionOperation.Create))
+        {
+            return Forbid();
+        }
+
+        var todayStartUtc = GetTodayStartUtcInIst();
+        var phoneNorm = NormalizePhone(req.RecipientPhone);
+        var sName = req.StudentName?.Trim().ToLower() ?? "";
+
+        // Check deduplication per student per day - strictly by student name so siblings sharing phone are not blocked
+        var alreadySent = await _dbContext.WhatsAppLogs
+            .AsNoTracking()
+            .AnyAsync(l => l.TenantId == _currentUser.TenantId &&
+                           l.MessageType == MessageType.FeeReminder &&
+                           l.SentAt >= todayStartUtc &&
+                           l.StudentName.ToLower() == sName);
+
+        if (alreadySent)
+        {
+            return BadRequest(new { message = "Fee reminder has already been dispatched to this student today. Per-day single message limit enforced." });
+        }
+
+        var log = new WhatsAppLog
+        {
+            TenantId = _currentUser.TenantId,
+            RecipientPhone = req.RecipientPhone ?? "",
+            StudentName = req.StudentName ?? "Student",
+            MessageType = MessageType.FeeReminder,
+            Content = $"Fee reminder ({req.ReminderType ?? "WhatsApp"}) dispatched for student {req.StudentName} by {_currentUser.Username ?? "Staff"}",
+            Status = "Sent",
+            SentAt = DateTime.UtcNow
+        };
+
+        _dbContext.WhatsAppLogs.Add(log);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new { message = "Reminder dispatch recorded successfully.", sentAt = log.SentAt });
+    }
+
+    private static DateTime GetTodayStartUtcInIst()
+    {
+        TimeZoneInfo istZone;
+        try
+        {
+            istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        }
+        catch
+        {
+            istZone = TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromHours(5.5), "India Standard Time", "IST");
+        }
+        var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone);
+        var istMidnight = new DateTime(istNow.Year, istNow.Month, istNow.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(istMidnight, istZone);
+    }
+
+    private static string NormalizePhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return string.Empty;
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.Length == 12 && digits.StartsWith("91")) return digits.Substring(2);
+        if (digits.Length == 11 && digits.StartsWith("0")) return digits.Substring(1);
+        return digits;
     }
 
     [HttpGet("student-summary")]

@@ -6,10 +6,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FeeRecoveryPlanItemDto, FeeRecoveryAgentService } from '../../../core/services/fee-recovery-agent.service';
+import { CoachingService } from '../../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 
 export interface StudentVoiceDialogData {
-  plan: FeeRecoveryPlanItemDto;
+  plan: FeeRecoveryPlanItemDto & { alreadyRemindedToday?: boolean; dueDate?: string | Date };
   instituteName: string;
   dueDay: number;
   initialGender?: string;
@@ -105,7 +106,7 @@ export interface StudentVoiceDialogData {
             <span>AI Voice Script (उच्चारण एवं संदेश प्रारूप):</span>
           </div>
           <p class="script-content">
-            "नमस्ते <strong>{{ data.plan.parentName || 'अभिभावक' }}</strong> जी! <strong>{{ data.instituteName }}</strong> से सादर अनुरोध है। आपके सुपुत्र/सुपुत्री <strong>{{ data.plan.studentName }}</strong> ({{ data.plan.className || 'General' }}) की फीस <strong>₹{{ data.plan.totalOverdueAmount | number:'1.0-0' }}</strong> देय है। फीस जमा करने की नियत तारीख <strong>{{ data.dueDay }} तारीख</strong> है। कृपया समय पर फीस जमा कराकर सहयोग प्रदान करें। धन्यवाद!"
+            "नमस्ते <strong>{{ data.plan.parentName || 'अभिभावक' }}</strong> जी! <strong>{{ data.instituteName }}</strong> से सादर अनुरोध है। आपके सुपुत्र/सुपुत्री <strong>{{ data.plan.studentName }}</strong> ({{ data.plan.className || 'General' }}) की फीस <strong>₹{{ data.plan.totalOverdueAmount | number:'1.0-0' }}</strong> देय है। फीस जमा करने की नियत तारीख <strong>{{ getFormattedDueDate() }}</strong> है। कृपया समय पर फीस जमा कराकर सहयोग प्रदान करें। धन्यवाद!"
           </p>
         </div>
 
@@ -504,6 +505,7 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
     public dialogRef: MatDialogRef<StudentVoiceDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: StudentVoiceDialogData,
     private agentService: FeeRecoveryAgentService,
+    private coachingService: CoachingService,
     private confirmDialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef
   ) {
@@ -554,7 +556,7 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
     this.isLoadingAudio = true;
     this.cdr.markForCheck();
 
-    const url = this.agentService.getStudentVoiceUrl(this.data.plan.id, this.selectedGender);
+    const url = `${this.agentService.getStudentVoiceUrl(this.data.plan.id, this.selectedGender)}&v=${Date.now()}`;
     this.audioPlayer = new Audio(url);
 
     this.audioPlayer.oncanplay = () => {
@@ -583,7 +585,7 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
     this.isDownloadingAudio = true;
     this.cdr.markForCheck();
 
-    const url = this.agentService.getStudentVoiceUrl(this.data.plan.id, this.selectedGender);
+    const url = `${this.agentService.getStudentVoiceUrl(this.data.plan.id, this.selectedGender)}&v=${Date.now()}`;
     const fileName = `${this.data.plan.studentName || 'student'}_fee_reminder.mp3`;
 
     fetch(url)
@@ -618,6 +620,19 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
       });
   }
 
+  getFormattedDueDate(): string {
+    const rawDate = this.data.plan?.dueDate;
+    if (rawDate) {
+      const d = new Date(rawDate);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    }
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().toLocaleDateString('en-IN', { month: 'short' });
+    return `${this.data.dueDay} ${currentMonth} ${currentYear}`;
+  }
+
   openDirectWhatsAppWithVoice(): void {
     const rawPhone = this.data.plan.parentPhone || '';
     if (!rawPhone) {
@@ -634,16 +649,29 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
       audioLinkBlock = `\n🎙️ *AI वॉयस संदेश यहाँ सुनें:*\n${listenUrl}\n`;
     }
 
+    const dueFormatted = this.getFormattedDueDate();
+    const rollInfo = this.data.plan.rollNumber ? `, Roll: ${this.data.plan.rollNumber}` : '';
+    const invInfo = this.data.plan.invoiceNumber ? `\n🧾 इनवॉइस संख्या: *#${this.data.plan.invoiceNumber}*` : '';
     const message = `🔔 *फीस भुगतान अनुस्मारक | FEE PAYMENT NOTICE*\n\n` +
       `नमस्ते ${parentName} जी,\n` +
-      `${this.data.instituteName} से सादर अनुरोध है कि आपके सुपुत्र/सुपुत्री *${this.data.plan.studentName}* (${this.data.plan.className || 'General'}) की फीस *₹${this.data.plan.totalOverdueAmount}* देय है।\n\n` +
-      `📅 नियत देय तिथि: *${this.data.dueDay} तारीख*\n` +
+      `${this.data.instituteName} से सादर अनुरोध है कि आपके सुपुत्र/सुपुत्री *${this.data.plan.studentName}* (${this.data.plan.className || 'General'}${rollInfo}) की फीस *₹${this.data.plan.totalOverdueAmount}* देय है।\n\n` +
+      `📅 नियत देय तिथि: *${dueFormatted}*${invInfo}\n` +
       audioLinkBlock + '\n' +
       `कृपया समय पर फीस जमा कराकर सहयोग प्रदान करें।\nधन्यवाद,\n*${this.data.instituteName}*`;
 
     const encoded = encodeURIComponent(message);
     const waUrl = `https://wa.me/${cleanPhone}?text=${encoded}`;
+
+    this.coachingService.logReminderDispatched({
+      studentId: this.data.plan.studentId || this.data.plan.id || '',
+      studentName: this.data.plan.studentName,
+      recipientPhone: this.data.plan.parentPhone,
+      reminderType: 'Voice',
+      invoiceId: this.data.plan.id
+    }).subscribe({ error: () => {} });
+
     window.open(waUrl, '_blank');
+    this.dialogRef.close({ dispatched: true });
   }
 
   closeDialog(): void {

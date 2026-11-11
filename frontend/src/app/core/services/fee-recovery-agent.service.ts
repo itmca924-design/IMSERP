@@ -27,6 +27,7 @@ export interface FeeRecoveryPlanItemDto {
   profilePhoto?: string;
   invoiceId?: string;
   invoiceNumber?: string;
+  dueDate?: string | Date;
   totalOverdueAmount: number;
   daysOverdue: number;
   riskLevel: 'Low' | 'Moderate' | 'High' | 'Critical';

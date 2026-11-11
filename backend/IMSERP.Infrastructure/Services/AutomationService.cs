@@ -142,12 +142,16 @@ public class AutomationService : IAutomationService
         var prior = daysPrior ?? settings.FeeDueDaysPrior;
         var thresholdDate = today.AddDays(prior);
 
+        var todayStartUtc = TimeZoneInfo.ConvertTimeToUtc(today, istZone);
+
         // Find unpaid / partially paid invoices due on or before thresholdDate
         var invoices = await _db.FeeInvoices
             .Include(i => i.Student)
             .Include(i => i.Class)
             .Where(i => i.TenantId == tenantId &&
                         i.Status != InvoiceStatus.Paid &&
+                        i.Status != InvoiceStatus.Cancelled &&
+                        (i.TotalAmount - i.PaidAmount) > 0 &&
                         i.DueDate.Date <= thresholdDate)
             .ToListAsync();
 
@@ -163,13 +167,14 @@ public class AutomationService : IAutomationService
             var balanceDue = inv.TotalAmount - inv.PaidAmount;
             if (balanceDue <= 0) continue;
 
-            // Prevent spamming reminders more than once every 3 days
+            var sNameNorm = student.StudentName.Trim().ToLower();
+
+            // Per-student daily deduplication (Siblings sharing phone each get their own 1 message per day, whether Full Due or Partial Due)
             var recentReminderSent = await _db.WhatsAppLogs.AnyAsync(l =>
                 l.TenantId == tenantId &&
-                l.RecipientPhone == student.ParentWhatsAppPhone &&
                 l.MessageType == MessageType.FeeReminder &&
-                l.SentAt >= DateTime.UtcNow.AddDays(-3) &&
-                l.Content.Contains(inv.InvoiceNumber));
+                l.SentAt >= todayStartUtc &&
+                l.StudentName.ToLower() == sNameNorm);
 
             if (!recentReminderSent)
             {
