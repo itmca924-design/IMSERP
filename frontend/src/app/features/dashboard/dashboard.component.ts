@@ -2307,7 +2307,8 @@ import ApexCharts from 'apexcharts';
         -webkit-overflow-scrolling: touch;
 
         table {
-          min-width: 520px;
+          min-width: 0;
+          width: 100%;
         }
       }
     }
@@ -2811,6 +2812,9 @@ import ApexCharts from 'apexcharts';
     .actions-th {
       text-align: right !important;
       padding-right: 12px !important;
+      width: 68px;
+      min-width: 64px;
+      box-sizing: border-box;
 
       .th-action-icon {
         font-size: 16px;
@@ -2822,8 +2826,106 @@ import ApexCharts from 'apexcharts';
     }
 
     .actions-td {
-      padding-right: 8px !important;
+      padding-right: 10px !important;
       white-space: nowrap;
+      width: 68px;
+      min-width: 64px;
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 1536px) {
+      .fee-table-content {
+        th.mat-mdc-header-cell,
+        td.mat-mdc-cell {
+          padding: 6px 4px !important;
+        }
+
+        th.mat-mdc-header-cell:first-of-type,
+        td.mat-mdc-cell:first-of-type {
+          padding-left: 10px !important;
+        }
+
+        th.mat-mdc-header-cell:last-of-type,
+        td.mat-mdc-cell:last-of-type {
+          padding-right: 8px !important;
+        }
+      }
+
+      .student-cell {
+        gap: 6px;
+
+        .student-avatar-container {
+          width: 28px;
+          height: 28px;
+
+          .student-avatar-img,
+          .student-avatar-badge {
+            width: 28px;
+            height: 28px;
+            font-size: 0.74rem;
+          }
+        }
+
+        .student-info {
+          strong {
+            font-size: 0.78rem;
+            line-height: 1.2;
+          }
+          small {
+            font-size: 0.68rem;
+          }
+        }
+      }
+
+      .class-pill {
+        font-size: 0.68rem;
+        padding: 1px 5px;
+      }
+
+      .admission-scope-badge {
+        font-size: 0.6rem;
+        padding: 1px 4px;
+      }
+
+      .due-date-badge {
+        font-size: 0.62rem;
+        padding: 1px 4px;
+      }
+
+      .amount-due {
+        font-size: 0.82rem;
+
+        .partial-paid-badge {
+          font-size: 0.58rem;
+          padding: 1px 4px;
+        }
+      }
+
+      .row-actions-group {
+        gap: 3px;
+      }
+
+      .mini-voice-btn,
+      .more-action-btn,
+      .reminded-today-pill {
+        width: 27px;
+        height: 27px;
+        min-width: 27px;
+        min-height: 27px;
+
+        mat-icon {
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          line-height: 15px;
+        }
+      }
+
+      .actions-th,
+      .actions-td {
+        width: 62px;
+        min-width: 60px;
+      }
     }
 
     .more-action-btn {
