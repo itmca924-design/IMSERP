@@ -530,7 +530,7 @@ interface BiometricMappingPagedResult {
         [length]="totalRecords"
         [pageSize]="pageSize"
         [pageIndex]="pageIndex"
-        [pageSizeOptions]="[10, 25, 50, 100]"
+        [pageSizeOptions]="[10, 25, 50, 100, 150, 200, 300, 500]"
         (page)="onPageChange($event)"
         showFirstLastButtons
         class="enroll-paginator">
@@ -610,9 +610,20 @@ interface BiometricMappingPagedResult {
       </mat-card>
     }
     @if (!devices.length) {
-      <mat-card class="empty">
-        <mat-icon>devices_other</mat-icon>
-        <p>No biometric devices registered yet. Click "Add Hikvision Device" above to register your terminal.</p>
+      <mat-card class="empty-device-card">
+        <div class="empty-device-main">
+          <div class="empty-device-icon-box">
+            <mat-icon>devices_other</mat-icon>
+          </div>
+          <div class="empty-device-text">
+            <h3>No Biometric Terminals Registered Yet</h3>
+            <p>Register your Hikvision fingerprint or RFID terminal to monitor live status, IP configuration, and socket connectivity.</p>
+          </div>
+        </div>
+        <button color="primary" class="btn-empty-add-device" (click)="prefillHikvision(); showForm = true" matButton="filled">
+          <mat-icon>settings_suggest</mat-icon>
+          <span>Add Hikvision Device</span>
+        </button>
       </mat-card>
     }
   </div>
@@ -1747,11 +1758,98 @@ interface BiometricMappingPagedResult {
   margin-bottom: 10px;
   font-size: 0.82rem;
 }
-.empty {
-  text-align: center;
-  padding: 36px;
-  color: #64748b;
+.empty-device-card {
   grid-column: 1 / -1;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 20px;
+  padding: 20px 24px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%) !important;
+  border: 1px dashed #93c5fd !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03) !important;
+}
+.empty-device-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+.empty-device-icon-box {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.22);
+
+  mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+    color: #ffffff;
+  }
+}
+.empty-device-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  h3 {
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.3;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.84rem;
+    color: #64748b;
+    line-height: 1.4;
+  }
+}
+.btn-empty-add-device {
+  flex-shrink: 0;
+  height: 38px !important;
+  padding: 0 18px !important;
+  border-radius: 999px !important;
+  font-size: 0.83rem !important;
+  font-weight: 700 !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.22) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  white-space: nowrap;
+
+  mat-icon {
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    margin: 0 !important;
+  }
+}
+@media (max-width: 768px) {
+  .empty-device-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 16px !important;
+  }
+  .btn-empty-add-device {
+    width: 100%;
+    justify-content: center !important;
+  }
 }
 .event-row {
   display: flex;
@@ -2353,6 +2451,9 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
       next: res => {
         this.pagedPeople = res.items || [];
         this.totalRecords = res.totalCount || 0;
+        if (typeof res.pageNumber === 'number' && res.pageNumber >= 1) {
+          this.pageIndex = res.pageNumber - 1;
+        }
         this.serverCoachingCount = res.coachingCount ?? 0;
         this.serverSchoolCount = res.schoolCount ?? 0;
         this.serverTeacherCount = res.teacherCount ?? 0;
@@ -2378,8 +2479,12 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   onPageChange(event: PageEvent): void {
-    this.pageIndex = event.pageIndex;
-    this.pageSize = event.pageSize;
+    if (event.pageSize !== this.pageSize) {
+      this.pageSize = event.pageSize;
+      this.pageIndex = 0;
+    } else {
+      this.pageIndex = event.pageIndex;
+    }
     this.loadPagedMappings();
   }
 

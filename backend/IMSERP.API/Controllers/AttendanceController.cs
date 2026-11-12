@@ -241,7 +241,7 @@ public class AttendanceController : ControllerBase
         if (!await HasPermissionAsync(MappingRoute, IMSERP.API.Services.MenuPermissionOperation.Edit)) return Forbid();
 
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 5, 200);
+        pageSize = Math.Clamp(pageSize, 5, 1000);
 
         var studentQuery = _db.Students.AsNoTracking()
             .Where(s => s.TenantId == _currentUser.TenantId && s.IsActive && !s.IsDeleted);
@@ -466,7 +466,8 @@ public class AttendanceController : ControllerBase
         };
 
         var totalCount = combined.Count();
-        var totalPages = pageSize > 0 ? (int)Math.Ceiling(totalCount / (double)pageSize) : 1;
+        var totalPages = pageSize > 0 ? Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize)) : 1;
+        if (page > totalPages) page = totalPages;
         var pagedItems = combined.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
         return Ok(new BiometricMappingPagedResultDto(
@@ -921,15 +922,26 @@ public class AttendanceController : ControllerBase
             return BadRequest(new { message = "Please assign a Biometric Device ID first before marking thumb enrollment." });
         }
 
+        var enrollEventId = $"THUMB-ENROLLED-{bioId}";
+
+        // Migrate any legacy plain "THUMB-ENROLLED" log so it never blocks the unique index
+        var legacyLogs = await _db.BiometricEventLogs
+            .Where(e => e.TenantId == _currentUser.TenantId && e.DeviceEventId == "THUMB-ENROLLED")
+            .ToListAsync();
+        foreach (var leg in legacyLogs)
+        {
+            leg.DeviceEventId = $"THUMB-ENROLLED-{leg.BiometricUserId}";
+        }
+
         var existingManualLogs = await _db.BiometricEventLogs
             .Where(e => e.TenantId == _currentUser.TenantId &&
                         e.BiometricUserId == bioId &&
-                        e.DeviceEventId == "THUMB-ENROLLED")
+                        (e.DeviceEventId == enrollEventId || e.DeviceEventId == "THUMB-ENROLLED" || e.Status == "Enrolled"))
             .ToListAsync();
 
         if (dto.Enrolled)
         {
-            if (existingManualLogs.Count == 0)
+            if (existingManualLogs.Count == 0 && !legacyLogs.Any(l => l.BiometricUserId == bioId))
             {
                 _db.BiometricEventLogs.Add(new BiometricEventLog
                 {
@@ -937,7 +949,7 @@ public class AttendanceController : ControllerBase
                     PersonType = personType.ToLowerInvariant(),
                     BiometricUserId = bioId,
                     EventTime = DateTime.UtcNow,
-                    DeviceEventId = "THUMB-ENROLLED",
+                    DeviceEventId = enrollEventId,
                     Status = "Enrolled",
                     ErrorMessage = $"Thumb enrollment verified for {personName}"
                 });
