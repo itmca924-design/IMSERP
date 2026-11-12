@@ -1534,7 +1534,7 @@ import ApexCharts from 'apexcharts';
                           </div>
                           <div class="student-info">
                             <div class="stu-name-row">
-                              <strong>{{ el.studentName }}</strong>
+                              <strong [matTooltip]="el.studentName">{{ el.studentName }}</strong>
                               @if (isSibling(el)) {
                                 <span class="sibling-badge" matTooltip="Shares phone with sibling in campus">
                                   <mat-icon>people</mat-icon> Sibling
@@ -1594,34 +1594,33 @@ import ApexCharts from 'apexcharts';
                             <span class="reminded-today-pill" [matTooltip]="'Sent Today' + (el.lastRemindedAt ? ' (' + formatIstTime(el.lastRemindedAt) + ')' : '')">
                               <mat-icon>done_all</mat-icon>
                             </span>
-                          } @else {
-                            <button
-                              type="button"
-                              class="mini-voice-btn"
-                              (click)="openVoiceReminder(el)"
-                              matTooltip="AI Hindi Voice Note & Audio"
-                              aria-label="AI Hindi Voice Note">
-                              <mat-icon style="color: #7c3aed;">mic</mat-icon>
-                            </button>
-                            <button
-                              type="button"
-                              class="more-action-btn"
-                              [matMenuTriggerFor]="remindMenu"
-                              matTooltip="More Actions"
-                              aria-label="More Actions">
-                              <mat-icon>more_vert</mat-icon>
-                            </button>
-                            <mat-menu #remindMenu="matMenu" xPosition="before">
-                              <button mat-menu-item (click)="openSingleWhatsAppModal(el)">
-                                <mat-icon style="color: #16a34a;">chat</mat-icon>
-                                <span>Send WhatsApp Reminder</span>
-                              </button>
-                              <button mat-menu-item (click)="openVoiceReminder(el)">
-                                <mat-icon style="color: #7c3aed;">mic</mat-icon>
-                                <span>AI Hindi Voice Note</span>
-                              </button>
-                            </mat-menu>
                           }
+                          <button
+                            type="button"
+                            class="mini-voice-btn"
+                            (click)="openVoiceReminder(el)"
+                            matTooltip="AI Hindi Voice Note & Audio"
+                            aria-label="AI Hindi Voice Note">
+                            <mat-icon style="color: #7c3aed;">mic</mat-icon>
+                          </button>
+                          <button
+                            type="button"
+                            class="more-action-btn"
+                            [matMenuTriggerFor]="remindMenu"
+                            matTooltip="More Actions"
+                            aria-label="More Actions">
+                            <mat-icon>more_vert</mat-icon>
+                          </button>
+                          <mat-menu #remindMenu="matMenu" xPosition="before">
+                            <button mat-menu-item (click)="openSingleWhatsAppModal(el)">
+                              <mat-icon style="color: #16a34a;">chat</mat-icon>
+                              <span>Send WhatsApp Reminder</span>
+                            </button>
+                            <button mat-menu-item (click)="openVoiceReminder(el)">
+                              <mat-icon style="color: #7c3aed;">mic</mat-icon>
+                              <span>AI Hindi Voice Note</span>
+                            </button>
+                          </mat-menu>
                         </div>
                       </td>
                     </ng-container>
@@ -2307,6 +2306,13 @@ import ApexCharts from 'apexcharts';
         padding: 0 10px 14px 10px !important;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        &::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
 
         table {
           min-width: 0;
@@ -2548,16 +2554,30 @@ import ApexCharts from 'apexcharts';
 
     .fee-table-content {
       padding: 0 !important;
-      overflow-x: hidden !important;
+      overflow: hidden;
+      width: 100%;
+      position: relative;
 
       .table-responsive {
-        overflow-x: hidden !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
         width: 100%;
+        position: relative;
+        /* Hide horizontal scrollbar while preserving swipe & mouse scroll */
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        &::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
       }
 
       table {
         min-width: 0 !important;
         width: 100% !important;
+        border-collapse: separate;
+        border-spacing: 0;
       }
 
       th.mat-mdc-header-cell,
@@ -2572,7 +2592,7 @@ import ApexCharts from 'apexcharts';
 
       th.mat-mdc-header-cell:last-of-type,
       td.mat-mdc-cell:last-of-type {
-        padding-right: 10px !important;
+        padding-right: 8px !important;
       }
 
       tr.mat-mdc-row {
@@ -2588,6 +2608,10 @@ import ApexCharts from 'apexcharts';
 
           td.mat-mdc-cell {
             background-color: transparent !important;
+          }
+
+          td.actions-td {
+            background-color: #f0f7ff !important;
           }
         }
       }
@@ -2811,12 +2835,22 @@ import ApexCharts from 'apexcharts';
       }
     }
 
+    .actions-th,
+    .actions-td {
+      position: sticky !important;
+      right: 0 !important;
+      z-index: 5 !important;
+      box-shadow: -3px 0 6px -2px rgba(15, 23, 42, 0.08) !important;
+      box-sizing: border-box;
+    }
+
     .actions-th {
+      background: #f8fafc !important;
+      z-index: 6 !important;
       text-align: right !important;
       padding-right: 12px !important;
       width: 68px;
       min-width: 64px;
-      box-sizing: border-box;
 
       .th-action-icon {
         font-size: 16px;
@@ -2828,11 +2862,11 @@ import ApexCharts from 'apexcharts';
     }
 
     .actions-td {
+      background: #ffffff !important;
       padding-right: 10px !important;
-      white-space: nowrap;
+      white-space: nowrap !important;
       width: 68px;
       min-width: 64px;
-      box-sizing: border-box;
     }
 
     @media (max-width: 1536px) {
@@ -2927,6 +2961,181 @@ import ApexCharts from 'apexcharts';
       .actions-td {
         width: 62px;
         min-width: 60px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .fee-control-deck {
+        padding: 8px 10px;
+        gap: 8px;
+
+        .fee-search-box {
+          width: 100%;
+          min-width: 100%;
+          flex: 1 1 100%;
+        }
+
+        .fee-scope-toggle {
+          width: 100%;
+          display: flex;
+          justify-content: space-between;
+
+          .scope-pill-btn {
+            flex: 1;
+            text-align: center;
+            padding: 5px 6px;
+            font-size: 0.72rem;
+          }
+        }
+      }
+
+      .fee-table-content {
+        th.mat-mdc-header-cell,
+        td.mat-mdc-cell {
+          padding: 6px 3px !important;
+        }
+
+        th.mat-mdc-header-cell:first-of-type,
+        td.mat-mdc-cell:first-of-type {
+          padding-left: 6px !important;
+        }
+
+        th.mat-mdc-header-cell:last-of-type,
+        td.mat-mdc-cell:last-of-type {
+          padding-right: 4px !important;
+        }
+      }
+
+      .student-cell {
+        gap: 5px;
+
+        .student-avatar-container {
+          width: 24px !important;
+          height: 24px !important;
+          min-width: 24px !important;
+
+          .student-avatar-img,
+          .student-avatar-badge {
+            width: 24px !important;
+            height: 24px !important;
+            font-size: 0.68rem !important;
+          }
+        }
+
+        .student-info {
+          min-width: 0;
+
+          .stu-name-row {
+            gap: 3px;
+          }
+
+          strong {
+            font-size: 0.74rem !important;
+            line-height: 1.15;
+            display: block;
+            max-width: 90px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          small {
+            font-size: 0.62rem !important;
+          }
+        }
+      }
+
+      .sibling-badge {
+        font-size: 0.58rem;
+        padding: 1px 3px;
+        mat-icon {
+          font-size: 9px;
+          width: 9px;
+          height: 9px;
+          line-height: 9px;
+        }
+      }
+
+      .class-cell-wrap {
+        gap: 2px;
+
+        .class-badge-row {
+          gap: 3px;
+        }
+      }
+
+      .class-pill {
+        font-size: 0.62rem !important;
+        padding: 1px 4px !important;
+      }
+
+      .admission-scope-badge {
+        font-size: 0.58rem !important;
+        padding: 1px 3px !important;
+      }
+
+      .due-date-badge {
+        font-size: 0.58rem !important;
+        padding: 1px 3px !important;
+        .due-clock-icon {
+          font-size: 9px !important;
+          width: 9px !important;
+          height: 9px !important;
+        }
+      }
+
+      .amount-due {
+        font-size: 0.78rem !important;
+        padding-right: 4px !important;
+
+        .partial-paid-badge {
+          font-size: 0.54rem !important;
+          padding: 1px 3px !important;
+        }
+      }
+
+      .actions-th,
+      .actions-td {
+        width: 52px !important;
+        min-width: 50px !important;
+        max-width: 54px !important;
+        padding-left: 2px !important;
+        padding-right: 4px !important;
+      }
+
+      .row-actions-group {
+        gap: 2px !important;
+      }
+
+      .mini-voice-btn,
+      .more-action-btn,
+      .reminded-today-pill {
+        width: 24px !important;
+        height: 24px !important;
+        min-width: 24px !important;
+        min-height: 24px !important;
+
+        mat-icon {
+          font-size: 13px !important;
+          width: 13px !important;
+          height: 13px !important;
+          line-height: 13px !important;
+        }
+      }
+
+      .compact-fee-paginator {
+        ::ng-deep .mat-mdc-paginator-container {
+          padding: 0 4px;
+          flex-wrap: wrap;
+          justify-content: center;
+          font-size: 0.70rem;
+        }
+        ::ng-deep .mat-mdc-paginator-page-size {
+          margin-right: 2px;
+        }
+        ::ng-deep .mat-mdc-paginator-range-label {
+          margin: 0 2px;
+        }
       }
     }
 
@@ -5374,11 +5583,6 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   openVoiceReminder(invoice: any): void {
     if (!invoice) return;
 
-    if (invoice.alreadyRemindedToday) {
-      this.confirmDialog.alert('Already Reminded Today', `Fee reminder has already been dispatched to ${invoice.studentName} today. Per-day single message limit is active.`, 'info');
-      return;
-    }
-
     const dialogRef = this.dialog.open(StudentVoiceDialogComponent, {
       width: '560px',
       maxWidth: '95vw',
@@ -5449,11 +5653,6 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   openSingleWhatsAppModal(invoice: any): void {
     if (!invoice) return;
-
-    if (invoice.alreadyRemindedToday) {
-      this.confirmDialog.alert('Already Reminded Today', `Fee reminder has already been dispatched to ${invoice.studentName} today. Per-day single message limit is active.`, 'info');
-      return;
-    }
 
     const dialogRef = this.dialog.open(FeeReminderDispatchDialogComponent, {
       width: '640px',

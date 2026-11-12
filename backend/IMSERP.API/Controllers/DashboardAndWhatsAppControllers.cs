@@ -470,23 +470,6 @@ public class DashboardController : ControllerBase
             return Forbid();
         }
 
-        var todayStartUtc = GetTodayStartUtcInIst();
-        var phoneNorm = NormalizePhone(req.RecipientPhone);
-        var sName = req.StudentName?.Trim().ToLower() ?? "";
-
-        // Check deduplication per student per day - strictly by student name so siblings sharing phone are not blocked
-        var alreadySent = await _dbContext.WhatsAppLogs
-            .AsNoTracking()
-            .AnyAsync(l => l.TenantId == _currentUser.TenantId &&
-                           l.MessageType == MessageType.FeeReminder &&
-                           l.SentAt >= todayStartUtc &&
-                           l.StudentName.ToLower() == sName);
-
-        if (alreadySent)
-        {
-            return BadRequest(new { message = "Fee reminder has already been dispatched to this student today. Per-day single message limit enforced." });
-        }
-
         var log = new WhatsAppLog
         {
             TenantId = _currentUser.TenantId,

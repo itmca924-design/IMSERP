@@ -206,7 +206,7 @@ export interface FeeReminderDispatchDialogData {
                   @for (s of studentList; track s.invoiceNumber || s.studentName) {
                     <tr [class.selected-row]="s.selected" [class.dispatched-row]="s.dispatched || s.alreadyRemindedToday">
                       <td class="cb-td">
-                        <mat-checkbox [(ngModel)]="s.selected" [disabled]="!!s.alreadyRemindedToday" (change)="onStudentSelectChange()"></mat-checkbox>
+                        <mat-checkbox [(ngModel)]="s.selected" (change)="onStudentSelectChange()"></mat-checkbox>
                       </td>
                       <td class="stu-col">
                         <div class="stu-info-flex">
@@ -253,26 +253,16 @@ export interface FeeReminderDispatchDialogData {
                         }
                       </td>
                       <td class="action-col text-center">
-                        @if (s.alreadyRemindedToday) {
-                          <span class="dispatched-badge" matTooltip="Reminder already sent today">
-                            <mat-icon>done_all</mat-icon> Sent Today
-                          </span>
-                        } @else if (s.dispatched) {
-                          <span class="dispatched-badge" matTooltip="Already opened in WhatsApp">
-                            <mat-icon>check_circle</mat-icon> Sent
-                          </span>
-                        } @else {
-                          <button
-                            type="button"
-                            class="dispatch-wa-btn"
-                            (click)="sendSingleFromBulk(s)"
-                            [disabled]="!s.parentWhatsAppPhone"
-                            matTooltip="Open in WhatsApp Web with pre-filled message"
-                            matButton="filled">
-                            <mat-icon>chat</mat-icon>
-                            <span>Send</span>
-                          </button>
-                        }
+                        <button
+                          type="button"
+                          class="dispatch-wa-btn"
+                          (click)="sendSingleFromBulk(s)"
+                          [disabled]="!s.parentWhatsAppPhone"
+                          [matTooltip]="(s.alreadyRemindedToday || s.dispatched) ? 'Send another WhatsApp reminder' : 'Open in WhatsApp Web with pre-filled message'"
+                          matButton="filled">
+                          <mat-icon>{{ (s.alreadyRemindedToday || s.dispatched) ? 'done_all' : 'chat' }}</mat-icon>
+                          <span>{{ (s.alreadyRemindedToday || s.dispatched) ? 'Re-send' : 'Send' }}</span>
+                        </button>
                       </td>
                     </tr>
                   }
@@ -1005,7 +995,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
     if (this.isBulkMode && data.invoices) {
       this.studentList = data.invoices.map(x => ({
         ...x,
-        selected: !x.alreadyRemindedToday,
+        selected: true,
         dispatched: x.alreadyRemindedToday || false
       }));
     } else if (data.invoice) {
@@ -1135,11 +1125,6 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
       return;
     }
 
-    if (inv.alreadyRemindedToday) {
-      this.confirmDialog.alert('Already Reminded Today', `Fee reminder has already been dispatched to ${inv.studentName} today. Per-day single message limit is active.`, 'info');
-      return;
-    }
-
     const rawPhone = inv.parentWhatsAppPhone.replace(/\D/g, '');
     const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
     const msg = this.activeMessageText || (this.messageType === 'invoice' ? this.buildInvoiceMessage(inv) : this.buildNormalMessage(inv));
@@ -1162,11 +1147,6 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
   sendSingleFromBulk(s: FeeReminderDispatchItem): void {
     if (!s.parentWhatsAppPhone) return;
 
-    if (s.alreadyRemindedToday) {
-      this.confirmDialog.alert('Already Reminded Today', `Fee reminder has already been sent to ${s.studentName} today.`, 'info');
-      return;
-    }
-
     const msg = this.messageType === 'invoice' ? this.buildInvoiceMessage(s) : this.buildNormalMessage(s);
     const rawPhone = s.parentWhatsAppPhone.replace(/\D/g, '');
     const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
@@ -1188,7 +1168,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
   }
 
   dispatchFirstSelected(): void {
-    const nextPending = this.studentList.find(s => s.selected && s.parentWhatsAppPhone && !s.dispatched && !s.alreadyRemindedToday);
+    const nextPending = this.studentList.find(s => s.selected && s.parentWhatsAppPhone && !s.dispatched);
     if (nextPending) {
       this.sendSingleFromBulk(nextPending);
     } else {
@@ -1196,7 +1176,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
       if (anySelected) {
         this.sendSingleFromBulk(anySelected);
       } else {
-        this.confirmDialog.alert('All Sent', 'All selected students have either been dispatched or already reminded today.', 'info');
+        this.confirmDialog.alert('All Sent', 'All selected students have either been dispatched or already reminded.', 'info');
       }
     }
   }
