@@ -2907,6 +2907,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const instituteName = this.authService.getInstituteName() || '';
     const title = `Hikvision Biometric & RFID Enrollment Checklist - ${this.categoryTitle} (${list.length})`;
     const dateStr = new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
     const enrolledCount = list.filter(x => x.isThumbEnrolled).length;
@@ -2944,7 +2945,46 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
         <title>${title}</title>
         <style>
           @page { size: A4 portrait; margin: 10mm; }
-          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 8px; color: #0f172a; font-size: 11px; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f1f5f9; color: #0f172a; font-size: 11px; }
+          .no-print-toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-bottom: 1px solid #bfdbfe;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+          }
+          .toolbar-left { display: flex; align-items: center; gap: 12px; }
+          .toolbar-badge {
+            background: #2563eb; color: #ffffff; font-weight: 700; font-size: 12px;
+            padding: 5px 12px; border-radius: 8px; box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);
+          }
+          .toolbar-meta { font-size: 12px; color: #1e3a8a; font-weight: 600; }
+          .toolbar-actions { display: flex; align-items: center; gap: 10px; }
+          .btn-print-now {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: #ffffff; border: none; padding: 8px 18px; border-radius: 999px;
+            font-size: 12.5px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
+            display: inline-flex; align-items: center; gap: 6px;
+          }
+          .btn-print-now:hover { background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%); }
+          .btn-close-tab {
+            background: #ffffff; color: #475569; border: 1px solid #cbd5e1;
+            padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer;
+          }
+          .btn-close-tab:hover { background: #f8fafc; color: #0f172a; }
+          .sheet-container {
+            max-width: 1100px; margin: 18px auto; background: #ffffff;
+            padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+          }
           .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 8px; margin-bottom: 10px; }
           .header h2 { margin: 0 0 4px 0; color: #1e3a8a; font-size: 16px; text-transform: uppercase; }
           .header p { margin: 0; color: #475569; font-size: 11px; }
@@ -2953,38 +2993,55 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
           th { background: #e2e8f0; color: #1e293b; font-weight: 700; padding: 7px 5px; border: 1px solid #cbd5e1; font-size: 10.5px; }
           tr:nth-child(even) { background-color: #f8fafc; }
           .footer { margin-top: 16px; display: flex; justify-content: space-between; font-size: 10.5px; color: #64748b; }
+          @media print {
+            .no-print-toolbar { display: none !important; }
+            body { background: #ffffff !important; padding: 0 !important; }
+            .sheet-container { max-width: 100% !important; margin: 0 !important; padding: 0 !important; border: none !important; box-shadow: none !important; }
+          }
         </style>
       </head>
       <body>
-        <div class="header">
-          <h2>${title}</h2>
-          <p>Generated on ${dateStr} (IST) · Device Model: Hikvision DS-K1A802AEF</p>
+        <div class="no-print-toolbar">
+          <div class="toolbar-left">
+            <span class="toolbar-badge">${instituteName ? instituteName + ' · ' : ''}${this.categoryTitle} (${list.length})</span>
+            <span class="toolbar-meta">Thumb Enrolled [✓]: <strong style="color:#15803d;">${enrolledCount}</strong> &nbsp;|&nbsp; Pending [ ]: <strong>${pendingCount}</strong></span>
+          </div>
+          <div class="toolbar-actions">
+            <button type="button" class="btn-print-now" onclick="window.print()">&#128424; Print Checklist / Save PDF</button>
+            <button type="button" class="btn-close-tab" onclick="window.close()">&#10005; Close</button>
+          </div>
         </div>
-        <div class="instructions">
-          <strong>Staff Enrollment Checklist:</strong> 
-          1. Go to Biometric Machine &gt; Add User &gt; Enter <strong>Biometric Device ID</strong>. 
-          2. Scan student's thumb or tap EM-125kHz RFID card. 
-          3. Tick [✓] for thumb or write down the 10-digit Card Number.
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 30px;">#</th>
-              <th>Full Name</th>
-              <th style="width: 75px;">Roll / Code</th>
-              <th style="width: 125px;">Class / Batch</th>
-              <th style="width: 130px;">Biometric Device ID</th>
-              <th style="width: 60px;">Thumb [✓]</th>
-              <th style="width: 135px;">RFID Card Number</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-        <div class="footer">
-          <span>Total Persons: ${list.length} · Thumb Enrolled [✓]: <strong style="color:#15803d;">${enrolledCount}</strong> · Pending [ ]: <strong>${pendingCount}</strong></span>
-          <span>Verified By (Operator Signature): ______________________________</span>
+        <div class="sheet-container">
+          <div class="header">
+            <h2>${title}</h2>
+            <p>${instituteName ? '<strong>' + instituteName + '</strong> · ' : ''}Generated on ${dateStr} (IST) · Device Model: Hikvision DS-K1A802AEF</p>
+          </div>
+          <div class="instructions">
+            <strong>Staff Enrollment Checklist:</strong> 
+            1. Go to Biometric Machine &gt; Add User &gt; Enter <strong>Biometric Device ID</strong>. 
+            2. Scan student's thumb or tap EM-125kHz RFID card. 
+            3. Tick [✓] for thumb or write down the 10-digit Card Number.
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px;">#</th>
+                <th>Full Name</th>
+                <th style="width: 75px;">Roll / Code</th>
+                <th style="width: 125px;">Class / Batch</th>
+                <th style="width: 130px;">Biometric Device ID</th>
+                <th style="width: 60px;">Thumb [✓]</th>
+                <th style="width: 135px;">RFID Card Number</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <div class="footer">
+            <span>Total Persons: ${list.length} · Thumb Enrolled [✓]: <strong style="color:#15803d;">${enrolledCount}</strong> · Pending [ ]: <strong>${pendingCount}</strong></span>
+            <span>Verified By (Operator Signature): ______________________________</span>
+          </div>
         </div>
         <script>
           window.onload = function() { window.print(); }
