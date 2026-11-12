@@ -151,16 +151,30 @@ public class AiHindiVoiceService : IAiVoiceService
         try
         {
             _logger.LogInformation("🎙️ [AI Voice Engine] Synthesizing speech via Edge Neural TTS v2 for voice: {Voice}", voiceName);
-            var audioBytes = await SynthesizeViaEdgeWebSocketAsync(text, voiceName, outputFormat, cancellationToken);
+            var audioBytes = await SynthesizeViaEdgeWebSocketAsync(text, voiceName, outputFormat, useV2Token: true, cancellationToken);
             if (audioBytes != null && audioBytes.Length > 0)
             {
-                _logger.LogInformation("✅ [AI Voice Engine] Speech synthesis completed. Generated {Size} bytes for {Voice}.", audioBytes.Length, voiceName);
+                _logger.LogInformation("✅ [AI Voice Engine] Speech synthesis completed (v2). Generated {Size} bytes for {Voice}.", audioBytes.Length, voiceName);
                 return audioBytes;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "⚠️ [AI Voice Engine] Edge Neural TTS v2 error for {Voice}. Switching to fallback speech synthesizer...", voiceName);
+            _logger.LogWarning(ex, "⚠️ [AI Voice Engine] Edge Neural TTS v2 error for {Voice}. Retrying with v1 token...", voiceName);
+        }
+
+        try
+        {
+            var audioBytesV1 = await SynthesizeViaEdgeWebSocketAsync(text, voiceName, outputFormat, useV2Token: false, cancellationToken);
+            if (audioBytesV1 != null && audioBytesV1.Length > 0)
+            {
+                _logger.LogInformation("✅ [AI Voice Engine] Speech synthesis completed (v1). Generated {Size} bytes for {Voice}.", audioBytesV1.Length, voiceName);
+                return audioBytesV1;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "⚠️ [AI Voice Engine] Edge Neural TTS v1 error for {Voice}. Switching to fallback speech synthesizer...", voiceName);
         }
 
         // Secondary resilient fallback
@@ -238,10 +252,22 @@ public class AiHindiVoiceService : IAiVoiceService
         return $"{Convert.ToHexString(checksum)}-{Convert.ToHexString(digest)}";
     }
 
+    private static string GenerateSecMsGecV1()
+    {
+        var unixTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var ticks = unixTime + 11644473600L;
+        var rounded = ticks - (ticks % 300L);
+        var windowsTicks = rounded * 10000000L;
+        var ticksAndToken = $"{windowsTicks}{TrustedToken}";
+        byte[] digest = SHA256.HashData(Encoding.ASCII.GetBytes(ticksAndToken));
+        return Convert.ToHexString(digest);
+    }
+
     private async Task<byte[]> SynthesizeViaEdgeWebSocketAsync(
         string text,
         string voiceName,
         string outputFormat,
+        bool useV2Token,
         CancellationToken cancellationToken)
     {
         using var ws = new ClientWebSocket();
@@ -251,8 +277,9 @@ public class AiHindiVoiceService : IAiVoiceService
         ws.Options.SetRequestHeader("Cache-Control", "no-cache");
 
         var connId = Guid.NewGuid().ToString("N");
-        var secMsGec = GenerateSecMsGecV2();
-        var uri = new Uri($"{EdgeWssBase}&ConnectionId={connId}&Sec-MS-GEC={secMsGec}&Sec-MS-GEC-Version=2-143.0.3650.96");
+        var secMsGec = useV2Token ? GenerateSecMsGecV2() : GenerateSecMsGecV1();
+        var gecVersion = useV2Token ? "2-143.0.3650.96" : "1-130.0.2849.68";
+        var uri = new Uri($"{EdgeWssBase}&ConnectionId={connId}&Sec-MS-GEC={secMsGec}&Sec-MS-GEC-Version={gecVersion}");
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(15)); // 15 sec safety timeout

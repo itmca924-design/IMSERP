@@ -257,11 +257,14 @@ export class FeeRecoveryAgentService {
   }
 
   getStudentVoiceUrl(planId: string, gender: string = 'Female'): string {
-    return `${this.baseUrl}/student-voice/${planId}?gender=${gender}`;
+    return `${this.baseUrl}/student-voice/${planId}?gender=${encodeURIComponent(gender)}`;
   }
 
   getStudentVoiceListenUrl(planId: string, gender: string = 'Female'): string {
-    return `${environment.apiUrl}/finance/fee-recovery-agent/listen/${planId}?gender=${gender}`;
+    const base = environment.apiUrl.startsWith('http')
+      ? environment.apiUrl
+      : `${window.location.origin}${environment.apiUrl.startsWith('/') ? '' : '/'}${environment.apiUrl}`;
+    return `${base}/finance/fee-recovery-agent/listen/${planId}?gender=${encodeURIComponent(gender)}`;
   }
 }
 

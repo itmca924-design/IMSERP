@@ -498,7 +498,7 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
   isPlaying = false;
   isLoadingAudio = false;
   isDownloadingAudio = false;
-  includeListenLink = false;
+  includeListenLink = true;
   audioPlayer: HTMLAudioElement | null = null;
 
   constructor(
@@ -585,8 +585,9 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
     this.isDownloadingAudio = true;
     this.cdr.markForCheck();
 
+    const voiceTag = this.selectedGender === 'Male' ? 'Madhur_Male' : 'Swara_Female';
     const url = `${this.agentService.getStudentVoiceUrl(this.data.plan.id, this.selectedGender)}&v=${Date.now()}`;
-    const fileName = `${this.data.plan.studentName || 'student'}_fee_reminder.mp3`;
+    const fileName = `${(this.data.plan.studentName || 'student').replace(/\s+/g, '_')}_${voiceTag}_fee_reminder.mp3`;
 
     fetch(url)
       .then(res => {
@@ -642,12 +643,16 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
 
     const cleanPhone = this.normalizePhone(rawPhone);
     const parentName = this.data.plan.parentName || 'अभिभावक';
-    
+    const voiceLabel = this.selectedGender === 'Male' ? '👨 Madhur (पुरुष आवाज़)' : '👩 Swara (महिला आवाज़)';
+
     let audioLinkBlock = '';
     if (this.includeListenLink) {
       const listenUrl = this.agentService.getStudentVoiceListenUrl(this.data.plan.id, this.selectedGender);
-      audioLinkBlock = `\n🎙️ *AI वॉयस संदेश यहाँ सुनें:*\n${listenUrl}\n`;
+      audioLinkBlock = `\n🎙️ *AI वॉयस संदेश यहाँ सुनें (${voiceLabel}):*\n${listenUrl}\n`;
     }
+
+    // Automatically download the MP3 in the exact selected voice (Male/Female) so user can also drop/attach it into WhatsApp chat
+    this.downloadMp3Audio();
 
     const dueFormatted = this.getFormattedDueDate();
     const rollInfo = this.data.plan.rollNumber ? `, Roll: ${this.data.plan.rollNumber}` : '';
@@ -666,7 +671,7 @@ export class StudentVoiceDialogComponent implements OnInit, OnDestroy {
       studentId: this.data.plan.studentId || this.data.plan.id || '',
       studentName: this.data.plan.studentName,
       recipientPhone: this.data.plan.parentPhone,
-      reminderType: 'Voice',
+      reminderType: `AI Voice (${this.selectedGender})`,
       invoiceId: this.data.plan.id
     }).subscribe({ error: () => {} });
 

@@ -24,6 +24,7 @@ import { SchoolService, SchoolClassDto } from '../../core/services/school.servic
 import { AuthService } from '../../core/services/auth.service';
 import { HostelService } from '../../core/services/hostel.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
+import { ResizableTableDirective } from '../../shared/directives/resizable-table.directive';
 import { UpiPaymentDialogComponent, UpiPaymentDialogData } from './upi-payment-dialog.component';
 import { UpiSettingsDialogComponent } from './upi-settings-dialog.component';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
@@ -72,7 +73,8 @@ export interface UpcomingBillingCycleInfo {
     MatProgressSpinnerModule,
     MatMenuModule,
     MatDividerModule,
-    IstDatetimeDirective
+    IstDatetimeDirective,
+    ResizableTableDirective
   ],
   template: `
     <div class="fees-wrapper">
@@ -417,7 +419,7 @@ export interface UpcomingBillingCycleInfo {
           </div>
           <!-- Data Table -->
           <mat-card-content class="table-container">
-            <table mat-table [dataSource]="invoices" matSort (matSortChange)="onSortChange($event)" class="full-width">
+            <table mat-table appResizableTable [dataSource]="invoices" matSort (matSortChange)="onSortChange($event)" class="full-width">
               <ng-container matColumnDef="select">
                 <th mat-header-cell *matHeaderCellDef class="select-col">
                   <mat-checkbox
@@ -699,7 +701,7 @@ export interface UpcomingBillingCycleInfo {
                   </div>
                 </td>
               </ng-container>
-              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
               <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
               <tr class="mat-row" *matNoDataRow>
                 <td class="mat-cell empty-cell" [attr.colspan]="displayedColumns.length">
@@ -781,7 +783,7 @@ export interface UpcomingBillingCycleInfo {
           </div>
           <!-- UPI Transactions Table -->
           <mat-card-content class="table-container table-responsive">
-            <table mat-table [dataSource]="upiTransactions" class="full-width upi-data-table">
+            <table mat-table appResizableTable [dataSource]="upiTransactions" class="full-width upi-data-table">
               <ng-container matColumnDef="paymentDate">
                 <th mat-header-cell *matHeaderCellDef>Date &amp; Time (IST)</th>
                 <td mat-cell *matCellDef="let txn">
@@ -906,7 +908,7 @@ export interface UpcomingBillingCycleInfo {
                   </div>
                 </td>
               </ng-container>
-              <tr mat-header-row *matHeaderRowDef="upiDisplayedColumns"></tr>
+              <tr mat-header-row *matHeaderRowDef="upiDisplayedColumns; sticky: true"></tr>
               <tr mat-row *matRowDef="let row; columns: upiDisplayedColumns;"></tr>
               <tr class="mat-row" *matNoDataRow>
                 <td class="mat-cell empty-cell" [attr.colspan]="upiDisplayedColumns.length">
@@ -1143,8 +1145,6 @@ export interface UpcomingBillingCycleInfo {
       }
 
       .period-single-line {
-        overflow: hidden;
-        text-overflow: ellipsis;
         white-space: nowrap;
       }
 
@@ -1162,7 +1162,7 @@ export interface UpcomingBillingCycleInfo {
       align-items: center;
       gap: 4px;
       margin-top: 1px;
-      max-width: 270px;
+      max-width: 100%;
 
       .mini-head-chip {
         font-size: 0.68rem;
@@ -1176,7 +1176,7 @@ export interface UpcomingBillingCycleInfo {
         align-items: center;
         gap: 3px;
         white-space: nowrap;
-        max-width: 210px;
+        max-width: 100%;
         box-shadow: 0 1px 2px rgba(0,0,0,0.02);
         cursor: pointer;
         transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
@@ -1184,8 +1184,6 @@ export interface UpcomingBillingCycleInfo {
         .chip-title-part {
           color: #475569;
           font-weight: 600;
-          overflow: hidden;
-          text-overflow: ellipsis;
           white-space: nowrap;
         }
 
@@ -2076,13 +2074,11 @@ export interface UpcomingBillingCycleInfo {
         padding: 2px 7px;
         border-radius: 6px;
         width: fit-content;
-        max-width: 140px;
+        max-width: 100%;
         white-space: nowrap;
         line-height: 1.25;
 
         .academic-val {
-          overflow: hidden;
-          text-overflow: ellipsis;
           white-space: nowrap;
         }
 
@@ -2125,9 +2121,36 @@ export interface UpcomingBillingCycleInfo {
     .grid-loader { margin-top: 4px; }
     .table-container {
       padding: 0;
-      overflow-x: auto;
+      overflow: auto;
       width: 100%;
       position: relative;
+      /* Sticky header: table scrolls inside its own viewport so the header row always stays visible */
+      max-height: calc(100vh - 240px);
+      min-height: 320px;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      /* Hide inner scrollbar completely (mouse wheel / touchpad / touch scroll still works).
+         NOTE: Chrome 121+ ignores ::-webkit-scrollbar when scrollbar-width is set globally,
+         so scrollbar-width: none is required here. */
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+      &::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+      }
+    }
+    .table-container thead th.mat-mdc-header-cell {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 15 !important;
+      box-shadow: inset 0 -2px 0 #cbd5e1, 0 2px 6px -2px rgba(15, 23, 42, 0.12);
+    }
+    @media (max-width: 768px) {
+      .table-container {
+        max-height: calc(100vh - 180px);
+        min-height: 260px;
+      }
     }
     .full-width {
       width: 100%;
@@ -2167,16 +2190,12 @@ export interface UpcomingBillingCycleInfo {
     }
 
     .mat-column-studentName {
-      min-width: 95px;
-      max-width: 135px;
+      min-width: 110px;
       .st-name-text {
         font-weight: 700;
         color: #0f172a;
         font-size: 0.81rem;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 130px;
         display: block;
       }
       .st-roll-text {
@@ -2187,14 +2206,12 @@ export interface UpcomingBillingCycleInfo {
     }
 
     .mat-column-batchName {
-      min-width: 82px;
-      max-width: 125px;
+      min-width: 140px;
     }
 
     .col-billing-head,
     .mat-column-title {
-      min-width: 180px;
-      max-width: 270px;
+      min-width: 210px;
       white-space: normal !important;
     }
 
@@ -2202,17 +2219,16 @@ export interface UpcomingBillingCycleInfo {
     .mat-column-paidAmount,
     .mat-column-dueAmount {
       white-space: nowrap !important;
-      min-width: 66px;
+      min-width: 82px;
       font-size: 0.8rem;
-      padding-left: 4px !important;
-      padding-right: 6px !important;
+      padding-left: 8px !important;
+      padding-right: 14px !important;
     }
 
     .col-due-date,
     .mat-column-dueDate {
       white-space: nowrap !important;
-      min-width: 76px !important;
-      width: 78px;
+      min-width: 88px !important;
 
       .due-date-pill {
         white-space: nowrap !important;
@@ -2225,11 +2241,13 @@ export interface UpcomingBillingCycleInfo {
 
     .mat-column-status {
       white-space: nowrap !important;
-      min-width: 64px !important;
+      min-width: 82px !important;
+      padding-left: 8px !important;
+      padding-right: 12px !important;
       text-align: center;
       .status-badge {
-        padding: 2px 7px;
-        font-size: 0.69rem;
+        padding: 3px 9px;
+        font-size: 0.71rem;
       }
     }
 
@@ -2323,8 +2341,9 @@ export interface UpcomingBillingCycleInfo {
     th.mat-column-actions {
       position: sticky !important;
       right: 0 !important;
-      background: #f8fafc !important;
-      z-index: 11 !important;
+      top: 0 !important;
+      background: #f1f5f9 !important;
+      z-index: 20 !important;
       box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.08) !important;
       text-align: center !important;
 

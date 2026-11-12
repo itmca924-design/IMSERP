@@ -183,6 +183,22 @@ public class FeeRecoveryAgentController : ControllerBase
         string? ContactPhone
     );
 
+    private async Task<decimal> GetStudentConsolidatedDueAsync(Guid studentId, decimal fallbackDue)
+    {
+        if (studentId == Guid.Empty) return fallbackDue;
+
+        var totalDue = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(i => i.StudentId == studentId &&
+                        i.Status != Domain.Enums.InvoiceStatus.Paid &&
+                        i.Status != Domain.Enums.InvoiceStatus.Cancelled &&
+                        (i.TotalAmount - i.PaidAmount) > 0)
+            .SumAsync(i => (decimal?)(i.TotalAmount - i.PaidAmount)) ?? 0m;
+
+        return totalDue > 0 ? totalDue : fallbackDue;
+    }
+
     private async Task<FeeVoiceTargetDetails?> ResolveVoiceTargetAsync(Guid targetId)
     {
         // 1. Check FeeRecoveryPlans by Id, InvoiceId, or StudentId
@@ -204,6 +220,7 @@ public class FeeRecoveryAgentController : ControllerBase
             }
 
             var tenantObj = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == plan.TenantId);
+            var consolidatedDue = await GetStudentConsolidatedDueAsync(plan.StudentId, plan.TotalOverdueAmount);
 
             return new FeeVoiceTargetDetails(
                 TenantId: plan.TenantId,
@@ -211,7 +228,7 @@ public class FeeRecoveryAgentController : ControllerBase
                 StudentName: plan.Student?.StudentName ?? "प्रिय छात्र",
                 ParentName: !string.IsNullOrWhiteSpace(plan.Student?.ParentName) ? plan.Student.ParentName : "अभिभावक",
                 ClassName: !string.IsNullOrWhiteSpace(plan.Invoice?.ClassName) ? plan.Invoice.ClassName : (plan.Student?.Class?.Name ?? "Class"),
-                DueAmount: plan.TotalOverdueAmount,
+                DueAmount: consolidatedDue,
                 DueDate: plan.Invoice?.DueDate ?? DateTime.UtcNow.Date.AddDays(7),
                 ContactPhone: tenantObj?.ContactPhone
             );
@@ -226,6 +243,7 @@ public class FeeRecoveryAgentController : ControllerBase
         if (invoice != null)
         {
             var tenantObj = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == invoice.TenantId);
+            var consolidatedDue = await GetStudentConsolidatedDueAsync(invoice.StudentId, invoice.DueAmount);
 
             return new FeeVoiceTargetDetails(
                 TenantId: invoice.TenantId,
@@ -233,7 +251,7 @@ public class FeeRecoveryAgentController : ControllerBase
                 StudentName: invoice.Student?.StudentName ?? "प्रिय छात्र",
                 ParentName: !string.IsNullOrWhiteSpace(invoice.Student?.ParentName) ? invoice.Student.ParentName : "अभिभावक",
                 ClassName: !string.IsNullOrWhiteSpace(invoice.ClassName) ? invoice.ClassName : (invoice.Student?.Class?.Name ?? "Class"),
-                DueAmount: invoice.DueAmount,
+                DueAmount: consolidatedDue,
                 DueDate: invoice.DueDate,
                 ContactPhone: tenantObj?.ContactPhone
             );
@@ -255,13 +273,15 @@ public class FeeRecoveryAgentController : ControllerBase
                 .OrderByDescending(i => i.DueDate)
                 .FirstOrDefaultAsync();
 
+            var consolidatedDue = await GetStudentConsolidatedDueAsync(student.Id, latestDueInvoice?.DueAmount ?? 0m);
+
             return new FeeVoiceTargetDetails(
                 TenantId: student.TenantId,
                 InstName: tenantObj?.Name ?? "Jnandeep Campus",
                 StudentName: student.StudentName ?? "प्रिय छात्र",
                 ParentName: !string.IsNullOrWhiteSpace(student.ParentName) ? student.ParentName : "अभिभावक",
                 ClassName: !string.IsNullOrWhiteSpace(latestDueInvoice?.ClassName) ? latestDueInvoice.ClassName : (student.Class?.Name ?? "Class"),
-                DueAmount: latestDueInvoice?.DueAmount ?? 0,
+                DueAmount: consolidatedDue,
                 DueDate: latestDueInvoice?.DueDate ?? DateTime.UtcNow.Date.AddDays(7),
                 ContactPhone: tenantObj?.ContactPhone
             );

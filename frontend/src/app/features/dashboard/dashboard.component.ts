@@ -25,6 +25,7 @@ import { EventGalleryDialogComponent } from '../events/event-gallery-dialog.comp
 import { StudentVoiceDialogComponent } from '../finance/dialogs/student-voice-dialog.component';
 import { FeeReminderDispatchDialogComponent } from './dialogs/fee-reminder-dispatch-dialog.component';
 import { AiErpCopilotService, ExecutiveQueryResult } from '../../core/services/ai-erp-copilot.service';
+import { ResizableTableDirective } from '../../shared/directives/resizable-table.directive';
 import { environment } from '../../../environments/environment';
 import ApexCharts from 'apexcharts';
 
@@ -48,7 +49,8 @@ import ApexCharts from 'apexcharts';
     MatTooltipModule,
     MatMenuModule,
     MatDialogModule,
-    RouterModule
+    RouterModule,
+    ResizableTableDirective
   ],
   template: `
     <div class="dashboard-wrapper">
@@ -1516,7 +1518,7 @@ import ApexCharts from 'apexcharts';
 
               <mat-card-content class="fee-table-content">
                 <div class="table-responsive">
-                  <table mat-table [dataSource]="feeRemindersList()" matSort (matSortChange)="onFeeSortChange($event)" class="full-width">
+                  <table mat-table appResizableTable [dataSource]="feeRemindersList()" matSort (matSortChange)="onFeeSortChange($event)" class="full-width">
                     <!-- Student Column with Dynamic Photo & Fallback Initials -->
                     <ng-container matColumnDef="studentName">
                       <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName">Student</th>
@@ -1670,7 +1672,7 @@ import ApexCharts from 'apexcharts';
                 </a>
               </div>
               <mat-card-content>
-                <table mat-table [dataSource]="summary.recentTests" class="full-width recent-tests-table">
+                <table mat-table appResizableTable [dataSource]="summary.recentTests" class="full-width recent-tests-table">
     
                   <ng-container matColumnDef="title">
                     <th mat-header-cell *matHeaderCellDef>Test Title</th>

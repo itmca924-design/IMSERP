@@ -3,6 +3,42 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { AppComponent } from './app/app.component';
 import { appConfig } from './app/app.config';
 
+// ── Auto-Recovery for Stale Dynamic Import Chunks across Deployments ──
+if (typeof window !== 'undefined') {
+  const handleChunkError = (rawMsg: string) => {
+    if (!rawMsg) return;
+    if (
+      rawMsg.includes('Failed to fetch dynamically imported module') ||
+      rawMsg.includes('Loading chunk') ||
+      rawMsg.includes('Failed to load module script')
+    ) {
+      const lockKey = 'imserp_chunk_reload_timestamp';
+      const lastReload = sessionStorage.getItem(lockKey);
+      const now = Date.now();
+      // Debounce reload: allow at most once every 10 seconds to avoid infinite reload loop if truly offline
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem(lockKey, now.toString());
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then((regs) => {
+            regs.forEach((r) => r.update());
+          });
+        }
+        window.location.reload();
+      }
+    }
+  };
+
+  window.addEventListener('error', (event) => {
+    handleChunkError(event.message || '');
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    const msg = (reason && (reason.message || reason.toString())) || '';
+    handleChunkError(msg);
+  });
+}
+
 // ── Global Accessibility Warning Filter ──
 // Suppress benign console warnings without intrusive DOM prototype monkey-patching
 if (typeof window !== 'undefined' && typeof console !== 'undefined') {
