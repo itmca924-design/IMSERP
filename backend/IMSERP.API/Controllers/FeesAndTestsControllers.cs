@@ -83,9 +83,9 @@ public class FeesController : ControllerBase
             query = query.Where(i => i.Status == invoiceStatus);
         }
 
-        if (!string.IsNullOrWhiteSpace(searchTerm))
+        var term = !string.IsNullOrWhiteSpace(searchTerm) ? searchTerm.Trim().ToLower() : null;
+        if (!string.IsNullOrEmpty(term))
         {
-            var term = searchTerm.Trim().ToLower();
             query = query.Where(i =>
                 (i.Student != null && i.Student.StudentName.ToLower().Contains(term)) ||
                 (i.Student != null && i.Student.RollNumber.ToLower().Contains(term)) ||
@@ -96,28 +96,58 @@ public class FeesController : ControllerBase
             );
         }
 
-        // Sorting: latest created invoices and newly admitted students always appear first at the top
-        query = (sortBy?.ToLower()) switch
+        // Sorting: when searching, prioritize Exact Match (Rank 0) -> StartsWith (Rank 1) -> Contains (Rank 2),
+        // and group each student's invoices consecutively together so another student never breaks in between.
+        if (!string.IsNullOrEmpty(term))
         {
-            "studentname" => sortDescending ? query.OrderByDescending(i => i.Student!.StudentName) : query.OrderBy(i => i.Student!.StudentName),
-            "invoicenumber" => sortDescending ? query.OrderByDescending(i => i.InvoiceNumber) : query.OrderBy(i => i.InvoiceNumber),
-            "totalamount" => sortDescending ? query.OrderByDescending(i => i.TotalAmount) : query.OrderBy(i => i.TotalAmount),
-            "dueamount" => sortDescending ? query.OrderByDescending(i => i.TotalAmount - i.PaidAmount) : query.OrderBy(i => i.TotalAmount - i.PaidAmount),
-            "status" => sortDescending ? query.OrderByDescending(i => i.Status) : query.OrderBy(i => i.Status),
-            "duedate" => sortDescending
-                ? query.OrderByDescending(i => i.DueDate)
-                       .ThenByDescending(i => i.CreatedAt)
-                       .ThenByDescending(i => i.Student!.JoiningDate)
-                       .ThenByDescending(i => i.Student!.RollNumber)
-                : query.OrderBy(i => i.DueDate)
-                       .ThenBy(i => i.CreatedAt),
-            _ => sortDescending
-                ? query.OrderByDescending(i => i.CreatedAt)
-                       .ThenByDescending(i => i.Student!.JoiningDate)
-                       .ThenByDescending(i => i.Student!.RollNumber)
-                : query.OrderBy(i => i.CreatedAt)
-                       .ThenBy(i => i.Student!.JoiningDate)
-        };
+            var rankedQuery = query
+                .OrderBy(i =>
+                    (i.Student != null && (i.Student.StudentName.ToLower() == term || i.Student.RollNumber.ToLower() == term)) || i.InvoiceNumber.ToLower() == term
+                        ? 0
+                        : (i.Student != null && i.Student.StudentName.ToLower().StartsWith(term) ? 1 : 2))
+                .ThenBy(i => i.Student != null ? i.Student.StudentName.Length : 999)
+                .ThenBy(i => i.Student != null ? i.Student.StudentName : "")
+                .ThenBy(i => i.StudentId);
+
+            query = (sortBy?.ToLower()) switch
+            {
+                "studentname" => sortDescending ? rankedQuery.ThenByDescending(i => i.DueDate).ThenByDescending(i => i.CreatedAt) : rankedQuery.ThenBy(i => i.DueDate).ThenBy(i => i.CreatedAt),
+                "invoicenumber" => sortDescending ? rankedQuery.ThenByDescending(i => i.InvoiceNumber) : rankedQuery.ThenBy(i => i.InvoiceNumber),
+                "totalamount" => sortDescending ? rankedQuery.ThenByDescending(i => i.TotalAmount) : rankedQuery.ThenBy(i => i.TotalAmount),
+                "dueamount" => sortDescending ? rankedQuery.ThenByDescending(i => i.TotalAmount - i.PaidAmount) : rankedQuery.ThenBy(i => i.TotalAmount - i.PaidAmount),
+                "status" => sortDescending ? rankedQuery.ThenByDescending(i => i.Status) : rankedQuery.ThenBy(i => i.Status),
+                "duedate" => sortDescending
+                    ? rankedQuery.ThenByDescending(i => i.DueDate).ThenByDescending(i => i.CreatedAt)
+                    : rankedQuery.ThenBy(i => i.DueDate).ThenBy(i => i.CreatedAt),
+                _ => sortDescending
+                    ? rankedQuery.ThenByDescending(i => i.DueDate).ThenByDescending(i => i.CreatedAt)
+                    : rankedQuery.ThenBy(i => i.DueDate).ThenBy(i => i.CreatedAt)
+            };
+        }
+        else
+        {
+            query = (sortBy?.ToLower()) switch
+            {
+                "studentname" => sortDescending ? query.OrderByDescending(i => i.Student!.StudentName) : query.OrderBy(i => i.Student!.StudentName),
+                "invoicenumber" => sortDescending ? query.OrderByDescending(i => i.InvoiceNumber) : query.OrderBy(i => i.InvoiceNumber),
+                "totalamount" => sortDescending ? query.OrderByDescending(i => i.TotalAmount) : query.OrderBy(i => i.TotalAmount),
+                "dueamount" => sortDescending ? query.OrderByDescending(i => i.TotalAmount - i.PaidAmount) : query.OrderBy(i => i.TotalAmount - i.PaidAmount),
+                "status" => sortDescending ? query.OrderByDescending(i => i.Status) : query.OrderBy(i => i.Status),
+                "duedate" => sortDescending
+                    ? query.OrderByDescending(i => i.DueDate)
+                           .ThenByDescending(i => i.CreatedAt)
+                           .ThenByDescending(i => i.Student!.JoiningDate)
+                           .ThenByDescending(i => i.Student!.RollNumber)
+                    : query.OrderBy(i => i.DueDate)
+                           .ThenBy(i => i.CreatedAt),
+                _ => sortDescending
+                    ? query.OrderByDescending(i => i.CreatedAt)
+                           .ThenByDescending(i => i.Student!.JoiningDate)
+                           .ThenByDescending(i => i.Student!.RollNumber)
+                    : query.OrderBy(i => i.CreatedAt)
+                           .ThenBy(i => i.Student!.JoiningDate)
+            };
+        }
 
         var totalCount = await query.CountAsync();
         var items = await query

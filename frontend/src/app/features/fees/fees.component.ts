@@ -367,6 +367,7 @@ export interface UpcomingBillingCycleInfo {
               <input
                 matInput
                 [(ngModel)]="searchTerm"
+                (input)="onSearchInput()"
                 (keyup.enter)="onSearch()"
                 placeholder="e.g. Mantosh, INV-2026, 95405..."
                 />
@@ -3636,7 +3637,22 @@ export class FeesComponent implements OnInit, OnDestroy {
       });
   }
 
+  private searchDebounceTimer: any;
+
+  onSearchInput(): void {
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+    }
+    this.searchDebounceTimer = setTimeout(() => {
+      this.onSearch();
+    }, 300);
+  }
+
   onSearch(): void {
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = null;
+    }
     this.pageIndex = 0;
     this.loadInvoices();
   }

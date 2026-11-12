@@ -56,7 +56,7 @@ public class DashboardController : ControllerBase
         var totalTestsConducted = await testsQuery.CountAsync();
         var whatsAppSent = await whatsAppQuery.CountAsync();
 
-        var overdueInvoices = await feeInvoicesQuery
+        var rawOverdueInvoices = await feeInvoicesQuery
             .AsNoTracking()
             .Include(i => i.Student)
                 .ThenInclude(s => s.Class)
@@ -71,34 +71,66 @@ public class DashboardController : ControllerBase
                         i.Status != InvoiceStatus.Cancelled &&
                         (i.TotalAmount - i.PaidAmount) > 0 &&
                         (i.Status == InvoiceStatus.Overdue || i.DueDate <= DateTime.UtcNow || i.Status == InvoiceStatus.Pending || i.Status == InvoiceStatus.Partial))
-            .OrderByDescending(i => i.CreatedAt)
-            .ThenBy(i => i.DueDate)
+            .ToListAsync();
+
+        var overdueInvoices = rawOverdueInvoices
+            .GroupBy(i => i.StudentId)
+            .Select(g =>
+            {
+                var rep = g.OrderByDescending(x => x.DueDate).ThenByDescending(x => x.CreatedAt).First();
+                var totalAmt = g.Sum(x => x.TotalAmount);
+                var paidAmt = g.Sum(x => x.PaidAmount);
+                var dueAmt = g.Sum(x => x.TotalAmount - x.PaidAmount);
+                var latestCreated = g.Max(x => x.CreatedAt);
+                var latestDue = g.Max(x => x.DueDate);
+                var invCount = g.Count();
+                var statusStr = paidAmt > 0
+                    ? InvoiceStatus.Partial.ToString()
+                    : (g.Any(x => x.Status == InvoiceStatus.Overdue || x.DueDate <= DateTime.UtcNow) ? InvoiceStatus.Overdue.ToString() : InvoiceStatus.Pending.ToString());
+
+                string className = !string.IsNullOrEmpty(rep.ClassName)
+                    ? (!string.IsNullOrEmpty(rep.SectionName) ? $"{rep.ClassName} ({rep.SectionName})" : rep.ClassName)
+                    : (rep.Student != null && rep.Student.Class != null
+                        ? (rep.Student.Section != null ? $"{rep.Student.Class.Name} ({rep.Student.Section.Name})" : rep.Student.Class.Name)
+                        : (rep.Student != null && rep.Student.Batch != null ? rep.Student.Batch.Name : "General"));
+
+                bool isSchool = rep.Student != null && rep.Student.IsSchoolStudent;
+                bool isCoaching = rep.Student != null && rep.Student.IsCoachingStudent;
+                string scopeTag = (isSchool && isCoaching) ? "School + Coaching" : (isCoaching ? "Coaching" : "School");
+
+                return new
+                {
+                    LatestCreated = latestCreated,
+                    LatestDue = latestDue,
+                    Dto = new FeeInvoiceDto(
+                        rep.Id,
+                        rep.StudentId,
+                        rep.Student != null ? rep.Student.StudentName : "",
+                        rep.Student != null ? rep.Student.RollNumber : "",
+                        rep.Student != null ? rep.Student.ParentWhatsAppPhone : "",
+                        invCount > 1 ? $"{rep.InvoiceNumber} (+{invCount - 1})" : rep.InvoiceNumber,
+                        invCount > 1 ? $"{invCount} Pending Invoices Consolidated" : rep.Title,
+                        totalAmt,
+                        paidAmt,
+                        dueAmt,
+                        latestDue,
+                        statusStr,
+                        className,
+                        rep.Student != null ? rep.Student.ProfilePhoto : null,
+                        false,
+                        null,
+                        null,
+                        isSchool,
+                        isCoaching,
+                        scopeTag
+                    )
+                };
+            })
+            .OrderByDescending(x => x.LatestCreated)
+            .ThenBy(x => x.LatestDue)
             .Take(10)
-            .Select(i => new FeeInvoiceDto(
-                i.Id,
-                i.StudentId,
-                i.Student != null ? i.Student.StudentName : "",
-                i.Student != null ? i.Student.RollNumber : "",
-                i.Student != null ? i.Student.ParentWhatsAppPhone : "",
-                i.InvoiceNumber,
-                i.Title,
-                i.TotalAmount,
-                i.PaidAmount,
-                i.TotalAmount - i.PaidAmount,
-                i.DueDate,
-                i.Status.ToString(),
-                !string.IsNullOrEmpty(i.ClassName) ? (!string.IsNullOrEmpty(i.SectionName) ? $"{i.ClassName} ({i.SectionName})" : i.ClassName) :
-                (i.Student != null && i.Student.Class != null ? (i.Student.Section != null ? $"{i.Student.Class.Name} ({i.Student.Section.Name})" : i.Student.Class.Name) :
-                (i.Student != null && i.Student.Batch != null ? i.Student.Batch.Name : "General")),
-                i.Student != null ? i.Student.ProfilePhoto : null,
-                false,
-                null,
-                null,
-                i.Student != null && i.Student.IsSchoolStudent,
-                i.Student != null && i.Student.IsCoachingStudent,
-                (i.Student != null && i.Student.IsSchoolStudent && i.Student.IsCoachingStudent) ? "School + Coaching" :
-                (i.Student != null && i.Student.IsCoachingStudent) ? "Coaching" : "School"
-            )).ToListAsync();
+            .Select(x => x.Dto)
+            .ToList();
 
         var recentTests = await testsQuery
             .Include(t => t.Batch)
@@ -284,35 +316,19 @@ public class DashboardController : ControllerBase
         }
 
         // Search filtering (student name, roll no, invoice no, phone, class)
-        if (!string.IsNullOrWhiteSpace(search))
+        var searchTermNorm = !string.IsNullOrWhiteSpace(search) ? search.Trim().ToLower() : null;
+        if (!string.IsNullOrEmpty(searchTermNorm))
         {
-            var term = search.Trim().ToLower();
-            query = query.Where(i => (i.Student.StudentName != null && i.Student.StudentName.ToLower().Contains(term)) ||
-                                     (i.Student.RollNumber != null && i.Student.RollNumber.ToLower().Contains(term)) ||
-                                     (i.InvoiceNumber != null && i.InvoiceNumber.ToLower().Contains(term)) ||
-                                     (i.Student.ParentWhatsAppPhone != null && i.Student.ParentWhatsAppPhone.Contains(term)) ||
-                                     (i.ClassName != null && i.ClassName.ToLower().Contains(term)) ||
-                                     (i.Student.Class != null && i.Student.Class.Name.ToLower().Contains(term)) ||
-                                     (i.Student.Batch != null && i.Student.Batch.Name.ToLower().Contains(term)));
+            query = query.Where(i => (i.Student.StudentName != null && i.Student.StudentName.ToLower().Contains(searchTermNorm)) ||
+                                     (i.Student.RollNumber != null && i.Student.RollNumber.ToLower().Contains(searchTermNorm)) ||
+                                     (i.InvoiceNumber != null && i.InvoiceNumber.ToLower().Contains(searchTermNorm)) ||
+                                     (i.Student.ParentWhatsAppPhone != null && i.Student.ParentWhatsAppPhone.Contains(searchTermNorm)) ||
+                                     (i.ClassName != null && i.ClassName.ToLower().Contains(searchTermNorm)) ||
+                                     (i.Student.Class != null && i.Student.Class.Name.ToLower().Contains(searchTermNorm)) ||
+                                     (i.Student.Batch != null && i.Student.Batch.Name.ToLower().Contains(searchTermNorm)));
         }
 
-        // Sorting
-        bool isAsc = string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase);
-        query = (sortField?.ToLower()) switch
-        {
-            "studentname" => isAsc ? query.OrderBy(i => i.Student.StudentName) : query.OrderByDescending(i => i.Student.StudentName),
-            "classname" => isAsc ? query.OrderBy(i => i.ClassName ?? (i.Student.Class != null ? i.Student.Class.Name : "")) : query.OrderByDescending(i => i.ClassName ?? (i.Student.Class != null ? i.Student.Class.Name : "")),
-            "dueamount" => isAsc ? query.OrderBy(i => i.TotalAmount - i.PaidAmount) : query.OrderByDescending(i => i.TotalAmount - i.PaidAmount),
-            "duedate" => isAsc ? query.OrderBy(i => i.DueDate) : query.OrderByDescending(i => i.DueDate),
-            _ => isAsc ? query.OrderBy(i => i.CreatedAt) : query.OrderByDescending(i => i.CreatedAt)
-        };
-
-        var totalCount = await query.CountAsync();
-
-        var pagedInvoices = await query
-            .Skip(pageIndex * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        var matchingInvoices = await query.ToListAsync();
 
         // Check deduplication logs for today in IST - Student-Specific (Handles Siblings sharing parent phone)
         var todayStartUtc = GetTodayStartUtcInIst();
@@ -334,53 +350,113 @@ public class DashboardController : ControllerBase
                      .Select(l => l.StudentName.Trim().ToLower())
         );
 
-        var items = pagedInvoices.Select(i =>
+        // Consolidate per StudentId so each student shows a single row with accurate total dues (including Partial + Pending) matching Student Ledger
+        var groupedStudents = matchingInvoices
+            .GroupBy(i => i.StudentId)
+            .Select(g =>
+            {
+                var rep = g.OrderByDescending(x => x.DueDate).ThenByDescending(x => x.CreatedAt).First();
+                var totalAmt = g.Sum(x => x.TotalAmount);
+                var paidAmt = g.Sum(x => x.PaidAmount);
+                var dueAmt = g.Sum(x => x.TotalAmount - x.PaidAmount);
+                var latestCreatedAt = g.Max(x => x.CreatedAt);
+                var latestDueDate = g.Max(x => x.DueDate);
+                var invCount = g.Count();
+
+                var phoneNorm = NormalizePhone(rep.Student?.ParentWhatsAppPhone);
+                var nameNorm = rep.Student?.StudentName?.Trim().ToLower() ?? "";
+                string compositeKey = $"{phoneNorm}::{nameNorm}";
+
+                bool alreadyReminded = !string.IsNullOrEmpty(nameNorm) &&
+                                       (remindedComposite.Contains(compositeKey) || remindedStudentNames.Contains(nameNorm));
+
+                var logMatch = alreadyReminded
+                    ? todayLogs.FirstOrDefault(l => l.StudentName.Trim().ToLower() == nameNorm)
+                    : null;
+
+                string className = !string.IsNullOrEmpty(rep.ClassName)
+                    ? (!string.IsNullOrEmpty(rep.SectionName) ? $"{rep.ClassName} ({rep.SectionName})" : rep.ClassName)
+                    : (rep.Student != null && rep.Student.Class != null
+                        ? (rep.Student.Section != null ? $"{rep.Student.Class.Name} ({rep.Student.Section.Name})" : rep.Student.Class.Name)
+                        : (rep.Student != null && rep.Student.Batch != null ? rep.Student.Batch.Name : "General"));
+
+                bool isSchool = rep.Student?.IsSchoolStudent ?? false;
+                bool isCoaching = rep.Student?.IsCoachingStudent ?? false;
+                string scopeTag = (isSchool && isCoaching) ? "School + Coaching" : (isCoaching ? "Coaching" : "School");
+
+                var statusStr = paidAmt > 0
+                    ? InvoiceStatus.Partial.ToString()
+                    : (g.Any(x => x.Status == InvoiceStatus.Overdue || x.DueDate <= DateTime.UtcNow) ? InvoiceStatus.Overdue.ToString() : InvoiceStatus.Pending.ToString());
+
+                int searchRank = 0;
+                if (!string.IsNullOrEmpty(searchTermNorm))
+                {
+                    var rollNorm = rep.Student?.RollNumber?.Trim().ToLower() ?? "";
+                    if (nameNorm == searchTermNorm || rollNorm == searchTermNorm || g.Any(x => x.InvoiceNumber != null && x.InvoiceNumber.Trim().ToLower() == searchTermNorm))
+                        searchRank = 0;
+                    else if (nameNorm.StartsWith(searchTermNorm))
+                        searchRank = 1;
+                    else
+                        searchRank = 2;
+                }
+
+                return new
+                {
+                    SearchRank = searchRank,
+                    NameLength = nameNorm.Length,
+                    StudentName = rep.Student?.StudentName ?? "",
+                    ClassName = className,
+                    DueAmount = dueAmt,
+                    DueDate = latestDueDate,
+                    CreatedAt = latestCreatedAt,
+                    Dto = new FeeInvoiceDto(
+                        rep.Id,
+                        rep.StudentId,
+                        rep.Student?.StudentName ?? "",
+                        rep.Student?.RollNumber ?? "",
+                        rep.Student?.ParentWhatsAppPhone ?? "",
+                        invCount > 1 ? $"{rep.InvoiceNumber} (+{invCount - 1})" : rep.InvoiceNumber,
+                        invCount > 1 ? $"{invCount} Pending Invoices Consolidated" : rep.Title,
+                        totalAmt,
+                        paidAmt,
+                        dueAmt,
+                        latestDueDate,
+                        statusStr,
+                        className,
+                        rep.Student?.ProfilePhoto,
+                        alreadyReminded,
+                        logMatch != null ? DateTime.SpecifyKind(logMatch.SentAt, DateTimeKind.Utc) : null,
+                        logMatch?.Content?.Contains("AI Voice") == true ? "Voice" : "WhatsApp",
+                        isSchool,
+                        isCoaching,
+                        scopeTag
+                    )
+                };
+            });
+
+        // Sorting with Search Relevance Priority (Exact match first, StartsWith second, Contains last)
+        bool isAsc = string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase);
+        var orderedStudents = !string.IsNullOrEmpty(searchTermNorm)
+            ? groupedStudents.OrderBy(x => x.SearchRank).ThenBy(x => x.NameLength)
+            : groupedStudents.OrderBy(x => 0);
+
+        orderedStudents = (sortField?.ToLower()) switch
         {
-            var phoneNorm = NormalizePhone(i.Student?.ParentWhatsAppPhone);
-            var nameNorm = i.Student?.StudentName?.Trim().ToLower() ?? "";
-            string compositeKey = $"{phoneNorm}::{nameNorm}";
+            "studentname" => isAsc ? orderedStudents.ThenBy(x => x.StudentName) : orderedStudents.ThenByDescending(x => x.StudentName),
+            "classname" => isAsc ? orderedStudents.ThenBy(x => x.ClassName) : orderedStudents.ThenByDescending(x => x.ClassName),
+            "dueamount" => isAsc ? orderedStudents.ThenBy(x => x.DueAmount) : orderedStudents.ThenByDescending(x => x.DueAmount),
+            "duedate" => isAsc ? orderedStudents.ThenBy(x => x.DueDate) : orderedStudents.ThenByDescending(x => x.DueDate),
+            _ => isAsc ? orderedStudents.ThenBy(x => x.CreatedAt) : orderedStudents.ThenByDescending(x => x.CreatedAt)
+        };
 
-            // Student-specific deduplication: Must match the student specifically so siblings with the same parent phone are never locked out
-            bool alreadyReminded = !string.IsNullOrEmpty(nameNorm) &&
-                                   (remindedComposite.Contains(compositeKey) || remindedStudentNames.Contains(nameNorm));
+        var finalList = orderedStudents.ToList();
+        var totalCount = finalList.Count;
 
-            var logMatch = alreadyReminded
-                ? todayLogs.FirstOrDefault(l => l.StudentName.Trim().ToLower() == nameNorm)
-                : null;
-
-            string className = !string.IsNullOrEmpty(i.ClassName)
-                ? (!string.IsNullOrEmpty(i.SectionName) ? $"{i.ClassName} ({i.SectionName})" : i.ClassName)
-                : (i.Student != null && i.Student.Class != null
-                    ? (i.Student.Section != null ? $"{i.Student.Class.Name} ({i.Student.Section.Name})" : i.Student.Class.Name)
-                    : (i.Student != null && i.Student.Batch != null ? i.Student.Batch.Name : "General"));
-
-            bool isSchool = i.Student?.IsSchoolStudent ?? false;
-            bool isCoaching = i.Student?.IsCoachingStudent ?? false;
-            string scopeTag = (isSchool && isCoaching) ? "School + Coaching" : (isCoaching ? "Coaching" : "School");
-
-            return new FeeInvoiceDto(
-                i.Id,
-                i.StudentId,
-                i.Student?.StudentName ?? "",
-                i.Student?.RollNumber ?? "",
-                i.Student?.ParentWhatsAppPhone ?? "",
-                i.InvoiceNumber,
-                i.Title,
-                i.TotalAmount,
-                i.PaidAmount,
-                i.TotalAmount - i.PaidAmount,
-                i.DueDate,
-                i.Status.ToString(),
-                className,
-                i.Student?.ProfilePhoto,
-                alreadyReminded,
-                logMatch != null ? DateTime.SpecifyKind(logMatch.SentAt, DateTimeKind.Utc) : null,
-                logMatch?.Content?.Contains("AI Voice") == true ? "Voice" : "WhatsApp",
-                isSchool,
-                isCoaching,
-                scopeTag
-            );
-        }).ToList();
+        var items = finalList
+            .Skip(pageIndex * pageSize)
+            .Take(pageSize)
+            .Select(x => x.Dto)
+            .ToList();
 
         return Ok(new PagedResultDto<FeeInvoiceDto>(items, totalCount, pageIndex + 1, pageSize));
     }
