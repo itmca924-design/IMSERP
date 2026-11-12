@@ -2031,7 +2031,9 @@ public record BiometricMappingPagedResultDto(
     int TotalPages,
     int CoachingCount,
     int SchoolCount,
-    int TeacherCount
+    int TeacherCount,
+    int HybridCount = 0,
+    int AllStudentCount = 0
 );
 
 public record BulkAttendanceEntryItem(

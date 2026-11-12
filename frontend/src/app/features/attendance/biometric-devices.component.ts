@@ -53,6 +53,8 @@ interface BiometricMappingPagedResult {
   coachingCount: number;
   schoolCount: number;
   teacherCount: number;
+  hybridCount?: number;
+  allStudentCount?: number;
 }
 
 @Component({
@@ -163,76 +165,90 @@ interface BiometricMappingPagedResult {
       <button (click)="loadPagedMappings()" matButton="filled"><mat-icon>refresh</mat-icon> Refresh People</button>
     </div>
 
-    <!-- 3 Clear Category Tabs: Coaching, School, Teacher -->
+    <!-- 5 User-Friendly KPI Category Cards: All Students, School Only, Coaching Only, School + Coaching, Teachers -->
     <div class="category-tabs-container">
       <div class="category-pills">
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Coaching'" (click)="setCategory('Coaching')">
-          <mat-icon class="pill-icon">menu_book</mat-icon>
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'AllStudents'" (click)="setCategory('AllStudents')">
+          <mat-icon class="pill-icon">groups</mat-icon>
           <div class="pill-info">
-            <span class="pill-title">Coaching Students</span>
-            <small class="pill-sub">Batch-wise Enrollment &amp; Punch</small>
+            <span class="pill-title">All Students</span>
+            <small class="pill-sub">School + Coaching Total</small>
           </div>
-          @if (coachingCount > 0) {
-            <span class="count-badge">{{ coachingCount }}</span>
-          }
+          <span class="count-badge">{{ allStudentCount }}</span>
         </button>
 
         <button type="button" class="pill-btn" [class.active]="activeCategory === 'School'" (click)="setCategory('School')">
+          <mat-icon class="pill-icon">domain</mat-icon>
+          <div class="pill-info">
+            <span class="pill-title">School Only</span>
+            <small class="pill-sub">Class &amp; Section Division</small>
+          </div>
+          <span class="count-badge">{{ schoolCount }}</span>
+        </button>
+
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Coaching'" (click)="setCategory('Coaching')">
           <mat-icon class="pill-icon">school</mat-icon>
           <div class="pill-info">
-            <span class="pill-title">School Students</span>
-            <small class="pill-sub">Class &amp; Section-wise Enrollment</small>
+            <span class="pill-title">Coaching Only</span>
+            <small class="pill-sub">Batch-wise Enrollment</small>
           </div>
-          @if (schoolCount > 0) {
-            <span class="count-badge">{{ schoolCount }}</span>
-          }
+          <span class="count-badge">{{ coachingCount }}</span>
+        </button>
+
+        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Hybrid'" (click)="setCategory('Hybrid')">
+          <mat-icon class="pill-icon">verified</mat-icon>
+          <div class="pill-info">
+            <span class="pill-title">School + Coaching</span>
+            <small class="pill-sub">Dual Enrolled (Hybrid)</small>
+          </div>
+          <span class="count-badge">{{ hybridCount }}</span>
         </button>
 
         <button type="button" class="pill-btn" [class.active]="activeCategory === 'Teacher'" (click)="setCategory('Teacher')">
           <mat-icon class="pill-icon">badge</mat-icon>
           <div class="pill-info">
             <span class="pill-title">Teachers &amp; Faculty</span>
-            <small class="pill-sub">Staff Fingerprint &amp; RFID Cards</small>
+            <small class="pill-sub">Staff Fingerprint &amp; RFID</small>
           </div>
-          @if (teacherCount > 0) {
-            <span class="count-badge">{{ teacherCount }}</span>
-          }
+          <span class="count-badge">{{ teacherCount }}</span>
         </button>
       </div>
     </div>
 
     <!-- Clean Filter Bar (Batch / Class / Section) -->
     <div class="filter-deck">
-      <!-- Coaching Batch Filter -->
-      @if (activeCategory === 'Coaching') {
+      <!-- School Class & Section Filters (Shown for School Only, School + Coaching, All Students) -->
+      @if (activeCategory === 'School' || activeCategory === 'Hybrid' || activeCategory === 'AllStudents') {
         <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>Coaching Batch</mat-label>
-          <mat-select [(ngModel)]="mapping.batchName" (selectionChange)="onFilterChange()">
-            <mat-option value="">All Coaching Batches ({{ coachingCount }})</mat-option>
-            @for (batch of batchNames; track batch) {
-              <mat-option [value]="batch">{{ batch }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-      }
-
-      <!-- School Class & Section Filters -->
-      @if (activeCategory === 'School') {
-        <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>School Class</mat-label>
+          <mat-label>Academic Class</mat-label>
           <mat-select [(ngModel)]="mapping.className" (selectionChange)="onClassChange()">
-            <mat-option value="">All Classes ({{ schoolCount }})</mat-option>
+            <mat-option value="">All Classes ({{ activeCategory === 'School' ? schoolCount : (activeCategory === 'Hybrid' ? hybridCount : allStudentCount) }})</mat-option>
             @for (cls of classNames; track cls) {
               <mat-option [value]="cls">{{ cls }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
+      }
+      @if (activeCategory === 'School') {
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Section</mat-label>
           <mat-select [(ngModel)]="mapping.sectionName" (selectionChange)="onFilterChange()">
             <mat-option value="">All Sections</mat-option>
             @for (sec of sectionNames; track sec) {
               <mat-option [value]="sec">{{ sec }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+
+      <!-- Coaching Batch Filter (Shown for Coaching Only, School + Coaching, All Students) -->
+      @if (activeCategory === 'Coaching' || activeCategory === 'Hybrid' || activeCategory === 'AllStudents') {
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Coaching Batch</mat-label>
+          <mat-select [(ngModel)]="mapping.batchName" (selectionChange)="onFilterChange()">
+            <mat-option value="">All Coaching Batches ({{ activeCategory === 'Coaching' ? coachingCount : (activeCategory === 'Hybrid' ? hybridCount : allStudentCount) }})</mat-option>
+            @for (batch of batchNames; track batch) {
+              <mat-option [value]="batch">{{ batch }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -304,7 +320,7 @@ interface BiometricMappingPagedResult {
       <div class="toolbar-info">
         <h3>
           <mat-icon class="dir-icon">contacts</mat-icon>
-          {{ activeCategory }} Enrollment Directory ({{ totalRecords }})
+          {{ categoryTitle }} Enrollment Directory ({{ totalRecords }})
         </h3>
         <p matTooltip="Pre-calculated unique biometric device IDs for Hikvision DS-K1A802AEF enrollment and 125kHz RFID card assignment." matTooltipPosition="below">
           Pre-calculated unique biometric device IDs for Hikvision DS-K1A802AEF enrollment and 125kHz RFID card assignment.
@@ -348,10 +364,10 @@ interface BiometricMappingPagedResult {
             <th class="col-sno">#</th>
             <th class="col-name" mat-sort-header="name">Name</th>
             <th class="col-code" mat-sort-header="code">
-              {{ activeCategory === 'Teacher' ? 'Emp Code' : (activeCategory === 'Coaching' ? 'Coaching Roll' : 'Roll No') }}
+              {{ activeCategory === 'Teacher' ? 'Emp Code' : (activeCategory === 'Coaching' ? 'Coaching Roll' : 'Roll / Adm No') }}
             </th>
             <th class="col-group" mat-sort-header="group">
-              {{ activeCategory === 'Teacher' ? 'Staff' : (activeCategory === 'Coaching' ? 'Coaching Batch' : 'Class & Section') }}
+              {{ activeCategory === 'Teacher' ? 'Staff' : 'Stream & Class / Batch' }}
             </th>
             <th class="col-device-id" mat-sort-header="biometricId">Biometric Device ID</th>
             <th class="col-thumb">Thumb [✓]</th>
@@ -424,45 +440,29 @@ interface BiometricMappingPagedResult {
               <td class="col-code"><span class="badge-code">{{ p.code || '—' }}</span></td>
               <td class="col-group">
                 <div class="group-badge-container">
-                  @if (activeCategory === 'School') {
-                    <div class="badge-primary-row">
-                      @if (p.className) {
-                        <span class="group-badge school" [matTooltip]="p.className + (p.sectionName ? ' - ' + p.sectionName : '')">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
-                      }
-                      @if (isHybrid(p) && !p.batchName) {
-                        <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
-                      }
-                    </div>
-                    @if (p.batchName || (isHybrid(p) && p.batchName)) {
-                      <div class="badge-secondary-row">
-                        @if (p.batchName) {
-                          <span class="group-badge batch secondary-badge" [matTooltip]="p.batchName">📚 {{ p.batchName }}</span>
-                        }
-                        @if (isHybrid(p)) {
-                          <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
-                        }
-                      </div>
-                    }
-                  } @else if (activeCategory === 'Coaching') {
-                    <div class="badge-primary-row">
-                      @if (p.batchName) {
-                        <span class="group-badge batch" [matTooltip]="p.batchName">📚 {{ p.batchName }}</span>
-                      }
-                    </div>
-                    @if (p.className || isHybrid(p)) {
-                      <div class="badge-secondary-row">
-                        @if (p.className) {
-                          <span class="group-badge school secondary-badge" [matTooltip]="p.className + (p.sectionName ? ' - ' + p.sectionName : '')">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
-                        }
-                        @if (isHybrid(p)) {
-                          <span class="hybrid-badge" matTooltip="Hybrid Student (School + Coaching)">⚡ Hybrid</span>
-                        }
-                      </div>
-                    }
+                  @if (p.personType === 'Teacher') {
+                    <span class="group-badge teacher">👨‍🏫 Faculty</span>
                   } @else {
-                    @if (p.personType === 'Teacher') {
-                      <span class="group-badge teacher">👨‍🏫 Faculty</span>
-                    }
+                    <div class="badge-primary-row">
+                      @if (p.stream === 'Both') {
+                        <span class="stream-pill dual-pill" matTooltip="Enrolled in both School & Coaching">✅ School + Coaching</span>
+                      } @else if (p.stream === 'School') {
+                        <span class="stream-pill school-pill" matTooltip="Enrolled in School Division Only">🏫 School Only</span>
+                      } @else {
+                        <span class="stream-pill coaching-pill" matTooltip="Enrolled in Coaching Division Only">🎓 Coaching Only</span>
+                      }
+                    </div>
+                    <div class="badge-secondary-row">
+                      @if ((p.stream === 'School' || p.stream === 'Both') && p.className) {
+                        <span class="group-badge school secondary-badge" [matTooltip]="p.className + (p.sectionName ? ' - ' + p.sectionName : '')">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
+                      }
+                      @if (p.batchName) {
+                        <span class="group-badge batch secondary-badge" [matTooltip]="p.batchName">📚 {{ p.batchName }}</span>
+                      }
+                      @if (p.stream === 'Coaching' && p.className) {
+                        <span class="group-badge school secondary-badge" [matTooltip]="'Academic Class: ' + p.className">{{ p.className }}</span>
+                      }
+                    </div>
                   }
                 </div>
               </td>
@@ -951,14 +951,24 @@ interface BiometricMappingPagedResult {
 }
 .category-pills {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 1400px) {
+  .category-pills {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .category-pills {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .pill-btn {
   display: flex !important;
   align-items: center !important;
-  gap: 14px !important;
-  padding: 14px 18px !important;
+  gap: 10px !important;
+  padding: 12px 14px !important;
   background: #ffffff !important;
   border: 2px solid #e2e8f0 !important;
   border-radius: 12px !important;
@@ -969,8 +979,37 @@ interface BiometricMappingPagedResult {
   width: 100% !important;
   box-sizing: border-box !important;
   height: auto !important;
-  min-height: 72px !important;
+  min-height: 68px !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+.stream-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+
+  &.school-pill {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+  }
+
+  &.coaching-pill {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+
+  &.dual-pill {
+    background: #faf5ff;
+    color: #7e22ce;
+    border: 1px solid #e9d5ff;
+  }
 }
 .pill-btn:hover {
   background: #f8fafc !important;
@@ -2233,6 +2272,8 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   serverCoachingCount = 0;
   serverSchoolCount = 0;
   serverTeacherCount = 0;
+  serverHybridCount = 0;
+  serverAllStudentCount = 0;
 
   filterForm = new FormGroup({
     searchName: new FormControl('', { nonNullable: true }),
@@ -2399,19 +2440,45 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  activeCategory: 'Coaching' | 'School' | 'Teacher' = 'Coaching';
+  activeCategory: 'AllStudents' | 'School' | 'Coaching' | 'Hybrid' | 'Teacher' = 'AllStudents';
 
+  get allStudentCount(): number {
+    return this.serverAllStudentCount || this.people.filter(p => p.personType === 'Student').length;
+  }
   get coachingCount(): number {
-    return this.serverCoachingCount || this.people.filter(p => p.personType === 'Student' && (p.stream === 'Coaching' || p.stream === 'Both' || !!p.batchName)).length;
+    return this.serverCoachingCount || this.people.filter(p => p.personType === 'Student' && p.stream === 'Coaching').length;
   }
   get schoolCount(): number {
-    return this.serverSchoolCount || this.people.filter(p => p.personType === 'Student' && (p.stream === 'School' || p.stream === 'Both' || !!p.className)).length;
+    return this.serverSchoolCount || this.people.filter(p => p.personType === 'Student' && p.stream === 'School').length;
+  }
+  get hybridCount(): number {
+    return this.serverHybridCount || this.people.filter(p => p.personType === 'Student' && p.stream === 'Both').length;
   }
   get teacherCount(): number {
     return this.serverTeacherCount || this.people.filter(p => p.personType === 'Teacher').length;
   }
 
-  setCategory(cat: 'Coaching' | 'School' | 'Teacher'): void {
+  get categoryTitle(): string {
+    switch (this.activeCategory) {
+      case 'AllStudents': return 'All Students';
+      case 'School': return 'School Only';
+      case 'Coaching': return 'Coaching Only';
+      case 'Hybrid': return 'School + Coaching';
+      case 'Teacher': return 'Teachers & Faculty';
+    }
+  }
+
+  private getServerCategoryParam(): string {
+    switch (this.activeCategory) {
+      case 'AllStudents': return 'all_students';
+      case 'School': return 'school';
+      case 'Coaching': return 'coaching';
+      case 'Hybrid': return 'hybrid';
+      case 'Teacher': return 'teacher';
+    }
+  }
+
+  setCategory(cat: 'AllStudents' | 'School' | 'Coaching' | 'Hybrid' | 'Teacher'): void {
     this.activeCategory = cat;
     this.mapping.personType = cat === 'Teacher' ? 'Teacher' : 'Student';
     this.mapping.stream = cat;
@@ -2432,7 +2499,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
 
   loadPagedMappings(): void {
     this.isMappingsLoading = true;
-    const cat = this.activeCategory.toLowerCase();
+    const cat = this.getServerCategoryParam();
     const { searchName, searchCode, searchGroup, mappingStatus } = this.filterForm.value;
 
     let params = new HttpParams()
@@ -2457,6 +2524,8 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
         this.serverCoachingCount = res.coachingCount ?? 0;
         this.serverSchoolCount = res.schoolCount ?? 0;
         this.serverTeacherCount = res.teacherCount ?? 0;
+        this.serverHybridCount = res.hybridCount ?? 0;
+        this.serverAllStudentCount = res.allStudentCount ?? ((res.coachingCount ?? 0) + (res.schoolCount ?? 0) + (res.hybridCount ?? 0));
         this.isMappingsLoading = false;
       },
       error: err => {
@@ -2506,7 +2575,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   isHybrid(p: MappingPerson): boolean {
-    return p.stream === 'Both' || (Boolean(p.className) && Boolean(p.batchName));
+    return p.stream === 'Both';
   }
 
   get classNames(): string[] {
@@ -2548,19 +2617,16 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
       if (person.personType !== 'Student') return false;
 
       if (this.activeCategory === 'Coaching') {
-        const isCoaching = person.stream === 'Coaching' || person.stream === 'Both' || !!person.batchName;
-        if (!isCoaching) return false;
-        if (this.mapping.batchName && person.batchName !== this.mapping.batchName) return false;
-        return true;
+        if (person.stream !== 'Coaching') return false;
+      } else if (this.activeCategory === 'School') {
+        if (person.stream !== 'School') return false;
+      } else if (this.activeCategory === 'Hybrid') {
+        if (person.stream !== 'Both') return false;
       }
 
-      if (this.activeCategory === 'School') {
-        const isSchool = person.stream === 'School' || person.stream === 'Both' || !!person.className;
-        if (!isSchool) return false;
-        if (this.mapping.className && person.className !== this.mapping.className) return false;
-        if (this.mapping.sectionName && person.sectionName !== this.mapping.sectionName) return false;
-        return true;
-      }
+      if (this.mapping.className && person.className !== this.mapping.className) return false;
+      if (this.mapping.sectionName && person.sectionName !== this.mapping.sectionName) return false;
+      if (this.mapping.batchName && person.batchName !== this.mapping.batchName) return false;
 
       return true;
     });
@@ -2593,12 +2659,8 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   onFilterChange(): void {
-    if (this.activeCategory === 'Coaching') {
-      this.filterForm.get('searchGroup')?.setValue(this.mapping.batchName || '');
-    } else if (this.activeCategory === 'School') {
-      const clsSec = [this.mapping.className, this.mapping.sectionName].filter(Boolean).join(' ');
-      this.filterForm.get('searchGroup')?.setValue(clsSec);
-    }
+    const groupTerm = this.mapping.batchName || [this.mapping.className, this.mapping.sectionName].filter(Boolean).join(' ');
+    this.filterForm.get('searchGroup')?.setValue(groupTerm);
   }
 
   showManualEdit = false;
@@ -2764,7 +2826,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
 
   autoGenerateIds(overwrite = false): void {
     this.autoGenerating = true;
-    const category = this.activeCategory.toLowerCase();
+    const category = this.getServerCategoryParam();
     this.http.post<{ message: string; updatedCount: number }>(`${this.api}/attendance/mappings/auto-generate`, { category, overwriteExisting: overwrite }).subscribe({
       next: res => {
         this.autoGenerating = false;
@@ -2845,7 +2907,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const title = `Hikvision Biometric & RFID Enrollment Checklist - ${this.activeCategory} (${list.length})`;
+    const title = `Hikvision Biometric & RFID Enrollment Checklist - ${this.categoryTitle} (${list.length})`;
     const dateStr = new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
     const enrolledCount = list.filter(x => x.isThumbEnrolled).length;
     const pendingCount = list.length - enrolledCount;

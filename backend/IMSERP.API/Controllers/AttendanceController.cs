@@ -257,8 +257,10 @@ public class AttendanceController : ControllerBase
             teacherQuery = teacherQuery.Where(t => t.BranchId == null || t.BranchId == _currentUser.BranchId);
         }
 
-        int coachingCount = await studentQuery.CountAsync(s => s.IsCoachingStudent || s.BatchId != null);
-        int schoolCount = await studentQuery.CountAsync(s => s.IsSchoolStudent || s.ClassId != null);
+        int allStudentCount = await studentQuery.CountAsync();
+        int hybridCount = await studentQuery.CountAsync(s => s.IsSchoolStudent && s.IsCoachingStudent);
+        int coachingCount = await studentQuery.CountAsync(s => !s.IsSchoolStudent && (s.IsCoachingStudent || s.BatchId != null));
+        int schoolCount = Math.Max(0, allStudentCount - hybridCount - coachingCount);
         int teacherCount = await teacherQuery.CountAsync();
 
         var sUsed = await studentQuery.Where(s => !string.IsNullOrEmpty(s.BiometricUserId)).Select(s => s.BiometricUserId!).ToListAsync();
@@ -266,7 +268,7 @@ public class AttendanceController : ControllerBase
         var usedIds = new HashSet<string>(sUsed.Concat(tUsed), StringComparer.OrdinalIgnoreCase);
 
         var cat = (category ?? "all").Trim().ToLowerInvariant();
-        bool includeStudents = cat == "all" || cat == "school" || cat == "coaching";
+        bool includeStudents = cat == "all" || cat == "all_students" || cat == "school" || cat == "coaching" || cat == "hybrid";
         bool includeTeachers = cat == "all" || cat == "teacher";
 
         var (punchByBioId, punchByStudentId, punchByTeacherId) = await GetBiometricEnrollmentLookupAsync();
@@ -277,11 +279,15 @@ public class AttendanceController : ControllerBase
             var sq = studentQuery;
             if (cat == "school")
             {
-                sq = sq.Where(s => s.IsSchoolStudent || s.ClassId != null);
+                sq = sq.Where(s => (s.IsSchoolStudent && !s.IsCoachingStudent) || (!s.IsSchoolStudent && !s.IsCoachingStudent && s.BatchId == null));
             }
             else if (cat == "coaching")
             {
-                sq = sq.Where(s => s.IsCoachingStudent || s.BatchId != null);
+                sq = sq.Where(s => !s.IsSchoolStudent && (s.IsCoachingStudent || s.BatchId != null));
+            }
+            else if (cat == "hybrid")
+            {
+                sq = sq.Where(s => s.IsSchoolStudent && s.IsCoachingStudent);
             }
 
             var rawStudents = await sq
@@ -478,7 +484,9 @@ public class AttendanceController : ControllerBase
             totalPages,
             coachingCount,
             schoolCount,
-            teacherCount
+            teacherCount,
+            hybridCount,
+            allStudentCount
         ));
     }
 
@@ -1179,12 +1187,18 @@ public class AttendanceController : ControllerBase
         }
 
         // 1. School Students
-        if (category == "all" || category == "school")
+        if (category == "all" || category == "all_students" || category == "school" || category == "hybrid")
         {
-            var schoolStudents = await _db.Students
+            var schoolQuery = _db.Students
                 .Include(s => s.Class)
-                .Where(s => !s.IsDeleted && s.IsActive && s.IsSchoolStudent && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
-                .ToListAsync();
+                .Where(s => !s.IsDeleted && s.IsActive && s.IsSchoolStudent && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)));
+
+            if (category == "school")
+                schoolQuery = schoolQuery.Where(s => !s.IsCoachingStudent);
+            else if (category == "hybrid")
+                schoolQuery = schoolQuery.Where(s => s.IsCoachingStudent);
+
+            var schoolStudents = await schoolQuery.ToListAsync();
 
             foreach (var group in schoolStudents.GroupBy(s => s.ClassId))
             {
@@ -1209,11 +1223,11 @@ public class AttendanceController : ControllerBase
         }
 
         // 2. Coaching Students
-        if (category == "all" || category == "coaching")
+        if (category == "all" || category == "all_students" || category == "coaching")
         {
             var coachingStudents = await _db.Students
                 .Include(s => s.Batch)
-                .Where(s => !s.IsDeleted && s.IsActive && (s.IsCoachingStudent || s.BatchId != null) && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
+                .Where(s => !s.IsDeleted && s.IsActive && !s.IsSchoolStudent && (s.IsCoachingStudent || s.BatchId != null) && (overwrite || string.IsNullOrEmpty(s.BiometricUserId)))
                 .ToListAsync();
 
             var batches = coachingStudents.Where(s => s.BatchId != null)
