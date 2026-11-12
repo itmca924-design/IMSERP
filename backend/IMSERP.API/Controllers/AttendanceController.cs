@@ -122,6 +122,8 @@ public class AttendanceController : ControllerBase
             .ToList();
         var batchIndexMap = batches.Select((b, idx) => new { b.Id, Index = idx + 1 }).ToDictionary(x => x.Id, x => x.Index);
 
+        var (punchByBioId, punchByStudentId, punchByTeacherId) = await GetBiometricEnrollmentLookupAsync();
+
         var students = new List<BiometricMappingPersonDto>();
         for (int idx = 0; idx < rawStudents.Count; idx++)
         {
@@ -165,6 +167,8 @@ public class AttendanceController : ControllerBase
                 }
             }
 
+            var (isEnrolled, lastPunchAt) = ResolveEnrollmentStatus(s.Id, s.BiometricUserId, roll, punchByBioId, punchByStudentId);
+
             students.Add(new BiometricMappingPersonDto(
                 s.Id,
                 "Student",
@@ -175,7 +179,9 @@ public class AttendanceController : ControllerBase
                 s.Class?.Name,
                 s.Section?.Name,
                 stream,
-                suggested
+                suggested,
+                isEnrolled,
+                lastPunchAt
             ));
         }
 
@@ -198,6 +204,8 @@ public class AttendanceController : ControllerBase
                 usedIds.Add(suggested);
             }
 
+            var (isEnrolled, lastPunchAt) = ResolveEnrollmentStatus(t.Id, t.BiometricUserId, t.EmployeeCode, punchByBioId, punchByTeacherId);
+
             teachers.Add(new BiometricMappingPersonDto(
                 t.Id,
                 "Teacher",
@@ -208,7 +216,9 @@ public class AttendanceController : ControllerBase
                 null,
                 null,
                 null,
-                suggested
+                suggested,
+                isEnrolled,
+                lastPunchAt
             ));
         }
 
@@ -258,6 +268,8 @@ public class AttendanceController : ControllerBase
         var cat = (category ?? "all").Trim().ToLowerInvariant();
         bool includeStudents = cat == "all" || cat == "school" || cat == "coaching";
         bool includeTeachers = cat == "all" || cat == "teacher";
+
+        var (punchByBioId, punchByStudentId, punchByTeacherId) = await GetBiometricEnrollmentLookupAsync();
 
         var students = new List<BiometricMappingPersonDto>();
         if (includeStudents)
@@ -328,6 +340,8 @@ public class AttendanceController : ControllerBase
                     }
                 }
 
+                var (isEnrolled, lastPunchAt) = ResolveEnrollmentStatus(s.Id, s.BiometricUserId, roll, punchByBioId, punchByStudentId);
+
                 students.Add(new BiometricMappingPersonDto(
                     s.Id,
                     "Student",
@@ -338,7 +352,9 @@ public class AttendanceController : ControllerBase
                     s.Class?.Name,
                     s.Section?.Name,
                     stream,
-                    suggested
+                    suggested,
+                    isEnrolled,
+                    lastPunchAt
                 ));
             }
         }
@@ -369,6 +385,8 @@ public class AttendanceController : ControllerBase
                     usedIds.Add(suggested);
                 }
 
+                var (isEnrolled, lastPunchAt) = ResolveEnrollmentStatus(t.Id, t.BiometricUserId, t.EmployeeCode, punchByBioId, punchByTeacherId);
+
                 teachers.Add(new BiometricMappingPersonDto(
                     t.Id,
                     "Teacher",
@@ -379,7 +397,9 @@ public class AttendanceController : ControllerBase
                     null,
                     null,
                     null,
-                    suggested
+                    suggested,
+                    isEnrolled,
+                    lastPunchAt
                 ));
             }
         }
@@ -418,6 +438,14 @@ public class AttendanceController : ControllerBase
             else if (mappingStatus.Equals("unmapped", StringComparison.OrdinalIgnoreCase))
             {
                 combined = combined.Where(x => string.IsNullOrEmpty(x.BiometricUserId));
+            }
+            else if (mappingStatus.Equals("enrolled", StringComparison.OrdinalIgnoreCase))
+            {
+                combined = combined.Where(x => x.IsThumbEnrolled);
+            }
+            else if (mappingStatus.Equals("pending_thumb", StringComparison.OrdinalIgnoreCase))
+            {
+                combined = combined.Where(x => !x.IsThumbEnrolled);
             }
         }
 
@@ -836,6 +864,175 @@ public class AttendanceController : ControllerBase
 
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    public record ToggleThumbEnrollmentRequest(bool Enrolled, string? BiometricUserId = null);
+
+    [HttpPost("mappings/{personType}/{personId:guid}/toggle-thumb")]
+    public async Task<IActionResult> ToggleThumbEnrollment(string personType, Guid personId, [FromBody] ToggleThumbEnrollmentRequest dto)
+    {
+        if (!await HasPermissionAsync(MappingRoute, IMSERP.API.Services.MenuPermissionOperation.Edit))
+            return Forbid();
+
+        string? bioId = dto.BiometricUserId?.Trim();
+        string personName = "";
+
+        if (personType.Equals("student", StringComparison.OrdinalIgnoreCase))
+        {
+            var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == personId && !s.IsDeleted);
+            if (student == null) return NotFound(new { message = "Student not found." });
+
+            personName = student.StudentName;
+            if (string.IsNullOrWhiteSpace(student.BiometricUserId) && !string.IsNullOrWhiteSpace(bioId))
+            {
+                var dupS = await _db.Students.AnyAsync(s => s.Id != personId && !s.IsDeleted && s.BiometricUserId == bioId);
+                var dupT = await _db.Teachers.AnyAsync(t => t.IsActive && t.BiometricUserId == bioId);
+                if (!dupS && !dupT)
+                {
+                    student.BiometricUserId = bioId;
+                }
+            }
+            bioId = !string.IsNullOrWhiteSpace(student.BiometricUserId) ? student.BiometricUserId.Trim() : bioId;
+        }
+        else if (personType.Equals("teacher", StringComparison.OrdinalIgnoreCase))
+        {
+            var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == personId && t.IsActive);
+            if (teacher == null) return NotFound(new { message = "Teacher not found." });
+
+            personName = teacher.FullName;
+            if (string.IsNullOrWhiteSpace(teacher.BiometricUserId) && !string.IsNullOrWhiteSpace(bioId))
+            {
+                var dupT = await _db.Teachers.AnyAsync(t => t.Id != personId && t.IsActive && t.BiometricUserId == bioId);
+                var dupS = await _db.Students.AnyAsync(s => !s.IsDeleted && s.BiometricUserId == bioId);
+                if (!dupT && !dupS)
+                {
+                    teacher.BiometricUserId = bioId;
+                }
+            }
+            bioId = !string.IsNullOrWhiteSpace(teacher.BiometricUserId) ? teacher.BiometricUserId.Trim() : bioId;
+        }
+        else
+        {
+            return BadRequest(new { message = "PersonType must be Student or Teacher." });
+        }
+
+        if (string.IsNullOrWhiteSpace(bioId))
+        {
+            return BadRequest(new { message = "Please assign a Biometric Device ID first before marking thumb enrollment." });
+        }
+
+        var existingManualLogs = await _db.BiometricEventLogs
+            .Where(e => e.TenantId == _currentUser.TenantId &&
+                        e.BiometricUserId == bioId &&
+                        e.DeviceEventId == "THUMB-ENROLLED")
+            .ToListAsync();
+
+        if (dto.Enrolled)
+        {
+            if (existingManualLogs.Count == 0)
+            {
+                _db.BiometricEventLogs.Add(new BiometricEventLog
+                {
+                    TenantId = _currentUser.TenantId,
+                    PersonType = personType.ToLowerInvariant(),
+                    BiometricUserId = bioId,
+                    EventTime = DateTime.UtcNow,
+                    DeviceEventId = "THUMB-ENROLLED",
+                    Status = "Enrolled",
+                    ErrorMessage = $"Thumb enrollment verified for {personName}"
+                });
+            }
+        }
+        else
+        {
+            if (existingManualLogs.Count > 0)
+            {
+                _db.BiometricEventLogs.RemoveRange(existingManualLogs);
+            }
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            enrolled = dto.Enrolled,
+            biometricUserId = bioId,
+            lastBiometricPunchAt = dto.Enrolled ? DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc) : (DateTime?)null
+        });
+    }
+
+    private async Task<(Dictionary<string, DateTime> ByBioId, Dictionary<Guid, DateTime> ByStudentId, Dictionary<Guid, DateTime> ByTeacherId)> GetBiometricEnrollmentLookupAsync()
+    {
+        var eventLogs = await _db.BiometricEventLogs.AsNoTracking()
+            .Where(e => e.TenantId == _currentUser.TenantId &&
+                        !string.IsNullOrEmpty(e.BiometricUserId) &&
+                        e.Status != "Unmapped")
+            .Select(e => new { e.BiometricUserId, e.EventTime })
+            .ToListAsync();
+
+        var byBioId = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        foreach (var log in eventLogs)
+        {
+            var key = log.BiometricUserId.Trim();
+            var utcTime = DateTime.SpecifyKind(log.EventTime, DateTimeKind.Utc);
+            if (!byBioId.TryGetValue(key, out var existing) || utcTime > existing)
+            {
+                byBioId[key] = utcTime;
+            }
+        }
+
+        var studentPunches = await _db.StudentAttendances.AsNoTracking()
+            .Where(a => a.TenantId == _currentUser.TenantId &&
+                        (a.MarkedBy == "biometric-hikvision" ||
+                         (a.CaptureSource != null && (a.CaptureSource.Contains("Hikvision") || a.CaptureSource.Contains("Biometric")))))
+            .GroupBy(a => a.StudentId)
+            .Select(g => new { StudentId = g.Key, LastAt = g.Max(x => x.CapturedAt ?? x.AttendanceDate) })
+            .ToListAsync();
+
+        var byStudentId = studentPunches.ToDictionary(
+            x => x.StudentId,
+            x => DateTime.SpecifyKind(x.LastAt, DateTimeKind.Utc));
+
+        var teacherPunches = await _db.TeacherAttendances.AsNoTracking()
+            .Where(a => a.TenantId == _currentUser.TenantId &&
+                        (a.MarkedBy == "biometric-hikvision" ||
+                         (a.CaptureSource != null && (a.CaptureSource.Contains("Hikvision") || a.CaptureSource.Contains("Biometric")))))
+            .GroupBy(a => a.TeacherId)
+            .Select(g => new { TeacherId = g.Key, LastAt = g.Max(x => x.CapturedAt ?? x.AttendanceDate) })
+            .ToListAsync();
+
+        var byTeacherId = teacherPunches.ToDictionary(
+            x => x.TeacherId,
+            x => DateTime.SpecifyKind(x.LastAt, DateTimeKind.Utc));
+
+        return (byBioId, byStudentId, byTeacherId);
+    }
+
+    private static (bool IsEnrolled, DateTime? LastPunchAt) ResolveEnrollmentStatus(
+        Guid personId,
+        string? biometricUserId,
+        string? code,
+        Dictionary<string, DateTime> byBioId,
+        Dictionary<Guid, DateTime> byPersonId)
+    {
+        DateTime? latest = null;
+
+        if (!string.IsNullOrWhiteSpace(biometricUserId) && byBioId.TryGetValue(biometricUserId.Trim(), out var dtBio))
+        {
+            latest = dtBio;
+        }
+        if (!string.IsNullOrWhiteSpace(code) && byBioId.TryGetValue(code.Trim(), out var dtCode))
+        {
+            if (!latest.HasValue || dtCode > latest.Value)
+                latest = dtCode;
+        }
+        if (byPersonId.TryGetValue(personId, out var dtPerson))
+        {
+            if (!latest.HasValue || dtPerson > latest.Value)
+                latest = dtPerson;
+        }
+
+        return (latest.HasValue, latest);
     }
 
     [HttpPost("mappings/enroll-admin")]

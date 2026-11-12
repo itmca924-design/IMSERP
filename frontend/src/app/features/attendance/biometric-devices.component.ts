@@ -40,6 +40,8 @@ interface MappingPerson {
   sectionName?: string;
   stream?: string;
   suggestedBiometricId?: string;
+  isThumbEnrolled?: boolean;
+  lastBiometricPunchAt?: string;
 }
 
 interface BiometricMappingPagedResult {
@@ -352,6 +354,7 @@ interface BiometricMappingPagedResult {
               {{ activeCategory === 'Teacher' ? 'Staff' : (activeCategory === 'Coaching' ? 'Coaching Batch' : 'Class & Section') }}
             </th>
             <th class="col-device-id" mat-sort-header="biometricId">Biometric Device ID</th>
+            <th class="col-thumb">Thumb [✓]</th>
             <th class="col-action">Action</th>
           </tr>
 
@@ -393,8 +396,15 @@ interface BiometricMappingPagedResult {
                   <option value="all">All Status</option>
                   <option value="mapped">Mapped (Green)</option>
                   <option value="unmapped">Unmapped (Yellow)</option>
+                  <option value="enrolled">Thumb Enrolled [✓]</option>
+                  <option value="pending_thumb">Thumb Pending [ ]</option>
                 </select>
               </div>
+            </th>
+            <th class="col-thumb filter-cell">
+              <span class="thumb-summary-pill" matTooltip="Thumb enrolled count on current page">
+                ✓ {{ enrolledInPageCount }}/{{ pagedPeople.length }}
+              </span>
             </th>
             <th class="col-action filter-cell">
               <button type="button" class="btn-reset-filters" (click)="resetFilters()" matTooltip="Reset all filters">
@@ -473,6 +483,22 @@ interface BiometricMappingPagedResult {
                   </span>
                 }
               </td>
+              <td class="col-thumb">
+                <button
+                  type="button"
+                  class="thumb-check-btn"
+                  [class.enrolled]="p.isThumbEnrolled"
+                  (click)="toggleThumbEnrollment(p)"
+                  [matTooltip]="getThumbTooltip(p)">
+                  @if (p.isThumbEnrolled) {
+                    <span class="thumb-box checked">[ ✓ ]</span>
+                    <span class="thumb-text">Enrolled</span>
+                  } @else {
+                    <span class="thumb-box">[ &nbsp; ]</span>
+                    <span class="thumb-text">Mark ✓</span>
+                  }
+                </button>
+              </td>
               <td class="col-action">
                 @if (!p.biometricUserId && p.suggestedBiometricId) {
                   <button color="accent" class="btn-xs" (click)="quickAssignSuggested(p)" matTooltip="Assign this ID in DB now" matButton="filled">
@@ -487,7 +513,7 @@ interface BiometricMappingPagedResult {
           }
           @if (!pagedPeople.length && !isMappingsLoading) {
             <tr>
-              <td colspan="6" class="empty-cell">
+              <td colspan="7" class="empty-cell">
                 <div class="empty-state-wrap">
                   <mat-icon>search_off</mat-icon>
                   <span>No {{ activeCategory.toLowerCase() }} found matching current filters.</span>
@@ -1512,6 +1538,67 @@ interface BiometricMappingPagedResult {
   background: #fee2e2;
   color: #b91c1c;
   border: 1px solid #fca5a5;
+}
+.col-thumb {
+  width: 120px;
+  min-width: 110px;
+  white-space: nowrap;
+  text-align: center;
+}
+.thumb-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.thumb-check-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  .thumb-box {
+    font-family: monospace;
+    font-weight: 800;
+    font-size: 0.82rem;
+  }
+
+  &:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+  }
+
+  &.enrolled {
+    border: 1px solid #86efac;
+    background: #dcfce7;
+    color: #15803d;
+
+    .thumb-box.checked {
+      color: #15803d;
+    }
+
+    &:hover {
+      background: #bbf7d0;
+      border-color: #4ade80;
+    }
+  }
 }
 .btn-xs {
   font-size: 0.78rem;
@@ -2587,6 +2674,65 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
     });
   }
 
+  get enrolledInPageCount(): number {
+    return this.pagedPeople.filter(p => p.isThumbEnrolled).length;
+  }
+
+  getThumbTooltip(p: MappingPerson): string {
+    if (p.isThumbEnrolled) {
+      if (p.lastBiometricPunchAt) {
+        const raw = p.lastBiometricPunchAt.endsWith('Z') ? p.lastBiometricPunchAt : `${p.lastBiometricPunchAt}Z`;
+        const dt = new Date(raw);
+        if (!isNaN(dt.getTime())) {
+          const istStr = dt.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          });
+          return `Thumb Enrolled ✓ (Verified: ${istStr} IST) · Click to unmark`;
+        }
+      }
+      return 'Thumb Enrolled ✓ on Biometric Machine · Click to unmark';
+    }
+    return 'Click to mark Thumb [✓] as enrolled on Biometric Machine';
+  }
+
+  toggleThumbEnrollment(p: MappingPerson): void {
+    const bioId = (p.biometricUserId || p.suggestedBiometricId || '').trim();
+    if (!bioId) {
+      this.confirmDialog.alert('Biometric ID Required', `Please assign a Biometric Device ID for "${p.name}" first.`, 'warning');
+      return;
+    }
+
+    const nextState = !p.isThumbEnrolled;
+    this.http.post<{ enrolled: boolean; biometricUserId: string; lastBiometricPunchAt?: string }>(
+      `${this.api}/attendance/mappings/${p.personType.toLowerCase()}/${p.id}/toggle-thumb`,
+      { enrolled: nextState, biometricUserId: bioId }
+    ).subscribe({
+      next: res => {
+        p.isThumbEnrolled = res.enrolled;
+        if (res.biometricUserId) {
+          p.biometricUserId = res.biometricUserId;
+        }
+        p.lastBiometricPunchAt = res.lastBiometricPunchAt || undefined;
+
+        const match = this.people.find(x => x.id === p.id);
+        if (match) {
+          match.isThumbEnrolled = p.isThumbEnrolled;
+          match.biometricUserId = p.biometricUserId;
+          match.lastBiometricPunchAt = p.lastBiometricPunchAt;
+        }
+      },
+      error: err => {
+        this.confirmDialog.alert('Update Failed', err?.error?.message || 'Could not update thumb enrollment status.', 'danger');
+      }
+    });
+  }
+
   printEnrollmentSheet(): void {
     const list = this.pagedPeople.length ? this.pagedPeople : this.filteredPeople;
     if (!list.length) {
@@ -2596,6 +2742,8 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
 
     const title = `Hikvision Biometric & RFID Enrollment Checklist - ${this.activeCategory} (${list.length})`;
     const dateStr = new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
+    const enrolledCount = list.filter(x => x.isThumbEnrolled).length;
+    const pendingCount = list.length - enrolledCount;
 
     let rowsHtml = '';
     list.forEach((p, index) => {
@@ -2603,6 +2751,9 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
       const affiliation = p.batchName ? `Batch: ${p.batchName}` : (p.className ? `Class: ${p.className}${p.sectionName ? ' - ' + p.sectionName : ''}` : 'Faculty');
       const deviceId = p.biometricUserId || p.suggestedBiometricId || '—';
       const statusBadge = p.biometricUserId ? '<span style="color:#15803d; font-weight:bold;">[MAPPED]</span>' : '<span style="color:#b45309;">[SUGGESTED]</span>';
+      const thumbCell = p.isThumbEnrolled
+        ? '<td style="text-align:center; padding: 7px 5px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: 800; color: #15803d; background: #f0fdf4;">[ &#10003; ]</td>'
+        : '<td style="text-align:center; padding: 7px 5px; border: 1px solid #cbd5e1; font-size: 15px; color: #475569;">[ &nbsp; ]</td>';
 
       rowsHtml += `
         <tr>
@@ -2613,7 +2764,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
           <td style="text-align:center; padding: 7px 6px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: bold; color: #1e3a8a;">
             ${deviceId} <small style="font-size: 10px; font-weight: normal; margin-left: 4px;">${statusBadge}</small>
           </td>
-          <td style="text-align:center; padding: 7px 5px; border: 1px solid #cbd5e1; font-size: 16px;">[ &nbsp; ]</td>
+          ${thumbCell}
           <td style="padding: 7px 6px; border: 1px solid #cbd5e1; color: #94a3b8;">____________________</td>
         </tr>
       `;
@@ -2665,7 +2816,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
           </tbody>
         </table>
         <div class="footer">
-          <span>Total Persons: ${list.length}</span>
+          <span>Total Persons: ${list.length} · Thumb Enrolled [✓]: <strong style="color:#15803d;">${enrolledCount}</strong> · Pending [ ]: <strong>${pendingCount}</strong></span>
           <span>Verified By (Operator Signature): ______________________________</span>
         </div>
         <script>
@@ -2759,6 +2910,8 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
         this.message = response?.message || 'Punch captured.';
         this.simulating = false;
         this.loadEvents();
+        this.loadPagedMappings();
+        this.loadMappings();
         this.confirmDialog.alert('Biometric Punch Captured', response?.message || 'Attendance was created successfully.', 'success');
       },
       error: err => {

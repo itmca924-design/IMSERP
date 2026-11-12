@@ -2018,7 +2018,9 @@ public record BiometricMappingPersonDto(
     string? ClassName = null,
     string? SectionName = null,
     string? Stream = null,
-    string? SuggestedBiometricId = null
+    string? SuggestedBiometricId = null,
+    bool IsThumbEnrolled = false,
+    DateTime? LastBiometricPunchAt = null
 );
 
 public record BiometricMappingPagedResultDto(
