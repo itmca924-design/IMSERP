@@ -215,40 +215,41 @@ interface BiometricMappingPagedResult {
       </div>
     </div>
 
-    <!-- Clean Filter Bar (Batch / Class / Section) -->
+    <!-- Clean Filter Bar (Academic Class ➔ Section / Coaching Batch Cascade) -->
     <div class="filter-deck">
-      <!-- School Class & Section Filters (Shown for School Only, School + Coaching, All Students) -->
-      @if (activeCategory === 'School' || activeCategory === 'Hybrid' || activeCategory === 'AllStudents') {
+      <!-- Academic Class Filter (Shown for All Student Tabs: All Students, School Only, Coaching Only, School + Coaching) -->
+      @if (activeCategory !== 'Teacher') {
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Academic Class</mat-label>
           <mat-select [(ngModel)]="mapping.className" (selectionChange)="onClassChange()">
-            <mat-option value="">All Classes ({{ activeCategory === 'School' ? schoolCount : (activeCategory === 'Hybrid' ? hybridCount : allStudentCount) }})</mat-option>
+            <mat-option value="">All Classes ({{ activeCategoryTotalCount }})</mat-option>
             @for (cls of classNames; track cls) {
-              <mat-option [value]="cls">{{ cls }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-      }
-      @if (activeCategory === 'School') {
-        <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>Section</mat-label>
-          <mat-select [(ngModel)]="mapping.sectionName" (selectionChange)="onFilterChange()">
-            <mat-option value="">All Sections</mat-option>
-            @for (sec of sectionNames; track sec) {
-              <mat-option [value]="sec">{{ sec }}</mat-option>
+              <mat-option [value]="cls">{{ cls }} ({{ getClassStudentCount(cls) }})</mat-option>
             }
           </mat-select>
         </mat-form-field>
       }
 
-      <!-- Coaching Batch Filter (Shown for Coaching Only, School + Coaching, All Students) -->
+      @if (activeCategory === 'School') {
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Section</mat-label>
+          <mat-select [(ngModel)]="mapping.sectionName" (selectionChange)="onFilterChange()">
+            <mat-option value="">{{ mapping.className ? 'All Sections in ' + mapping.className : 'All Sections' }} ({{ filteredClassPoolCount }})</mat-option>
+            @for (sec of sectionNames; track sec) {
+              <mat-option [value]="sec">Section {{ sec }} ({{ getSectionStudentCount(sec) }})</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+
+      <!-- Coaching Batch Filter (Cascades dynamically from selected Academic Class) -->
       @if (activeCategory === 'Coaching' || activeCategory === 'Hybrid' || activeCategory === 'AllStudents') {
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Coaching Batch</mat-label>
           <mat-select [(ngModel)]="mapping.batchName" (selectionChange)="onFilterChange()">
-            <mat-option value="">All Coaching Batches ({{ activeCategory === 'Coaching' ? coachingCount : (activeCategory === 'Hybrid' ? hybridCount : allStudentCount) }})</mat-option>
+            <mat-option value="">{{ mapping.className ? 'All Batches in ' + mapping.className : 'All Coaching Batches' }} ({{ filteredBatchPoolCount }})</mat-option>
             @for (batch of batchNames; track batch) {
-              <mat-option [value]="batch">{{ batch }}</mat-option>
+              <mat-option [value]="batch">{{ batch }} ({{ getBatchStudentCount(batch) }})</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -451,18 +452,15 @@ interface BiometricMappingPagedResult {
                       } @else {
                         <span class="stream-pill coaching-pill" matTooltip="Enrolled in Coaching Division Only">🎓 Coaching Only</span>
                       }
-                    </div>
-                    <div class="badge-secondary-row">
-                      @if ((p.stream === 'School' || p.stream === 'Both') && p.className) {
-                        <span class="group-badge school secondary-badge" [matTooltip]="p.className + (p.sectionName ? ' - ' + p.sectionName : '')">🏫 {{ p.className }}{{ p.sectionName ? ' - ' + p.sectionName : '' }}</span>
+                      @if (p.className) {
+                        <span class="group-badge school secondary-badge" [matTooltip]="p.className + ((p.stream === 'School' || p.stream === 'Both') && p.sectionName ? ' - ' + p.sectionName : '')">🏫 {{ p.className }}{{ (p.stream === 'School' || p.stream === 'Both') && p.sectionName ? ' - ' + p.sectionName : '' }}</span>
                       }
-                      @if (p.batchName) {
+                    </div>
+                    @if (p.batchName) {
+                      <div class="badge-secondary-row">
                         <span class="group-badge batch secondary-badge" [matTooltip]="p.batchName">📚 {{ p.batchName }}</span>
-                      }
-                      @if (p.stream === 'Coaching' && p.className) {
-                        <span class="group-badge school secondary-badge" [matTooltip]="'Academic Class: ' + p.className">{{ p.className }}</span>
-                      }
-                    </div>
+                      </div>
+                    }
                   }
                 </div>
               </td>
@@ -1473,8 +1471,8 @@ interface BiometricMappingPagedResult {
   white-space: nowrap;
 }
 .col-group {
-  min-width: 170px;
-  max-width: 260px;
+  min-width: 210px;
+  max-width: 320px;
   overflow: hidden;
 }
 .group-badge-container {
@@ -1941,8 +1939,8 @@ interface BiometricMappingPagedResult {
     min-width: 68px;
   }
   .col-group {
-    min-width: 140px;
-    max-width: 210px;
+    min-width: 190px;
+    max-width: 280px;
   }
   .group-badge {
     font-size: 0.72rem;
@@ -2509,6 +2507,10 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
       .set('page', (this.pageIndex + 1).toString())
       .set('pageSize', this.pageSize.toString());
 
+    if (this.mapping.className?.trim()) params = params.set('className', this.mapping.className.trim());
+    if (this.mapping.sectionName?.trim()) params = params.set('sectionName', this.mapping.sectionName.trim());
+    if (this.mapping.batchName?.trim()) params = params.set('batchName', this.mapping.batchName.trim());
+
     if (searchName?.trim()) params = params.set('searchName', searchName.trim());
     if (searchCode?.trim()) params = params.set('searchCode', searchCode.trim());
     if (searchGroup?.trim()) params = params.set('searchGroup', searchGroup.trim());
@@ -2562,6 +2564,9 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   resetFilters(): void {
+    this.mapping.className = '';
+    this.mapping.sectionName = '';
+    this.mapping.batchName = '';
     this.filterForm.reset({
       searchName: '',
       searchCode: '',
@@ -2578,11 +2583,62 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
     return p.stream === 'Both';
   }
 
+  private get categoryStudentPool(): MappingPerson[] {
+    return this.people.filter(person => {
+      if (person.personType !== 'Student') return false;
+      if (this.activeCategory === 'Coaching') return person.stream === 'Coaching';
+      if (this.activeCategory === 'School') return person.stream === 'School';
+      if (this.activeCategory === 'Hybrid') return person.stream === 'Both';
+      return true;
+    });
+  }
+
+  get activeCategoryTotalCount(): number {
+    switch (this.activeCategory) {
+      case 'School': return this.schoolCount;
+      case 'Coaching': return this.coachingCount;
+      case 'Hybrid': return this.hybridCount;
+      case 'Teacher': return this.teacherCount;
+      default: return this.allStudentCount;
+    }
+  }
+
+  get filteredClassPoolCount(): number {
+    const pool = this.categoryStudentPool.filter(p => !this.mapping.className || p.className === this.mapping.className);
+    return pool.length || (this.mapping.className ? this.totalRecords : this.activeCategoryTotalCount);
+  }
+
+  get filteredBatchPoolCount(): number {
+    const pool = this.categoryStudentPool.filter(p =>
+      (!this.mapping.className || p.className === this.mapping.className) &&
+      (this.activeCategory === 'AllStudents' ? true : !!p.batchName)
+    );
+    return pool.length || (this.mapping.className ? this.totalRecords : this.activeCategoryTotalCount);
+  }
+
+  getClassStudentCount(cls: string): number {
+    return this.categoryStudentPool.filter(p => p.className === cls).length;
+  }
+
+  getSectionStudentCount(sec: string): number {
+    return this.categoryStudentPool.filter(p =>
+      (!this.mapping.className || p.className === this.mapping.className) &&
+      p.sectionName === sec
+    ).length;
+  }
+
+  getBatchStudentCount(batch: string): number {
+    return this.categoryStudentPool.filter(p =>
+      (!this.mapping.className || p.className === this.mapping.className) &&
+      p.batchName === batch
+    ).length;
+  }
+
   get classNames(): string[] {
     return Array.from(
       new Set(
-        this.people
-          .filter(person => person.personType === 'Student' && person.className)
+        this.categoryStudentPool
+          .filter(person => person.className)
           .map(person => person.className!)
       )
     ).sort();
@@ -2591,8 +2647,8 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   get sectionNames(): string[] {
     return Array.from(
       new Set(
-        this.people
-          .filter(person => person.personType === 'Student' && (!this.mapping.className || person.className === this.mapping.className) && person.sectionName)
+        this.categoryStudentPool
+          .filter(person => (!this.mapping.className || person.className === this.mapping.className) && person.sectionName)
           .map(person => person.sectionName!)
       )
     ).sort();
@@ -2601,8 +2657,8 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   get batchNames(): string[] {
     return Array.from(
       new Set(
-        this.people
-          .filter(person => person.personType === 'Student' && person.batchName)
+        this.categoryStudentPool
+          .filter(person => (!this.mapping.className || person.className === this.mapping.className) && person.batchName)
           .map(person => person.batchName!)
       )
     ).sort();
@@ -2655,12 +2711,13 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
 
   onClassChange(): void {
     this.mapping.sectionName = '';
+    this.mapping.batchName = '';
     this.onFilterChange();
   }
 
   onFilterChange(): void {
-    const groupTerm = this.mapping.batchName || [this.mapping.className, this.mapping.sectionName].filter(Boolean).join(' ');
-    this.filterForm.get('searchGroup')?.setValue(groupTerm);
+    this.pageIndex = 0;
+    this.loadPagedMappings();
   }
 
   showManualEdit = false;

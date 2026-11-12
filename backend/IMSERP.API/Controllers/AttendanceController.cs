@@ -227,11 +227,14 @@ public class AttendanceController : ControllerBase
 
     [HttpGet("mappings/paged")]
     public async Task<ActionResult<BiometricMappingPagedResultDto>> GetPagedMappings(
-        [FromQuery] string category = "all",       // "coaching" | "school" | "teacher" | "all"
+        [FromQuery] string category = "all",       // "coaching" | "school" | "teacher" | "all" | "all_students" | "hybrid"
         [FromQuery] string? searchName = null,
         [FromQuery] string? searchCode = null,
-        [FromQuery] string? searchGroup = null,    // batchName, className, sectionName, or staff
-        [FromQuery] string? mappingStatus = null,  // "all" | "mapped" | "unmapped"
+        [FromQuery] string? searchGroup = null,    // inline table filter: batchName, className, sectionName, or staff
+        [FromQuery] string? className = null,      // exact Academic Class filter
+        [FromQuery] string? sectionName = null,    // exact Section filter
+        [FromQuery] string? batchName = null,      // exact Coaching Batch filter
+        [FromQuery] string? mappingStatus = null,  // "all" | "mapped" | "unmapped" | "enrolled" | "pending_thumb"
         [FromQuery] string? sortBy = "name",       // "name" | "code" | "group" | "biometricId"
         [FromQuery] string? sortDir = "asc",       // "asc" | "desc"
         [FromQuery] int page = 1,
@@ -422,6 +425,24 @@ public class AttendanceController : ControllerBase
         {
             var codeTerm = searchCode.Trim().ToLowerInvariant();
             combined = combined.Where(x => (x.Code ?? "").ToLowerInvariant().Contains(codeTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(className))
+        {
+            var clsTerm = className.Trim();
+            combined = combined.Where(x => string.Equals(x.ClassName?.Trim(), clsTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(sectionName))
+        {
+            var secTerm = sectionName.Trim();
+            combined = combined.Where(x => string.Equals(x.SectionName?.Trim(), secTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(batchName))
+        {
+            var batTerm = batchName.Trim();
+            combined = combined.Where(x => string.Equals(x.BatchName?.Trim(), batTerm, StringComparison.OrdinalIgnoreCase));
         }
 
         if (!string.IsNullOrWhiteSpace(searchGroup))
