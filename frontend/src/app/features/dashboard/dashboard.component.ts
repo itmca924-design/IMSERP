@@ -2592,7 +2592,7 @@ import ApexCharts from 'apexcharts';
 
       th.mat-mdc-header-cell:last-of-type,
       td.mat-mdc-cell:last-of-type {
-        padding-right: 8px !important;
+        padding-right: 18px !important;
       }
 
       tr.mat-mdc-row {
@@ -2798,6 +2798,7 @@ import ApexCharts from 'apexcharts';
       justify-content: flex-end;
       gap: 4px;
       white-space: nowrap;
+      margin-right: 6px;
     }
 
     .mini-voice-btn {
@@ -2848,9 +2849,9 @@ import ApexCharts from 'apexcharts';
       background: #f8fafc !important;
       z-index: 6 !important;
       text-align: right !important;
-      padding-right: 12px !important;
-      width: 68px;
-      min-width: 64px;
+      padding-right: 20px !important;
+      width: 86px;
+      min-width: 84px;
 
       .th-action-icon {
         font-size: 16px;
@@ -2858,15 +2859,17 @@ import ApexCharts from 'apexcharts';
         height: 16px;
         color: #64748b;
         vertical-align: middle;
+        margin-right: 6px;
       }
     }
 
     .actions-td {
       background: #ffffff !important;
-      padding-right: 10px !important;
+      padding-right: 20px !important;
+      padding-left: 4px !important;
       white-space: nowrap !important;
-      width: 68px;
-      min-width: 64px;
+      width: 86px;
+      min-width: 84px;
     }
 
     @media (max-width: 1536px) {
@@ -2883,7 +2886,7 @@ import ApexCharts from 'apexcharts';
 
         th.mat-mdc-header-cell:last-of-type,
         td.mat-mdc-cell:last-of-type {
-          padding-right: 8px !important;
+          padding-right: 20px !important;
         }
       }
 
@@ -2939,6 +2942,7 @@ import ApexCharts from 'apexcharts';
 
       .row-actions-group {
         gap: 3px;
+        margin-right: 6px;
       }
 
       .mini-voice-btn,
@@ -2957,10 +2961,20 @@ import ApexCharts from 'apexcharts';
         }
       }
 
-      .actions-th,
+      .actions-th {
+        padding-right: 20px !important;
+        width: 86px;
+        min-width: 84px;
+
+        .th-action-icon {
+          margin-right: 6px;
+        }
+      }
+
       .actions-td {
-        width: 62px;
-        min-width: 60px;
+        padding-right: 20px !important;
+        width: 86px;
+        min-width: 84px;
       }
     }
 
@@ -3096,15 +3110,20 @@ import ApexCharts from 'apexcharts';
 
       .actions-th,
       .actions-td {
-        width: 52px !important;
-        min-width: 50px !important;
-        max-width: 54px !important;
+        width: 58px !important;
+        min-width: 56px !important;
+        max-width: 60px !important;
         padding-left: 2px !important;
-        padding-right: 4px !important;
+        padding-right: 8px !important;
+      }
+
+      .actions-th .th-action-icon {
+        margin-right: 3px;
       }
 
       .row-actions-group {
         gap: 2px !important;
+        margin-right: 3px;
       }
 
       .mini-voice-btn,

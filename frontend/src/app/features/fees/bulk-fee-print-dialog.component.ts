@@ -13,6 +13,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatMenuModule } from '@angular/material/menu';
 import {
   FeesService,
   BulkPrintDataResponse,
@@ -29,6 +30,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
 import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
+import { StudentVoiceDialogComponent } from '../finance/dialogs/student-voice-dialog.component';
+import { FeeReminderDispatchDialogComponent } from '../dashboard/dialogs/fee-reminder-dispatch-dialog.component';
 import * as QRCode from '../../shared/utils/qr-code';
 
 export interface BulkFeePrintDialogData {
@@ -54,6 +57,7 @@ export interface BulkFeePrintDialogData {
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatPaginatorModule,
+    MatMenuModule,
     IstDatetimeDirective
   ],
   template: `
@@ -436,11 +440,38 @@ export interface BulkFeePrintDialogData {
                             }
                           </td>
                           <td style="text-align: center;">
-                            <button mat-flat-button type="button" class="row-collect-btn" (click)="openQuickCollect(slip)"
-                              matTooltip="Collect Fee for {{ slip.studentName }}">
-                              <mat-icon>payments</mat-icon>
-                              <span>Collect</span>
-                            </button>
+                            <div class="row-actions-group">
+                              <button
+                                type="button"
+                                class="mini-voice-btn"
+                                (click)="openVoiceReminder(slip)"
+                                matTooltip="AI Hindi Voice Note & Audio"
+                                aria-label="AI Hindi Voice Note">
+                                <mat-icon style="color: #7c3aed;">mic</mat-icon>
+                              </button>
+                              <button
+                                type="button"
+                                class="more-action-btn"
+                                [matMenuTriggerFor]="actionMenu"
+                                matTooltip="Actions, WhatsApp & Collect Fee"
+                                aria-label="Actions Menu">
+                                <mat-icon>more_vert</mat-icon>
+                              </button>
+                              <mat-menu #actionMenu="matMenu" xPosition="before">
+                                <button mat-menu-item (click)="openQuickCollect(slip)">
+                                  <mat-icon style="color: #059669;">payments</mat-icon>
+                                  <span>Collect Fee / Payment</span>
+                                </button>
+                                <button mat-menu-item (click)="openWhatsAppReminder(slip)">
+                                  <mat-icon style="color: #16a34a;">chat</mat-icon>
+                                  <span>Send WhatsApp Due Reminder</span>
+                                </button>
+                                <button mat-menu-item (click)="openVoiceReminder(slip)">
+                                  <mat-icon style="color: #7c3aed;">mic</mat-icon>
+                                  <span>AI Hindi Voice Note</span>
+                                </button>
+                              </mat-menu>
+                            </div>
                           </td>
                         </tr>
                       }
@@ -1404,6 +1435,86 @@ export interface BulkFeePrintDialogData {
       color: #b91c1c;
     }
 
+    /* ─── Smart Row Actions: Quick Voice & 3-Dots Action Menu ─── */
+    .row-actions-group {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .mini-voice-btn {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0;
+      box-sizing: border-box;
+      border: 1px solid #ddd6fe;
+      border-radius: 50%;
+      background: #f5f3ff;
+      color: #7c3aed;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(124, 58, 237, 0.15);
+      transition: all 0.18s ease;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        line-height: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &:hover {
+        background: #ede9fe;
+        border-color: #c4b5fd;
+        transform: scale(1.06);
+      }
+    }
+
+    .more-action-btn {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 50%;
+      background: #f8fafc;
+      color: #475569;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+      transition: all 0.18s ease;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &:hover {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1e40af;
+        transform: scale(1.06);
+      }
+    }
+
     /* ─── Instant Quick Collect Row Button ─── */
     .row-collect-btn {
       --mat-button-filled-container-color: #059669 !important;
@@ -2131,6 +2242,78 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             branchName: res.branchName || slip.branchName || this.authService.getCurrentBranchName()
           }
         });
+      }
+    });
+  }
+
+  openVoiceReminder(slip: BulkDueSlipItem): void {
+    if (!slip) return;
+    const firstInv = slip.invoices?.[0];
+    const dialogRef = this.dialog.open(StudentVoiceDialogComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      data: {
+        plan: {
+          id: firstInv?.invoiceId || slip.studentId,
+          studentId: slip.studentId,
+          studentName: slip.studentName,
+          rollNumber: slip.rollNumber,
+          className: slip.className || '',
+          sectionName: slip.sectionName || '',
+          batchName: slip.batchName || '',
+          parentName: slip.parentName || '',
+          totalOverdueAmount: slip.totalBalanceDue,
+          parentPhone: slip.parentPhone,
+          invoiceNumber: firstInv?.invoiceNumber || 'FEE-DUE',
+          dueDate: firstInv?.dueDate || null,
+          alreadyRemindedToday: false
+        },
+        instituteName: this.authService.getInstituteName(),
+        dueDay: firstInv?.dueDate ? new Date(firstInv.dueDate).getDate() : 10,
+        initialGender: 'Female'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res) => {
+      if (res?.dispatched) {
+        this.confirmDialog.alert(
+          'AI Voice Reminder Dispatched',
+          `AI Hindi Voice reminder successfully sent to ${slip.studentName} (+${slip.parentPhone || ''}).`
+        );
+      }
+    });
+  }
+
+  openWhatsAppReminder(slip: BulkDueSlipItem): void {
+    if (!slip) return;
+    const firstInv = slip.invoices?.[0];
+    const isSchool = slip.division?.toLowerCase() === 'school' || (!!slip.className && !slip.batchName);
+    const isCoaching = slip.division?.toLowerCase() === 'coaching' || !!slip.batchName;
+
+    this.dialog.open(FeeReminderDispatchDialogComponent, {
+      width: '640px',
+      maxWidth: '96vw',
+      data: {
+        mode: 'single',
+        invoice: {
+          id: firstInv?.invoiceId || slip.studentId,
+          studentId: slip.studentId,
+          studentName: slip.studentName,
+          rollNumber: slip.rollNumber,
+          className: slip.className,
+          invoiceNumber: firstInv?.invoiceNumber || 'FEE-DUE',
+          totalAmount: slip.totalInvoiced || slip.totalBalanceDue,
+          paidAmount: slip.paidAmount || 0,
+          dueAmount: slip.totalBalanceDue,
+          status: 'Overdue',
+          dueDate: firstInv?.dueDate || new Date(),
+          parentWhatsAppPhone: slip.parentPhone,
+          alreadyRemindedToday: false,
+          isSchoolStudent: isSchool,
+          isCoachingStudent: isCoaching,
+          scopeTag: slip.division || (isCoaching ? 'Coaching' : 'School')
+        },
+        instituteName: this.authService.getInstituteName()
       }
     });
   }
