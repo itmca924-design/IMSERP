@@ -2060,6 +2060,85 @@ public class FeesController : ControllerBase
         ));
     }
 
+    private static string ResolveInvoicePeriod(string? title, string? invoiceNumber, DateTime dueDate, string[] monthNames)
+    {
+        if (!string.IsNullOrWhiteSpace(title))
+        {
+            var cleanTitle = title.Trim();
+
+            // For Quarterly / Half-Yearly / Yearly / Annual: return full title as-is
+            // e.g. "November 2026 – January 2027 Fee (Quarterly)" → unchanged
+            if (System.Text.RegularExpressions.Regex.IsMatch(
+                    cleanTitle,
+                    @"(Quarterly|Half-Yearly|Yearly|Annual)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                return cleanTitle;
+            }
+
+            // For Monthly: strip "(Monthly)" suffix → return just "Month Year"
+            if (System.Text.RegularExpressions.Regex.IsMatch(
+                    cleanTitle,
+                    @"\(Monthly\)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                // e.g. "October 2026 Fee (Monthly)" → "October 2026"
+                var stripped = System.Text.RegularExpressions.Regex.Replace(
+                    cleanTitle, @"\s*\(Monthly\)\s*$", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+                if (stripped.EndsWith(" Fee", StringComparison.OrdinalIgnoreCase))
+                    stripped = stripped.Substring(0, stripped.Length - 4).Trim();
+                return stripped;
+            }
+
+            // Any other title with a range (–) return as-is
+            if (cleanTitle.Contains("–") || cleanTitle.Contains(" - "))
+            {
+                return cleanTitle;
+            }
+        }
+
+        // Parse InvoiceNumber format: INV-yyyyMM[QHY]?-...
+        if (!string.IsNullOrEmpty(invoiceNumber))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                invoiceNumber,
+                @"^INV-(?:HOSTEL-)?(\d{4})(\d{2})([QHY])?-",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (match.Success)
+            {
+                int invYear = int.Parse(match.Groups[1].Value);
+                int invMonth = int.Parse(match.Groups[2].Value);
+                string cycleType = match.Groups[3].Value.ToUpperInvariant();
+
+                if (invMonth >= 1 && invMonth <= 12)
+                {
+                    if (cycleType == "Q")
+                    {
+                        var startDt = new DateTime(invYear, invMonth, 1);
+                        var endDt = startDt.AddMonths(2);
+                        return $"{monthNames[startDt.Month]} {startDt.Year} – {monthNames[endDt.Month]} {endDt.Year} Fee (Quarterly)";
+                    }
+                    else if (cycleType == "H")
+                    {
+                        var startDt = new DateTime(invYear, invMonth, 1);
+                        var endDt = startDt.AddMonths(5);
+                        return $"{monthNames[startDt.Month]} {startDt.Year} – {monthNames[endDt.Month]} {endDt.Year} Fee (Half-Yearly)";
+                    }
+                    else if (cycleType == "Y")
+                    {
+                        var startDt = new DateTime(invYear, invMonth, 1);
+                        var endDt = startDt.AddMonths(11);
+                        return $"{monthNames[startDt.Month]} {startDt.Year} – {monthNames[endDt.Month]} {endDt.Year} Fee (Yearly)";
+                    }
+                }
+            }
+        }
+
+        int m = Math.Clamp(dueDate.Month, 1, 12);
+        return $"{monthNames[m]} {dueDate.Year}";
+    }
+
     // ─── Bulk Class-Wise & All Students Fee Receipts & Due Slips (Monthly, Quarterly, Half-Yearly, Yearly) ───
     [HttpGet("bulk-print-data")]
     public async Task<ActionResult> GetBulkPrintData(
@@ -2299,6 +2378,7 @@ public class FeesController : ControllerBase
                 int y = inv.DueDate.Year;
                 decimal bal = Math.Max(0m, inv.TotalAmount - inv.PaidAmount);
                 decimal cashPaidOnInv = Math.Max(0m, inv.PaidAmount - inv.AdvanceAdjustedAmount);
+                string resolvedPeriod = ResolveInvoicePeriod(inv.Title, inv.InvoiceNumber, inv.DueDate, monthNames);
                 var heads = inv.Items != null && inv.Items.Any()
                     ? inv.Items.Select(li => new
                     {
@@ -2307,15 +2387,15 @@ public class FeesController : ControllerBase
                     }).ToList<object>()
                     : new List<object>
                     {
-                        new { headName = string.IsNullOrWhiteSpace(inv.Title) ? $"Monthly Fee ({monthNames[m]} {y})" : inv.Title, amount = inv.TotalAmount }
+                        new { headName = string.IsNullOrWhiteSpace(inv.Title) ? $"Fee ({resolvedPeriod})" : inv.Title, amount = inv.TotalAmount }
                     };
 
                 return new
                 {
                     invoiceId = inv.Id,
                     invoiceNumber = inv.InvoiceNumber,
-                    title = string.IsNullOrWhiteSpace(inv.Title) ? $"Tuition & Academic Fee ({monthNames[m]} {y})" : inv.Title,
-                    period = $"{monthNames[m]} {y}",
+                    title = string.IsNullOrWhiteSpace(inv.Title) ? $"Tuition & Academic Fee ({resolvedPeriod})" : inv.Title,
+                    period = resolvedPeriod,
                     isArrear = !IsInvoiceInCycle(inv),
                     dueDate = inv.DueDate,
                     baseAmount = inv.TotalAmount,
@@ -2415,7 +2495,7 @@ public class FeesController : ControllerBase
                     {
                         int m = inv.DueDate.Month;
                         int y = inv.DueDate.Year;
-                        string per = $"{monthNames[m]} {y}";
+                        string per = ResolveInvoicePeriod(inv.Title, inv.InvoiceNumber, inv.DueDate, monthNames);
                         if (!coveredPeriods.Contains(per)) coveredPeriods.Add(per);
 
                         totalInvDemand += inv.TotalAmount;
@@ -2442,7 +2522,7 @@ public class FeesController : ControllerBase
                             lineItems.Add(new
                             {
                                 index = idx++,
-                                particulars = string.IsNullOrWhiteSpace(inv.Title) ? $"Academic & Tuition Fee ({per})" : $"{inv.Title} ({per})",
+                                particulars = string.IsNullOrWhiteSpace(inv.Title) ? $"Academic & Tuition Fee ({per})" : inv.Title,
                                 invoiceNumber = inv.InvoiceNumber,
                                 amount = allocatedToBill > 0 ? allocatedToBill : p.AmountPaid
                             });

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imserp-cache-v19';
+const CACHE_NAME = 'imserp-cache-v23';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

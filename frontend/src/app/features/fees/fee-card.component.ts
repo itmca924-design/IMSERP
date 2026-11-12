@@ -525,8 +525,15 @@ import { environment } from '../../../environments/environment';
                           <mat-icon class="verified-icon">verified</mat-icon>
                           {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
                         </span>
-                      }
-                      @if (m.status !== 'Paid' && m.status !== 'Settled') {
+                      } @else if (isPartialMonth(m)) {
+                        <div class="partial-seal" [matTooltip]="'₹' + (m.amountPaid | number:'1.0-0') + ' Received • ₹' + (m.balanceDue | number:'1.0-0') + ' Due'">
+                          <span class="partial-seal-title">
+                            <mat-icon class="partial-icon">verified</mat-icon>
+                            <span>PARTIAL</span>
+                          </span>
+                          <span class="partial-seal-sub">₹{{ m.amountPaid | number:'1.0-0' }} Recd • ₹{{ m.balanceDue | number:'1.0-0' }} Due</span>
+                        </div>
+                      } @else {
                         <span class="sign-dash">__________</span>
                       }
                     </td>
@@ -840,8 +847,15 @@ import { environment } from '../../../environments/environment';
                               <span class="verified-seal">
                                 <mat-icon class="verified-icon">verified</mat-icon> {{ m.status === 'Settled' ? 'SETTLED' : 'PAID' }}
                               </span>
-                            }
-                            @if (m.status !== 'Paid' && m.status !== 'Settled') {
+                            } @else if (isPartialMonth(m)) {
+                              <div class="partial-seal" [matTooltip]="'₹' + (m.amountPaid | number:'1.0-0') + ' Received • ₹' + (m.balanceDue | number:'1.0-0') + ' Due'">
+                                <span class="partial-seal-title">
+                                  <mat-icon class="partial-icon">verified</mat-icon>
+                                  <span>PARTIAL</span>
+                                </span>
+                                <span class="partial-seal-sub">₹{{ m.amountPaid | number:'1.0-0' }} Recd • ₹{{ m.balanceDue | number:'1.0-0' }} Due</span>
+                              </div>
+                            } @else {
                               <span class="sign-dash">__________</span>
                             }
                           </td>
@@ -1903,6 +1917,38 @@ import { environment } from '../../../environments/environment';
       font-size: 16px;
       width: 16px;
       height: 16px;
+    }
+
+    .partial-seal {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      line-height: 1.15;
+    }
+
+    .partial-seal-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      color: #b45309;
+      font-weight: 800;
+      font-size: 0.75rem;
+    }
+
+    .partial-seal .partial-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+      color: #d97706;
+    }
+
+    .partial-seal-sub {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #92400e;
+      white-space: nowrap;
     }
 
     .sign-dash {
@@ -3550,6 +3596,12 @@ export class FeeCardComponent implements OnInit, AfterViewInit {
       case 'N/A': return 'pill-na';
       default: return 'pill-upcoming';
     }
+  }
+
+  isPartialMonth(m: any): boolean {
+    if (!m) return false;
+    if (m.status === 'PartiallyPaid' || m.status === 'Partial') return true;
+    return (m.amountPaid > 0 && m.balanceDue > 0);
   }
 
   openWhatsAppShareDialog(card?: StudentFeeCard): void {

@@ -18,6 +18,7 @@ import {
   FeesService,
   BulkPrintDataResponse,
   BulkDueSlipItem,
+  BulkDueSlipInvoiceItem,
   BulkReceiptItem,
   BulkRegisterRow,
   UpiPaymentSettings
@@ -413,8 +414,8 @@ export interface BulkFeePrintDialogData {
                           <td>
                             <div class="period-tags">
                               @for (inv of slip.invoices; track inv.invoiceId) {
-                                <span class="p-tag" [class.arrear]="inv.isArrear">
-                                   {{ inv.period }} (₹{{ inv.balanceDue | number:'1.0-0' }})
+                                <span class="p-tag" [class.arrear]="inv.isArrear" [matTooltip]="getInvoicePeriodLabel(inv)">
+                                   {{ getInvoicePeriodLabel(inv) }} (₹{{ inv.balanceDue | number:'1.0-0' }})
                                 </span>
                               }
                             </div>
@@ -1929,6 +1930,28 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  getInvoicePeriodLabel(inv: BulkDueSlipInvoiceItem): string {
+    const period = (inv?.period || '').trim();
+    const title = (inv?.title || '').trim();
+
+    // 1. If period already contains Quarterly, Half-Yearly, Yearly, Annual, or a range (–), use period
+    if (period && (/(Quarterly|Half-Yearly|Yearly|Annual)/i.test(period) || period.includes('–') || period.includes(' - '))) {
+      return period;
+    }
+
+    // 2. If title contains Quarterly, Half-Yearly, Yearly, Annual, or a range (–), use title
+    if (title && (/(Quarterly|Half-Yearly|Yearly|Annual)/i.test(title) || title.includes('–') || title.includes(' - '))) {
+      return title;
+    }
+
+    // 3. For monthly invoices: e.g. "October 2026 Fee (Monthly)" -> "October 2026"
+    if (title && /\(Monthly\)/i.test(title)) {
+      return title.replace(/\s*Fee\s*\(Monthly\)\s*$/i, '').replace(/\s*\(Monthly\)\s*$/i, '').trim();
+    }
+
+    return period || title || '';
+  }
+
   get docType(): 'dues' | 'receipts' | 'register' {
     return this.filterForm.get('docType')?.value || 'dues';
   }
@@ -2460,7 +2483,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
           <td>
-            <strong>${inv.period}</strong> ${inv.isArrear ? '<span class="arr-tag">Arrear</span>' : ''}
+            <strong>${this.getInvoicePeriodLabel(inv)}</strong> ${inv.isArrear ? '<span class="arr-tag">Arrear</span>' : ''}
             <div class="sub-heads">${headsText}</div>
           </td>
           <td>${inv.invoiceNumber}</td>
