@@ -1,9 +1,10 @@
-import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FeePaymentReceipt, FeesService, UpiPaymentSettings } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -28,7 +29,7 @@ export interface FeeReceiptDialogData {
 @Component({
   selector: 'app-fee-receipt-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule, MatProgressSpinnerModule],
   template: `
     <div class="receipt-modal-container">
       <!-- Top Action Bar (hidden in print) -->
@@ -51,20 +52,27 @@ export interface FeeReceiptDialogData {
             <span class="sub-title">शुल्क भुगतान रसीद</span>
           </div>
         </div>
-        <div class="btn-group">
-          <button class="header-action-btn wa-btn" (click)="shareWhatsApp()" matTooltip="Send WhatsApp Receipt" matButton="filled">
-            <mat-icon class="wa-mat-icon">
-              <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-              </svg>
-            </mat-icon>
-            <span>WhatsApp</span>
+        <div class="btn-group" [class.is-busy]="isSharingWhatsApp">
+          <button class="header-action-btn wa-btn" (click)="shareWhatsApp()" matTooltip="Send WhatsApp Receipt" matButton="filled" [disabled]="isSharingWhatsApp">
+            @if (isSharingWhatsApp) {
+              <mat-progress-spinner diameter="15" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
+              <span>Opening...</span>
+            } @else {
+              <ng-container>
+                <mat-icon class="wa-mat-icon">
+                  <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                  </svg>
+                </mat-icon>
+                <span>WhatsApp</span>
+              </ng-container>
+            }
           </button>
-          <button class="header-action-btn print-btn" (click)="printReceipt()" matTooltip="Print or Download PDF" matButton="filled">
+          <button class="header-action-btn print-btn" (click)="printReceipt()" matTooltip="Print or Download PDF" matButton="filled" [disabled]="isSharingWhatsApp">
             <mat-icon>print</mat-icon>
             <span>Print Receipt</span>
           </button>
-          <button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close" mat-icon-button>
+          <button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close" mat-icon-button [disabled]="isSharingWhatsApp">
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -525,6 +533,22 @@ export interface FeeReceiptDialogData {
         display: flex;
         align-items: center;
         gap: 8px;
+
+        &.is-busy {
+          .header-action-btn:not(.wa-btn), .header-close-btn {
+            opacity: 0.55 !important;
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+          }
+        }
+
+        .btn-spinner {
+          display: inline-block !important;
+          margin-right: 4px !important;
+          ::ng-deep circle {
+            stroke: #ffffff !important;
+          }
+        }
 
         .header-action-btn {
           height: 32px !important;
@@ -1527,12 +1551,15 @@ export class FeeReceiptDialogComponent implements OnInit {
     return '';
   }
 
+  isSharingWhatsApp = false;
+
   constructor(
     public dialogRef: MatDialogRef<FeeReceiptDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeReceiptDialogData,
     private feesService: FeesService,
     public authService: AuthService,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private cdr: ChangeDetectorRef
   ) {
     if (this.data) {
       let r: any = (this.data as any).receipt || this.data;
@@ -1882,17 +1909,27 @@ export class FeeReceiptDialogComponent implements OnInit {
       `Thank you for trusting ${instName}!`;
 
     const el = document.getElementById('student-receipt-copy');
-    if (el) {
-      await shareElementOnWhatsApp({
-        element: el,
-        fileName: `Fee_Receipt_${this.data.receipt.studentName.replace(/\s+/g, '_')}_${this.data.receipt.receiptNumber}.png`,
-        phone: phone,
-        messageText: textMsg,
-        shareTitle: `Fee Payment Receipt - ${this.data.receipt.studentName}`,
-        confirmDialog: this.confirmDialog
-      });
-    } else {
-      openWhatsAppTextOnly(phone, textMsg);
+    if (this.isSharingWhatsApp) return;
+    this.isSharingWhatsApp = true;
+    this.cdr.markForCheck();
+
+    try {
+      if (el) {
+        await shareElementOnWhatsApp({
+          element: el,
+          fileName: `Fee_Receipt_${this.data.receipt.studentName.replace(/\s+/g, '_')}_${this.data.receipt.receiptNumber}.png`,
+          phone: phone,
+          messageText: textMsg,
+          shareTitle: `Fee Payment Receipt - ${this.data.receipt.studentName}`
+        });
+      } else {
+        openWhatsAppTextOnly(phone, textMsg);
+      }
+    } finally {
+      setTimeout(() => {
+        this.isSharingWhatsApp = false;
+        this.cdr.markForCheck();
+      }, 700);
     }
   }
 }

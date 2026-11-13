@@ -11,8 +11,14 @@ export interface WhatsAppShareOptions {
 }
 
 export async function shareElementOnWhatsApp(options: WhatsAppShareOptions): Promise<boolean> {
-  const { element, fileName, phone, messageText, shareTitle, confirmDialog } = options;
+  const { element, fileName, phone, messageText, shareTitle } = options;
   if (!element) return false;
+
+  // 1. Desktop: Launch WhatsApp Web immediately for blazing-fast instant UX
+  const isDesktop = typeof navigator === 'undefined' || !navigator.share;
+  if (isDesktop) {
+    openWhatsAppTextOnly(phone, messageText);
+  }
 
   try {
     const canvas = await html2canvas(element, {
@@ -27,14 +33,14 @@ export async function shareElementOnWhatsApp(options: WhatsAppShareOptions): Pro
 
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) {
-      openWhatsAppTextOnly(phone, messageText);
+      if (!isDesktop) openWhatsAppTextOnly(phone, messageText);
       return false;
     }
 
     const safeFileName = fileName.endsWith('.png') ? fileName : `${fileName}.png`;
     const file = new File([blob], safeFileName, { type: 'image/png' });
 
-    // 1. Mobile Web Share API: Direct attachment in WhatsApp
+    // 2. Mobile Web Share API: Direct attachment in WhatsApp
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
@@ -48,26 +54,26 @@ export async function shareElementOnWhatsApp(options: WhatsAppShareOptions): Pro
       }
     }
 
-    // 2. Desktop: Copy image to Clipboard
-    let copied = false;
+    // 3. Desktop: Copy image to Clipboard quietly
     if (navigator.clipboard && (window as any).ClipboardItem) {
       try {
         window.focus();
         const item = new (window as any).ClipboardItem({ 'image/png': blob });
         await navigator.clipboard.write([item]);
-        copied = true;
       } catch (e) {
         console.warn('Clipboard write warning:', e);
       }
     }
 
-    // Open WhatsApp Web / chat
-    openWhatsAppTextOnly(phone, messageText);
+    // Fallback if not already opened
+    if (!isDesktop) {
+      openWhatsAppTextOnly(phone, messageText);
+    }
 
     return true;
   } catch (err) {
     console.error('Error generating image for WhatsApp:', err);
-    openWhatsAppTextOnly(phone, messageText);
+    if (!isDesktop) openWhatsAppTextOnly(phone, messageText);
     return false;
   }
 }
