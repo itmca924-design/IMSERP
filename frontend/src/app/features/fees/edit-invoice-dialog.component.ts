@@ -139,13 +139,14 @@ interface EditableInvoiceItem {
                       min="1"
                       />
                   </td>
-                  <td class="text-center">
+                  <td class="text-center action-col">
                     <button
                       type="button"
                       class="delete-item-btn"
-                      [disabled]="it.paidAmount> 0 || saving"
+                      [disabled]="it.paidAmount > 0 || saving"
                       (click)="removeItem(idx)"
-                      [matTooltip]="it.paidAmount > 0 ? 'Cannot remove already paid item' : 'Remove this fee head'" mat-icon-button>
+                      [matTooltip]="it.paidAmount > 0 ? 'Cannot remove already paid item' : 'Remove this fee head'"
+                      mat-icon-button>
                       <mat-icon>delete_outline</mat-icon>
                     </button>
                   </td>
@@ -556,14 +557,50 @@ interface EditableInvoiceItem {
               }
             }
 
-            .delete-item-btn {
-              color: #ef4444;
-              width: 32px;
-              height: 32px;
-              line-height: 32px;
+            .action-col {
+              text-align: center;
+              vertical-align: middle;
+            }
 
-              &:disabled { color: #cbd5e1; }
-              &:not(:disabled):hover { background: #fee2e2; }
+            .delete-item-btn {
+              color: #ef4444 !important;
+              width: 34px !important;
+              height: 34px !important;
+              min-width: 34px !important;
+              min-height: 34px !important;
+              padding: 0 !important;
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              border-radius: 50% !important;
+              margin: 0 auto !important;
+              vertical-align: middle;
+              transition: all 0.15s ease-in-out;
+
+              mat-icon {
+                font-size: 20px !important;
+                width: 20px !important;
+                height: 20px !important;
+                line-height: 20px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                margin: 0 !important;
+                color: #ef4444;
+              }
+
+              &:disabled {
+                color: #cbd5e1 !important;
+                cursor: not-allowed;
+                mat-icon { color: #cbd5e1 !important; }
+              }
+
+              &:not(:disabled):hover {
+                background: #fee2e2 !important;
+                color: #dc2626 !important;
+                box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
+                mat-icon { color: #dc2626 !important; }
+              }
             }
           }
         }

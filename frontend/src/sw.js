@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imserp-cache-v23';
+const CACHE_NAME = 'imserp-cache-v24';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -336,8 +336,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 6. SPA Navigation requests (HTML pages): Network-first with cache fallback to /index.html
-  if (req.mode === 'navigate') {
+  // 6. SPA Navigation & Document requests (HTML pages): Network-first with cache fallback to /index.html
+  const isNavigation =
+    req.mode === 'navigate' ||
+    req.destination === 'document' ||
+    (req.headers.get('accept') && req.headers.get('accept').includes('text/html')) ||
+    (!url.pathname.includes('.') && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/uploads/'));
+
+  if (isNavigation) {
     event.respondWith(
       fetch(req)
         .then((res) => {
@@ -353,7 +359,7 @@ self.addEventListener('fetch', (event) => {
             return cachedIndex;
           }
           return new Response(
-            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SMSERP</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:50px 20px;"><h3>Connection Error</h3><p>Please check your internet connection and reload.</p><button onclick="window.location.reload()" style="padding:10px 20px;border-radius:6px;border:none;background:#2563eb;color:#fff;cursor:pointer;">Retry</button></body></html>',
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>IMSERP</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:50px 20px;"><h3>Connection Error</h3><p>Please check your internet connection and reload.</p><button onclick="window.location.reload()" style="padding:10px 20px;border-radius:6px;border:none;background:#2563eb;color:#fff;cursor:pointer;">Retry</button></body></html>',
             {
               status: 200,
               headers: { 'Content-Type': 'text/html; charset=utf-8' }
@@ -395,10 +401,14 @@ self.addEventListener('fetch', (event) => {
 
   // Default: Network with safe cache fallback
   event.respondWith(
-    fetch(req).catch(async () => {
+    fetch(req).catch(async (err) => {
+      // If the client/browser aborted the in-flight request, handle it cleanly without synthesizing a fake 408 error
+      if (err && (err.name === 'AbortError' || (err.message && err.message.includes('abort')))) {
+        return Response.error();
+      }
       const cached = await caches.match(req);
       if (cached) return cached;
-      return new Response('', { status: 408, statusText: 'Offline / Request Aborted' });
+      return Response.error();
     })
   );
 });

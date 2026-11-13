@@ -346,17 +346,19 @@ import { MasterExcelImportDialogComponent } from '../../shared/components/master
               <ng-container matColumnDef="actions" stickyEnd>
                 <th mat-header-cell *matHeaderCellDef class="text-center actions-header"> Actions </th>
                 <td mat-cell *matCellDef="let head" class="text-center action-buttons">
-                  <button color="primary" class="edit-btn" (click)="openEditHeadDrawer(head)" matTooltip="Edit Fee Head" mat-icon-button>
-                    <mat-icon style="color: #2563eb;">edit</mat-icon>
-                  </button>
-                  <button [color]="head.isActive ? 'warn' : 'accent'" (click)="onToggleStatus(head)" [matTooltip]="head.isActive ? 'Deactivate' : 'Activate'" mat-icon-button>
-                    <mat-icon>{{ head.isActive ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
-                  </button>
-                  @if (!head.isDefault) {
-                    <button color="warn" (click)="onDeleteHead(head)" matTooltip="Delete Fee Head" mat-icon-button>
-                      <mat-icon>delete_outline</mat-icon>
+                  <div class="action-btn-group">
+                    <button color="primary" class="edit-btn action-icon-btn" (click)="openEditHeadDrawer(head)" matTooltip="Edit Fee Head" mat-icon-button>
+                      <mat-icon>edit</mat-icon>
                     </button>
-                  }
+                    <button [color]="head.isActive ? 'warn' : 'accent'" class="toggle-btn action-icon-btn" (click)="onToggleStatus(head)" [matTooltip]="head.isActive ? 'Deactivate' : 'Activate'" mat-icon-button>
+                      <mat-icon>{{ head.isActive ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
+                    </button>
+                    @if (!head.isDefault) {
+                      <button color="warn" class="delete-btn action-icon-btn" (click)="onDeleteHead(head)" matTooltip="Delete Fee Head" mat-icon-button>
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    }
+                  </div>
                 </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -934,9 +936,76 @@ import { MasterExcelImportDialogComponent } from '../../shared/components/master
       z-index: 4 !important;
       box-shadow: -4px 0 10px -2px rgba(15, 23, 42, 0.08) !important;
       border-left: 1px solid #e2e8f0 !important;
-      min-width: 130px !important;
+      min-width: 156px !important;
+      width: 156px !important;
       text-align: center !important;
       white-space: nowrap !important;
+      padding-left: 14px !important;
+      padding-right: 14px !important;
+      box-sizing: border-box !important;
+    }
+
+    .action-btn-group {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 2px 4px;
+    }
+
+    .action-icon-btn {
+      width: 34px !important;
+      height: 34px !important;
+      line-height: 34px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 8px !important;
+      transition: all 0.15s ease-in-out;
+
+      mat-icon {
+        font-size: 19px !important;
+        width: 19px !important;
+        height: 19px !important;
+        line-height: 19px !important;
+      }
+    }
+
+    .edit-btn {
+      color: #2563eb !important;
+      background: #eff6ff !important;
+      border: 1px solid #bfdbfe !important;
+
+      &:hover {
+        background: #dbeafe !important;
+        color: #1d4ed8 !important;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15) !important;
+      }
+
+      mat-icon {
+        color: #2563eb !important;
+      }
+    }
+
+    .toggle-btn {
+      background: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+
+      &:hover {
+        background: #f1f5f9 !important;
+      }
+    }
+
+    .delete-btn {
+      color: #ef4444 !important;
+      background: #fff5f5 !important;
+      border: 1px solid #fed7d7 !important;
+
+      &:hover {
+        background: #fee2e2 !important;
+        color: #dc2626 !important;
+      }
     }
 
     th.mat-column-actions,
