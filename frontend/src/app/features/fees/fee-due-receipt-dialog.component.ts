@@ -5,7 +5,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FeesService, FeeDueSlip, FeeDueSlipItem, FeeInvoicePagedItem, UpiPaymentSettings } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -40,7 +39,7 @@ export interface FeeDueReceiptDialogData {
 @Component({
   selector: 'app-fee-due-receipt-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule, MatProgressBarModule, MatProgressSpinnerModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule, MatProgressBarModule],
   template: `
     <div class="due-modal-container">
       <!-- Top Action Bar (hidden in print) -->
@@ -55,14 +54,28 @@ export interface FeeDueReceiptDialogData {
           </div>
         </div>
         <div class="btn-group" [class.is-busy]="isSharingWhatsApp">
-          <button class="header-action-btn collect-btn" (click)="collectNow()" matTooltip="Collect Fee Directly" matButton="filled" [disabled]="isSharingWhatsApp">
+          <button
+            class="header-action-btn collect-btn"
+            [class.btn-disabled]="isSharingWhatsApp"
+            [disabled]="isSharingWhatsApp"
+            (click)="collectNow()"
+            matTooltip="Collect Fee Directly"
+            matButton="filled">
             <mat-icon>payments</mat-icon>
             <span>Collect Fee</span>
           </button>
-          <button class="header-action-btn wa-btn" (click)="shareWhatsApp()" matTooltip="Send WhatsApp Due Notice" matButton="filled" [disabled]="isSharingWhatsApp">
+          <button
+            class="header-action-btn wa-btn"
+            [class.loading-state]="isSharingWhatsApp"
+            [disabled]="isSharingWhatsApp"
+            (click)="shareWhatsApp()"
+            matTooltip="Send WhatsApp Due Notice"
+            matButton="filled">
             @if (isSharingWhatsApp) {
-              <mat-progress-spinner diameter="15" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
-              <span>Opening...</span>
+              <ng-container>
+                <mat-icon class="wa-spin">sync</mat-icon>
+                <span>Opening WhatsApp...</span>
+              </ng-container>
             } @else {
               <ng-container>
                 <mat-icon class="wa-mat-icon">
@@ -74,11 +87,22 @@ export interface FeeDueReceiptDialogData {
               </ng-container>
             }
           </button>
-          <button class="header-action-btn print-btn" (click)="printDueSlip()" matTooltip="Print or Download PDF" matButton="filled" [disabled]="isSharingWhatsApp">
+          <button
+            class="header-action-btn print-btn"
+            [class.btn-disabled]="isSharingWhatsApp"
+            [disabled]="isSharingWhatsApp"
+            (click)="printDueSlip()"
+            matTooltip="Print or Download PDF"
+            matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Slip</span>
           </button>
-          <button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close" mat-icon-button [disabled]="isSharingWhatsApp">
+          <button
+            class="header-close-btn"
+            [disabled]="isSharingWhatsApp"
+            (click)="dialogRef.close()"
+            matTooltip="Close"
+            mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -408,24 +432,20 @@ export interface FeeDueReceiptDialogData {
         }
       }
 
+      @keyframes waSpinAnim {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
       .btn-group {
         display: flex;
         align-items: center;
         gap: 8px;
 
         &.is-busy {
-          .header-action-btn:not(.wa-btn), .header-close-btn {
-            opacity: 0.55 !important;
+          .header-action-btn.btn-disabled, .header-close-btn {
             pointer-events: none !important;
             cursor: not-allowed !important;
-          }
-        }
-
-        .btn-spinner {
-          display: inline-block !important;
-          margin-right: 4px !important;
-          ::ng-deep circle {
-            stroke: #ffffff !important;
           }
         }
 
@@ -443,10 +463,15 @@ export interface FeeDueReceiptDialogData {
 
           mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
+          .wa-spin {
+            animation: waSpinAnim 0.75s linear infinite !important;
+            display: inline-block !important;
+          }
+
           &.collect-btn {
             background: #0284c7 !important;
             color: #ffffff !important;
-            &:hover { background: #0369a1 !important; transform: translateY(-1px); }
+            &:hover:not(:disabled) { background: #0369a1 !important; transform: translateY(-1px); }
           }
 
           &.wa-btn {
@@ -467,13 +492,36 @@ export interface FeeDueReceiptDialogData {
               display: block;
               fill: currentColor;
             }
-            &:hover { background: #15803d !important; transform: translateY(-1px); }
+            &:hover:not(:disabled) { background: #15803d !important; transform: translateY(-1px); }
+            &.loading-state {
+              background: #15803d !important;
+              color: #ffffff !important;
+              cursor: wait !important;
+              pointer-events: none !important;
+              opacity: 0.95 !important;
+            }
           }
 
           &.print-btn {
             background: #2563eb !important;
             color: #ffffff !important;
-            &:hover { background: #1d4ed8 !important; transform: translateY(-1px); }
+            &:hover:not(:disabled) { background: #1d4ed8 !important; transform: translateY(-1px); }
+          }
+
+          /* PROPER VISIBLE DISABLED STYLING FOR ALL BUTTONS */
+          &:disabled, &[disabled], &.btn-disabled {
+            background: #e2e8f0 !important;
+            color: #94a3b8 !important;
+            border: 1px solid #cbd5e1 !important;
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            box-shadow: none !important;
+            transform: none !important;
+
+            mat-icon, span {
+              color: #94a3b8 !important;
+            }
           }
         }
 
@@ -484,7 +532,12 @@ export interface FeeDueReceiptDialogData {
           display: flex;
           align-items: center;
           justify-content: center;
-          &:hover { color: #1e293b; background: rgba(0, 0, 0, 0.05); }
+          &:hover:not(:disabled) { color: #1e293b; background: rgba(0, 0, 0, 0.05); }
+          &:disabled, &[disabled] {
+            opacity: 0.4 !important;
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+          }
         }
       }
     }
@@ -1396,49 +1449,54 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     }, 250);
   }
 
-  async shareWhatsApp(): Promise<void> {
+  shareWhatsApp(): void {
     if (this.isSharingWhatsApp) return;
     this.isSharingWhatsApp = true;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
 
-    try {
-      const phone = this.dueSlip?.parentPhone || this.data.parentWhatsAppPhone;
-      if (!this.dueSlip) return;
-
-      const invDetails = this.dueSlip.dueItems.map(d => `• ${d.title}: Due *₹${d.dueAmount}* (Due Date: ${new Date(d.dueDate).toLocaleDateString('en-IN')})`).join('\n');
-
-      const branchLine = this.effectiveBranchName ? `*Branch*: ${this.effectiveBranchName}\n` : '';
-      const instName = this.data.instituteName || this.authService.currentUser()?.instituteName || 'Fee Clearance Desk';
-
-      const textMsg = `*OFFICIAL FEE DUE DEMAND SLIP*\n` +
-        `*Institute*: ${instName}\n` +
-        branchLine +
-        `*Notice No*: #${this.noticeNumber}\n` +
-        `*Date*: ${new Date().toLocaleDateString('en-IN')}\n\n` +
-        `Dear Parent, this is an official reminder regarding pending fees for *${this.dueSlip.studentName}* (${this.dueSlip.batchName || 'General'}).\n\n` +
-        `*Outstanding Dues Breakdown*:\n${invDetails}\n\n` +
-        `*Total Outstanding Balance*: *₹${this.dueSlip.totalOutstandingDue}*\n\n` +
-        `Please clear the dues at the institute counter or via UPI at your earliest convenience to avoid any disruption in classes.\n\n` +
-        `Thank you,\n*Accounts Department*`;
-
-      const el = document.getElementById('student-due-slip-copy');
-      if (el) {
-        await shareElementOnWhatsApp({
-          element: el,
-          fileName: `Fee_Due_Slip_${this.dueSlip.studentName.replace(/\s+/g, '_')}_${this.noticeNumber}.png`,
-          phone: phone,
-          messageText: textMsg,
-          shareTitle: `Fee Due Demand Note - ${this.dueSlip.studentName}`
-        });
-      } else {
-        openWhatsAppTextOnly(phone, textMsg);
-      }
-    } finally {
-      setTimeout(() => {
-        this.isSharingWhatsApp = false;
-        this.cdr.markForCheck();
-      }, 700);
+    const phone = this.dueSlip?.parentPhone || this.data.parentWhatsAppPhone;
+    if (!this.dueSlip) {
+      this.isSharingWhatsApp = false;
+      this.cdr.detectChanges();
+      return;
     }
+
+    const invDetails = this.dueSlip.dueItems.map(d => `• ${d.title}: Due *₹${d.dueAmount}* (Due Date: ${new Date(d.dueDate).toLocaleDateString('en-IN')})`).join('\n');
+
+    const branchLine = this.effectiveBranchName ? `*Branch*: ${this.effectiveBranchName}\n` : '';
+    const instName = this.data.instituteName || this.authService.currentUser()?.instituteName || 'Fee Clearance Desk';
+
+    const textMsg = `*OFFICIAL FEE DUE DEMAND SLIP*\n` +
+      `*Institute*: ${instName}\n` +
+      branchLine +
+      `*Notice No*: #${this.noticeNumber}\n` +
+      `*Date*: ${new Date().toLocaleDateString('en-IN')}\n\n` +
+      `Dear Parent, this is an official reminder regarding pending fees for *${this.dueSlip.studentName}* (${this.dueSlip.batchName || 'General'}).\n\n` +
+      `*Outstanding Dues Breakdown*:\n${invDetails}\n\n` +
+      `*Total Outstanding Balance*: *₹${this.dueSlip.totalOutstandingDue}*\n\n` +
+      `Please clear the dues at the institute counter or via UPI at your earliest convenience to avoid any disruption in classes.\n\n` +
+      `Thank you,\n*Accounts Department*`;
+
+    // 1. Immediately launch WhatsApp
+    openWhatsAppTextOnly(phone, textMsg);
+
+    // 2. In parallel, background copy slip to clipboard if available
+    const el = document.getElementById('student-due-slip-copy');
+    if (el && navigator.clipboard && (window as any).ClipboardItem) {
+      shareElementOnWhatsApp({
+        element: el,
+        fileName: `Fee_Due_Slip_${this.dueSlip.studentName.replace(/\s+/g, '_')}_${this.noticeNumber}.png`,
+        phone: phone,
+        messageText: textMsg,
+        shareTitle: `Fee Due Demand Note - ${this.dueSlip.studentName}`
+      }).catch(err => console.warn('Background copy error:', err));
+    }
+
+    // 3. Keep loading active and other buttons disabled for 2.8s so feedback is unmistakable
+    setTimeout(() => {
+      this.isSharingWhatsApp = false;
+      this.cdr.detectChanges();
+    }, 2800);
   }
 }
 

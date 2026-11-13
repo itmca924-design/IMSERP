@@ -4,7 +4,6 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FeePaymentReceipt, FeesService, UpiPaymentSettings } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -29,7 +28,7 @@ export interface FeeReceiptDialogData {
 @Component({
   selector: 'app-fee-receipt-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule, MatProgressSpinnerModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule],
   template: `
     <div class="receipt-modal-container">
       <!-- Top Action Bar (hidden in print) -->
@@ -53,10 +52,18 @@ export interface FeeReceiptDialogData {
           </div>
         </div>
         <div class="btn-group" [class.is-busy]="isSharingWhatsApp">
-          <button class="header-action-btn wa-btn" (click)="shareWhatsApp()" matTooltip="Send WhatsApp Receipt" matButton="filled" [disabled]="isSharingWhatsApp">
+          <button
+            class="header-action-btn wa-btn"
+            [class.loading-state]="isSharingWhatsApp"
+            [disabled]="isSharingWhatsApp"
+            (click)="shareWhatsApp()"
+            matTooltip="Send WhatsApp Receipt"
+            matButton="filled">
             @if (isSharingWhatsApp) {
-              <mat-progress-spinner diameter="15" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
-              <span>Opening...</span>
+              <ng-container>
+                <mat-icon class="wa-spin">sync</mat-icon>
+                <span>Opening WhatsApp...</span>
+              </ng-container>
             } @else {
               <ng-container>
                 <mat-icon class="wa-mat-icon">
@@ -68,11 +75,22 @@ export interface FeeReceiptDialogData {
               </ng-container>
             }
           </button>
-          <button class="header-action-btn print-btn" (click)="printReceipt()" matTooltip="Print or Download PDF" matButton="filled" [disabled]="isSharingWhatsApp">
+          <button
+            class="header-action-btn print-btn"
+            [class.btn-disabled]="isSharingWhatsApp"
+            [disabled]="isSharingWhatsApp"
+            (click)="printReceipt()"
+            matTooltip="Print or Download PDF"
+            matButton="filled">
             <mat-icon>print</mat-icon>
             <span>Print Receipt</span>
           </button>
-          <button class="header-close-btn" (click)="dialogRef.close()" matTooltip="Close" mat-icon-button [disabled]="isSharingWhatsApp">
+          <button
+            class="header-close-btn"
+            [disabled]="isSharingWhatsApp"
+            (click)="dialogRef.close()"
+            matTooltip="Close"
+            mat-icon-button>
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -1873,7 +1891,11 @@ export class FeeReceiptDialogComponent implements OnInit {
     return `${day} ${month} ${year}, ${hour}:${minute}:${second}\u00A0${dayPeriod}`;
   }
 
-  async shareWhatsApp(): Promise<void> {
+  shareWhatsApp(): void {
+    if (this.isSharingWhatsApp) return;
+    this.isSharingWhatsApp = true;
+    this.cdr.detectChanges();
+
     const phone = this.data.receipt.parentPhone;
 
     let headsSection = '';
@@ -1908,29 +1930,26 @@ export class FeeReceiptDialogComponent implements OnInit {
       `📄 *Download / View Official PDF Receipt*:\n${receiptPublicUrl}\n\n` +
       `Thank you for trusting ${instName}!`;
 
-    const el = document.getElementById('student-receipt-copy');
-    if (this.isSharingWhatsApp) return;
-    this.isSharingWhatsApp = true;
-    this.cdr.markForCheck();
+    // 1. Immediately open WhatsApp — zero delay
+    openWhatsAppTextOnly(phone, textMsg);
 
-    try {
-      if (el) {
-        await shareElementOnWhatsApp({
-          element: el,
-          fileName: `Fee_Receipt_${this.data.receipt.studentName.replace(/\s+/g, '_')}_${this.data.receipt.receiptNumber}.png`,
-          phone: phone,
-          messageText: textMsg,
-          shareTitle: `Fee Payment Receipt - ${this.data.receipt.studentName}`
-        });
-      } else {
-        openWhatsAppTextOnly(phone, textMsg);
-      }
-    } finally {
-      setTimeout(() => {
-        this.isSharingWhatsApp = false;
-        this.cdr.markForCheck();
-      }, 700);
+    // 2. Background: copy receipt image to clipboard (non-blocking)
+    const el = document.getElementById('student-receipt-copy');
+    if (el && navigator.clipboard && (window as any).ClipboardItem) {
+      shareElementOnWhatsApp({
+        element: el,
+        fileName: `Fee_Receipt_${this.data.receipt.studentName.replace(/\s+/g, '_')}_${this.data.receipt.receiptNumber}.png`,
+        phone: phone,
+        messageText: textMsg,
+        shareTitle: `Fee Payment Receipt - ${this.data.receipt.studentName}`
+      }).catch(err => console.warn('Background copy error:', err));
     }
+
+    // 3. Keep buttons locked for 2.8s — clear visual feedback
+    setTimeout(() => {
+      this.isSharingWhatsApp = false;
+      this.cdr.detectChanges();
+    }, 2800);
   }
 }
 
