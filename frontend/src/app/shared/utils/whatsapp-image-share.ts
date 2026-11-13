@@ -64,18 +64,6 @@ export async function shareElementOnWhatsApp(options: WhatsAppShareOptions): Pro
     // Open WhatsApp Web / chat
     openWhatsAppTextOnly(phone, messageText);
 
-    // Show desktop user guidance
-    if (confirmDialog) {
-      const msg = copied
-        ? `📸 दस्तावेज़ की इमेज आपके Clipboard पर कॉपी हो गई है!\n\n` +
-          `WhatsApp Web खुल चुका है:\n` +
-          `👉 चैट में जाकर बस Ctrl + V (Paste) दबाएँ — साफ़ फोटो तुरंत अटैच हो जाएगी!\n` +
-          `👉 फिर Send बटन दबा दें।`
-        : `WhatsApp Web खुल चुका है। कृपया संदेश भेजें।`;
-
-      confirmDialog.alert('WhatsApp Ready! 💬', msg, 'success');
-    }
-
     return true;
   } catch (err) {
     console.error('Error generating image for WhatsApp:', err);

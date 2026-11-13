@@ -62,11 +62,11 @@ export interface FeeReminderDispatchDialogData {
           </div>
           <div>
             <h2 class="modal-title">
-              {{ isBulkMode ? 'Bulk WhatsApp Fee Reminders' : 'Send WhatsApp Fee Reminder' }}
+              {{ isBulkMode ? 'Bulk WhatsApp Fee Reminders' : (isPaidSingle ? 'Send WhatsApp Payment Receipt' : 'Send WhatsApp Fee Reminder') }}
             </h2>
             <p class="modal-subtitle">
               <strong style="color: #1e40af">{{ data.instituteName }}</strong>
-              <span> &bull; {{ isBulkMode ? 'Manual Multi-Student Dispatch' : 'Personalized Student Dispatch' }}</span>
+              <span> &bull; {{ isBulkMode ? 'Manual Multi-Student Dispatch' : (isPaidSingle ? 'Paid Receipt Dispatch' : 'Personalized Student Dispatch') }}</span>
             </p>
           </div>
         </div>
@@ -126,9 +126,9 @@ export interface FeeReminderDispatchDialogData {
                   <span class="roll">Roll: {{ targetSingle.rollNumber || 'N/A' }} • {{ targetSingle.className || 'General' }} • Inv: #{{ targetSingle.invoiceNumber || 'N/A' }}</span>
                 </div>
               </div>
-              <div class="due-badge">
-                <span class="due-label">Pending Dues:</span>
-                <span class="due-val">₹{{ targetSingle.dueAmount | number:'1.0-0' }}</span>
+              <div class="due-badge" [class.paid-badge]="isPaidSingle">
+                <span class="due-label">{{ isPaidSingle ? 'Status:' : 'Pending Dues:' }}</span>
+                <span class="due-val">{{ isPaidSingle ? ('PAID (₹' + ((targetSingle.paidAmount || targetSingle.totalAmount || 0) | number:'1.0-0') + ')') : ('₹' + (targetSingle.dueAmount | number:'1.0-0')) }}</span>
                 @if ((targetSingle.paidAmount || 0) > 0 && (targetSingle.dueAmount || 0) > 0) {
                   <span class="partial-paid-badge">Partial • Paid ₹{{ targetSingle.paidAmount | number:'1.0-0' }}</span>
                 }
@@ -576,6 +576,15 @@ export interface FeeReminderDispatchDialogData {
             font-weight: 800;
             color: #dc2626;
           }
+
+          &.paid-badge {
+            .due-label {
+              color: #166534;
+            }
+            .due-val {
+              color: #16a34a;
+            }
+          }
         }
       }
 
@@ -1022,6 +1031,10 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
     }
   }
 
+  get isPaidSingle(): boolean {
+    return !this.isBulkMode && !!this.targetSingle && (this.targetSingle.dueAmount === 0 || this.targetSingle.status === 'Paid');
+  }
+
   buildInvoiceMessage(inv: FeeReminderDispatchItem): string {
     const inst = this.data.instituteName || 'Institute';
     const sName = inv.studentName || 'Student';
@@ -1032,6 +1045,11 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
     const amt = inv.dueAmount != null ? inv.dueAmount : 0;
     const paid = inv.paidAmount || 0;
     const total = inv.totalAmount || (paid + amt);
+
+    if (amt === 0 || inv.status === 'Paid') {
+      return `*FEE PAYMENT RECEIPT & ACKNOWLEDGEMENT*\n🏛️ *${inst}*\n━━━━━━━━━━━━━━━━━━━━━━\nDear Parent,\nThis is an official fee payment acknowledgement for your ward *${sName}* (Class: *${cls}* | Roll: *${roll}* | Division: *${scope}*).\n\n📋 *Payment Receipt Summary:*\n• Invoice No: #${invNo}\n• Total Amount Paid: *₹${paid || total}*\n• Status: *Fully Paid / Cleared (₹0 Due)*\n\nThank you for your timely payment and continued cooperation!\n\n*Accounts Department*\n*${inst}*`;
+    }
+
     const dDate = inv.dueDate
       ? new Date(inv.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
       : 'Due Soon';
@@ -1074,6 +1092,12 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
     const amt = inv.dueAmount != null ? inv.dueAmount : 0;
     const paid = inv.paidAmount || 0;
     const total = inv.totalAmount || (paid + amt);
+    const invNo = inv.invoiceNumber || 'INV';
+
+    if (amt === 0 || inv.status === 'Paid') {
+      return `*FEE PAYMENT ACKNOWLEDGEMENT*\n🏛️ *${inst}*\n━━━━━━━━━━━━━━━━━━━━━━\nआदरणीय अभिभावक जी,\nसादर प्रणाम।\n\nसंस्थान के रिकॉर्ड अनुसार आपके बच्चे *${sName}* (कक्षा/बैच: *${cls}* | Roll: *${roll}* | विभाग: *${scope}*) की फीस *₹${paid || total}* (इनवॉइस: #${invNo}) सफलतापूर्वक प्राप्त हो चुकी है। वर्तमान में कोई बकाया शेष नहीं है।\n\nसमय पर भुगतान हेतु आपका हार्दिक धन्यवाद।\n\nसधन्यवाद,\n*${inst} (Accounts Office)*`;
+    }
+
     const dDate = inv.dueDate
       ? new Date(inv.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
       : '';
@@ -1142,6 +1166,11 @@ export class FeeReminderDispatchDialogComponent implements OnInit {
     inv.dispatched = true;
     inv.alreadyRemindedToday = true;
     this.cdr.markForCheck();
+
+    // Auto-close dialog smoothly after launching WhatsApp
+    setTimeout(() => {
+      this.dialogRef.close({ dispatched: true });
+    }, 450);
   }
 
   sendSingleFromBulk(s: FeeReminderDispatchItem): void {

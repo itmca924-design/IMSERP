@@ -37,6 +37,7 @@ import { FeeMasterDialogComponent } from './fee-master-dialog.component';
 import { EditInvoiceDialogComponent } from './edit-invoice-dialog.component';
 import { FeeInvoiceBreakdownDialogComponent, BreakdownDialogResult } from './fee-invoice-breakdown-dialog.component';
 import { BulkFeePrintDialogComponent } from './bulk-fee-print-dialog.component';
+import { FeeReminderDispatchDialogComponent } from '../dashboard/dialogs/fee-reminder-dispatch-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
 import { AiErpCopilotService } from '../../core/services/ai-erp-copilot.service';
@@ -4347,27 +4348,35 @@ export class FeesComponent implements OnInit, OnDestroy {
   }
 
   sendReminder(inv: FeeInvoicePagedItem): void {
-    const isPaid = inv.dueAmount === 0;
-    const actionTitle = isPaid ? 'Send WhatsApp Receipt' : 'Send WhatsApp Reminder';
-    const phoneSuffix = inv.parentWhatsAppPhone ? ` (${inv.parentWhatsAppPhone})` : '';
-    const actionMsg = isPaid
-      ? `Dispatch fee paid receipt (Student Copy Image) on WhatsApp to ${inv.studentName}'s Parent${phoneSuffix}?`
-      : `Dispatch fee due slip (Student Copy Image) on WhatsApp to ${inv.studentName}'s Parent${phoneSuffix}?`;
+    if (!inv) return;
+    const isSchool = inv.isSchoolStudent ?? (!inv.batchName);
+    const isCoaching = inv.isCoachingStudent ?? (!!inv.batchName);
+    const scopeTag = (isSchool && isCoaching) ? 'Hybrid' : (isCoaching ? 'Coaching' : 'School');
 
-    this.confirmDialog.confirm(
-      actionTitle,
-      actionMsg,
-      'Send WhatsApp',
-      'Cancel',
-      isPaid ? 'success' : 'info'
-    ).subscribe((confirmed) => {
-      if (confirmed) {
-        this.feesService.sendWhatsAppReminder(inv.id).subscribe({ error: () => {} });
-        if (isPaid) {
-          this.openReceiptForInvoice(inv, true);
-        } else {
-          this.openDueReceiptModal(inv, true);
-        }
+    this.dialog.open(FeeReminderDispatchDialogComponent, {
+      width: '640px',
+      maxWidth: '96vw',
+      panelClass: 'fee-reminder-dispatch-dialog-panel',
+      data: {
+        mode: 'single',
+        invoice: {
+          id: inv.id,
+          studentId: inv.studentId,
+          studentName: inv.studentName,
+          rollNumber: inv.rollNumber,
+          className: inv.className || inv.batchName || 'General',
+          invoiceNumber: inv.invoiceNumber,
+          totalAmount: inv.totalAmount,
+          paidAmount: inv.paidAmount,
+          dueAmount: inv.dueAmount,
+          status: inv.status,
+          dueDate: inv.dueDate,
+          parentWhatsAppPhone: inv.parentWhatsAppPhone,
+          isSchoolStudent: isSchool,
+          isCoachingStudent: isCoaching,
+          scopeTag: scopeTag
+        },
+        instituteName: this.authService.getInstituteName()
       }
     });
   }
