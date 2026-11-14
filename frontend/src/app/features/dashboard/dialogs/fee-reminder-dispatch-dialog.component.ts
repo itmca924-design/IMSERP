@@ -680,8 +680,8 @@ export interface FeeReminderDispatchDialogData {
           display: flex;
           align-items: center;
           gap: 12px;
-          min-width: 0;
-          flex: 1;
+          min-width: 240px;
+          flex: 1 1 auto;
 
           .avatar {
             width: 44px;
@@ -1603,26 +1603,55 @@ export interface FeeReminderDispatchDialogData {
         }
       }
 
+      .student-meta-banner,
       .single-student-card {
         flex-direction: column !important;
         align-items: stretch !important;
-        gap: 10px !important;
+        gap: 12px !important;
         padding: 10px 12px !important;
 
         .stu-badge {
           width: 100% !important;
           flex: none !important;
+          min-width: 0 !important;
+          align-items: flex-start !important;
+
+          .avatar {
+            width: 40px !important;
+            height: 40px !important;
+            font-size: 1.05rem !important;
+            border-radius: 8px !important;
+          }
 
           .stu-details {
-            width: 100%;
-            .stu-name-row .name {
-              font-size: 0.98rem;
+            width: 100% !important;
+            min-width: 0 !important;
+
+            .stu-name-row {
+              gap: 6px !important;
+              .name {
+                font-size: 0.98rem !important;
+              }
             }
+
             .stu-tags-row {
-              gap: 4px;
+              display: flex !important;
+              flex-wrap: wrap !important;
+              gap: 5px !important;
+              margin-top: 2px !important;
+
               .meta-tag {
-                font-size: 0.68rem;
-                padding: 1px 5px;
+                font-size: 0.72rem !important;
+                padding: 2px 7px !important;
+                white-space: normal !important;
+                word-break: break-word !important;
+                line-height: 1.3 !important;
+
+                mat-icon {
+                  font-size: 14px !important;
+                  width: 14px !important;
+                  height: 14px !important;
+                }
               }
             }
           }
@@ -1636,16 +1665,29 @@ export interface FeeReminderDispatchDialogData {
           min-width: 0 !important;
           box-sizing: border-box !important;
           padding: 8px 12px !important;
+          margin-top: 2px !important;
 
           .due-pod-top {
-            flex-direction: row;
-            align-items: center;
-            gap: 4px;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 6px !important;
+
+            .due-pod-icon {
+              font-size: 18px !important;
+              width: 18px !important;
+              height: 18px !important;
+            }
+
+            .due-label {
+              font-size: 0.72rem !important;
+            }
           }
 
           .due-amount-display {
-            margin-top: 0;
-            font-size: 1.2rem;
+            margin-top: 0 !important;
+            font-size: 1.25rem !important;
+            font-weight: 800 !important;
           }
         }
       }
