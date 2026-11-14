@@ -316,9 +316,6 @@ import { AuthService } from '../../core/services/auth.service';
                           <td class="text-center">{{ i + 1 }}</td>
                           <td>
                             <div class="due-item-title">{{ item.headName }}</div>
-                            @if (item.description) {
-                              <div class="due-item-desc">{{ item.description }}</div>
-                            }
                           </td>
                           <td>{{ dueSlip.dueDate | date:'dd-MMM-yyyy' }}</td>
                           <td class="text-right">₹{{ item.amount | number:'1.2-2' }}</td>
@@ -1010,72 +1007,73 @@ export class PublicInvoicePayComponent implements OnInit {
 
     doc.open();
     doc.write('<!DOCTYPE html><html><head><title>' + title + '</title><style>' +
-      '@page { size: A4 portrait; margin: 8mm 10mm; }' +
+      '@page { size: A4 portrait; margin: 6mm 8mm; }' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }' +
-      'body { font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; background: #ffffff; font-size: 11px; line-height: 1.35; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      'body { font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; background: #ffffff; font-size: 10px; line-height: 1.22; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
       'mat-icon { display: none !important; }' +
       '.due-paper { width: 100%; display: flex; flex-direction: column; padding: 0; margin: 0; }' +
-      '.due-slip { position: relative; border: 1.5px solid #94a3b8; border-radius: 6px; padding: 12px 16px; background: #ffffff; box-sizing: border-box; page-break-inside: avoid !important; }' +
-      '.due-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 220px; height: 220px; opacity: 0.04; pointer-events: none; background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 0; }' +
-      '.paper-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 2px solid #b91c1c; }' +
-      '.inst-info { display: flex; align-items: center; gap: 10px; }' +
-      '.logo-mark { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }' +
+      '.due-slip { position: relative; border: 1.5px solid #94a3b8; border-radius: 6px; padding: 8px 12px; background: #ffffff; box-sizing: border-box; page-break-inside: avoid !important; }' +
+      '.due-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; opacity: 0.04; pointer-events: none; background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 0; }' +
+      '.paper-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 4px; border-bottom: 2px solid #b91c1c; }' +
+      '.inst-info { display: flex; align-items: center; gap: 8px; }' +
+      '.logo-mark { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }' +
       '.inst-logo-img { width: 100%; height: 100%; object-fit: contain; }' +
-      '.inst-name { font-size: 1.12rem; font-weight: 800; color: #0f172a; line-height: 1.15; margin: 0; }' +
-      '.inst-subtitle { font-size: 0.68rem; color: #475569; margin: 2px 0 0; }' +
-      '.inst-branch { font-size: 0.68rem; color: #b91c1c; font-weight: 600; margin: 2px 0 0; }' +
-      '.branch-pill { background: #fef2f2; color: #b91c1c; padding: 1px 6px; border-radius: 3px; border: 1px solid #fecaca; }' +
+      '.inst-name { font-size: 1.05rem; font-weight: 800; color: #0f172a; line-height: 1.15; margin: 0; }' +
+      '.inst-subtitle { font-size: 0.64rem; color: #475569; margin: 1px 0 0; }' +
+      '.inst-branch { font-size: 0.64rem; color: #b91c1c; font-weight: 600; margin: 1px 0 0; }' +
+      '.branch-pill { background: #fef2f2; color: #b91c1c; padding: 1px 5px; border-radius: 3px; border: 1px solid #fecaca; }' +
       '.branch-dept-sep { color: #94a3b8; }' +
       '.branch-dept { color: #64748b; }' +
       '.due-badge-block { text-align: right; }' +
-      '.badge-title { font-size: 1.05rem; font-weight: 800; color: #b91c1c; letter-spacing: 0.04em; display: block; line-height: 1.1; }' +
-      '.badge-sub { font-size: 0.68rem; color: #64748b; display: block; }' +
-      '.copy-tag { display: inline-block; margin-top: 2px; font-size: 0.68rem; font-weight: 800; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 3px; border: 1px solid #fca5a5; }' +
-      '.meta-strip { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; margin: 6px 0; }' +
-      '.meta-item { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72rem; }' +
+      '.badge-title { font-size: 0.98rem; font-weight: 800; color: #b91c1c; letter-spacing: 0.04em; display: block; line-height: 1.1; }' +
+      '.badge-sub { font-size: 0.62rem; color: #64748b; display: block; }' +
+      '.copy-tag { display: inline-block; margin-top: 2px; font-size: 0.64rem; font-weight: 800; background: #fee2e2; color: #b91c1c; padding: 1px 6px; border-radius: 3px; border: 1px solid #fca5a5; }' +
+      '.meta-strip { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 3px 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; margin: 4px 0; }' +
+      '.meta-item { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; }' +
       '.meta-label { color: #64748b; font-weight: 600; }' +
       '.meta-val { color: #0f172a; font-weight: 700; }' +
       '.meta-val.highlight { color: #b91c1c; }' +
       '.meta-val.branch-val { color: #b91c1c; }' +
-      '.status-badge-due { background: #fee2e2; color: #991b1b; padding: 1px 6px; border-radius: 3px; font-size: 0.66rem; font-weight: 800; }' +
-      '.status-badge-settled { background: #dcfce7; color: #166534; padding: 1px 6px; border-radius: 3px; font-size: 0.66rem; font-weight: 800; }' +
-      '.student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; margin-bottom: 6px; }' +
-      '.prof-row { display: flex; align-items: baseline; gap: 6px; font-size: 0.72rem; line-height: 1.35; }' +
-      '.prof-row .k { min-width: 110px; color: #475569; font-weight: 600; flex-shrink: 0; }' +
+      '.status-badge-due { background: #fee2e2; color: #991b1b; padding: 1px 5px; border-radius: 3px; font-size: 0.62rem; font-weight: 800; }' +
+      '.status-badge-settled { background: #dcfce7; color: #166534; padding: 1px 5px; border-radius: 3px; font-size: 0.62rem; font-weight: 800; }' +
+      '.student-profile-card { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; padding: 4px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; margin-bottom: 4px; }' +
+      '.prof-row { display: flex; align-items: baseline; gap: 5px; font-size: 0.68rem; line-height: 1.22; }' +
+      '.prof-row .k { min-width: 105px; color: #475569; font-weight: 600; flex-shrink: 0; }' +
       '.prof-row .v { color: #0f172a; flex: 1; min-width: 0; }' +
       '.student-highlight { font-weight: 800; color: #991b1b; }' +
-      '.table-section { margin-bottom: 6px; }' +
+      '.table-section { margin-bottom: 4px; }' +
       '.due-table { width: 100%; border-collapse: collapse; }' +
-      '.due-table th { background: #eff6ff !important; color: #1e3a8a !important; border-top: 1px solid #bfdbfe; border-bottom: 1.5px solid #bfdbfe; padding: 4px 6px; font-size: 0.72rem; font-weight: 700; text-align: left; }' +
-      '.due-table td { padding: 5px 6px; border-bottom: 1px solid #e2e8f0; font-size: 0.74rem; line-height: 1.25; }' +
-      '.due-item-title { font-size: 0.76rem; color: #0f172a; font-weight: 700; }' +
-      '.due-item-heads { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }' +
-      '.due-head-chip { font-size: 0.62rem; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 1px 5px; border-radius: 3px; font-weight: 600; }' +
+      '.due-table th { background: #eff6ff !important; color: #1e3a8a !important; border-top: 1px solid #bfdbfe; border-bottom: 1.5px solid #bfdbfe; padding: 3px 5px; font-size: 0.67rem; font-weight: 700; text-align: left; }' +
+      '.due-table td { padding: 2.5px 5px; border-bottom: 1px solid #e2e8f0; font-size: 0.68rem; line-height: 1.15; }' +
+      '.due-item-title { font-size: 0.70rem; color: #0f172a; font-weight: 700; }' +
+      '.due-item-heads { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; }' +
+      '.due-head-chip { font-size: 0.60rem; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 1px 4px; border-radius: 2px; font-weight: 600; }' +
       '.amount-paid { color: #16a34a; }' +
       '.amount-due { color: #dc2626; font-weight: 800; }' +
       '.summary-subtotal { background: #f8fafc; border-top: 1.5px solid #cbd5e1; }' +
-      '.grand-due { font-size: 0.92rem; font-weight: 800; color: #dc2626; }' +
-      '.amount-words-strip { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #fff1f2; border: 1px dashed #fca5a5; border-radius: 4px; margin-bottom: 6px; }' +
-      '.words-left { display: flex; align-items: center; gap: 4px; font-size: 0.72rem; }' +
-      '.w-label { color: #b91c1c; font-weight: 700; text-transform: uppercase; }' +
-      '.w-text { color: #991b1b; font-weight: 700; }' +
+      '.summary-subtotal td { padding: 3px 5px; }' +
+      '.grand-due { font-size: 0.86rem; font-weight: 800; color: #dc2626; }' +
+      '.amount-words-strip { display: flex; justify-content: space-between; align-items: center; padding: 2.5px 6px; background: #fff1f2; border: 1px dashed #fca5a5; border-radius: 4px; margin-bottom: 4px; }' +
+      '.words-left { display: flex; align-items: center; gap: 4px; font-size: 0.66rem; }' +
+      '.w-label { color: #b91c1c; font-weight: 700; text-transform: uppercase; font-size: 0.63rem; }' +
+      '.w-text { color: #991b1b; font-weight: 700; font-size: 0.66rem; }' +
       '.words-right { display: flex; align-items: center; gap: 4px; }' +
-      '.due-stamp { background: #dc2626; color: #fff; padding: 2px 6px; border-radius: 6px; font-weight: 800; font-size: 0.66rem; display: inline-flex; align-items: center; gap: 2px; }' +
+      '.due-stamp { background: #dc2626; color: #fff; padding: 1px 5px; border-radius: 4px; font-weight: 800; font-size: 0.60rem; display: inline-flex; align-items: center; gap: 2px; }' +
       '.due-stamp.paid-stamp { background: #16a34a; }' +
-      '.upi-payee-pill { font-size: 0.62rem; color: #065f46; background: #d1fae5; padding: 1px 5px; border-radius: 3px; border: 1px solid #a7f3d0; }' +
-      '.signatures-row { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 16px; margin-bottom: 6px; }' +
-      '.sig-col { width: 140px; }' +
-      '.sig-line { height: 1px; background: #475569; margin-bottom: 4px; }' +
-      '.sig-text { font-size: 0.68rem; font-weight: 700; color: #334155; display: block; line-height: 1.15; }' +
-      '.auth-sub { font-size: 0.6rem; color: #64748b; display: block; }' +
-      '.uploaded-official-seal-img { max-width: 44px; max-height: 44px; object-fit: contain; display: block; margin: 0 auto; }' +
-      '.digital-seal { border: 1px dashed #b91c1c; border-radius: 3px; padding: 2px 6px; background: #fef2f2; color: #b91c1c; font-size: 0.62rem; font-weight: 800; text-align: center; }' +
-      '.sig-col-qr { width: 120px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }' +
-      '.receipt-mini-qr { width: 105px; height: 105px; object-fit: contain; border: none; background: #ffffff; padding: 0; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
-      '.qr-label { font-size: 0.6rem; font-weight: 700; color: #334155; margin-top: 3px; white-space: nowrap; text-align: center; }' +
-      '.digital-sign-wrapper { display: flex; align-items: flex-end; justify-content: flex-end; height: 22px; margin-bottom: 2px; }' +
-      '.digital-sign-img { max-height: 22px; max-width: 85px; object-fit: contain; mix-blend-mode: multiply; }' +
-      '.paper-footer { text-align: center; font-size: 0.6rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 4px; margin-top: 4px; }' +
+      '.upi-payee-pill { font-size: 0.58rem; color: #065f46; background: #d1fae5; padding: 1px 4px; border-radius: 3px; border: 1px solid #a7f3d0; }' +
+      '.signatures-row { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 6px; margin-bottom: 2px; }' +
+      '.sig-col { width: 130px; }' +
+      '.sig-line { height: 1px; background: #475569; margin-bottom: 2px; }' +
+      '.sig-text { font-size: 0.62rem; font-weight: 700; color: #334155; display: block; line-height: 1.15; }' +
+      '.auth-sub { font-size: 0.56rem; color: #64748b; display: block; }' +
+      '.uploaded-official-seal-img { max-width: 36px; max-height: 36px; object-fit: contain; display: block; margin: 0 auto; }' +
+      '.digital-seal { border: 1px dashed #b91c1c; border-radius: 3px; padding: 1px 5px; background: #fef2f2; color: #b91c1c; font-size: 0.56rem; font-weight: 800; text-align: center; }' +
+      '.sig-col-qr { width: 85px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }' +
+      '.receipt-mini-qr { width: 70px; height: 70px; object-fit: contain; border: none; background: #ffffff; padding: 0; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.qr-label { font-size: 0.56rem; font-weight: 700; color: #334155; margin-top: 2px; white-space: nowrap; text-align: center; }' +
+      '.digital-sign-wrapper { display: flex; align-items: flex-end; justify-content: flex-end; height: 18px; margin-bottom: 2px; }' +
+      '.digital-sign-img { max-height: 18px; max-width: 75px; object-fit: contain; mix-blend-mode: multiply; }' +
+      '.paper-footer { text-align: center; font-size: 0.54rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 2px; margin-top: 2px; }' +
       '.text-center { text-align: center; }' +
       '.text-right { text-align: right; }' +
       '</style></head><body>' + el.innerHTML + '</body></html>');
