@@ -5026,10 +5026,12 @@ public class FeesController : ControllerBase
     // DYNAMIC BHARAT UPI QR & ONLINE FEE COLLECTION ENDPOINTS
     // =========================================================================
 
+    [AllowAnonymous]
     [HttpGet("invoices/{invoiceId}/upi-intent")]
     public async Task<ActionResult<UpiIntentResponseDto>> GetInvoiceUpiIntent(Guid invoiceId)
     {
         var invoice = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Include(i => i.Branch)
             .Include(i => i.Student)
@@ -5046,7 +5048,7 @@ public class FeesController : ControllerBase
         if (invoice.Status == InvoiceStatus.Cancelled)
             return BadRequest(new { message = "This invoice has been cancelled." });
 
-        var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == invoice.TenantId);
+        var tenant = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == invoice.TenantId);
         var branch = invoice.Branch ?? invoice.Student?.Branch;
 
         string payeeUpiId = !string.IsNullOrWhiteSpace(branch?.UpiId)
@@ -5099,6 +5101,100 @@ public class FeesController : ControllerBase
             branch?.Name,
             tenant?.Name ?? "Institute Management ERP",
             tenant?.ProfilePhoto
+        );
+
+        return Ok(dto);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("invoices/{invoiceId}/public-due-slip")]
+    public async Task<ActionResult<PublicInvoiceDueSlipDto>> GetInvoicePublicDueSlip(Guid invoiceId)
+    {
+        var invoice = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Include(i => i.Items)
+            .Include(i => i.Branch)
+            .Include(i => i.Student)
+                .ThenInclude(s => s!.Branch)
+            .Include(i => i.Student)
+                .ThenInclude(s => s!.Class)
+            .Include(i => i.Student)
+                .ThenInclude(s => s!.Section)
+            .Include(i => i.Student)
+                .ThenInclude(s => s!.Batch)
+            .FirstOrDefaultAsync(i => i.Id == invoiceId);
+
+        if (invoice == null) return NotFound("Invoice not found.");
+        if (invoice.Status == InvoiceStatus.Cancelled)
+            return BadRequest(new { message = "This invoice has been cancelled." });
+
+        var tenant = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == invoice.TenantId);
+        var branch = invoice.Branch ?? invoice.Student?.Branch;
+
+        string payeeUpiId = !string.IsNullOrWhiteSpace(branch?.UpiId)
+            ? branch.UpiId.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant?.UpiId) ? tenant.UpiId.Trim() : "imserp.fees@sbi");
+
+        string payeeName = !string.IsNullOrWhiteSpace(branch?.UpiMerchantName)
+            ? branch.UpiMerchantName.Trim()
+            : (!string.IsNullOrWhiteSpace(tenant?.UpiMerchantName) ? tenant.UpiMerchantName.Trim() : (tenant?.Name ?? "Institute Management ERP"));
+
+        string? merchantCode = tenant?.UpiMerchantCode ?? "8211";
+
+        decimal dueAmount = invoice.TotalAmount - invoice.PaidAmount;
+        if (dueAmount < 0) dueAmount = 0;
+
+        string studentName = invoice.Student?.StudentName ?? "Student";
+        string formattedAmount = dueAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        string encodedPayee = Uri.EscapeDataString(payeeName);
+        string transactionNote = Uri.EscapeDataString($"Fee {invoice.InvoiceNumber} {studentName}");
+
+        string upiIntentUri = $"upi://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}&mc={merchantCode}";
+
+        var shortHash = Math.Abs(invoice.Id.GetHashCode()) % 9000 + 1000;
+        string noticeNumber = $"DUE-{invoice.DueDate:yyyyMM}-{shortHash}";
+
+        var items = invoice.Items.Select(it => new FeeInvoiceItemDto(
+            it.Id,
+            it.InvoiceId,
+            it.FeeHeadId,
+            it.HeadName,
+            it.Amount,
+            it.PaidAmount,
+            it.Description
+        )).ToList();
+
+        string cashierName = !string.IsNullOrWhiteSpace(tenant?.Name) ? tenant.Name : "Accounts Department";
+
+        var dto = new PublicInvoiceDueSlipDto(
+            invoice.Id,
+            invoice.InvoiceNumber,
+            noticeNumber,
+            invoice.CreatedAt,
+            invoice.StudentId,
+            studentName,
+            invoice.Student?.SchoolRollNumber ?? invoice.Student?.RollNumber,
+            invoice.Student?.Class?.Name ?? invoice.ClassName,
+            invoice.Student?.Section?.Name ?? invoice.SectionName,
+            invoice.Student?.Batch?.Name,
+            invoice.Student?.ParentName,
+            invoice.Student?.ParentWhatsAppPhone,
+            branch?.Name,
+            tenant?.Name ?? "Institute Management ERP",
+            tenant?.ProfilePhoto,
+            tenant?.OfficialSeal,
+            tenant?.DigitalSignature,
+            cashierName,
+            payeeUpiId,
+            payeeName,
+            invoice.TotalAmount,
+            invoice.PaidAmount,
+            dueAmount,
+            invoice.DueDate,
+            invoice.Title,
+            items,
+            upiIntentUri
         );
 
         return Ok(dto);

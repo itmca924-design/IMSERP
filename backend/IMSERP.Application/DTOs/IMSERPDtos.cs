@@ -1610,6 +1610,36 @@ public record UpiIntentResponseDto(
     string? InstituteLogo
 );
 
+public record PublicInvoiceDueSlipDto(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    string NoticeNumber,
+    DateTime NoticeDate,
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? ParentName,
+    string? ParentPhone,
+    string? BranchName,
+    string InstituteName,
+    string? InstituteLogo,
+    string? OfficialSealUrl,
+    string? DigitalSignatureUrl,
+    string? CashierName,
+    string PayeeUpiId,
+    string PayeeMerchantName,
+    decimal TotalAmount,
+    decimal PaidAmount,
+    decimal DueAmount,
+    DateTime DueDate,
+    string Title,
+    List<FeeInvoiceItemDto> Items,
+    string UpiIntentUri
+);
+
 public record CollectUpiPaymentRequestDto(
     decimal Amount,
     string UpiRrn,

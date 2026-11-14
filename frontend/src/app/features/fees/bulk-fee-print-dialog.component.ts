@@ -2314,7 +2314,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     const isCoaching = slip.division?.toLowerCase() === 'coaching' || !!slip.batchName;
 
     this.dialog.open(FeeReminderDispatchDialogComponent, {
-      width: '640px',
+      width: '780px',
       maxWidth: '96vw',
       data: {
         mode: 'single',

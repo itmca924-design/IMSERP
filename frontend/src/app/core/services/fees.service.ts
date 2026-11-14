@@ -577,6 +577,10 @@ export class FeesService {
     return this.http.get<UpiIntentResponse>(`${this.apiUrl}/invoices/${invoiceId}/upi-intent`);
   }
 
+  getInvoicePublicDueSlip(invoiceId: string): Observable<PublicInvoiceDueSlip> {
+    return this.http.get<PublicInvoiceDueSlip>(`${this.apiUrl}/invoices/${invoiceId}/public-due-slip`);
+  }
+
   collectInvoiceUpiPayment(invoiceId: string, payload: CollectUpiPaymentPayload): Observable<FeePaymentReceipt> {
     return this.http.post<FeePaymentReceipt>(`${this.apiUrl}/invoices/${invoiceId}/upi-collect`, payload);
   }
@@ -980,6 +984,36 @@ export interface BulkPrintDataResponse {
   dueSlips: BulkDueSlipItem[];
   receipts: BulkReceiptItem[];
   registerRows: BulkRegisterRow[];
+}
+
+export interface PublicInvoiceDueSlip {
+  invoiceId: string;
+  invoiceNumber: string;
+  noticeNumber: string;
+  noticeDate: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  className?: string;
+  sectionName?: string;
+  batchName?: string;
+  parentName?: string;
+  parentPhone?: string;
+  branchName?: string;
+  instituteName: string;
+  instituteLogo?: string;
+  officialSealUrl?: string;
+  digitalSignatureUrl?: string;
+  cashierName?: string;
+  payeeUpiId: string;
+  payeeMerchantName: string;
+  totalAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  dueDate: string;
+  title: string;
+  items: FeeInvoiceItem[];
+  upiIntentUri: string;
 }
 
 

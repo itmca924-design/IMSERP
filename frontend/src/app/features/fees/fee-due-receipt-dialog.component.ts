@@ -5,11 +5,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeesService, FeeDueSlip, FeeDueSlipItem, FeeInvoicePagedItem, UpiPaymentSettings } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
-import { shareElementOnWhatsApp, openWhatsAppTextOnly } from '../../shared/utils/whatsapp-image-share';
+import { FeeReminderDispatchDialogComponent, FeeReminderDispatchItem } from '../dashboard/dialogs/fee-reminder-dispatch-dialog.component';
 import * as QRCode from '../../shared/utils/qr-code';
 
 export type ExtendedFeeDueSlipItem = FeeDueSlipItem & {
@@ -39,7 +40,7 @@ export interface FeeDueReceiptDialogData {
 @Component({
   selector: 'app-fee-due-receipt-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule, MatProgressBarModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule, MatProgressBarModule, MatTooltipModule],
   template: `
     <div class="due-modal-container">
       <!-- Top Action Bar (hidden in print) -->
@@ -53,11 +54,9 @@ export interface FeeDueReceiptDialogData {
             <span class="sub-title">शुल्क मांग पत्र / बकाया पर्ची</span>
           </div>
         </div>
-        <div class="btn-group" [class.is-busy]="isSharingWhatsApp">
+        <div class="btn-group">
           <button
             class="header-action-btn collect-btn"
-            [class.btn-disabled]="isSharingWhatsApp"
-            [disabled]="isSharingWhatsApp"
             (click)="collectNow()"
             matTooltip="Collect Fee Directly"
             matButton="filled">
@@ -65,32 +64,15 @@ export interface FeeDueReceiptDialogData {
             <span>Collect Fee</span>
           </button>
           <button
-            class="header-action-btn wa-btn"
-            [class.loading-state]="isSharingWhatsApp"
-            [disabled]="isSharingWhatsApp"
-            (click)="shareWhatsApp()"
-            matTooltip="Send WhatsApp Due Notice"
+            class="header-action-btn msg-btn"
+            (click)="openMessageReminder()"
+            matTooltip="Send WhatsApp Due Reminder Message & Voice Note"
             matButton="filled">
-            @if (isSharingWhatsApp) {
-              <ng-container>
-                <mat-icon class="wa-spin">sync</mat-icon>
-                <span>Opening WhatsApp...</span>
-              </ng-container>
-            } @else {
-              <ng-container>
-                <mat-icon class="wa-mat-icon">
-                  <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                  </svg>
-                </mat-icon>
-                <span>WhatsApp</span>
-              </ng-container>
-            }
+            <mat-icon>chat</mat-icon>
+            <span>Message</span>
           </button>
           <button
             class="header-action-btn print-btn"
-            [class.btn-disabled]="isSharingWhatsApp"
-            [disabled]="isSharingWhatsApp"
             (click)="printDueSlip()"
             matTooltip="Print or Download PDF"
             matButton="filled">
@@ -99,7 +81,6 @@ export interface FeeDueReceiptDialogData {
           </button>
           <button
             class="header-close-btn"
-            [disabled]="isSharingWhatsApp"
             (click)="dialogRef.close()"
             matTooltip="Close"
             mat-icon-button>
@@ -432,22 +413,10 @@ export interface FeeDueReceiptDialogData {
         }
       }
 
-      @keyframes waSpinAnim {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
       .btn-group {
         display: flex;
         align-items: center;
         gap: 8px;
-
-        &.is-busy {
-          .header-action-btn.btn-disabled, .header-close-btn {
-            pointer-events: none !important;
-            cursor: not-allowed !important;
-          }
-        }
 
         .header-action-btn {
           height: 32px !important;
@@ -463,43 +432,16 @@ export interface FeeDueReceiptDialogData {
 
           mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
-          .wa-spin {
-            animation: waSpinAnim 0.75s linear infinite !important;
-            display: inline-block !important;
-          }
-
           &.collect-btn {
             background: #0284c7 !important;
             color: #ffffff !important;
             &:hover:not(:disabled) { background: #0369a1 !important; transform: translateY(-1px); }
           }
 
-          &.wa-btn {
+          &.msg-btn {
             background: #16a34a !important;
             color: #ffffff !important;
-            .wa-mat-icon {
-              display: inline-flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              width: 16px !important;
-              height: 16px !important;
-              margin-right: 6px !important;
-              vertical-align: middle !important;
-            }
-            .wa-icon {
-              width: 15px;
-              height: 15px;
-              display: block;
-              fill: currentColor;
-            }
             &:hover:not(:disabled) { background: #15803d !important; transform: translateY(-1px); }
-            &.loading-state {
-              background: #15803d !important;
-              color: #ffffff !important;
-              cursor: wait !important;
-              pointer-events: none !important;
-              opacity: 0.95 !important;
-            }
           }
 
           &.print-btn {
@@ -823,7 +765,7 @@ export interface FeeDueReceiptDialogData {
         line-height: 1.35;
 
         .k {
-          min-width: 110px;
+          min-width: 85px;
           color: #475569;
           font-weight: 600;
           flex-shrink: 0;
@@ -1127,6 +1069,60 @@ export interface FeeDueReceiptDialogData {
     .text-center { text-align: center; }
     .text-right { text-align: right; }
 
+    @media (max-width: 640px) {
+      .modal-actions {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+
+        .modal-title {
+          width: 100%;
+          .title-badge {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            mat-icon { font-size: 16px; width: 16px; height: 16px; }
+          }
+          .title-text-group {
+            .main-title { font-size: 0.92rem; }
+            .sub-title { font-size: 0.65rem; }
+          }
+        }
+
+        .btn-group {
+          width: 100%;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          justify-content: flex-start;
+
+          .header-action-btn {
+            flex: 1 1 auto;
+            min-width: 70px;
+            height: 30px !important;
+            padding: 0 8px !important;
+            font-size: 0.72rem !important;
+            justify-content: center;
+          }
+
+          .header-close-btn {
+            margin-left: auto;
+          }
+        }
+      }
+
+      .due-paper {
+        padding: 8px !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+
+      .due-slip {
+        min-width: 540px !important;
+      }
+    }
+
     @media print {
       .no-print { display: none !important; }
       .due-paper {
@@ -1205,8 +1201,6 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     return this.authService.getDigitalSignatureUrl();
   }
 
-  isSharingWhatsApp = false;
-
   constructor(
     public dialogRef: MatDialogRef<FeeDueReceiptDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeDueReceiptDialogData,
@@ -1247,7 +1241,7 @@ export class FeeDueReceiptDialogComponent implements OnInit {
         this.loading = false;
         this.generateQrCode();
         if (this.data?.autoShareWhatsApp) {
-          setTimeout(() => this.shareWhatsApp(), 350);
+          setTimeout(() => this.openMessageReminder(), 350);
         }
       },
       error: (err) => {
@@ -1278,7 +1272,7 @@ export class FeeDueReceiptDialogComponent implements OnInit {
         this.loading = false;
         this.generateQrCode();
         if (this.data?.autoShareWhatsApp) {
-          setTimeout(() => this.shareWhatsApp(), 350);
+          setTimeout(() => this.openMessageReminder(), 350);
         }
       }
     });
@@ -1449,54 +1443,54 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     }, 250);
   }
 
+  openMessageReminder(): void {
+    const inv = this.data.invoice;
+    const isSchool = inv?.isSchoolStudent ?? (!this.dueSlip?.batchName);
+    const isCoaching = inv?.isCoachingStudent ?? (!!this.dueSlip?.batchName);
+    const scopeTag = (isSchool && isCoaching) ? 'Hybrid' : (isCoaching ? 'Coaching' : 'School');
+
+    let resolvedDueDate: string | Date = new Date();
+    if (inv?.dueDate) {
+      resolvedDueDate = inv.dueDate;
+    } else if (this.dueSlip?.dueItems?.length) {
+      resolvedDueDate = this.dueSlip.dueItems[0].dueDate || new Date();
+    }
+
+    const totalFee = this.dueSlip?.dueItems?.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0) ?? (inv?.totalAmount || this.dueSlip?.totalOutstandingDue || 0);
+    const totalPaid = this.dueSlip?.dueItems?.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0) ?? (inv?.paidAmount || 0);
+
+    const reminderItem: FeeReminderDispatchItem = {
+      id: inv?.id || this.data.invoiceId,
+      studentId: this.data.studentId || inv?.studentId,
+      studentName: this.dueSlip?.studentName || this.data.studentName || inv?.studentName || 'Student',
+      rollNumber: this.dueSlip?.rollNumber || this.data.rollNumber || inv?.rollNumber,
+      className: this.dueSlip?.batchName || this.data.batchName || inv?.className || 'General',
+      invoiceNumber: this.invoiceNumbersDisplay || inv?.invoiceNumber || this.noticeNumber,
+      totalAmount: totalFee,
+      paidAmount: totalPaid,
+      dueAmount: this.dueSlip?.totalOutstandingDue ?? (inv?.dueAmount || 0),
+      status: (this.dueSlip?.totalOutstandingDue ?? inv?.dueAmount ?? 0) > 0 ? 'Overdue' : 'Paid',
+      dueDate: resolvedDueDate,
+      parentWhatsAppPhone: this.dueSlip?.parentPhone || this.data.parentWhatsAppPhone || inv?.parentWhatsAppPhone,
+      isSchoolStudent: isSchool,
+      isCoachingStudent: isCoaching,
+      scopeTag: scopeTag
+    };
+
+    this.dialog.open(FeeReminderDispatchDialogComponent, {
+      width: '780px',
+      maxWidth: '96vw',
+      panelClass: 'fee-reminder-dispatch-dialog-panel',
+      data: {
+        mode: 'single',
+        invoice: reminderItem,
+        instituteName: this.data.instituteName || this.authService.currentUser()?.instituteName || this.authService.getInstituteName() || 'Institute'
+      }
+    });
+  }
+
   shareWhatsApp(): void {
-    if (this.isSharingWhatsApp) return;
-    this.isSharingWhatsApp = true;
-    this.cdr.detectChanges();
-
-    const phone = this.dueSlip?.parentPhone || this.data.parentWhatsAppPhone;
-    if (!this.dueSlip) {
-      this.isSharingWhatsApp = false;
-      this.cdr.detectChanges();
-      return;
-    }
-
-    const invDetails = this.dueSlip.dueItems.map(d => `• ${d.title}: Due *₹${d.dueAmount}* (Due Date: ${new Date(d.dueDate).toLocaleDateString('en-IN')})`).join('\n');
-
-    const branchLine = this.effectiveBranchName ? `*Branch*: ${this.effectiveBranchName}\n` : '';
-    const instName = this.data.instituteName || this.authService.currentUser()?.instituteName || 'Fee Clearance Desk';
-
-    const textMsg = `*OFFICIAL FEE DUE DEMAND SLIP*\n` +
-      `*Institute*: ${instName}\n` +
-      branchLine +
-      `*Notice No*: #${this.noticeNumber}\n` +
-      `*Date*: ${new Date().toLocaleDateString('en-IN')}\n\n` +
-      `Dear Parent, this is an official reminder regarding pending fees for *${this.dueSlip.studentName}* (${this.dueSlip.batchName || 'General'}).\n\n` +
-      `*Outstanding Dues Breakdown*:\n${invDetails}\n\n` +
-      `*Total Outstanding Balance*: *₹${this.dueSlip.totalOutstandingDue}*\n\n` +
-      `Please clear the dues at the institute counter or via UPI at your earliest convenience to avoid any disruption in classes.\n\n` +
-      `Thank you,\n*Accounts Department*`;
-
-    // 1. Immediately launch WhatsApp
-    openWhatsAppTextOnly(phone, textMsg);
-
-    // 2. In parallel, background copy slip to clipboard if available
-    const el = document.getElementById('student-due-slip-copy');
-    if (el && navigator.clipboard && (window as any).ClipboardItem) {
-      shareElementOnWhatsApp({
-        element: el,
-        fileName: `Fee_Due_Slip_${this.dueSlip.studentName.replace(/\s+/g, '_')}_${this.noticeNumber}.png`,
-        phone: phone,
-        messageText: textMsg,
-        shareTitle: `Fee Due Demand Note - ${this.dueSlip.studentName}`
-      }).catch(err => console.warn('Background copy error:', err));
-    }
-
-    // 3. Keep loading active and other buttons disabled for 2.8s so feedback is unmistakable
-    setTimeout(() => {
-      this.isSharingWhatsApp = false;
-      this.cdr.detectChanges();
-    }, 2800);
+    this.openMessageReminder();
   }
 }
 

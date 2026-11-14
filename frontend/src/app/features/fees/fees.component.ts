@@ -4354,7 +4354,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     const scopeTag = (isSchool && isCoaching) ? 'Hybrid' : (isCoaching ? 'Coaching' : 'School');
 
     this.dialog.open(FeeReminderDispatchDialogComponent, {
-      width: '640px',
+      width: '780px',
       maxWidth: '96vw',
       panelClass: 'fee-reminder-dispatch-dialog-panel',
       data: {

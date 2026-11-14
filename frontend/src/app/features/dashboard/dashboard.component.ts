@@ -5674,7 +5674,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!invoice) return;
 
     const dialogRef = this.dialog.open(FeeReminderDispatchDialogComponent, {
-      width: '640px',
+      width: '780px',
       maxWidth: '96vw',
       data: {
         mode: 'single',
