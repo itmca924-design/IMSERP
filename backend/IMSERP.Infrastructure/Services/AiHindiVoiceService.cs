@@ -109,14 +109,16 @@ public class AiHindiVoiceService : IAiVoiceService
         if (string.IsNullOrWhiteSpace(text)) return "विद्यालय प्रशासन";
 
         var normalized = text.Trim();
-        // Specifically fix Jnandeep -> ज्ञानदीप (Gyandeep)
-        normalized = Regex.Replace(normalized, @"\bJnandeep\b", "ज्ञानदीप", RegexOptions.IgnoreCase);
+        // Common education entity keywords to Hindi for natural TTS pronunciation across all tenants
         normalized = Regex.Replace(normalized, @"\bJnan\b", "ज्ञान", RegexOptions.IgnoreCase);
         normalized = Regex.Replace(normalized, @"\bCampus\b", "कैंपस", RegexOptions.IgnoreCase);
         normalized = Regex.Replace(normalized, @"\bAcademy\b", "एकेडमी", RegexOptions.IgnoreCase);
         normalized = Regex.Replace(normalized, @"\bSchool\b", "स्कूल", RegexOptions.IgnoreCase);
         normalized = Regex.Replace(normalized, @"\bCoaching\b", "कोचिंग", RegexOptions.IgnoreCase);
         normalized = Regex.Replace(normalized, @"\bInstitute\b", "इंस्टीट्यूट", RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"\bCollege\b", "कॉलेज", RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"\bPublic\b", "पब्लिक", RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"\bInternational\b", "इंटरनेशनल", RegexOptions.IgnoreCase);
 
         return normalized;
     }

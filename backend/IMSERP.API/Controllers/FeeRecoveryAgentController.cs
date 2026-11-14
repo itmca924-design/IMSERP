@@ -100,7 +100,7 @@ public class FeeRecoveryAgentController : ControllerBase
             return BadRequest(new { message = "Recipient WhatsApp mobile number is required." });
 
         var tenant = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId);
-        var instName = tenant?.Name ?? "Jnandeep Campus";
+        var instName = !string.IsNullOrWhiteSpace(tenant?.Name) ? tenant.Name : "विद्यालय प्रशासन";
         var amount = request.DueAmount > 0 ? request.DueAmount : 2500m;
         var sName = !string.IsNullOrWhiteSpace(request.StudentName) ? request.StudentName : "रोहित कुमार";
         var pName = !string.IsNullOrWhiteSpace(request.ParentName) ? request.ParentName : "राजेश कुमार";
@@ -224,7 +224,7 @@ public class FeeRecoveryAgentController : ControllerBase
 
             return new FeeVoiceTargetDetails(
                 TenantId: plan.TenantId,
-                InstName: tenantObj?.Name ?? "Jnandeep Campus",
+                InstName: !string.IsNullOrWhiteSpace(tenantObj?.Name) ? tenantObj.Name : "विद्यालय प्रशासन",
                 StudentName: plan.Student?.StudentName ?? "प्रिय छात्र",
                 ParentName: !string.IsNullOrWhiteSpace(plan.Student?.ParentName) ? plan.Student.ParentName : "अभिभावक",
                 ClassName: !string.IsNullOrWhiteSpace(plan.Invoice?.ClassName) ? plan.Invoice.ClassName : (plan.Student?.Class?.Name ?? "Class"),
@@ -247,7 +247,7 @@ public class FeeRecoveryAgentController : ControllerBase
 
             return new FeeVoiceTargetDetails(
                 TenantId: invoice.TenantId,
-                InstName: tenantObj?.Name ?? "Jnandeep Campus",
+                InstName: !string.IsNullOrWhiteSpace(tenantObj?.Name) ? tenantObj.Name : "विद्यालय प्रशासन",
                 StudentName: invoice.Student?.StudentName ?? "प्रिय छात्र",
                 ParentName: !string.IsNullOrWhiteSpace(invoice.Student?.ParentName) ? invoice.Student.ParentName : "अभिभावक",
                 ClassName: !string.IsNullOrWhiteSpace(invoice.ClassName) ? invoice.ClassName : (invoice.Student?.Class?.Name ?? "Class"),
@@ -277,7 +277,7 @@ public class FeeRecoveryAgentController : ControllerBase
 
             return new FeeVoiceTargetDetails(
                 TenantId: student.TenantId,
-                InstName: tenantObj?.Name ?? "Jnandeep Campus",
+                InstName: !string.IsNullOrWhiteSpace(tenantObj?.Name) ? tenantObj.Name : "विद्यालय प्रशासन",
                 StudentName: student.StudentName ?? "प्रिय छात्र",
                 ParentName: !string.IsNullOrWhiteSpace(student.ParentName) ? student.ParentName : "अभिभावक",
                 ClassName: !string.IsNullOrWhiteSpace(latestDueInvoice?.ClassName) ? latestDueInvoice.ClassName : (student.Class?.Name ?? "Class"),

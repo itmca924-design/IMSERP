@@ -2123,7 +2123,7 @@ export class FeeRecoveryAgentComponent implements OnInit, OnDestroy {
   }
 
   get instituteDisplayName(): string {
-    return this.authService.getInstituteName() || 'Jnandeep Campus';
+    return this.authService.getInstituteName() || 'Institute Management ERP';
   }
 
   loadAutomationStatus(): void {

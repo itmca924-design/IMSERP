@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, OnDestroy, Optional, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, Inject, OnInit, OnDestroy, Optional, ChangeDetectionStrategy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -9,6 +9,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { CoachingService } from '../../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { FeeRecoveryAgentService } from '../../../core/services/fee-recovery-agent.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 export interface FeeReminderDispatchItem {
   id?: string;
@@ -251,9 +252,9 @@ export interface FeeReminderDispatchDialogData {
                     <span>{{ isDownloadingAudio ? 'Generating MP3...' : 'Download MP3 Note' }}</span>
                   </button>
 
-                  <div class="pronounce-badge" matTooltip="Natural phonetic Hindi TTS: Jnandeep is spoken as Gyandeep">
-                    <mat-icon>spellcheck</mat-icon>
-                    <span>उच्चारण: <strong>ज्ञानदीप (Gyandeep)</strong></span>
+                  <div class="pronounce-badge" [matTooltip]="'Natural AI Neural Hindi Voice: ' + activeInstituteName">
+                    <mat-icon>record_voice_over</mat-icon>
+                    <span>वॉइस: <strong>{{ activeInstituteName }}</strong></span>
                   </div>
                 </div>
 
@@ -1764,6 +1765,15 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
   availableVoices: SpeechSynthesisVoice[] = [];
   private activeUtterance: SpeechSynthesisUtterance | null = null;
   private activeAudio: HTMLAudioElement | null = null;
+  private authService = inject(AuthService);
+
+  get activeInstituteName(): string {
+    const fromData = this.data?.instituteName?.trim();
+    if (fromData) return fromData;
+    const fromAuth = this.authService.getInstituteName()?.trim();
+    if (fromAuth) return fromAuth;
+    return this.speechLang === 'hi-IN' ? 'संस्थान प्रशासन' : 'Institute Office';
+  }
 
   constructor(
     public dialogRef: MatDialogRef<FeeReminderDispatchDialogComponent>,
@@ -1860,7 +1870,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
   }
 
   buildInvoiceMessage(inv: FeeReminderDispatchItem): string {
-    const inst = this.data.instituteName || 'Institute';
+    const inst = this.activeInstituteName;
     const sName = inv.studentName || 'Student';
     const roll = inv.rollNumber || 'N/A';
     const cls = inv.className || 'General';
@@ -1895,7 +1905,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
   }
 
   buildVoiceMessage(inv: FeeReminderDispatchItem): string {
-    const inst = this.data.instituteName || 'Institute';
+    const inst = this.activeInstituteName;
     const sName = inv.studentName || 'Student';
     const roll = inv.rollNumber || 'N/A';
     const cls = inv.className || 'General';
@@ -1971,7 +1981,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
   }
 
   buildNormalMessage(inv: FeeReminderDispatchItem): string {
-    const inst = this.data.instituteName || 'Institute';
+    const inst = this.activeInstituteName;
     const sName = inv.studentName || 'Student';
     const roll = inv.rollNumber || 'N/A';
     const cls = inv.className || 'General';
@@ -2043,10 +2053,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
   buildNaturalSpokenScript(): string {
     const s = this.targetSingle;
     const isHindi = this.speechLang === 'hi-IN';
-    const rawInst = this.data.instituteName || (isHindi ? 'ज्ञानदीप कैंपस' : 'Gyandeep Campus');
-    const inst = isHindi
-      ? rawInst.replace(/Jnandeep/gi, 'ज्ञानदीप')
-      : rawInst.replace(/Jnandeep/gi, 'Gyandeep');
+    const inst = this.activeInstituteName;
 
     if (!s) {
       return this.cleanTextForNaturalSpeech(this.activeMessageText);
@@ -2121,7 +2128,6 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
       // 6. Remove parenthetical link hints: (लिंक पर क्लिक करके...)
       .replace(/\(लिंक[^)]*\)/gi, '')
       // 7. Natural phonetic replacements
-      .replace(/Jnandeep/gi, isHindi ? 'ज्ञानदीप' : 'Gyandeep')
       .replace(/₹\s*(\d+)/g, isHindi ? '$1 रुपए' : '$1 rupees')
       .replace(/\bUPI\b/gi, isHindi ? 'यू पी आई' : 'U P I')
       .replace(/\bOVERDUE\b/gi, isHindi ? 'समय सीमा समाप्त' : 'overdue')
@@ -2148,7 +2154,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
         dueAmount: s.dueAmount != null ? s.dueAmount : 0,
         dueDay: dueDay,
         monthName: monthName,
-        instituteName: this.data.instituteName || 'विद्यालय प्रशासन',
+        instituteName: this.activeInstituteName,
         voiceGender: this.selectedVoiceGender // 'Male' -> hi-IN-MadhurNeural (100% Gents), 'Female' -> hi-IN-SwaraNeural
       };
 
@@ -2331,7 +2337,6 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
     this.isDownloadingAudio = true;
     this.cdr.markForCheck();
 
-    const instName = this.data.instituteName || 'Institute';
     const req = {
       parentName: 'अभिभावक',
       studentName: this.targetSingle.studentName,
@@ -2339,7 +2344,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
       dueAmount: this.targetSingle.dueAmount,
       dueDay: 10,
       monthName: new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' }),
-      instituteName: instName,
+      instituteName: this.activeInstituteName,
       voiceGender: this.selectedVoiceGender
     };
 
