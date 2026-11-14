@@ -10,6 +10,7 @@ export interface FeeInvoiceItem {
   headName: string;
   amount: number;
   paidAmount: number;
+  description?: string;
 }
 
 export interface FeeHead {
