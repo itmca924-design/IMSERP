@@ -2148,7 +2148,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
         dueAmount: s.dueAmount != null ? s.dueAmount : 0,
         dueDay: dueDay,
         monthName: monthName,
-        instituteName: this.data.instituteName || 'ज्ञानदीप कैंपस',
+        instituteName: this.data.instituteName || 'विद्यालय प्रशासन',
         voiceGender: this.selectedVoiceGender // 'Male' -> hi-IN-MadhurNeural (100% Gents), 'Female' -> hi-IN-SwaraNeural
       };
 

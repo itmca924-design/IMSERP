@@ -1014,6 +1014,7 @@ export interface PublicInvoiceDueSlip {
   title: string;
   items: FeeInvoiceItem[];
   upiIntentUri: string;
+  totalUnpaidInvoices?: number;
 }
 
 

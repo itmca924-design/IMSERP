@@ -106,7 +106,7 @@ public class AiHindiVoiceService : IAiVoiceService
 
     public static string PhoneticNormalize(string? text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return "ज्ञानदीप कैंपस";
+        if (string.IsNullOrWhiteSpace(text)) return "विद्यालय प्रशासन";
 
         var normalized = text.Trim();
         // Specifically fix Jnandeep -> ज्ञानदीप (Gyandeep)

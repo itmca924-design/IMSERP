@@ -250,11 +250,11 @@ import { AuthService } from '../../core/services/auth.service';
                 }
                 <div class="meta-item invoice-meta-item">
                   <span class="meta-label">Invoice No:</span>
-                  <span class="meta-val highlight">#{{ dueSlip.invoiceNumber }}</span>
+                  <span class="meta-val highlight">{{ dueSlip.totalUnpaidInvoices && dueSlip.totalUnpaidInvoices > 1 ? dueSlip.invoiceNumber : ('#' + dueSlip.invoiceNumber) }}</span>
                 </div>
                 <div class="meta-item">
                   <span class="meta-label">Total Invoices:</span>
-                  <span class="meta-val">1 {{ dueSlip.dueAmount <= 0 ? 'Paid' : 'Unpaid' }}</span>
+                  <span class="meta-val">{{ dueSlip.totalUnpaidInvoices || 1 }} {{ dueSlip.dueAmount <= 0 ? 'Paid' : 'Unpaid' }}</span>
                 </div>
                 <div class="meta-item">
                   <span class="meta-label">Account Status:</span>
@@ -310,25 +310,34 @@ import { AuthService } from '../../core/services/auth.service';
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td class="text-center">1</td>
-                      <td>
-                        <div class="due-item-title">{{ dueSlip.title || ('Fee Invoice #' + dueSlip.invoiceNumber) }}</div>
-                        @if (dueSlip.items && dueSlip.items.length > 0) {
-                          <div class="due-item-heads">
-                            @for (h of dueSlip.items; track h.id) {
-                              <span class="due-head-chip">
-                                {{ h.headName }}: ₹{{ h.amount | number:'1.0-0' }}
-                              </span>
+                    @if (dueSlip.items && dueSlip.items.length > 0) {
+                      @for (item of dueSlip.items; track item.id; let i = $index) {
+                        <tr>
+                          <td class="text-center">{{ i + 1 }}</td>
+                          <td>
+                            <div class="due-item-title">{{ item.headName }}</div>
+                            @if (item.description) {
+                              <div class="due-item-desc">{{ item.description }}</div>
                             }
-                          </div>
-                        }
-                      </td>
-                      <td>{{ dueSlip.dueDate | date:'dd-MMM-yyyy' }}</td>
-                      <td class="text-right">₹{{ dueSlip.totalAmount | number:'1.2-2' }}</td>
-                      <td class="text-right amount-paid">₹{{ dueSlip.paidAmount | number:'1.2-2' }}</td>
-                      <td class="text-right amount-due"><strong>₹{{ dueSlip.dueAmount | number:'1.2-2' }}</strong></td>
-                    </tr>
+                          </td>
+                          <td>{{ dueSlip.dueDate | date:'dd-MMM-yyyy' }}</td>
+                          <td class="text-right">₹{{ item.amount | number:'1.2-2' }}</td>
+                          <td class="text-right amount-paid">₹{{ item.paidAmount | number:'1.2-2' }}</td>
+                          <td class="text-right amount-due"><strong>₹{{ (item.amount - item.paidAmount) | number:'1.2-2' }}</strong></td>
+                        </tr>
+                      }
+                    } @else {
+                      <tr>
+                        <td class="text-center">1</td>
+                        <td>
+                          <div class="due-item-title">{{ dueSlip.title || ('Fee Invoice #' + dueSlip.invoiceNumber) }}</div>
+                        </td>
+                        <td>{{ dueSlip.dueDate | date:'dd-MMM-yyyy' }}</td>
+                        <td class="text-right">₹{{ dueSlip.totalAmount | number:'1.2-2' }}</td>
+                        <td class="text-right amount-paid">₹{{ dueSlip.paidAmount | number:'1.2-2' }}</td>
+                        <td class="text-right amount-due"><strong>₹{{ dueSlip.dueAmount | number:'1.2-2' }}</strong></td>
+                      </tr>
+                    }
                     <tr class="summary-subtotal">
                       <td colspan="5" class="text-right"><strong>NET OUTSTANDING AMOUNT DUE:</strong></td>
                       <td class="text-right grand-due">₹{{ dueSlip.dueAmount | number:'1.2-2' }}</td>

@@ -5061,34 +5061,49 @@ public class FeesController : ControllerBase
 
         string? merchantCode = tenant?.UpiMerchantCode ?? "8211";
 
-        decimal dueAmount = invoice.TotalAmount - invoice.PaidAmount;
+        // --- Consolidated: sum ALL unpaid invoices for this student (same tenant) ---
+        var studentId = invoice.StudentId;
+        var tenantId = invoice.TenantId;
+        var allUnpaid = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(i => i.StudentId == studentId
+                     && i.TenantId == tenantId
+                     && i.Status != InvoiceStatus.Cancelled
+                     && i.TotalAmount > i.PaidAmount)
+            .ToListAsync();
+
+        decimal consolidatedTotal   = allUnpaid.Sum(i => i.TotalAmount);
+        decimal consolidatedPaid    = allUnpaid.Sum(i => i.PaidAmount);
+        decimal dueAmount           = consolidatedTotal - consolidatedPaid;
         if (dueAmount < 0) dueAmount = 0;
 
         string studentName = invoice.Student?.StudentName ?? "Student";
         string formattedAmount = dueAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
         string encodedPayee = Uri.EscapeDataString(payeeName);
-        string transactionNote = Uri.EscapeDataString($"Fee {invoice.InvoiceNumber} {studentName}");
+        string invoiceRef = allUnpaid.Count == 1 ? invoice.InvoiceNumber : $"CONSOLIDATED-{studentId.ToString()[..8].ToUpper()}";
+        string transactionNote = Uri.EscapeDataString($"Fees Due {studentName}");
 
         // NPCI Standard Bharat UPI Intent URI
-        string upiIntentUri = $"upi://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}&mc={merchantCode}";
+        string upiIntentUri = $"upi://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoiceRef}&mc={merchantCode}";
 
         // Specific App Deep Links for instant 1-tap mobile opening
-        string gpayUri = $"gpay://upi/pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}";
-        string phonepeUri = $"phonepe://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}";
-        string paytmUri = $"paytmmp://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}";
-        string bhimUri = $"bhim://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}";
+        string gpayUri = $"gpay://upi/pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoiceRef}";
+        string phonepeUri = $"phonepe://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoiceRef}";
+        string paytmUri = $"paytmmp://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoiceRef}";
+        string bhimUri = $"bhim://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoiceRef}";
 
         var dto = new UpiIntentResponseDto(
             invoice.Id,
-            invoice.InvoiceNumber,
+            allUnpaid.Count > 1 ? string.Join(", ", allUnpaid.Select(i => i.InvoiceNumber)) : invoice.InvoiceNumber,
             invoice.StudentId,
             studentName,
             invoice.Student?.SchoolRollNumber ?? invoice.Student?.RollNumber,
             invoice.Student?.Class?.Name ?? invoice.ClassName,
             invoice.Student?.Section?.Name ?? invoice.SectionName,
             invoice.Student?.Batch?.Name,
-            invoice.TotalAmount,
-            invoice.PaidAmount,
+            consolidatedTotal,
+            consolidatedPaid,
             dueAmount,
             payeeUpiId,
             payeeName,
@@ -5110,10 +5125,10 @@ public class FeesController : ControllerBase
     [HttpGet("invoices/{invoiceId}/public-due-slip")]
     public async Task<ActionResult<PublicInvoiceDueSlipDto>> GetInvoicePublicDueSlip(Guid invoiceId)
     {
+        // Load the anchor invoice (used to identify student + tenant)
         var invoice = await _dbContext.FeeInvoices
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Include(i => i.Items)
             .Include(i => i.Branch)
             .Include(i => i.Student)
                 .ThenInclude(s => s!.Branch)
@@ -5132,6 +5147,43 @@ public class FeesController : ControllerBase
         var tenant = await _dbContext.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(t => t.Id == invoice.TenantId);
         var branch = invoice.Branch ?? invoice.Student?.Branch;
 
+        // --- Consolidated: ALL unpaid invoices for this student (same tenant) ---
+        var studentId = invoice.StudentId;
+        var tenantId  = invoice.TenantId;
+
+        var allUnpaid = await _dbContext.FeeInvoices
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Include(i => i.Items)
+            .Where(i => i.StudentId == studentId
+                     && i.TenantId == tenantId
+                     && i.Status != InvoiceStatus.Cancelled
+                     && i.TotalAmount > i.PaidAmount)
+            .OrderBy(i => i.DueDate)
+            .ToListAsync();
+
+        // If no unpaid invoices found fall back to the anchor invoice alone
+        if (allUnpaid.Count == 0) allUnpaid = new List<FeeInvoice> { invoice };
+
+        decimal consolidatedTotal = allUnpaid.Sum(i => i.TotalAmount);
+        decimal consolidatedPaid  = allUnpaid.Sum(i => i.PaidAmount);
+        decimal dueAmount         = consolidatedTotal - consolidatedPaid;
+        if (dueAmount < 0) dueAmount = 0;
+
+        // Flatten all fee items from all unpaid invoices
+        var items = allUnpaid
+            .SelectMany(inv => inv.Items.Select(it => new FeeInvoiceItemDto(
+                it.Id,
+                it.InvoiceId,
+                it.FeeHeadId,
+                // Prefix item with invoice title when multiple invoices
+                allUnpaid.Count > 1 ? $"[{inv.Title}] {it.HeadName}" : it.HeadName,
+                it.Amount,
+                it.PaidAmount,
+                it.Description
+            )))
+            .ToList();
+
         string payeeUpiId = !string.IsNullOrWhiteSpace(branch?.UpiId)
             ? branch.UpiId.Trim()
             : (!string.IsNullOrWhiteSpace(tenant?.UpiId) ? tenant.UpiId.Trim() : "imserp.fees@sbi");
@@ -5142,36 +5194,38 @@ public class FeesController : ControllerBase
 
         string? merchantCode = tenant?.UpiMerchantCode ?? "8211";
 
-        decimal dueAmount = invoice.TotalAmount - invoice.PaidAmount;
-        if (dueAmount < 0) dueAmount = 0;
-
         string studentName = invoice.Student?.StudentName ?? "Student";
         string formattedAmount = dueAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
         string encodedPayee = Uri.EscapeDataString(payeeName);
-        string transactionNote = Uri.EscapeDataString($"Fee {invoice.InvoiceNumber} {studentName}");
+        string invoiceRef = allUnpaid.Count == 1
+            ? allUnpaid[0].InvoiceNumber
+            : $"CONS-{studentId.ToString()[..8].ToUpper()}";
+        string transactionNote = Uri.EscapeDataString($"Fees Due {studentName}");
 
-        string upiIntentUri = $"upi://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoice.InvoiceNumber}&mc={merchantCode}";
+        string upiIntentUri = $"upi://pay?pa={payeeUpiId}&pn={encodedPayee}&am={formattedAmount}&cu=INR&tn={transactionNote}&tr={invoiceRef}&mc={merchantCode}";
 
-        var shortHash = Math.Abs(invoice.Id.GetHashCode()) % 9000 + 1000;
-        string noticeNumber = $"DUE-{invoice.DueDate:yyyyMM}-{shortHash}";
+        // Notice number based on oldest unpaid invoice
+        var oldest = allUnpaid.First();
+        var shortHash = Math.Abs(oldest.Id.GetHashCode()) % 9000 + 1000;
+        string noticeNumber = $"DUE-{oldest.DueDate:yyyyMM}-{shortHash}";
 
-        var items = invoice.Items.Select(it => new FeeInvoiceItemDto(
-            it.Id,
-            it.InvoiceId,
-            it.FeeHeadId,
-            it.HeadName,
-            it.Amount,
-            it.PaidAmount,
-            it.Description
-        )).ToList();
+        // Combined invoice numbers label
+        string invoiceNumbers = allUnpaid.Count == 1
+            ? allUnpaid[0].InvoiceNumber
+            : string.Join(", ", allUnpaid.Select(i => i.InvoiceNumber));
+
+        // Title: use consolidated label if multiple invoices
+        string title = allUnpaid.Count == 1
+            ? oldest.Title
+            : $"Consolidated Fee Due ({allUnpaid.Count} Unpaid Invoices)";
 
         string cashierName = !string.IsNullOrWhiteSpace(tenant?.Name) ? tenant.Name : "Accounts Department";
 
         var dto = new PublicInvoiceDueSlipDto(
             invoice.Id,
-            invoice.InvoiceNumber,
+            invoiceNumbers,
             noticeNumber,
-            invoice.CreatedAt,
+            DateTime.UtcNow,
             invoice.StudentId,
             studentName,
             invoice.Student?.SchoolRollNumber ?? invoice.Student?.RollNumber,
@@ -5188,13 +5242,14 @@ public class FeesController : ControllerBase
             cashierName,
             payeeUpiId,
             payeeName,
-            invoice.TotalAmount,
-            invoice.PaidAmount,
+            consolidatedTotal,
+            consolidatedPaid,
             dueAmount,
-            invoice.DueDate,
-            invoice.Title,
+            oldest.DueDate,
+            title,
             items,
-            upiIntentUri
+            upiIntentUri,
+            allUnpaid.Count
         );
 
         return Ok(dto);

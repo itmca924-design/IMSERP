@@ -1637,7 +1637,8 @@ public record PublicInvoiceDueSlipDto(
     DateTime DueDate,
     string Title,
     List<FeeInvoiceItemDto> Items,
-    string UpiIntentUri
+    string UpiIntentUri,
+    int TotalUnpaidInvoices = 1
 );
 
 public record CollectUpiPaymentRequestDto(
