@@ -1670,8 +1670,9 @@ import ApexCharts from 'apexcharts';
                   View All <mat-icon>arrow_forward</mat-icon>
                 </a>
               </div>
-              <mat-card-content>
-                <table mat-table appResizableTable [dataSource]="summary.recentTests" class="full-width recent-tests-table">
+              <mat-card-content class="recent-tests-content">
+                <div class="table-responsive">
+                  <table mat-table appResizableTable [dataSource]="summary.recentTests" class="full-width recent-tests-table">
     
                   <ng-container matColumnDef="title">
                     <th mat-header-cell *matHeaderCellDef>Test Title</th>
@@ -1723,7 +1724,8 @@ import ApexCharts from 'apexcharts';
                     </td>
                   </tr>
                 </table>
-              </mat-card-content>
+              </div>
+            </mat-card-content>
             </mat-card>
     
           </div>
@@ -2563,21 +2565,37 @@ import ApexCharts from 'apexcharts';
         -webkit-overflow-scrolling: touch;
         width: 100%;
         position: relative;
-        /* Hide horizontal scrollbar while preserving swipe & mouse scroll */
-        scrollbar-width: none !important;
-        -ms-overflow-style: none !important;
-        &::-webkit-scrollbar {
-          display: none !important;
-          width: 0 !important;
-          height: 0 !important;
-        }
       }
 
       table {
-        min-width: 0 !important;
-        width: 100% !important;
+        min-width: 480px;
+        width: 100%;
         border-collapse: separate;
         border-spacing: 0;
+        white-space: nowrap;
+      }
+
+      th.mat-column-studentName, td.mat-column-studentName {
+        min-width: 140px;
+        white-space: nowrap;
+      }
+
+      th.mat-column-className, td.mat-column-className {
+        min-width: 135px;
+        white-space: nowrap;
+      }
+
+      th.mat-column-dueAmount, td.mat-column-dueAmount {
+        min-width: 110px;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      th.mat-column-actions, td.mat-column-actions {
+        width: 80px;
+        min-width: 80px;
+        text-align: center;
+        white-space: nowrap;
       }
 
       th.mat-mdc-header-cell,
@@ -3024,15 +3042,15 @@ import ApexCharts from 'apexcharts';
         gap: 5px;
 
         .student-avatar-container {
-          width: 24px !important;
-          height: 24px !important;
-          min-width: 24px !important;
+          width: 28px !important;
+          height: 28px !important;
+          min-width: 28px !important;
 
           .student-avatar-img,
           .student-avatar-badge {
-            width: 24px !important;
-            height: 24px !important;
-            font-size: 0.68rem !important;
+            width: 28px !important;
+            height: 28px !important;
+            font-size: 0.72rem !important;
           }
         }
 
@@ -3040,79 +3058,78 @@ import ApexCharts from 'apexcharts';
           min-width: 0;
 
           .stu-name-row {
-            gap: 3px;
+            gap: 4px;
           }
 
           strong {
-            font-size: 0.74rem !important;
-            line-height: 1.15;
+            font-size: 0.80rem !important;
+            line-height: 1.2;
             display: block;
-            max-width: 90px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
           }
 
           small {
-            font-size: 0.62rem !important;
+            font-size: 0.68rem !important;
           }
         }
       }
 
       .sibling-badge {
-        font-size: 0.58rem;
-        padding: 1px 3px;
+        font-size: 0.62rem;
+        padding: 1px 4px;
         mat-icon {
-          font-size: 9px;
-          width: 9px;
-          height: 9px;
-          line-height: 9px;
+          font-size: 10px;
+          width: 10px;
+          height: 10px;
+          line-height: 10px;
         }
       }
 
       .class-cell-wrap {
-        gap: 2px;
+        gap: 3px;
 
         .class-badge-row {
-          gap: 3px;
+          gap: 4px;
         }
       }
 
       .class-pill {
-        font-size: 0.62rem !important;
-        padding: 1px 4px !important;
+        font-size: 0.68rem !important;
+        padding: 2px 5px !important;
       }
 
       .admission-scope-badge {
-        font-size: 0.58rem !important;
-        padding: 1px 3px !important;
+        font-size: 0.64rem !important;
+        padding: 1px 4px !important;
       }
 
       .due-date-badge {
-        font-size: 0.58rem !important;
-        padding: 1px 3px !important;
+        font-size: 0.65rem !important;
+        padding: 2px 4px !important;
         .due-clock-icon {
-          font-size: 9px !important;
-          width: 9px !important;
-          height: 9px !important;
+          font-size: 10px !important;
+          width: 10px !important;
+          height: 10px !important;
         }
       }
 
       .amount-due {
-        font-size: 0.78rem !important;
-        padding-right: 4px !important;
+        font-size: 0.82rem !important;
+        padding-right: 6px !important;
 
         .partial-paid-badge {
-          font-size: 0.54rem !important;
-          padding: 1px 3px !important;
+          font-size: 0.60rem !important;
+          padding: 1px 4px !important;
         }
       }
 
       .actions-th,
       .actions-td {
-        width: 58px !important;
-        min-width: 56px !important;
-        max-width: 60px !important;
+        width: 72px !important;
+        min-width: 70px !important;
+        max-width: 76px !important;
         padding-left: 2px !important;
         padding-right: 8px !important;
       }
@@ -3122,38 +3139,38 @@ import ApexCharts from 'apexcharts';
       }
 
       .row-actions-group {
-        gap: 2px !important;
-        margin-right: 3px;
+        gap: 3px !important;
+        margin-right: 2px;
       }
 
       .mini-voice-btn,
       .more-action-btn,
       .reminded-today-pill {
-        width: 24px !important;
-        height: 24px !important;
-        min-width: 24px !important;
-        min-height: 24px !important;
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        min-height: 26px !important;
 
         mat-icon {
-          font-size: 13px !important;
-          width: 13px !important;
-          height: 13px !important;
-          line-height: 13px !important;
+          font-size: 14px !important;
+          width: 14px !important;
+          height: 14px !important;
+          line-height: 14px !important;
         }
       }
 
       .compact-fee-paginator {
         ::ng-deep .mat-mdc-paginator-container {
-          padding: 0 4px;
-          flex-wrap: wrap;
-          justify-content: center;
-          font-size: 0.70rem;
+          padding: 0 6px;
+          flex-wrap: nowrap;
+          justify-content: space-between;
+          font-size: 0.72rem;
         }
         ::ng-deep .mat-mdc-paginator-page-size {
-          margin-right: 2px;
+          margin-right: 4px;
         }
         ::ng-deep .mat-mdc-paginator-range-label {
-          margin: 0 2px;
+          margin: 0 4px;
         }
       }
     }
@@ -3282,27 +3299,51 @@ import ApexCharts from 'apexcharts';
       padding: 8px 6px !important;
     }
 
+    .recent-tests-content {
+      padding: 0 !important;
+      overflow: hidden;
+      width: 100%;
+
+      .table-responsive {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+      }
+    }
+
     .recent-tests-table {
+      width: 100%;
+      min-width: 520px;
+      white-space: nowrap;
+
       th.mat-column-title, td.mat-column-title {
-        min-width: 100px;
+        min-width: 130px;
+        white-space: nowrap;
       }
       th.mat-column-batchName, td.mat-column-batchName {
-        max-width: 125px;
-        padding: 8px 4px !important;
+        min-width: 120px;
+        white-space: nowrap;
+        padding: 8px 6px !important;
       }
       th.mat-column-maxMarks, td.mat-column-maxMarks {
-        width: 65px;
-        padding: 8px 4px !important;
+        width: 75px;
+        min-width: 75px;
+        text-align: center;
+        white-space: nowrap;
+        padding: 8px 6px !important;
       }
       th.mat-column-marksEnteredCount, td.mat-column-marksEnteredCount {
-        width: 85px;
-        padding: 8px 4px !important;
+        width: 105px;
+        min-width: 105px;
+        text-align: center;
+        white-space: nowrap;
+        padding: 8px 6px !important;
       }
       th.mat-column-testDate, td.mat-column-testDate {
         width: 95px;
         min-width: 95px;
         padding-left: 4px !important;
-        padding-right: 8px !important;
+        padding-right: 12px !important;
         white-space: nowrap !important;
         text-align: right;
         font-size: 0.8rem;
