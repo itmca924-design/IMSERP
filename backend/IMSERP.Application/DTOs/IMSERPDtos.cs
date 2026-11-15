@@ -1001,7 +1001,9 @@ public record FeePaymentReceiptDto(
     decimal AdvanceDepositAmount = 0,
     decimal AdvanceAdjustedAmount = 0,
     string? AdvanceAdjustedFromReceipt = null,
-    decimal StudentAdvanceBalance = 0
+    decimal StudentAdvanceBalance = 0,
+    string? FooterNoteEnglish = null,
+    string? FooterNoteHindi = null
 );
 
 public record StudentPendingFineItemDto(
@@ -1065,7 +1067,9 @@ public record FeeDueSlipDto(
     int ActiveOverdueBooksCount = 0,
     string? HostelInfo = null,
     string? BranchName = null,
-    decimal StudentAdvanceBalance = 0
+    decimal StudentAdvanceBalance = 0,
+    string? FooterNoteEnglish = null,
+    string? FooterNoteHindi = null
 );
 
 public record TestDto(
@@ -1638,7 +1642,9 @@ public record PublicInvoiceDueSlipDto(
     string Title,
     List<FeeInvoiceItemDto> Items,
     string UpiIntentUri,
-    int TotalUnpaidInvoices = 1
+    int TotalUnpaidInvoices = 1,
+    string? FooterNoteEnglish = null,
+    string? FooterNoteHindi = null
 );
 
 public record CollectUpiPaymentRequestDto(
@@ -4101,7 +4107,14 @@ public record AutomationSettingsDto(
     DateTime? LastBiometricSyncAt = null,
     bool LateFeeAutoComputeEnabled = true,
     decimal LateFeeDailyRate = 10,
-    int LateFeeGraceDays = 5,
+    int LateFeeGraceDays = 0,
+    string LateFineMode = "MonthlySlab",
+    int LateFineDueCutoffDay = 10,
+    decimal LateFineAmount = 50.00m,
+    string? ReceiptFooterNoteEnglish = null,
+    string? ReceiptFooterNoteHindi = null,
+    bool ShowFooterNoteOnReceipt = true,
+    bool ShowFooterNoteOnDueSlip = true,
     bool AutoPilotFeeInvoicingEnabled = false,
     int AutoPilotInvoicingDayOfMonth = 25,
     DateTime? LastAutoPilotInvoicingRun = null,
@@ -4131,7 +4144,14 @@ public record SaveAutomationSettingsDto(
     string FeeDueVoiceGender = "Female",
     string? WhatsAppCloudApiToken = null,
     string? WhatsAppPhoneNumberId = null,
-    string? WhatsAppBusinessAccountId = null
+    string? WhatsAppBusinessAccountId = null,
+    string LateFineMode = "MonthlySlab",
+    int LateFineDueCutoffDay = 10,
+    decimal LateFineAmount = 50.00m,
+    string? ReceiptFooterNoteEnglish = null,
+    string? ReceiptFooterNoteHindi = null,
+    bool ShowFooterNoteOnReceipt = true,
+    bool ShowFooterNoteOnDueSlip = true
 );
 
 public record RunAutomationJobResultDto(

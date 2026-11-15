@@ -2362,6 +2362,10 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     const email = (user as any)?.contactEmail || '';
     const authorityName = user?.fullName || 'Authorized Signatory';
     const printLayout = this.filterForm.get('printLayout')?.value || 'two_per_page';
+    const footerNoteEn = this.settingsService.receiptFooterNoteEnglish();
+    const footerNoteHi = this.settingsService.receiptFooterNoteHindi();
+    const showOnReceipt = this.settingsService.showFooterNoteOnReceipt();
+    const showOnDue = this.settingsService.showFooterNoteOnDueSlip();
     const nowIstStr = new Date().toLocaleString('en-IN', {
       timeZone: 'Asia/Kolkata',
       day: '2-digit',
@@ -2403,7 +2407,8 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       }));
 
       bodyHtml = this.buildBulkDueSlipsHtml(slips, {
-        instituteName, logoUrl, sealUrl, sigUrl, branchName, address, phone, email, authorityName, printLayout, nowIstStr
+        instituteName, logoUrl, sealUrl, sigUrl, branchName, address, phone, email, authorityName, printLayout, nowIstStr,
+        footerNoteEn, footerNoteHi, showOnReceipt, showOnDue
       });
     } else if (this.docType === 'receipts') {
       const receipts = this.filteredReceipts.filter(r => this.selectedReceiptNumbers.has(r.receiptNumber));
@@ -2442,7 +2447,8 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       }));
 
       bodyHtml = this.buildBulkReceiptsHtml(receipts, {
-        instituteName, logoUrl, sealUrl, sigUrl, branchName, address, phone, email, authorityName, printLayout, nowIstStr
+        instituteName, logoUrl, sealUrl, sigUrl, branchName, address, phone, email, authorityName, printLayout, nowIstStr,
+        footerNoteEn, footerNoteHi, showOnReceipt, showOnDue
       });
     } else {
       bodyHtml = this.buildConsolidatedRegisterHtml(this.filteredRegisterRows, {
@@ -2532,7 +2538,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         </table>
         <div class="slip-footer">
           <div class="note">
-            <strong>Notice (सूचना):</strong> कृपया निर्धारित तिथि तक विद्यालय/संस्थान कार्यालय या UPI / ऑनलाइन माध्यम से बकाया शुल्क जमा करें।
+            ${meta.showOnDue && meta.footerNoteHi ? `<div><strong>नोट:</strong> ${meta.footerNoteHi}</div>` : ''}
+            ${meta.showOnDue && meta.footerNoteEn ? `<div><strong>Note:</strong> ${meta.footerNoteEn}</div>` : ''}
+            ${!meta.showOnDue || (!meta.footerNoteHi && !meta.footerNoteEn) ? `<strong>Notice (सूचना):</strong> कृपया निर्धारित तिथि तक विद्यालय/संस्थान कार्यालय या UPI / ऑनलाइन माध्यम से बकाया शुल्क जमा करें।` : ''}
           </div>
           ${slip.qrDataUrl ? `
             <div class="qr-box">
@@ -2640,7 +2648,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         </div>
         <div class="slip-footer">
           <div class="note">
-            <strong>Thank You!</strong> Official computer-generated fee receipt.
+            ${meta.showOnReceipt && meta.footerNoteEn ? `<div><strong>Note:</strong> ${meta.footerNoteEn}</div>` : ''}
+            ${meta.showOnReceipt && meta.footerNoteHi ? `<div><strong>नोट:</strong> ${meta.footerNoteHi}</div>` : ''}
+            ${!meta.showOnReceipt || (!meta.footerNoteEn && !meta.footerNoteHi) ? `<strong>Thank You!</strong> Official computer-generated fee receipt.` : ''}
           </div>
           ${rcp.qrDataUrl ? `
             <div class="qr-box">

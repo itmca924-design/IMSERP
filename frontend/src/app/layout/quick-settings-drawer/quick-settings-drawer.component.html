@@ -657,7 +657,7 @@
                                   <div class="toggle-title-row">
                                     <span class="toggle-title">Late Fee Rule Auto-Compute</span>
                                     <span class="status-pill" [class.paused]="!settingsService.lateFeeCalc()">
-                                      {{ settingsService.lateFeeCalc() ? 'Rules Active (₹10/day)' : 'Disabled' }}
+                                      {{ settingsService.lateFeeCalc() ? ('Rules Active (' + (settingsService.lateFineMode() === 'MonthlySlab' ? '₹' + settingsService.lateFineAmount() + '/mo' : settingsService.lateFineMode() === 'Flat' ? 'Flat ₹' + settingsService.lateFineAmount() : '₹10/day') + ')') : 'Disabled' }}
                                     </span>
                                   </div>
                                   <p class="toggle-desc">Applies institute fine policy automatically to invoices past the defined grace period.</p>

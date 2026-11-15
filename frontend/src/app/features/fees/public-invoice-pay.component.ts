@@ -396,6 +396,24 @@ import { AuthService } from '../../core/services/auth.service';
                 </div>
               </div>
 
+              <!-- Dynamic Bilingual Policy Footer Notes -->
+              @if (dueSlip.footerNoteEnglish || dueSlip.footerNoteHindi) {
+                <div class="receipt-note-box">
+                  @if (dueSlip.footerNoteEnglish) {
+                    <div class="note-row note-en">
+                      <strong class="note-tag-en">Note:</strong>
+                      <span>{{ dueSlip.footerNoteEnglish }}</span>
+                    </div>
+                  }
+                  @if (dueSlip.footerNoteHindi) {
+                    <div class="note-row note-hi">
+                      <strong class="note-tag-hi">नोट:</strong>
+                      <span>{{ dueSlip.footerNoteHindi }}</span>
+                    </div>
+                  }
+                </div>
+              }
+
               <!-- Footer Notice -->
               <div class="paper-footer">
                 <span>Official Computer-Generated Fee Due Slip • {{ copy.title }} • IMSERP Management Suite</span>
@@ -1073,6 +1091,10 @@ export class PublicInvoicePayComponent implements OnInit {
       '.qr-label { font-size: 0.56rem; font-weight: 700; color: #334155; margin-top: 2px; white-space: nowrap; text-align: center; }' +
       '.digital-sign-wrapper { display: flex; align-items: flex-end; justify-content: flex-end; height: 18px; margin-bottom: 2px; }' +
       '.digital-sign-img { max-height: 18px; max-width: 75px; object-fit: contain; mix-blend-mode: multiply; }' +
+      '.receipt-note-box { background: #f8fafc !important; border: 1px dashed #94a3b8 !important; border-radius: 2px; padding: 2px 5px; margin-top: 2px; margin-bottom: 2px; font-size: 0.54rem; line-height: 1.2; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.note-row { display: flex; align-items: baseline; gap: 3px; }' +
+      '.note-tag-en { color: #1d4ed8; font-weight: 700; white-space: nowrap; }' +
+      '.note-tag-hi { color: #b91c1c; font-weight: 700; white-space: nowrap; }' +
       '.paper-footer { text-align: center; font-size: 0.54rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 2px; margin-top: 2px; }' +
       '.text-center { text-align: center; }' +
       '.text-right { text-align: right; }' +

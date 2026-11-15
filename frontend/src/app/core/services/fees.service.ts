@@ -1016,6 +1016,8 @@ export interface PublicInvoiceDueSlip {
   items: FeeInvoiceItem[];
   upiIntentUri: string;
   totalUnpaidInvoices?: number;
+  footerNoteEnglish?: string | null;
+  footerNoteHindi?: string | null;
 }
 
 

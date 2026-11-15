@@ -1672,7 +1672,9 @@ public class FeesController : ControllerBase
                 advanceDepositNow,
                 totalAdvAdjustedOnPaidInvoices,
                 !string.IsNullOrWhiteSpace(advAdjustedRefOnPaidInvoices) ? advAdjustedRefOnPaidInvoices : null,
-                student.AdvanceBalance
+                student.AdvanceBalance,
+                (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null,
+                (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null
             ));
         });
     }
@@ -1891,6 +1893,10 @@ public class FeesController : ControllerBase
             .Select(p => p.Invoice!.AdvanceAdjustedFromReceipt)
             .Distinct());
 
+        var autoSettings = await _dbContext.AutomationSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId);
+
         return Ok(new FeePaymentReceiptDto(
             firstPayment?.Id ?? (circulations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
             receiptNumber,
@@ -1930,7 +1936,9 @@ public class FeesController : ControllerBase
             totalAdvanceDeposit,
             totalAdvAdjustedRec,
             !string.IsNullOrWhiteSpace(advAdjustedRefRec) ? advAdjustedRefRec : null,
-            student?.AdvanceBalance ?? 0m
+            student?.AdvanceBalance ?? 0m,
+            (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null,
+            (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null
         ));
     }
 
@@ -2042,6 +2050,13 @@ public class FeesController : ControllerBase
             dueSlipBranch = mainBr?.Name;
         }
 
+        var autoSettings = await _dbContext.AutomationSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == student.TenantId);
+
+        string? noteEn = (autoSettings?.ShowFooterNoteOnDueSlip ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null;
+        string? noteHi = (autoSettings?.ShowFooterNoteOnDueSlip ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null;
+
         return Ok(new FeeDueSlipDto(
             student.Id,
             student.StudentName,
@@ -2056,7 +2071,9 @@ public class FeesController : ControllerBase
             activeOverdueCount,
             dueSlipHostelInfo,
             dueSlipBranch,
-            student.AdvanceBalance
+            student.AdvanceBalance,
+            noteEn,
+            noteHi
         ));
     }
 
@@ -5221,6 +5238,14 @@ public class FeesController : ControllerBase
 
         string cashierName = !string.IsNullOrWhiteSpace(tenant?.Name) ? tenant.Name : "Accounts Department";
 
+        var autoSettings = await _dbContext.AutomationSettings
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == invoice.TenantId);
+
+        string? noteEn = (autoSettings?.ShowFooterNoteOnDueSlip ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null;
+        string? noteHi = (autoSettings?.ShowFooterNoteOnDueSlip ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null;
+
         var dto = new PublicInvoiceDueSlipDto(
             invoice.Id,
             invoiceNumbers,
@@ -5249,7 +5274,9 @@ public class FeesController : ControllerBase
             title,
             items,
             upiIntentUri,
-            allUnpaid.Count
+            allUnpaid.Count,
+            noteEn,
+            noteHi
         );
 
         return Ok(dto);

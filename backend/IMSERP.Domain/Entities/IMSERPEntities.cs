@@ -910,7 +910,14 @@ public class AutomationSettings
 
     public bool LateFeeAutoComputeEnabled { get; set; } = true;
     public decimal LateFeeDailyRate { get; set; } = 10;
-    public int LateFeeGraceDays { get; set; } = 5;
+    public int LateFeeGraceDays { get; set; } = 0;
+    public string LateFineMode { get; set; } = "MonthlySlab"; // "Flat", "MonthlySlab", or "PerDay"
+    public int LateFineDueCutoffDay { get; set; } = 10; // 10th of every month
+    public decimal LateFineAmount { get; set; } = 50.00m; // Default ₹50
+    public string? ReceiptFooterNoteEnglish { get; set; }
+    public string? ReceiptFooterNoteHindi { get; set; }
+    public bool ShowFooterNoteOnReceipt { get; set; } = true;
+    public bool ShowFooterNoteOnDueSlip { get; set; } = true;
 
     public bool AutoPilotFeeInvoicingEnabled { get; set; } = false;
     public int AutoPilotInvoicingDayOfMonth { get; set; } = 25;

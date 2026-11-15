@@ -54,6 +54,16 @@ public class AutomationService : IAutomationService
         settings.LateFeeAutoComputeEnabled = dto.LateFeeAutoComputeEnabled;
         settings.LateFeeDailyRate = Math.Max(0, dto.LateFeeDailyRate);
         settings.LateFeeGraceDays = Math.Max(0, dto.LateFeeGraceDays);
+        if (!string.IsNullOrWhiteSpace(dto.LateFineMode))
+        {
+            settings.LateFineMode = dto.LateFineMode.Trim();
+        }
+        settings.LateFineDueCutoffDay = Math.Clamp(dto.LateFineDueCutoffDay > 0 ? dto.LateFineDueCutoffDay : 10, 1, 28);
+        settings.LateFineAmount = Math.Max(0, dto.LateFineAmount);
+        settings.ReceiptFooterNoteEnglish = dto.ReceiptFooterNoteEnglish?.Trim();
+        settings.ReceiptFooterNoteHindi = dto.ReceiptFooterNoteHindi?.Trim();
+        settings.ShowFooterNoteOnReceipt = dto.ShowFooterNoteOnReceipt;
+        settings.ShowFooterNoteOnDueSlip = dto.ShowFooterNoteOnDueSlip;
         settings.AutoPilotFeeInvoicingEnabled = dto.AutoPilotFeeInvoicingEnabled;
         settings.AutoPilotInvoicingDayOfMonth = Math.Clamp(dto.AutoPilotInvoicingDayOfMonth, 1, 28);
         settings.AdmissionCutoffDay = Math.Clamp(dto.AdmissionCutoffDay, 1, 28);
@@ -339,11 +349,42 @@ public class AutomationService : IAutomationService
         var settings = await _db.AutomationSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
         if (settings != null && !settings.LateFeeAutoComputeEnabled)
         {
+            // If disabled by toggle, remove any pending unpaid late fee items so overdue invoices are clean
+            var invoicesWithLateFee = await _db.FeeInvoices
+                .Include(i => i.Items)
+                .Where(i => i.TenantId == tenantId &&
+                            i.Status != InvoiceStatus.Paid &&
+                            i.Status != InvoiceStatus.Cancelled &&
+                            i.Items.Any(it => it.Description == "LateFeeFine" || it.HeadName.Contains("Late Fine") || it.HeadName.Contains("विलंब शुल्क")))
+                .ToListAsync();
+
+            int removedCount = 0;
+            foreach (var inv in invoicesWithLateFee)
+            {
+                var lateItems = inv.Items.Where(it => it.Description == "LateFeeFine" || it.HeadName.Contains("Late Fine") || it.HeadName.Contains("विलंब शुल्क")).ToList();
+                foreach (var li in lateItems)
+                {
+                    if (li.PaidAmount <= 0)
+                    {
+                        inv.TotalAmount = Math.Max(0, inv.TotalAmount - li.Amount);
+                        inv.Items.Remove(li);
+                        _db.FeeInvoiceItems.Remove(li);
+                        removedCount++;
+                    }
+                }
+            }
+            if (removedCount > 0)
+            {
+                await _db.SaveChangesAsync();
+            }
+
             return new RunAutomationJobResultDto(
                 JobName: "Late Fee Auto-Compute",
-                Success: false,
-                Message: "Late fee auto-computation is disabled in Workspace Settings. No penalties applied.",
-                ProcessedCount: 0,
+                Success: true,
+                Message: removedCount > 0
+                    ? $"Late fee auto-computation is disabled. Cleared {removedCount} unpaid late fine items."
+                    : "Late fee auto-computation is disabled in Workspace Settings. No penalties applied.",
+                ProcessedCount: removedCount,
                 ExecutedAt: DateTime.UtcNow
             );
         }
@@ -351,8 +392,11 @@ public class AutomationService : IAutomationService
         var istZone = GetIstTimeZone();
         var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
 
-        var rate = dailyRate ?? (settings?.LateFeeDailyRate ?? 10m);
-        var grace = graceDays ?? (settings?.LateFeeGraceDays ?? 5);
+        var mode = !string.IsNullOrWhiteSpace(settings?.LateFineMode) ? settings.LateFineMode : "MonthlySlab";
+        var cutoffDay = settings?.LateFineDueCutoffDay > 0 ? settings.LateFineDueCutoffDay : 10;
+        var fineAmount = settings?.LateFineAmount >= 0 ? settings.LateFineAmount : 50.00m;
+        var perDayRate = dailyRate ?? (settings?.LateFeeDailyRate ?? 10m);
+        var grace = graceDays ?? (settings?.LateFeeGraceDays ?? 0);
         var overdueCutoff = today.AddDays(-grace);
 
         // Find overdue invoices past grace period
@@ -370,12 +414,40 @@ public class AutomationService : IAutomationService
 
         foreach (var inv in overdueInvoices)
         {
-            var overdueDays = (today - inv.DueDate.Date).Days - grace;
-            if (overdueDays <= 0) continue;
+            decimal computedFine = 0;
+            string headName = "Late Fine / विलंब शुल्क";
 
-            var computedFine = overdueDays * rate;
+            if (string.Equals(mode, "Flat", StringComparison.OrdinalIgnoreCase))
+            {
+                // Flat late fine once overdue past due date + grace
+                computedFine = fineAmount;
+                headName = $"Late Fine / विलंब शुल्क (Flat ₹{fineAmount:N0})";
+            }
+            else if (string.Equals(mode, "PerDay", StringComparison.OrdinalIgnoreCase))
+            {
+                int overdueDays = Math.Max(1, (today - inv.DueDate.Date).Days - grace);
+                computedFine = overdueDays * perDayRate;
+                headName = $"Late Fine / विलंब शुल्क ({overdueDays} Days @ ₹{perDayRate:N0}/day)";
+            }
+            else
+            {
+                // Monthly Slab (Default): multiplies per overdue month
+                int overdueMonths = ((today.Year - inv.DueDate.Year) * 12) + today.Month - inv.DueDate.Month;
+                if (today.Day <= (cutoffDay + grace))
+                {
+                    overdueMonths--;
+                }
+                if (overdueMonths < 1) overdueMonths = 1;
+                computedFine = overdueMonths * fineAmount;
+                headName = $"Late Fine / विलंब शुल्क ({overdueMonths} Month{(overdueMonths > 1 ? "s" : "")} @ ₹{fineAmount:N0}/mo)";
+            }
+
+            if (computedFine <= 0) continue;
+
             var lateItem = inv.Items.FirstOrDefault(it => it.Description == "LateFeeFine" ||
-                                                          it.HeadName.Contains("Late Fee", StringComparison.OrdinalIgnoreCase));
+                                                          it.HeadName.Contains("Late Fee", StringComparison.OrdinalIgnoreCase) ||
+                                                          it.HeadName.Contains("Late Fine", StringComparison.OrdinalIgnoreCase) ||
+                                                          it.HeadName.Contains("विलंब शुल्क", StringComparison.OrdinalIgnoreCase));
 
             if (lateItem == null)
             {
@@ -384,7 +456,7 @@ public class AutomationService : IAutomationService
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     InvoiceId = inv.Id,
-                    HeadName = $"Late Fee Fine ({overdueDays} days past grace)",
+                    HeadName = headName,
                     Description = "LateFeeFine",
                     Amount = computedFine,
                     PaidAmount = 0,
@@ -394,16 +466,16 @@ public class AutomationService : IAutomationService
                 _db.FeeInvoiceItems.Add(lateItem);
                 inv.TotalAmount += computedFine;
                 appliedCount++;
-                details.Add($"Invoice #{inv.InvoiceNumber} ({inv.Student?.StudentName}): Added ₹{computedFine:N0} late fine ({overdueDays} days overdue)");
+                details.Add($"Invoice #{inv.InvoiceNumber} ({inv.Student?.StudentName}): Added ₹{computedFine:N0} late fine ({headName})");
             }
-            else if (lateItem.Amount < computedFine)
+            else if (lateItem.Amount != computedFine)
             {
                 var diff = computedFine - lateItem.Amount;
                 lateItem.Amount = computedFine;
-                lateItem.HeadName = $"Late Fee Fine ({overdueDays} days past grace)";
+                lateItem.HeadName = headName;
                 inv.TotalAmount += diff;
                 appliedCount++;
-                details.Add($"Invoice #{inv.InvoiceNumber} ({inv.Student?.StudentName}): Updated late fine to ₹{computedFine:N0}");
+                details.Add($"Invoice #{inv.InvoiceNumber} ({inv.Student?.StudentName}): Updated late fine to ₹{computedFine:N0} ({headName})");
             }
         }
 
@@ -413,9 +485,9 @@ public class AutomationService : IAutomationService
         }
 
         var message = appliedCount > 0
-            ? $"Applied automated late fee computation to {appliedCount} overdue invoices (Rate: ₹{rate}/day past {grace} days grace)."
+            ? $"Applied automated late fine computation ({mode} mode) to {appliedCount} overdue invoices."
             : overdueInvoices.Count == 0
-                ? $"No invoices are currently past the {grace}-day grace period. Zero penalties required."
+                ? $"No invoices are currently overdue past the {cutoffDay}th cutoff day. Zero penalties required."
                 : $"Late fee rules are up to date on all {overdueInvoices.Count} overdue invoices.";
 
         return new RunAutomationJobResultDto(
@@ -875,7 +947,14 @@ public class AutomationService : IAutomationService
                 BiometricSyncEnabled = true,
                 LateFeeAutoComputeEnabled = true,
                 LateFeeDailyRate = 10,
-                LateFeeGraceDays = 5,
+                LateFeeGraceDays = 0,
+                LateFineMode = "MonthlySlab",
+                LateFineDueCutoffDay = 10,
+                LateFineAmount = 50.00m,
+                ReceiptFooterNoteEnglish = "Fees once paid are non-refundable. Please keep this receipt safe for future academic reference.",
+                ReceiptFooterNoteHindi = "जमा किया गया शुल्क वापस नहीं होगा। कृपया भविष्य के संदर्भ हेतु इस रसीद को सुरक्षित रखें।",
+                ShowFooterNoteOnReceipt = true,
+                ShowFooterNoteOnDueSlip = true,
                 AutoPilotFeeInvoicingEnabled = false,
                 AutoPilotInvoicingDayOfMonth = 25,
                 AdmissionCutoffDay = 20,
@@ -911,6 +990,13 @@ public class AutomationService : IAutomationService
         LateFeeAutoComputeEnabled: s.LateFeeAutoComputeEnabled,
         LateFeeDailyRate: s.LateFeeDailyRate,
         LateFeeGraceDays: s.LateFeeGraceDays,
+        LateFineMode: s.LateFineMode ?? "MonthlySlab",
+        LateFineDueCutoffDay: s.LateFineDueCutoffDay > 0 ? s.LateFineDueCutoffDay : 10,
+        LateFineAmount: s.LateFineAmount >= 0 ? s.LateFineAmount : 50.00m,
+        ReceiptFooterNoteEnglish: s.ReceiptFooterNoteEnglish,
+        ReceiptFooterNoteHindi: s.ReceiptFooterNoteHindi,
+        ShowFooterNoteOnReceipt: s.ShowFooterNoteOnReceipt,
+        ShowFooterNoteOnDueSlip: s.ShowFooterNoteOnDueSlip,
         AutoPilotFeeInvoicingEnabled: s.AutoPilotFeeInvoicingEnabled,
         AutoPilotInvoicingDayOfMonth: s.AutoPilotInvoicingDayOfMonth,
         LastAutoPilotInvoicingRun: s.LastAutoPilotInvoicingRun,

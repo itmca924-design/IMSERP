@@ -34,6 +34,7 @@ import { StudentLedgerDialogComponent } from './student-ledger-dialog.component'
 import { GenerateInvoicesDialogComponent } from './generate-invoices-dialog.component';
 import { CancelInvoiceDialogComponent } from './cancel-invoice-dialog.component';
 import { FeeMasterDialogComponent } from './fee-master-dialog.component';
+import { FeePolicyDialogComponent } from './fee-policy-dialog.component';
 import { EditInvoiceDialogComponent } from './edit-invoice-dialog.component';
 import { FeeInvoiceBreakdownDialogComponent, BreakdownDialogResult } from './fee-invoice-breakdown-dialog.component';
 import { BulkFeePrintDialogComponent } from './bulk-fee-print-dialog.component';
@@ -90,6 +91,14 @@ export interface UpcomingBillingCycleInfo {
             matTooltip="Bulk Print Class-Wise or All Fee Due Slips, Paid Receipts & Register (Monthly / Quarterly / Half-Yearly / Yearly)">
             <mat-icon>print</mat-icon>
             <span>Bulk Receipts &amp; Due Slips</span>
+          </button>
+          <button class="fee-policy-btn" (click)="openFeePolicyModal()" matButton="filled"
+            matTooltip="Configure Monthly Late Fine Policy, Due Cutoff Date & Dynamic Bilingual Receipt Footer Notes">
+            <mat-icon>gavel</mat-icon>
+            <span>Fee Policy &amp; Notes</span>
+            @if (settingsService.lateFeeCalc()) {
+              <span class="policy-active-chip">Fine Active</span>
+            }
           </button>
           <button class="fee-master-btn" (click)="openFeeMasterModal()" matButton="filled">
             <mat-icon color="primary">tune</mat-icon>
@@ -1018,6 +1027,35 @@ export interface UpcomingBillingCycleInfo {
         &:hover {
           background: #dbeafe;
           border-color: #60a5fa;
+        }
+      }
+
+      .fee-policy-btn {
+        height: 44px;
+        font-weight: 600;
+        border-radius: 8px;
+        border: 1px solid #bfdbfe;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #1e40af;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        &:hover {
+          background: #dbeafe;
+          border-color: #3b82f6;
+          color: #1e3a8a;
+        }
+
+        .policy-active-chip {
+          background: #16a34a;
+          color: #ffffff;
+          font-size: 0.65rem;
+          font-weight: 700;
+          padding: 2px 6px;
+          border-radius: 4px;
+          margin-left: 2px;
         }
       }
 
@@ -4306,6 +4344,22 @@ export class FeesComponent implements OnInit, OnDestroy {
         this.pageIndex = 0;
         this.loadInvoices();
         this.loadPendingStudents();
+      }
+    });
+  }
+
+  openFeePolicyModal(): void {
+    const dialogRef = this.dialog.open(FeePolicyDialogComponent, {
+      width: '720px',
+      maxWidth: '96vw',
+      disableClose: false,
+      autoFocus: false,
+      restoreFocus: false
+    });
+
+    dialogRef.afterClosed().subscribe((saved) => {
+      if (saved) {
+        this.loadInvoices();
       }
     });
   }

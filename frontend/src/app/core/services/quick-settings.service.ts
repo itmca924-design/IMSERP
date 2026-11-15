@@ -39,6 +39,13 @@ export interface AutomationSettingsDto {
   lateFeeAutoComputeEnabled: boolean;
   lateFeeDailyRate: number;
   lateFeeGraceDays: number;
+  lateFineMode?: string;
+  lateFineDueCutoffDay?: number;
+  lateFineAmount?: number;
+  receiptFooterNoteEnglish?: string | null;
+  receiptFooterNoteHindi?: string | null;
+  showFooterNoteOnReceipt?: boolean;
+  showFooterNoteOnDueSlip?: boolean;
   autoPilotFeeInvoicingEnabled?: boolean;
   autoPilotInvoicingDayOfMonth?: number;
   lastAutoPilotInvoicingRun?: string | null;
@@ -96,6 +103,14 @@ export class QuickSettingsService {
   readonly dueFeeReminders = signal<boolean>(DEFAULT_SETTINGS.dueFeeReminders);
   readonly biometricSync = signal<boolean>(DEFAULT_SETTINGS.biometricSync);
   readonly lateFeeCalc = signal<boolean>(DEFAULT_SETTINGS.lateFeeCalc);
+  readonly lateFineMode = signal<'MonthlySlab' | 'Flat' | 'PerDay'>('MonthlySlab');
+  readonly lateFineDueCutoffDay = signal<number>(10);
+  readonly lateFineAmount = signal<number>(50);
+  readonly lateFeeGraceDays = signal<number>(0);
+  readonly receiptFooterNoteEnglish = signal<string>('Fees once paid are non-refundable. Please keep this receipt safe for future academic reference.');
+  readonly receiptFooterNoteHindi = signal<string>('जमा किया गया शुल्क वापस नहीं होगा। कृपया भविष्य के संदर्भ हेतु इस रसीद को सुरक्षित रखें।');
+  readonly showFooterNoteOnReceipt = signal<boolean>(true);
+  readonly showFooterNoteOnDueSlip = signal<boolean>(true);
   readonly autoPilotInvoicing = signal<boolean>(DEFAULT_SETTINGS.autoPilotInvoicing ?? false);
   readonly admissionCutoffDay = signal<number>(20);
   readonly admissionRolloverPolicy = signal<string>('NextMonthFull');
@@ -141,6 +156,30 @@ export class QuickSettingsService {
         this.dueFeeReminders.set(res.feeDueRemindersEnabled);
         this.biometricSync.set(res.biometricSyncEnabled);
         this.lateFeeCalc.set(res.lateFeeAutoComputeEnabled);
+        if (res.lateFineMode) {
+          this.lateFineMode.set(res.lateFineMode as any);
+        }
+        if (res.lateFineDueCutoffDay !== undefined && res.lateFineDueCutoffDay !== null) {
+          this.lateFineDueCutoffDay.set(res.lateFineDueCutoffDay);
+        }
+        if (res.lateFineAmount !== undefined && res.lateFineAmount !== null) {
+          this.lateFineAmount.set(res.lateFineAmount);
+        }
+        if (res.lateFeeGraceDays !== undefined && res.lateFeeGraceDays !== null) {
+          this.lateFeeGraceDays.set(res.lateFeeGraceDays);
+        }
+        if (res.receiptFooterNoteEnglish !== undefined && res.receiptFooterNoteEnglish !== null) {
+          this.receiptFooterNoteEnglish.set(res.receiptFooterNoteEnglish);
+        }
+        if (res.receiptFooterNoteHindi !== undefined && res.receiptFooterNoteHindi !== null) {
+          this.receiptFooterNoteHindi.set(res.receiptFooterNoteHindi);
+        }
+        if (res.showFooterNoteOnReceipt !== undefined && res.showFooterNoteOnReceipt !== null) {
+          this.showFooterNoteOnReceipt.set(res.showFooterNoteOnReceipt);
+        }
+        if (res.showFooterNoteOnDueSlip !== undefined && res.showFooterNoteOnDueSlip !== null) {
+          this.showFooterNoteOnDueSlip.set(res.showFooterNoteOnDueSlip);
+        }
         this.autoPilotInvoicing.set(res.autoPilotFeeInvoicingEnabled ?? false);
         if (res.admissionCutoffDay !== undefined && res.admissionCutoffDay !== null) {
           this.admissionCutoffDay.set(res.admissionCutoffDay);
@@ -169,7 +208,14 @@ export class QuickSettingsService {
       biometricSyncEnabled: this.biometricSync(),
       lateFeeAutoComputeEnabled: this.lateFeeCalc(),
       lateFeeDailyRate: this.backendSettings()?.lateFeeDailyRate || 10,
-      lateFeeGraceDays: this.backendSettings()?.lateFeeGraceDays || 5,
+      lateFeeGraceDays: this.lateFeeGraceDays(),
+      lateFineMode: this.lateFineMode(),
+      lateFineDueCutoffDay: this.lateFineDueCutoffDay(),
+      lateFineAmount: this.lateFineAmount(),
+      receiptFooterNoteEnglish: this.receiptFooterNoteEnglish(),
+      receiptFooterNoteHindi: this.receiptFooterNoteHindi(),
+      showFooterNoteOnReceipt: this.showFooterNoteOnReceipt(),
+      showFooterNoteOnDueSlip: this.showFooterNoteOnDueSlip(),
       autoPilotFeeInvoicingEnabled: this.autoPilotInvoicing(),
       autoPilotInvoicingDayOfMonth: 25,
       admissionCutoffDay: this.admissionCutoffDay(),
@@ -214,6 +260,60 @@ export class QuickSettingsService {
         this.admissionCutoffDay.set(res.admissionCutoffDay ?? cutoffDay);
         this.admissionRolloverPolicy.set(res.admissionRolloverPolicy ?? policy);
         this.financialYearStartMonth.set(res.financialYearStartMonth ?? fyStartMonth);
+        this.isSyncing.set(false);
+      })
+    );
+  }
+
+  updateFeePolicySettings(policy: {
+    lateFeeAutoComputeEnabled: boolean;
+    lateFineMode: 'MonthlySlab' | 'Flat' | 'PerDay';
+    lateFineDueCutoffDay: number;
+    lateFineAmount: number;
+    lateFeeGraceDays: number;
+    receiptFooterNoteEnglish: string;
+    receiptFooterNoteHindi: string;
+    showFooterNoteOnReceipt: boolean;
+    showFooterNoteOnDueSlip: boolean;
+  }): Observable<AutomationSettingsDto> {
+    this.isSyncing.set(true);
+    const current = this.backendSettings();
+    const payload = {
+      whatsAppFeeReceiptsEnabled: current?.whatsAppFeeReceiptsEnabled ?? this.whatsappFeeAlerts(),
+      dailyAbsenteeAlertEnabled: current?.dailyAbsenteeAlertEnabled ?? this.absentSmsAlerts(),
+      dailyAbsenteeAlertTime: current?.dailyAbsenteeAlertTime || '10:30',
+      feeDueRemindersEnabled: current?.feeDueRemindersEnabled ?? this.dueFeeReminders(),
+      feeDueDaysPrior: current?.feeDueDaysPrior || 3,
+      biometricSyncEnabled: current?.biometricSyncEnabled ?? this.biometricSync(),
+      lateFeeAutoComputeEnabled: policy.lateFeeAutoComputeEnabled,
+      lateFeeDailyRate: current?.lateFeeDailyRate || 10,
+      lateFeeGraceDays: policy.lateFeeGraceDays,
+      lateFineMode: policy.lateFineMode,
+      lateFineDueCutoffDay: policy.lateFineDueCutoffDay,
+      lateFineAmount: policy.lateFineAmount,
+      receiptFooterNoteEnglish: policy.receiptFooterNoteEnglish,
+      receiptFooterNoteHindi: policy.receiptFooterNoteHindi,
+      showFooterNoteOnReceipt: policy.showFooterNoteOnReceipt,
+      showFooterNoteOnDueSlip: policy.showFooterNoteOnDueSlip,
+      autoPilotFeeInvoicingEnabled: current?.autoPilotFeeInvoicingEnabled ?? this.autoPilotInvoicing(),
+      autoPilotInvoicingDayOfMonth: current?.autoPilotInvoicingDayOfMonth || 25,
+      admissionCutoffDay: current?.admissionCutoffDay ?? this.admissionCutoffDay(),
+      admissionRolloverPolicy: current?.admissionRolloverPolicy ?? this.admissionRolloverPolicy(),
+      financialYearStartMonth: current?.financialYearStartMonth ?? this.financialYearStartMonth()
+    };
+
+    return this.http.put<AutomationSettingsDto>(this.API_URL, payload).pipe(
+      tap((res) => {
+        this.backendSettings.set(res);
+        this.lateFeeCalc.set(res.lateFeeAutoComputeEnabled);
+        if (res.lateFineMode) this.lateFineMode.set(res.lateFineMode as any);
+        if (res.lateFineDueCutoffDay !== undefined && res.lateFineDueCutoffDay !== null) this.lateFineDueCutoffDay.set(res.lateFineDueCutoffDay);
+        if (res.lateFineAmount !== undefined && res.lateFineAmount !== null) this.lateFineAmount.set(res.lateFineAmount);
+        if (res.lateFeeGraceDays !== undefined && res.lateFeeGraceDays !== null) this.lateFeeGraceDays.set(res.lateFeeGraceDays);
+        if (res.receiptFooterNoteEnglish !== undefined && res.receiptFooterNoteEnglish !== null) this.receiptFooterNoteEnglish.set(res.receiptFooterNoteEnglish);
+        if (res.receiptFooterNoteHindi !== undefined && res.receiptFooterNoteHindi !== null) this.receiptFooterNoteHindi.set(res.receiptFooterNoteHindi);
+        if (res.showFooterNoteOnReceipt !== undefined && res.showFooterNoteOnReceipt !== null) this.showFooterNoteOnReceipt.set(res.showFooterNoteOnReceipt);
+        if (res.showFooterNoteOnDueSlip !== undefined && res.showFooterNoteOnDueSlip !== null) this.showFooterNoteOnDueSlip.set(res.showFooterNoteOnDueSlip);
         this.isSyncing.set(false);
       })
     );

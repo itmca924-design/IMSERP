@@ -769,6 +769,41 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE AutomationSettings ADD WhatsAppBusinessAccountId NVARCHAR(100) NULL;
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LateFineMode' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD LateFineMode NVARCHAR(50) NOT NULL CONSTRAINT DF_AutomationSettings_LateFineMode DEFAULT 'MonthlySlab';
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LateFineDueCutoffDay' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD LateFineDueCutoffDay INT NOT NULL CONSTRAINT DF_AutomationSettings_LateFineDueCutoffDay DEFAULT 10;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LateFineAmount' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD LateFineAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_AutomationSettings_LateFineAmount DEFAULT 50.00;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ReceiptFooterNoteEnglish' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD ReceiptFooterNoteEnglish NVARCHAR(MAX) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ReceiptFooterNoteHindi' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD ReceiptFooterNoteHindi NVARCHAR(MAX) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ShowFooterNoteOnReceipt' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD ShowFooterNoteOnReceipt BIT NOT NULL CONSTRAINT DF_AutomationSettings_ShowFooterNoteOnReceipt DEFAULT 1;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ShowFooterNoteOnDueSlip' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD ShowFooterNoteOnDueSlip BIT NOT NULL CONSTRAINT DF_AutomationSettings_ShowFooterNoteOnDueSlip DEFAULT 1;
+                    END
+
                     -- Teacher Module Hybrid School & Login Migrations
                     IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchoolSections') AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'ClassTeacherId' AND object_id = OBJECT_ID('SchoolSections'))
                     BEGIN

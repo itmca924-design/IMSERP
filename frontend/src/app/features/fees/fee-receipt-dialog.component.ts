@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { FeePaymentReceipt, FeesService, UpiPaymentSettings } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
+import { QuickSettingsService } from '../../core/services/quick-settings.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { shareElementOnWhatsApp, openWhatsAppTextOnly } from '../../shared/utils/whatsapp-image-share';
 import * as QRCode from '../../shared/utils/qr-code';
@@ -410,6 +411,24 @@ export interface FeeReceiptDialogData {
                 <small class="auth-sub">{{ data.instituteName || authService.currentUser()?.instituteName || authService.getInstituteName() || 'Institution' }}</small>
               </div>
             </div>
+
+            <!-- Dynamic Bilingual Policy Footer Notes (100% Dynamic UI Configurable) -->
+            @if (footerNoteEnglish || footerNoteHindi) {
+              <div class="receipt-note-box">
+                @if (footerNoteEnglish) {
+                  <div class="note-row note-en">
+                    <strong class="note-tag-en">Note:</strong>
+                    <span>{{ footerNoteEnglish }}</span>
+                  </div>
+                }
+                @if (footerNoteHindi) {
+                  <div class="note-row note-hi">
+                    <strong class="note-tag-hi">नोट:</strong>
+                    <span>{{ footerNoteHindi }}</span>
+                  </div>
+                }
+              </div>
+            }
 
             <!-- Footer Notice -->
             <div class="paper-footer">
@@ -1188,6 +1207,35 @@ export interface FeeReceiptDialogData {
       }
     }
 
+    .receipt-note-box {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 4px;
+      padding: 3px 6px;
+      margin-top: 4px;
+      margin-bottom: 2px;
+      font-size: 0.6rem;
+      line-height: 1.25;
+
+      .note-row {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+      }
+
+      .note-tag-en {
+        color: #1d4ed8;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .note-tag-hi {
+        color: #b91c1c;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+    }
+
     .paper-footer {
       text-align: center;
       font-size: 0.6rem;
@@ -1576,6 +1624,7 @@ export class FeeReceiptDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: FeeReceiptDialogData,
     private feesService: FeesService,
     public authService: AuthService,
+    public quickSettingsService: QuickSettingsService,
     private confirmDialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef
   ) {
@@ -1598,6 +1647,18 @@ export class FeeReceiptDialogComponent implements OnInit {
 
   get officialSealUrl(): string | null {
     return this.authService.getOfficialSealUrl();
+  }
+
+  get footerNoteEnglish(): string {
+    if (this.quickSettingsService.showFooterNoteOnReceipt() === false) return '';
+    const r: any = this.data?.receipt;
+    return r?.footerNoteEnglish || this.quickSettingsService.receiptFooterNoteEnglish() || '';
+  }
+
+  get footerNoteHindi(): string {
+    if (this.quickSettingsService.showFooterNoteOnReceipt() === false) return '';
+    const r: any = this.data?.receipt;
+    return r?.footerNoteHindi || this.quickSettingsService.receiptFooterNoteHindi() || '';
   }
 
   get digitalSignatureUrl(): string | null {
@@ -1842,6 +1903,10 @@ export class FeeReceiptDialogComponent implements OnInit {
       '.sig-col-qr { width: 104px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }' +
       '.receipt-mini-qr { width: 96px; height: 96px; object-fit: contain; border: none; background: #ffffff; padding: 0; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
       '.qr-label { font-size: 0.54rem; font-weight: 700; color: #334155; margin-top: 2px; white-space: nowrap; text-align: center; }' +
+      '.receipt-note-box { background: #f8fafc !important; border: 1px dashed #94a3b8 !important; border-radius: 2px; padding: 2px 5px; margin-top: 2px; margin-bottom: 2px; font-size: 0.54rem; line-height: 1.2; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.note-row { display: flex; align-items: baseline; gap: 3px; }' +
+      '.note-tag-en { color: #1d4ed8; font-weight: 700; white-space: nowrap; }' +
+      '.note-tag-hi { color: #b91c1c; font-weight: 700; white-space: nowrap; }' +
       '.paper-footer { text-align: center; font-size: 0.54rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 1px; margin-top: 1px; }' +
       '.text-center { text-align: center; }' +
       '.text-right { text-align: right; }' +
