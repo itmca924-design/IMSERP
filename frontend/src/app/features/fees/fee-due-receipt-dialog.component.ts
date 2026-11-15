@@ -149,7 +149,7 @@ export interface FeeDueReceiptDialogData {
                   <span class="meta-val highlight">{{ noticeNumber }}</span>
                 </div>
                 <div class="meta-item">
-                  <span class="meta-label">Notice Issue Date:</span>
+                  <span class="meta-label">Notice Issue Date (मांग पत्र जारी तिथि):</span>
                   <span class="meta-val">{{ dueSlip.generatedDate | date:'dd-MMM-yyyy' }}</span>
                 </div>
                 @if (effectiveBranchName) {
@@ -217,49 +217,53 @@ export interface FeeDueReceiptDialogData {
                 <table class="due-table">
                   <thead>
                     <tr>
-                      <th class="text-center" style="width: 25px;">#</th>
-                      <th>Billing Period / Fee Head</th>
-                      <th>Due Date</th>
-                      <th class="text-right">Total Fee (₹)</th>
-                      <th class="text-right">Paid (₹)</th>
-                      <th class="text-right">Outstanding Due (₹)</th>
+                      <th class="text-center" style="width: 28px;">#</th>
+                      <th>Fee Particulars / शुल्क मद विवरण</th>
+                      <th style="min-width: 95px;">Due Date (देय तिथि)</th>
+                      <th class="text-right" style="min-width: 80px;">Total Fee (₹)</th>
+                      <th class="text-right" style="min-width: 65px;">Paid (₹)</th>
+                      <th class="text-right" style="min-width: 90px;">Outstanding Due (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for (item of dueSlip.dueItems; track item; let i = $index) {
-                      <tr>
-                        <td class="text-center">{{ i + 1 }}</td>
+                    @for (row of flattenedDueRows; track row.rowNum) {
+                      <tr class="due-item-row">
+                        <td class="text-center row-num">{{ row.rowNum }}</td>
                         <td>
-                          <div class="due-item-title">{{ item.title }}</div>
-                          @if (item.breakdown && item.breakdown.length > 0) {
-                            <div class="due-item-heads-list">
-                              @for (h of item.breakdown; track h; let hIdx = $index) {
-                                <div class="due-head-line">
-                                  <span class="head-num">{{ hIdx + 1 }}.</span>
-                                  <span class="head-name">{{ h.headName }}:</span>
-                                  <span class="head-amount">₹{{ h.amount | number:'1.0-0' }}</span>
-                                </div>
-                              }
-                            </div>
-                          }
-                          @if ((item.advanceAdjustedAmount || 0) > 0) {
-                            <div class="due-adv-adjusted-pill">
-                              ✓ Advance Paid (FIFO Adjusted): <strong>₹{{ item.advanceAdjustedAmount | number:'1.2-2' }}</strong>
-                              @if (item.advanceAdjustedFromReceipt) {
-                                <span>(Ref: #{{ item.advanceAdjustedFromReceipt }})</span>
-                              }
-                            </div>
+                          <div class="due-item-title">{{ row.headName }}</div>
+                          <div class="due-period-sub">
+                            <span>{{ row.periodTitle }}</span>
+                            @if (row.invoiceNumber) {
+                              <span class="inv-ref-tag">• Ref #{{ row.invoiceNumber }}</span>
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          <span class="due-date-val">{{ row.dueDate | date:'dd-MMM-yyyy' }}</span>
+                          @if (isOverdueDate(row.dueDate)) {
+                            <span class="overdue-chip">Overdue</span>
                           }
                         </td>
-                        <td>{{ item.dueDate | date:'dd-MMM-yyyy' }}</td>
-                        <td class="text-right">₹{{ item.totalAmount | number:'1.2-2' }}</td>
-                        <td class="text-right amount-paid">₹{{ item.paidAmount | number:'1.2-2' }}</td>
-                        <td class="text-right amount-due"><strong>₹{{ item.dueAmount | number:'1.2-2' }}</strong></td>
+                        <td class="text-right">₹{{ row.totalAmount | number:'1.2-2' }}</td>
+                        <td class="text-right amount-paid">₹{{ row.paidAmount | number:'1.2-2' }}</td>
+                        <td class="text-right amount-due"><strong>₹{{ row.dueAmount | number:'1.2-2' }}</strong></td>
+                      </tr>
+                    }
+                    @if (hasAdvanceAdjusted) {
+                      <tr class="advance-adj-row">
+                        <td colspan="5" class="text-right adv-label-cell">
+                          <span class="adv-adjusted-pill">✓ Advance Paid (FIFO Adjusted):</span>
+                        </td>
+                        <td class="text-right adv-amount-cell">
+                          -₹{{ totalAdvanceAdjusted | number:'1.2-2' }}
+                        </td>
                       </tr>
                     }
                     <tr class="summary-subtotal">
-                      <td colspan="5" class="text-right"><strong>NET OUTSTANDING AMOUNT DUE:</strong></td>
-                      <td class="text-right grand-due">₹{{ dueSlip.totalOutstandingDue | number:'1.2-2' }}</td>
+                      <td colspan="3" class="text-right"><strong>TOTAL (कुल योग):</strong></td>
+                      <td class="text-right"><strong>₹{{ totalBilledAmount | number:'1.2-2' }}</strong></td>
+                      <td class="text-right amount-paid"><strong>₹{{ totalPaidAmount | number:'1.2-2' }}</strong></td>
+                      <td class="text-right grand-due"><strong>₹{{ dueSlip.totalOutstandingDue | number:'1.2-2' }}</strong></td>
                     </tr>
                   </tbody>
                 </table>
@@ -859,39 +863,64 @@ export interface FeeDueReceiptDialogData {
           font-weight: 600;
         }
 
-        .due-item-heads-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-          margin-top: 2px;
-        }
-
-        .due-head-line {
-          display: flex;
-          align-items: baseline;
-          gap: 4px;
-          font-size: 0.58rem;
-          line-height: 1.15;
-          color: #334155;
-        }
-
-        .head-num {
-          color: #dc2626;
+        .row-num {
           font-weight: 700;
-          font-size: 0.56rem;
-          min-width: 13px;
-        }
-
-        .head-name {
           color: #475569;
-          font-weight: 500;
+          font-size: 0.65rem;
         }
 
-        .head-amount {
-          color: #991b1b;
+        .due-period-sub {
+          font-size: 0.54rem;
+          color: #64748b;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 1px;
+          line-height: 1.1;
+        }
+
+        .inv-ref-tag {
+          color: #2563eb;
+          font-weight: 600;
+        }
+
+        .due-date-val {
+          font-size: 0.65rem;
+          color: #1e293b;
+        }
+
+        .overdue-chip {
+          display: inline-block;
+          font-size: 0.50rem;
+          font-weight: 800;
+          background: #fee2e2;
+          color: #dc2626;
+          border: 1px solid #fecaca;
+          padding: 0 3px;
+          border-radius: 2px;
+          margin-left: 3px;
+          line-height: 1.1;
+          vertical-align: middle;
+          text-transform: uppercase;
+        }
+
+        .advance-adj-row td {
+          padding: 2px 4px;
+          font-size: 0.65rem;
+          background: #f0fdf4;
+          border-bottom: 1px solid #bbf7d0;
+        }
+
+        .adv-adjusted-pill {
+          color: #065f46;
+          font-weight: 600;
+          font-size: 0.62rem;
+        }
+
+        .adv-amount-cell {
+          color: #059669;
           font-weight: 700;
-          margin-left: auto;
-          white-space: nowrap;
+          font-size: 0.68rem;
         }
 
         .amount-paid {
@@ -1281,6 +1310,82 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     return d?.footerNoteHindi || this.quickSettingsService.receiptFooterNoteHindi() || '';
   }
 
+  isOverdueDate(dateStr?: string | Date): boolean {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return d < today;
+  }
+
+  get flattenedDueRows(): {
+    rowNum: number;
+    periodTitle: string;
+    invoiceNumber: string;
+    headName: string;
+    description?: string;
+    dueDate: string | Date;
+    totalAmount: number;
+    paidAmount: number;
+    dueAmount: number;
+  }[] {
+    if (!this.dueSlip?.dueItems?.length) return [];
+    const rows: any[] = [];
+    let counter = 1;
+
+    for (const inv of this.dueSlip.dueItems) {
+      if (inv.breakdown && inv.breakdown.length > 0) {
+        for (const b of inv.breakdown) {
+          const bAmount = Number(b.amount) || 0;
+          const bPaid = Number(b.paidAmount) || 0;
+          rows.push({
+            rowNum: counter++,
+            periodTitle: inv.title || 'Fee Invoice',
+            invoiceNumber: inv.invoiceNumber || '',
+            headName: b.headName || 'Fee Head',
+            description: b.description || '',
+            dueDate: inv.dueDate,
+            totalAmount: bAmount,
+            paidAmount: bPaid,
+            dueAmount: Math.max(0, bAmount - bPaid)
+          });
+        }
+      } else {
+        const invTotal = Number(inv.totalAmount) || 0;
+        const invPaid = Number(inv.paidAmount) || 0;
+        const invDue = Number(inv.dueAmount) || Math.max(0, invTotal - invPaid);
+        rows.push({
+          rowNum: counter++,
+          periodTitle: inv.title || 'Fee Invoice',
+          invoiceNumber: inv.invoiceNumber || '',
+          headName: inv.title || 'Tuition / Educational Fee',
+          description: '',
+          dueDate: inv.dueDate,
+          totalAmount: invTotal,
+          paidAmount: invPaid,
+          dueAmount: invDue
+        });
+      }
+    }
+    return rows;
+  }
+
+  get totalBilledAmount(): number {
+    return this.flattenedDueRows.reduce((acc, r) => acc + (r.totalAmount || 0), 0);
+  }
+
+  get totalPaidAmount(): number {
+    return this.flattenedDueRows.reduce((acc, r) => acc + (r.paidAmount || 0), 0);
+  }
+
+  get totalAdvanceAdjusted(): number {
+    return this.dueSlip?.dueItems?.reduce((acc, i) => acc + (i.advanceAdjustedAmount || 0), 0) || 0;
+  }
+
+  get hasAdvanceAdjusted(): boolean {
+    return this.totalAdvanceAdjusted > 0;
+  }
+
   constructor(
     public dialogRef: MatDialogRef<FeeDueReceiptDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeDueReceiptDialogData,
@@ -1482,11 +1587,14 @@ export class FeeDueReceiptDialogComponent implements OnInit {
       '.due-table th { background: #eff6ff !important; color: #1e3a8a !important; border-top: 1px solid #bfdbfe; border-bottom: 1.5px solid #bfdbfe; padding: 2px 4px; font-size: 0.65rem; font-weight: 700; text-align: left; }' +
       '.due-table td { padding: 2px 4px; border-bottom: 1px solid #e2e8f0; font-size: 0.67rem; line-height: 1.15; }' +
       '.due-item-title { font-size: 0.68rem; color: #0f172a; font-weight: 700; }' +
-      '.due-item-heads-list { display: flex; flex-direction: column; gap: 0.5px; margin-top: 1.5px; }' +
-      '.due-head-line { display: flex; align-items: baseline; gap: 3px; font-size: 0.52rem; line-height: 1.12; color: #334155; }' +
-      '.head-num { color: #dc2626; font-weight: 700; font-size: 0.50rem; min-width: 10px; }' +
-      '.head-name { color: #475569; font-weight: 500; }' +
-      '.head-amount { color: #991b1b; font-weight: 700; margin-left: auto; white-space: nowrap; }' +
+      '.row-num { font-weight: 700; color: #475569; font-size: 0.62rem; }' +
+      '.due-period-sub { font-size: 0.50rem; color: #64748b; display: flex; align-items: center; gap: 3px; margin-top: 0.5px; }' +
+      '.inv-ref-tag { color: #2563eb; font-weight: 600; }' +
+      '.due-date-val { font-size: 0.62rem; color: #1e293b; }' +
+      '.overdue-chip { display: inline-block; font-size: 0.48rem; font-weight: 800; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 0 2px; border-radius: 2px; margin-left: 2px; line-height: 1.1; vertical-align: middle; text-transform: uppercase; }' +
+      '.advance-adj-row td { padding: 1.5px 4px; font-size: 0.60rem; background: #f0fdf4 !important; border-bottom: 1px solid #bbf7d0; }' +
+      '.adv-adjusted-pill { color: #065f46; font-weight: 600; font-size: 0.56rem; }' +
+      '.adv-amount-cell { color: #059669; font-weight: 700; font-size: 0.62rem; }' +
       '.amount-paid { color: #16a34a; }' +
       '.amount-due { color: #dc2626; font-weight: 800; }' +
       '.summary-subtotal { background: #f8fafc; border-top: 1.5px solid #cbd5e1; }' +
