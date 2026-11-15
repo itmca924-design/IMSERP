@@ -594,7 +594,7 @@
                                   {{ settingsService.autoPilotInvoicing() ? 'Scheduled (25th of Month)' : 'Disabled' }}
                                 </span>
                               </div>
-                              <p class="toggle-desc">Automatically generates next month's invoices for all active students on the 25th with a 10th-day due date.</p>
+                              <p class="toggle-desc">Automatically generates next month's invoices for all active students on the 25th with a {{ settingsService.lateFineDueCutoffDay() || 10 }}th-day due date.</p>
                               <div class="toggle-actions-row">
                                 <button
                                   type="button"
