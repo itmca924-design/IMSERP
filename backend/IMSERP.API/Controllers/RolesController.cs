@@ -54,7 +54,8 @@ public class RolesController : ControllerBase
                 .AsNoTracking()
                 .Include(r => r.RolePermissions)
                 .ThenInclude(rp => rp.MenuItem)
-                .OrderBy(r => r.Name)
+                .OrderByDescending(r => r.Name == "Super Admin")
+                .ThenBy(r => r.Name)
                 .ToListAsync();
 
             var usersQuery = isSuperAdmin && tenantId.HasValue && tenantId.Value != Guid.Empty
@@ -348,6 +349,11 @@ public class RolesController : ControllerBase
             var role = await _dbContext.Roles.FindAsync(id);
             if (role == null) return NotFound(new { message = $"Role with ID '{id}' was not found." });
 
+            if (NormalizeRoleName(role.Name) == nameof(UserRole.SuperAdmin))
+            {
+                return BadRequest(new { message = "Cannot delete core Super Admin role." });
+            }
+
             var isAssigned = await _dbContext.Users.AsNoTracking().AnyAsync(u => u.RoleId == id);
             if (isAssigned)
             {
@@ -388,6 +394,34 @@ public class RolesController : ControllerBase
 
             if (user.Role == UserRole.SuperAdmin)
             {
+                if (user.RoleId.HasValue)
+                {
+                    var dbPermissions = await _dbContext.RolePermissions
+                        .AsNoTracking()
+                        .Include(rp => rp.MenuItem)
+                        .Where(rp => rp.RoleId == user.RoleId &&
+                                     rp.MenuItem != null &&
+                                     rp.MenuItem.IsActive &&
+                                     !string.IsNullOrEmpty(rp.MenuItem.RouteUrl))
+                        .ToListAsync();
+
+                    if (dbPermissions.Any())
+                    {
+                        return Ok(dbPermissions
+                            .GroupBy(p => p.MenuItem!.RouteUrl!, StringComparer.OrdinalIgnoreCase)
+                            .ToDictionary(
+                                g => g.Key,
+                                g => new UserPermissionSummaryDto(
+                                    g.Any(p => p.CanView),
+                                    g.Any(p => p.CanCreate),
+                                    g.Any(p => p.CanEdit),
+                                    g.Any(p => p.CanDelete)
+                                ),
+                                StringComparer.OrdinalIgnoreCase
+                            ));
+                    }
+                }
+
                 var allItems = await _dbContext.MenuItems.AsNoTracking()
                     .Where(menu => menu.IsActive && !string.IsNullOrEmpty(menu.RouteUrl))
                     .ToListAsync();

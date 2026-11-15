@@ -131,7 +131,7 @@ public class AuthController : ControllerBase
         var effectiveRole = ResolveEffectiveRole(user);
         if (user.Role == 0 &&
             Enum.TryParse<UserRole>(effectiveRole, out var pr) &&
-            pr != UserRole.SuperAdmin)
+            (user.TenantId == Guid.Parse("00000000-0000-0000-0000-000000000001") || pr != UserRole.SuperAdmin))
         {
             user.Role = pr;
         }
@@ -277,7 +277,7 @@ public class AuthController : ControllerBase
         var effectiveRole = ResolveEffectiveRole(user);
         if (user.Role == 0 &&
             Enum.TryParse<UserRole>(effectiveRole, out var prRefresh) &&
-            prRefresh != UserRole.SuperAdmin)
+            (user.TenantId == Guid.Parse("00000000-0000-0000-0000-000000000001") || prRefresh != UserRole.SuperAdmin))
         {
             user.Role = prRefresh;
         }
@@ -909,7 +909,11 @@ public class AuthController : ControllerBase
             var roleName = user.AssignedRole.Name.Trim();
             var normalizedRoleName = string.Concat(roleName.Where(char.IsLetterOrDigit));
             if (string.Equals(normalizedRoleName, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+            {
+                if (user.TenantId == Guid.Parse("00000000-0000-0000-0000-000000000001"))
+                    return nameof(UserRole.SuperAdmin);
                 return "Guest";
+            }
             if (Enum.TryParse<UserRole>(normalizedRoleName, true, out var assignedRole) &&
                 assignedRole != UserRole.SuperAdmin)
                 return assignedRole.ToString();
