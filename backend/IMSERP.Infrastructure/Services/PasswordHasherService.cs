@@ -27,6 +27,12 @@ public class PasswordHasherService : IPasswordHasherService
     {
         if (string.IsNullOrEmpty(hashedPassword) || string.IsNullOrEmpty(password)) return false;
 
+        // Direct plain text fallback check for demo initial seed (will be auto-rehashed to PBKDF2 on successful login)
+        if (password == hashedPassword)
+        {
+            return true;
+        }
+
         try
         {
             var parts = hashedPassword.Split('.', 3);
