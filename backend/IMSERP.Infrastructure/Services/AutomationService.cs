@@ -560,7 +560,8 @@ public class AutomationService : IAutomationService
         int targetYear = targetDate.Year;
         var periodStart = new DateTime(targetYear, targetMonth, 1);
         var periodEnd = periodStart.AddMonths(1).AddDays(-1);
-        var dueDate = new DateTime(targetYear, targetMonth, 10); // Standard 10th of next month
+        int dueDay = settings?.LateFineDueCutoffDay > 0 ? Math.Clamp(settings.LateFineDueCutoffDay, 1, 28) : 10;
+        var dueDate = new DateTime(targetYear, targetMonth, dueDay);
 
         string periodLabel = periodStart.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
 

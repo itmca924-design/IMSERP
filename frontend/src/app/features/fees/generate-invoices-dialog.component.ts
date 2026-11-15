@@ -1751,7 +1751,8 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     const defaultMonth = data?.defaultMonth ?? currentMonth;
     const defaultYear  = data?.defaultYear ?? today.getFullYear();
     this.years = [defaultYear - 1, defaultYear, defaultYear + 1];
-    const defaultDueDate = `${defaultYear}-${String(defaultMonth).padStart(2, '0')}-10`;
+    const cutoffDay = String(this.settingsService.lateFineDueCutoffDay() || 10).padStart(2, '0');
+    const defaultDueDate = `${defaultYear}-${String(defaultMonth).padStart(2, '0')}-${cutoffDay}`;
 
     if (data?.defaultBatchId) {
       this.scopeMode = 'coaching';
@@ -2031,7 +2032,8 @@ export class GenerateInvoicesDialogComponent implements OnInit {
     const month = this.form.get('month')?.value;
     const year  = this.form.get('year')?.value;
     if (month && year) {
-      this.form.get('dueDate')?.setValue(`${year}-${String(month).padStart(2, '0')}-10`);
+      const cutoffDay = String(this.settingsService.lateFineDueCutoffDay() || 10).padStart(2, '0');
+      this.form.get('dueDate')?.setValue(`${year}-${String(month).padStart(2, '0')}-${cutoffDay}`);
     }
   }
 
