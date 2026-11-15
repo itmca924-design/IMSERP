@@ -20,7 +20,7 @@ import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.direc
 import { HindiTransliterationService, TaskPresetCategory } from '../../core/services/hindi-transliteration.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { HwCheckPanelComponent, HwAnalyticsPanelComponent } from './homework-hw-check.component';
-import { shareElementOnWhatsApp, openWhatsAppTextOnly } from '../../shared/utils/whatsapp-image-share';
+import { openWhatsAppTextOnly } from '../../shared/utils/whatsapp-image-share';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiUrl;
@@ -9750,19 +9750,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
 
   async shareToClassGroupWhatsApp(): Promise<void> {
     const text = this.getClassSummaryText();
-    const el = document.getElementById('printableDiaryReport');
-    if (el) {
-      const cls = (this.reportHeader?.className || this.data.className || 'Class').replace(/\s+/g, '_');
-      await shareElementOnWhatsApp({
-        element: el,
-        fileName: `Daily_CW_HW_Report_${cls}_${this.formattedDate}.png`,
-        messageText: text,
-        shareTitle: `Daily CW & HW Report - ${this.formattedDate}`,
-        confirmDialog: this.confirmDialog
-      });
-    } else {
-      openWhatsAppTextOnly(null, text);
-    }
+    openWhatsAppTextOnly(null, text);
   }
 
   generateStudentWhatsAppText(r: DailyStudentDiaryRow): string {
@@ -9946,23 +9934,7 @@ export class DailyDiaryReportDialogComponent implements OnInit {
       }).subscribe({ error: () => {} });
     }
 
-    this.activeShareStudent = row;
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const cardEl = document.getElementById('active-student-diary-card');
-    if (cardEl) {
-      await shareElementOnWhatsApp({
-        element: cardEl,
-        fileName: `Daily_Diary_${row.studentName.replace(/\s+/g, '_')}_${this.formattedDate}.png`,
-        phone: cleanPhone.length >= 10 ? cleanPhone : null,
-        messageText: text,
-        shareTitle: `Daily Diary - ${row.studentName}`,
-        confirmDialog: this.confirmDialog
-      });
-    } else {
-      openWhatsAppTextOnly(cleanPhone.length >= 10 ? cleanPhone : null, text);
-    }
-
+    openWhatsAppTextOnly(cleanPhone.length >= 10 ? cleanPhone : null, text);
     this.activeShareStudent = null;
   }
 

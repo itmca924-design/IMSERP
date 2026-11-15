@@ -3709,22 +3709,7 @@ export class ViewNoticeDialogComponent implements OnInit {
           const fileName = `Notice_${n.noticeNumber || 'Circular'}.png`;
           const file = new File([blob], fileName, { type: 'image/png' });
 
-          // 1. Mobile Web Share API: directly shares image file to WhatsApp!
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-              await navigator.share({
-                files: [file],
-                title: `${institute} - ${n.title}`,
-                text: waText
-              });
-              this.sharingWhatsApp = false;
-              return;
-            } catch {
-              // User dismissed mobile share sheet, proceed to desktop clipboard flow
-            }
-          }
-
-          // 2. Desktop: Copy the poster image to Clipboard
+          // Copy the poster image to Clipboard quietly
           let copiedToClipboard = false;
           if (navigator.clipboard && (window as any).ClipboardItem) {
             try {

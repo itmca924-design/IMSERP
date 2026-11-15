@@ -1,14 +1,15 @@
 import { Component, Inject, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialogModule, MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FeePaymentReceipt, FeesService, UpiPaymentSettings } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
-import { shareElementOnWhatsApp, openWhatsAppTextOnly } from '../../shared/utils/whatsapp-image-share';
+import { FeeReminderDispatchDialogComponent, FeeReminderDispatchItem } from '../dashboard/dialogs/fee-reminder-dispatch-dialog.component';
 import * as QRCode from '../../shared/utils/qr-code';
 
 export type ExtendedFeePaymentReceipt = FeePaymentReceipt & {
@@ -29,7 +30,7 @@ export interface FeeReceiptDialogData {
 @Component({
   selector: 'app-fee-receipt-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule, MatTooltipModule],
   template: `
     <div class="receipt-modal-container">
       <!-- Top Action Bar (hidden in print) -->
@@ -52,29 +53,18 @@ export interface FeeReceiptDialogData {
             <span class="sub-title">शुल्क भुगतान रसीद</span>
           </div>
         </div>
-        <div class="btn-group" [class.is-busy]="isSharingWhatsApp">
+        <div class="btn-group">
           <button
             class="header-action-btn wa-btn"
-            [class.loading-state]="isSharingWhatsApp"
-            [disabled]="isSharingWhatsApp"
             (click)="shareWhatsApp()"
-            matTooltip="Send WhatsApp Receipt"
+            matTooltip="Send WhatsApp Receipt Message & Voice Note"
             matButton="filled">
-            @if (isSharingWhatsApp) {
-              <ng-container>
-                <mat-icon class="wa-spin">sync</mat-icon>
-                <span>Opening WhatsApp...</span>
-              </ng-container>
-            } @else {
-              <ng-container>
-                <mat-icon class="wa-mat-icon">
-                  <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                  </svg>
-                </mat-icon>
-                <span>WhatsApp</span>
-              </ng-container>
-            }
+            <mat-icon class="wa-mat-icon">
+              <svg class="wa-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+              </svg>
+            </mat-icon>
+            <span>WhatsApp / Message</span>
           </button>
           <button
             class="header-action-btn print-btn"
@@ -1623,6 +1613,7 @@ export class FeeReceiptDialogComponent implements OnInit {
     public dialogRef: MatDialogRef<FeeReceiptDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FeeReceiptDialogData,
     private feesService: FeesService,
+    private dialog: MatDialog,
     public authService: AuthService,
     public quickSettingsService: QuickSettingsService,
     private confirmDialog: ConfirmDialogService,
@@ -1957,64 +1948,41 @@ export class FeeReceiptDialogComponent implements OnInit {
   }
 
   shareWhatsApp(): void {
-    if (this.isSharingWhatsApp) return;
-    this.isSharingWhatsApp = true;
-    this.cdr.detectChanges();
+    const rcpt = this.data?.receipt;
+    if (!rcpt) return;
 
-    const phone = this.data.receipt.parentPhone;
+    const isSchool = (rcpt as any).isSchoolStudent ?? (!rcpt.batchName);
+    const isCoaching = (rcpt as any).isCoachingStudent ?? (!!rcpt.batchName);
+    const scopeTag = (isSchool && isCoaching) ? 'Hybrid' : (isCoaching ? 'Coaching' : 'School');
 
-    let headsSection = '';
-    if (this.data.receipt.items && this.data.receipt.items.length > 0) {
-      const list = this.data.receipt.items
-        .map(it => `  • ${this.cleanHeadName(it.particulars)}: ₹${it.amount.toLocaleString('en-IN')}`)
-        .join('\n');
-      headsSection = `\n*Fee Heads Breakdown*:\n${list}\n`;
-    }
+    const reminderItem: FeeReminderDispatchItem = {
+      id: rcpt.paymentId,
+      studentId: (rcpt as any).studentId || rcpt.paymentId,
+      studentName: rcpt.studentName || 'Student',
+      rollNumber: rcpt.rollNumber,
+      className: rcpt.className || rcpt.batchName || 'General',
+      invoiceNumber: rcpt.receiptNumber || rcpt.invoiceNumber,
+      totalAmount: (rcpt.amountPaid || 0) + (rcpt.remainingDue || 0),
+      paidAmount: rcpt.amountPaid || 0,
+      dueAmount: rcpt.remainingDue || 0,
+      status: (rcpt.remainingDue || 0) <= 0 ? 'Paid' : 'Partially Paid',
+      dueDate: rcpt.paymentDate || new Date(),
+      parentWhatsAppPhone: rcpt.parentPhone,
+      isSchoolStudent: isSchool,
+      isCoachingStudent: isCoaching,
+      scopeTag: scopeTag
+    };
 
-    const branchLine = this.effectiveBranchName ? `*Branch*: ${this.effectiveBranchName}\n` : '';
-    const classOrBatch = this.data.receipt.className
-      ? `${this.data.receipt.className}${this.data.receipt.sectionName ? ' (' + this.data.receipt.sectionName + ')' : ''}`
-      : (this.data.receipt.batchName || 'General');
-    const instName = this.data.receipt.instituteName || this.data.instituteName || this.authService.currentUser()?.instituteName || 'School & Coaching ERP';
-    let origin = window.location.origin;
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      const port = window.location.port ? `:${window.location.port}` : '';
-      origin = `${window.location.protocol}//localhost.nip.io${port}`;
-    }
-    const receiptPublicUrl = `${origin}/receipt/${this.data.receipt.receiptNumber}`;
-
-    const textMsg = `*OFFICIAL FEE PAYMENT RECEIPT*\n` +
-      `*Institute*: ${instName}\n` +
-      branchLine +
-      `*Receipt No*: #${this.data.receipt.receiptNumber}\n` +
-      `*Date*: ${this.formatToIST(this.data.receipt.paymentDate)}\n\n` +
-      `Dear Parent, we have received payment of *₹${this.data.receipt.amountPaid}* for student *${this.data.receipt.studentName}* (${classOrBatch}).\n` +
-      `*Mode*: ${this.getPaymentModeName(this.data.receipt.mode)}\n` +
-      headsSection +
-      `*Remaining Balance Due*: ₹${this.data.receipt.remainingDue}\n\n` +
-      `📄 *Download / View Official PDF Receipt*:\n${receiptPublicUrl}\n\n` +
-      `Thank you for trusting ${instName}!`;
-
-    // 1. Immediately open WhatsApp — zero delay
-    openWhatsAppTextOnly(phone, textMsg);
-
-    // 2. Background: copy receipt image to clipboard (non-blocking)
-    const el = document.getElementById('student-receipt-copy');
-    if (el && navigator.clipboard && (window as any).ClipboardItem) {
-      shareElementOnWhatsApp({
-        element: el,
-        fileName: `Fee_Receipt_${this.data.receipt.studentName.replace(/\s+/g, '_')}_${this.data.receipt.receiptNumber}.png`,
-        phone: phone,
-        messageText: textMsg,
-        shareTitle: `Fee Payment Receipt - ${this.data.receipt.studentName}`
-      }).catch(err => console.warn('Background copy error:', err));
-    }
-
-    // 3. Keep buttons locked for 2.8s — clear visual feedback
-    setTimeout(() => {
-      this.isSharingWhatsApp = false;
-      this.cdr.detectChanges();
-    }, 2800);
+    this.dialog.open(FeeReminderDispatchDialogComponent, {
+      width: '780px',
+      maxWidth: '96vw',
+      panelClass: 'fee-reminder-dispatch-dialog-panel',
+      data: {
+        mode: 'single',
+        invoice: reminderItem,
+        instituteName: this.data.instituteName || this.authService.currentUser()?.instituteName || this.authService.getInstituteName() || 'Institute'
+      }
+    });
   }
 }
 
