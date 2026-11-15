@@ -87,71 +87,94 @@ export interface UpcomingBillingCycleInfo {
           <p>Record fee payments with FIFO auto-settlement, issue digital WhatsApp receipts, and track student ledger passbooks.</p>
         </div>
         <div class="header-action-buttons">
-          <button class="bulk-print-btn" (click)="openBulkFeePrintModal()" matButton="filled"
+          <button type="button" class="header-action-pill bulk-print-pill" (click)="openBulkFeePrintModal()"
             matTooltip="Bulk Print Class-Wise or All Fee Due Slips, Paid Receipts & Register (Monthly / Quarterly / Half-Yearly / Yearly)">
-            <mat-icon>print</mat-icon>
-            <span>Bulk Receipts &amp; Due Slips</span>
+            <div class="pill-icon-box print-box">
+              <mat-icon>print</mat-icon>
+            </div>
+            <span class="pill-label">Bulk Receipts &amp; Due Slips</span>
           </button>
-          <button class="fee-policy-btn" (click)="openFeePolicyModal()" matButton="filled"
+
+          <button type="button" class="header-action-pill fee-policy-pill" (click)="openFeePolicyModal()"
             matTooltip="Configure Monthly Late Fine Policy, Due Cutoff Date & Dynamic Bilingual Receipt Footer Notes">
-            <mat-icon>gavel</mat-icon>
-            <span>Fee Policy &amp; Notes</span>
+            <div class="pill-icon-box policy-box">
+              <mat-icon>gavel</mat-icon>
+            </div>
+            <span class="pill-label">Fee Policy &amp; Notes</span>
             @if (settingsService.lateFeeCalc()) {
-              <span class="policy-active-chip">Fine Active</span>
+              <span class="status-indicator-pill fine-active">
+                <span class="pulse-dot"></span>Fine Active
+              </span>
             }
           </button>
-          <button class="fee-master-btn" (click)="openFeeMasterModal()" matButton="filled">
-            <mat-icon color="primary">tune</mat-icon>
-            <span>Fee Heads &amp; Structure</span>
+
+          <button type="button" class="header-action-pill fee-master-pill" (click)="openFeeMasterModal()"
+            matTooltip="Configure Fee Heads, Category Allocations & Division Structures">
+            <div class="pill-icon-box structure-box">
+              <mat-icon>tune</mat-icon>
+            </div>
+            <span class="pill-label">Fee Heads &amp; Structure</span>
           </button>
-          <button color="primary" class="generate-btn" (click)="openGenerateInvoicesModal()" matButton="filled">
-            <mat-icon>post_add</mat-icon>
-            <span>Generate Monthly Invoices</span>
+
+          <button type="button" class="header-action-pill generate-invoices-pill" (click)="openGenerateInvoicesModal()"
+            matTooltip="Generate Monthly Batch / Class Fee Invoices">
+            <div class="pill-icon-box generate-box">
+              <mat-icon>post_add</mat-icon>
+            </div>
+            <span class="pill-label">Generate Monthly Invoices</span>
             @if (settingsService.autoPilotInvoicing()) {
-              <span class="autopilot-chip" matTooltip="Auto-Pilot Mode Active (Auto-bills on 25th of month)">🤖 Auto-Pilot ON</span>
+              <span class="autopilot-smart-pill" matTooltip="Auto-Pilot Mode Active (Auto-bills on 25th of month)">
+                <span class="autopilot-pulse-dot"></span>Auto-Pilot ON
+              </span>
             }
           </button>
         </div>
       </div>
     
-      <!-- Module Navigation / Mode Switcher -->
-      <div class="fees-nav-bar">
-        <div class="fees-nav-left">
+      <!-- Module Navigation / Mode Switcher (Smart & Responsive Control Deck) -->
+      <div class="fees-nav-deck">
+        <div class="fees-nav-tabs-wrapper">
           <button
             type="button"
-            class="fees-nav-tab"
+            class="nav-tab-pill"
             [class.active]="currentActiveTab === 'invoices'"
-            (click)="switchTab('invoices')" matButton="filled">
-            <mat-icon>receipt_long</mat-icon>
-            <span>Fee Invoices &amp; Counter Dues</span>
+            (click)="switchTab('invoices')">
+            <div class="tab-icon-wrap invoices-icon">
+              <mat-icon>receipt_long</mat-icon>
+            </div>
+            <span class="tab-label">Fee Invoices &amp; Counter Dues</span>
             @if (totalCount > 0) {
-              <span class="nav-count">{{ totalCount }}</span>
+              <span class="nav-badge invoice-badge">{{ totalCount }}</span>
             }
           </button>
       
           <button
             type="button"
-            class="fees-nav-tab upi-nav-tab"
+            class="nav-tab-pill upi-pill"
             [class.active]="currentActiveTab === 'upi'"
-            (click)="switchTab('upi')" matButton="filled">
-            <mat-icon class="upi-nav-icon">qr_code_2</mat-icon>
-            <span>Online UPI Collections &amp; Audit</span>
+            (click)="switchTab('upi')">
+            <div class="tab-icon-wrap upi-icon">
+              <mat-icon>qr_code_2</mat-icon>
+            </div>
+            <span class="tab-label">Online UPI Collections &amp; Audit</span>
             @if (upiTotalCount > 0) {
-              <span class="nav-count upi-count">{{ upiTotalCount }}</span>
+              <span class="nav-badge upi-badge">{{ upiTotalCount }}</span>
             }
           </button>
         </div>
 
-        <div class="fees-nav-right">
+        <div class="fees-nav-actions">
           <button type="button" 
-            class="ai-toggle-action-btn" 
+            class="ai-copilot-pill-btn" 
             [class.active]="isAiFeeOpen" 
             (click)="toggleAiFeePanel()" 
-            [matTooltip]="isAiFeeOpen ? 'Hide AI Voice Copilot' : 'Open AI Voice Copilot'">
-            <mat-icon>{{ isAiFeeOpen ? 'visibility_off' : 'psychology' }}</mat-icon>
-            <span>{{ isAiFeeOpen ? 'Hide Voice Assistant' : '✨ AI Fee Copilot' }}</span>
+            [matTooltip]="isAiFeeOpen ? 'Hide AI Voice Copilot Panel' : 'Open AI Voice Copilot & Smart Assistant'">
+            <div class="ai-spark-ring">
+              <mat-icon>{{ isAiFeeOpen ? 'close' : 'auto_awesome' }}</mat-icon>
+            </div>
+            <span class="ai-title">{{ isAiFeeOpen ? 'Hide Voice Assistant' : 'AI Fee Copilot' }}</span>
             @if (!isAiFeeOpen) {
-              <span class="ai-pill-tag">Voice</span>
+              <span class="ai-badge-live">VOICE</span>
             }
           </button>
         </div>
@@ -1000,157 +1023,363 @@ export interface UpcomingBillingCycleInfo {
       p { margin: 4px 0 0 0; color: #666; font-size: 0.9rem; }
     }
     .header-action-buttons {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
 
-      .upi-settings-btn {
-        height: 44px;
-        font-weight: 700;
-        border-radius: 8px;
-        border-color: #93c5fd;
-        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        color: #1e40af;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.08);
-
-        .upi-header-icon {
-          color: #2563eb;
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
-        }
-
-        &:hover {
-          background: #dbeafe;
-          border-color: #60a5fa;
-        }
-      }
-
-      .fee-policy-btn {
-        height: 44px;
+      .header-action-pill {
+        height: 40px;
+        padding: 0 14px;
+        border-radius: 10px;
+        font-size: 0.84rem;
         font-weight: 600;
-        border-radius: 8px;
-        border: 1px solid #bfdbfe;
-        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        color: #1e40af;
+        font-family: inherit;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        border: 1px solid #cbd5e1;
         cursor: pointer;
-        transition: all 0.2s ease;
-        &:hover {
-          background: #dbeafe;
-          border-color: #3b82f6;
-          color: #1e3a8a;
-        }
-
-        .policy-active-chip {
-          background: #16a34a;
-          color: #ffffff;
-          font-size: 0.65rem;
-          font-weight: 700;
-          padding: 2px 6px;
-          border-radius: 4px;
-          margin-left: 2px;
-        }
-      }
-
-      .fee-master-btn {
-        height: 44px;
-        font-weight: 600;
-        border-radius: 8px;
-        border-color: #cbd5e1;
-        background: #ffffff;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        color: #1e293b;
-        &:hover {
-          background: #f8fafc;
-          border-color: #94a3b8;
+        gap: 8px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+        box-sizing: border-box;
+
+        .pill-icon-box {
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: all 0.2s ease;
+
+          mat-icon {
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
+          }
+        }
+
+        .pill-label {
+          white-space: nowrap;
+        }
+
+        &.bulk-print-pill {
+          background: #ffffff;
+          border: 1.5px solid #cbd5e1;
+          color: #334155;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+
+          .print-box {
+            background: #eff6ff;
+            color: #2563eb;
+          }
+
+          &:hover {
+            background: #f8fafc;
+            border-color: #93c5fd;
+            color: #1e40af;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
+          }
+        }
+
+        &.fee-policy-pill {
+          background: #ffffff;
+          border: 1.5px solid #cbd5e1;
+          color: #334155;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+
+          .policy-box {
+            background: #ecfdf5;
+            color: #059669;
+          }
+
+          &:hover {
+            background: #f8fafc;
+            border-color: #86efac;
+            color: #065f46;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(5, 150, 105, 0.12);
+          }
+
+          .status-indicator-pill.fine-active {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #047857;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            line-height: 1;
+
+            .pulse-dot {
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              background: #10b981;
+              box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+              animation: pulseActiveDot 2s infinite ease-in-out;
+            }
+          }
+        }
+
+        &.fee-master-pill {
+          background: #ffffff;
+          border: 1.5px solid #cbd5e1;
+          color: #334155;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+
+          .structure-box {
+            background: #f5f3ff;
+            color: #7c3aed;
+          }
+
+          &:hover {
+            background: #f8fafc;
+            border-color: #c4b5fd;
+            color: #5b21b6;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(124, 58, 237, 0.12);
+          }
+        }
+
+        &.generate-invoices-pill {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          border: 1.5px solid #1d4ed8;
+          color: #ffffff;
+          font-weight: 700;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+
+          .generate-box {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+          }
+
+          &:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+            border-color: #1e40af;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+          }
+
+          .autopilot-smart-pill {
+            background: rgba(16, 185, 129, 0.25);
+            border: 1px solid rgba(167, 243, 208, 0.5);
+            color: #ffffff;
+            font-size: 0.68rem;
+            font-weight: 800;
+            padding: 2.5px 8px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            letter-spacing: 0.02em;
+
+            .autopilot-pulse-dot {
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              background: #34d399;
+              box-shadow: 0 0 6px #34d399;
+              animation: pulseActiveDot 1.8s infinite ease-in-out;
+            }
+          }
         }
       }
     }
 
-    /* Fees Nav Switcher */
-    .fees-nav-bar {
+    @keyframes pulseActiveDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(0.75); opacity: 0.4; }
+    }
+
+    /* ─── Smart & Responsive Fees Navigation Control Deck ─── */
+    .fees-nav-deck {
       display: flex;
       justify-content: space-between;
       gap: 12px;
       align-items: center;
       width: 100%;
-      flex-wrap: wrap;
+      background: transparent;
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      box-sizing: border-box;
 
-      .fees-nav-left {
-        display: flex;
-        gap: 8px;
+      .fees-nav-tabs-wrapper {
+        display: inline-flex;
+        gap: 4px;
         align-items: center;
-        background: #f8fafc;
-        padding: 5px;
-        border-radius: 12px;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 10px;
         border: 1px solid #e2e8f0;
       }
 
-      .fees-nav-right {
+      .nav-tab-pill {
+        border: none;
+        background: transparent;
+        padding: 6px 16px;
+        border-radius: 8px;
+        font-size: 0.86rem;
+        font-weight: 600;
+        color: #475569;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+
+        .tab-icon-wrap {
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #e2e8f0;
+          color: #64748b;
+          transition: all 0.2s ease;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+          }
+        }
+
+        .tab-label {
+          white-space: nowrap;
+        }
+
+        .nav-badge {
+          background: #e2e8f0;
+          color: #475569;
+          padding: 1.5px 8px;
+          border-radius: 10px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          transition: all 0.2s ease;
+        }
+
+        &:hover {
+          color: #0f172a;
+          background: rgba(255, 255, 255, 0.6);
+        }
+
+        &.active {
+          background: #ffffff;
+          color: #1e40af;
+          font-weight: 700;
+          box-shadow: 0 2px 5px rgba(30, 64, 175, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+
+          .tab-icon-wrap.invoices-icon {
+            background: #dbeafe;
+            color: #2563eb;
+          }
+
+          .invoice-badge {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+          }
+        }
+
+        &.upi-pill.active {
+          color: #065f46;
+
+          .tab-icon-wrap.upi-icon {
+            background: #d1fae5;
+            color: #059669;
+          }
+
+          .upi-badge {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+          }
+        }
+      }
+
+      .fees-nav-actions {
         display: flex;
         align-items: center;
         margin-left: auto;
       }
 
-      .fees-nav-tab {
-        border: none;
-        background: transparent;
-        padding: 8px 18px;
-        border-radius: 8px;
-        font-size: 0.88rem;
-        font-weight: 600;
-        color: #64748b;
-        cursor: pointer;
+      .ai-copilot-pill-btn {
+        border: 1.5px solid #c7d2fe;
+        background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+        color: #4338ca;
+        border-radius: 10px;
+        padding: 6px 14px;
+        font-size: 0.84rem;
+        font-weight: 700;
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        transition: all 0.2s ease;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 1px 2px rgba(99, 102, 241, 0.08);
 
-        mat-icon {
-          font-size: 19px;
-          width: 19px;
-          height: 19px;
-        }
+        .ai-spark-ring {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: #e0e7ff;
+          color: #4338ca;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
 
-        .nav-count {
-          background: #e2e8f0;
-          color: #475569;
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 0.75rem;
-          font-weight: 700;
-        }
-
-        &:hover {
-          color: #1e293b;
-          background: #f1f5f9;
-        }
-
-        &.active {
-          background: #ffffff;
-          color: #2563eb;
-          font-weight: 700;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-
-          .nav-count {
-            background: #dbeafe;
-            color: #1d4ed8;
+          mat-icon {
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
           }
         }
 
-        &.upi-nav-tab.active {
-          color: #059669;
-          .upi-nav-icon { color: #059669; }
-          .upi-count { background: #dcfce7; color: #15803d; }
+        .ai-title {
+          white-space: nowrap;
+        }
+
+        .ai-badge-live {
+          background: #e0e7ff;
+          color: #3730a3;
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-size: 0.65rem;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+        }
+
+        &:hover {
+          border-color: #818cf8;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 10px rgba(99, 102, 241, 0.16);
+          background: linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%);
+        }
+
+        &.active {
+          background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+          color: #ffffff;
+          border-color: transparent;
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.28);
+
+          .ai-spark-ring {
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+          }
         }
       }
     }
@@ -1392,53 +1621,7 @@ export interface UpcomingBillingCycleInfo {
         }
       }
     }
-    .bulk-print-btn {
-      height: 44px;
-      font-weight: 700;
-      border-radius: 8px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
-      color: #1e40af !important;
-      border: 1.5px solid #93c5fd !important;
-      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.12);
-      transition: all 0.2s ease;
 
-      mat-icon {
-        color: #2563eb !important;
-      }
-
-      &:hover {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
-        border-color: #3b82f6 !important;
-        transform: translateY(-1px);
-      }
-    }
-    .generate-btn {
-      height: 44px;
-      font-weight: 600;
-      border-radius: 8px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      letter-spacing: 0.02em;
-      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
-
-      .autopilot-chip {
-        background: #10b981;
-        color: #ffffff;
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 2px 7px;
-        border-radius: 10px;
-        margin-left: 4px;
-        letter-spacing: 0.02em;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-        display: inline-flex;
-        align-items: center;
-      }
-    }
     .pending-invoicing-banner {
       position: relative;
       background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
@@ -3088,62 +3271,162 @@ export interface UpcomingBillingCycleInfo {
       }
     }
 
-    @media (max-width: 768px) {
-      .fees-nav-bar {
-        gap: 10px;
-
-        .fees-nav-left {
-          flex: 1 1 auto;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .fees-nav-right {
-          flex-shrink: 0;
-        }
-      }
-
-      @media (max-width: 600px) {
-        .fees-nav-bar {
-          flex-direction: column;
-          align-items: stretch;
-
-          .fees-nav-left {
-            width: 100%;
-            justify-content: flex-start;
-            overflow-x: auto;
-            padding: 4px;
-          }
-
-          .fees-nav-right {
-            width: 100%;
-            margin-left: 0;
-
-            .ai-toggle-action-btn {
-              width: 100%;
-              justify-content: center;
-            }
-          }
-        }
-      }
-
+    @media (max-width: 1024px) {
       .header-actions {
         flex-direction: column;
         align-items: stretch;
         gap: 12px;
 
         .header-action-buttons {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
           gap: 8px;
+          width: 100%;
 
-          button {
+          .header-action-pill {
             width: 100%;
             justify-content: center;
           }
         }
       }
+
+      .fees-nav-deck {
+        flex-wrap: wrap;
+        gap: 10px;
+
+        .fees-nav-tabs-wrapper {
+          flex: 1 1 auto;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .fees-nav-actions {
+          flex-shrink: 0;
+        }
+      }
+    }
+
+    @media (max-width: 640px) {
+      .header-actions {
+        gap: 10px;
+
+        .header-text-group {
+          h2 {
+            font-size: 1.25rem;
+          }
+          p {
+            font-size: 0.8rem;
+          }
+        }
+
+        .header-action-buttons {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+          width: 100%;
+
+          .bulk-print-pill {
+            grid-column: 1;
+          }
+
+          .fee-master-pill {
+            grid-column: 2;
+          }
+
+          .fee-policy-pill {
+            grid-column: 1 / -1;
+            justify-content: center;
+          }
+
+          .generate-invoices-pill {
+            grid-column: 1 / -1;
+            justify-content: center;
+            padding: 9px 12px;
+          }
+
+          .header-action-pill {
+            padding: 7px 8px;
+            font-size: 0.78rem;
+            gap: 6px;
+
+            .pill-label {
+              font-size: 0.76rem;
+            }
+
+            .pill-icon-box {
+              width: 20px;
+              height: 20px;
+
+              mat-icon {
+                font-size: 14px;
+                width: 14px;
+                height: 14px;
+              }
+            }
+          }
+        }
+      }
+
+      .fees-nav-deck {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+
+        .fees-nav-tabs-wrapper {
+          width: 100%;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 4px;
+          padding: 3px;
+          box-sizing: border-box;
+
+          .nav-tab-pill {
+            width: 100%;
+            justify-content: center;
+            padding: 7px 6px;
+            font-size: 0.78rem;
+            gap: 5px;
+
+            .tab-label {
+              font-size: 0.76rem;
+            }
+
+            .tab-icon-wrap {
+              width: 20px;
+              height: 20px;
+
+              mat-icon {
+                font-size: 14px;
+                width: 14px;
+                height: 14px;
+              }
+            }
+
+            .nav-badge {
+              padding: 1px 5px;
+              font-size: 0.68rem;
+            }
+          }
+        }
+
+        .fees-nav-actions {
+          width: 100%;
+          margin-left: 0;
+
+          .ai-copilot-pill-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 8px 12px;
+          }
+        }
+      }
+    }
+
+    @media (max-width: 768px) {
 
       .filter-toolbar {
         padding: 12px 14px 0 14px;
