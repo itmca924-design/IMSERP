@@ -2484,13 +2484,19 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
 
   private renderSingleDueSlipCard(slip: BulkDueSlipItem, copyLabel: string, meta: any): string {
     const rowsHtml = slip.invoices.map((inv, idx) => {
-      const headsText = (inv.heads || []).map(h => `${h.headName}: ₹${Number(h.amount).toLocaleString('en-IN')}`).join(' | ');
+      const headsLines = (inv.heads || []).map((h, hIdx) => `
+        <div class="due-head-line">
+          <span class="head-num">${hIdx + 1}.</span>
+          <span class="head-name">${h.headName}:</span>
+          <span class="head-amount">₹${Number(h.amount).toLocaleString('en-IN')}</span>
+        </div>
+      `).join('');
       return `
         <tr>
           <td style="text-align:center;">${idx + 1}</td>
           <td>
             <strong>${this.getInvoicePeriodLabel(inv)}</strong> ${inv.isArrear ? '<span class="arr-tag">Arrear</span>' : ''}
-            <div class="sub-heads">${headsText}</div>
+            ${headsLines ? `<div class="sub-heads due-item-heads-list">${headsLines}</div>` : ''}
           </td>
           <td>${inv.invoiceNumber}</td>
           <td class="r">₹${Number(inv.finalAmount).toLocaleString('en-IN')}</td>
@@ -2786,6 +2792,11 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .p-table td { border: 1px solid #cbd5e1; padding: 5px 6px; vertical-align: top; }
           .p-table .r { text-align: right; }
           .sub-heads { font-size: 9.5px; color: #475569; margin-top: 2px; }
+          .due-item-heads-list { display: flex; flex-direction: column; gap: 0.5px; margin-top: 2px; }
+          .due-head-line { display: flex; align-items: baseline; gap: 3px; font-size: 8.8px; line-height: 1.15; color: #334155; }
+          .head-num { color: #dc2626; font-weight: 700; font-size: 8.5px; min-width: 11px; }
+          .head-name { color: #475569; font-weight: 500; }
+          .head-amount { color: #991b1b; font-weight: 700; margin-left: auto; white-space: nowrap; }
           .arr-tag { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 700; }
           .due-grand { background: #fef2f2; color: #b91c1c; font-size: 12px; }
           .paid-grand { background: #ecfdf5; color: #047857; font-size: 12px; }

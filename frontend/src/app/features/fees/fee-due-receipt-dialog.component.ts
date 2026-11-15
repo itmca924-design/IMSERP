@@ -232,11 +232,13 @@ export interface FeeDueReceiptDialogData {
                         <td>
                           <div class="due-item-title">{{ item.title }}</div>
                           @if (item.breakdown && item.breakdown.length > 0) {
-                            <div class="due-item-heads">
-                              @for (h of item.breakdown; track h) {
-                                <span class="due-head-chip">
-                                  {{ h.headName }}: ₹{{ h.amount | number:'1.0-0' }}
-                                </span>
+                            <div class="due-item-heads-list">
+                              @for (h of item.breakdown; track h; let hIdx = $index) {
+                                <div class="due-head-line">
+                                  <span class="head-num">{{ hIdx + 1 }}.</span>
+                                  <span class="head-name">{{ h.headName }}:</span>
+                                  <span class="head-amount">₹{{ h.amount | number:'1.0-0' }}</span>
+                                </div>
                               }
                             </div>
                           }
@@ -857,21 +859,39 @@ export interface FeeDueReceiptDialogData {
           font-weight: 600;
         }
 
-        .due-item-heads {
+        .due-item-heads-list {
           display: flex;
-          flex-wrap: wrap;
-          gap: 2px;
-          margin-top: 1px;
+          flex-direction: column;
+          gap: 1px;
+          margin-top: 2px;
         }
 
-        .due-head-chip {
+        .due-head-line {
+          display: flex;
+          align-items: baseline;
+          gap: 4px;
           font-size: 0.58rem;
-          background: #fee2e2;
+          line-height: 1.15;
+          color: #334155;
+        }
+
+        .head-num {
+          color: #dc2626;
+          font-weight: 700;
+          font-size: 0.56rem;
+          min-width: 13px;
+        }
+
+        .head-name {
+          color: #475569;
+          font-weight: 500;
+        }
+
+        .head-amount {
           color: #991b1b;
-          border: 1px solid #fecaca;
-          padding: 0 3px;
-          border-radius: 2px;
-          font-weight: 600;
+          font-weight: 700;
+          margin-left: auto;
+          white-space: nowrap;
         }
 
         .amount-paid {
@@ -1462,8 +1482,11 @@ export class FeeDueReceiptDialogComponent implements OnInit {
       '.due-table th { background: #eff6ff !important; color: #1e3a8a !important; border-top: 1px solid #bfdbfe; border-bottom: 1.5px solid #bfdbfe; padding: 2px 4px; font-size: 0.65rem; font-weight: 700; text-align: left; }' +
       '.due-table td { padding: 2px 4px; border-bottom: 1px solid #e2e8f0; font-size: 0.67rem; line-height: 1.15; }' +
       '.due-item-title { font-size: 0.68rem; color: #0f172a; font-weight: 700; }' +
-      '.due-item-heads { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 1px; }' +
-      '.due-head-chip { font-size: 0.55rem; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 0 3px; border-radius: 2px; font-weight: 600; }' +
+      '.due-item-heads-list { display: flex; flex-direction: column; gap: 0.5px; margin-top: 1.5px; }' +
+      '.due-head-line { display: flex; align-items: baseline; gap: 3px; font-size: 0.52rem; line-height: 1.12; color: #334155; }' +
+      '.head-num { color: #dc2626; font-weight: 700; font-size: 0.50rem; min-width: 10px; }' +
+      '.head-name { color: #475569; font-weight: 500; }' +
+      '.head-amount { color: #991b1b; font-weight: 700; margin-left: auto; white-space: nowrap; }' +
       '.amount-paid { color: #16a34a; }' +
       '.amount-due { color: #dc2626; font-weight: 800; }' +
       '.summary-subtotal { background: #f8fafc; border-top: 1.5px solid #cbd5e1; }' +
