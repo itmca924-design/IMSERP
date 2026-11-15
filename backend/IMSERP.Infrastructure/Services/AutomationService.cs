@@ -83,6 +83,17 @@ public class AutomationService : IAutomationService
     public async Task<RunAutomationJobResultDto> ExecuteAbsenteeAlertsAsync(Guid tenantId)
     {
         var settings = await GetOrCreateSettingsEntityAsync(tenantId);
+        if (!settings.DailyAbsenteeAlertEnabled)
+        {
+            return new RunAutomationJobResultDto(
+                JobName: "Daily Absentee Alert",
+                Success: false,
+                Message: "Daily absentee alerts are disabled in Workspace Settings. Please enable the toggle in Settings.",
+                ProcessedCount: 0,
+                ExecutedAt: DateTime.UtcNow
+            );
+        }
+
         var istZone = GetIstTimeZone();
         var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
         var todayStr = today.ToString("dd-MMM-yyyy");
@@ -146,6 +157,17 @@ public class AutomationService : IAutomationService
     public async Task<RunAutomationJobResultDto> ExecuteFeeDueRemindersAsync(Guid tenantId, int? daysPrior = null)
     {
         var settings = await GetOrCreateSettingsEntityAsync(tenantId);
+        if (!settings.FeeDueRemindersEnabled)
+        {
+            return new RunAutomationJobResultDto(
+                JobName: "Fee Due Reminders",
+                Success: false,
+                Message: "Fee due auto-reminders are disabled in Workspace Settings. Please enable the toggle in Settings.",
+                ProcessedCount: 0,
+                ExecutedAt: DateTime.UtcNow
+            );
+        }
+
         var istZone = GetIstTimeZone();
         var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
 
@@ -235,6 +257,16 @@ public class AutomationService : IAutomationService
     public async Task<RunAutomationJobResultDto> ExecuteBiometricSyncAsync(Guid tenantId)
     {
         var settings = await GetOrCreateSettingsEntityAsync(tenantId);
+        if (!settings.BiometricSyncEnabled)
+        {
+            return new RunAutomationJobResultDto(
+                JobName: "Biometric / RFID Realtime Sync",
+                Success: false,
+                Message: "Biometric and RFID synchronization is disabled in Workspace Settings. Please enable the toggle in Settings.",
+                ProcessedCount: 0,
+                ExecutedAt: DateTime.UtcNow
+            );
+        }
 
         // Fetch active biometric devices
         var devices = await _db.BiometricDevices
