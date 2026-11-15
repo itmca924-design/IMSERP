@@ -117,13 +117,13 @@ export interface UpcomingBillingCycleInfo {
           </button>
 
           <button type="button" class="header-action-pill generate-invoices-pill" (click)="openGenerateInvoicesModal()"
-            matTooltip="Generate Monthly Batch / Class Fee Invoices">
+            [matTooltip]="getGenerateInvoiceTooltip()">
             <div class="pill-icon-box generate-box">
               <mat-icon>post_add</mat-icon>
             </div>
             <span class="pill-label">Generate Monthly Invoices</span>
-            @if (settingsService.autoPilotInvoicing()) {
-              <span class="autopilot-smart-pill" matTooltip="Auto-Pilot Mode Active (Auto-bills on 25th of month)">
+            @if (isAutoPilotBadgeVisible) {
+              <span class="autopilot-smart-pill">
                 <span class="autopilot-pulse-dot"></span>Auto-Pilot ON
               </span>
             }
@@ -3004,8 +3004,8 @@ export interface UpcomingBillingCycleInfo {
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
       padding: 16px 20px;
-      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-      border-bottom: 1px solid #bbf7d0;
+      background: transparent;
+      border-bottom: 1px solid #f1f5f9;
 
       .upi-summary-item {
         display: flex;
@@ -3014,7 +3014,7 @@ export interface UpcomingBillingCycleInfo {
         background: #ffffff;
         padding: 12px 16px;
         border-radius: 10px;
-        border: 1px solid #dcfce7;
+        border: 1px solid #e2e8f0;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 
         .upi-item-icon {
@@ -3320,47 +3320,32 @@ export interface UpcomingBillingCycleInfo {
         }
 
         .header-action-buttons {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 6px;
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
           width: 100%;
 
-          .bulk-print-pill {
-            grid-column: 1;
-          }
-
-          .fee-master-pill {
-            grid-column: 2;
-          }
-
-          .fee-policy-pill {
-            grid-column: 1 / -1;
-            justify-content: center;
-          }
-
-          .generate-invoices-pill {
-            grid-column: 1 / -1;
-            justify-content: center;
-            padding: 9px 12px;
-          }
-
           .header-action-pill {
-            padding: 7px 8px;
-            font-size: 0.78rem;
-            gap: 6px;
+            width: 100%;
+            height: 40px;
+            justify-content: center;
+            padding: 0 14px;
+            font-size: 0.82rem;
+            gap: 8px;
+            box-sizing: border-box;
 
             .pill-label {
-              font-size: 0.76rem;
+              font-size: 0.82rem;
             }
 
             .pill-icon-box {
-              width: 20px;
-              height: 20px;
+              width: 22px;
+              height: 22px;
 
               mat-icon {
-                font-size: 14px;
-                width: 14px;
-                height: 14px;
+                font-size: 15px;
+                width: 15px;
+                height: 15px;
               }
             }
           }
@@ -3516,6 +3501,37 @@ export class FeesComponent implements OnInit, OnDestroy {
   upcomingCycle: UpcomingBillingCycleInfo | null = null;
   upcomingBannerDismissed = false;
   loadingUpcoming = false;
+  hasCheckedUpcomingCycle = false;
+
+  get isAutoPilotBadgeVisible(): boolean {
+    if (!this.settingsService.autoPilotInvoicing()) {
+      return false;
+    }
+
+    const today = new Date();
+    const currentDate = today.getDate();
+
+    // From 25th onwards: show when upcoming cycle bills are pending to be generated
+    // Once bills are created on/after 25th, upcomingCycle becomes null / 0 pending -> auto-hide!
+    if (currentDate >= 25) {
+      return !!(this.upcomingCycle && this.upcomingCycle.uninvoicedStudentsCount > 0);
+    }
+
+    // Days 1 to 24: bills were created on previous 25th. Only show if current month is uninvoiced.
+    if (this.pendingStudents && this.pendingStudents.length > 0) {
+      return true;
+    }
+
+    // Bills are created -> Auto-hide!
+    return false;
+  }
+
+  getGenerateInvoiceTooltip(): string {
+    if (this.isAutoPilotBadgeVisible) {
+      return 'Generate Monthly Fee Invoices (Auto-Pilot Active - Auto-bills on 25th of month)';
+    }
+    return 'Generate Monthly Batch / Class Fee Invoices';
+  }
 
   pageIndex = 0;
   pageSize = 10;
@@ -4827,6 +4843,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     // Only notify during the last 7 days of the current month (e.g. 25th onwards for October)
     if (daysRemaining > 7) {
       this.upcomingCycle = null;
+      this.hasCheckedUpcomingCycle = true;
       return;
     }
 
@@ -4835,6 +4852,7 @@ export class FeesComponent implements OnInit, OnDestroy {
     this.feesService.getPendingInvoicingStudents(nextMonth, nextYear, branchId, false).subscribe({
       next: (list) => {
         this.loadingUpcoming = false;
+        this.hasCheckedUpcomingCycle = true;
         if (list && list.length > 0) {
           this.upcomingCycle = {
             month: nextMonth,
@@ -4851,6 +4869,7 @@ export class FeesComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.loadingUpcoming = false;
+        this.hasCheckedUpcomingCycle = true;
         console.error('Failed to load upcoming cycle pending students', err);
       }
     });
