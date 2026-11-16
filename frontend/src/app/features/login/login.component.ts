@@ -366,10 +366,10 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                 </mat-form-field>
 
                 <!-- Username -->
-                <mat-form-field appearance="outline" class="full-width macho-field" subscriptSizing="dynamic">
-                  <mat-label>Username / Login ID</mat-label>
-                  <input matInput formControlName="username" placeholder="e.g. admin, principal, accountant">
-                  <mat-icon matSuffix class="field-suffix-icon">person</mat-icon>
+                <mat-form-field appearance="outline" class="full-width macho-field" [class.field-system-mode]="isSystemTenant" subscriptSizing="dynamic">
+                  <mat-label>{{ isSystemTenant ? 'Platform Console ID (superadmin)' : 'Username / Login ID' }}</mat-label>
+                  <input matInput formControlName="username" [placeholder]="isSystemTenant ? 'superadmin' : 'e.g. admin, principal, accountant'">
+                  <mat-icon matSuffix class="field-suffix-icon">{{ isSystemTenant ? 'admin_panel_settings' : 'person' }}</mat-icon>
                   @if (loginForm.get('username')?.hasError('required')) {
                     <mat-error>Username is required</mat-error>
                   }
@@ -1922,6 +1922,10 @@ export class LoginComponent implements OnInit, OnDestroy {
     }
   }
 
+  get isSystemTenant(): boolean {
+    return (this.loginForm?.get('tenantCode')?.value || '').trim().toUpperCase() === 'SYSTEM';
+  }
+
   onSubmit(): void {
     if (this.loginForm.invalid) return;
 
@@ -1935,6 +1939,13 @@ export class LoginComponent implements OnInit, OnDestroy {
       username: (val.username || '').trim(),
       password: val.password
     };
+
+    if (credentials.tenantCode === 'SYSTEM' && credentials.username.toLowerCase() !== 'superadmin') {
+      this.loading = false;
+      this.errorMessage = "Invalid Login ID. In SYSTEM Platform Console, only 'superadmin' is authorized to login.";
+      return;
+    }
+
     const rememberMe = true;
 
     this.authService.login(credentials, rememberMe).subscribe({

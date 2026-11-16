@@ -307,17 +307,17 @@ import { environment } from '../../../environments/environment';
                   </span>
                 }
               </div>
-              <div class="card-actions">
-                <button color="primary" class="edit-btn app-button-update" (click)="openEditModal(t)" matButton="filled">
-                  <mat-icon>edit</mat-icon>
-                  <span>{{ isSuperAdmin ? 'Configure Institute' : 'Edit Profile' }}</span>
+              <div class="card-actions" [class.two-col]="!isSuperAdmin">
+                <button color="primary" class="card-action-btn edit-btn" (click)="openEditModal(t)" [matTooltip]="isSuperAdmin ? 'Configure Institute Settings' : 'Edit Institute Profile'" matButton="filled">
+                  <mat-icon>tune</mat-icon>
+                  <span>{{ isSuperAdmin ? 'Configure' : 'Edit Profile' }}</span>
                 </button>
-                <button class="upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Zero-Fee Dynamic UPI QR &amp; VPA" matButton="filled">
+                <button class="card-action-btn upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Dynamic UPI QR &amp; Gateway" matButton="filled">
                   <mat-icon class="upi-btn-icon">qr_code_2</mat-icon>
                   <span>UPI Gateway</span>
                 </button>
                 @if (isSuperAdmin) {
-                  <button [color]="t.isActive ? 'warn' : 'accent'" (click)="toggleStatus(t)" matButton="filled">
+                  <button class="card-action-btn status-btn" [class.deactivate-btn]="t.isActive" [class.activate-btn]="!t.isActive" (click)="toggleStatus(t)" [matTooltip]="t.isActive ? 'Deactivate Institute Access' : 'Activate Institute Access'" matButton="filled">
                     <mat-icon>{{ t.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
                     <span>{{ t.isActive ? 'Deactivate' : 'Activate' }}</span>
                   </button>
@@ -1611,35 +1611,112 @@ import { environment } from '../../../environments/environment';
     }
 
     .card-actions {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 8px;
-      margin-top: 4px;
-      flex-wrap: wrap;
+      margin-top: 8px;
+      width: 100%;
+      box-sizing: border-box;
 
-      button {
+      &.two-col {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      button.card-action-btn {
+        width: 100%;
+        min-width: 0;
         border-radius: 8px;
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 600;
         height: 36px;
+        padding: 0 4px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        gap: 4px;
+        box-sizing: border-box;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+        mat-icon {
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          flex-shrink: 0;
+        }
+
+        span {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       }
 
       .edit-btn {
-        flex: 1 1 130px;
-        min-width: 120px;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        color: #ffffff !important;
+        border: 1px solid #1d4ed8 !important;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+
+        mat-icon { color: #ffffff !important; }
+
+        &:hover {
+          background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+          box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35);
+          transform: translateY(-1px);
+        }
       }
 
       .upi-action-btn {
-        flex: 1 1 130px;
-        min-width: 120px;
-        color: #059669;
-        border-color: #059669;
-        .upi-btn-icon { color: #059669; }
-        &:hover { background: #f0fdf4; border-color: #047857; }
+        background: #ecfdf5 !important;
+        color: #047857 !important;
+        border: 1px solid #a7f3d0 !important;
+
+        .upi-btn-icon { color: #059669 !important; }
+
+        &:hover {
+          background: #d1fae5 !important;
+          border-color: #059669 !important;
+          color: #065f46 !important;
+          box-shadow: 0 2px 6px rgba(5, 150, 105, 0.2);
+          transform: translateY(-1px);
+        }
+      }
+
+      .status-btn {
+        &.deactivate-btn {
+          background: #fff1f2 !important;
+          color: #e11d48 !important;
+          border: 1px solid #fecdd3 !important;
+
+          mat-icon { color: #e11d48 !important; }
+
+          &:hover {
+            background: #ffe4e6 !important;
+            border-color: #f43f5e !important;
+            color: #be123c !important;
+            box-shadow: 0 2px 6px rgba(225, 29, 72, 0.2);
+            transform: translateY(-1px);
+          }
+        }
+
+        &.activate-btn {
+          background: #f0fdf4 !important;
+          color: #16a34a !important;
+          border: 1px solid #bbf7d0 !important;
+
+          mat-icon { color: #16a34a !important; }
+
+          &:hover {
+            background: #dcfce7 !important;
+            border-color: #22c55e !important;
+            color: #15803d !important;
+            box-shadow: 0 2px 6px rgba(22, 163, 74, 0.2);
+            transform: translateY(-1px);
+          }
+        }
       }
     }
 
@@ -2998,6 +3075,26 @@ import { environment } from '../../../environments/environment';
         padding: 8px 4px;
         .metric-cell .metric-count { font-size: 0.95rem; }
         .metric-cell .metric-lbl { font-size: 0.65rem; }
+      }
+
+      .card-actions {
+        gap: 6px;
+        button.card-action-btn {
+          font-size: 0.72rem;
+          padding: 0 2px;
+          gap: 2px;
+          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+        }
+      }
+    }
+
+    @media (max-width: 360px) {
+      .card-actions {
+        grid-template-columns: 1fr;
+        button.card-action-btn {
+          height: 36px;
+          font-size: 0.8rem;
+        }
       }
     }
   `]
