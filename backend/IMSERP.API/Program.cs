@@ -2109,6 +2109,20 @@ using (var scope = app.Services.CreateScope())
         }
 
         // Auto-seed Standard Roles ('Institute Admin', 'Accountant', 'Teacher', 'HR', 'Front Desk / Receptionist') for every tenant
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                UPDATE dbo.Roles 
+                SET Description = REPLACE(REPLACE(REPLACE(REPLACE(Description, N'â€""', ' - '), N'â€“', ' - '), N'â€”', ' - '), N'—', ' - ')
+                WHERE Description LIKE '%â%' OR Description LIKE '%—%';
+
+                UPDATE dbo.Roles 
+                SET Description = 'Principal / Center Director - full administrative access to master setup, academics, faculty, finance, attendance and institute settings.'
+                WHERE Name = 'Institute Admin' AND (Description LIKE '%Principal%' OR Description LIKE '%â%');
+            ");
+        }
+        catch { }
+
         var allTenantIds = context.Tenants.Select(t => t.Id).ToList();
         foreach (var tenantId in allTenantIds)
         {
@@ -2120,7 +2134,7 @@ using (var scope = app.Services.CreateScope())
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     Name = "Institute Admin",
-                    Description = "Principal / Center Director — full administrative access to master setup, academics, faculty, finance, attendance and institute settings.",
+                    Description = "Principal / Center Director - full administrative access to master setup, academics, faculty, finance, attendance and institute settings.",
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -2149,7 +2163,7 @@ using (var scope = app.Services.CreateScope())
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     Name = "Accountant",
-                    Description = "Accounts & Fee Manager — handles student fee collection, invoice receipts, fee heads master, expense vouchers, accounting ledger and financial reports.",
+                    Description = "Accounts & Fee Manager - handles student fee collection, invoice receipts, fee heads master, expense vouchers, accounting ledger and financial reports.",
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -2177,7 +2191,7 @@ using (var scope = app.Services.CreateScope())
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     Name = "Teacher",
-                    Description = "Faculty Member — batch lecture assignments, daily lesson diary, faculty attendance, student test marks, exam management and proxy substitution.",
+                    Description = "Faculty Member - batch lecture assignments, daily lesson diary, faculty attendance, student test marks, exam management and proxy substitution.",
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -2207,7 +2221,7 @@ using (var scope = app.Services.CreateScope())
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     Name = "HR",
-                    Description = "Human Resources — manages teacher profiles, attendance, leaves, salary, advances, FNF and payroll processing.",
+                    Description = "Human Resources - manages teacher profiles, attendance, leaves, salary, advances, FNF and payroll processing.",
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -2245,7 +2259,7 @@ using (var scope = app.Services.CreateScope())
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     Name = "Front Desk / Receptionist",
-                    Description = "Front Desk & Admissions — student inquiries, new admission registration, fee desk collection, WhatsApp notices and attendance verification.",
+                    Description = "Front Desk & Admissions - student inquiries, new admission registration, fee desk collection, WhatsApp notices and attendance verification.",
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };
