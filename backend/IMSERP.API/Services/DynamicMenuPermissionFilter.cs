@@ -57,6 +57,7 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
             ["Tests"] = "/tests",
             ["Finance"] = "/finance/profit-loss",
             ["Attendance"] = "/students/attendance",
+            ["Subscription"] = "/subscription",
             ["Auth"] = "/users"
         };
 

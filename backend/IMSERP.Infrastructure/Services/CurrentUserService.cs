@@ -22,7 +22,8 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
-            var roleClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value;
+            var roleClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value
+                         ?? _httpContextAccessor.HttpContext?.User?.FindFirst("role")?.Value;
             var isSuperAdmin = string.Equals(roleClaim, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
 
             if (isSuperAdmin)
@@ -60,7 +61,8 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
-            var roleClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value;
+            var roleClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value
+                         ?? _httpContextAccessor.HttpContext?.User?.FindFirst("role")?.Value;
             var isStaff = !string.IsNullOrEmpty(roleClaim) &&
                           !roleClaim.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase) &&
                           !roleClaim.Equals("InstituteAdmin", StringComparison.OrdinalIgnoreCase);
@@ -91,7 +93,9 @@ public class CurrentUserService : ICurrentUserService
 
     public string? BranchName => _httpContextAccessor.HttpContext?.User?.FindFirst("BranchName")?.Value;
 
-    public string UserRole => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value ?? "Guest";
+    public string UserRole => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value 
+                           ?? _httpContextAccessor.HttpContext?.User?.FindFirst("role")?.Value 
+                           ?? "Guest";
 
     public string? Username => _httpContextAccessor.HttpContext?.User?.Identity?.Name 
                             ?? _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value 

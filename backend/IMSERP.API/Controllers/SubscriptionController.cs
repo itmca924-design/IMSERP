@@ -1,5 +1,7 @@
+using IMSERP.API.Services;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.Domain.Enums;
 using IMSERP.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +11,7 @@ namespace IMSERP.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[SkipMenuPermission]
 public class SubscriptionController : ControllerBase
 {
     private readonly IMSERPDbContext _dbContext;
@@ -60,6 +63,15 @@ public class SubscriptionController : ControllerBase
     {
         var role = _currentUser.UserRole;
         bool isSuperAdmin = string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase) || _currentUser.IsSystemContext;
+        if (!isSuperAdmin && _currentUser.UserId != Guid.Empty)
+        {
+            var user = await _dbContext.Users
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            isSuperAdmin = user?.Role == UserRole.SuperAdmin;
+        }
+
         if (!isSuperAdmin)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only Platform SuperAdmin can configure SaaS pricing tiers." });
