@@ -3386,9 +3386,33 @@ public class SubscriptionPlanConfig
     public decimal SoftwareSetupFee { get; set; } = 15000.00m;
     public int MaxStudentsLimit { get; set; } = 1000;
     public int MaxBranchesLimit { get; set; } = 5;
+    public string? PlatformUpiId { get; set; } = "imserp@icici";
+    public string? PlatformPayeeName { get; set; } = "IMSERP Technologies";
+    public string? PlatformBankName { get; set; } = "ICICI Bank";
+    public string? PlatformBankAccountNumber { get; set; } = "123405001234";
+    public string? PlatformBankIfsc { get; set; } = "ICIC0001234";
     public bool IsActive { get; set; } = true;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public string? UpdatedBy { get; set; } = "SYSTEM";
+}
+
+public class SubscriptionRenewalRequest
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public string TenantCode { get; set; } = string.Empty;
+    public string InstituteName { get; set; } = string.Empty;
+    public string PlanCode { get; set; } = "PREMIUM";
+    public string BillingCycle { get; set; } = "Annual"; // "Annual" or "Monthly"
+    public decimal Amount { get; set; }
+    public string PaymentMode { get; set; } = "UPI";
+    public string? UtrNumber { get; set; }
+    public string? Notes { get; set; }
+    public string Status { get; set; } = "Pending"; // "Pending", "Approved", "Rejected"
+    public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? ProcessedAt { get; set; }
+    public string? ProcessedBy { get; set; }
+    public string? AdminRemarks { get; set; }
 }
 
 

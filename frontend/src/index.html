@@ -12,6 +12,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <script src="assets/env.js"></script>
   <script>
+    window.addEventListener('error', function(e) {
+      var msg = (e && (e.message || (e.error && e.error.message))) ? String(e.message || e.error.message).toLowerCase() : '';
+      if (msg.indexOf('failed to fetch dynamically imported module') !== -1 || msg.indexOf('loading chunk') !== -1) {
+        var lastReload = Number(sessionStorage.getItem('chunk_reload_timestamp') || '0');
+        var now = Date.now();
+        if (now - lastReload > 20000) {
+          sessionStorage.setItem('chunk_reload_timestamp', String(now));
+          window.location.reload();
+        }
+      }
+    });
+  </script>
+  <script>
     (function() {
       try {
         var user = null;

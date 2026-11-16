@@ -183,9 +183,32 @@ export interface SubscriptionPricingConfig {
   softwareSetupFee: number;
   maxStudentsLimit?: number;
   maxBranchesLimit?: number;
+  platformUpiId?: string | null;
+  platformPayeeName?: string | null;
+  platformBankName?: string | null;
+  platformBankAccountNumber?: string | null;
+  platformBankIfsc?: string | null;
   isActive?: boolean;
   updatedAt?: string;
   updatedBy?: string;
+}
+
+export interface SubscriptionRenewalRequest {
+  id: string;
+  tenantId: string;
+  tenantCode: string;
+  instituteName: string;
+  planCode: string;
+  billingCycle: 'Annual' | 'Monthly';
+  amount: number;
+  paymentMode: string;
+  utrNumber?: string | null;
+  notes?: string | null;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  requestedAt: string;
+  processedAt?: string | null;
+  processedBy?: string | null;
+  adminRemarks?: string | null;
 }
 
 @Injectable({
@@ -219,6 +242,30 @@ export class TenantService {
 
   updateSubscriptionPricingConfig(dto: Partial<SubscriptionPricingConfig>): Observable<any> {
     return this.http.put(`${environment.apiUrl}/subscription/pricing-config`, dto);
+  }
+
+  submitSubscriptionRenewalRequest(dto: {
+    billingCycle: string;
+    amount: number;
+    paymentMode?: string;
+    utrNumber?: string;
+    notes?: string;
+  }): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/subscription/renewal-request`, dto);
+  }
+
+  getSubscriptionRenewalRequests(status?: string): Observable<SubscriptionRenewalRequest[]> {
+    let params: any = {};
+    if (status) params.status = status;
+    return this.http.get<SubscriptionRenewalRequest[]>(`${environment.apiUrl}/subscription/renewal-requests`, { params });
+  }
+
+  approveSubscriptionRenewalRequest(id: string): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/subscription/renewal-requests/${id}/approve`, {});
+  }
+
+  rejectSubscriptionRenewalRequest(id: string, remarks?: string): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/subscription/renewal-requests/${id}/reject`, { remarks });
   }
 
   extendSubscription(id: string, dto: {

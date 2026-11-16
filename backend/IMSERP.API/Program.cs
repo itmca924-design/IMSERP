@@ -2006,6 +2006,47 @@ using (var scope = app.Services.CreateScope())
                             1000, 5, 1, GETUTCDATE(), 'SYSTEM'
                         );
                     END
+
+                    -- Ensure Platform Payment details in SubscriptionPlanConfigs
+                    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'SubscriptionPlanConfigs' AND COLUMN_NAME = 'PlatformUpiId')
+                    BEGIN
+                        ALTER TABLE dbo.SubscriptionPlanConfigs ADD 
+                            PlatformUpiId NVARCHAR(100) NULL,
+                            PlatformPayeeName NVARCHAR(150) NULL,
+                            PlatformBankName NVARCHAR(100) NULL,
+                            PlatformBankAccountNumber NVARCHAR(50) NULL,
+                            PlatformBankIfsc NVARCHAR(30) NULL;
+
+                        UPDATE dbo.SubscriptionPlanConfigs
+                        SET PlatformUpiId = 'imserp@icici',
+                            PlatformPayeeName = 'IMSERP Technologies',
+                            PlatformBankName = 'ICICI Bank',
+                            PlatformBankAccountNumber = '123405001234',
+                            PlatformBankIfsc = 'ICIC0001234'
+                        WHERE PlatformUpiId IS NULL;
+                    END
+
+                    -- Ensure SubscriptionRenewalRequests table exists
+                    IF OBJECT_ID('SubscriptionRenewalRequests') IS NULL
+                    BEGIN
+                        CREATE TABLE dbo.SubscriptionRenewalRequests (
+                            Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            TenantCode NVARCHAR(50) NOT NULL,
+                            InstituteName NVARCHAR(200) NOT NULL,
+                            PlanCode NVARCHAR(50) NOT NULL DEFAULT 'PREMIUM',
+                            BillingCycle NVARCHAR(20) NOT NULL DEFAULT 'Annual',
+                            Amount DECIMAL(18,2) NOT NULL,
+                            PaymentMode NVARCHAR(30) NOT NULL DEFAULT 'UPI',
+                            UtrNumber NVARCHAR(100) NULL,
+                            Notes NVARCHAR(500) NULL,
+                            Status NVARCHAR(30) NOT NULL DEFAULT 'Pending',
+                            RequestedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            ProcessedAt DATETIME2 NULL,
+                            ProcessedBy NVARCHAR(100) NULL,
+                            AdminRemarks NVARCHAR(500) NULL
+                        );
+                    END
                     ELSE IF NOT EXISTS (SELECT 1 FROM dbo.SubscriptionPlanConfigs WHERE IsActive = 1)
                     BEGIN
                         INSERT INTO dbo.SubscriptionPlanConfigs (
@@ -2016,6 +2057,47 @@ using (var scope = app.Services.CreateScope())
                             NEWID(), 'PREMIUM', 'Premium Enterprise Edition', 90, 3000.00,
                             10000.00, 1000.00, 12000.00, 15000.00,
                             1000, 5, 1, GETUTCDATE(), 'SYSTEM'
+                        );
+                    END
+
+                    -- Ensure Platform Payment details in SubscriptionPlanConfigs
+                    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'SubscriptionPlanConfigs' AND COLUMN_NAME = 'PlatformUpiId')
+                    BEGIN
+                        ALTER TABLE dbo.SubscriptionPlanConfigs ADD 
+                            PlatformUpiId NVARCHAR(100) NULL,
+                            PlatformPayeeName NVARCHAR(150) NULL,
+                            PlatformBankName NVARCHAR(100) NULL,
+                            PlatformBankAccountNumber NVARCHAR(50) NULL,
+                            PlatformBankIfsc NVARCHAR(30) NULL;
+
+                        UPDATE dbo.SubscriptionPlanConfigs
+                        SET PlatformUpiId = 'imserp@icici',
+                            PlatformPayeeName = 'IMSERP Technologies',
+                            PlatformBankName = 'ICICI Bank',
+                            PlatformBankAccountNumber = '123405001234',
+                            PlatformBankIfsc = 'ICIC0001234'
+                        WHERE PlatformUpiId IS NULL;
+                    END
+
+                    -- Ensure SubscriptionRenewalRequests table exists
+                    IF OBJECT_ID('SubscriptionRenewalRequests') IS NULL
+                    BEGIN
+                        CREATE TABLE dbo.SubscriptionRenewalRequests (
+                            Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            TenantCode NVARCHAR(50) NOT NULL,
+                            InstituteName NVARCHAR(200) NOT NULL,
+                            PlanCode NVARCHAR(50) NOT NULL DEFAULT 'PREMIUM',
+                            BillingCycle NVARCHAR(20) NOT NULL DEFAULT 'Annual',
+                            Amount DECIMAL(18,2) NOT NULL,
+                            PaymentMode NVARCHAR(30) NOT NULL DEFAULT 'UPI',
+                            UtrNumber NVARCHAR(100) NULL,
+                            Notes NVARCHAR(500) NULL,
+                            Status NVARCHAR(30) NOT NULL DEFAULT 'Pending',
+                            RequestedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            ProcessedAt DATETIME2 NULL,
+                            ProcessedBy NVARCHAR(100) NULL,
+                            AdminRemarks NVARCHAR(500) NULL
                         );
                     END
                 ");

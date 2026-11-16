@@ -13,11 +13,12 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { RouterModule } from '@angular/router';
-import { TenantService, MySubscriptionDto, TenantDto, SubscriptionPricingConfig } from '../../core/services/tenant.service';
+import { TenantService, MySubscriptionDto, TenantDto, SubscriptionPricingConfig, SubscriptionRenewalRequest } from '../../core/services/tenant.service';
 import { AuthService } from '../../core/services/auth.service';
 import { SubscriptionRenewalDialogComponent } from './subscription-renewal-dialog.component';
 import { ManageSubscriptionDialogComponent } from './manage-subscription-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 
 @Component({
   selector: 'app-subscription',
@@ -36,7 +37,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatSelectModule,
     MatFormFieldModule,
     MatInputModule,
-    RouterModule
+    RouterModule,
+    IstDatetimeDirective
   ],
   template: `
     <div class="subscription-page-container">
@@ -349,8 +351,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <mat-form-field appearance="outline">
                     <mat-label>Trial Duration (Days)</mat-label>
                     <input matInput type="number" formControlName="trialDurationDays" min="1">
-                    <span matSuffix class="field-suffix">Days</span>
-                    <mat-hint>90 Days = 3 Months</mat-hint>
+                    <mat-icon matSuffix>calendar_month</mat-icon>
+                    <mat-hint>Default 90 Days (3 Months Free Trial)</mat-hint>
                   </mat-form-field>
 
                   <mat-form-field appearance="outline">
@@ -394,6 +396,48 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </mat-form-field>
                 </div>
 
+                <div class="sub-section-divider">
+                  <div class="sub-section-title">
+                    <mat-icon>account_balance</mat-icon>
+                    <span>Platform Official Receiving Accounts (Dynamic UPI QR &amp; Bank Transfer)</span>
+                  </div>
+                  <p class="sub-section-desc">Client institutes scan live UPI QR or copy bank details to pay renewal fees. SuperAdmin verifies UTR below to activate.</p>
+                </div>
+
+                <div class="config-grid">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Platform Official UPI ID*</mat-label>
+                    <input matInput formControlName="platformUpiId" placeholder="e.g. imserp@icici">
+                    <mat-icon matSuffix>qr_code_2</mat-icon>
+                    <mat-hint>Dynamic QR generated from this UPI ID</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Platform Payee / Business Name*</mat-label>
+                    <input matInput formControlName="platformPayeeName" placeholder="e.g. IMSERP Technologies">
+                    <mat-icon matSuffix>badge</mat-icon>
+                    <mat-hint>Pre-filled payee name in GPay/PhonePe</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Official Bank Name</mat-label>
+                    <input matInput formControlName="platformBankName" placeholder="e.g. ICICI Bank">
+                    <mat-icon matSuffix>account_balance</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Official Bank Account No.</mat-label>
+                    <input matInput formControlName="platformBankAccountNumber" placeholder="e.g. 123405001234">
+                    <mat-icon matSuffix>tag</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Official Bank IFSC Code</mat-label>
+                    <input matInput formControlName="platformBankIfsc" placeholder="e.g. ICIC0001234">
+                    <mat-icon matSuffix>domain</mat-icon>
+                  </mat-form-field>
+                </div>
+
                 <div class="config-actions-row">
                   <button type="submit" color="primary" matButton="filled" [disabled]="savingPricing" class="save-pricing-btn">
                     <mat-icon>{{ savingPricing ? 'hourglass_top' : 'save' }}</mat-icon>
@@ -401,6 +445,155 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   </button>
                 </div>
               </form>
+            </mat-card>
+
+            <!-- SuperAdmin Client Renewal & Activation Inbox -->
+            <mat-card class="section-card mat-elevation-z2 renewals-admin-card">
+              <div class="section-header">
+                <div class="section-title-wrap">
+                  <div class="section-icon-box admin-renew-icon">
+                    <mat-icon>receipt_long</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="section-title">Client Subscription Renewal &amp; Activation Requests</h3>
+                    <p class="section-desc">Live inbox of tenant plan renewals. Verify UTR / transaction reference number and activate 1-year or monthly subscription in 1 click.</p>
+                  </div>
+                </div>
+                <div class="renewals-filter-row">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="status-filter-field">
+                    <mat-label>Filter Status</mat-label>
+                    <mat-select [value]="renewalFilterStatus" (selectionChange)="onRenewalFilterChange($event.value)">
+                      <mat-option value="All">All Requests</mat-option>
+                      <mat-option value="Pending">⏳ Pending Approval</mat-option>
+                      <mat-option value="Approved">✅ Approved / Active</mat-option>
+                      <mat-option value="Rejected">❌ Rejected</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <button matButton="outlined" color="primary" (click)="loadRenewalRequests()" [disabled]="loadingRenewalRequests" class="refresh-btn">
+                    <mat-icon>{{ loadingRenewalRequests ? 'hourglass_top' : 'refresh' }}</mat-icon>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              @if (loadingRenewalRequests) {
+                <div class="requests-loading">
+                  <mat-progress-spinner mode="indeterminate" diameter="32"></mat-progress-spinner>
+                  <span>Loading renewal requests...</span>
+                </div>
+              }
+
+              @if (!loadingRenewalRequests && renewalRequests.length === 0) {
+                <div class="no-requests-box">
+                  <mat-icon>inbox</mat-icon>
+                  <p>No subscription renewal requests found for the selected filter.</p>
+                </div>
+              }
+
+              @if (!loadingRenewalRequests && renewalRequests.length > 0) {
+                <div class="table-responsive">
+                  <table class="requests-table">
+                    <thead>
+                      <tr>
+                        <th>Date &amp; Time (IST)</th>
+                        <th>Institution / Tenant</th>
+                        <th>Plan &amp; Cycle</th>
+                        <th>Amount</th>
+                        <th>Payment &amp; UTR</th>
+                        <th>Status</th>
+                        <th class="text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (req of renewalRequests; track req.id) {
+                        <tr [class.pending-row]="req.status === 'Pending'">
+                          <td>
+                            <div class="datetime-cell">
+                              <span [appIstDatetime]="req.requestedAt"></span>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="tenant-cell">
+                              <strong>{{ req.instituteName }}</strong>
+                              <span class="tenant-code-badge">{{ req.tenantCode }}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="cycle-cell">
+                              <span class="plan-label">{{ req.planCode }}</span>
+                              <span class="cycle-chip" [class.annual]="req.billingCycle === 'Annual'">
+                                {{ req.billingCycle }}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="amount-cell">
+                              <strong>₹{{ req.amount | number }}</strong>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="utr-cell">
+                              <div class="utr-row">
+                                <code class="utr-code">{{ req.utrNumber || 'N/A' }}</code>
+                                @if (req.utrNumber) {
+                                  <button mat-icon-button class="mini-copy-btn" (click)="copyText(req.utrNumber, 'UTR Number')" matTooltip="Copy UTR">
+                                    <mat-icon class="copy-icon">content_copy</mat-icon>
+                                  </button>
+                                }
+                              </div>
+                              <small class="mode-tag">{{ req.paymentMode }}</small>
+                              @if (req.notes) {
+                                <div class="notes-text" [matTooltip]="req.notes">
+                                  Note: {{ req.notes }}
+                                </div>
+                              }
+                            </div>
+                          </td>
+                          <td>
+                            <span class="status-pill" [class]="req.status.toLowerCase()">
+                              @if (req.status === 'Pending') {
+                                <mat-icon>pending</mat-icon>
+                              } @else if (req.status === 'Approved') {
+                                <mat-icon>check_circle</mat-icon>
+                              } @else {
+                                <mat-icon>cancel</mat-icon>
+                              }
+                              {{ req.status }}
+                            </span>
+                            @if (req.processedBy && req.status !== 'Pending') {
+                              <div class="processed-meta">
+                                By {{ req.processedBy }}
+                              </div>
+                            }
+                          </td>
+                          <td class="text-right">
+                            @if (req.status === 'Pending') {
+                              <div class="action-buttons-wrap">
+                                <button matButton="filled" color="primary" class="approve-action-btn" (click)="approveRenewal(req)">
+                                  <mat-icon>verified</mat-icon>
+                                  <span>Approve &amp; 1-Yr Auto Activate</span>
+                                </button>
+                                <button matButton="outlined" color="warn" class="reject-action-btn" (click)="rejectRenewal(req)">
+                                  <mat-icon>close</mat-icon>
+                                  <span>Reject</span>
+                                </button>
+                              </div>
+                            } @else if (req.status === 'Approved') {
+                              <span class="activated-badge">
+                                <mat-icon>done_all</mat-icon> Activated
+                              </span>
+                            } @else {
+                              <span class="rejected-badge" [matTooltip]="req.adminRemarks || 'Rejected by SuperAdmin'">
+                                Declined
+                              </span>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
             </mat-card>
           }
 
@@ -1144,6 +1337,34 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           }
         }
 
+        .sub-section-divider {
+          margin: 20px 0 14px;
+          padding-top: 16px;
+          border-top: 1px dashed #bfdbfe;
+
+          .sub-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #1e3a8a;
+
+            mat-icon {
+              font-size: 20px;
+              width: 20px;
+              height: 20px;
+              color: #2563eb;
+            }
+          }
+
+          .sub-section-desc {
+            font-size: 0.78rem;
+            color: #64748b;
+            margin: 4px 0 0;
+          }
+        }
+
         .config-actions-row {
           display: flex;
           justify-content: flex-end;
@@ -1158,6 +1379,314 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
             border-radius: 8px;
             box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
           }
+        }
+      }
+    }
+
+    /* SuperAdmin Renewals Admin Card */
+    .renewals-admin-card {
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+
+      .admin-renew-icon {
+        background: #0f172a !important;
+        color: #ffffff;
+      }
+
+      .renewals-filter-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        .status-filter-field {
+          min-width: 240px;
+          width: 240px;
+        }
+
+        .refresh-btn {
+          height: 42px;
+          font-weight: 600;
+          border-color: #cbd5e1;
+        }
+      }
+
+      .requests-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 40px 0;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .no-requests-box {
+        text-align: center;
+        padding: 40px 16px;
+        color: #94a3b8;
+
+        mat-icon {
+          font-size: 44px;
+          width: 44px;
+          height: 44px;
+          margin-bottom: 8px;
+          opacity: 0.6;
+        }
+
+        p {
+          font-size: 0.9rem;
+          margin: 0;
+        }
+      }
+
+      .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .requests-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        margin-top: 8px;
+
+        th {
+          padding: 12px 14px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: #475569;
+          background: #f8fafc;
+          border-bottom: 2px solid #e2e8f0;
+          white-space: nowrap;
+
+          &.text-right { text-align: right; }
+        }
+
+        td {
+          padding: 14px;
+          font-size: 0.84rem;
+          color: #1e293b;
+          border-bottom: 1px solid #f1f5f9;
+          vertical-align: middle;
+          white-space: nowrap;
+
+          &.text-right { text-align: right; }
+        }
+
+        tr.pending-row {
+          background: #fafcff;
+        }
+
+        .datetime-cell {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #475569;
+        }
+
+        .tenant-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+
+          strong {
+            font-size: 0.9rem;
+            color: #0f172a;
+          }
+
+          .tenant-code-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #2563eb;
+            background: #eff6ff;
+            padding: 1px 6px;
+            border-radius: 4px;
+            width: fit-content;
+          }
+        }
+
+        .cycle-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+
+          .plan-label {
+            font-size: 0.78rem;
+            color: #64748b;
+          }
+
+          .cycle-chip {
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+            width: fit-content;
+            background: #f1f5f9;
+            color: #475569;
+
+            &.annual {
+              background: #dbeafe;
+              color: #1e40af;
+            }
+          }
+        }
+
+        .amount-cell {
+          strong {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0f172a;
+          }
+        }
+
+        .utr-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+
+          .utr-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+
+            .utr-code {
+              font-family: monospace;
+              font-size: 0.86rem;
+              font-weight: 700;
+              background: #f1f5f9;
+              padding: 2px 6px;
+              border-radius: 4px;
+              border: 1px solid #e2e8f0;
+              color: #0f172a;
+            }
+
+            .mini-copy-btn {
+              width: 24px;
+              height: 24px;
+              line-height: 24px;
+              padding: 0;
+
+              .copy-icon {
+                font-size: 14px;
+                width: 14px;
+                height: 14px;
+                color: #64748b;
+              }
+            }
+          }
+
+          .mode-tag {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #16a34a;
+          }
+
+          .notes-text {
+            font-size: 0.72rem;
+            color: #64748b;
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+
+        .status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          padding: 3px 10px;
+          border-radius: 12px;
+
+          mat-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+          }
+
+          &.pending {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+          }
+
+          &.approved {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+          }
+
+          &.rejected {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+          }
+        }
+
+        .processed-meta {
+          font-size: 0.68rem;
+          color: #94a3b8;
+          margin-top: 2px;
+        }
+
+        .action-buttons-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+
+          .approve-action-btn {
+            height: 34px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            background: #16a34a;
+            color: #ffffff;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(22, 163, 74, 0.2);
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+            }
+          }
+
+          .reject-action-btn {
+            height: 34px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border-radius: 6px;
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+            }
+          }
+        }
+
+        .activated-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #15803d;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+          }
+        }
+
+        .rejected-badge {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #dc2626;
         }
       }
     }
@@ -1382,6 +1911,9 @@ export class SubscriptionComponent implements OnInit {
 
   tenants: TenantDto[] = [];
   selectedTenantId: string | null = null;
+  renewalRequests: SubscriptionRenewalRequest[] = [];
+  loadingRenewalRequests = false;
+  renewalFilterStatus = 'All';
 
   ngOnInit(): void {
     this.pricingForm = this.fb.group({
@@ -1393,7 +1925,12 @@ export class SubscriptionComponent implements OnInit {
       annualMonthlyTotal: [12000, [Validators.required, Validators.min(0)]],
       softwareSetupFee: [15000, [Validators.required, Validators.min(0)]],
       maxStudentsLimit: [1000, [Validators.required, Validators.min(1)]],
-      maxBranchesLimit: [5, [Validators.required, Validators.min(1)]]
+      maxBranchesLimit: [5, [Validators.required, Validators.min(1)]],
+      platformUpiId: ['imserp@icici', Validators.required],
+      platformPayeeName: ['IMSERP Technologies', Validators.required],
+      platformBankName: ['ICICI Bank'],
+      platformBankAccountNumber: [''],
+      platformBankIfsc: ['']
     });
 
     if (this.isSuperAdmin) {
@@ -1402,6 +1939,7 @@ export class SubscriptionComponent implements OnInit {
           this.tenants = list || [];
         }
       });
+      this.loadRenewalRequests();
     }
 
     this.loadSubscription();
@@ -1422,7 +1960,12 @@ export class SubscriptionComponent implements OnInit {
             annualMonthlyTotal: cfg.annualMonthlyTotal ?? 12000,
             softwareSetupFee: cfg.softwareSetupFee ?? 15000,
             maxStudentsLimit: cfg.maxStudentsLimit ?? 1000,
-            maxBranchesLimit: cfg.maxBranchesLimit ?? 5
+            maxBranchesLimit: cfg.maxBranchesLimit ?? 5,
+            platformUpiId: cfg.platformUpiId || '',
+            platformPayeeName: cfg.platformPayeeName || '',
+            platformBankName: cfg.platformBankName || '',
+            platformBankAccountNumber: cfg.platformBankAccountNumber || '',
+            platformBankIfsc: cfg.platformBankIfsc || ''
           });
         }
       },
@@ -1466,6 +2009,78 @@ export class SubscriptionComponent implements OnInit {
         }
       });
     });
+  }
+
+  onRenewalFilterChange(status: string): void {
+    this.renewalFilterStatus = status;
+    this.loadRenewalRequests();
+  }
+
+  loadRenewalRequests(): void {
+    if (!this.isSuperAdmin) return;
+    this.loadingRenewalRequests = true;
+    const status = this.renewalFilterStatus === 'All' ? undefined : this.renewalFilterStatus;
+    this.tenantService.getSubscriptionRenewalRequests(status).subscribe({
+      next: (list) => {
+        this.renewalRequests = list || [];
+        this.loadingRenewalRequests = false;
+      },
+      error: (err) => {
+        console.error('Failed to load renewal requests:', err);
+        this.loadingRenewalRequests = false;
+      }
+    });
+  }
+
+  approveRenewal(req: SubscriptionRenewalRequest): void {
+    this.confirmDialog.confirm(
+      'Approve & 1-Year Auto-Activate',
+      `Are you sure you want to verify UTR reference [${req.utrNumber || 'N/A'}] and activate ${req.instituteName} (${req.tenantCode}) for ${req.billingCycle} billing (₹${req.amount.toLocaleString('en-IN')})?\n\nThis will immediately set the tenant plan to Premium, renew validity for 1 year (or 1 month), and unlock all system features.`,
+      'Yes, Approve & Activate',
+      'Cancel',
+      'success'
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.tenantService.approveSubscriptionRenewalRequest(req.id).subscribe({
+        next: (res) => {
+          this.confirmDialog.alert('Subscription Activated', res?.message || 'Subscription successfully approved and activated!', 'success');
+          this.loadRenewalRequests();
+          this.loadSubscription(this.selectedTenantId);
+        },
+        error: (err) => {
+          const msg = err?.error?.message || 'Failed to approve renewal request.';
+          this.confirmDialog.alert('Error', msg, 'danger');
+        }
+      });
+    });
+  }
+
+  rejectRenewal(req: SubscriptionRenewalRequest): void {
+    this.confirmDialog.confirm(
+      'Reject Renewal Request',
+      `Are you sure you want to reject the renewal request for ${req.instituteName} (UTR: ${req.utrNumber || 'N/A'})?`,
+      'Reject Request',
+      'Cancel',
+      'danger'
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
+      const reason = 'UTR reference mismatch or payment unverified';
+      this.tenantService.rejectSubscriptionRenewalRequest(req.id, reason).subscribe({
+        next: () => {
+          this.confirmDialog.alert('Request Rejected', 'Renewal request marked as rejected.', 'info');
+          this.loadRenewalRequests();
+        },
+        error: (err) => {
+          const msg = err?.error?.message || 'Failed to reject renewal request.';
+          this.confirmDialog.alert('Error', msg, 'danger');
+        }
+      });
+    });
+  }
+
+  copyText(text: string, label: string): void {
+    navigator.clipboard.writeText(text);
+    this.confirmDialog.alert('Copied', `${label} copied to clipboard: ${text}`, 'success');
   }
 
   loadSubscription(tenantId?: string | null): void {
@@ -1524,6 +2139,7 @@ export class SubscriptionComponent implements OnInit {
     dialogRef.afterClosed().subscribe((res) => {
       if (res?.renewedTier) {
         this.loadSubscription(this.selectedTenantId);
+        this.loadRenewalRequests();
         this.confirmDialog.alert(
           'Renewal Submitted',
           `Your ${res.billingCycle} renewal request (₹${res.amount?.toLocaleString('en-IN')}) has been registered. Platform SuperAdmin has been notified for immediate activation!`,
@@ -1534,10 +2150,6 @@ export class SubscriptionComponent implements OnInit {
   }
 
   contactForUpgrade(tier = 'Annual'): void {
-    if (this.isSuperAdmin) {
-      this.openSuperAdminManageDialog('Premium');
-    } else {
-      this.openRenewalDialog(tier);
-    }
+    this.openRenewalDialog(tier);
   }
 }

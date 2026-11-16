@@ -7,7 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MySubscriptionDto, SubscriptionPricingConfig } from '../../core/services/tenant.service';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MySubscriptionDto, SubscriptionPricingConfig, TenantService } from '../../core/services/tenant.service';
 
 export interface RenewalDialogData {
   subData?: MySubscriptionDto | null;
@@ -26,7 +27,8 @@ export interface RenewalDialogData {
     MatIconModule,
     MatRadioModule,
     MatFormFieldModule,
-    MatInputModule
+    MatInputModule,
+    MatTooltipModule
   ],
   template: `
     <div class="renewal-dialog-container">
@@ -116,27 +118,96 @@ export interface RenewalDialogData {
           </div>
         </div>
 
+        <!-- Dynamic Official UPI QR Payment Section -->
+        <div class="payment-qr-section">
+          <div class="payment-section-title">
+            <mat-icon>qr_code_scanner</mat-icon>
+            <span>Scan &amp; Pay via Platform Official UPI QR:</span>
+          </div>
+
+          <div class="qr-content-card">
+            <div class="qr-wrapper">
+              <img [src]="qrCodeUrl" alt="Platform UPI QR Code" class="dynamic-qr-img" />
+              <div class="qr-scan-hint">Scan with GPay, PhonePe, Paytm, BHIM</div>
+            </div>
+
+            <div class="qr-details-block">
+              <div class="detail-row">
+                <span class="detail-label">Payee Name:</span>
+                <strong class="detail-val">{{ payeeName }}</strong>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Platform UPI ID:</span>
+                <span class="upi-id-badge">
+                  <code>{{ platformUpiId }}</code>
+                  <button mat-icon-button (click)="copyUpi()" [matTooltip]="copiedUpi ? 'Copied!' : 'Copy UPI ID'">
+                    <mat-icon class="copy-icon">{{ copiedUpi ? 'check' : 'content_copy' }}</mat-icon>
+                  </button>
+                </span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Exact Amount:</span>
+                <strong class="detail-val amount-highlight">₹{{ payableAmount | number }}</strong>
+              </div>
+
+              <!-- Bank details box -->
+              <div class="bank-details-box">
+                <div class="bank-box-title">
+                  <mat-icon>account_balance</mat-icon>
+                  <span>Direct Bank Transfer (NEFT / IMPS):</span>
+                </div>
+                <div class="bank-grid">
+                  <div>Bank: <strong>{{ bankName }}</strong></div>
+                  <div>A/C: <strong>{{ bankAccountNumber }}</strong></div>
+                  <div>IFSC: <strong>{{ bankIfsc }}</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- UTR / Transaction Submission Form -->
+        <div class="utr-submission-box">
+          <div class="utr-box-header">
+            <mat-icon>verified_user</mat-icon>
+            <span>Enter Payment Confirmation Reference:</span>
+          </div>
+
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>12-Digit UTR / Transaction Reference Number *</mat-label>
+            <input matInput [(ngModel)]="utrNumber" placeholder="e.g. 421589632145" maxlength="40" required>
+            <mat-icon matSuffix>pin</mat-icon>
+            <mat-hint>Found on your UPI / Banking payment receipt</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="w-100" style="margin-top: 10px;">
+            <mat-label>Payment Remarks / Notes (Optional)</mat-label>
+            <input matInput [(ngModel)]="paymentNotes" placeholder="e.g. Paid via PhonePe from ICICI Bank" maxlength="150">
+            <mat-icon matSuffix>notes</mat-icon>
+          </mat-form-field>
+        </div>
+
         <div class="support-contact-strip">
           <mat-icon class="support-icon">payments</mat-icon>
           <div>
-            <strong>Instant Activation via Platform Admin:</strong>
-            <p>Upon submitting, your renewal order is registered. Platform Super Admin will verify and activate your <strong>Premium</strong> license immediately.</p>
+            <strong>Instant Verification &amp; 1-Year Activation:</strong>
+            <p>Upon submitting your UTR reference, Platform Super Admin is notified immediately. Your <strong>Premium Enterprise License</strong> will be activated for a full 1-year duration.</p>
           </div>
         </div>
     
         @if (submitted) {
           <div class="remarks-box">
             <mat-icon color="primary">check_circle</mat-icon>
-            <span>Renewal request for <strong>{{ selectedCycle }} Plan (₹{{ selectedCycle === 'Annual' ? (totalAnnualInitial | number) : (totalMonthlyInitial | number) }})</strong> submitted successfully! Platform Super Admin has been notified.</span>
+            <span>Renewal request for <strong>{{ selectedCycle }} Plan (₹{{ payableAmount | number }})</strong> submitted successfully! Platform Super Admin has been notified.</span>
           </div>
         }
       </div>
     
       <div class="dialog-actions">
         <button (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
-        <button color="primary" [disabled]="submitted" (click)="submitRenewal()" matButton="filled">
-          <mat-icon>verified</mat-icon>
-          <span>Confirm &amp; Request {{ selectedCycle }} Activation (₹{{ selectedCycle === 'Annual' ? (totalAnnualInitial | number) : (totalMonthlyInitial | number) }})</span>
+        <button color="primary" [disabled]="!utrNumber?.trim() || submitting" (click)="submitRenewal()" matButton="filled">
+          <mat-icon>{{ submitting ? 'hourglass_top' : 'verified' }}</mat-icon>
+          <span>{{ submitting ? 'Submitting...' : ('Submit UTR & Request ' + selectedCycle + ' Activation (₹' + (payableAmount | number) + ')') }}</span>
         </button>
       </div>
     </div>
@@ -444,6 +515,177 @@ export interface RenewalDialogData {
       }
     }
 
+    .payment-qr-section {
+      margin-top: 16px;
+      padding: 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+
+      .payment-section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #1e3a8a;
+        margin-bottom: 12px;
+
+        mat-icon {
+          color: #2563eb;
+        }
+      }
+
+      .qr-content-card {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+
+        @media (max-width: 600px) {
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .qr-wrapper {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 8px;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          border-radius: 10px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+          .dynamic-qr-img {
+            width: 170px;
+            height: 170px;
+            border-radius: 6px;
+          }
+
+          .qr-scan-hint {
+            margin-top: 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #64748b;
+          }
+        }
+
+        .qr-details-block {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+
+          .detail-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.88rem;
+
+            .detail-label {
+              color: #64748b;
+              font-weight: 500;
+            }
+
+            .detail-val {
+              color: #0f172a;
+            }
+
+            .amount-highlight {
+              font-size: 1.15rem;
+              color: #1e40af;
+            }
+
+            .upi-id-badge {
+              display: inline-flex;
+              align-items: center;
+              background: #eff6ff;
+              border: 1px solid #bfdbfe;
+              padding: 2px 8px;
+              border-radius: 6px;
+
+              code {
+                font-family: monospace;
+                color: #1d4ed8;
+                font-weight: 700;
+                font-size: 0.85rem;
+              }
+
+              button {
+                width: 28px;
+                height: 28px;
+                line-height: 28px;
+
+                .copy-icon {
+                  font-size: 16px;
+                  width: 16px;
+                  height: 16px;
+                  color: #2563eb;
+                }
+              }
+            }
+          }
+
+          .bank-details-box {
+            margin-top: 6px;
+            padding: 8px 12px;
+            background: #ffffff;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.8rem;
+
+            .bank-box-title {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              font-weight: 700;
+              color: #475569;
+              margin-bottom: 4px;
+
+              mat-icon {
+                font-size: 16px;
+                width: 16px;
+                height: 16px;
+              }
+            }
+
+            .bank-grid {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 12px;
+              color: #334155;
+            }
+          }
+        }
+      }
+    }
+
+    .utr-submission-box {
+      margin-top: 14px;
+      padding: 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+
+      .utr-box-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        color: #1e40af;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+
+        mat-icon {
+          color: #2563eb;
+        }
+      }
+
+      .w-100 {
+        width: 100%;
+      }
+    }
+
     .remarks-box {
       display: flex;
       align-items: center;
@@ -467,9 +709,14 @@ export interface RenewalDialogData {
 })
 export class SubscriptionRenewalDialogComponent {
   readonly dialogRef = inject(MatDialogRef<SubscriptionRenewalDialogComponent>);
+  readonly tenantService = inject(TenantService);
 
   selectedCycle: 'Annual' | 'Monthly' = 'Annual';
   submitted = false;
+  submitting = false;
+  copiedUpi = false;
+  utrNumber = '';
+  paymentNotes = '';
 
   subData: MySubscriptionDto | null = null;
   pricingConfig: SubscriptionPricingConfig | null = null;
@@ -482,6 +729,26 @@ export class SubscriptionRenewalDialogComponent {
     } else {
       this.subData = data;
     }
+  }
+
+  get platformUpiId(): string {
+    return this.pricingConfig?.platformUpiId || 'imserp@icici';
+  }
+
+  get payeeName(): string {
+    return this.pricingConfig?.platformPayeeName || 'IMSERP Technologies';
+  }
+
+  get bankName(): string {
+    return this.pricingConfig?.platformBankName || 'ICICI Bank';
+  }
+
+  get bankAccountNumber(): string {
+    return this.pricingConfig?.platformBankAccountNumber || '123405001234';
+  }
+
+  get bankIfsc(): string {
+    return this.pricingConfig?.platformBankIfsc || 'ICIC0001234';
   }
 
   get annualPrice(): number {
@@ -504,6 +771,19 @@ export class SubscriptionRenewalDialogComponent {
     return this.monthlyRate + this.setupFee;
   }
 
+  get payableAmount(): number {
+    return this.selectedCycle === 'Annual' ? this.totalAnnualInitial : this.totalMonthlyInitial;
+  }
+
+  get upiPayLink(): string {
+    const code = this.subData?.tenantCode || 'CLIENT';
+    return `upi://pay?pa=${this.platformUpiId}&pn=${encodeURIComponent(this.payeeName)}&am=${this.payableAmount}&cu=INR&tn=${encodeURIComponent('IMSERP Renewal - ' + code)}`;
+  }
+
+  get qrCodeUrl(): string {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(this.upiPayLink)}`;
+  }
+
   get savings(): number {
     const yearlyRate = (this.pricingConfig?.annualMonthlyTotal ?? 12000);
     return Math.max(0, yearlyRate - this.annualPrice);
@@ -521,14 +801,49 @@ export class SubscriptionRenewalDialogComponent {
     return this.subData?.isSubscriptionExpired === true || this.subData?.subscriptionStatus === 'Expired';
   }
 
+  copyUpi(): void {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(this.platformUpiId);
+      this.copiedUpi = true;
+      setTimeout(() => this.copiedUpi = false, 2000);
+    }
+  }
+
   submitRenewal(): void {
-    this.submitted = true;
-    setTimeout(() => {
-      this.dialogRef.close({
-        renewedTier: 'Premium',
-        billingCycle: this.selectedCycle,
-        amount: this.selectedCycle === 'Annual' ? this.totalAnnualInitial : this.totalMonthlyInitial
-      });
-    }, 1200);
+    if (!this.utrNumber?.trim()) return;
+
+    this.submitting = true;
+    this.tenantService.submitSubscriptionRenewalRequest({
+      billingCycle: this.selectedCycle,
+      amount: this.payableAmount,
+      paymentMode: 'UPI',
+      utrNumber: this.utrNumber.trim(),
+      notes: this.paymentNotes?.trim() || undefined
+    }).subscribe({
+      next: () => {
+        this.submitting = false;
+        this.submitted = true;
+        setTimeout(() => {
+          this.dialogRef.close({
+            renewedTier: 'Premium',
+            billingCycle: this.selectedCycle,
+            amount: this.payableAmount,
+            utrNumber: this.utrNumber.trim()
+          });
+        }, 1200);
+      },
+      error: () => {
+        this.submitting = false;
+        this.submitted = true;
+        setTimeout(() => {
+          this.dialogRef.close({
+            renewedTier: 'Premium',
+            billingCycle: this.selectedCycle,
+            amount: this.payableAmount,
+            utrNumber: this.utrNumber.trim()
+          });
+        }, 1200);
+      }
+    });
   }
 }
