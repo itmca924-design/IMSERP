@@ -349,13 +349,15 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                   <mat-form-field appearance="outline">
                     <mat-label>Trial Duration (Days)</mat-label>
                     <input matInput type="number" formControlName="trialDurationDays" min="1">
-                    <span matSuffix class="field-suffix">Days (90 = 3 Mo)</span>
+                    <span matSuffix class="field-suffix">Days</span>
+                    <mat-hint>90 Days = 3 Months</mat-hint>
                   </mat-form-field>
 
                   <mat-form-field appearance="outline">
                     <mat-label>Trial Charge (₹)</mat-label>
                     <input matInput type="number" formControlName="trialFee" min="0">
                     <span matPrefix class="currency-prefix">₹&nbsp;</span>
+                    <mat-hint>Effective ₹1,000 / month</mat-hint>
                   </mat-form-field>
 
                   <mat-form-field appearance="outline">
@@ -1112,11 +1114,20 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
         .config-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 14px;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 16px;
 
           mat-form-field {
             width: 100%;
+
+            input[type=number]::-webkit-inner-spin-button,
+            input[type=number]::-webkit-outer-spin-button {
+              -webkit-appearance: none;
+              margin: 0;
+            }
+            input[type=number] {
+              -moz-appearance: textfield;
+            }
           }
 
           .currency-prefix {
@@ -1125,8 +1136,11 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           }
 
           .field-suffix {
-            font-size: 0.75rem;
+            font-size: 0.8rem;
+            font-weight: 500;
             color: #64748b;
+            padding-right: 6px;
+            white-space: nowrap;
           }
         }
 
@@ -1421,25 +1435,36 @@ export class SubscriptionComponent implements OnInit {
       this.confirmDialog.alert('Invalid Form', 'Please enter valid positive amounts and numbers.', 'warning');
       return;
     }
-    this.savingPricing = true;
-    const val = this.pricingForm.value;
-    val.annualMonthlyTotal = (Number(val.monthlyRate) || 1000) * 12;
 
-    this.tenantService.updateSubscriptionPricingConfig(val).subscribe({
-      next: () => {
-        this.savingPricing = false;
-        this.loadPricingConfig();
-        this.confirmDialog.alert(
-          'SaaS Pricing Updated',
-          'SaaS Pricing Configuration updated successfully. All customer trial and renewal portals will now dynamically reflect these prices!',
-          'success'
-        );
-      },
-      error: (err) => {
-        this.savingPricing = false;
-        const msg = err?.error?.message || 'Failed to update SaaS pricing configuration.';
-        this.confirmDialog.alert('Error', msg, 'danger');
-      }
+    this.confirmDialog.confirm(
+      'Confirm SaaS Pricing Update',
+      'Are you sure you want to save and update the SaaS pricing configuration? The new trial duration, trial fee, annual, and monthly pricing will update dynamically across all institute registrations and subscription renewal portals.',
+      'Yes, Save Configuration',
+      'Cancel',
+      'info'
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
+
+      this.savingPricing = true;
+      const val = this.pricingForm.value;
+      val.annualMonthlyTotal = (Number(val.monthlyRate) || 1000) * 12;
+
+      this.tenantService.updateSubscriptionPricingConfig(val).subscribe({
+        next: () => {
+          this.savingPricing = false;
+          this.loadPricingConfig();
+          this.confirmDialog.alert(
+            'SaaS Pricing Updated',
+            'SaaS Pricing Configuration updated successfully. All customer trial and renewal portals will now dynamically reflect these prices!',
+            'success'
+          );
+        },
+        error: (err) => {
+          this.savingPricing = false;
+          const msg = err?.error?.message || 'Failed to update SaaS pricing configuration.';
+          this.confirmDialog.alert('Error', msg, 'danger');
+        }
+      });
     });
   }
 
