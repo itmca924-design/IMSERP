@@ -152,19 +152,60 @@ import { environment } from '../../../environments/environment';
               <!-- Student Picker -->
               @if (issueMemberType === 'Student') {
                 <div>
-                  <!-- Borrower Stream Selector -->
-                  <div class="borrower-stream-pills">
-                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'All'" (click)="setBorrowerStream('All')" matButton="filled">
-                      <mat-icon>people</mat-icon>
-                      <span>All Students</span>
+                  <!-- Borrower Stream Selector (Smart & Attractive Tri-Modal Card Deck) -->
+                  <div class="borrower-stream-deck">
+                    <button type="button" 
+                      class="b-stream-btn" 
+                      [class.active]="borrowerStream === 'All'" 
+                      (click)="setBorrowerStream('All')">
+                      <div class="b-stream-icon-box">
+                        <mat-icon>people</mat-icon>
+                      </div>
+                      <div class="b-stream-text-col">
+                        <span class="b-stream-title">All Students</span>
+                        <span class="b-stream-sub">Direct Search</span>
+                      </div>
+                      @if (borrowerStream === 'All') {
+                        <div class="b-stream-check">
+                          <mat-icon>check_circle</mat-icon>
+                        </div>
+                      }
                     </button>
-                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'School'" (click)="setBorrowerStream('School')" matButton="filled">
-                      <mat-icon>school</mat-icon>
-                      <span>School Class &amp; Sec</span>
+
+                    <button type="button" 
+                      class="b-stream-btn" 
+                      [class.active]="borrowerStream === 'School'" 
+                      (click)="setBorrowerStream('School')">
+                      <div class="b-stream-icon-box">
+                        <mat-icon>school</mat-icon>
+                      </div>
+                      <div class="b-stream-text-col">
+                        <span class="b-stream-title">School Class</span>
+                        <span class="b-stream-sub">Class &amp; Section</span>
+                      </div>
+                      @if (borrowerStream === 'School') {
+                        <div class="b-stream-check">
+                          <mat-icon>check_circle</mat-icon>
+                        </div>
+                      }
                     </button>
-                    <button type="button" class="b-stream-btn" [class.active]="borrowerStream === 'Coaching'" (click)="setBorrowerStream('Coaching')" matButton="filled">
-                      <mat-icon>groups</mat-icon>
-                      <span>Coaching Batch</span>
+
+                    <button type="button" 
+                      class="b-stream-btn" 
+                      [class.active]="borrowerStream === 'Coaching'" 
+                      (click)="setBorrowerStream('Coaching')">
+                      <div class="b-stream-icon-box">
+                        <mat-icon>groups</mat-icon>
+                      </div>
+                      <div class="b-stream-text-col">
+                        <span class="b-stream-title">Coaching Batch</span>
+                        <span class="b-stream-sub">Batch Cascade</span>
+                      </div>
+                      @if (borrowerStream === 'Coaching') {
+                        <div class="b-stream-check">
+                          <mat-icon>check_circle</mat-icon>
+                        </div>
+                      }
                     </button>
                   </div>
                   <!-- If School Stream -->
@@ -846,34 +887,143 @@ import { environment } from '../../../environments/environment';
       }
     }
 
-    /* Borrower Stream Pills & Cascade Row */
-    .borrower-stream-pills {
-      display: flex;
-      gap: 8px;
+    /* Borrower Stream Deck (Smart & Attractive Tri-Modal Card Design) */
+    .borrower-stream-deck {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
       margin-bottom: 14px;
+      width: 100%;
+      box-sizing: border-box;
     }
+
     .b-stream-btn {
-      flex: 1;
-      display: inline-flex;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      background: #ffffff;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+      min-width: 0;
+      box-sizing: border-box;
+
+      &:hover:not(.active) {
+        border-color: #93c5fd;
+        background: #f8fafc;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px -2px rgba(15, 23, 42, 0.08);
+
+        .b-stream-icon-box {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          mat-icon {
+            color: #2563eb;
+          }
+        }
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 2px solid #2563eb;
+        box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.22), 0 2px 4px rgba(37, 99, 235, 0.1);
+        transform: translateY(-1px);
+
+        .b-stream-icon-box {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          border-color: #1d4ed8;
+          box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+
+          mat-icon {
+            color: #ffffff;
+          }
+        }
+
+        .b-stream-title {
+          color: #1e3a8a;
+          font-weight: 800;
+        }
+
+        .b-stream-sub {
+          color: #2563eb;
+          font-weight: 600;
+        }
+      }
+    }
+
+    .b-stream-icon-box {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 7px 12px;
-      border-radius: 8px;
-      border: 1px solid #cbd5e1;
-      background: #ffffff;
-      color: #475569;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #64748b; }
-      &:hover { background: #f8fafc; border-color: #94a3b8; }
-      &.active {
-        background: #eff6ff;
-        border-color: #2563eb;
-        color: #1e40af;
-        mat-icon { color: #2563eb; }
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #64748b;
+        transition: color 0.2s ease;
+      }
+    }
+
+    .b-stream-text-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
+
+    .b-stream-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.1px;
+    }
+
+    .b-stream-sub {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .b-stream-check {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-left: auto;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #2563eb;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .borrower-stream-deck {
+        grid-template-columns: 1fr;
+        gap: 8px;
       }
     }
     .cascade-row {
