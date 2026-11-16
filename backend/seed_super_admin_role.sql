@@ -55,13 +55,14 @@ WHERE [RoleId] = @SuperAdminRoleId;
 
 PRINT 'Populated and ticked all permissions for Super Admin role.';
 
--- 4. Update superadmin user under SYSTEM tenant to SuperAdmin enum (1) and SuperAdmin role
+-- 4. Update Platform Admin users (superadmin, admin) under SYSTEM tenant to SuperAdmin enum (1) and SuperAdmin role
 UPDATE [Users]
 SET [Role] = 1, -- UserRole.SuperAdmin
     [RoleId] = @SuperAdminRoleId
-WHERE [Username] = 'superadmin' AND [TenantId] = @SystemTenantId;
+WHERE [TenantId] = @SystemTenantId
+  AND ([Username] = 'superadmin' OR [Username] = 'admin' OR [RoleId] = 'EFC312E4-4498-4986-BFD8-11A8C3F12039');
 
-PRINT 'Updated superadmin user under SYSTEM tenant to Role = 1 (SuperAdmin).';
+PRINT 'Updated Platform Admin users under SYSTEM tenant to Role = 1 (SuperAdmin).';
 
 -- 5. Verification
 SELECT u.[Id], u.[Username], u.[Role], r.[Name] as [RoleName], r.[TenantId],
