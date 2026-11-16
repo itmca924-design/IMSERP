@@ -112,15 +112,19 @@ public class RolesController : ControllerBase
 
         try
         {
-            var role = await _dbContext.Roles
+            var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+            var rolesQuery = isSuperAdmin ? _dbContext.Roles.IgnoreQueryFilters() : _dbContext.Roles;
+            var rolePermissionsQuery = isSuperAdmin ? _dbContext.RolePermissions.IgnoreQueryFilters() : _dbContext.RolePermissions;
+            var usersQuery = isSuperAdmin ? _dbContext.Users.IgnoreQueryFilters() : _dbContext.Users;
+
+            var role = await rolesQuery
                 .AsNoTracking()
-                .Include(r => r.RolePermissions)
-                .ThenInclude(rp => rp.MenuItem)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (role == null) return NotFound(new { message = $"Role with ID '{id}' was not found." });
 
-            var userCount = await _dbContext.Users
+            var userCount = await usersQuery
                 .AsNoTracking()
                 .CountAsync(u => u.RoleId == id);
 
@@ -130,8 +134,12 @@ public class RolesController : ControllerBase
                 .OrderBy(m => m.SortOrder)
                 .ToListAsync();
 
-            var permissionsMap = role.RolePermissions
-                .Where(rp => rp.MenuItemId != Guid.Empty)
+            var rolePermissions = await rolePermissionsQuery
+                .AsNoTracking()
+                .Where(rp => rp.RoleId == id && rp.MenuItemId != Guid.Empty)
+                .ToListAsync();
+
+            var permissionsMap = rolePermissions
                 .GroupBy(rp => rp.MenuItemId)
                 .ToDictionary(g => g.Key, g => g.First());
 
@@ -278,7 +286,9 @@ public class RolesController : ControllerBase
 
         try
         {
-            var role = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Id == id);
+            var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+            var rolesQuery = isSuperAdmin ? _dbContext.Roles.IgnoreQueryFilters() : _dbContext.Roles;
+            var role = await rolesQuery.FirstOrDefaultAsync(r => r.Id == id);
             if (role == null) return NotFound(new { message = $"Role with ID '{id}' was not found." });
 
             role.Name = dto.Name;
@@ -286,7 +296,8 @@ public class RolesController : ControllerBase
             role.IsActive = dto.IsActive;
 
             // Cleanly remove existing permissions for this role
-            var existingPerms = await _dbContext.RolePermissions.Where(rp => rp.RoleId == id).ToListAsync();
+            var permsQuery = isSuperAdmin ? _dbContext.RolePermissions.IgnoreQueryFilters() : _dbContext.RolePermissions;
+            var existingPerms = await permsQuery.Where(rp => rp.RoleId == id).ToListAsync();
             if (existingPerms.Count > 0)
             {
                 _dbContext.RolePermissions.RemoveRange(existingPerms);
@@ -346,7 +357,9 @@ public class RolesController : ControllerBase
 
         try
         {
-            var role = await _dbContext.Roles.FindAsync(id);
+            var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+            var rolesQuery = isSuperAdmin ? _dbContext.Roles.IgnoreQueryFilters() : _dbContext.Roles;
+            var role = await rolesQuery.FirstOrDefaultAsync(r => r.Id == id);
             if (role == null) return NotFound(new { message = $"Role with ID '{id}' was not found." });
 
             if (NormalizeRoleName(role.Name) == nameof(UserRole.SuperAdmin))
@@ -354,7 +367,8 @@ public class RolesController : ControllerBase
                 return BadRequest(new { message = "Cannot delete core Super Admin role." });
             }
 
-            var isAssigned = await _dbContext.Users.AsNoTracking().AnyAsync(u => u.RoleId == id);
+            var usersQuery = isSuperAdmin ? _dbContext.Users.IgnoreQueryFilters() : _dbContext.Users;
+            var isAssigned = await usersQuery.AsNoTracking().AnyAsync(u => u.RoleId == id);
             if (isAssigned)
             {
                 return BadRequest(new { message = "Cannot delete role assigned to active users." });

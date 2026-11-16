@@ -951,11 +951,13 @@ export class RolesComponent implements OnInit {
   onTenantFilterChange(tenantId: string | null): void {
     this.selectedTenantId = tenantId;
     this.selectedRole = undefined;
+    this.roleForm = undefined as any;
     this.loadRoles(tenantId);
   }
 
   selectRole(role: RoleDto): void {
     this.isNewRole = false;
+    this.selectedRole = role;
     this.loading = true;
     this.rolesService.getRoleById(role.id).subscribe({
       next: (fullRole) => {
@@ -963,7 +965,9 @@ export class RolesComponent implements OnInit {
         this.buildForm(fullRole);
         this.loading = false;
       },
-      error: () => {
+      error: (err) => {
+        console.error('Failed to load full role details, falling back to list role:', err);
+        this.buildForm(role);
         this.loading = false;
       }
     });
