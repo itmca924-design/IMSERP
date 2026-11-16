@@ -289,6 +289,8 @@ public class TenantsController : ControllerBase
             }
         }
 
+        var activePricing = await _dbContext.SubscriptionPlanConfigs.AsNoTracking().FirstOrDefaultAsync(p => p.IsActive);
+
         return Ok(new
         {
             tenantId = tenant.Id,
@@ -310,7 +312,8 @@ public class TenantsController : ControllerBase
             hasLibraryModule = tenant.HasLibraryModule,
             hasTransportModule = tenant.HasTransportModule,
             licensedModules = tenant.LicensedModules,
-            isSubscriptionExpired = isExpired
+            isSubscriptionExpired = isExpired,
+            pricingConfig = activePricing
         });
     }
 

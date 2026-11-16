@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, signal, computed } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../../core/services/auth.service';
+import { TenantService, SubscriptionPricingConfig } from '../../core/services/tenant.service';
 import { RegisterTrialDialogComponent } from './register-trial-dialog.component';
 
 @Component({
@@ -420,7 +421,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                 <div class="demo-actions-row">
                   <button id="app-filled-btn" type="button" class="create-tenant-btn" (click)="openRegisterTrialDialog()">
                     <mat-icon>rocket_launch</mat-icon>
-                    <span>14-Day Free Trial</span>
+                    <span>{{ trialBtnText() }}</span>
                   </button>
 
                   <button id="app-filled-btn" type="button" class="quick-demo-btn" (click)="fillDemoCredentials()">
@@ -1837,6 +1838,17 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   private dialog = inject(MatDialog, { optional: true });
+  private tenantService = inject(TenantService);
+
+  readonly pricingConfig = signal<SubscriptionPricingConfig | null>(null);
+  readonly trialBtnText = computed(() => {
+    const cfg = this.pricingConfig();
+    if (!cfg) return '3-Month Trial (₹3,000)';
+    const months = Math.max(1, Math.round(cfg.trialDurationDays / 30));
+    const feeStr = Number(cfg.trialFee).toLocaleString('en-IN');
+    return `${months}-Month Trial (₹${feeStr})`;
+  });
+
   loginForm: FormGroup;
   hidePassword = true;
   loading = false;
@@ -1877,6 +1889,13 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.clockTimerId = setInterval(() => {
       this.updateCampusClock();
     }, 1000);
+
+    this.tenantService.getSubscriptionPricingConfig().subscribe({
+      next: (cfg) => {
+        if (cfg) this.pricingConfig.set(cfg);
+      },
+      error: () => {}
+    });
 
     // Lock body and html scrolling on mobile while on login screen
     try {
@@ -1964,7 +1983,8 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.dialog?.open(RegisterTrialDialogComponent, {
       width: '680px',
       maxWidth: '95vw',
-      disableClose: true
+      disableClose: true,
+      data: { pricingConfig: this.pricingConfig() }
     });
   }
 

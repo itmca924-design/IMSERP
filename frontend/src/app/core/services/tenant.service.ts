@@ -168,6 +168,24 @@ export interface MySubscriptionDto {
   hasTransportModule: boolean;
   licensedModules?: string | null;
   isSubscriptionExpired?: boolean;
+  pricingConfig?: SubscriptionPricingConfig | null;
+}
+
+export interface SubscriptionPricingConfig {
+  id?: string;
+  planCode?: string;
+  planName?: string;
+  trialDurationDays: number;
+  trialFee: number;
+  annualOneTimePrice: number;
+  monthlyRate: number;
+  annualMonthlyTotal: number;
+  softwareSetupFee: number;
+  maxStudentsLimit?: number;
+  maxBranchesLimit?: number;
+  isActive?: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 @Injectable({
@@ -193,6 +211,14 @@ export class TenantService {
   getMySubscription(tenantId?: string): Observable<MySubscriptionDto> {
     const params = tenantId ? `?tenantId=${tenantId}` : '';
     return this.http.get<MySubscriptionDto>(`${this.API_URL}/my-subscription${params}`);
+  }
+
+  getSubscriptionPricingConfig(): Observable<SubscriptionPricingConfig> {
+    return this.http.get<SubscriptionPricingConfig>(`${environment.apiUrl}/subscription/pricing-config`);
+  }
+
+  updateSubscriptionPricingConfig(dto: Partial<SubscriptionPricingConfig>): Observable<any> {
+    return this.http.put(`${environment.apiUrl}/subscription/pricing-config`, dto);
   }
 
   extendSubscription(id: string, dto: {

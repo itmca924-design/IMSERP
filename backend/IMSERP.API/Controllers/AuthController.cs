@@ -622,6 +622,14 @@ public class AuthController : ControllerBase
         if (dto.HasLibraryModule) licensedList.Add("Library");
         if (dto.HasTransportModule) licensedList.Add("Transport");
 
+        var activePlanConfig = await _dbContext.SubscriptionPlanConfigs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.IsActive);
+
+        int trialDays = activePlanConfig?.TrialDurationDays ?? 90;
+        int maxStudents = activePlanConfig?.MaxStudentsLimit ?? 1000;
+        int maxBranches = activePlanConfig?.MaxBranchesLimit ?? 5;
+
         var tenant = new Tenant
         {
             Id = tenantId,
@@ -638,9 +646,9 @@ public class AuthController : ControllerBase
             SubscriptionPlan = "FreeTrial",
             SubscriptionStatus = "TrialActive",
             TrialStartDate = DateTime.UtcNow,
-            TrialEndDate = DateTime.UtcNow.AddDays(14),
-            MaxStudentsLimit = 50,
-            MaxBranchesLimit = 2,
+            TrialEndDate = DateTime.UtcNow.AddDays(trialDays),
+            MaxStudentsLimit = maxStudents,
+            MaxBranchesLimit = maxBranches,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };

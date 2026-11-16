@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,8 +10,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { RouterModule } from '@angular/router';
-import { TenantService, MySubscriptionDto, TenantDto } from '../../core/services/tenant.service';
+import { TenantService, MySubscriptionDto, TenantDto, SubscriptionPricingConfig } from '../../core/services/tenant.service';
 import { AuthService } from '../../core/services/auth.service';
 import { SubscriptionRenewalDialogComponent } from './subscription-renewal-dialog.component';
 import { ManageSubscriptionDialogComponent } from './manage-subscription-dialog.component';
@@ -21,6 +24,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   standalone: true,
   imports: [
     CommonModule,
+    ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -30,6 +34,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
     MatProgressSpinnerModule,
     MatDialogModule,
     MatSelectModule,
+    MatFormFieldModule,
+    MatInputModule,
     RouterModule
   ],
   template: `
@@ -314,66 +320,203 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
               </div>
             </div>
           </mat-card>
-          <!-- SaaS Tier Comparison Cards -->
+          <!-- SuperAdmin Dynamic SaaS Pricing Configurator Panel -->
+          @if (isSuperAdmin) {
+            <mat-card class="section-card mat-elevation-z2 config-deck-card">
+              <div class="section-header">
+                <div class="section-title-wrap">
+                  <div class="section-icon-box admin-config-icon">
+                    <mat-icon>tune</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="section-title">Platform SaaS Pricing &amp; Plans Configuration</h3>
+                    <p class="section-desc">Platform SuperAdmin dynamic pricing control. Changes update instantly across public registration, 3-month trial banners, and customer renewal screens.</p>
+                  </div>
+                </div>
+                <span class="managed-tag superadmin-tag">
+                  <mat-icon>admin_panel_settings</mat-icon> SuperAdmin Exclusive
+                </span>
+              </div>
+
+              <form [formGroup]="pricingForm" (ngSubmit)="savePricingConfig()" class="pricing-config-form">
+                <div class="config-grid">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Plan Title / Edition</mat-label>
+                    <input matInput formControlName="planName" placeholder="e.g. Premium Enterprise Edition">
+                    <mat-icon matSuffix>verified</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Trial Duration (Days)</mat-label>
+                    <input matInput type="number" formControlName="trialDurationDays" min="1">
+                    <span matSuffix class="field-suffix">Days (90 = 3 Mo)</span>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Trial Charge (₹)</mat-label>
+                    <input matInput type="number" formControlName="trialFee" min="0">
+                    <span matPrefix class="currency-prefix">₹&nbsp;</span>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Annual One-Time Price (₹)</mat-label>
+                    <input matInput type="number" formControlName="annualOneTimePrice" min="0">
+                    <span matPrefix class="currency-prefix">₹&nbsp;</span>
+                    <mat-hint>Customer pays ₹10,000 / year</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Monthly Billing Rate (₹)</mat-label>
+                    <input matInput type="number" formControlName="monthlyRate" min="0">
+                    <span matPrefix class="currency-prefix">₹&nbsp;</span>
+                    <mat-hint>Customer pays ₹1,000 / month (₹12,000 / yr)</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Software One-Time Setup Fee (₹)</mat-label>
+                    <input matInput type="number" formControlName="softwareSetupFee" min="0">
+                    <span matPrefix class="currency-prefix">₹&nbsp;</span>
+                    <mat-hint>Setup / License onboarding fee (₹15,000)</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Max Students Limit</mat-label>
+                    <input matInput type="number" formControlName="maxStudentsLimit" min="10">
+                    <mat-icon matSuffix>school</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Max Branches Limit</mat-label>
+                    <input matInput type="number" formControlName="maxBranchesLimit" min="1">
+                    <mat-icon matSuffix>apartment</mat-icon>
+                  </mat-form-field>
+                </div>
+
+                <div class="config-actions-row">
+                  <button type="submit" color="primary" matButton="filled" [disabled]="savingPricing" class="save-pricing-btn">
+                    <mat-icon>{{ savingPricing ? 'hourglass_top' : 'save' }}</mat-icon>
+                    <span>{{ savingPricing ? 'Saving Pricing...' : 'Save SaaS Pricing Configuration' }}</span>
+                  </button>
+                </div>
+              </form>
+            </mat-card>
+          }
+
+          <!-- Dynamic SaaS Plans & Billing Selection -->
           <div class="tiers-section">
             <div class="tiers-header">
               <h3>Choose the Right Plan for Your Growing Institution</h3>
-              <p>Flexible enterprise subscriptions with scalable student capacities and multi-campus management.</p>
+              <p>Dynamic enterprise subscriptions with scalable student capacities, multi-campus management, and full modules access.</p>
             </div>
-            <div class="tiers-grid">
-              <!-- Starter Tier -->
-              <mat-card class="tier-card">
+
+            <!-- Billing Toggle: Annual vs Monthly -->
+            <div class="billing-toggle-container">
+              <div class="billing-toggle-pill">
+                <button type="button" 
+                  class="toggle-btn" 
+                  [class.active]="selectedBillingCycle === 'Annual'"
+                  (click)="selectedBillingCycle = 'Annual'">
+                  <mat-icon>calendar_today</mat-icon>
+                  <span>Annual One-Time</span>
+                  <span class="save-badge">SAVE ₹{{ (pricingConfig?.annualMonthlyTotal || 12000) - (pricingConfig?.annualOneTimePrice || 10000) | number }}</span>
+                </button>
+                <button type="button" 
+                  class="toggle-btn" 
+                  [class.active]="selectedBillingCycle === 'Monthly'"
+                  (click)="selectedBillingCycle = 'Monthly'">
+                  <mat-icon>date_range</mat-icon>
+                  <span>Monthly Billing</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="tiers-grid two-columns">
+              <!-- Premium Annual One-Time Plan Card -->
+              <mat-card class="tier-card popular-tier" [class.highlighted]="selectedBillingCycle === 'Annual'">
+                <div class="popular-ribbon">RECOMMENDED • BEST VALUE</div>
                 <div class="tier-card-header">
-                  <span class="tier-name">Starter Edition</span>
-                  <span class="tier-tagline">Single Campus &bull; Coaching or School</span>
+                  <div class="tier-title-wrap">
+                    <span class="tier-name">{{ pricingConfig?.planName || 'Premium Enterprise Edition' }}</span>
+                    <span class="tier-tagline">Complete 5-Module Powerhouse &bull; Annual Lump-sum</span>
+                  </div>
+                  <div class="tier-price-box">
+                    <div class="main-price">
+                      <span class="currency">₹</span>
+                      <span class="amount">{{ pricingConfig?.annualOneTimePrice || 10000 | number }}</span>
+                      <span class="period">/ year</span>
+                    </div>
+                    <div class="price-sub">
+                      + ₹{{ pricingConfig?.softwareSetupFee || 15000 | number }} One-Time Software Setup Fee
+                    </div>
+                    <div class="total-first-year">
+                      <strong>Total First Year: ₹{{ (pricingConfig?.annualOneTimePrice || 10000) + (pricingConfig?.softwareSetupFee || 15000) | number }}</strong>
+                    </div>
+                  </div>
                 </div>
+
+                <div class="tier-savings-banner">
+                  <mat-icon>savings</mat-icon>
+                  <span>Save ₹{{ (pricingConfig?.annualMonthlyTotal || 12000) - (pricingConfig?.annualOneTimePrice || 10000) | number }} yearly compared to monthly billing</span>
+                </div>
+
                 <ul class="tier-features">
-                  <li><mat-icon>check</mat-icon> Up to 150 Students</li>
-                  <li><mat-icon>check</mat-icon> 1 Main Branch</li>
-                  <li><mat-icon>check</mat-icon> School OR Coaching Module</li>
-                  <li><mat-icon>check</mat-icon> Fee Collection &amp; Receipts</li>
-                  <li><mat-icon>check</mat-icon> Staff Attendance &amp; Payroll</li>
-                  <li class="disabled"><mat-icon>close</mat-icon> Hostel &amp; Transport</li>
+                  <li><mat-icon>check_circle</mat-icon> Up to {{ pricingConfig?.maxStudentsLimit || 1000 }} Students Capacity</li>
+                  <li><mat-icon>check_circle</mat-icon> Up to {{ pricingConfig?.maxBranchesLimit || 5 }} Campus Branches</li>
+                  <li><mat-icon>check_circle</mat-icon> All 5 Modules Included (School, Coaching, Hostel, Library, Transport)</li>
+                  <li><mat-icon>check_circle</mat-icon> Biometric Attendance &amp; Hardware Auto-Sync</li>
+                  <li><mat-icon>check_circle</mat-icon> WhatsApp Cloud Messaging &amp; Voice AI Recovery</li>
+                  <li><mat-icon>check_circle</mat-icon> Full Accounting, P&amp;L, Day Book &amp; FIFO Fee Ledgers</li>
+                  <li><mat-icon>check_circle</mat-icon> Priority Dedicated Support &amp; SLA</li>
                 </ul>
-                <button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Starter')" matButton="filled">
-                  Select Starter Plan
+
+                <button color="primary" class="tier-action-btn prominent" (click)="contactForUpgrade('Annual')" matButton="filled">
+                  <mat-icon>workspace_premium</mat-icon>
+                  <span>Select Annual Plan (₹{{ (pricingConfig?.annualOneTimePrice || 10000) + (pricingConfig?.softwareSetupFee || 15000) | number }})</span>
                 </button>
               </mat-card>
-              <!-- Growth Tier -->
-              <mat-card class="tier-card popular-tier">
-                <div class="popular-ribbon">MOST POPULAR</div>
+
+              <!-- Premium Monthly Billing Plan Card -->
+              <mat-card class="tier-card" [class.highlighted]="selectedBillingCycle === 'Monthly'">
+                <div class="monthly-ribbon">FLEXIBLE MONTHLY</div>
                 <div class="tier-card-header">
-                  <span class="tier-name">Growth / Pro</span>
-                  <span class="tier-tagline">Integrated School + Coaching</span>
+                  <div class="tier-title-wrap">
+                    <span class="tier-name">{{ pricingConfig?.planName || 'Premium Enterprise Edition' }}</span>
+                    <span class="tier-tagline">Complete 5-Module Powerhouse &bull; Monthly Schedule</span>
+                  </div>
+                  <div class="tier-price-box">
+                    <div class="main-price">
+                      <span class="currency">₹</span>
+                      <span class="amount">{{ pricingConfig?.monthlyRate || 1000 | number }}</span>
+                      <span class="period">/ month</span>
+                    </div>
+                    <div class="price-sub">
+                      + ₹{{ pricingConfig?.softwareSetupFee || 15000 | number }} One-Time Software Setup Fee
+                    </div>
+                    <div class="total-first-year">
+                      <strong>First Month: ₹{{ (pricingConfig?.monthlyRate || 1000) + (pricingConfig?.softwareSetupFee || 15000) | number }}</strong>
+                      <span class="sub-text">(then ₹{{ pricingConfig?.monthlyRate || 1000 | number }}/mo)</span>
+                    </div>
+                  </div>
                 </div>
-                <ul class="tier-features">
-                  <li><mat-icon>check</mat-icon> Up to 500 Students</li>
-                  <li><mat-icon>check</mat-icon> Up to 3 Branches</li>
-                  <li><mat-icon>check</mat-icon> School + Coaching + Library</li>
-                  <li><mat-icon>check</mat-icon> Biometric Hardware Sync</li>
-                  <li><mat-icon>check</mat-icon> WhatsApp Cloud Messaging</li>
-                  <li><mat-icon>check</mat-icon> Full Accounting &amp; P&amp;L</li>
-                </ul>
-                <button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Growth')" matButton="filled">
-                  Upgrade to Growth
-                </button>
-              </mat-card>
-              <!-- Enterprise Tier -->
-              <mat-card class="tier-card">
-                <div class="tier-card-header">
-                  <span class="tier-name">Enterprise Suite</span>
-                  <span class="tier-tagline">Complete 5-Module Powerhouse</span>
+
+                <div class="tier-savings-banner neutral">
+                  <mat-icon>calendar_view_month</mat-icon>
+                  <span>Total Annual Cost: ₹{{ (pricingConfig?.annualMonthlyTotal || 12000) + (pricingConfig?.softwareSetupFee || 15000) | number }} (₹12,000 sub + ₹15,000 setup)</span>
                 </div>
+
                 <ul class="tier-features">
-                  <li><mat-icon>check</mat-icon> Unlimited / 2,000+ Students</li>
-                  <li><mat-icon>check</mat-icon> Unlimited Branch Network</li>
-                  <li><mat-icon>check</mat-icon> All 5 Modules Included</li>
-                  <li><mat-icon>check</mat-icon> Hostel Mess &amp; Bed Allotment</li>
-                  <li><mat-icon>check</mat-icon> Fleet &amp; Bus Route Tracking</li>
-                  <li><mat-icon>check</mat-icon> Dedicated Support &amp; SLA</li>
+                  <li><mat-icon>check_circle</mat-icon> Up to {{ pricingConfig?.maxStudentsLimit || 1000 }} Students Capacity</li>
+                  <li><mat-icon>check_circle</mat-icon> Up to {{ pricingConfig?.maxBranchesLimit || 5 }} Campus Branches</li>
+                  <li><mat-icon>check_circle</mat-icon> All 5 Modules Included (School, Coaching, Hostel, Library, Transport)</li>
+                  <li><mat-icon>check_circle</mat-icon> Biometric Attendance &amp; Hardware Auto-Sync</li>
+                  <li><mat-icon>check_circle</mat-icon> WhatsApp Cloud Messaging &amp; Voice AI Recovery</li>
+                  <li><mat-icon>check_circle</mat-icon> Full Accounting, P&amp;L, Day Book &amp; FIFO Fee Ledgers</li>
+                  <li><mat-icon>check_circle</mat-icon> Cancel or switch to annual anytime</li>
                 </ul>
-                <button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Enterprise')" matButton="filled">
-                  Contact for Enterprise
+
+                <button color="primary" class="tier-action-btn" (click)="contactForUpgrade('Monthly')" matButton="filled">
+                  <mat-icon>credit_score</mat-icon>
+                  <span>Select Monthly Plan (₹{{ (pricingConfig?.monthlyRate || 1000) + (pricingConfig?.softwareSetupFee || 15000) | number }})</span>
                 </button>
               </mat-card>
             </div>
@@ -879,7 +1022,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       }
     }
 
-    /* Tier Cards */
+    /* Tier Cards & Dynamic Pricing */
     .tiers-section {
       display: flex;
       flex-direction: column;
@@ -892,25 +1035,148 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       }
     }
 
+    /* Billing Toggle Pill */
+    .billing-toggle-container {
+      display: flex;
+      justify-content: center;
+      margin: 8px 0 16px;
+
+      .billing-toggle-pill {
+        display: inline-flex;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 9999px;
+        border: 1px solid #e2e8f0;
+
+        .toggle-btn {
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          padding: 8px 18px;
+          border-radius: 9999px;
+          font-size: 0.86rem;
+          font-weight: 700;
+          color: #64748b;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.2s ease;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+          }
+
+          &.active {
+            background: #2563eb;
+            color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+
+            .save-badge {
+              background: #fef08a;
+              color: #854d0e;
+            }
+          }
+
+          .save-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 6px;
+          }
+        }
+      }
+    }
+
+    /* SuperAdmin Pricing Configurator */
+    .config-deck-card {
+      border: 1.5px solid #bfdbfe;
+      background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+
+      .admin-config-icon {
+        background: #1e40af !important;
+        color: #ffffff;
+      }
+
+      .superadmin-tag {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+      }
+
+      .pricing-config-form {
+        margin-top: 14px;
+
+        .config-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 14px;
+
+          mat-form-field {
+            width: 100%;
+          }
+
+          .currency-prefix {
+            font-weight: 700;
+            color: #1e40af;
+          }
+
+          .field-suffix {
+            font-size: 0.75rem;
+            color: #64748b;
+          }
+        }
+
+        .config-actions-row {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 10px;
+
+          .save-pricing-btn {
+            height: 44px;
+            padding: 0 24px;
+            font-weight: 700;
+            background: #2563eb;
+            color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+          }
+        }
+      }
+    }
+
     .tiers-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+
+      &.two-columns {
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      }
     }
 
     .tier-card {
       border-radius: 16px;
       padding: 24px;
-      border: 1px solid #e2e8f0;
+      border: 1.5px solid #e2e8f0;
       background: #ffffff;
       position: relative;
       display: flex;
       flex-direction: column;
       gap: 16px;
+      transition: all 0.25s ease;
 
       &.popular-tier {
         border: 2px solid #2563eb;
         box-shadow: 0 10px 25px -4px rgba(37,99,235,0.15) !important;
+      }
+
+      &.highlighted {
+        border-color: #2563eb;
+        box-shadow: 0 12px 30px -4px rgba(37,99,235,0.2) !important;
       }
 
       .popular-ribbon {
@@ -921,7 +1187,20 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
         color: #ffffff;
         font-size: 0.68rem;
         font-weight: 800;
-        padding: 4px 10px;
+        padding: 4px 12px;
+        border-radius: 12px;
+        letter-spacing: 0.06em;
+      }
+
+      .monthly-ribbon {
+        position: absolute;
+        top: -12px;
+        right: 20px;
+        background: #0f172a;
+        color: #ffffff;
+        font-size: 0.68rem;
+        font-weight: 800;
+        padding: 4px 12px;
         border-radius: 12px;
         letter-spacing: 0.06em;
       }
@@ -929,12 +1208,78 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       .tier-card-header {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 8px;
         border-bottom: 1px solid #f1f5f9;
-        padding-bottom: 12px;
+        padding-bottom: 14px;
 
-        .tier-name { font-size: 1.25rem; font-weight: 800; color: #0f172a; }
-        .tier-tagline { font-size: 0.78rem; color: #64748b; }
+        .tier-title-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          .tier-name { font-size: 1.25rem; font-weight: 800; color: #0f172a; }
+          .tier-tagline { font-size: 0.78rem; color: #64748b; }
+        }
+
+        .tier-price-box {
+          margin-top: 4px;
+
+          .main-price {
+            display: flex;
+            align-items: baseline;
+            gap: 2px;
+
+            .currency { font-size: 1.3rem; font-weight: 800; color: #1e3a8a; }
+            .amount { font-size: 2.2rem; font-weight: 900; color: #1e3a8a; letter-spacing: -0.03em; }
+            .period { font-size: 0.88rem; color: #64748b; font-weight: 600; margin-left: 4px; }
+          }
+
+          .price-sub {
+            font-size: 0.8rem;
+            color: #475569;
+            font-weight: 600;
+            margin-top: 2px;
+          }
+
+          .total-first-year {
+            font-size: 0.86rem;
+            color: #1e40af;
+            margin-top: 4px;
+
+            .sub-text {
+              font-size: 0.78rem;
+              color: #64748b;
+              font-weight: normal;
+              margin-left: 4px;
+            }
+          }
+        }
+      }
+
+      .tier-savings-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #2563eb;
+        }
+
+        &.neutral {
+          background: #f8fafc;
+          border-color: #e2e8f0;
+          color: #475569;
+          mat-icon { color: #64748b; }
+        }
       }
 
       .tier-features {
@@ -953,29 +1298,34 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           font-size: 0.84rem;
           color: #334155;
 
-          mat-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; }
-
-          &.disabled {
-            color: #94a3b8;
-            mat-icon { color: #cbd5e1; }
-          }
+          mat-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; flex-shrink: 0; }
         }
       }
 
       .tier-action-btn {
-        height: 42px;
+        height: 44px;
         border-radius: 9px;
         font-weight: 700;
         font-size: 0.88rem;
+
+        &.prominent {
+          background: #2563eb;
+          color: #ffffff;
+        }
       }
     }
   `]
 })
 export class SubscriptionComponent implements OnInit {
   private tenantService = inject(TenantService);
+  private fb = inject(FormBuilder);
   readonly authService = inject(AuthService);
 
   subData: MySubscriptionDto | null = null;
+  pricingConfig: SubscriptionPricingConfig | null = null;
+  pricingForm!: FormGroup;
+  savingPricing = false;
+  selectedBillingCycle: 'Annual' | 'Monthly' = 'Annual';
   loading = false;
 
   get isSuperAdmin(): boolean {
@@ -1003,7 +1353,7 @@ export class SubscriptionComponent implements OnInit {
       const diff = Math.ceil((new Date(this.subData.trialEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
       return Math.max(0, diff);
     }
-    return 30;
+    return 90;
   }
 
   get studentUsagePercent(): number {
@@ -1020,6 +1370,18 @@ export class SubscriptionComponent implements OnInit {
   selectedTenantId: string | null = null;
 
   ngOnInit(): void {
+    this.pricingForm = this.fb.group({
+      planName: ['Premium Enterprise Edition', Validators.required],
+      trialDurationDays: [90, [Validators.required, Validators.min(1)]],
+      trialFee: [3000, [Validators.required, Validators.min(0)]],
+      annualOneTimePrice: [10000, [Validators.required, Validators.min(0)]],
+      monthlyRate: [1000, [Validators.required, Validators.min(0)]],
+      annualMonthlyTotal: [12000, [Validators.required, Validators.min(0)]],
+      softwareSetupFee: [15000, [Validators.required, Validators.min(0)]],
+      maxStudentsLimit: [1000, [Validators.required, Validators.min(1)]],
+      maxBranchesLimit: [5, [Validators.required, Validators.min(1)]]
+    });
+
     if (this.isSuperAdmin) {
       this.tenantService.getAllTenants().subscribe({
         next: (list: TenantDto[]) => {
@@ -1027,7 +1389,58 @@ export class SubscriptionComponent implements OnInit {
         }
       });
     }
+
     this.loadSubscription();
+    this.loadPricingConfig();
+  }
+
+  loadPricingConfig(): void {
+    this.tenantService.getSubscriptionPricingConfig().subscribe({
+      next: (cfg) => {
+        if (cfg) {
+          this.pricingConfig = cfg;
+          this.pricingForm.patchValue({
+            planName: cfg.planName || 'Premium Enterprise Edition',
+            trialDurationDays: cfg.trialDurationDays || 90,
+            trialFee: cfg.trialFee ?? 3000,
+            annualOneTimePrice: cfg.annualOneTimePrice ?? 10000,
+            monthlyRate: cfg.monthlyRate ?? 1000,
+            annualMonthlyTotal: cfg.annualMonthlyTotal ?? 12000,
+            softwareSetupFee: cfg.softwareSetupFee ?? 15000,
+            maxStudentsLimit: cfg.maxStudentsLimit ?? 1000,
+            maxBranchesLimit: cfg.maxBranchesLimit ?? 5
+          });
+        }
+      },
+      error: (err) => console.error('Failed to load pricing config:', err)
+    });
+  }
+
+  savePricingConfig(): void {
+    if (this.pricingForm.invalid) {
+      this.confirmDialog.alert('Invalid Form', 'Please enter valid positive amounts and numbers.', 'warning');
+      return;
+    }
+    this.savingPricing = true;
+    const val = this.pricingForm.value;
+    val.annualMonthlyTotal = (Number(val.monthlyRate) || 1000) * 12;
+
+    this.tenantService.updateSubscriptionPricingConfig(val).subscribe({
+      next: () => {
+        this.savingPricing = false;
+        this.loadPricingConfig();
+        this.confirmDialog.alert(
+          'SaaS Pricing Updated',
+          'SaaS Pricing Configuration updated successfully. All customer trial and renewal portals will now dynamically reflect these prices!',
+          'success'
+        );
+      },
+      error: (err) => {
+        this.savingPricing = false;
+        const msg = err?.error?.message || 'Failed to update SaaS pricing configuration.';
+        this.confirmDialog.alert('Error', msg, 'danger');
+      }
+    });
   }
 
   loadSubscription(tenantId?: string | null): void {
@@ -1035,6 +1448,9 @@ export class SubscriptionComponent implements OnInit {
     this.tenantService.getMySubscription(tenantId || undefined).subscribe({
       next: (data) => {
         this.subData = data;
+        if (data.pricingConfig) {
+          this.pricingConfig = data.pricingConfig;
+        }
         this.loading = false;
       },
       error: (err) => {
@@ -1069,23 +1485,32 @@ export class SubscriptionComponent implements OnInit {
     });
   }
 
-  openRenewalDialog(tier = 'Growth'): void {
+  openRenewalDialog(tier = 'Annual'): void {
     const dialogRef = this.dialog.open(SubscriptionRenewalDialogComponent, {
-      width: '560px',
+      width: '600px',
       maxWidth: '95vw',
-      data: this.subData
+      data: {
+        subData: this.subData,
+        pricingConfig: this.pricingConfig,
+        initialCycle: tier === 'Monthly' ? 'Monthly' : 'Annual'
+      }
     });
 
     dialogRef.afterClosed().subscribe((res) => {
       if (res?.renewedTier) {
         this.loadSubscription(this.selectedTenantId);
+        this.confirmDialog.alert(
+          'Renewal Submitted',
+          `Your ${res.billingCycle} renewal request (₹${res.amount?.toLocaleString('en-IN')}) has been registered. Platform SuperAdmin has been notified for immediate activation!`,
+          'success'
+        );
       }
     });
   }
 
-  contactForUpgrade(tier = 'Premium'): void {
+  contactForUpgrade(tier = 'Annual'): void {
     if (this.isSuperAdmin) {
-      this.openSuperAdminManageDialog(tier);
+      this.openSuperAdminManageDialog('Premium');
     } else {
       this.openRenewalDialog(tier);
     }

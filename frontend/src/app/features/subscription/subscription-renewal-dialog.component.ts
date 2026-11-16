@@ -7,7 +7,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MySubscriptionDto } from '../../core/services/tenant.service';
+import { MySubscriptionDto, SubscriptionPricingConfig } from '../../core/services/tenant.service';
+
+export interface RenewalDialogData {
+  subData?: MySubscriptionDto | null;
+  pricingConfig?: SubscriptionPricingConfig | null;
+  initialCycle?: 'Annual' | 'Monthly';
+}
 
 @Component({
   selector: 'app-subscription-renewal-dialog',
@@ -30,9 +36,9 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
           <mat-icon>workspace_premium</mat-icon>
         </div>
         <div class="header-title-block">
-          <h2 class="main-title">Renew &amp; Upgrade SaaS Subscription</h2>
+          <h2 class="main-title">Renew &amp; Activate SaaS Subscription</h2>
           <p class="subtitle">
-            Institute: <strong>{{ data?.instituteName || 'My Institute' }}</strong> &bull; Code: <strong>{{ data?.tenantCode }}</strong>
+            Institute: <strong>{{ subData?.instituteName || 'My Institute' }}</strong> &bull; Code: <strong>{{ subData?.tenantCode }}</strong>
           </p>
         </div>
         <button class="close-btn" (click)="dialogRef.close()" matTooltip="Close dialog" mat-icon-button>
@@ -41,71 +47,87 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
       </div>
     
       <div class="dialog-content">
-        <div class="plan-summary-banner" [class.expired]="data?.subscriptionStatus === 'Expired'">
+        <div class="plan-summary-banner" [class.expired]="subData?.subscriptionStatus === 'Expired' || isExpired">
           <div class="banner-left">
-            <span class="status-pill">{{ data?.subscriptionStatus || 'TrialActive' }}</span>
-            <strong>Current: {{ data?.subscriptionPlan || 'FreeTrial' }}</strong>
+            <span class="status-pill">{{ isExpired ? 'Expired' : (subData?.subscriptionStatus || 'TrialActive') }}</span>
+            <strong>Plan: {{ subData?.subscriptionPlan || 'FreeTrial' }}</strong>
           </div>
-          @if (data?.trialEndDate) {
+          @if (subData?.trialEndDate) {
             <span class="expiry-note">
-              Validity: {{ $safeNavigationMigration(data?.trialEndDate) | date:'mediumDate' }}
+              Validity: {{ subData?.trialEndDate | date:'mediumDate' }}
             </span>
           }
         </div>
     
-        <h4 class="select-plan-title">Select Subscription Plan to Activate:</h4>
+        <h4 class="select-plan-title">Select Billing Frequency &amp; Pricing Schedule:</h4>
     
         <div class="plan-radio-group">
-          <!-- Starter -->
-          <label class="plan-card-option" [class.selected]="selectedTier === 'Starter'">
-            <input type="radio" name="planTier" value="Starter" [(ngModel)]="selectedTier" />
+          <!-- Annual One-Time (Recommended) -->
+          <label class="plan-card-option recommended" [class.selected]="selectedCycle === 'Annual'">
+            <div class="rec-badge">RECOMMENDED • SAVE ₹{{ savings | number }}</div>
+            <input type="radio" name="planCycle" value="Annual" [(ngModel)]="selectedCycle" />
             <div class="option-details">
               <div class="tier-top">
-                <span class="tier-heading">Starter Plan</span>
-                <span class="price-chip">₹1,999 / mo</span>
+                <span class="tier-heading">Annual One-Time Payment</span>
+                <span class="price-chip featured">₹{{ annualPrice | number }} / yr</span>
               </div>
-              <p class="tier-desc">Up to 150 students &bull; 1 campus &bull; School or Coaching module.</p>
+              <p class="tier-desc">
+                Subscription: ₹{{ annualPrice | number }} + One-Time Software Setup: ₹{{ setupFee | number }}
+              </p>
+              <div class="plan-calc-row">
+                <span class="total-label">Total Payable Today:</span>
+                <span class="total-highlight">₹{{ totalAnnualInitial | number }}</span>
+              </div>
             </div>
           </label>
     
-          <!-- Growth / Pro -->
-          <label class="plan-card-option recommended" [class.selected]="selectedTier === 'Growth'">
-            <div class="rec-badge">RECOMMENDED</div>
-            <input type="radio" name="planTier" value="Growth" [(ngModel)]="selectedTier" />
+          <!-- Monthly Schedule -->
+          <label class="plan-card-option" [class.selected]="selectedCycle === 'Monthly'">
+            <input type="radio" name="planCycle" value="Monthly" [(ngModel)]="selectedCycle" />
             <div class="option-details">
               <div class="tier-top">
-                <span class="tier-heading">Growth / Pro Plan</span>
-                <span class="price-chip featured">₹4,499 / mo</span>
+                <span class="tier-heading">Monthly Billing Schedule</span>
+                <span class="price-chip">₹{{ monthlyRate | number }} / mo</span>
               </div>
-              <p class="tier-desc">Up to 500 students &bull; 3 branches &bull; Biometric &amp; WhatsApp included.</p>
-            </div>
-          </label>
-    
-          <!-- Enterprise -->
-          <label class="plan-card-option" [class.selected]="selectedTier === 'Enterprise'">
-            <input type="radio" name="planTier" value="Enterprise" [(ngModel)]="selectedTier" />
-            <div class="option-details">
-              <div class="tier-top">
-                <span class="tier-heading">Enterprise Suite</span>
-                <span class="price-chip">Custom Quota</span>
+              <p class="tier-desc">
+                First Month: ₹{{ monthlyRate | number }} + One-Time Software Setup: ₹{{ setupFee | number }}
+              </p>
+              <div class="plan-calc-row">
+                <span class="total-label">First Month Due:</span>
+                <span class="total-highlight">₹{{ totalMonthlyInitial | number }}</span>
+                <small class="recurring-note">(then ₹{{ monthlyRate | number }}/mo)</small>
               </div>
-              <p class="tier-desc">Unlimited capacity &bull; All 5 modules (Hostel, Library, Transport) &bull; Priority SLA.</p>
             </div>
           </label>
         </div>
     
+        <!-- Entitlements Summary Box -->
+        <div class="entitlements-box">
+          <div class="entitlements-header">
+            <mat-icon>verified</mat-icon>
+            <strong>All Modules &amp; Enterprise Capacity Included:</strong>
+          </div>
+          <div class="entitlements-chips">
+            <span class="ent-chip"><mat-icon>school</mat-icon> Up to {{ maxStudents }} Students</span>
+            <span class="ent-chip"><mat-icon>apartment</mat-icon> Up to {{ maxBranches }} Branches</span>
+            <span class="ent-chip"><mat-icon>layers</mat-icon> All 5 Modules Included</span>
+            <span class="ent-chip"><mat-icon>fingerprint</mat-icon> Biometric Sync</span>
+            <span class="ent-chip"><mat-icon>chat</mat-icon> WhatsApp Cloud</span>
+          </div>
+        </div>
+
         <div class="support-contact-strip">
-          <mat-icon class="support-icon">headset_mic</mat-icon>
+          <mat-icon class="support-icon">payments</mat-icon>
           <div>
-            <strong>Instant Activation &amp; Support:</strong>
-            <p>Call or WhatsApp Platform Support at <strong>+91 98765 43210</strong> or ping your Super Admin to approve immediate renewal.</p>
+            <strong>Instant Activation via Platform Admin:</strong>
+            <p>Upon submitting, your renewal order is registered. Platform Super Admin will verify and activate your <strong>Premium</strong> license immediately.</p>
           </div>
         </div>
     
         @if (submitted) {
           <div class="remarks-box">
             <mat-icon color="primary">check_circle</mat-icon>
-            <span>Renewal request submitted! Platform Super Admin has been notified to activate your <strong>{{ selectedTier }}</strong> tier.</span>
+            <span>Renewal request for <strong>{{ selectedCycle }} Plan (₹{{ selectedCycle === 'Annual' ? (totalAnnualInitial | number) : (totalMonthlyInitial | number) }})</strong> submitted successfully! Platform Super Admin has been notified.</span>
           </div>
         }
       </div>
@@ -113,8 +135,8 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
       <div class="dialog-actions">
         <button (click)="dialogRef.close()" matButton="filled" class="app-button-cancel">Cancel</button>
         <button color="primary" [disabled]="submitted" (click)="submitRenewal()" matButton="filled">
-          <mat-icon>send</mat-icon>
-          <span>Confirm &amp; Request Renewal</span>
+          <mat-icon>verified</mat-icon>
+          <span>Confirm &amp; Request {{ selectedCycle }} Activation (₹{{ selectedCycle === 'Annual' ? (totalAnnualInitial | number) : (totalMonthlyInitial | number) }})</span>
         </button>
       </div>
     </div>
@@ -317,6 +339,81 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
           color: #64748b;
           line-height: 1.35;
         }
+
+        .plan-calc-row {
+          margin-top: 8px;
+          padding-top: 6px;
+          border-top: 1px dashed #e2e8f0;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+
+          .total-label {
+            font-size: 0.78rem;
+            color: #475569;
+          }
+
+          .total-highlight {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #1e3a8a;
+          }
+
+          .recurring-note {
+            font-size: 0.75rem;
+            color: #64748b;
+          }
+        }
+      }
+    }
+
+    .entitlements-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+
+      .entitlements-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: #1e293b;
+        margin-bottom: 8px;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #10b981;
+        }
+      }
+
+      .entitlements-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+
+        .ent-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 3px 8px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #334155;
+
+          mat-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+            color: #2563eb;
+          }
+        }
       }
     }
 
@@ -324,12 +421,13 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
       display: flex;
       align-items: center;
       gap: 12px;
-      background: #f8fafc;
-      border: 1px dashed #cbd5e1;
+      background: #eff6ff;
+      border: 1px dashed #93c5fd;
       padding: 10px 14px;
       border-radius: 8px;
       font-size: 0.82rem;
-      color: #334155;
+      color: #1e3a8a;
+      margin-bottom: 12px;
 
       .support-icon {
         color: #2563eb;
@@ -342,7 +440,7 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
       p {
         margin: 2px 0 0;
         font-size: 0.78rem;
-        color: #64748b;
+        color: #3b82f6;
       }
     }
 
@@ -370,15 +468,67 @@ import { MySubscriptionDto } from '../../core/services/tenant.service';
 export class SubscriptionRenewalDialogComponent {
   readonly dialogRef = inject(MatDialogRef<SubscriptionRenewalDialogComponent>);
 
-  selectedTier: 'Starter' | 'Growth' | 'Enterprise' = 'Growth';
+  selectedCycle: 'Annual' | 'Monthly' = 'Annual';
   submitted = false;
 
-  constructor(@Inject(MAT_DIALOG_DATA) public data: MySubscriptionDto | null) {}
+  subData: MySubscriptionDto | null = null;
+  pricingConfig: SubscriptionPricingConfig | null = null;
+
+  constructor(@Inject(MAT_DIALOG_DATA) public data: any) {
+    if (data && 'subData' in data) {
+      this.subData = data.subData;
+      this.pricingConfig = data.pricingConfig;
+      if (data.initialCycle) this.selectedCycle = data.initialCycle;
+    } else {
+      this.subData = data;
+    }
+  }
+
+  get annualPrice(): number {
+    return this.pricingConfig?.annualOneTimePrice ?? 10000;
+  }
+
+  get setupFee(): number {
+    return this.pricingConfig?.softwareSetupFee ?? 15000;
+  }
+
+  get monthlyRate(): number {
+    return this.pricingConfig?.monthlyRate ?? 1000;
+  }
+
+  get totalAnnualInitial(): number {
+    return this.annualPrice + this.setupFee;
+  }
+
+  get totalMonthlyInitial(): number {
+    return this.monthlyRate + this.setupFee;
+  }
+
+  get savings(): number {
+    const yearlyRate = (this.pricingConfig?.annualMonthlyTotal ?? 12000);
+    return Math.max(0, yearlyRate - this.annualPrice);
+  }
+
+  get maxStudents(): number {
+    return this.pricingConfig?.maxStudentsLimit ?? (this.subData?.maxStudentsLimit || 1000);
+  }
+
+  get maxBranches(): number {
+    return this.pricingConfig?.maxBranchesLimit ?? (this.subData?.maxBranchesLimit || 5);
+  }
+
+  get isExpired(): boolean {
+    return this.subData?.isSubscriptionExpired === true || this.subData?.subscriptionStatus === 'Expired';
+  }
 
   submitRenewal(): void {
     this.submitted = true;
     setTimeout(() => {
-      this.dialogRef.close({ renewedTier: this.selectedTier });
+      this.dialogRef.close({
+        renewedTier: 'Premium',
+        billingCycle: this.selectedCycle,
+        amount: this.selectedCycle === 'Annual' ? this.totalAnnualInitial : this.totalMonthlyInitial
+      });
     }, 1200);
   }
 }

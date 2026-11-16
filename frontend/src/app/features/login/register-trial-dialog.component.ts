@@ -1,7 +1,7 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy, signal, computed } from '@angular/core';
 
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { AuthService, RegisterTrialTenantDto } from '../../core/services/auth.service';
+import { TenantService, SubscriptionPricingConfig } from '../../core/services/tenant.service';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 
 @Component({
@@ -37,9 +38,9 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
             <mat-icon>rocket_launch</mat-icon>
           </div>
           <div>
-            <h3 class="title">Create Demo Institute / 14-Day Free Trial</h3>
+            <h3 class="title">Create Demo Institute / {{ trialMonths() }}-Month Trial Plan</h3>
             <p class="subtitle">
-              Instant SaaS Setup • <strong>Zero Credit Card Required</strong> • Pre-loaded Sample Data
+              Instant SaaS Setup • <strong>₹{{ trialFee() }} (₹{{ monthlyRate() }}/mo for {{ trialDays() }} Days)</strong> • Pre-loaded Sample Data
             </p>
           </div>
         </div>
@@ -55,11 +56,11 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
           <div class="trial-perks-banner">
             <div class="perk-item">
               <mat-icon>verified</mat-icon>
-              <span>14 Days Full Access</span>
+              <span>{{ trialDays() }} Days ({{ trialMonths() }} Months) Full Access</span>
             </div>
             <div class="perk-item">
-              <mat-icon>group</mat-icon>
-              <span>Up to 50 Students</span>
+              <mat-icon>currency_rupee</mat-icon>
+              <span>₹{{ trialFee() }} Total (₹{{ monthlyRate() }}/mo)</span>
             </div>
             <div class="perk-item">
               <mat-icon>flash_on</mat-icon>
@@ -493,8 +494,32 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
 export class RegisterTrialDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
+  private tenantService = inject(TenantService);
   private router = inject(Router);
   public dialogRef = inject(MatDialogRef<RegisterTrialDialogComponent>);
+  public data = inject(MAT_DIALOG_DATA, { optional: true });
+
+  readonly pricingConfig = signal<SubscriptionPricingConfig | null>(this.data?.pricingConfig ?? null);
+
+  readonly trialMonths = computed(() => {
+    const cfg = this.pricingConfig();
+    return cfg ? Math.max(1, Math.round(cfg.trialDurationDays / 30)) : 3;
+  });
+
+  readonly trialDays = computed(() => {
+    const cfg = this.pricingConfig();
+    return cfg?.trialDurationDays ?? 90;
+  });
+
+  readonly trialFee = computed(() => {
+    const cfg = this.pricingConfig();
+    return cfg ? Number(cfg.trialFee).toLocaleString('en-IN') : '3,000';
+  });
+
+  readonly monthlyRate = computed(() => {
+    const cfg = this.pricingConfig();
+    return cfg ? Number(cfg.monthlyRate).toLocaleString('en-IN') : '1,000';
+  });
 
   regForm!: FormGroup;
   submitting = false;
@@ -507,6 +532,13 @@ export class RegisterTrialDialogComponent implements OnInit {
   private codeSubject = new Subject<string>();
 
   ngOnInit(): void {
+    if (!this.pricingConfig()) {
+      this.tenantService.getSubscriptionPricingConfig().subscribe({
+        next: (cfg) => { if (cfg) this.pricingConfig.set(cfg); },
+        error: () => {}
+      });
+    }
+
     this.regForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       code: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(15)]],

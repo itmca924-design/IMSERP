@@ -3373,5 +3373,23 @@ public class FeePromiseToPay
     public FeeInvoice? Invoice { get; set; }
 }
 
+public class SubscriptionPlanConfig
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string PlanCode { get; set; } = "PREMIUM";
+    public string PlanName { get; set; } = "Premium Enterprise Edition";
+    public int TrialDurationDays { get; set; } = 90;
+    public decimal TrialFee { get; set; } = 3000.00m;
+    public decimal AnnualOneTimePrice { get; set; } = 10000.00m;
+    public decimal MonthlyRate { get; set; } = 1000.00m;
+    public decimal AnnualMonthlyTotal { get; set; } = 12000.00m;
+    public decimal SoftwareSetupFee { get; set; } = 15000.00m;
+    public int MaxStudentsLimit { get; set; } = 1000;
+    public int MaxBranchesLimit { get; set; } = 5;
+    public bool IsActive { get; set; } = true;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public string? UpdatedBy { get; set; } = "SYSTEM";
+}
+
 
 
