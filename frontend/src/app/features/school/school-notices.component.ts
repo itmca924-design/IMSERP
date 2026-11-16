@@ -1174,44 +1174,83 @@ export class SchoolNoticesComponent implements OnInit {
             <div class="batch-scope-toggle-deck">
               <div class="scope-deck-header">
                 <div class="scope-deck-left">
-                  <mat-icon class="deck-icon">tune</mat-icon>
-                  <span class="scope-deck-title">Batch Architecture / Scope (बैच का प्रकार):</span>
+                  <div class="deck-header-icon-box">
+                    <mat-icon class="deck-icon">tune</mat-icon>
+                  </div>
+                  <div class="deck-title-group">
+                    <span class="scope-deck-title">Batch Architecture & Scope</span>
+                    <span class="scope-deck-sub">Target single class, combined groups, or all batches</span>
+                  </div>
                 </div>
-                <span class="scope-deck-hint">Filter batches by single class or combined foundation groups</span>
+                <div class="scope-deck-tag">
+                  <span>Scope: <strong>{{ batchScope === 'single' ? 'Single Class (एकल)' : (batchScope === 'combined' ? 'Combined (संयुक्त)' : 'All Batches (सभी)') }}</strong></span>
+                </div>
               </div>
               <div class="scope-toggle-pills">
                 <button
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'single'"
-                  (click)="setBatchScope('single')" matButton="filled">
-                  <mat-icon>school</mat-icon>
-                  <div class="pill-texts">
-                    <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
-                    <span class="pill-sub">Specific Class (e.g. Class 5th Special)</span>
+                  (click)="setBatchScope('single')">
+                  <div class="pill-icon-box">
+                    <mat-icon>school</mat-icon>
                   </div>
+                  <div class="pill-texts">
+                    <div class="pill-title-row">
+                      <span class="pill-main">Single Class</span>
+                      <span class="pill-hi">(एकल कक्षा)</span>
+                    </div>
+                    <span class="pill-sub">Class-specific batch</span>
+                  </div>
+                  @if (batchScope === 'single') {
+                    <div class="pill-active-check">
+                      <mat-icon>check_circle</mat-icon>
+                    </div>
+                  }
                 </button>
+
                 <button
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'combined'"
-                  (click)="setBatchScope('combined')" matButton="filled">
-                  <mat-icon>layers</mat-icon>
-                  <div class="pill-texts">
-                    <span class="pill-main">Combined / Multi-Class (संयुक्त कक्षा)</span>
-                    <span class="pill-sub">Foundation (1st to 5th Combined)</span>
+                  (click)="setBatchScope('combined')">
+                  <div class="pill-icon-box">
+                    <mat-icon>layers</mat-icon>
                   </div>
+                  <div class="pill-texts">
+                    <div class="pill-title-row">
+                      <span class="pill-main">Combined</span>
+                      <span class="pill-hi">(संयुक्त बैच)</span>
+                    </div>
+                    <span class="pill-sub">Foundation multi-grade</span>
+                  </div>
+                  @if (batchScope === 'combined') {
+                    <div class="pill-active-check">
+                      <mat-icon>check_circle</mat-icon>
+                    </div>
+                  }
                 </button>
+
                 <button
                   type="button"
                   class="scope-pill-btn"
                   [class.active]="batchScope === 'all'"
-                  (click)="setBatchScope('all')" matButton="filled">
-                  <mat-icon>view_list</mat-icon>
-                  <div class="pill-texts">
-                    <span class="pill-main">All Batches (सभी बैच)</span>
-                    <span class="pill-sub">Consolidated View</span>
+                  (click)="setBatchScope('all')">
+                  <div class="pill-icon-box">
+                    <mat-icon>apps</mat-icon>
                   </div>
+                  <div class="pill-texts">
+                    <div class="pill-title-row">
+                      <span class="pill-main">All Batches</span>
+                      <span class="pill-hi">(सभी बैच)</span>
+                    </div>
+                    <span class="pill-sub">Consolidated roster</span>
+                  </div>
+                  @if (batchScope === 'all') {
+                    <div class="pill-active-check">
+                      <mat-icon>check_circle</mat-icon>
+                    </div>
+                  }
                 </button>
               </div>
               <!-- Selection Controls Row -->
@@ -1220,7 +1259,7 @@ export class SchoolNoticesComponent implements OnInit {
                 <div class="scope-selection-grid">
                   <mat-form-field appearance="outline" class="form-field">
                     <mat-label>Academic Class (कक्षा चुनें) *</mat-label>
-                    <mat-select [formControl]="filterCoachingClassCtrl" (selectionChange)="onCoachingClassChange()" panelClass="notice-batch-select-panel" [panelWidth]="null">
+                    <mat-select [formControl]="filterCoachingClassCtrl" (selectionChange)="onCoachingClassChange()" panelClass="notice-batch-select-panel">
                       @if (activeClasses.length === 0) {
                         <mat-option disabled>
                           No classes with coaching batches found
@@ -1238,7 +1277,7 @@ export class SchoolNoticesComponent implements OnInit {
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="form-field">
                     <mat-label>Select Coaching Batch *</mat-label>
-                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
+                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel">
                       @if (availableBatches.length === 0) {
                         <mat-option disabled>
                           {{ !filterCoachingClassCtrl.value ? 'Please choose class first' : 'No coaching batches found for selected class' }}
@@ -1277,7 +1316,7 @@ export class SchoolNoticesComponent implements OnInit {
                   </div>
                   <mat-form-field appearance="outline" class="full-field">
                     <mat-label>Select Combined Batch *</mat-label>
-                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
+                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel">
                       @if (availableBatches.length === 0) {
                         <mat-option disabled>
                           No combined batches found
@@ -1310,7 +1349,7 @@ export class SchoolNoticesComponent implements OnInit {
                 <div class="scope-selection-all">
                   <mat-form-field appearance="outline" class="full-field">
                     <mat-label>Select Any Coaching Batch *</mat-label>
-                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel" [panelWidth]="null">
+                    <mat-select formControlName="batchId" (selectionChange)="onBatchSelect()" panelClass="notice-batch-select-panel">
                       @if (availableBatches.length === 0) {
                         <mat-option disabled>
                           No coaching batches available
@@ -1522,17 +1561,18 @@ export class SchoolNoticesComponent implements OnInit {
       box-sizing: border-box;
     }
 
-    /* Batch Architecture Scope Deck */
+    /* Batch Architecture Scope Deck (Smart & Attractive Card Design) */
     .batch-scope-toggle-deck {
       background: #f8fafc;
-      border: 1.5px solid #cbd5e1;
-      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
       padding: 14px 16px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
       width: 100%;
       box-sizing: border-box;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
     }
 
     .scope-deck-header {
@@ -1545,71 +1585,179 @@ export class SchoolNoticesComponent implements OnInit {
     .scope-deck-left {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+    }
+    .deck-header-icon-box {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
     .deck-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
       color: #2563eb;
     }
     .scope-deck-title {
       font-size: 12px;
       font-weight: 800;
-      color: #334155;
+      color: #1e3a8a;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
+      display: block;
     }
-    .scope-deck-hint {
-      font-size: 11.5px;
+    .scope-deck-sub {
+      font-size: 11px;
       color: #64748b;
+      display: block;
+      margin-top: 1px;
+    }
+    .scope-deck-tag {
+      font-size: 11.5px;
+      color: #475569;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      padding: 3px 12px;
+      border-radius: 20px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      strong {
+        color: #2563eb;
+        font-weight: 700;
+      }
     }
 
     .scope-toggle-pills {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      gap: 12px;
       width: 100%;
       box-sizing: border-box;
     }
 
     .scope-pill-btn {
+      position: relative;
       width: 100%;
       box-sizing: border-box;
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 10px 14px;
+      padding: 12px 14px;
       background: #ffffff;
-      border: 1.5px solid #cbd5e1;
-      border-radius: 10px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
       cursor: pointer;
       text-align: left;
-      transition: all 0.15s ease-in-out;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       min-width: 0;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+
+      &:hover:not(.active) {
+        border-color: #93c5fd;
+        background: #f8fafc;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 14px -3px rgba(15, 23, 42, 0.08);
+
+        .pill-icon-box {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          mat-icon {
+            color: #2563eb;
+          }
+        }
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 2px solid #2563eb;
+        box-shadow: 0 6px 16px -2px rgba(37, 99, 235, 0.2), 0 2px 4px rgba(37, 99, 235, 0.1);
+        transform: translateY(-1px);
+
+        .pill-icon-box {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          border-color: #1d4ed8;
+          box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+
+          mat-icon {
+            color: #ffffff;
+          }
+        }
+
+        .pill-main {
+          color: #1e3a8a;
+          font-weight: 800;
+        }
+
+        .pill-lang-badge {
+          background: #dbeafe;
+          color: #1e40af;
+          border-color: #bfdbfe;
+        }
+
+        .pill-sub {
+          color: #2563eb;
+          font-weight: 600;
+        }
+      }
     }
-    .scope-pill-btn:hover {
-      border-color: #3b82f6;
-      background: #eff6ff;
-    }
-    .scope-pill-btn.active {
-      background: #eff6ff;
-      border-color: #2563eb;
-      box-shadow: 0 0 0 1px #2563eb;
-    }
-    .scope-pill-btn mat-icon {
-      color: #2563eb;
-      font-size: 22px;
-      width: 22px;
-      height: 22px;
+
+    .pill-icon-box {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
+      transition: all 0.2s ease;
+
+      mat-icon {
+        color: #64748b;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        transition: color 0.2s ease;
+      }
     }
+
     .pill-texts {
       display: flex;
       flex-direction: column;
+      gap: 2px;
       min-width: 0;
+      flex: 1 1 auto;
       overflow: hidden;
     }
+
+    .deck-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .pill-title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .pill-hi {
+      font-size: 11px;
+      font-weight: 500;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
     .pill-main {
       font-size: 13px;
       font-weight: 700;
@@ -1617,18 +1765,45 @@ export class SchoolNoticesComponent implements OnInit {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      letter-spacing: -0.1px;
     }
+
+    .pill-lang-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 5px;
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
     .pill-sub {
       font-size: 11px;
       color: #64748b;
-      margin-top: 2px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .scope-selection-grid,
-    .scope-selection-combined {
+    .pill-active-check {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-left: auto;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+      }
+    }
+
+    .scope-selection-grid {
       display: grid;
       grid-template-columns: 1fr 1.6fr;
       gap: 14px;
@@ -1637,7 +1812,11 @@ export class SchoolNoticesComponent implements OnInit {
       align-items: start;
     }
     .scope-selection-combined {
-      align-items: center;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      box-sizing: border-box;
     }
     .scope-selection-all {
       display: grid;
@@ -1662,13 +1841,29 @@ export class SchoolNoticesComponent implements OnInit {
     }
     .combined-info-pill mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; flex-shrink: 0; }
 
+    ::ng-deep .notice-batch-select-panel {
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+
+      .mat-mdc-option {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        .mdc-list-item__primary-text {
+          width: 100% !important;
+          min-width: 0 !important;
+          display: block !important;
+        }
+      }
+    }
+
     .batch-opt-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 14px;
+      gap: 10px;
       width: 100%;
-      min-width: 520px;
+      min-width: 0;
+      max-width: 100%;
       box-sizing: border-box;
     }
     .b-opt-name {

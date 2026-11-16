@@ -1116,6 +1116,43 @@ mat-icon.wa-mat-icon {
   max-width: min(540px, 94vw) !important;
 }
 
+
+// Notice Form Coaching Batch Dropdown Panel (Strict boundary, no modal overflow)
+.cdk-overlay-pane.notice-batch-select-panel:not(.mat-mdc-dialog-panel),
+.cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(.notice-batch-select-panel) {
+  min-width: 280px !important;
+  width: auto !important;
+  max-width: min(500px, calc(100vw - 32px)) !important;
+  box-sizing: border-box !important;
+}
+
+.notice-batch-select-panel.mat-mdc-select-panel {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 10px !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 16px 32px -4px rgba(15, 23, 42, 0.18) !important;
+  background: #ffffff !important;
+  padding: 4px 0 !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+
+  .mat-mdc-option {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    padding: 8px 12px !important;
+
+    .mdc-list-item__primary-text {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      display: block !important;
+      overflow: hidden !important;
+    }
+  }
+}
 .cdk-overlay-pane.batch-select-panel:not(.mat-mdc-dialog-panel),
 .cdk-overlay-pane:not(.mat-mdc-dialog-panel):has(.batch-select-panel) {
   min-width: 380px !important;
@@ -1788,9 +1825,7 @@ mat-icon.wa-mat-icon {
   }
 }
 
-// Notice Form Coaching Batch Dropdown Panel (Full width, no clipping)
-.cdk-overlay-pane.notice-batch-select-panel,
-.cdk-overlay-pane:has(.notice-batch-select-panel),
+// Invoice Dialog Select Panel (Full width, no clipping)
 .cdk-overlay-pane.invoice-dialog-select-panel,
 .cdk-overlay-pane:has(.invoice-dialog-select-panel) {
   min-width: min(720px, calc(100vw - 48px)) !important;
@@ -1798,7 +1833,6 @@ mat-icon.wa-mat-icon {
   max-width: min(780px, calc(100vw - 32px)) !important;
 }
 
-.mat-mdc-select-panel.notice-batch-select-panel,
 .mat-mdc-select-panel.invoice-dialog-select-panel {
   min-width: 100% !important;
   width: 100% !important;
