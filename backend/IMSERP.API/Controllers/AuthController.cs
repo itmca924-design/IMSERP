@@ -118,16 +118,6 @@ public class AuthController : ControllerBase
             user.PasswordHash = _passwordHasher.HashPassword(request.Password);
         }
 
-        // Fetch active branches of this tenant
-        var branches = await _dbContext.Branches
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(b => b.TenantId == tenant.Id && b.IsActive)
-            .OrderByDescending(b => b.IsMainBranch)
-            .ThenBy(b => b.Name)
-            .Select(b => new BranchDto(b.Id, b.TenantId, b.Name, b.Code, b.Address, b.ContactPhone, b.IsMainBranch, b.IsActive, b.CreatedAt, 0, 0, 0))
-            .ToListAsync();
-
         var effectiveRole = ResolveEffectiveRole(user);
         if (user.Role == 0 &&
             Enum.TryParse<UserRole>(effectiveRole, out var pr) &&
@@ -136,9 +126,46 @@ public class AuthController : ControllerBase
             user.Role = pr;
         }
 
-        if (user.Role != UserRole.SuperAdmin && user.Role != UserRole.InstituteAdmin)
+        var isSuperAdmin = string.Equals(effectiveRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase) || user.Role == UserRole.SuperAdmin;
+
+        List<BranchDto> branches;
+        if (isSuperAdmin)
         {
-            if (user.BranchId.HasValue)
+            var allBranches = await _dbContext.Branches
+                .IgnoreQueryFilters()
+                .Include(b => b.Tenant)
+                .AsNoTracking()
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Tenant != null ? b.Tenant.Name : "")
+                .ThenByDescending(b => b.IsMainBranch)
+                .ThenBy(b => b.Name)
+                .ToListAsync();
+
+            branches = allBranches.Select(b => new BranchDto(
+                b.Id,
+                b.TenantId,
+                b.Tenant != null && !string.IsNullOrWhiteSpace(b.Tenant.Name) ? $"{b.Name} [{b.Tenant.Name}]" : b.Name,
+                b.Code,
+                b.Address,
+                b.ContactPhone,
+                b.IsMainBranch,
+                b.IsActive,
+                b.CreatedAt,
+                0, 0, 0
+            )).ToList();
+        }
+        else
+        {
+            branches = await _dbContext.Branches
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(b => b.TenantId == tenant.Id && b.IsActive)
+                .OrderByDescending(b => b.IsMainBranch)
+                .ThenBy(b => b.Name)
+                .Select(b => new BranchDto(b.Id, b.TenantId, b.Name, b.Code, b.Address, b.ContactPhone, b.IsMainBranch, b.IsActive, b.CreatedAt, 0, 0, 0))
+                .ToListAsync();
+
+            if (user.Role != UserRole.InstituteAdmin && user.BranchId.HasValue)
             {
                 branches = branches.Where(b => b.Id == user.BranchId.Value).ToList();
             }
@@ -265,15 +292,6 @@ public class AuthController : ControllerBase
 
         var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == user.TenantId);
 
-        var branches = await _dbContext.Branches
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(b => b.TenantId == user.TenantId && b.IsActive)
-            .OrderByDescending(b => b.IsMainBranch)
-            .ThenBy(b => b.Name)
-            .Select(b => new BranchDto(b.Id, b.TenantId, b.Name, b.Code, b.Address, b.ContactPhone, b.IsMainBranch, b.IsActive, b.CreatedAt, 0, 0, 0))
-            .ToListAsync();
-
         var effectiveRole = ResolveEffectiveRole(user);
         if (user.Role == 0 &&
             Enum.TryParse<UserRole>(effectiveRole, out var prRefresh) &&
@@ -282,9 +300,46 @@ public class AuthController : ControllerBase
             user.Role = prRefresh;
         }
 
-        if (user.Role != UserRole.SuperAdmin && user.Role != UserRole.InstituteAdmin)
+        var isSuperAdminRefresh = string.Equals(effectiveRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase) || user.Role == UserRole.SuperAdmin;
+
+        List<BranchDto> branches;
+        if (isSuperAdminRefresh)
         {
-            if (user.BranchId.HasValue)
+            var allBranches = await _dbContext.Branches
+                .IgnoreQueryFilters()
+                .Include(b => b.Tenant)
+                .AsNoTracking()
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Tenant != null ? b.Tenant.Name : "")
+                .ThenByDescending(b => b.IsMainBranch)
+                .ThenBy(b => b.Name)
+                .ToListAsync();
+
+            branches = allBranches.Select(b => new BranchDto(
+                b.Id,
+                b.TenantId,
+                b.Tenant != null && !string.IsNullOrWhiteSpace(b.Tenant.Name) ? $"{b.Name} [{b.Tenant.Name}]" : b.Name,
+                b.Code,
+                b.Address,
+                b.ContactPhone,
+                b.IsMainBranch,
+                b.IsActive,
+                b.CreatedAt,
+                0, 0, 0
+            )).ToList();
+        }
+        else
+        {
+            branches = await _dbContext.Branches
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(b => b.TenantId == user.TenantId && b.IsActive)
+                .OrderByDescending(b => b.IsMainBranch)
+                .ThenBy(b => b.Name)
+                .Select(b => new BranchDto(b.Id, b.TenantId, b.Name, b.Code, b.Address, b.ContactPhone, b.IsMainBranch, b.IsActive, b.CreatedAt, 0, 0, 0))
+                .ToListAsync();
+
+            if (user.Role != UserRole.InstituteAdmin && user.BranchId.HasValue)
             {
                 branches = branches.Where(b => b.Id == user.BranchId.Value).ToList();
             }

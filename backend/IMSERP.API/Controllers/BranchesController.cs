@@ -24,11 +24,29 @@ public class BranchesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<BranchDto>>> GetAllBranches()
     {
-        var branches = await _dbContext.Branches
-            .AsNoTracking()
-            .OrderByDescending(b => b.IsMainBranch)
-            .ThenBy(b => b.Name)
-            .ToListAsync();
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        List<Branch> branches;
+        if (isSuperAdmin)
+        {
+            branches = await _dbContext.Branches
+                .IgnoreQueryFilters()
+                .Include(b => b.Tenant)
+                .AsNoTracking()
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Tenant != null ? b.Tenant.Name : "")
+                .ThenByDescending(b => b.IsMainBranch)
+                .ThenBy(b => b.Name)
+                .ToListAsync();
+        }
+        else
+        {
+            branches = await _dbContext.Branches
+                .AsNoTracking()
+                .OrderByDescending(b => b.IsMainBranch)
+                .ThenBy(b => b.Name)
+                .ToListAsync();
+        }
 
         var result = new List<BranchDto>();
         foreach (var b in branches)
@@ -37,10 +55,14 @@ public class BranchesController : ControllerBase
             var batchCount = await _dbContext.Batches.IgnoreQueryFilters().CountAsync(bat => bat.TenantId == b.TenantId && bat.BranchId == b.Id);
             var roomCount = await _dbContext.Rooms.IgnoreQueryFilters().CountAsync(r => r.TenantId == b.TenantId && r.BranchId == b.Id);
 
+            var displayName = isSuperAdmin && b.Tenant != null && !string.IsNullOrWhiteSpace(b.Tenant.Name)
+                ? $"{b.Name} [{b.Tenant.Name}]"
+                : b.Name;
+
             result.Add(new BranchDto(
                 b.Id,
                 b.TenantId,
-                b.Name,
+                displayName,
                 b.Code,
                 b.Address,
                 b.ContactPhone,
@@ -63,9 +85,15 @@ public class BranchesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<BranchDto>> GetBranchById(Guid id)
     {
-        var b = await _dbContext.Branches
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == id);
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        IQueryable<Branch> query = _dbContext.Branches.AsNoTracking();
+        if (isSuperAdmin)
+        {
+            query = _dbContext.Branches.IgnoreQueryFilters().Include(b => b.Tenant).AsNoTracking();
+        }
+
+        var b = await query.FirstOrDefaultAsync(x => x.Id == id);
 
         if (b == null) return NotFound(new { message = "Branch not found." });
 
@@ -73,10 +101,14 @@ public class BranchesController : ControllerBase
         var batchCount = await _dbContext.Batches.IgnoreQueryFilters().CountAsync(bat => bat.TenantId == b.TenantId && bat.BranchId == b.Id);
         var roomCount = await _dbContext.Rooms.IgnoreQueryFilters().CountAsync(r => r.TenantId == b.TenantId && r.BranchId == b.Id);
 
+        var displayName = isSuperAdmin && b.Tenant != null && !string.IsNullOrWhiteSpace(b.Tenant.Name)
+            ? $"{b.Name} [{b.Tenant.Name}]"
+            : b.Name;
+
         return Ok(new BranchDto(
             b.Id,
             b.TenantId,
-            b.Name,
+            displayName,
             b.Code,
             b.Address,
             b.ContactPhone,

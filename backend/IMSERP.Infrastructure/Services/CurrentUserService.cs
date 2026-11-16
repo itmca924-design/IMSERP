@@ -22,6 +22,18 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
+            var roleClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value;
+            var isSuperAdmin = string.Equals(roleClaim, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+            if (isSuperAdmin)
+            {
+                var tenantHeader = _httpContextAccessor.HttpContext?.Request?.Headers["X-Tenant-Id"].ToString();
+                if (!string.IsNullOrWhiteSpace(tenantHeader) && Guid.TryParse(tenantHeader, out var headerTenantId))
+                {
+                    return headerTenantId;
+                }
+            }
+
             var tenantClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("TenantId")?.Value;
             if (Guid.TryParse(tenantClaim, out var tenantId))
             {

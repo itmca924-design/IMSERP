@@ -87,6 +87,7 @@ export class AuthService {
   
   currentUser = signal<LoginResponse | null>(this.getUserFromStorage());
   selectedBranchId = signal<string | null>(this.getStoredBranchId());
+  selectedTenantId = signal<string | null>(this.getStoredTenantId());
 
   readonly isSubscriptionExpired = computed(() => {
     const user = this.currentUser();
@@ -150,7 +151,8 @@ export class AuthService {
       } else if (uname === 'superadmin') {
         role = 'SuperAdmin';
       } else if (uname === 'admin') {
-        role = 'InstituteAdmin';
+        const tcode = (user?.tenantCode || sessionStorage.getItem('tenantCode') || localStorage.getItem('tenantCode') || '').toUpperCase().trim();
+        role = (tcode === 'SYSTEM' || !tcode) ? 'SuperAdmin' : 'InstituteAdmin';
       }
     }
     return role.toLowerCase().trim();
@@ -265,6 +267,10 @@ export class AuthService {
 
   private getStoredBranchId(): string | null {
     return sessionStorage.getItem('selected_branch_id') || localStorage.getItem('selected_branch_id');
+  }
+
+  private getStoredTenantId(): string | null {
+    return sessionStorage.getItem('selected_tenant_id') || localStorage.getItem('selected_tenant_id');
   }
 
   /**
@@ -622,15 +628,27 @@ export class AuthService {
     this.currentUser.set(updated);
   }
 
-  switchBranch(branchId: string | null): void {
+  switchBranch(branchId: string | null, tenantId?: string | null): void {
+    if (branchId && !tenantId) {
+      const b = this.currentUser()?.branches?.find(x => x.id === branchId);
+      if (b?.tenantId) {
+        tenantId = b.tenantId;
+      }
+    }
     for (const storage of [sessionStorage, localStorage]) {
       if (branchId) {
         storage.setItem('selected_branch_id', branchId);
       } else {
         storage.removeItem('selected_branch_id');
       }
+      if (tenantId) {
+        storage.setItem('selected_tenant_id', tenantId);
+      } else {
+        storage.removeItem('selected_tenant_id');
+      }
     }
     this.selectedBranchId.set(branchId);
+    this.selectedTenantId.set(tenantId || null);
   }
 
   getCurrentBranchName(): string {
@@ -705,6 +723,11 @@ export class AuthService {
     localStorage.removeItem('imserp_last_activity');
 
     this.selectedBranchId.set(null);
+    this.selectedTenantId.set(null);
+    for (const storage of [sessionStorage, localStorage]) {
+      storage.removeItem('selected_branch_id');
+      storage.removeItem('selected_tenant_id');
+    }
     this.currentUser.set(null);
 
     if (reason) {

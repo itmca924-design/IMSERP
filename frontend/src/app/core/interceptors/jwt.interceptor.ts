@@ -13,6 +13,7 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const presenceService = inject(PresenceService);
   const token = authService.getToken();
   const branchId = authService.selectedBranchId();
+  const tenantId = authService.selectedTenantId();
 
   const headers: Record<string, string> = {};
   if (token) {
@@ -20,6 +21,9 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   }
   if (branchId) {
     headers['X-Branch-Id'] = branchId;
+  }
+  if (tenantId) {
+    headers['X-Tenant-Id'] = tenantId;
   }
 
   let authReq = req.clone({ setHeaders: headers });

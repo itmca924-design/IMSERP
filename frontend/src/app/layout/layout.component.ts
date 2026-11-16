@@ -561,7 +561,7 @@ export interface BreadcrumbItem {
           <span class="spacer"></span>
     
           <!-- Branch Switcher Dropdown Button (Only for Admins) -->
-          @if (branches.length > 0 && canSwitchBranches) {
+          @if ((branches.length > 0 || isSuperAdmin) && canSwitchBranches) {
             <button [matMenuTriggerFor]="branchMenu" class="branch-selector-button" [matTooltip]="'Branch: ' + getCurrentBranchLabel()" matButton="filled">
               <span class="branch-btn-content">
                 <mat-icon class="branch-btn-icon">storefront</mat-icon>
@@ -586,14 +586,14 @@ export interface BreadcrumbItem {
             <div class="menu-section-title">Active Branch Scope</div>
             <button mat-menu-item (click)="onSelectBranch(null)" [class.active-branch-item]="!selectedBranchId()">
               <mat-icon [color]="!selectedBranchId() ? 'primary' : ''">corporate_fare</mat-icon>
-              <span>All Branches / Head Office</span>
+              <span>{{ isSuperAdmin ? 'All Campuses Consolidated (Global Platform Scope)' : 'All Branches / Head Office' }}</span>
               @if (!selectedBranchId()) {
                 <mat-icon class="branch-check-icon">check</mat-icon>
               }
             </button>
             <mat-divider></mat-divider>
             @for (b of branches; track b.id) {
-              <button mat-menu-item (click)="onSelectBranch(b.id)" [class.active-branch-item]="selectedBranchId() === b.id">
+              <button mat-menu-item (click)="onSelectBranch(b)" [class.active-branch-item]="selectedBranchId() === b.id">
                 <mat-icon [color]="selectedBranchId() === b.id ? 'primary' : ''">store</mat-icon>
                 <span>{{ b.name }} ({{ b.code }})</span>
                 @if (selectedBranchId() === b.id) {
@@ -3568,9 +3568,13 @@ export class LayoutComponent implements OnInit {
   selectedBranchId = this.authService.selectedBranchId;
   activeBranches = signal<BranchInfo[]>(this.currentUser()?.branches || []);
 
+  get isSuperAdmin(): boolean {
+    return this.authService.isSuperAdmin();
+  }
+
   get canSwitchBranches(): boolean {
-    const role = this.currentUser()?.role;
-    return role === 'SuperAdmin' || role === 'InstituteAdmin';
+    const role = (this.currentUser()?.role || '').toLowerCase();
+    return role === 'superadmin' || role === 'instituteadmin' || this.authService.isSuperAdmin() || this.authService.isAdmin();
   }
 
   toggleLanguage(): void {
@@ -3589,6 +3593,9 @@ export class LayoutComponent implements OnInit {
       const b = this.branches.find(x => x.id === selectedId);
       if (b) return `${b.name} (${b.code})`;
     }
+    if (this.isSuperAdmin) {
+      return 'All Campuses Consolidated (Global Platform Scope)';
+    }
     return this.currentUser()?.branchName || 'All Branches / Head Office';
   }
 
@@ -3598,11 +3605,21 @@ export class LayoutComponent implements OnInit {
       const b = this.branches.find(x => x.id === selectedId);
       if (b) return b.code || b.name.substring(0, 4).toUpperCase();
     }
+    if (this.isSuperAdmin) {
+      return 'GLOBAL';
+    }
     return this.currentUser()?.branchName ? 'MAIN' : 'ALL';
   }
 
-  onSelectBranch(branchId: string | null): void {
-    this.authService.switchBranch(branchId);
+  onSelectBranch(branch: BranchInfo | string | null): void {
+    if (!branch) {
+      this.authService.switchBranch(null, null);
+    } else if (typeof branch === 'string') {
+      const b = this.branches.find(x => x.id === branch);
+      this.authService.switchBranch(branch, b?.tenantId || null);
+    } else {
+      this.authService.switchBranch(branch.id, branch.tenantId || null);
+    }
     window.location.reload();
   }
   calendarMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -4116,7 +4133,7 @@ export class LayoutComponent implements OnInit {
     const isSuperAdmin = this.authService.isSuperAdmin();
     const isAdmin = this.authService.isAdmin();
     const isAccountant = this.authService.isAccountant();
-    const canAccessFinance = isAdmin || isAccountant;
+    const canAccessFinance = isSuperAdmin || isAdmin || isAccountant;
     const hasSchool = this.authService.hasSchoolModule();
     const hasCoaching = this.authService.hasCoachingModule();
     const hasHostel = this.authService.hasHostelModule();
@@ -4129,11 +4146,6 @@ export class LayoutComponent implements OnInit {
 
       // Quick Settings tabs are drawer permission items, NEVER sidebar navigation items
       if (lower.startsWith('/settings/quick')) {
-        return false;
-      }
-
-      // Only SuperAdmin can see Subscription & Plan in sidebar menu
-      if (!isSuperAdmin && lower === '/subscription') {
         return false;
       }
 
