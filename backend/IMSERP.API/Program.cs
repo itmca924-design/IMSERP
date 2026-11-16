@@ -3265,7 +3265,8 @@ app.Use(async (context, next) =>
             }
 
             var role = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            var isBranchAdministrator = string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+            var isSuperAdmin = string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+            var isBranchAdministrator = isSuperAdmin ||
                                         string.Equals(role, "InstituteAdmin", StringComparison.OrdinalIgnoreCase);
             if (!isBranchAdministrator &&
                 (!Guid.TryParse(context.User.FindFirst("BranchId")?.Value, out var assignedBranchId) ||
@@ -3278,7 +3279,7 @@ app.Use(async (context, next) =>
             var dbContext = context.RequestServices.GetRequiredService<IMSERPDbContext>();
             var branchBelongsToTenant = await dbContext.Branches
                 .IgnoreQueryFilters()
-                .AnyAsync(branch => branch.Id == branchId && branch.TenantId == tenantId);
+                .AnyAsync(branch => branch.Id == branchId && (branch.TenantId == tenantId || isSuperAdmin));
             if (!branchBelongsToTenant)
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;

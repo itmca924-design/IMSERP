@@ -586,7 +586,7 @@ export interface BreadcrumbItem {
             <div class="menu-section-title">Active Branch Scope</div>
             <button mat-menu-item (click)="onSelectBranch(null)" [class.active-branch-item]="!selectedBranchId()">
               <mat-icon [color]="!selectedBranchId() ? 'primary' : ''">corporate_fare</mat-icon>
-              <span>{{ isSuperAdmin ? 'All Campuses Consolidated (Global Platform Scope)' : 'All Branches / Head Office' }}</span>
+              <span class="branch-item-text">{{ isSuperAdmin ? 'All Campuses Consolidated (Global Platform Scope)' : 'All Branches / Head Office' }}</span>
               @if (!selectedBranchId()) {
                 <mat-icon class="branch-check-icon">check</mat-icon>
               }
@@ -595,7 +595,7 @@ export interface BreadcrumbItem {
             @for (b of branches; track b.id) {
               <button mat-menu-item (click)="onSelectBranch(b)" [class.active-branch-item]="selectedBranchId() === b.id">
                 <mat-icon [color]="selectedBranchId() === b.id ? 'primary' : ''">store</mat-icon>
-                <span>{{ b.name }} ({{ b.code }})</span>
+                <span class="branch-item-text">{{ b.name }} ({{ b.code }})</span>
                 @if (selectedBranchId() === b.id) {
                   <mat-icon class="branch-check-icon">check</mat-icon>
                 }
@@ -2541,14 +2541,56 @@ export interface BreadcrumbItem {
     }
 
     ::ng-deep .branch-dropdown-panel {
-      min-width: 300px !important;
-      max-width: 400px !important;
-      border-radius: 10px !important;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+      min-width: 320px !important;
+      max-width: 460px !important;
+      max-height: 480px !important;
+      overflow-y: auto !important;
+      border-radius: 12px !important;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16) !important;
+      padding: 6px 0 !important;
+
+      .menu-section-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        padding: 8px 16px 6px;
+      }
 
       .mat-mdc-menu-item {
-        font-size: 0.85rem !important;
-        height: 44px !important;
+        font-size: 0.84rem !important;
+        min-height: 48px !important;
+        height: auto !important;
+        padding: 8px 16px !important;
+        line-height: 1.4 !important;
+        white-space: normal !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+
+        .mdc-list-item__primary-text {
+          white-space: normal !important;
+          word-break: break-word !important;
+          line-height: 1.4 !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          width: 100% !important;
+        }
+
+        .branch-item-text {
+          flex: 1 1 auto;
+          white-space: normal;
+          line-height: 1.35;
+          word-break: break-word;
+          overflow-wrap: anywhere;
+        }
+
+        mat-icon {
+          flex-shrink: 0 !important;
+          margin-right: 0 !important;
+        }
       }
     }
 
@@ -2558,6 +2600,7 @@ export interface BreadcrumbItem {
       height: 18px;
       color: #2563eb;
       margin-left: auto;
+      flex-shrink: 0;
     }
     .active-branch-item {
       background-color: #eff6ff !important;

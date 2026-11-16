@@ -36,11 +36,11 @@ public sealed class MenuPermissionService : IMenuPermissionService
         CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(candidate => candidate.Id == _currentUser.UserId &&
-                                candidate.TenantId == _currentUser.TenantId &&
                                 candidate.IsActive)
-            .Select(candidate => new { candidate.Role, candidate.RoleId })
+            .Select(candidate => new { candidate.Role, candidate.RoleId, candidate.TenantId })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (user == null)
@@ -111,12 +111,12 @@ public sealed class MenuPermissionService : IMenuPermissionService
     public async Task<bool> IsPlatformAdministratorAsync(CancellationToken cancellationToken = default)
     {
         return await _dbContext.Users
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .AnyAsync(user =>
                 user.Id == _currentUser.UserId &&
-                user.TenantId == _currentUser.TenantId &&
                 user.IsActive &&
-                (user.Role == UserRole.SuperAdmin || user.Role == UserRole.InstituteAdmin),
+                (user.Role == UserRole.SuperAdmin || (user.Role == UserRole.InstituteAdmin && user.TenantId == _currentUser.TenantId)),
                 cancellationToken);
     }
 }
