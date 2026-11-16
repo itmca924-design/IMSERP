@@ -31,6 +31,7 @@ public class MenuController : ControllerBase
 
         // 1. Lightweight projection: fetch only RoleId & RoleName (index seek on Users PK)
         var userRoleInfo = await _dbContext.Users
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(u => u.Id == userId)
             .Select(u => new 
@@ -43,6 +44,7 @@ public class MenuController : ControllerBase
 
         // 2. Lightweight projection: fetch only module flags
         var tenantModules = await _dbContext.Tenants
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(t => t.Id == tenantId)
             .Select(t => new 
@@ -121,6 +123,7 @@ public class MenuController : ControllerBase
         {
             // 4. Index-backed seek on RolePermissions (IX_RolePermissions_RoleId_CanView)
             var permissions = await _dbContext.RolePermissions
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Where(rp => rp.RoleId == userRoleInfo.RoleId.Value && rp.CanView)
                 .Select(rp => rp.MenuItemId)
@@ -615,7 +618,7 @@ public class MenuController : ControllerBase
 
     private IQueryable<MenuItem> GetVisibleMenuItems(bool isSuperAdmin)
     {
-        var query = _dbContext.MenuItems.AsNoTracking();
+        var query = _dbContext.MenuItems.IgnoreQueryFilters().AsNoTracking();
         if (isSuperAdmin)
         {
             return query;
@@ -689,7 +692,9 @@ public class MenuController : ControllerBase
     }
 
     private async Task<Guid?> GetCurrentRoleIdAsync() =>
-        await _dbContext.Users.AsNoTracking()
+        await _dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(user => user.Id == _currentUser.UserId)
             .Select(user => user.RoleId)
             .FirstOrDefaultAsync();
@@ -703,7 +708,9 @@ public class MenuController : ControllerBase
         }
 
         var ids = menuIds.ToArray();
-        return await _dbContext.RolePermissions.AsNoTracking()
+        return await _dbContext.RolePermissions
+            .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(entry => entry.RoleId == roleId.Value && ids.Contains(entry.MenuItemId))
             .ToDictionaryAsync(entry => entry.MenuItemId, entry => new MenuPermissionSnapshot(
                 entry.CanView, entry.CanCreate, entry.CanEdit, entry.CanDelete));
@@ -711,7 +718,9 @@ public class MenuController : ControllerBase
 
     private async Task<bool> IsSuperAdminAsync()
     {
-        var role = await _dbContext.Users.AsNoTracking()
+        var role = await _dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(user => user.Id == _currentUser.UserId)
             .Select(user => user.Role)
             .FirstOrDefaultAsync();

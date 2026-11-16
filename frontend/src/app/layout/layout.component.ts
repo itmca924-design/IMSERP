@@ -4800,8 +4800,32 @@ export class LayoutComponent implements OnInit {
           { id: '63', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 3, module: 'Admin', isActive: true, children: [] },
           { id: '64', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] },
           { id: '65', title: 'Subscription & Plan', routeUrl: '/subscription', icon: 'workspace_premium', sortOrder: 5, module: 'Admin', isActive: true, children: [] },
-          { id: '66', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 6, module: 'Admin', isActive: true, children: [] }
+          { id: '66', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 6, module: 'Admin', isActive: true, children: [] },
+          { id: '67', title: 'Menu Management', routeUrl: '/admin/menu-management', icon: 'menu_open', sortOrder: 7, module: 'Admin', isActive: true, children: [] }
         ]
+      },
+      {
+        id: '7_fd', title: 'Front Desk', routeUrl: '', icon: 'desk', sortOrder: 7, module: 'FrontDesk', isActive: true,
+        children: [
+          { id: '57', title: 'Visitors & Reception', routeUrl: '/front-desk/visitors', icon: 'transfer_within_a_station', sortOrder: 1, module: 'FrontDesk', isActive: true, children: [] },
+          { id: '241_fd', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 2, module: 'FrontDesk', isActive: true, children: [] },
+          { id: '571', title: 'Infirmary & Sick Bay', routeUrl: '/front-desk/infirmary', icon: 'local_hospital', sortOrder: 3, module: 'FrontDesk', isActive: true, children: [] },
+          { id: '572', title: 'PTM Scheduler', routeUrl: '/front-desk/ptm', icon: 'calendar_month', sortOrder: 4, module: 'FrontDesk', isActive: true, children: [] },
+          { id: '573', title: 'Grievance Helpdesk', routeUrl: '/front-desk/grievances', icon: 'support_agent', sortOrder: 5, module: 'FrontDesk', isActive: true, children: [] }
+        ]
+      },
+      {
+        id: '8_inv', title: 'Stock & Inventory', routeUrl: '', icon: 'inventory_2', sortOrder: 8, module: 'Inventory', isActive: true,
+        children: [
+          { id: '81_inv', title: 'Stock & Items Master', routeUrl: '/inventory', icon: 'category', sortOrder: 1, module: 'Inventory', isActive: true, children: [] },
+          { id: '82_inv', title: 'Purchase & Stock Inward', routeUrl: '/inventory/purchase', icon: 'shopping_cart', sortOrder: 2, module: 'Inventory', isActive: true, children: [] },
+          { id: '83_inv', title: 'Student Kit & Uniform Billing', routeUrl: '/inventory/bill', icon: 'point_of_sale', sortOrder: 3, module: 'Inventory', isActive: true, children: [] },
+          { id: '84_inv', title: 'Sales & Inventory Reports', routeUrl: '/inventory/reports', icon: 'summarize', sortOrder: 4, module: 'Inventory', isActive: true, children: [] }
+        ]
+      },
+      {
+        id: '9_chat', title: 'Campus Chat', routeUrl: '/chat', icon: 'chat', sortOrder: 9, module: 'Chat', isActive: true,
+        children: []
       }
     ];
     this.menuTree.set(this.filterMenuByModules(rawItems));
