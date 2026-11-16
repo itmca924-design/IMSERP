@@ -308,18 +308,15 @@ import { environment } from '../../../environments/environment';
                 }
               </div>
               <div class="card-actions" [class.two-col]="!isSuperAdmin">
-                <button color="primary" class="card-action-btn edit-btn" (click)="openEditModal(t)" [matTooltip]="isSuperAdmin ? 'Configure Institute Settings' : 'Edit Institute Profile'" matButton="filled">
+                <button class="card-action-btn edit-btn" (click)="openEditModal(t)" [matTooltip]="isSuperAdmin ? 'Configure Institute Settings' : 'Edit Institute Profile'" matTooltipPosition="above" [attr.aria-label]="isSuperAdmin ? 'Configure Institute' : 'Edit Profile'" matButton="filled">
                   <mat-icon>tune</mat-icon>
-                  <span>{{ isSuperAdmin ? 'Configure' : 'Edit Profile' }}</span>
                 </button>
-                <button class="card-action-btn upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Dynamic UPI QR &amp; Gateway" matButton="filled">
+                <button class="card-action-btn upi-action-btn" (click)="openUpiModal(t)" matTooltip="Configure Dynamic UPI QR &amp; Gateway" matTooltipPosition="above" aria-label="Configure Dynamic UPI QR &amp; Gateway" matButton="filled">
                   <mat-icon class="upi-btn-icon">qr_code_2</mat-icon>
-                  <span>UPI Gateway</span>
                 </button>
                 @if (isSuperAdmin) {
-                  <button class="card-action-btn status-btn" [class.deactivate-btn]="t.isActive" [class.activate-btn]="!t.isActive" (click)="toggleStatus(t)" [matTooltip]="t.isActive ? 'Deactivate Institute Access' : 'Activate Institute Access'" matButton="filled">
+                  <button class="card-action-btn status-btn" [class.deactivate-btn]="t.isActive" [class.activate-btn]="!t.isActive" (click)="toggleStatus(t)" [matTooltip]="t.isActive ? 'Deactivate Institute Access' : 'Activate Institute Access'" matTooltipPosition="above" [attr.aria-label]="t.isActive ? 'Deactivate Institute Access' : 'Activate Institute Access'" matButton="filled">
                     <mat-icon>{{ t.isActive ? 'pause_circle' : 'play_circle' }}</mat-icon>
-                    <span>{{ t.isActive ? 'Deactivate' : 'Activate' }}</span>
                   </button>
                 }
               </div>
@@ -1626,31 +1623,24 @@ import { environment } from '../../../environments/environment';
         width: 100%;
         min-width: 0;
         border-radius: 8px;
-        font-size: 0.78rem;
-        font-weight: 600;
-        height: 36px;
-        padding: 0 4px;
+        height: 38px;
+        padding: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 4px;
         box-sizing: border-box;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        cursor: pointer;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
         mat-icon {
-          font-size: 15px;
-          width: 15px;
-          height: 15px;
-          flex-shrink: 0;
-        }
-
-        span {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          line-height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0;
         }
       }
 
@@ -3080,20 +3070,18 @@ import { environment } from '../../../environments/environment';
       .card-actions {
         gap: 6px;
         button.card-action-btn {
-          font-size: 0.72rem;
-          padding: 0 2px;
-          gap: 2px;
-          mat-icon { font-size: 14px; width: 14px; height: 14px; }
+          height: 36px;
+          mat-icon { font-size: 18px; width: 18px; height: 18px; }
         }
       }
     }
 
     @media (max-width: 360px) {
       .card-actions {
-        grid-template-columns: 1fr;
+        gap: 4px;
         button.card-action-btn {
-          height: 36px;
-          font-size: 0.8rem;
+          height: 34px;
+          mat-icon { font-size: 17px; width: 17px; height: 17px; }
         }
       }
     }
