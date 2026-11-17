@@ -70,8 +70,10 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
 
           confirmService.alert('Access Denied', apiMsg, 'danger').subscribe(() => {
             isForbiddenAlertOpen = false;
+            // Only redirect if the user was attempting to view a forbidden page
+            const isViewOperation = req.method === 'GET' && (!error?.error?.requiredOperation || error.error.requiredOperation.toLowerCase() === 'view');
             const currentUrl = router.url.split('?')[0];
-            if (currentUrl !== '/dashboard' && currentUrl !== '/login') {
+            if (isViewOperation && currentUrl !== '/dashboard' && currentUrl !== '/login') {
               router.navigate(['/dashboard']);
             }
           });
