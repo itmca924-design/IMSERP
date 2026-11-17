@@ -3719,6 +3719,9 @@ export class LayoutComponent implements OnInit {
       if (user?.userProfilePhoto) {
         this.userAvatarFailed.set(false);
       }
+      if (user?.userId) {
+        this.loadMenu(true);
+      }
     });
 
     effect(() => {
@@ -4361,8 +4364,8 @@ export class LayoutComponent implements OnInit {
     }
   }
 
-  loadMenu(): void {
-    this.menuService.getMyMenu().subscribe({
+  loadMenu(forceRefresh: boolean = true): void {
+    this.menuService.getMyMenu(forceRefresh).subscribe({
       next: (menu) => {
         if (menu && menu.length > 0) {
           this.rawMenu = menu;

@@ -74,13 +74,28 @@ export class MenuService {
   constructor(private http: HttpClient) {}
 
   private cachedMyMenu: MenuItem[] | null = null;
+  private cachedUserId: string | null = null;
+  private cachedToken: string | null = null;
+
+  clearCache(): void {
+    this.cachedMyMenu = null;
+    this.cachedUserId = null;
+    this.cachedToken = null;
+  }
 
   getMyMenu(forceRefresh: boolean = false): Observable<MenuItem[]> {
-    if (!forceRefresh && this.cachedMyMenu) {
+    const currentToken = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token') || null;
+    const currentUserId = sessionStorage.getItem('userId') || localStorage.getItem('userId') || null;
+
+    if (!forceRefresh && this.cachedMyMenu && this.cachedToken === currentToken && this.cachedUserId === currentUserId) {
       return of(this.cachedMyMenu);
     }
     return this.http.get<MenuItem[]>(`${this.BASE_URL}/my-menu`).pipe(
-      tap(menu => this.cachedMyMenu = menu)
+      tap(menu => {
+        this.cachedMyMenu = menu;
+        this.cachedToken = currentToken;
+        this.cachedUserId = currentUserId;
+      })
     );
   }
 

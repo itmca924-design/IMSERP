@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { environment } from '../../../environments/environment';
+import { MenuService } from './menu.service';
 
 export interface BranchInfo {
   id: string;
@@ -227,6 +228,7 @@ export class AuthService {
   readonly canManageStaff = computed(() => this.isAdmin() || this.isHR());
 
   private dialog = inject(MatDialog, { optional: true });
+  private menuService = inject(MenuService, { optional: true });
 
   constructor(private http: HttpClient, private router: Router) {
     this.syncStorageAuth();
@@ -480,6 +482,7 @@ export class AuthService {
     localStorage.setItem('imserp_last_activity', Date.now().toString());
 
     this.currentUser.set(res);
+    this.menuService?.clearCache();
   }
 
   updateLastActivity(): void {
@@ -649,6 +652,7 @@ export class AuthService {
     }
     this.selectedBranchId.set(branchId);
     this.selectedTenantId.set(tenantId || null);
+    this.menuService?.clearCache();
   }
 
   getCurrentBranchName(): string {
@@ -729,6 +733,7 @@ export class AuthService {
       storage.removeItem('selected_tenant_id');
     }
     this.currentUser.set(null);
+    this.menuService?.clearCache();
 
     if (reason) {
       this.router.navigate(['/login'], { queryParams: { reason } });
