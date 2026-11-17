@@ -22,6 +22,7 @@ public class SubjectsController : ControllerBase
     }
 
     [HttpGet]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<SubjectDto>>> GetSubjects([FromQuery] bool activeOnly = false)
     {
         var tenantId = _currentUser.TenantId;
@@ -213,6 +214,7 @@ public class SubjectsController : ControllerBase
     }
 
     [HttpGet("classes/{classId}")]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<ClassSubjectDto>>> GetClassSubjects(Guid classId)
     {
         var tenantId = _currentUser.TenantId;

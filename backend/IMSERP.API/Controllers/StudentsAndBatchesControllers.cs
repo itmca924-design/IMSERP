@@ -335,6 +335,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet("lookup")]
+    [SkipMenuPermission]
     public async Task<IActionResult> GetStudentsLookup([FromQuery] Guid? classId = null, [FromQuery] Guid? sectionId = null, [FromQuery] Guid? batchId = null)
     {
         var tenantId = _currentUser.TenantId;

@@ -1,5 +1,6 @@
 import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { ConfirmDialogService } from '../services/confirm-dialog.service';
 import { PresenceService } from '../services/presence.service';
@@ -11,6 +12,7 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const confirmService = inject(ConfirmDialogService);
   const presenceService = inject(PresenceService);
+  const router = inject(Router);
   const token = authService.getToken();
   const branchId = authService.selectedBranchId();
   const tenantId = authService.selectedTenantId();
@@ -68,6 +70,10 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
 
           confirmService.alert('Access Denied', apiMsg, 'danger').subscribe(() => {
             isForbiddenAlertOpen = false;
+            const currentUrl = router.url.split('?')[0];
+            if (currentUrl !== '/dashboard' && currentUrl !== '/login') {
+              router.navigate(['/dashboard']);
+            }
           });
         }
         return throwError(() => error);

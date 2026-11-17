@@ -22,6 +22,7 @@ public class RoomsController : ControllerBase
     }
 
     [HttpGet]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<RoomDto>>> GetRooms([FromQuery] Guid? branchId)
     {
         var query = _dbContext.Rooms

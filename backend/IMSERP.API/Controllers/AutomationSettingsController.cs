@@ -22,6 +22,7 @@ public class AutomationSettingsController : ControllerBase
     }
 
     [HttpGet]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<AutomationSettingsDto>> GetSettings()
     {
         var settings = await _automationService.GetSettingsAsync(_currentUser.TenantId);

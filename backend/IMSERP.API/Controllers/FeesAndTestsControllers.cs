@@ -4722,6 +4722,7 @@ public class FeesController : ControllerBase
     }
 
     [HttpGet("heads")]
+    [SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<FeeHeadDto>>> GetFeeHeads([FromQuery] bool activeOnly = true)
     {
         var query = _dbContext.FeeHeads.AsNoTracking().AsQueryable();

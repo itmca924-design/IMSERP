@@ -303,6 +303,7 @@ public class SchoolController : ControllerBase
     #region Sections Management
 
     [HttpGet("sections")]
+    [SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<SchoolSectionDto>>> GetSections([FromQuery] Guid? classId = null)
     {
         var query = _db.SchoolSections
@@ -3065,6 +3066,7 @@ public class SchoolController : ControllerBase
     }
 
     [HttpGet("academic-config")]
+    [SkipMenuPermission]
     public async Task<ActionResult> GetAcademicConfig()
     {
         var setting = await _db.ExamSettings.FirstOrDefaultAsync();

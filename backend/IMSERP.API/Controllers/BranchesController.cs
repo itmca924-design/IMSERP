@@ -22,6 +22,7 @@ public class BranchesController : ControllerBase
     }
 
     [HttpGet]
+    [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<BranchDto>>> GetAllBranches()
     {
         var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
