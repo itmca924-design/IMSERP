@@ -4749,12 +4749,7 @@ export class LayoutComponent implements OnInit {
           ...(isStudentOrParent ? [
             { id: '51my', title: 'My Fee Ledger & Receipts', routeUrl: '/my-fees', icon: 'receipt_long', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
             { id: '51myfc', title: 'My Fee Card', routeUrl: '/fees/fee-card', icon: 'contact_page', sortOrder: 1.5, module: 'Academic', isActive: true, children: [] }
-          ] : [
-            { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'payments', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
-            { id: '51ra', title: 'Fee Recovery AI Agent', routeUrl: '/finance/fee-recovery-agent', icon: 'psychology', sortOrder: 1.2, module: 'Academic', isActive: true, children: [] },
-            { id: '51fc', title: 'Student Fee Card', routeUrl: '/fees/fee-card', icon: 'contact_page', sortOrder: 1.5, module: 'Academic', isActive: true, children: [] },
-            { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'account_tree', sortOrder: 2, module: 'Academic', isActive: true, children: [] }
-          ]),
+          ] : []),
           { id: '512', title: 'Homework & Daily Diary', routeUrl: '/school/homework', icon: 'menu_book', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
           { id: '512tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 3.5, module: 'Academic', isActive: true, children: [] },
           { id: '512sm', title: 'Study Material & PYQ Bank', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 3.8, module: 'Academic', isActive: true, children: [] },
@@ -4781,6 +4776,15 @@ export class LayoutComponent implements OnInit {
           { id: '573', title: 'Grievance Helpdesk', routeUrl: '/front-desk/grievances', icon: 'support_agent', sortOrder: 14.6, module: 'Academic', isActive: true, children: [] }
         ]
       },
+      ...(canAccessFinance || isAccountant ? [{
+        id: 'FEE00000-0000-0000-0000-000000000001', title: 'Fee Management', routeUrl: '', icon: 'payments', sortOrder: 5.2, module: 'Fee', isActive: true,
+        children: [
+          { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'point_of_sale', sortOrder: 1, module: 'Fee', isActive: true, children: [] },
+          { id: '51fc', title: 'Student Fee Card', routeUrl: '/fees/fee-card', icon: 'credit_card', sortOrder: 2, module: 'Fee', isActive: true, children: [] },
+          { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'price_change', sortOrder: 3, module: 'Fee', isActive: true, children: [] },
+          { id: '51cd', title: 'Fee Concessions & Discounts', routeUrl: '/fees/concessions', icon: 'loyalty', sortOrder: 4, module: 'Fee', isActive: true, children: [] }
+        ]
+      }] : []),
       ...(canAccessFinance ? [{
         id: '5f', title: 'Finance & Accounts', routeUrl: '', icon: 'account_balance', sortOrder: 5.5, module: 'Finance', isActive: true,
         children: [
