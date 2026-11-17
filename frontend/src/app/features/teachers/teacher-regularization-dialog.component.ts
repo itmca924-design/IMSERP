@@ -11,6 +11,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule, provideNativeDateAdapter, MAT_DATE_LOCALE } from '@angular/material/core';
+import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import {
   API_BASE,
@@ -26,6 +29,7 @@ import {
   selector: 'app-apply-teacher-regularization-dialog',
   standalone: true,
   imports: [
+    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
@@ -35,8 +39,14 @@ import {
     MatInputModule,
     MatSelectModule,
     MatProgressBarModule,
-    MatTooltipModule
-],
+    MatTooltipModule,
+    MatDatepickerModule,
+    MatNativeDateModule
+  ],
+  providers: [
+    provideNativeDateAdapter(),
+    { provide: MAT_DATE_LOCALE, useValue: 'en-IN' }
+  ],
   template: `
     <div class="reg-dialog-container">
       <!-- Strict Light Blue Header matching IMSERP AGENTS.md UI Rule -->
@@ -112,35 +122,102 @@ import {
             </div>
           }
     
-          <!-- Date & Requested Status Row -->
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Occurrence Date *</mat-label>
-              <input matInput type="date" formControlName="attendanceDate" [max]="todayStr" />
-              @if (!isSundaySelected) {
-                <mat-hint>Date when punch was missed or incorrect ({{selectedDayName}})</mat-hint>
-              }
-            </mat-form-field>
-    
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>Requested Status *</mat-label>
-              <mat-select formControlName="requestedStatus">
-                <mat-option value="Present">Present (Full Day)</mat-option>
-                <mat-option value="HalfDay">Half Day</mat-option>
-              </mat-select>
-              <mat-hint>Target attendance mark after review</mat-hint>
-            </mat-form-field>
+          <!-- Date Selection Mode Switcher -->
+          <div class="date-mode-switcher">
+            <button
+              type="button"
+              class="mode-switch-btn"
+              [class.active]="dateMode === 'single'"
+              (click)="setDateMode('single')">
+              <mat-icon>today</mat-icon>
+              <span>Single Date</span>
+            </button>
+            <button
+              type="button"
+              class="mode-switch-btn"
+              [class.active]="dateMode === 'range'"
+              (click)="setDateMode('range')">
+              <mat-icon>date_range</mat-icon>
+              <span>Date Range (Multi-Day)</span>
+            </button>
           </div>
-    
-          <!-- Sunday / Weekly Off Blocking Alert Banner -->
-          @if (isSundaySelected) {
-            <div class="sunday-alert-banner">
-              <div class="sab-icon"><mat-icon>event_busy</mat-icon></div>
-              <div class="sab-content">
-                <strong>Weekly Off / Sunday Detected ({{selectedDateFormatted}}):</strong>
-                <span>Attendance regularization cannot be requested on a Sunday or official weekly off. Please select a valid working day when duty or classes took place.</span>
-              </div>
+
+          <!-- Date & Requested Status Row (Single Date Mode) -->
+          @if (dateMode === 'single') {
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Occurrence Date *</mat-label>
+                <input matInput [matDatepicker]="singlePicker" formControlName="attendanceDate" [max]="today" placeholder="Choose date">
+                <mat-datepicker-toggle matIconSuffix [for]="singlePicker"></mat-datepicker-toggle>
+                <mat-datepicker #singlePicker></mat-datepicker>
+                @if (!isSundaySelected) {
+                  <mat-hint>Date when punch was missed or incorrect ({{selectedDayName}})</mat-hint>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-col">
+                <mat-label>Requested Status *</mat-label>
+                <mat-select formControlName="requestedStatus">
+                  <mat-option value="Present">Present (Full Day)</mat-option>
+                  <mat-option value="HalfDay">Half Day</mat-option>
+                </mat-select>
+                <mat-hint>Target attendance mark after review</mat-hint>
+              </mat-form-field>
             </div>
+
+            <!-- Sunday / Weekly Off Blocking Alert Banner -->
+            @if (isSundaySelected) {
+              <div class="sunday-alert-banner">
+                <div class="sab-icon"><mat-icon>event_busy</mat-icon></div>
+                <div class="sab-content">
+                  <strong>Weekly Off / Sunday Detected ({{selectedDateFormatted}}):</strong>
+                  <span>Attendance regularization cannot be requested on a Sunday or official weekly off. Please select a valid working day when duty or classes took place.</span>
+                </div>
+              </div>
+            }
+          }
+
+          <!-- Date & Requested Status Row (Date Range Mode) -->
+          @if (dateMode === 'range') {
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-col" style="flex: 1.5;">
+                <mat-label>Occurrence Date Range *</mat-label>
+                <mat-date-range-input [rangePicker]="rangePicker" [max]="today">
+                  <input matStartDate formControlName="rangeStart" placeholder="Start date">
+                  <input matEndDate formControlName="rangeEnd" placeholder="End date">
+                </mat-date-range-input>
+                <mat-datepicker-toggle matIconSuffix [for]="rangePicker"></mat-datepicker-toggle>
+                <mat-date-range-picker #rangePicker></mat-date-range-picker>
+                <mat-hint>Select start and end date for missed days</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-col" style="flex: 1;">
+                <mat-label>Requested Status *</mat-label>
+                <mat-select formControlName="requestedStatus">
+                  <mat-option value="Present">Present (Full Day)</mat-option>
+                  <mat-option value="HalfDay">Half Day</mat-option>
+                </mat-select>
+                <mat-hint>Status for selected dates</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <!-- Dynamic Multi-Date Selection Summary Deck -->
+            @if (selectedDatesList.length > 0) {
+              <div class="range-summary-card">
+                <div class="rsc-header">
+                  <mat-icon>event_available</mat-icon>
+                  <strong>{{selectedDatesList.length}} Working {{selectedDatesList.length === 1 ? 'Day' : 'Days'}} Selected:</strong>
+                  @if (skippedSundayCount > 0) {
+                    <span class="skipped-pill">({{skippedSundayCount}} Sunday{{skippedSundayCount > 1 ? 's' : ''}} excluded)</span>
+                  }
+                </div>
+                <div class="dates-chip-row">
+                  @for (d of selectedDatesList; track d) {
+                    <span class="date-chip">{{d | date:'dd MMM (EEE)'}}</span>
+                  }
+                </div>
+              </div>
+            }
           }
     
           <!-- In-Time & Out-Time Row -->
@@ -192,10 +269,10 @@ import {
         <div class="reg-dialog-footer">
           <button type="button" (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
           <button class="btn-submit" type="submit"
-            [disabled]="saving || form.invalid || isSundaySelected"
-            [matTooltip]="isSundaySelected ? 'Cannot submit regularization on a Sunday / Weekly Off' : ''" matButton="filled">
+            [disabled]="isSubmitDisabled"
+            [matTooltip]="isSundaySelected && dateMode === 'single' ? 'Cannot submit regularization on a Sunday / Weekly Off' : ''" matButton="filled">
             <mat-icon>{{saving ? 'hourglass_empty' : 'send'}}</mat-icon>
-            {{saving ? 'Submitting...' : 'Submit Regularization Request'}}
+            {{saving ? 'Submitting...' : (dateMode === 'range' && selectedDatesList.length > 1 ? 'Submit ' + selectedDatesList.length + ' Regularization Requests' : 'Submit Regularization Request')}}
           </button>
         </div>
       </form>
@@ -441,6 +518,95 @@ import {
       color: #94a3b8 !important;
       cursor: not-allowed !important;
     }
+    .date-mode-switcher {
+      display: inline-flex;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      gap: 4px;
+      margin-bottom: 12px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .mode-switch-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #64748b;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .mode-switch-btn mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+    .mode-switch-btn.active {
+      background: #ffffff;
+      color: #1e3a8a;
+      border-color: #bfdbfe;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.12);
+      font-weight: 700;
+    }
+    .mode-switch-btn.active mat-icon {
+      color: #2563eb;
+    }
+
+    .range-summary-card {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-top: -4px;
+      margin-bottom: 12px;
+    }
+    .rsc-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #1e40af;
+      font-size: 0.84rem;
+      margin-bottom: 8px;
+    }
+    .rsc-header mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #2563eb;
+    }
+    .skipped-pill {
+      font-size: 0.74rem;
+      color: #d97706;
+      background: #fef3c7;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .dates-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .date-chip {
+      background: #ffffff;
+      color: #1d4ed8;
+      border: 1px solid #93c5fd;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+    }
+
     @media (max-width: 600px) {
       .form-row {
         flex-direction: column;
@@ -461,6 +627,7 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
   loadingPolicy = false;
   errorMessage = '';
   todayStr = new Date().toISOString().split('T')[0];
+  readonly today = new Date();
   isSundaySelected = false;
   selectedDayName = '';
   selectedDateFormatted = '';
@@ -468,6 +635,10 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
   teachers: TeacherDto[] = [];
   isTeacherSelf = false;
   myProfile: any = null;
+
+  dateMode: 'single' | 'range' = 'single';
+  selectedDatesList: Date[] = [];
+  skippedSundayCount = 0;
 
   getSmartDefaultDate(): string {
     const d = new Date();
@@ -478,14 +649,14 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     return d.toISOString().split('T')[0];
   }
 
-  checkOccurrenceDate(dateStr: string): void {
-    if (!dateStr) {
+  checkOccurrenceDate(val: any): void {
+    if (!val) {
       this.isSundaySelected = false;
       this.selectedDayName = '';
       this.selectedDateFormatted = '';
       return;
     }
-    const d = new Date(dateStr + 'T00:00:00');
+    const d = val instanceof Date ? val : new Date(val + (typeof val === 'string' && !val.includes('T') ? 'T00:00:00' : ''));
     if (isNaN(d.getTime())) {
       this.isSundaySelected = false;
       return;
@@ -496,6 +667,78 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     this.selectedDayName = dayNames[day];
     this.selectedDateFormatted = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
     this.isSundaySelected = (day === 0);
+  }
+
+  setDateMode(mode: 'single' | 'range'): void {
+    this.dateMode = mode;
+    this.errorMessage = '';
+    if (mode === 'single') {
+      this.form.get('attendanceDate')?.setValidators(Validators.required);
+      this.form.get('rangeStart')?.clearValidators();
+      this.form.get('rangeEnd')?.clearValidators();
+      if (!this.form.get('attendanceDate')?.value) {
+        this.form.patchValue({ attendanceDate: this.getSmartDefaultDate() });
+      }
+    } else {
+      this.form.get('attendanceDate')?.clearValidators();
+      this.form.get('rangeStart')?.setValidators(Validators.required);
+      this.form.get('rangeEnd')?.setValidators(Validators.required);
+    }
+    this.form.get('attendanceDate')?.updateValueAndValidity();
+    this.form.get('rangeStart')?.updateValueAndValidity();
+    this.form.get('rangeEnd')?.updateValueAndValidity();
+    this.recomputeRangeDates();
+  }
+
+  recomputeRangeDates(): void {
+    if (this.dateMode !== 'range') {
+      this.selectedDatesList = [];
+      this.skippedSundayCount = 0;
+      return;
+    }
+    const startVal = this.form.get('rangeStart')?.value;
+    const endVal = this.form.get('rangeEnd')?.value;
+    if (!startVal || !endVal) {
+      this.selectedDatesList = [];
+      this.skippedSundayCount = 0;
+      return;
+    }
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+      this.selectedDatesList = [];
+      this.skippedSundayCount = 0;
+      return;
+    }
+    const list: Date[] = [];
+    let sundayCount = 0;
+    const cur = new Date(start);
+    while (cur <= end) {
+      if (cur.getDay() === 0) {
+        sundayCount++;
+      } else {
+        list.push(new Date(cur));
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    this.selectedDatesList = list;
+    this.skippedSundayCount = sundayCount;
+  }
+
+  get isSubmitDisabled(): boolean {
+    if (this.saving || this.form.invalid) return true;
+    if (this.dateMode === 'single') {
+      return this.isSundaySelected || !this.form.get('attendanceDate')?.value;
+    }
+    return this.selectedDatesList.length === 0;
+  }
+
+  formatDate(d: Date | string): string {
+    if (typeof d === 'string') return d.split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   constructor(
@@ -527,6 +770,8 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     this.form = this.fb.group({
       teacherId: [defaultTeacherId, Validators.required],
       attendanceDate: [defaultDate, Validators.required],
+      rangeStart: [null],
+      rangeEnd: [null],
       requestedStatus: ['Present', Validators.required],
       requestedCheckIn: ['08:30'],
       requestedCheckOut: ['15:30'],
@@ -538,6 +783,8 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     this.form.get('attendanceDate')?.valueChanges.subscribe(val => {
       this.checkOccurrenceDate(val);
     });
+    this.form.get('rangeStart')?.valueChanges.subscribe(() => this.recomputeRangeDates());
+    this.form.get('rangeEnd')?.valueChanges.subscribe(() => this.recomputeRangeDates());
 
     if (this.isTeacherSelf) {
       if (!this.myProfile?.id) {
@@ -589,19 +836,48 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
   }
 
   submit(): void {
-    if (this.form.invalid) return;
+    if (this.isSubmitDisabled) return;
     this.saving = true;
     this.errorMessage = '';
 
-    const payload = this.form.value;
-    this.http.post(`${API_BASE}/teachers/regularizations`, payload).subscribe({
+    const baseVal = this.form.value;
+    const datesToSubmit: string[] = [];
+
+    if (this.dateMode === 'single') {
+      datesToSubmit.push(this.formatDate(baseVal.attendanceDate));
+    } else {
+      for (const d of this.selectedDatesList) {
+        datesToSubmit.push(this.formatDate(d));
+      }
+    }
+
+    if (datesToSubmit.length === 0) {
+      this.saving = false;
+      this.errorMessage = 'Please select at least one valid working date.';
+      return;
+    }
+
+    const requests = datesToSubmit.map(dStr => {
+      const payload = {
+        teacherId: baseVal.teacherId,
+        attendanceDate: dStr,
+        requestedStatus: baseVal.requestedStatus,
+        requestedCheckIn: baseVal.requestedCheckIn,
+        requestedCheckOut: baseVal.requestedCheckOut,
+        reason: baseVal.reason,
+        attachmentUrl: baseVal.attachmentUrl
+      };
+      return this.http.post(`${API_BASE}/teachers/regularizations`, payload);
+    });
+
+    forkJoin(requests).subscribe({
       next: () => {
         this.saving = false;
         this.dialogRef.close(true);
       },
       error: err => {
         this.saving = false;
-        this.errorMessage = err.error?.message || 'Failed to submit regularization request. Please check limits.';
+        this.errorMessage = err.error?.message || 'Failed to submit regularization request(s). Please verify monthly limits.';
       }
     });
   }

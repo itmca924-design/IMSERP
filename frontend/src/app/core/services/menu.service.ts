@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
 import { HolidayDto } from '../../features/teachers/teacher.models';
 import { environment } from '../../../environments/environment';
 
@@ -73,8 +73,31 @@ export class MenuService {
 
   constructor(private http: HttpClient) {}
 
-  getMyMenu(): Observable<MenuItem[]> {
-    return this.http.get<MenuItem[]>(`${this.BASE_URL}/my-menu`);
+  private cachedMyMenu: MenuItem[] | null = null;
+
+  getMyMenu(forceRefresh: boolean = false): Observable<MenuItem[]> {
+    if (!forceRefresh && this.cachedMyMenu) {
+      return of(this.cachedMyMenu);
+    }
+    return this.http.get<MenuItem[]>(`${this.BASE_URL}/my-menu`).pipe(
+      tap(menu => this.cachedMyMenu = menu)
+    );
+  }
+
+  hasRouteAccess(routeUrl: string, menuList?: MenuItem[]): boolean {
+    const list = menuList || this.cachedMyMenu || [];
+    const check = (items: MenuItem[]): boolean => {
+      for (const item of items) {
+        if (item.routeUrl && item.routeUrl.trim().toLowerCase() === routeUrl.trim().toLowerCase()) {
+          return true;
+        }
+        if (item.children && item.children.length > 0 && check(item.children)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    return check(list);
   }
 
   getAllMenuItems(): Observable<MenuItem[]> {

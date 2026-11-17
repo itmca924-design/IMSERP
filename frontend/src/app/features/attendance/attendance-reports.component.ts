@@ -14,6 +14,7 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { API_BASE } from '../teachers/teacher.models';
 import { AuthService } from '../../core/services/auth.service';
+import { MenuService, MenuItem } from '../../core/services/menu.service';
 import { SchoolService, SchoolClassDto, SchoolSectionDto } from '../../core/services/school.service';
 import { BatchDto } from '../../core/services/batches.service';
 import { AttendanceReportPrintDialogComponent, ReportPrintRow } from './attendance-report-print-dialog.component';
@@ -105,6 +106,9 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   private searchSubject = new Subject<string>();
 
   reportType: 'student' | 'teacher' = 'student';
+  hasStudentAttendancePermission = true;
+  hasStaffAttendancePermission = true;
+  permissionsLoaded = false;
   selectedMonth = new Date().getMonth() + 1;
   selectedYear = new Date().getFullYear();
   selectedBatchId = '';
@@ -208,8 +212,15 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private authService: AuthService,
     private schoolService: SchoolService,
-    private dialog: MatDialog
-  ) {}
+    private dialog: MatDialog,
+    private menuService: MenuService
+  ) {
+    if (this.authService.isAccountant()) {
+      this.reportType = 'teacher';
+      this.hasStudentAttendancePermission = false;
+      this.hasStaffAttendancePermission = true;
+    }
+  }
 
   logoFailed = false;
 
@@ -289,10 +300,52 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Search is client-side — no API call needed on search change
     if (this.isStudentOrParent) {
       this.reportType = 'student';
-    } else if (this.isTeacherSelfMode) {
+      this.hasStudentAttendancePermission = true;
+      this.hasStaffAttendancePermission = false;
+      this.permissionsLoaded = true;
+      this.loadHolidays();
+      this.loadReport();
+      return;
+    }
+
+    if (this.authService.isAdmin()) {
+      this.hasStudentAttendancePermission = true;
+      this.hasStaffAttendancePermission = true;
+      this.permissionsLoaded = true;
+      this.initAfterPermissions();
+      return;
+    }
+
+    // Dynamically resolve permissions from Role Permissions Matrix
+    this.menuService.getMyMenu().subscribe({
+      next: (menu) => {
+        this.hasStudentAttendancePermission = this.menuService.hasRouteAccess('/students/attendance', menu);
+        this.hasStaffAttendancePermission = this.menuService.hasRouteAccess('/teachers/attendance', menu);
+        this.permissionsLoaded = true;
+
+        if (!this.hasStudentAttendancePermission && this.hasStaffAttendancePermission) {
+          this.reportType = 'teacher';
+        } else if (this.hasStudentAttendancePermission && !this.hasStaffAttendancePermission) {
+          this.reportType = 'student';
+        }
+        this.initAfterPermissions();
+      },
+      error: () => {
+        if (this.authService.isAccountant()) {
+          this.hasStudentAttendancePermission = false;
+          this.hasStaffAttendancePermission = true;
+          this.reportType = 'teacher';
+        }
+        this.permissionsLoaded = true;
+        this.initAfterPermissions();
+      }
+    });
+  }
+
+  private initAfterPermissions(): void {
+    if (this.isTeacherSelfMode) {
       this.loadTeacherClassSection();
     } else {
       this.loadBatches();
@@ -462,6 +515,8 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
 
   changeReportType(type: 'student' | 'teacher'): void {
     if (this.isStudentOrParent) return;
+    if (type === 'student' && !this.hasStudentAttendancePermission) return;
+    if (type === 'teacher' && !this.hasStaffAttendancePermission) return;
     this.reportType = type;
     if (type === 'teacher') { this.selectedBatchId = ''; this.selectedCoachingClassId = ''; this.selectedClassId = ''; this.selectedSectionId = ''; }
     this.searchQuery = ''; this.pageIndex = 0; this.sortColumn = '';
