@@ -3735,7 +3735,7 @@ export class LayoutComponent implements OnInit {
           filtered = this.adjustStudentMenu(filtered);
         }
         this.menuTree.set(filtered);
-          this.updateBreadcrumbs(this.router.url);
+        this.updateBreadcrumbs(this.router.url);
       }
     });
   }
@@ -3771,7 +3771,7 @@ export class LayoutComponent implements OnInit {
           this.loadMenu();
         }
       },
-      error: () => {}
+      error: () => { }
     });
   }
 
@@ -3780,8 +3780,8 @@ export class LayoutComponent implements OnInit {
     const query = this.headerSearch.trim().toLowerCase();
     this.headerSearchResults = query
       ? this.permittedSearchablePages.filter(page => {
-          return page.title.toLowerCase().includes(query) || page.route.toLowerCase().includes(query);
-        }).slice(0, 8)
+        return page.title.toLowerCase().includes(query) || page.route.toLowerCase().includes(query);
+      }).slice(0, 8)
       : this.permittedSearchablePages.slice(0, 6);
   }
 
@@ -3790,8 +3790,8 @@ export class LayoutComponent implements OnInit {
     const query = this.headerSearch.trim().toLowerCase();
     this.headerSearchResults = query
       ? this.permittedSearchablePages.filter(page => {
-          return page.title.toLowerCase().includes(query) || page.route.toLowerCase().includes(query);
-        }).slice(0, 8)
+        return page.title.toLowerCase().includes(query) || page.route.toLowerCase().includes(query);
+      }).slice(0, 8)
       : this.permittedSearchablePages.slice(0, 6);
   }
 
@@ -3848,7 +3848,7 @@ export class LayoutComponent implements OnInit {
           this.authService.updateBranches(branchInfos);
         }
       },
-      error: () => {}
+      error: () => { }
     });
   }
 
@@ -3902,7 +3902,7 @@ export class LayoutComponent implements OnInit {
     this.idleTimeout.startMonitoring();
     this.presenceService.init();
     this.chatService.initHub();
-    this.chatService.loadConversations().subscribe({ error: () => {} });
+    this.chatService.loadConversations().subscribe({ error: () => { } });
   }
 
   installPwa(): void {
@@ -3916,7 +3916,7 @@ export class LayoutComponent implements OnInit {
       });
     } else {
       const instName = this.authService.getInstituteName() || 'Campus ERP';
-      
+
       const messageEn = `<div class="pwa-install-guide">
   <p class="guide-intro">Install <strong>${instName}</strong> on your device for fast 1-click access, full-screen view, and native app experience:</p>
   <div class="platform-cards">
@@ -4132,7 +4132,7 @@ export class LayoutComponent implements OnInit {
             this.authService.updateUserProfilePhoto(profile.profilePhoto);
           }
         },
-        error: () => {}
+        error: () => { }
       });
     }
   }
@@ -4238,11 +4238,11 @@ export class LayoutComponent implements OnInit {
       });
   }
 
-  
+
   updateBreadcrumbs(rawUrl: string): void {
     const cleanUrl = (rawUrl || '/dashboard').split('?')[0].split('#')[0].trim();
     const cleanUrlLower = cleanUrl.toLowerCase();
-    
+
     if (cleanUrlLower === '/' || cleanUrlLower === '/dashboard') {
       this.breadcrumbs.set([
         { label: 'Home', url: '/dashboard', icon: 'home' },
@@ -4260,7 +4260,7 @@ export class LayoutComponent implements OnInit {
     // 1. Pass 1: Look for an EXACT child route match in active menu tree
     for (const parent of tree) {
       if (parent.children && parent.children.length > 0) {
-        const child = parent.children.find(c => 
+        const child = parent.children.find(c =>
           c.routeUrl && c.routeUrl.trim().toLowerCase() === cleanUrlLower
         );
         if (child) {
