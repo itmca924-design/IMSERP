@@ -4215,10 +4215,19 @@ public class TeachersController : ControllerBase
             });
         }
 
+        // Restriction 4: Cannot apply for leave in a past elapsed calendar month
+        var startOfCurrentMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        if (from < startOfCurrentMonth)
+        {
+            return BadRequest(new { 
+                message = $"Cannot apply for leave in a past elapsed month ({from:MMMM yyyy}). The attendance register and accounts for {from:MMMM yyyy} are closed. For past attendance corrections, please submit an Attendance Regularization (उपस्थिति नियमितीकरण) request." 
+            });
+        }
+
         // Policy Settings Check
         var policy = await GetOrCreateLeavePolicyAsync(tenantId);
 
-        // Restriction 4: Regular staff cannot submit arbitrarily old backdated leaves
+        // Restriction 5: Regular staff cannot submit arbitrarily old backdated leaves
         if (!canApplyForOthers && from < DateTime.UtcNow.Date.AddDays(-policy.MaxRegularizationDaysBackdated))
         {
             return BadRequest(new { 

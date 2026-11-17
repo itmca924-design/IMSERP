@@ -349,6 +349,21 @@ export class RejectTeacherLeaveDialogComponent {
               <span><strong>Invalid Date Range:</strong> "To Date" must be on or after "From Date".</span>
             </div>
           }
+
+          <!-- Past Month Restriction Error Banner -->
+          @if (isPastMonthSelected) {
+            <div class="past-month-error-banner">
+              <mat-icon>history_toggle_off</mat-icon>
+              <div class="past-month-text">
+                <strong>Past Month Restriction (बीता हुआ महीना):</strong>
+                <span>
+                  <strong>{{selectedMonthName}}</strong> का महीना समाप्त हो चुका है और उपस्थिति रजिस्टर लॉक/क्लोज्ड है। 
+                  बीते हुए महीने की लीव अप्लाई नहीं की जा सकती। यदि कोई अनुपस्थिति ठीक करनी है, तो कृपया 
+                  <strong>Attendance Regularization (उपस्थिति नियमितीकरण)</strong> का उपयोग करें।
+                </span>
+              </div>
+            </div>
+          }
     
           <!-- SMART HOLIDAY & WEEK-OFF REMINDER BANNER -->
           @if ((holidaysInRange.length > 0 || sundaysInRange.length > 0) && !form.hasError('dateRangeInvalid') && calendarDays > 0) {
@@ -457,9 +472,9 @@ export class RejectTeacherLeaveDialogComponent {
     
         <div class="fd-dialog-footer">
           <button type="button" (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
-          <button color="primary" type="submit" [disabled]="form.invalid || isInsufficientBalance || saving" matButton="filled">
-            <mat-icon>{{isInsufficientBalance ? 'block' : 'send'}}</mat-icon>
-            {{saving ? 'Submitting...' : (isInsufficientBalance ? 'Insufficient Balance' : 'Submit Application')}}
+          <button color="primary" type="submit" [disabled]="form.invalid || isInsufficientBalance || isPastMonthSelected || saving" matButton="filled">
+            <mat-icon>{{isPastMonthSelected ? 'block' : (isInsufficientBalance ? 'block' : 'send')}}</mat-icon>
+            {{saving ? 'Submitting...' : (isPastMonthSelected ? 'Past Month Blocked' : (isInsufficientBalance ? 'Insufficient Balance' : 'Submit Application'))}}
           </button>
         </div>
       </form>
@@ -543,6 +558,33 @@ export class RejectTeacherLeaveDialogComponent {
       background: #eff6ff;
       border-color: #3b82f6;
       color: #1d4ed8;
+    }
+
+    .past-month-error-banner {
+      background: #fff1f2;
+      border: 1px solid #fecdd3;
+      border-left: 4px solid #e11d48;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      color: #9f1239;
+    }
+    .past-month-error-banner mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: #e11d48;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .past-month-text {
+      font-size: 0.82rem;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
     .quota-ledger-strip {
@@ -999,13 +1041,41 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     this.form.patchValue({ leaveType: type });
   }
 
-  get minSelectableDate(): Date | null {
+  get minSelectableDate(): Date {
+    const now = new Date();
+    // Hard lower boundary: First day of current calendar month (e.g. 01-Nov-2026)
+    // Completely blocks navigating to October 2026 or any previous month in the calendar!
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    // For regular teachers applying for self: minimum is today
+    let minDate = this.isTeacherSelf ? new Date(now.getFullYear(), now.getMonth(), now.getDate()) : currentMonthStart;
+
     const teacherId = this.form?.get('teacherId')?.value;
     const t = this.teachers.find(x => x.id === teacherId) || (this.myProfile?.id === teacherId ? this.myProfile : null);
     if (t?.joiningDate) {
-      return this.parseDate(t.joiningDate);
+      const jd = this.parseDate(t.joiningDate);
+      if (jd && jd > minDate) {
+        minDate = jd;
+      }
     }
-    return null;
+    return minDate;
+  }
+
+  get isPastMonthSelected(): boolean {
+    const fromVal = this.form?.get('fromDate')?.value;
+    if (!fromVal) return false;
+    const d1 = this.parseDate(fromVal);
+    if (!d1) return false;
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    return d1 < currentMonthStart;
+  }
+
+  get selectedMonthName(): string {
+    const fromVal = this.form?.get('fromDate')?.value;
+    const d1 = this.parseDate(fromVal);
+    if (!d1) return '';
+    return d1.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
   }
 
   formatDateYmd(val: any): string {
@@ -1075,7 +1145,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     this.calcDays();
   }
 
-  dateRangeValidator(control: AbstractControl): ValidationErrors | null {
+  dateRangeValidator = (control: AbstractControl): ValidationErrors | null => {
     const from = control.get('fromDate')?.value;
     const to = control.get('toDate')?.value;
     if (from && to) {
@@ -1085,8 +1155,18 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
         return { dateRangeInvalid: true };
       }
     }
+    if (from) {
+      const d1 = this.parseDate(from);
+      if (d1) {
+        const now = new Date();
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (d1 < currentMonthStart) {
+          return { pastMonthInvalid: true };
+        }
+      }
+    }
     return null;
-  }
+  };
 
   setMode(mode: 'self' | 'behalf') {
     this.applyMode = mode;
