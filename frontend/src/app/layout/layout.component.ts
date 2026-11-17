@@ -4582,7 +4582,7 @@ export class LayoutComponent implements OnInit {
     const hasFacultyOps = updated.some(item =>
       (item.title && item.title.toLowerCase().includes('faculty')) || item.id === '4b'
     );
-    if (!hasFacultyOps && !this.authService.isStudentOrParent()) {
+    if (!hasFacultyOps && !this.authService.isStudentOrParent() && !this.authService.isAccountant()) {
       const hrmsIdx = updated.findIndex(item => item.id === '4' || (item.title && item.title.toLowerCase().includes('hrms')));
       const facultyOpsItem: MenuItem = {
         id: '4b',
@@ -4605,6 +4605,11 @@ export class LayoutComponent implements OnInit {
       } else {
         updated.push(facultyOpsItem);
       }
+    }
+
+    // Strip Faculty Operations entirely if user is an Accountant
+    if (this.authService.isAccountant()) {
+      updated = updated.filter(item => !(item.title && item.title.toLowerCase().includes('faculty')) && item.id !== '4b');
     }
 
     // 6. If Admin Settings group did not exist at all, add it if user has admin privileges
@@ -4733,7 +4738,7 @@ export class LayoutComponent implements OnInit {
           { id: '49', title: 'Exit & FNF Settlement', routeUrl: '/teachers/fnf', icon: 'exit_to_app', sortOrder: 8, module: 'Teachers', isActive: true, children: [] }
         ]
       },
-      {
+      ...(!isStudentOrParent && !isAccountant ? [{
         id: '4b', title: 'Faculty Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Teachers', isActive: true,
         children: [
           { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
@@ -4742,7 +4747,7 @@ export class LayoutComponent implements OnInit {
           { id: '413', title: 'Test Exams & Marks Entry', routeUrl: '/tests', icon: 'quiz', sortOrder: 3.5, module: 'Teachers', isActive: true, children: [] },
           { id: '412', title: 'Faculty Workload', routeUrl: '/teachers/reports', icon: 'analytics', sortOrder: 4, module: 'Teachers', isActive: true, children: [] }
         ]
-      },
+      }] : []),
       {
         id: '5', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Academic', isActive: true,
         children: [
