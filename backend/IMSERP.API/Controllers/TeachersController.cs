@@ -73,9 +73,26 @@ public class TeachersController : ControllerBase
         if (_currentUser.UserId == Guid.Empty) return false;
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         if (user == null) return false;
-        return user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin ||
-               user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin ||
-               user.Role == IMSERP.Domain.Enums.UserRole.HR;
+
+        // Admin, HR, or Accountant roles have staff management / salary authority
+        if (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin ||
+            user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin ||
+            user.Role == IMSERP.Domain.Enums.UserRole.HR ||
+            user.Role == IMSERP.Domain.Enums.UserRole.Accountant)
+        {
+            return true;
+        }
+
+        // Dynamically check RolePermissions for staff directory or salary payment routes
+        if (await _menuPermissions.HasPermissionAsync("/teachers", MenuPermissionOperation.View) ||
+            await _menuPermissions.HasPermissionAsync("/teachers/payments", MenuPermissionOperation.View) ||
+            await _menuPermissions.HasPermissionAsync("/teachers/salary", MenuPermissionOperation.View) ||
+            await _menuPermissions.HasPermissionAsync("/teachers/reports", MenuPermissionOperation.View))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private async Task<bool> CanEditPublicHolidayOrSundayAsync()
