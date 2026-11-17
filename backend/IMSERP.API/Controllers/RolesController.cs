@@ -35,11 +35,9 @@ public class RolesController : ControllerBase
     }
 
     [HttpGet]
+    [SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<RoleDto>>> GetRoles([FromQuery] Guid? tenantId = null)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/roles", MenuPermissionOperation.View))
-            return Forbid();
-
         try
         {
             var isSuperAdmin = string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
