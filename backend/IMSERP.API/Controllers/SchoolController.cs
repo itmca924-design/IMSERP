@@ -39,6 +39,7 @@ public class SchoolController : ControllerBase
     #region Classes Management
 
     [HttpGet("classes")]
+    [SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<SchoolClassDto>>> GetClasses([FromQuery] bool activeOnly = false, [FromQuery] string? scope = null)
     {
         var tenantId = _currentUser.TenantId;

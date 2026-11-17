@@ -1,4 +1,5 @@
 using IMSERP.API.Helpers;
+using IMSERP.API.Services;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
@@ -375,6 +376,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet]
+    [SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents(
         [FromQuery] Guid? batchId,
         [FromQuery] Guid? classId = null,
@@ -5161,6 +5163,7 @@ public class BatchesController : ControllerBase
     }
 
     [HttpGet]
+    [SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<BatchDto>>> GetBatches([FromQuery] Guid? branchId = null)
     {
         var query = _dbContext.Batches
