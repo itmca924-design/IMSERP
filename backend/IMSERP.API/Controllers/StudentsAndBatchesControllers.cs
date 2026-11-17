@@ -743,7 +743,13 @@ public class StudentsController : ControllerBase
         else
         {
             var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-            bool canManage = user != null && (user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || user.Role == IMSERP.Domain.Enums.UserRole.HR);
+            bool canManage = user != null && (
+                user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin ||
+                user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin ||
+                user.Role == IMSERP.Domain.Enums.UserRole.HR ||
+                user.Role == IMSERP.Domain.Enums.UserRole.Accountant ||
+                await HasAttendancePermissionAsync("/students/attendance", false) ||
+                await HasAttendancePermissionAsync("/attendance/reports", false));
             if (!canManage)
             {
                 var teacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
