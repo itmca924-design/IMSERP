@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.API.Services;
 
 namespace IMSERP.API.Controllers;
 
@@ -22,6 +23,7 @@ public class HolidaysController : ControllerBase
     }
 
     [HttpGet]
+    [SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<HolidayDto>>> GetHolidays(
         [FromQuery] int year = 0,
         [FromQuery] int month = 0,
