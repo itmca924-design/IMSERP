@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { InventoryVendor, RecordVendorPaymentDto } from '../inventory.models';
 import { InventoryService } from '../inventory.service';
 
@@ -458,6 +459,8 @@ export class VendorPaymentDialogComponent implements OnInit {
   vendorsList: InventoryVendor[] = [];
   currentVendor: InventoryVendor | null = null;
 
+  private readonly confirmDialog = inject(ConfirmDialogService);
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly dialogRef: MatDialogRef<VendorPaymentDialogComponent>,
@@ -555,10 +558,31 @@ export class VendorPaymentDialogComponent implements OnInit {
       return;
     }
 
+    const val = this.form.value;
+    const vName = this.currentVendor?.vendorName || this.currentVendor?.name || 'Supplier';
+    const amountNum = Number(val.amount);
+    const amountStr = amountNum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const isRef = val.paymentType === 'Refund';
+    const title = isRef ? 'Confirm Supplier Refund' : 'Confirm Payment Disbursement';
+    const actionDesc = isRef ? `record a refund of ₹${amountStr}` : `disburse a payment of ₹${amountStr}`;
+
+    this.confirmDialog.confirm(
+      title,
+      `Are you sure you want to ${actionDesc} to "${vName}" via ${val.paymentMode}? This will immediately update the supplier balance and accounts ledger.`,
+      isRef ? 'Yes, Record Refund' : 'Yes, Disburse Payment',
+      'Cancel',
+      'warning'
+    ).subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.executePayment(val);
+      }
+    });
+  }
+
+  private executePayment(val: any): void {
     this.errorMessage = '';
     this.submitting = true;
 
-    const val = this.form.value;
     const dto: RecordVendorPaymentDto = {
       vendorId: val.vendorId,
       branchId: this.data.branchId,

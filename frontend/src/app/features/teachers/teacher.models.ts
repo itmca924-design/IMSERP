@@ -9,6 +9,7 @@ export interface TeacherDto {
   email?: string; address?: string; photoUrl?: string;
   joiningDate: string; leavingDate?: string; isActive: boolean;
   createdAt: string; assignedBatchCount: number;
+  activeLibraryLoans?: number; pendingLibraryFines?: number;
   branchId?: string; branchName?: string;
   userId?: string; username?: string; hasLoginAccount?: boolean;
   staffType?: 'Teaching' | 'NonTeaching' | number;

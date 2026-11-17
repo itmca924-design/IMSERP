@@ -760,8 +760,14 @@ import { environment } from '../../../environments/environment';
             <mat-icon>edit</mat-icon> Edit Profile
           </button>
         }
-        <!-- Remove: Admin only (not HR) -->
-        @if (authService.isAdmin() && selectedTeacher.isActive) {
+        <!-- Remove: Admin only.
+             Strict Business Rule:
+             Active working staff MUST be offboarded via 'Exit / FNF Settlement'.
+             'Remove' is ONLY shown for:
+             1. Already Relieved / Inactive staff (!selectedTeacher.isActive)
+             2. Fresh/dummy accidental entries with 0 assignments and no login/biometrics
+        -->
+        @if (authService.isAdmin() && canShowRemoveButton(selectedTeacher)) {
           <button color="warn" (click)="deleteTeacher(selectedTeacher.id)" matButton="filled" class="app-button-delete">
             <mat-icon>delete</mat-icon> Remove
           </button>
@@ -2585,16 +2591,46 @@ export class TeacherProfilesComponent implements OnInit {
     });
   }
 
+  canShowRemoveButton(teacher: TeacherDto | null): boolean {
+    if (!teacher || !this.authService.isAdmin()) return false;
+    // 1. Relieved / Inactive staff can be archived/removed
+    if (!teacher.isActive) return true;
+
+    // 2. Active staff with login, biometrics, batches, or library loans MUST be offboarded via FNF
+    if (teacher.hasLoginAccount || (teacher.assignedBatchCount && teacher.assignedBatchCount > 0) || teacher.biometricUserId || (teacher.activeLibraryLoans && teacher.activeLibraryLoans > 0)) {
+      return false;
+    }
+
+    // 3. Fresh unconfigured dummy entries without credentials or assignments can be directly removed
+    return true;
+  }
+
   deleteTeacher(id: string) {
-    this.confirmDialog.danger('Delete Teacher', 'Are you sure you want to remove this teacher profile?').subscribe(confirmed => {
+    if (this.selectedTeacher?.isActive && ((this.selectedTeacher.assignedBatchCount ?? 0) > 0 || (this.selectedTeacher.activeLibraryLoans ?? 0) > 0)) {
+      this.confirmDialog.alert(
+        'Exit / FNF Settlement Required',
+        `Cannot directly remove active faculty member "${this.selectedTeacher.fullName}".\n\nThis staff member has active batch assignments or issued library books. Institutional staff offboarding must be processed through "Exit / FNF Settlement" to complete departmental clearances, recover advances, and issue official relieving documents.`,
+        'warning'
+      );
+      return;
+    }
+
+    const staffName = this.selectedTeacher?.fullName || 'this teacher profile';
+    this.confirmDialog.danger(
+      'Remove Staff Member',
+      `Are you sure you want to remove "${staffName}"?\n\n⚠️ Note: Active staff with service history (Attendance, Payroll, or Advances) must be offboarded via 'Exit / FNF Settlement'. Direct removal is only permitted for fresh dummy/accidental entries.`
+    ).subscribe(confirmed => {
       if (!confirmed) return;
       this.http.delete(`${this.api}/teachers/${id}`).subscribe({
         next: () => {
           this.selectedTeacher = null;
           this.loadTeachers();
-          this.confirmDialog.alert('Teacher Removed', 'Teacher profile removed successfully.', 'info');
+          this.confirmDialog.alert('Staff Profile Removed', `Staff member profile for ${staffName} has been removed successfully.`, 'info');
         },
-        error: e => this.confirmDialog.alert('Error', e?.error?.message || 'Failed to remove teacher.', 'danger')
+        error: e => {
+          const msg = e?.error?.message || 'Failed to remove teacher.';
+          this.confirmDialog.alert('Removal Blocked', msg, 'warning');
+        }
       });
     });
   }

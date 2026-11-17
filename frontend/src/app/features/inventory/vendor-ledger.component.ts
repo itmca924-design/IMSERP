@@ -3449,11 +3449,36 @@ export class VendorLedgerComponent implements OnInit {
   }
 
   quickRefundVendor(vendor: InventoryVendor): void {
-    this.openPaymentDialog(vendor, 'Refund');
+    const vName = vendor.vendorName || vendor.name || 'Supplier';
+    this.confirmDialog.confirm(
+      'Receive Supplier Refund?',
+      `Are you sure you want to record a refund voucher for "${vName}"?`,
+      'Proceed',
+      'Cancel',
+      'info'
+    ).subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.openPaymentDialog(vendor, 'Refund');
+      }
+    });
   }
 
   quickPayVendor(vendor: InventoryVendor): void {
-    this.openPaymentDialog(vendor, 'Disbursement');
+    const vName = vendor.vendorName || vendor.name || 'Supplier';
+    const dueAmount = vendor.balanceDue ?? 0;
+    const formattedDue = dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    this.confirmDialog.confirm(
+      'Disburse Supplier Payment?',
+      `Are you sure you want to disburse a payment to "${vName}"? Current outstanding payable balance is ₹${formattedDue}.`,
+      'Proceed to Pay',
+      'Cancel',
+      'warning'
+    ).subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.openPaymentDialog(vendor, 'Disbursement');
+      }
+    });
   }
 
   getEntryTypeClass(type: string): string {

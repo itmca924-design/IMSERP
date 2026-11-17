@@ -16,6 +16,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatBadgeModule } from '@angular/material/badge';
+import { RouterModule } from '@angular/router';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { environment } from '../../../environments/environment';
 
@@ -75,7 +76,7 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
     MatCardModule, MatTableModule, MatButtonModule, MatIconModule,
     MatInputModule, MatFormFieldModule, MatSelectModule, MatTabsModule,
     MatChipsModule, MatTooltipModule, MatProgressSpinnerModule,
-    MatProgressBarModule, MatDialogModule, MatBadgeModule
+    MatProgressBarModule, MatDialogModule, MatBadgeModule, RouterModule
   ],
   template: `
 <div class="page-container">
@@ -194,8 +195,11 @@ interface BatchDto { id: string; name: string; subject: string; academicYear: st
         <div class="stat-box"><span class="stat-val">{{pendingLeaveCount}}</span><span class="stat-lbl">Leaves Pending</span></div>
       </div>
       <div class="profile-actions">
+        <a matButton="filled" color="warn" [routerLink]="['/teachers/fnf']" [queryParams]="{teacherId: selectedTeacher.id}" *ngIf="selectedTeacher.isActive">
+          <mat-icon>exit_to_app</mat-icon> Exit / FNF
+        </a>
         <button color="primary" (click)="editTeacher(selectedTeacher)" matButton="filled" class="app-button-update"><mat-icon>edit</mat-icon> Edit</button>
-        <button color="warn" (click)="deleteTeacher(selectedTeacher.id)" matButton="filled" class="app-button-delete"><mat-icon>delete</mat-icon> Remove</button>
+        <button color="warn" (click)="deleteTeacher(selectedTeacher.id)" matButton="filled" class="app-button-delete" *ngIf="canShowRemoveButton(selectedTeacher)"><mat-icon>delete</mat-icon> Remove</button>
         <button (click)="selectedTeacher = null" matButton="filled" class="app-button-cancel"><mat-icon>arrow_back</mat-icon> Back</button>
       </div>
     </mat-card>
@@ -800,16 +804,41 @@ export class TeachersComponent implements OnInit {
     });
   }
 
+  canShowRemoveButton(teacher: TeacherDto | null): boolean {
+    if (!teacher) return false;
+    if (!teacher.isActive) return true;
+    if ((teacher.assignedBatchCount && teacher.assignedBatchCount > 0)) {
+      return false;
+    }
+    return true;
+  }
+
   deleteTeacher(id: string) {
-    this.confirmDialog.danger('Delete Teacher', 'Are you sure you want to remove this teacher?').subscribe(confirmed => {
+    if (this.selectedTeacher?.isActive && (this.selectedTeacher.assignedBatchCount ?? 0) > 0) {
+      this.confirmDialog.alert(
+        'Exit / FNF Settlement Required',
+        `Cannot directly remove active faculty member "${this.selectedTeacher.fullName}".\n\nThis staff member has active batch assignments. Institutional staff offboarding must be processed through "Exit / FNF Settlement" to complete departmental clearances, recover advances, and issue official relieving documents.`,
+        'warning'
+      );
+      return;
+    }
+
+    const staffName = this.selectedTeacher?.fullName || 'this teacher';
+    this.confirmDialog.danger(
+      'Remove Staff Member',
+      `Are you sure you want to remove "${staffName}"?\n\n⚠️ Note: Active staff with service history (Attendance, Payroll, or Advances) must be offboarded via 'Exit / FNF Settlement'. Direct removal is only permitted for fresh dummy/accidental entries.`
+    ).subscribe(confirmed => {
       if (!confirmed) return;
       this.http.delete(`${this.api}/teachers/${id}`).subscribe({
         next: () => {
           this.selectedTeacher = null;
           this.loadTeachers();
-          this.confirmDialog.alert('Teacher Removed', 'Teacher removed successfully.', 'info');
+          this.confirmDialog.alert('Staff Profile Removed', `Staff member profile for ${staffName} has been removed successfully.`, 'info');
         },
-        error: e => this.confirmDialog.alert('Error', e?.error?.message || 'Failed to remove teacher.', 'danger')
+        error: e => {
+          const msg = e?.error?.message || 'Failed to remove teacher.';
+          this.confirmDialog.alert('Removal Blocked', msg, 'warning');
+        }
       });
     });
   }

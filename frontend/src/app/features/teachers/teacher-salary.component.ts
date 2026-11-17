@@ -504,7 +504,7 @@ interface ExperienceSlabRecommendation {
                   <mat-icon class="sort-icon" [class.active]="sortBy === 'grosssalary'">{{ getSortIcon('grosssalary') }}</mat-icon>
                 </div>
               </th>
-              <th class="text-right">Quick Action</th>
+              <th class="text-right">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -573,8 +573,7 @@ interface ExperienceSlabRecommendation {
                 </td>
                 <td class="text-right">
                   <button class="mini-btn app-button-update" (click)="configureSingleFromBatch(item.teacher)" matButton="filled">
-                    <mat-icon>{{ item.salary ? 'edit' : 'add' }}</mat-icon>
-                    <span>{{ item.salary ? 'Edit' : 'Configure' }}</span>
+                    <span>Configure</span>
                   </button>
                 </td>
               </tr>

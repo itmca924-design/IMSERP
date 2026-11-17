@@ -782,10 +782,50 @@ public class TeachersController : ControllerBase
     public async Task<IActionResult> DeleteTeacher(Guid id)
     {
         var teacher = await _db.Teachers.FindAsync(id);
-        if (teacher == null) return NotFound();
+        if (teacher == null) return NotFound(new { message = "Staff member not found." });
 
+        // Dual-tier check: Block direct removal if staff has outstanding financial dues or unreturned assets
+        // 1. Pending / Unrecovered Salary Advances check
+        var pendingAdvances = await _db.TeacherSalaryAdvances
+            .Where(a => a.TeacherId == id && (a.Status == AdvanceStatus.Approved || a.Status == AdvanceStatus.Pending) && a.RecoveredAmount < a.Amount)
+            .ToListAsync();
+        if (pendingAdvances.Count > 0)
+        {
+            var totalPending = pendingAdvances.Sum(a => a.Amount - a.RecoveredAmount);
+            return BadRequest(new { 
+                message = $"Cannot remove {teacher.FullName}: There is an outstanding unrecovered salary advance of ₹{totalPending:N2}. Outstanding advances must be recovered or adjusted through 'Exit / FNF Settlement' before deleting." 
+            });
+        }
+
+        // 2. Issued Library Books check
+        var unreturnedBooks = await _db.LibraryCirculations
+            .Where(c => c.TeacherId == id && (c.Status == "Issued" || c.Status == "Overdue"))
+            .CountAsync();
+        if (unreturnedBooks > 0)
+        {
+            return BadRequest(new { 
+                message = $"Cannot remove {teacher.FullName}: There are {unreturnedBooks} library book(s) currently issued. Please receive all library books back or clear them via Exit / FNF Settlement." 
+            });
+        }
+
+        // 3. Service History check for Active Staff (Attendance, Salary structure, or Disbursed Payments)
+        var hasAttendance = await _db.TeacherAttendances.AnyAsync(a => a.TeacherId == id);
+        var hasSalaryPayments = await _db.TeacherSalaryPayments.AnyAsync(p => p.TeacherId == id);
+        var hasActiveBatches = await _db.TeacherBatchAssignments.AnyAsync(a => a.TeacherId == id && a.IsActive);
+        var hasClassTeacherSec = await _db.SchoolSections.AnyAsync(s => s.ClassTeacherId == id);
+        var isFnFSettled = await _db.TeacherFnFSettlements.AnyAsync(s => s.TeacherId == id && s.Status == "Settled");
+
+        // If staff is currently active and has institutional records, direct removal is strictly prohibited
+        if (teacher.IsActive && (hasAttendance || hasSalaryPayments || hasActiveBatches || hasClassTeacherSec) && !isFnFSettled)
+        {
+            return BadRequest(new { 
+                message = $"Direct removal is blocked for active staff member '{teacher.FullName}'. This staff member has active institutional service records (Attendance, Payroll, or Batch assignments). To preserve audit trails and statutory compliance, please offboard this faculty member officially via 'Exit / FNF Settlement'." 
+            });
+        }
+
+        // Proceed with soft-delete / archival (allowed for fresh dummy entries or already FNF settled staff)
         teacher.IsActive = false;
-        teacher.EmploymentType = "Deleted";
+        teacher.EmploymentType = isFnFSettled ? "Relieved" : "Deleted";
 
         // 1. Deactivate linked ERP User account
         if (teacher.UserId.HasValue)
@@ -813,14 +853,8 @@ public class TeachersController : ControllerBase
         teacher.TransportAllocationId = null;
         teacher.IsTransportStaff = false;
 
-        // 5. Remove any draft/settled FnF records so deleted staff do not appear in FnF directory
-        var fnfRecords = await _db.TeacherFnFSettlements
-            .Where(s => s.TeacherId == id)
-            .ToListAsync();
-        if (fnfRecords.Count > 0)
-        {
-            _db.TeacherFnFSettlements.RemoveRange(fnfRecords);
-        }
+        // IMPORTANT AUDIT RULE: NEVER remove TeacherFnFSettlements records!
+        // Historical FNF settlement vouchers, clearances, and relieving certificates must remain permanently in the database.
 
         await _db.SaveChangesAsync();
         return NoContent();
