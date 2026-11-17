@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,7 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { API_BASE, TeacherDto } from './teacher.models';
+import { API_BASE, TeacherDto, TeacherLeaveBalancesSummaryDto } from './teacher.models';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { TeacherIdCardDialogComponent } from './teacher-id-card-dialog.component';
 import { TeacherDocumentsDialogComponent } from './teacher-documents-dialog.component';
@@ -624,6 +624,49 @@ import { environment } from '../../../environments/environment';
         }
       </div>
       <mat-divider></mat-divider>
+      <!-- Live Leave Quota Balances Strip -->
+      @if (selectedTeacherLeaveBalances && selectedTeacher.isActive) {
+        <div class="leave-quota-deck">
+          <div class="leave-quota-header">
+            <div class="leave-header-left">
+              <mat-icon class="leave-deck-icon">account_balance_wallet</mat-icon>
+              <div class="leave-header-titles">
+                <span class="leave-main-title">Live Leave Balance (उपलब्ध अवकाश कोटा)</span>
+                <span class="leave-sub-title">Session entitlement &amp; monthly auto-accrual ledger</span>
+              </div>
+            </div>
+            <a [routerLink]="['/teachers/leaves']" [queryParams]="{teacherId: selectedTeacher.id}" class="apply-leave-link">
+              <mat-icon>event_available</mat-icon> Apply / Manage Leave
+            </a>
+          </div>
+          <div class="leave-chips-grid">
+            @for (b of selectedTeacherLeaveBalances.balances; track b) {
+              <div class="leave-balance-chip" [class.unpaid]="b.leaveType === 'UnpaidLeave'">
+                <div class="chip-label-row">
+                  <span class="chip-type-name">
+                    {{ b.leaveType === 'CasualLeave' ? 'Casual (CL)' : (b.leaveType === 'SickLeave' ? 'Sick (SL)' : (b.leaveType === 'EarnedLeave' ? 'Earned (EL)' : 'LWP (Unpaid)')) }}
+                  </span>
+                  <span class="chip-days-badge" [class.zero]="b.availableBalance <= 0 && b.leaveType !== 'UnpaidLeave'">
+                    {{ b.leaveType === 'UnpaidLeave' ? 'Unlimited' : (b.availableBalance + ' Left') }}
+                  </span>
+                </div>
+                @if (b.leaveType !== 'UnpaidLeave') {
+                  <div class="chip-meta-row">
+                    <span>Used: <strong>{{ b.usedDays }}</strong></span>
+                    <span>Accrued: <strong>{{ b.accruedToDate }}</strong></span>
+                    <span>Quota: <strong>{{ b.allocatedDays }}</strong></span>
+                  </div>
+                } @else {
+                  <div class="chip-meta-row">
+                    <span>Loss of Pay on absence</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+        <mat-divider></mat-divider>
+      }
       <!-- Quick Navigation to Sub-Pages -->
       <div class="quick-nav">
         <p class="quick-nav-title">{{ isSelf(selectedTeacher) ? 'My Self-Service Actions →' : 'Directly Jaao →' }}</p>
@@ -1331,6 +1374,128 @@ import { environment } from '../../../environments/environment';
       color: #334155;
       mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; flex-shrink: 0; }
     }
+    /* Live Leave Quota Deck on Profile Card */
+    .leave-quota-deck {
+      padding: 14px 16px;
+      margin: 14px 0 8px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%);
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .leave-quota-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .leave-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .leave-deck-icon {
+      color: #059669;
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+    }
+    .leave-header-titles {
+      display: flex;
+      flex-direction: column;
+    }
+    .leave-main-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #065f46;
+    }
+    .leave-sub-title {
+      font-size: 0.75rem;
+      color: #047857;
+    }
+    .apply-leave-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #0284c7;
+      text-decoration: none;
+      padding: 4px 12px;
+      border-radius: 6px;
+      background: #ffffff;
+      border: 1px solid #bae6fd;
+      transition: all 0.2s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      &:hover {
+        background: #f0f9ff;
+        color: #0369a1;
+        border-color: #7dd3fc;
+      }
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+    }
+    .leave-chips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+    }
+    .leave-balance-chip {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+      &.unpaid {
+        background: #f8fafc;
+        border-style: dashed;
+        border-color: #cbd5e1;
+      }
+    }
+    .chip-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .chip-type-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .chip-days-badge {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #059669;
+      background: #ecfdf5;
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid #a7f3d0;
+      &.zero {
+        color: #dc2626;
+        background: #fef2f2;
+        border-color: #fecaca;
+      }
+    }
+    .chip-meta-row {
+      font-size: 0.72rem;
+      color: #64748b;
+      display: flex;
+      gap: 8px;
+      strong {
+        color: #334155;
+      }
+    }
+
     .quick-nav { padding:16px 0; }
     .quick-nav-title { font-size:.8rem; font-weight:700; color:#64748b; margin:0 0 12px; text-transform:uppercase; letter-spacing:.5px; }
     .quick-nav-grid { display:flex; flex-wrap:wrap; gap:8px;
@@ -1924,6 +2089,8 @@ export class TeacherProfilesComponent implements OnInit {
   private api = API_BASE;
   teachers: TeacherDto[] = [];
   selectedTeacher: TeacherDto | null = null;
+  selectedTeacherLeaveBalances: TeacherLeaveBalancesSummaryDto | null = null;
+  loadingLeaveBalances = false;
   loading = false; saving = false; codeLoading = false;
   allowManualCode = false;
   searchTerm = ''; filterActive: boolean | null = null;
@@ -2017,7 +2184,8 @@ export class TeacherProfilesComponent implements OnInit {
     private fb: FormBuilder,
     private confirmDialog: ConfirmDialogService,
     private dialog: MatDialog,
-    public authService: AuthService
+    public authService: AuthService,
+    private route: ActivatedRoute
   ) { }
 
   /** True when the logged-in user is only a Teacher (self-service mode) */
@@ -2060,6 +2228,15 @@ export class TeacherProfilesComponent implements OnInit {
     this.initForm();
     this.loadTeachers();
     this.loadRoles();
+    this.route.queryParams.subscribe(params => {
+      const tid = params['teacherId'];
+      if (tid && this.teachers.length > 0) {
+        const found = this.teachers.find(t => t.id === tid);
+        if (found) {
+          this.viewTeacherProfile(found);
+        }
+      }
+    });
   }
 
   loadRoles() {
@@ -2272,7 +2449,26 @@ export class TeacherProfilesComponent implements OnInit {
       params = params.set('staffType', this.filterStaffType);
     }
     this.http.get<any>(`${this.api}/teachers/paged`, { params }).subscribe({
-      next: r => { this.teachers = r.items; this.totalCount = r.totalCount; this.loading = false; },
+      next: r => { 
+        this.teachers = r.items; 
+        this.totalCount = r.totalCount; 
+        this.loading = false;
+        if (this.selectedTeacher) {
+          const updated = this.teachers.find(t => t.id === this.selectedTeacher!.id);
+          if (updated) {
+            this.selectedTeacher = updated;
+            this.loadTeacherLeaveBalances(updated.id);
+          }
+        } else {
+          const tid = this.route.snapshot.queryParams['teacherId'];
+          if (tid) {
+            const found = this.teachers.find(t => t.id === tid);
+            if (found) {
+              this.viewTeacherProfile(found);
+            }
+          }
+        }
+      },
       error: () => this.loading = false
     });
   }
@@ -2313,7 +2509,25 @@ export class TeacherProfilesComponent implements OnInit {
     this.selectedTeacher = this.selectedTeacher?.id === t.id ? null : t;
     if (this.selectedTeacher) {
       this.scrollToTop();
+      this.loadTeacherLeaveBalances(this.selectedTeacher.id);
+    } else {
+      this.selectedTeacherLeaveBalances = null;
     }
+  }
+
+  loadTeacherLeaveBalances(teacherId: string) {
+    this.loadingLeaveBalances = true;
+    this.selectedTeacherLeaveBalances = null;
+    this.http.get<TeacherLeaveBalancesSummaryDto>(`${this.api}/teachers/${teacherId}/leave-balances`).subscribe({
+      next: res => {
+        this.selectedTeacherLeaveBalances = res;
+        this.loadingLeaveBalances = false;
+      },
+      error: () => {
+        this.selectedTeacherLeaveBalances = null;
+        this.loadingLeaveBalances = false;
+      }
+    });
   }
 
   onStaffTypeChange(type: number) {
