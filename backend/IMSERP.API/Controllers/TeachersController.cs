@@ -2059,7 +2059,7 @@ public class TeachersController : ControllerBase
             return Forbid();
 
         if (!await IsManualAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual teacher attendance is disabled. Current mode is Biometric." });
+            return Conflict(new { message = "Manual staff/faculty attendance is disabled. Current mode is Biometric." });
 
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(dto.AttendanceDate))
             return Forbid();
@@ -2122,7 +2122,7 @@ public class TeachersController : ControllerBase
             return Forbid();
 
         if (!await IsManualAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual teacher attendance is disabled. Current mode is Biometric." });
+            return Conflict(new { message = "Manual staff/faculty attendance is disabled. Current mode is Biometric." });
 
         var teacher = await _db.Teachers.FindAsync(id);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
@@ -2250,7 +2250,7 @@ public class TeachersController : ControllerBase
             return Forbid();
 
         if (!await IsManualAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual teacher attendance is disabled. Current mode is Biometric Only." });
+            return Conflict(new { message = "Manual staff/faculty attendance is disabled. Current mode is Biometric Only." });
 
         var teacher = await _db.Teachers.FindAsync(id);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
@@ -2385,7 +2385,7 @@ public class TeachersController : ControllerBase
             return Forbid();
 
         if (!await IsManualAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual teacher attendance is disabled. Current mode is Biometric Only." });
+            return Conflict(new { message = "Manual staff/faculty attendance is disabled. Current mode is Biometric Only." });
 
         var teacher = await _db.Teachers.FindAsync(id);
         if (teacher == null) return NotFound(new { message = "Teacher not found." });
@@ -2475,7 +2475,7 @@ public class TeachersController : ControllerBase
             return Forbid();
 
         if (!await IsManualAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual teacher attendance changes are disabled in Biometric Only mode." });
+            return Conflict(new { message = "Manual staff/faculty attendance changes are disabled in Biometric Only mode." });
 
         var record = await _db.TeacherAttendances.FindAsync(attendanceId);
         if (record == null) return NotFound();

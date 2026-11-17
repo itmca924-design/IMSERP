@@ -305,7 +305,7 @@ export class BrandingService {
         {
           name: 'Attendance',
           short_name: 'Attendance',
-          description: 'Daily Student & Teacher Attendance',
+          description: 'Daily Student & Staff Attendance',
           url: '/student-attendance',
           icons: [{ src: logoUrl ? icon192Url : 'assets/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }]
         },

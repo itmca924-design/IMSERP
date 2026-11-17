@@ -214,7 +214,7 @@ self.addEventListener('fetch', (event) => {
                 {
                   name: 'Attendance',
                   short_name: 'Attendance',
-                  description: 'Daily Student & Teacher Attendance',
+                  description: 'Daily Student & Staff Attendance',
                   url: '/student-attendance',
                   icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }]
                 },

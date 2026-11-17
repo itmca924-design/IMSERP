@@ -81,13 +81,13 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <div class="form-grid">
                   <!-- Teacher Mode -->
                   <mat-form-field appearance="outline" class="col-full">
-                    <mat-label>Teacher Attendance Mode</mat-label>
+                    <mat-label>Staff &amp; Faculty Attendance Mode</mat-label>
                     <mat-select [(ngModel)]="settings.teacherMode">
                       <mat-option value="Both">Manual Roster + Biometric Device</mat-option>
                       <mat-option value="Manual">Manual Register Only</mat-option>
                       <mat-option value="Biometric">Biometric Device Only</mat-option>
                     </mat-select>
-                    <mat-hint>Choose whether faculty attendance is captured manually, via biometric device, or both.</mat-hint>
+                    <mat-hint>Choose whether staff and faculty attendance is captured manually, via biometric device, or both.</mat-hint>
                   </mat-form-field>
                   <!-- Shift Start Time -->
                   <mat-form-field appearance="outline" class="col-half">

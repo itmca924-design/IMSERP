@@ -48,8 +48,8 @@ export interface CalendarDayItem {
 <div class="page-container">
   <div class="page-header">
     <div>
-      <h1 class="page-title"><mat-icon>event_available</mat-icon> Faculty Attendance & Roster</h1>
-      <p class="page-subtitle">Track daily check-ins, monthly attendance registers, and automated salary deductions.</p>
+      <h1 class="page-title"><mat-icon>event_available</mat-icon> Staff &amp; Faculty Attendance</h1>
+      <p class="page-subtitle">Track daily check-ins, monthly attendance registers, and automated salary deductions for all staff and faculty.</p>
     </div>
   </div>
 
@@ -62,7 +62,7 @@ export interface CalendarDayItem {
   @if (!selectedTeacher) {
     <div class="no-selection">
       <mat-icon>person_search</mat-icon>
-      <p>Please select a faculty member above to view attendance records or mark attendance.</p>
+      <p>Please select a staff or faculty member above to view attendance records or mark attendance.</p>
     </div>
   }
 
@@ -268,7 +268,7 @@ export interface CalendarDayItem {
               </div>
 
               <!-- Center: Status Selector Segment -->
-              <div class="mfb-status-group" role="radiogroup" aria-label="Teacher Attendance Status">
+              <div class="mfb-status-group" role="radiogroup" aria-label="Staff & Faculty Attendance Status">
                 <button type="button" class="mfb-pill pill-p" [class.active]="batchTargetStatus === 'Present'" (click)="batchTargetStatus = 'Present'" matButton="filled">
                   <mat-icon>check_circle</mat-icon>
                   <span>Present</span>
@@ -513,8 +513,8 @@ export interface CalendarDayItem {
       gap: 10px;
     }
     /* Compact widths ensuring everything stays in a single line */
-    .month-select-field { width: 125px; min-width: 115px; }
-    .year-select-field { width: 96px; min-width: 90px; }
+    .month-select-field { width: 170px; min-width: 155px; }
+    .year-select-field { width: 105px; min-width: 95px; }
     .mode-select { width: 215px; min-width: 200px; }
 
     .toolbar-right {
@@ -2651,7 +2651,7 @@ export class TeacherAttendanceComponent implements OnInit {
       return;
     }
     if (this.attendanceMode === 'Biometric') {
-      this.confirmDialog.alert('Biometric Mode', 'Manual teacher attendance is disabled in Biometric Only mode.', 'warning');
+      this.confirmDialog.alert('Biometric Mode', 'Manual staff/faculty attendance is disabled in Biometric Only mode.', 'warning');
       return;
     }
 
