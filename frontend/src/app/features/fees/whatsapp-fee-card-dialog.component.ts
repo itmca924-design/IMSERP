@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { HindiTypingDirective } from '../../shared/directives/hindi-typing.directive';
 import { StudentFeeCard } from '../../core/services/fees.service';
 
 export interface WhatsAppFeeCardDialogData {
@@ -24,7 +25,8 @@ export interface WhatsAppFeeCardDialogData {
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
-    MatTooltipModule
+    MatTooltipModule,
+    HindiTypingDirective
   ],
   template: `
     <div class="dialog-wrapper">
@@ -94,18 +96,54 @@ export interface WhatsAppFeeCardDialogData {
               <mat-icon>chat</mat-icon>
               <span>WhatsApp Message Preview (संदेश पूर्वावलोकन)</span>
             </div>
-            <button
-              type="button"
-              class="btn-copy-preview"
-              (click)="copyMessage()"
-              [matTooltip]="copied ? 'Copied!' : 'Copy to Clipboard'" matButton="filled">
-              <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-              <span>{{ copied ? 'Copied' : 'Copy' }}</span>
-            </button>
+            <div class="header-action-tools">
+              <div class="lang-toggle-pill" [class.is-hindi]="isHindiMode">
+                <button
+                  type="button"
+                  class="lang-pill-btn lang-eng"
+                  [class.active]="!isHindiMode"
+                  (click)="isHindiMode = false"
+                  matTooltip="English typing">
+                  ENG
+                </button>
+                <button
+                  type="button"
+                  class="lang-pill-btn lang-hin"
+                  [class.active]="isHindiMode"
+                  (click)="isHindiMode = true"
+                  matTooltip="हिंदी टाइपिंग: स्पेस पर देवनागरी">
+                  <span>🇮🇳 HIN</span>
+                  @if (isHindiMode) {
+                    <span class="active-dot"></span>
+                  }
+                </button>
+              </div>
+
+              <button
+                type="button"
+                class="btn-copy-preview"
+                (click)="copyMessage()"
+                [matTooltip]="copied ? 'Copied!' : 'Copy to Clipboard'" matButton="filled">
+                <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+                <span>{{ copied ? 'Copied' : 'Copy' }}</span>
+              </button>
+            </div>
           </div>
 
           <div class="message-bubble-box">
-            <pre class="message-text">{{ messageText }}</pre>
+            <textarea
+              class="wa-editable-textarea"
+              rows="8"
+              [(ngModel)]="messageText"
+              [appHindiTyping]="isHindiMode"
+              placeholder="WhatsApp message content... (Type in English and press Space to transliterate to Devanagari when HIN is active)">
+            </textarea>
+            @if (isHindiMode) {
+              <div class="hindi-typing-status-pill">
+                <span class="status-dot"></span>
+                <span>हिंदी टाइपिंग चालू (Hinglish ➔ देवनागरी on Space)</span>
+              </div>
+            }
           </div>
         </div>
       </mat-dialog-content>
@@ -353,6 +391,107 @@ export interface WhatsAppFeeCardDialogData {
       margin-right: 4px;
     }
 
+    .header-action-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lang-toggle-pill {
+      display: inline-flex;
+      align-items: center;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 2px;
+      gap: 2px;
+
+      &.is-hindi {
+        background: #f0fdf4;
+        border-color: #86efac;
+      }
+
+      .lang-pill-btn {
+        background: transparent;
+        border: none;
+        border-radius: 16px;
+        padding: 2px 7px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #64748b;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        transition: all 0.18s ease;
+
+        &:hover { color: #1e293b; }
+
+        &.active {
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+
+          &.lang-hin {
+            background: #16a34a;
+            color: #ffffff;
+          }
+
+          &.lang-eng {
+            background: #2563eb;
+            color: #ffffff;
+          }
+        }
+
+        .active-dot {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: #ffffff;
+        }
+      }
+    }
+
+    .wa-editable-textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      color: #0f172a;
+      line-height: 1.45;
+      resize: vertical;
+      box-sizing: border-box;
+      background: #ffffff;
+
+      &:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+      }
+    }
+
+    .hindi-typing-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      margin-top: 6px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #166534;
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #16a34a;
+        box-shadow: 0 0 4px #86efac;
+      }
+    }
+
     .message-bubble-box {
       background: #f8fafc;
       padding: 12px 14px;
@@ -408,6 +547,7 @@ export class WhatsAppFeeCardDialogComponent implements OnInit {
   recipientPhone = '';
   messageText = '';
   copied = false;
+  isHindiMode = false;
 
   constructor(
     public dialogRef: MatDialogRef<WhatsAppFeeCardDialogComponent>,

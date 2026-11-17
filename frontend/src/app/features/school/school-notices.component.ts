@@ -20,6 +20,7 @@ import { TenantService, TenantDto } from '../../core/services/tenant.service';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { environment } from '../../../environments/environment';
 import { POSTER_ASSETS } from './poster-assets';
+import { HindiTypingDirective } from '../../shared/directives/hindi-typing.directive';
 import html2canvas from 'html2canvas/dist/html2canvas.esm.js';
 
 const API_BASE = environment.apiUrl;
@@ -986,7 +987,7 @@ export class SchoolNoticesComponent implements OnInit {
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule, HindiTypingDirective
   ],
   template: `
     <div class="notice-dialog-wrap">
@@ -1074,6 +1075,7 @@ export class SchoolNoticesComponent implements OnInit {
                   rows="2"
                   [(ngModel)]="aiNoticePromptText"
                   [ngModelOptions]="{standalone: true}"
+                  [appHindiTyping]="isHindiTypingActive"
                   (input)="onAiNoticePromptInput()"
                   (keydown.enter)="$event.preventDefault(); processAiNoticeCommand()"
                   placeholder="यहाँ बोलें या टाइप करें... (उदा: 'Winter vacation notice 25 December to 1 January school reopening 2 January')"></textarea>
@@ -1107,10 +1109,44 @@ export class SchoolNoticesComponent implements OnInit {
             </div>
           }
 
+          <!-- Language Typing Bar -->
+          <div class="lang-typing-banner">
+            <div class="lang-typing-left">
+              <span class="lang-label">Typing Language:</span>
+              <div class="lang-toggle-pill" [class.is-hindi]="isHindiTypingActive">
+                <button
+                  type="button"
+                  class="lang-pill-btn lang-eng"
+                  [class.active]="!isHindiTypingActive"
+                  (click)="isHindiTypingActive = false"
+                  matTooltip="English typing mode">
+                  ENG
+                </button>
+                <button
+                  type="button"
+                  class="lang-pill-btn lang-hin"
+                  [class.active]="isHindiTypingActive"
+                  (click)="isHindiTypingActive = true"
+                  matTooltip="हिंदी मोड: टाइप करते समय स्पेस दबाने पर स्वतः देवनागरी में बदलेगा">
+                  <span>🇮🇳 HIN</span>
+                  @if (isHindiTypingActive) {
+                    <span class="active-dot"></span>
+                  }
+                </button>
+              </div>
+            </div>
+            @if (isHindiTypingActive) {
+              <div class="hindi-typing-status-pill">
+                <span class="status-dot"></span>
+                <span>हिंदी टाइपिंग चालू (Hinglish ➔ देवनागरी on Space)</span>
+              </div>
+            }
+          </div>
+
           <!-- Notice Title -->
           <mat-form-field appearance="outline" class="full-field">
             <mat-label>Notice / Circular Title (परिपत्र का शीर्षक) *</mat-label>
-            <input matInput formControlName="title" placeholder="e.g. Weekly Test Exam (साप्ताहिक परीक्षा) / Term 1 Schedule" />
+            <input matInput formControlName="title" [appHindiTyping]="isHindiTypingActive" placeholder="e.g. Weekly Test Exam (साप्ताहिक परीक्षा) / Term 1 Schedule" />
             <mat-icon matSuffix color="primary">title</mat-icon>
             @if (form.get('title')?.hasError('required')) {
               <mat-error>Notice title is required</mat-error>
@@ -1411,7 +1447,7 @@ export class SchoolNoticesComponent implements OnInit {
           <!-- Circular Body Content -->
           <mat-form-field appearance="outline" class="full-field">
             <mat-label>Official Circular Content (परिपत्र विवरण) *</mat-label>
-            <textarea matInput formControlName="content" rows="4" placeholder="Enter complete circular text, instructions, timings, requirements..."></textarea>
+            <textarea matInput formControlName="content" [appHindiTyping]="isHindiTypingActive" rows="4" placeholder="Enter complete circular text, instructions, timings, requirements..."></textarea>
             @if (form.get('content')?.hasError('required')) {
               <mat-error>Content text is required</mat-error>
             }
@@ -1539,6 +1575,106 @@ export class SchoolNoticesComponent implements OnInit {
       overflow-x: hidden;
       box-sizing: border-box;
       background: #ffffff;
+    }
+
+    /* Language Typing Banner */
+    .lang-typing-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 6px 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+
+      .lang-typing-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+
+        .lang-label {
+          font-size: 0.76rem;
+          font-weight: 700;
+          color: #475569;
+        }
+      }
+
+      .lang-toggle-pill {
+        display: inline-flex;
+        align-items: center;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 20px;
+        padding: 2px;
+        gap: 2px;
+
+        &.is-hindi {
+          background: #f0fdf4;
+          border-color: #86efac;
+        }
+
+        .lang-pill-btn {
+          background: transparent;
+          border: none;
+          border-radius: 16px;
+          padding: 3px 8px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #64748b;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.18s ease;
+
+          &:hover { color: #1e293b; }
+
+          &.active {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+
+            &.lang-hin {
+              background: #16a34a;
+              color: #ffffff;
+            }
+
+            &.lang-eng {
+              background: #2563eb;
+              color: #ffffff;
+            }
+          }
+
+          .active-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #ffffff;
+          }
+        }
+      }
+
+      .hindi-typing-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #166534;
+
+        .status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #16a34a;
+          box-shadow: 0 0 4px #86efac;
+        }
+      }
     }
 
     .full-field {
@@ -2024,6 +2160,7 @@ export class NoticeFormDialogComponent implements OnInit, OnDestroy {
   editNoticeNumber = '';
   editNoticeId = '';
   dateError = '';
+  isHindiTypingActive = true;
 
   // Agentic AI Circular & Notice Generator Properties
   isAiNoticeOpen = false;

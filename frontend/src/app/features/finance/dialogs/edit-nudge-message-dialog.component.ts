@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { HindiTypingDirective } from '../../../shared/directives/hindi-typing.directive';
 import { FeeRecoveryPlanItemDto } from '../../../core/services/fee-recovery-agent.service';
 import { UpiIntentResponse } from '../../../core/services/fees.service';
 
@@ -26,8 +27,9 @@ export interface EditNudgeDialogData {
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule
-],
+    MatSelectModule,
+    HindiTypingDirective
+  ],
   template: `
     <div class="dialog-container">
       <div class="dialog-header">
@@ -78,9 +80,40 @@ export interface EditNudgeDialogData {
               <mat-icon matPrefix>send</mat-icon>
             </mat-form-field>
     
+            <div class="lang-typing-row">
+              <span class="lang-row-label">Typing Language:</span>
+              <div class="lang-toggle-pill" [class.is-hindi]="isHindiTypingActive">
+                <button
+                  type="button"
+                  class="lang-pill-btn lang-eng"
+                  [class.active]="!isHindiTypingActive"
+                  (click)="isHindiTypingActive = false"
+                  matTooltip="English typing">
+                  ENG
+                </button>
+                <button
+                  type="button"
+                  class="lang-pill-btn lang-hin"
+                  [class.active]="isHindiTypingActive"
+                  (click)="isHindiTypingActive = true"
+                  matTooltip="हिंदी मोड: टाइप करते समय स्पेस दबाने पर स्वतः देवनागरी में बदलेगा">
+                  <span>🇮🇳 HIN</span>
+                  @if (isHindiTypingActive) {
+                    <span class="active-dot"></span>
+                  }
+                </button>
+              </div>
+              @if (isHindiTypingActive) {
+                <span class="hindi-typing-status-pill">
+                  <span class="status-dot"></span>
+                  <span>हिंदी टाइपिंग चालू (Hinglish ➔ देवनागरी on Space)</span>
+                </span>
+              }
+            </div>
+
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Personalized Message Body</mat-label>
-              <textarea matInput formControlName="message" rows="8" placeholder="Message content..."></textarea>
+              <textarea matInput formControlName="message" [appHindiTyping]="isHindiTypingActive" rows="8" placeholder="Message content..."></textarea>
               <mat-icon matPrefix>chat</mat-icon>
             </mat-form-field>
           </div>
@@ -262,6 +295,94 @@ export interface EditNudgeDialogData {
       }
     }
 
+    .lang-typing-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+
+      .lang-row-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #475569;
+      }
+
+      .lang-toggle-pill {
+        display: inline-flex;
+        align-items: center;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 20px;
+        padding: 2px;
+        gap: 2px;
+
+        &.is-hindi {
+          background: #f0fdf4;
+          border-color: #86efac;
+        }
+
+        .lang-pill-btn {
+          background: transparent;
+          border: none;
+          border-radius: 16px;
+          padding: 3px 8px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #64748b;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.18s ease;
+
+          &:hover { color: #1e293b; }
+
+          &.active {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+
+            &.lang-hin {
+              background: #16a34a;
+              color: #ffffff;
+            }
+
+            &.lang-eng {
+              background: #2563eb;
+              color: #ffffff;
+            }
+          }
+
+          .active-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #ffffff;
+          }
+        }
+      }
+
+      .hindi-typing-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #166534;
+
+        .status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #16a34a;
+          box-shadow: 0 0 4px #86efac;
+        }
+      }
+    }
+
     .dialog-actions {
       padding: 12px 20px 16px;
       border-top: 1px solid #e2e8f0;
@@ -283,6 +404,7 @@ export interface EditNudgeDialogData {
 })
 export class EditNudgeMessageDialogComponent implements OnInit {
   form!: FormGroup;
+  isHindiTypingActive = true;
 
   constructor(
     public dialogRef: MatDialogRef<EditNudgeMessageDialogComponent>,

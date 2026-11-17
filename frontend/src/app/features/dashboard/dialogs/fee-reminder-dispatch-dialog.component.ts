@@ -10,6 +10,8 @@ import { CoachingService } from '../../../core/services/coaching.service';
 import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { FeeRecoveryAgentService } from '../../../core/services/fee-recovery-agent.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { HindiTypingDirective } from '../../../shared/directives/hindi-typing.directive';
+import { HindiTransliterationService } from '../../../core/services/hindi-transliteration.service';
 
 export interface FeeReminderDispatchItem {
   id?: string;
@@ -52,7 +54,8 @@ export interface FeeReminderDispatchDialogData {
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    HindiTypingDirective
   ],
   template: `
     <div class="dispatch-dialog-wrap">
@@ -274,6 +277,41 @@ export interface FeeReminderDispatchDialogData {
                   <span>WhatsApp Message Preview (Editable)</span>
                 </div>
                 <div class="header-action-tools">
+                  <!-- Language Mode Toggle Pill (ENG / HIN) -->
+                  <div class="lang-toggle-pill" [class.is-hindi]="isHindiMessageMode" role="group" aria-label="Message Language & Typing Mode">
+                    <button
+                      type="button"
+                      class="lang-pill-btn lang-eng"
+                      [class.active]="!isHindiMessageMode"
+                      (click)="setLanguageMode(false)"
+                      matTooltip="English mode (English format & standard English typing)">
+                      ENG
+                    </button>
+                    <button
+                      type="button"
+                      class="lang-pill-btn lang-hin"
+                      [class.active]="isHindiMessageMode"
+                      (click)="setLanguageMode(true)"
+                      matTooltip="हिंदी मोड: टाइप करते समय स्पेस दबाने पर देवनागरी में स्वतः ट्रांसलेट होगा">
+                      <span>🇮🇳 HIN</span>
+                      @if (isHindiMessageMode) {
+                        <span class="active-dot"></span>
+                      }
+                    </button>
+                  </div>
+
+                  <!-- Quick Translate / Convert Button -->
+                  <button
+                    type="button"
+                    class="transliterate-convert-btn"
+                    [class.translating]="isTranslating"
+                    (click)="translateOrSwitchMessage()"
+                    [disabled]="isTranslating"
+                    [matTooltip]="isHindiMessageMode ? 'Translate English words to Devanagari Hindi' : 'Reset to English Invoice format'">
+                    <mat-icon>{{ isTranslating ? 'hourglass_top' : 'translate' }}</mat-icon>
+                    <span class="btn-text">{{ isTranslating ? 'Translating...' : (isHindiMessageMode ? 'Translate' : 'Eng Format') }}</span>
+                  </button>
+
                   <button
                     type="button"
                     class="listen-speech-mini-btn"
@@ -291,11 +329,21 @@ export interface FeeReminderDispatchDialogData {
               <textarea
                 class="wa-message-textarea"
                 rows="8"
-                [(ngModel)]="activeMessageText">
+                [(ngModel)]="activeMessageText"
+                [appHindiTyping]="isHindiMessageMode"
+                placeholder="Type your message here... (When HIN is active, type in Hinglish e.g. 'namaste' and press Space to auto-transliterate to 'नमस्ते')">
               </textarea>
               <div class="phone-meta-row">
-                <mat-icon class="ph-icon">phone_android</mat-icon>
-                <span>Target Phone: <strong>{{ targetSingle.parentWhatsAppPhone || 'Phone Not Available' }}</strong></span>
+                <div class="phone-info">
+                  <mat-icon class="ph-icon">phone_android</mat-icon>
+                  <span>Target Phone: <strong>{{ targetSingle.parentWhatsAppPhone || 'Phone Not Available' }}</strong></span>
+                </div>
+                @if (isHindiMessageMode) {
+                  <span class="hindi-typing-status-pill" matTooltip="Type English/Hinglish words and press Space to convert into Devanagari script">
+                    <span class="status-dot"></span>
+                    <span>हिंदी टाइपिंग चालू (Hinglish ➔ देवनागरी on Space)</span>
+                  </span>
+                }
               </div>
             </div>
           </div>
@@ -1156,7 +1204,103 @@ export interface FeeReminderDispatchDialogData {
           .header-action-tools {
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 6px;
+
+            .lang-toggle-pill {
+              display: inline-flex;
+              align-items: center;
+              background: #f1f5f9;
+              border: 1px solid #cbd5e1;
+              border-radius: 20px;
+              padding: 2px;
+              gap: 2px;
+              box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+
+              &.is-hindi {
+                background: #f0fdf4;
+                border-color: #86efac;
+              }
+
+              .lang-pill-btn {
+                background: transparent;
+                border: none;
+                border-radius: 16px;
+                padding: 3px 8px;
+                font-size: 0.72rem;
+                font-weight: 700;
+                color: #64748b;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                transition: all 0.18s ease;
+                line-height: 1.2;
+
+                &:hover {
+                  color: #1e293b;
+                }
+
+                &.active {
+                  background: #ffffff;
+                  color: #1e293b;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+
+                  &.lang-hin {
+                    background: #16a34a;
+                    color: #ffffff;
+                    box-shadow: 0 2px 4px rgba(22, 163, 74, 0.25);
+                  }
+
+                  &.lang-eng {
+                    background: #2563eb;
+                    color: #ffffff;
+                    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+                  }
+                }
+
+                .active-dot {
+                  width: 5px;
+                  height: 5px;
+                  border-radius: 50%;
+                  background: #ffffff;
+                }
+              }
+            }
+
+            .transliterate-convert-btn {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              padding: 4px 8px;
+              font-size: 0.72rem;
+              font-weight: 600;
+              color: #7c3aed;
+              background: #f5f3ff;
+              border: 1px solid #ddd6fe;
+              border-radius: 6px;
+              cursor: pointer;
+              transition: all 0.15s ease;
+              white-space: nowrap;
+
+              mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+              &:hover:not(:disabled) {
+                background: #ede9fe;
+                border-color: #c4b5fd;
+              }
+
+              &.translating {
+                background: #fdf2f8;
+                color: #db2777;
+                border-color: #fbcfe8;
+              }
+
+              &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+              }
+            }
 
             .listen-speech-mini-btn {
               display: inline-flex;
@@ -1227,10 +1371,40 @@ export interface FeeReminderDispatchDialogData {
         .phone-meta-row {
           display: flex;
           align-items: center;
-          gap: 6px;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 8px;
           font-size: 0.8rem;
           color: #475569;
-          .ph-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; }
+          padding-top: 2px;
+
+          .phone-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            .ph-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; }
+          }
+
+          .hindi-typing-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 8px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #166534;
+
+            .status-dot {
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              background: #16a34a;
+              box-shadow: 0 0 4px #86efac;
+            }
+          }
         }
       }
     }
@@ -1766,6 +1940,11 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
   private activeUtterance: SpeechSynthesisUtterance | null = null;
   private activeAudio: HTMLAudioElement | null = null;
   private authService = inject(AuthService);
+  private hindiTrans = inject(HindiTransliterationService);
+
+  isHindiMessageMode = false;
+  isTranslating = false;
+  private userManuallyToggledLang = false;
 
   get activeInstituteName(): string {
     const fromData = this.data?.instituteName?.trim();
@@ -1796,6 +1975,8 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.isHindiMessageMode = this.messageType !== 'invoice';
+    this.speechLang = this.isHindiMessageMode ? 'hi-IN' : 'en-IN';
     this.updateActiveMessage();
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       this.loadVoices();
@@ -1818,8 +1999,61 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
     if (this.messageType === type) return;
     this.stopAudio();
     this.messageType = type;
+    if (!this.userManuallyToggledLang) {
+      this.isHindiMessageMode = type !== 'invoice';
+      this.speechLang = this.isHindiMessageMode ? 'hi-IN' : 'en-IN';
+    }
     this.updateActiveMessage();
     this.cdr.markForCheck();
+  }
+
+  setLanguageMode(isHindi: boolean): void {
+    if (this.isHindiMessageMode === isHindi) return;
+    this.userManuallyToggledLang = true;
+    this.isHindiMessageMode = isHindi;
+    this.speechLang = isHindi ? 'hi-IN' : 'en-IN';
+
+    if (this.targetSingle) {
+      if (isHindi) {
+        if (this.messageType === 'voice') {
+          this.activeMessageText = this.buildVoiceMessage(this.targetSingle);
+        } else {
+          this.activeMessageText = this.buildNormalMessage(this.targetSingle);
+        }
+      } else {
+        this.activeMessageText = this.buildInvoiceMessage(this.targetSingle);
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  async translateOrSwitchMessage(): Promise<void> {
+    if (this.isTranslating) return;
+
+    if (this.isHindiMessageMode) {
+      if (this.activeMessageText && /[a-zA-Z]/.test(this.activeMessageText)) {
+        this.isTranslating = true;
+        this.cdr.markForCheck();
+        try {
+          this.activeMessageText = await this.hindiTrans.transliterateSentence(this.activeMessageText);
+        } catch {
+          // ignore error
+        } finally {
+          this.isTranslating = false;
+          this.cdr.markForCheck();
+        }
+      } else if (this.targetSingle) {
+        this.activeMessageText = this.messageType === 'voice'
+          ? this.buildVoiceMessage(this.targetSingle)
+          : this.buildNormalMessage(this.targetSingle);
+        this.cdr.markForCheck();
+      }
+    } else {
+      if (this.targetSingle) {
+        this.activeMessageText = this.buildInvoiceMessage(this.targetSingle);
+        this.cdr.markForCheck();
+      }
+    }
   }
 
   setVoiceGender(gender: 'Female' | 'Male'): void {
