@@ -1329,22 +1329,54 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
         <mat-progress-bar mode="indeterminate" class="fd-loader"></mat-progress-bar>
       }
     
-      <!-- ── Sub Navigation Tabs ── -->
+      <!-- ── Sub Navigation Tabs (Segmented Control Bar) ── -->
       <div class="tabs-nav-strip">
-        <button type="button" class="tab-pill" [class.active]="activeTab === 'leaves'" (click)="activeTab = 'leaves'" matButton="filled">
-          <mat-icon>beach_access</mat-icon>
-          <span>Leave Applications ({{leaves.length}})</span>
-        </button>
-        <button type="button" class="tab-pill" [class.active]="activeTab === 'regularizations'" (click)="activeTab = 'regularizations'; loadRegularizations()" matButton="filled">
-          <mat-icon>build_circle</mat-icon>
-          <span>Attendance Regularizations ({{regularizations.length}})</span>
-          @if (pendingRegCount > 0) {
-            <span class="pill-badge">{{pendingRegCount}}</span>
+        <button
+          type="button"
+          class="tab-pill"
+          [class.active]="activeTab === 'leaves'"
+          (click)="activeTab = 'leaves'">
+          <div class="tab-icon-wrap">
+            <mat-icon>beach_access</mat-icon>
+          </div>
+          <span class="tab-label">Leave Applications</span>
+          <span class="tab-counter">{{leaves.length}}</span>
+          @if (stats.pending > 0) {
+            <span class="tab-badge-pending">
+              <span class="pulse-dot"></span>
+              {{stats.pending}} Pending
+            </span>
           }
         </button>
-        <button type="button" class="tab-pill" [class.active]="activeTab === 'accruals'" (click)="activeTab = 'accruals'; loadAccrualLogs()" matButton="filled">
-          <mat-icon>history_edu</mat-icon>
-          <span>Monthly Accrual History ({{accrualLogs.length}})</span>
+
+        <button
+          type="button"
+          class="tab-pill"
+          [class.active]="activeTab === 'regularizations'"
+          (click)="activeTab = 'regularizations'; loadRegularizations()">
+          <div class="tab-icon-wrap">
+            <mat-icon>published_with_changes</mat-icon>
+          </div>
+          <span class="tab-label">Attendance Regularizations</span>
+          <span class="tab-counter">{{regularizations.length}}</span>
+          @if (pendingRegCount > 0) {
+            <span class="tab-badge-pending warn">
+              <span class="pulse-dot"></span>
+              {{pendingRegCount}} Action Required
+            </span>
+          }
+        </button>
+
+        <button
+          type="button"
+          class="tab-pill"
+          [class.active]="activeTab === 'accruals'"
+          (click)="activeTab = 'accruals'; loadAccrualLogs()">
+          <div class="tab-icon-wrap">
+            <mat-icon>history_edu</mat-icon>
+          </div>
+          <span class="tab-label">Monthly Accrual History</span>
+          <span class="tab-counter">{{accrualLogs.length}}</span>
         </button>
       </div>
     
@@ -2378,29 +2410,161 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     .empty-state mat-icon { font-size: 40px; width: 40px; height: 40px; margin-bottom: 8px; color: #cbd5e1; }
     .empty-state p { margin: 0 0 14px; font-size: 0.88rem; }
 
-    /* Tabs Navigation Strip */
+    /* Modern Enterprise Segmented Tabs Navigation Strip */
     .tabs-nav-strip {
-      display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+      margin-bottom: 12px;
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .tab-pill {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1;
-      background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.84rem;
-      cursor: pointer; transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #64748b;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      user-select: none;
+      outline: none;
     }
-    .tab-pill mat-icon { font-size: 18px; width: 18px; height: 18px; }
-    .tab-pill:hover { background: #eff6ff; color: #2563eb; border-color: #93c5fd; }
+    .tab-icon-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(100, 116, 139, 0.08);
+      transition: all 0.2s ease;
+    }
+    .tab-pill mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #64748b;
+      transition: color 0.2s ease;
+    }
+    .tab-label {
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .tab-counter {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 7px;
+      border-radius: 11px;
+      background: #e2e8f0;
+      color: #475569;
+      font-size: 0.72rem;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+    .tab-badge-pending {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      color: #92400e;
+      border: 1px solid #fcd34d;
+      font-size: 0.72rem;
+      font-weight: 700;
+      box-shadow: 0 1px 2px rgba(217, 119, 6, 0.15);
+    }
+    .tab-badge-pending.warn {
+      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+      color: #991b1b;
+      border-color: #fca5a5;
+    }
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #d97706;
+      animation: pulseDot 1.6s infinite ease-in-out;
+    }
+    .tab-badge-pending.warn .pulse-dot {
+      background: #dc2626;
+    }
+    @keyframes pulseDot {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.7; }
+    }
+
+    /* Active & Hover States */
+    .tab-pill:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.75);
+      color: #1e293b;
+      border-color: rgba(203, 213, 225, 0.6);
+    }
+    .tab-pill:hover:not(.active) .tab-icon-wrap {
+      background: rgba(37, 99, 235, 0.1);
+    }
+    .tab-pill:hover:not(.active) mat-icon {
+      color: #2563eb;
+    }
+
     .tab-pill.active {
-      background: #2563eb; color: #fff; border-color: #2563eb;
-      box-shadow: 0 2px 4px rgba(37,99,235,0.25);
+      background: #ffffff;
+      color: #1e3a8a;
+      border-color: #bfdbfe;
+      box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
-    .tab-pill.active mat-icon { color: #fff; }
-    .pill-badge {
-      background: #ef4444; color: #fff; border-radius: 10px;
-      font-size: 0.7rem; font-weight: 700; padding: 1px 6px;
+    .tab-pill.active .tab-label {
+      font-weight: 700;
+      color: #1e3a8a;
     }
-    .tab-pill.active .pill-badge {
-      background: #fff; color: #dc2626;
+    .tab-pill.active .tab-icon-wrap {
+      background: #2563eb;
+      box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.35);
+    }
+    .tab-pill.active mat-icon {
+      color: #ffffff;
+    }
+    .tab-pill.active .tab-counter {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #dbeafe;
+    }
+
+    @media (max-width: 768px) {
+      .tabs-nav-strip {
+        display: flex;
+        width: 100%;
+        overflow-x: auto;
+        padding: 4px;
+        border-radius: 12px;
+      }
+      .tab-pill {
+        flex: 1 0 auto;
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        gap: 6px;
+      }
+      .tab-label {
+        font-size: 0.78rem;
+      }
     }
 
     .policy-btn { color: #475569 !important; border-color: #cbd5e1 !important; }
