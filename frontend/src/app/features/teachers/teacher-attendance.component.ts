@@ -98,6 +98,11 @@ export interface CalendarDayItem {
               <mat-icon>settings</mat-icon> Shift &amp; Policies
             </button>
           }
+          @if (canManageAttendance && attendanceMode !== 'Biometric') {
+            <button class="mark-today-toolbar-btn" (click)="selectTodayForMarking()" matTooltip="Select Today to mark and save attendance" matButton="filled">
+              <mat-icon>how_to_reg</mat-icon> Mark Today
+            </button>
+          }
           <button class="regularize-toolbar-btn" (click)="openRegularizationDialog()" matTooltip="Request Attendance Regularization for missed punches or duty tour" matButton="filled">
             <mat-icon>build_circle</mat-icon> Regularize
           </button>
@@ -173,6 +178,7 @@ export interface CalendarDayItem {
           <div class="cal-title">
             <mat-icon color="primary">calendar_view_month</mat-icon>
             <strong>{{months[attMonth - 1]}} {{attYear}} Monthly Day-by-Day Roster</strong>
+            <span class="cal-hint-pill"><mat-icon>touch_app</mat-icon> Click any day or checkbox to mark &amp; save attendance</span>
           </div>
           <div class="legend-chips">
             <span class="leg present">● Present</span>
@@ -544,6 +550,33 @@ export interface CalendarDayItem {
     }
     .quick-today-btn { border-color: #0284c7; color: #0284c7; }
     .mark-btn { font-weight: 600; }
+    .mark-today-toolbar-btn {
+      height: 38px;
+      padding: 0 14px !important;
+      font-size: 0.84rem;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+      border: none;
+      cursor: pointer;
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin: 0;
+      }
+      &:hover {
+        background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
+        box-shadow: 0 6px 14px rgba(22, 163, 74, 0.45);
+      }
+    }
 
     /* Mark Attendance Form Card */
     .mark-form-card { padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:16px; background:#fff; border:1px solid #cbd5e1; }
@@ -604,7 +637,25 @@ export interface CalendarDayItem {
     /* Monthly Heatmap Roster */
     .calendar-card { background:#ffffff; border-radius:12px; padding:16px 20px; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:12px; }
     .calendar-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-    .cal-title { display:flex; align-items:center; gap:8px; font-size:.95rem; color:#1e293b; }
+    .cal-title { display:flex; align-items:center; gap:8px; font-size:.95rem; color:#1e293b; flex-wrap:wrap; }
+    .cal-hint-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-left: 6px;
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+      }
+    }
     .multi-select-toolbar {
       display: flex;
       align-items: center;
@@ -1732,7 +1783,30 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   get canManageAttendance(): boolean {
-    return !this.auth.isTeacher() && (this.auth.isAdmin() || this.auth.isHR() || this.attendancePermissions.canCorrectAttendance);
+    if (this.auth.isTeacher()) return false;
+    return this.auth.isAdmin() || 
+           this.auth.isHR() || 
+           this.auth.isAccountant() || 
+           this.attendancePermissions.canManualMark || 
+           this.attendancePermissions.canCorrectAttendance;
+  }
+
+  selectTodayForMarking(): void {
+    const today = new Date();
+    const curMonth = today.getMonth() + 1;
+    const curYear = today.getFullYear();
+    if (this.attMonth !== curMonth || this.attYear !== curYear) {
+      this.attMonth = curMonth;
+      this.attYear = curYear;
+      this.loadAttendance();
+      return;
+    }
+    const todayItem = this.calendarDays.find(d => d.dateStr === this.todayStr);
+    if (todayItem && this.isSelectableWorkingDay(todayItem)) {
+      if (!this.selectedMatrixDates.has(todayItem.dateStr)) {
+        this.toggleDateSelect(todayItem);
+      }
+    }
   }
 
   setShiftType(shift: 'school' | 'coaching_morning' | 'coaching_evening'): void {
@@ -1775,7 +1849,7 @@ export class TeacherAttendanceComponent implements OnInit {
     if (d.dateStr > this.todayStr) return false;
     if (!this.canManageAttendance) return false;
     if (this.attendanceMode === 'Biometric') return false;
-    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance) return false;
+    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) return false;
     if (this.selectedTeacher?.joiningDate) {
       const joinStr = this.selectedTeacher.joiningDate.split('T')[0];
       if (d.dateStr < joinStr) return false;
@@ -2250,6 +2324,14 @@ export class TeacherAttendanceComponent implements OnInit {
     }
 
     this.calendarDays = items;
+
+    // Auto-select Today if it's currently unmarked and selectable so Save button & status controls are immediately visible
+    if (this.canManageAttendance && this.selectedMatrixDates.size === 0) {
+      const todayItem = items.find(d => d.dateStr === todayStr && this.isSelectableWorkingDay(d));
+      if (todayItem) {
+        this.toggleDateSelect(todayItem);
+      }
+    }
   }
 
   getDayTooltip(d: CalendarDayItem): string {
@@ -2263,7 +2345,7 @@ export class TeacherAttendanceComponent implements OnInit {
     if (d.dateStr > this.todayStr) {
       return 'Future date — attendance cannot be marked in advance';
     }
-    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) {
       return 'Back-date correction requires Admin permission';
     }
     const cancelPrefix = d.isCancellationPending ? `[Cancellation Requested: ${d.cancellationDetails} (Pending Admin Review)] | ` : '';
@@ -2372,7 +2454,7 @@ export class TeacherAttendanceComponent implements OnInit {
       this.confirmDialog.alert('Sunday Weekly Off', `Date ${d.dateStr} is Sunday Weekly Off.`, 'info');
       return;
     }
-    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) {
       this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please contact Admin.', 'warning');
       return;
     }
@@ -2641,12 +2723,12 @@ export class TeacherAttendanceComponent implements OnInit {
     }
 
     // Block back dates for non-admins
-    if (this.markData.attendanceDate < this.todayStr && !this.attendancePermissions.canCorrectAttendance) {
+    if (this.markData.attendanceDate < this.todayStr && !this.attendancePermissions.canCorrectAttendance && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) {
       this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please contact Admin.', 'warning');
       return;
     }
 
-    if (!this.attendancePermissions.canManualMark) {
+    if (!this.attendancePermissions.canManualMark && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) {
       this.confirmDialog.alert('Permission Denied', 'You do not have permission to mark manual attendance.', 'warning');
       return;
     }
@@ -2810,7 +2892,8 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   isEditDisabled(a: AttendanceDto): boolean {
-    return !this.attendancePermissions.canCorrectAttendance ||
+    const canCorrect = this.attendancePermissions.canCorrectAttendance || this.auth.isAdmin() || this.auth.isHR() || this.auth.isAccountant();
+    return !canCorrect ||
       this.attendanceMode === 'Biometric' ||
       (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) ||
       a.captureSource === 'LeaveApplication' ||
@@ -2818,7 +2901,8 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   isDeleteDisabled(a: AttendanceDto): boolean {
-    return !this.attendancePermissions.canCorrectAttendance ||
+    const canCorrect = this.attendancePermissions.canCorrectAttendance || this.auth.isAdmin() || this.auth.isHR() || this.auth.isAccountant();
+    return !canCorrect ||
       this.attendanceMode === 'Biometric' ||
       (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) ||
       a.captureSource === 'LeaveApplication' ||
@@ -2832,7 +2916,8 @@ export class TeacherAttendanceComponent implements OnInit {
     if (this.attendanceMode === 'Biometric') {
       return 'Attendance editing is disabled in Biometric-Only mode';
     }
-    if (!this.attendancePermissions.canCorrectAttendance) {
+    const canCorrect = this.attendancePermissions.canCorrectAttendance || this.auth.isAdmin() || this.auth.isHR() || this.auth.isAccountant();
+    if (!canCorrect) {
       return 'You do not have permission to edit attendance records';
     }
     if (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) {
@@ -2848,7 +2933,8 @@ export class TeacherAttendanceComponent implements OnInit {
     if (this.attendanceMode === 'Biometric') {
       return 'Attendance deleting is disabled in Biometric-Only mode';
     }
-    if (!this.attendancePermissions.canCorrectAttendance) {
+    const canCorrect = this.attendancePermissions.canCorrectAttendance || this.auth.isAdmin() || this.auth.isHR() || this.auth.isAccountant();
+    if (!canCorrect) {
       return 'You do not have permission to delete attendance records';
     }
     if (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) {
