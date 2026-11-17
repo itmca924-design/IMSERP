@@ -4180,8 +4180,51 @@ public class TeachersController : ControllerBase
         var from = dto.FromDate.Date;
         var to = dto.ToDate.Date;
 
+        // Restriction 1: Cannot apply for leave prior to date of joining
+        if (from < teacher.JoiningDate.Date)
+        {
+            return BadRequest(new { 
+                message = $"Cannot apply for leave before Date of Joining ({teacher.JoiningDate:dd-MMM-yyyy}). The selected start date ({from:dd-MMM-yyyy}) is prior to employment." 
+            });
+        }
+
+        // Restriction 2: Cannot apply for leave in a month where salary has already been paid / disbursed
+        var isSalaryDisbursed = await _db.TeacherSalaryPayments.AsNoTracking().AnyAsync(p =>
+            p.TeacherId == targetTeacherId &&
+            ((p.PaymentMonth == from.Month && p.PaymentYear == from.Year) ||
+             (p.PaymentMonth == to.Month && p.PaymentYear == to.Year)));
+
+        if (isSalaryDisbursed)
+        {
+            return BadRequest(new { 
+                message = $"Salary for {from:MMMM yyyy} has already been disbursed/processed. Retroactive leave cannot be applied for a month whose payroll accounts are already settled and closed." 
+            });
+        }
+
+        // Restriction 3: Cannot apply for leave in a payroll month locked by administration
+        var isMonthLocked = await _db.TeacherPayrollMonthLocks.AsNoTracking().AnyAsync(l =>
+            l.TenantId == tenantId &&
+            l.IsLocked &&
+            ((l.Month == from.Month && l.Year == from.Year) ||
+             (l.Month == to.Month && l.Year == to.Year)));
+
+        if (isMonthLocked)
+        {
+            return BadRequest(new { 
+                message = $"Payroll month {from:MMMM yyyy} has been locked by administration. Leaves cannot be applied for a locked payroll period." 
+            });
+        }
+
         // Policy Settings Check
         var policy = await GetOrCreateLeavePolicyAsync(tenantId);
+
+        // Restriction 4: Regular staff cannot submit arbitrarily old backdated leaves
+        if (!canApplyForOthers && from < DateTime.UtcNow.Date.AddDays(-policy.MaxRegularizationDaysBackdated))
+        {
+            return BadRequest(new { 
+                message = $"Leave cannot be applied for past dates older than {policy.MaxRegularizationDaysBackdated} days. For past attendance corrections, please submit an Attendance Regularization (उपस्थिति नियमितीकरण) request." 
+            });
+        }
 
         // Smart Holiday & Sunday Aware Duration Calculation
         var (deductibleDays, calendarDays, holidayDays, sundayDays, holidayNames) =

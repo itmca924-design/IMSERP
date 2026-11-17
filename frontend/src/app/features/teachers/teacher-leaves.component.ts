@@ -13,6 +13,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule, provideNativeDateAdapter, MAT_DATE_LOCALE } from '@angular/material/core';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import {
@@ -185,7 +187,23 @@ export class RejectTeacherLeaveDialogComponent {
 @Component({
   selector: 'app-apply-teacher-leave-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatDatepickerModule,
+    MatNativeDateModule
+  ],
+  providers: [
+    provideNativeDateAdapter(),
+    { provide: MAT_DATE_LOCALE, useValue: 'en-IN' }
+  ],
   template: `
     <div class="fd-dialog-md">
       <div class="fd-dialog-header">
@@ -288,30 +306,40 @@ export class RejectTeacherLeaveDialogComponent {
             </div>
           }
     
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="form-col">
+          <div class="leave-controls-grid">
+            <mat-form-field appearance="outline" class="leave-type-col">
               <mat-label>Leave Type</mat-label>
               <mat-select formControlName="leaveType">
-                <mat-option value="CasualLeave">Casual Leave</mat-option>
-                <mat-option value="SickLeave">Sick Leave</mat-option>
-                <mat-option value="EarnedLeave">Earned Leave</mat-option>
-                <mat-option value="UnpaidLeave">Unpaid Leave</mat-option>
+                <mat-option value="CasualLeave">Casual Leave (CL)</mat-option>
+                <mat-option value="SickLeave">Sick Leave (SL)</mat-option>
+                <mat-option value="EarnedLeave">Earned Leave (EL)</mat-option>
+                <mat-option value="UnpaidLeave">Unpaid Leave (LWP)</mat-option>
                 <mat-option value="EmergencyLeave">Emergency Leave</mat-option>
               </mat-select>
             </mat-form-field>
-    
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>From Date</mat-label>
-              <input matInput type="date" formControlName="fromDate"
-                (change)="onFromDateChange()" />
+
+            <mat-form-field appearance="outline" class="leave-range-col">
+              <mat-label>Leave Duration (From – To)</mat-label>
+              <mat-date-range-input [rangePicker]="leaveRangePicker" [min]="minSelectableDate">
+                <input matStartDate formControlName="fromDate" placeholder="Start Date" (dateChange)="calcDays()" />
+                <input matEndDate formControlName="toDate" placeholder="End Date" (dateChange)="calcDays()" />
+              </mat-date-range-input>
+              <mat-datepicker-toggle matIconSuffix [for]="leaveRangePicker"></mat-datepicker-toggle>
+              <mat-date-range-picker #leaveRangePicker></mat-date-range-picker>
+              <mat-hint>DD/MM/YYYY – DD/MM/YYYY (Pick range on calendar)</mat-hint>
             </mat-form-field>
-    
-            <mat-form-field appearance="outline" class="form-col">
-              <mat-label>To Date</mat-label>
-              <input matInput type="date" formControlName="toDate"
-                [min]="form.get('fromDate')?.value || null"
-                (change)="onToDateChange()" />
-            </mat-form-field>
+          </div>
+
+          <!-- Quick Preset Selector -->
+          <div class="quick-preset-bar">
+            <span class="preset-label"><mat-icon>bolt</mat-icon> Quick Range:</span>
+            <div class="preset-chips-wrap">
+              <button type="button" class="preset-btn" (click)="setPreset('today')">Today (1d)</button>
+              <button type="button" class="preset-btn" (click)="setPreset('tomorrow')">Tomorrow (1d)</button>
+              <button type="button" class="preset-btn" (click)="setPreset('next2days')">Next 2 Days</button>
+              <button type="button" class="preset-btn" (click)="setPreset('next3days')">Next 3 Days</button>
+              <button type="button" class="preset-btn" (click)="setPreset('thisWeek')">Rest of Week</button>
+            </div>
           </div>
     
           <!-- Date Validation Error Banner -->
@@ -459,6 +487,63 @@ export class RejectTeacherLeaveDialogComponent {
     .fd-field-full { width: 100%; display: block; }
     .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
     .form-col { flex: 1; min-width: 140px; }
+
+    .leave-controls-grid {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .leave-type-col { width: 100%; }
+    .leave-range-col { width: 100%; }
+
+    @media (max-width: 600px) {
+      .leave-controls-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .quick-preset-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-top: -6px;
+    }
+    .preset-label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #475569;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .preset-label mat-icon { font-size: 15px; width: 15px; height: 15px; color: #f59e0b; }
+    .preset-chips-wrap {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .preset-btn {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 3px 9px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .preset-btn:hover {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+    }
 
     .quota-ledger-strip {
       background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px;
@@ -844,8 +929,8 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     this.form = this.fb.group({
       teacherId: [defaultTeacherId, Validators.required],
       leaveType: ['CasualLeave', Validators.required],
-      fromDate: ['', Validators.required],
-      toDate: ['', Validators.required],
+      fromDate: [null, Validators.required],
+      toDate: [null, Validators.required],
       reason: ['', Validators.required]
     }, {
       validators: [this.dateRangeValidator]
@@ -914,11 +999,91 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     this.form.patchValue({ leaveType: type });
   }
 
+  get minSelectableDate(): Date | null {
+    const teacherId = this.form?.get('teacherId')?.value;
+    const t = this.teachers.find(x => x.id === teacherId) || (this.myProfile?.id === teacherId ? this.myProfile : null);
+    if (t?.joiningDate) {
+      return this.parseDate(t.joiningDate);
+    }
+    return null;
+  }
+
+  formatDateYmd(val: any): string {
+    if (!val) return '';
+    if (val instanceof Date) {
+      if (isNaN(val.getTime())) return '';
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, '0');
+      const d = String(val.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    if (typeof val === 'string') {
+      return val.split('T')[0];
+    }
+    return '';
+  }
+
+  parseDate(val: any): Date | null {
+    if (!val) return null;
+    if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+    if (typeof val === 'string') {
+      const datePart = val.split('T')[0];
+      const parts = datePart.split('-');
+      if (parts.length === 3) {
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      }
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+
+  setPreset(preset: 'today' | 'tomorrow' | 'next2days' | 'next3days' | 'thisWeek') {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let from = new Date(today);
+    let to = new Date(today);
+
+    if (preset === 'today') {
+      from = new Date(today);
+      to = new Date(today);
+    } else if (preset === 'tomorrow') {
+      from = new Date(today);
+      from.setDate(today.getDate() + 1);
+      to = new Date(from);
+    } else if (preset === 'next2days') {
+      from = new Date(today);
+      to = new Date(today);
+      to.setDate(today.getDate() + 1);
+    } else if (preset === 'next3days') {
+      from = new Date(today);
+      to = new Date(today);
+      to.setDate(today.getDate() + 2);
+    } else if (preset === 'thisWeek') {
+      from = new Date(today);
+      to = new Date(today);
+      const day = today.getDay(); // 0 is Sun, 6 is Sat
+      const diff = day === 0 ? 6 : (6 - day);
+      to.setDate(today.getDate() + Math.max(0, diff));
+    }
+
+    this.form.patchValue({
+      fromDate: from,
+      toDate: to
+    });
+    this.calcDays();
+  }
+
   dateRangeValidator(control: AbstractControl): ValidationErrors | null {
     const from = control.get('fromDate')?.value;
     const to = control.get('toDate')?.value;
-    if (from && to && to < from) {
-      return { dateRangeInvalid: true };
+    if (from && to) {
+      const t1 = from instanceof Date ? from.getTime() : new Date(from).getTime();
+      const t2 = to instanceof Date ? to.getTime() : new Date(to).getTime();
+      if (!isNaN(t1) && !isNaN(t2) && t2 < t1) {
+        return { dateRangeInvalid: true };
+      }
     }
     return null;
   }
@@ -935,23 +1100,14 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     }
   }
 
-  onFromDateChange() {
-    const from = this.form.get('fromDate')?.value;
-    const to = this.form.get('toDate')?.value;
-    if (from && (!to || to < from)) {
-      this.form.patchValue({ toDate: from });
-    }
-    this.calcDays();
-  }
-
-  onToDateChange() {
-    this.calcDays();
-  }
-
   calcDays() {
-    const fromStr = this.form.get('fromDate')?.value;
-    const toStr = this.form.get('toDate')?.value;
-    if (!fromStr || !toStr || toStr < fromStr) {
+    const fromVal = this.form.get('fromDate')?.value;
+    const toVal = this.form.get('toDate')?.value;
+
+    const d1 = this.parseDate(fromVal);
+    const d2 = this.parseDate(toVal);
+
+    if (!d1 || !d2 || d2 < d1) {
       this.totalDays = 0;
       this.calendarDays = 0;
       this.deductibleDays = 0;
@@ -960,13 +1116,12 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
       return;
     }
 
-    const d1 = new Date(fromStr + 'T00:00:00');
-    const d2 = new Date(toStr + 'T00:00:00');
     let count = 0;
     const hList: { date: string; title: string; type: string }[] = [];
     const sList: string[] = [];
 
-    for (let cur = new Date(d1); cur <= d2; cur.setDate(cur.getDate() + 1)) {
+    const cur = new Date(d1);
+    while (cur <= d2) {
       count++;
       const y = cur.getFullYear();
       const m = String(cur.getMonth() + 1).padStart(2, '0');
@@ -989,6 +1144,7 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
           type: matched.holidayType || 'Holiday'
         });
       }
+      cur.setDate(cur.getDate() + 1);
     }
 
     this.calendarDays = count;
@@ -1002,7 +1158,14 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
     if (this.form.invalid) return;
     this.saving = true;
     this.backendError = '';
-    this.http.post(`${API_BASE}/teachers/leaves`, this.form.value).subscribe({
+
+    const payload = {
+      ...this.form.value,
+      fromDate: this.formatDateYmd(this.form.get('fromDate')?.value),
+      toDate: this.formatDateYmd(this.form.get('toDate')?.value)
+    };
+
+    this.http.post(`${API_BASE}/teachers/leaves`, payload).subscribe({
       next: () => {
         this.saving = false;
         this.dialogRef.close(true);
