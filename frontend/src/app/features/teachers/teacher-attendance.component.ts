@@ -193,8 +193,8 @@ export interface CalendarDayItem {
             <span class="leg unmarked">○ Unmarked</span>
           </div>
         </div>
-        <!-- Quick Action Selection Toolbar -->
-        @if (canManageAttendance && attendanceMode !== 'Biometric') {
+        <!-- Quick Action Selection Toolbar (Strictly for Admin / Back-Date Correction Authorized Users) -->
+        @if (canCorrectAttendance && attendanceMode !== 'Biometric') {
           <div class="multi-select-toolbar">
             <div class="mst-left">
               <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
@@ -390,7 +390,7 @@ export interface CalendarDayItem {
                   <th>Check-out (IST)</th>
                   <th>Work Duration</th>
                   <th>Remarks</th>
-                  <th class="actions-col">{{canManageAttendance ? 'Action' : 'Request'}}</th>
+                  <th class="actions-col">{{canCorrectAttendance ? 'Action' : 'Regularize'}}</th>
                 </tr>
               </thead>
               <tbody>
@@ -437,7 +437,7 @@ export interface CalendarDayItem {
                       }
                     </td>
                     <td class="remarks-cell">{{a.remarks || '—'}}</td>
-                    @if (canManageAttendance) {
+                    @if (canCorrectAttendance) {
                       <td class="actions-col">
                         <span class="action-btn-wrapper" [class.is-disabled]="isEditDisabled(a)" [matTooltip]="getEditTooltip(a)" (click)="isEditDisabled(a) ? editRecord(a) : null">
                           <button color="primary" (click)="editRecord(a)" [disabled]="isEditDisabled(a)" mat-icon-button>
@@ -451,7 +451,7 @@ export interface CalendarDayItem {
                         </span>
                       </td>
                     }
-                    @if (!canManageAttendance) {
+                    @if (!canCorrectAttendance) {
                       <td class="actions-col">
                         @if (canRegularizeRecord(a)) {
                           <button class="reg-btn-row" (click)="openRegularizationDialog(a.attendanceDate.split('T')[0])" matTooltip="Request Attendance Regularization for this date" matButton="filled">
@@ -1791,6 +1791,15 @@ export class TeacherAttendanceComponent implements OnInit {
            this.attendancePermissions.canCorrectAttendance;
   }
 
+  /**
+   * Strictly controls back-date direct corrections and full-month bulk actions.
+   * Only Institute Admin / authorized correction roles can directly mark or edit past dates.
+   * Other staff (like Accountant) must submit an Attendance Regularization request for Admin approval.
+   */
+  get canCorrectAttendance(): boolean {
+    return this.auth.isAdmin() || this.attendancePermissions.canCorrectAttendance;
+  }
+
   selectTodayForMarking(): void {
     const today = new Date();
     const curMonth = today.getMonth() + 1;
@@ -1849,7 +1858,8 @@ export class TeacherAttendanceComponent implements OnInit {
     if (d.dateStr > this.todayStr) return false;
     if (!this.canManageAttendance) return false;
     if (this.attendanceMode === 'Biometric') return false;
-    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) return false;
+    // Past dates can ONLY be directly marked/selected by Admin (canCorrectAttendance)
+    if (d.dateStr < this.todayStr && !this.canCorrectAttendance) return false;
     if (this.selectedTeacher?.joiningDate) {
       const joinStr = this.selectedTeacher.joiningDate.split('T')[0];
       if (d.dateStr < joinStr) return false;
@@ -2345,8 +2355,8 @@ export class TeacherAttendanceComponent implements OnInit {
     if (d.dateStr > this.todayStr) {
       return 'Future date — attendance cannot be marked in advance';
     }
-    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) {
-      return 'Back-date correction requires Admin permission';
+    if (d.dateStr < this.todayStr && !this.canCorrectAttendance) {
+      return 'Past date — click to submit Attendance Regularization for Admin approval';
     }
     const cancelPrefix = d.isCancellationPending ? `[Cancellation Requested: ${d.cancellationDetails} (Pending Admin Review)] | ` : '';
     const mainStatus = d.isDeclaredHoliday ? `Public Holiday: ${d.holidayTitle}` : (this.isWeeklyOffDay(d) ? 'Weekly Off' : d.status);
@@ -2454,8 +2464,17 @@ export class TeacherAttendanceComponent implements OnInit {
       this.confirmDialog.alert('Sunday Weekly Off', `Date ${d.dateStr} is Sunday Weekly Off.`, 'info');
       return;
     }
-    if (d.dateStr < this.todayStr && !this.attendancePermissions.canCorrectAttendance && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) {
-      this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please contact Admin.', 'warning');
+    if (d.dateStr < this.todayStr && !this.canCorrectAttendance) {
+      this.confirmDialog.confirm(
+        'Attendance Regularization',
+        `Past-date attendance for ${d.dateStr} (${d.dayOfWeek}) cannot be marked directly.\n\nWould you like to submit an Attendance Regularization request for Admin approval?`,
+        'Submit Request',
+        'Cancel'
+      ).subscribe(confirmed => {
+        if (confirmed) {
+          this.openRegularizationDialog(d.dateStr);
+        }
+      });
       return;
     }
   }
@@ -2723,12 +2742,12 @@ export class TeacherAttendanceComponent implements OnInit {
     }
 
     // Block back dates for non-admins
-    if (this.markData.attendanceDate < this.todayStr && !this.attendancePermissions.canCorrectAttendance && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) {
-      this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please contact Admin.', 'warning');
+    if (this.markData.attendanceDate < this.todayStr && !this.canCorrectAttendance) {
+      this.confirmDialog.alert('Back-Date Restricted', 'You do not have permission to mark or correct past date attendance. Please submit a Regularization request for Admin approval.', 'warning');
       return;
     }
 
-    if (!this.attendancePermissions.canManualMark && !this.auth.isAdmin() && !this.auth.isHR() && !this.auth.isAccountant()) {
+    if (!this.attendancePermissions.canManualMark && !this.canManageAttendance) {
       this.confirmDialog.alert('Permission Denied', 'You do not have permission to mark manual attendance.', 'warning');
       return;
     }
@@ -2892,8 +2911,7 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   isEditDisabled(a: AttendanceDto): boolean {
-    const canCorrect = this.attendancePermissions.canCorrectAttendance || this.auth.isAdmin() || this.auth.isHR() || this.auth.isAccountant();
-    return !canCorrect ||
+    return !this.canCorrectAttendance ||
       this.attendanceMode === 'Biometric' ||
       (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) ||
       a.captureSource === 'LeaveApplication' ||
@@ -2901,8 +2919,7 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   isDeleteDisabled(a: AttendanceDto): boolean {
-    const canCorrect = this.attendancePermissions.canCorrectAttendance || this.auth.isAdmin() || this.auth.isHR() || this.auth.isAccountant();
-    return !canCorrect ||
+    return !this.canCorrectAttendance ||
       this.attendanceMode === 'Biometric' ||
       (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) ||
       a.captureSource === 'LeaveApplication' ||
@@ -2916,9 +2933,8 @@ export class TeacherAttendanceComponent implements OnInit {
     if (this.attendanceMode === 'Biometric') {
       return 'Attendance editing is disabled in Biometric-Only mode';
     }
-    const canCorrect = this.attendancePermissions.canCorrectAttendance || this.auth.isAdmin() || this.auth.isHR() || this.auth.isAccountant();
-    if (!canCorrect) {
-      return 'You do not have permission to edit attendance records';
+    if (!this.canCorrectAttendance) {
+      return 'Past-date attendance editing requires Admin permission (Use Regularize)';
     }
     if (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) {
       return 'Attendance editing on Sunday / Public Holiday is restricted';
@@ -2933,9 +2949,8 @@ export class TeacherAttendanceComponent implements OnInit {
     if (this.attendanceMode === 'Biometric') {
       return 'Attendance deleting is disabled in Biometric-Only mode';
     }
-    const canCorrect = this.attendancePermissions.canCorrectAttendance || this.auth.isAdmin() || this.auth.isHR() || this.auth.isAccountant();
-    if (!canCorrect) {
-      return 'You do not have permission to delete attendance records';
+    if (!this.canCorrectAttendance) {
+      return 'Deleting past attendance records requires Admin permission';
     }
     if (this.isPublicHolidayOrSunday(a.attendanceDate) && !this.canEditPublicHolidayOrSunday) {
       return 'Attendance deleting on Sunday / Public Holiday is restricted';
