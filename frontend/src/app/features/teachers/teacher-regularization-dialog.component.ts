@@ -631,12 +631,12 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     <div class="review-dialog-container">
       <!-- Strict Light Blue Header matching IMSERP UI Rule -->
       <div class="reg-dialog-header">
-        <div class="reg-dialog-icon">
-          <mat-icon>{{data.approve ? 'check_circle' : 'cancel'}}</mat-icon>
+        <div class="reg-dialog-icon" [style.background]="isApprove ? '#16a34a' : '#dc2626'">
+          <mat-icon>{{isApprove ? 'check_circle' : 'cancel'}}</mat-icon>
         </div>
         <div class="reg-dialog-title-group">
           <h2 class="reg-dialog-title">
-            {{data.approve ? 'Approve Attendance Regularization' : 'Reject Regularization Request'}}
+            {{isApprove ? 'Approve Attendance Regularization' : 'Reject Regularization Request'}}
           </h2>
           <span class="reg-dialog-sub">
             {{data.regularization.teacherName}} ({{data.regularization.employeeCode}}) •
@@ -685,9 +685,9 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
         </div>
     
         <mat-form-field appearance="outline" class="w-full" style="margin-top: 10px;">
-          <mat-label>{{data.approve ? 'Approval Remarks (Optional)' : 'Rejection Reason *'}}</mat-label>
+          <mat-label>{{isApprove ? 'Approval Remarks (Optional)' : 'Rejection Reason *'}}</mat-label>
           <textarea matInput [(ngModel)]="remarks" rows="3"
-          [placeholder]="data.approve ? 'Optional sanction notes for records...' : 'State reason for rejecting regularization...'"></textarea>
+          [placeholder]="isApprove ? 'Optional sanction notes for records...' : 'State reason for rejecting regularization...'"></textarea>
         </mat-form-field>
     
         @if (errorMessage) {
@@ -700,10 +700,10 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     
       <div class="reg-dialog-footer">
         <button (click)="cancel()" matButton="filled" class="app-button-cancel">Cancel</button>
-        <button [color]="data.approve ? 'primary' : 'warn'"
-          (click)="confirm()" [disabled]="saving || (!data.approve && !remarks.trim())" matButton="filled" [class.app-button-update]="data.approve">
-          <mat-icon>{{data.approve ? 'done_all' : 'block'}}</mat-icon>
-          {{saving ? 'Processing...' : (data.approve ? 'Approve & Update Attendance' : 'Reject Request')}}
+        <button [color]="isApprove ? 'primary' : 'warn'"
+          (click)="confirm()" [disabled]="saving || (!isApprove && !remarks.trim())" matButton="filled" [class.app-button-update]="isApprove">
+          <mat-icon>{{isApprove ? 'done_all' : 'block'}}</mat-icon>
+          {{saving ? 'Processing...' : (isApprove ? 'Approve & Update Attendance' : 'Reject Request')}}
         </button>
       </div>
     </div>
@@ -810,17 +810,22 @@ export class ReviewTeacherRegularizationDialogComponent {
     private dialogRef: MatDialogRef<ReviewTeacherRegularizationDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: {
       regularization: TeacherAttendanceRegularizationDto;
-      approve: boolean;
+      approve?: boolean;
+      isApproved?: boolean;
     }
   ) {}
 
+  get isApprove(): boolean {
+    return !!(this.data?.approve ?? this.data?.isApproved);
+  }
+
   confirm(): void {
-    if (!this.data.approve && !this.remarks.trim()) return;
+    if (!this.isApprove && !this.remarks.trim()) return;
     this.saving = true;
     this.errorMessage = '';
 
     this.http.put(`${API_BASE}/teachers/regularizations/${this.data.regularization.id}/review`, {
-      approve: this.data.approve,
+      approve: this.isApprove,
       reviewRemarks: this.remarks.trim()
     }).subscribe({
       next: () => {

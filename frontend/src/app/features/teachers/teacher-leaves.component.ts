@@ -3064,6 +3064,7 @@ export class TeacherLeavesComponent implements OnInit {
     const ref = this.dialog.open(ReviewTeacherRegularizationDialogComponent, {
       data: {
         regularization: r,
+        approve: isApproved,
         isApproved: isApproved
       },
       disableClose: true,
