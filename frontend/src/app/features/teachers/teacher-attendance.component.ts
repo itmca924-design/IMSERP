@@ -13,7 +13,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TeacherSelectorComponent } from './teacher-selector.component';
-import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, TeacherDto, AttendanceDto, AttendanceSummaryDto, HolidayDto, LeaveDto } from './teacher.models';
+import { API_BASE, AttendancePermissionsDto, AttendanceSettingsDto, TeacherDto, AttendanceDto, AttendanceSummaryDto, HolidayDto, LeaveDto, TeacherAttendanceRegularizationDto } from './teacher.models';
 import { ApplyTeacherRegularizationDialogComponent } from './teacher-regularization-dialog.component';
 import { AttendanceShiftSettingsDialogComponent } from '../../shared/components/attendance-shift-settings-dialog.component';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -34,6 +34,9 @@ export interface CalendarDayItem {
   isPriorToJoining?: boolean;
   isCancellationPending?: boolean;
   cancellationDetails?: string;
+  isRegularizationPending?: boolean;
+  isRegularizedApproved?: boolean;
+  regularizationReason?: string;
 }
 
 @Component({
@@ -53,7 +56,7 @@ export interface CalendarDayItem {
     </div>
   </div>
 
-  <app-teacher-selector [preSelectId]="preSelectId" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
+  <app-teacher-selector [preSelectId]="preSelectId" [selfOnly]="isSelfServiceUser" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
 
   @if (loading) {
     <mat-progress-bar mode="indeterminate"></mat-progress-bar>
@@ -186,6 +189,8 @@ export interface CalendarDayItem {
             <span class="leg late">● Late</span>
             <span class="leg half">● Half Day</span>
             <span class="leg leave">● Leave</span>
+            <span class="leg reg-pending">⏳ Reg Pending</span>
+            <span class="leg reg-approved">✓ Reg Approved</span>
             <span class="leg cancel-req">⏳ Cancel Pending</span>
             <span class="leg pub-holiday">★ Public Holiday</span>
             <span class="leg sunday">● Sunday Off</span>
@@ -194,7 +199,7 @@ export interface CalendarDayItem {
           </div>
         </div>
         <!-- Quick Action Selection Toolbar (Strictly for Admin / Back-Date Correction Authorized Users) -->
-        @if (canCorrectAttendance && attendanceMode !== 'Biometric') {
+        @if (canCorrectAttendance && isStaffManager && attendanceMode !== 'Biometric') {
           <div class="multi-select-toolbar">
             <div class="mst-left">
               <span class="mst-title"><mat-icon>checklist</mat-icon> Quick Selection:</span>
@@ -230,6 +235,8 @@ export interface CalendarDayItem {
               [class.half]="d.status === 'HalfDay'"
               [class.leave]="d.status === 'Leave'"
               [class.cancel-pending]="d.isCancellationPending"
+              [class.reg-pending]="d.isRegularizationPending"
+              [class.reg-approved]="d.isRegularizedApproved"
               [class.public-holiday]="d.isDeclaredHoliday && !d.record"
               [class.sunday-off]="isWeeklyOffDay(d) && !d.record && !d.isDeclaredHoliday"
               [class.today]="d.isToday"
@@ -710,7 +717,7 @@ export interface CalendarDayItem {
 
 
     .legend-chips { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.76rem; font-weight:600;
-      .leg.present{color:#16a34a;} .leg.leave{color:#d97706;font-weight:700;} .leg.cancel-req{color:#ea580c;font-weight:700;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
+      .leg.present{color:#16a34a;} .leg.leave{color:#d97706;font-weight:700;} .leg.reg-pending{color:#ca8a04;font-weight:700;} .leg.reg-approved{color:#059669;font-weight:700;} .leg.cancel-req{color:#ea580c;font-weight:700;} .leg.absent{color:#dc2626;} .leg.late{color:#ea580c;}
       .leg.half{color:#9333ea;} .leg.pub-holiday{color:#b45309;font-weight:700;}
       .leg.sunday{color:#e11d48;font-weight:700;} .leg.saturday{color:#6366f1;font-weight:700;}
       .leg.prior-joining{color:#94a3b8;font-style:italic;}
@@ -758,6 +765,25 @@ export interface CalendarDayItem {
       .cell-num { color: #c2410c; font-weight: 800; }
       .cell-tag { color: #ea580c; font-weight: 800; letter-spacing: 0.5px; }
       .cell-sub { color: #ea580c; font-weight: 700; }
+    }
+    .day-cell.reg-pending {
+      background: #fefce8; border: 2px dashed #ca8a04;
+      .cell-num { color: #854d0e; font-weight: 800; }
+      .cell-tag {
+        color: #854d0e; font-weight: 800; font-size: 0.68rem;
+        background: #fef08a; padding: 1px 4px; border-radius: 4px;
+      }
+      .cell-sub { color: #a16207; font-weight: 700; }
+    }
+    .day-cell.reg-approved {
+      background: #ecfdf5; border: 2px solid #059669;
+      box-shadow: 0 1px 3px rgba(5, 150, 105, 0.2);
+      .cell-num { color: #065f46; font-weight: 800; }
+      .cell-tag {
+        color: #065f46; font-weight: 800; font-size: 0.68rem;
+        background: #a7f3d0; padding: 1px 4px; border-radius: 4px;
+      }
+      .cell-sub { color: #047857; font-weight: 700; }
     }
     .day-cell.absent { background:#fee2e2; border-color:#fca5a5; .cell-num{color:#b91c1c;} .cell-tag{color:#991b1b;font-weight:700;} }
     .day-cell.late { background:#ffedd5; border-color:#fdba74; .cell-num{color:#c2410c;} .cell-tag{color:#9a3412;font-weight:700;} }
@@ -858,6 +884,12 @@ export interface CalendarDayItem {
         padding: 1px 5px !important;
         border-radius: 4px !important;
       }
+    }
+    .day-cell.reg-pending.future-date,
+    .day-cell.reg-approved.future-date {
+      opacity: 1 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
     }
 
     .cell-num { font-size:.82rem; font-weight:700; color:#334155; }
@@ -1760,6 +1792,7 @@ export class TeacherAttendanceComponent implements OnInit {
 
   calendarDays: CalendarDayItem[] = [];
   teacherLeaves: LeaveDto[] = [];
+  regularizations: TeacherAttendanceRegularizationDto[] = [];
 
   // Unified Multi-Date Matrix Selection & Floating Action Bar
   selectedMatrixDates = new Set<string>();
@@ -1778,15 +1811,21 @@ export class TeacherAttendanceComponent implements OnInit {
     public auth: AuthService
   ) {}
 
+  get isStaffManager(): boolean {
+    return this.auth.canManageStaff();
+  }
+
+  get isSelfServiceUser(): boolean {
+    return !this.isStaffManager;
+  }
+
   get isTeacher(): boolean {
-    return this.auth.isTeacher();
+    return this.isSelfServiceUser;
   }
 
   get canManageAttendance(): boolean {
-    if (this.auth.isTeacher()) return false;
-    return this.auth.isAdmin() || 
-           this.auth.isHR() || 
-           this.auth.isAccountant() || 
+    if (this.isSelfServiceUser) return false;
+    return this.isStaffManager || 
            this.attendancePermissions.canManualMark || 
            this.attendancePermissions.canCorrectAttendance;
   }
@@ -1854,6 +1893,7 @@ export class TeacherAttendanceComponent implements OnInit {
 
   isSelectableWorkingDay(d: CalendarDayItem): boolean {
     if (this.isWeeklyOffDay(d) || d.isDeclaredHoliday) return false;
+    if (d.isRegularizationPending) return false;
     if (d.status === 'Leave' || (d.record && (d.record.status === 'Leave' || d.record.captureSource === 'LeaveApplication'))) return false;
     if (d.dateStr > this.todayStr) return false;
     if (!this.canManageAttendance) return false;
@@ -2119,7 +2159,8 @@ export class TeacherAttendanceComponent implements OnInit {
         teachers: this.selectedTeacher ? [this.selectedTeacher] : [],
         myProfile: this.selectedTeacher,
         targetTeacherId: this.selectedTeacher?.id,
-        targetDate: targetDate || (this.markData?.attendanceDate <= this.todayStr ? this.markData?.attendanceDate : this.todayStr)
+        targetDate: targetDate || (this.markData?.attendanceDate <= this.todayStr ? this.markData?.attendanceDate : this.todayStr),
+        existingRegularizations: this.regularizations
       },
       disableClose: true,
       maxWidth: '92vw',
@@ -2128,7 +2169,13 @@ export class TeacherAttendanceComponent implements OnInit {
     ref.afterClosed().subscribe(res => {
       if (res) {
         this.loadAttendance();
-        this.confirmDialog.alert('Regularization Submitted', 'Attendance regularization request submitted successfully!', 'success');
+        const count = typeof res === 'object' && res.count ? res.count : 1;
+        const tName = (typeof res === 'object' && res.teacherName) || this.selectedTeacher?.fullName || 'Faculty Member';
+        this.confirmDialog.alert(
+          'Attendance Regularization Requested',
+          `Successfully submitted ${count} attendance regularization request(s) for ${tName}.\n\nThe request(s) are now sent for Admin review and approval.`,
+          'success'
+        );
       }
     });
   }
@@ -2256,6 +2303,20 @@ export class TeacherAttendanceComponent implements OnInit {
       next: r => this.summary = r,
       error: () => this.summary = null
     });
+
+    // Fetch regularization requests for this teacher & month
+    this.http.get<TeacherAttendanceRegularizationDto[]>(`${this.api}/teachers/regularizations`, {
+      params: { teacherId: id, month: this.attMonth, year: this.attYear }
+    }).subscribe({
+      next: regs => {
+        this.regularizations = regs || [];
+        this.buildCalendarGrid();
+      },
+      error: () => {
+        this.regularizations = [];
+        this.buildCalendarGrid();
+      }
+    });
   }
 
   buildCalendarGrid() {
@@ -2316,6 +2377,12 @@ export class TeacherAttendanceComponent implements OnInit {
       const isCancellationPending = !!pendingCancelLeave;
       const cancellationDetails = pendingCancelLeave?.cancellationReason;
 
+      // Check if this date has a pending or approved attendance regularization
+      const matchedReg = this.regularizations.find(r => r.attendanceDate.split('T')[0] === dateStr);
+      const isRegularizationPending = matchedReg?.status === 'Pending';
+      const isRegularizedApproved = matchedReg?.status === 'Approved' || (found && found.captureSource === 'Regularization');
+      const regularizationReason = matchedReg?.reason;
+
       items.push({
         dayNumber: day,
         dateStr,
@@ -2329,7 +2396,10 @@ export class TeacherAttendanceComponent implements OnInit {
         record: found,
         isPriorToJoining,
         isCancellationPending,
-        cancellationDetails
+        cancellationDetails,
+        isRegularizationPending,
+        isRegularizedApproved,
+        regularizationReason
       });
     }
 
@@ -2349,6 +2419,12 @@ export class TeacherAttendanceComponent implements OnInit {
       const joinStr = this.selectedTeacher?.joiningDate ? this.selectedTeacher.joiningDate.split('T')[0] : '';
       return `Prior to Joining (Joined on ${joinStr || d.dateStr}) — Attendance not applicable`;
     }
+    if (d.isRegularizationPending) {
+      return `Regularization Requested: ${d.regularizationReason || 'Pending Admin Review'} (${d.dateStr} - ${d.dayOfWeek})`;
+    }
+    if (d.isRegularizedApproved) {
+      return `Attendance Regularized & Approved (${d.dateStr} - ${d.dayOfWeek}): ${d.regularizationReason || 'Approved'}`;
+    }
     if (d.status === 'Leave' && d.dateStr > this.todayStr) {
       return `Approved Leave — ${d.dateStr} (${d.dayOfWeek})`;
     }
@@ -2367,6 +2443,12 @@ export class TeacherAttendanceComponent implements OnInit {
   getCellShortTag(d: CalendarDayItem): string {
     if (d.isCancellationPending) {
       return 'L-REQ';
+    }
+    if (d.isRegularizationPending) {
+      return 'REG ⏳';
+    }
+    if (d.isRegularizedApproved) {
+      return '✓ REG';
     }
     if (d.isPriorToJoining) {
       return '—';
@@ -2425,6 +2507,24 @@ export class TeacherAttendanceComponent implements OnInit {
     // 2. Block future dates for everyone
     if (d.dateStr > this.todayStr) {
       this.confirmDialog.alert('Future Date', 'Attendance cannot be marked in advance for future dates.', 'warning');
+      return;
+    }
+
+    // 2b. If date has pending or approved regularization
+    if (d.isRegularizationPending) {
+      this.confirmDialog.alert(
+        'Regularization Under Review',
+        `A regularization request for ${d.dateStr} (${d.dayOfWeek}) is already submitted and pending Admin approval.\n\nReason: "${d.regularizationReason || 'Pending Review'}"`,
+        'info'
+      );
+      return;
+    }
+    if (d.isRegularizedApproved) {
+      this.confirmDialog.alert(
+        'Attendance Regularized & Approved',
+        `Attendance for ${d.dateStr} (${d.dayOfWeek}) has already been regularized and approved. No duplicate regularization is required.`,
+        'success'
+      );
       return;
     }
 

@@ -2089,10 +2089,12 @@ export class ApplyTeacherLeaveDialogComponent implements OnInit {
                 </button>
               }
             </mat-form-field>
-            <button class="accrual-btn" (click)="triggerMonthlyLeaveAccrual()" matTooltip="Execute automated monthly leave credit engine" matButton="filled">
-              <mat-icon>auto_mode</mat-icon>
-              <span>Run Accrual Engine</span>
-            </button>
+            @if (canApproveLeave) {
+              <button class="accrual-btn" (click)="triggerMonthlyLeaveAccrual()" matTooltip="Execute automated monthly leave credit engine" matButton="filled">
+                <mat-icon>auto_mode</mat-icon>
+                <span>Run Accrual Engine</span>
+              </button>
+            }
           </div>
 
           <!-- Accrual History Table -->
@@ -2892,7 +2894,7 @@ export class TeacherLeavesComponent implements OnInit {
   };
 
   get isTeacher(): boolean {
-    return this.authService.isTeacher();
+    return !this.authService.canManageStaff();
   }
 
   get canApproveLeave(): boolean {
@@ -3211,7 +3213,8 @@ export class TeacherLeavesComponent implements OnInit {
         preSelectTeacherId: teacherId || this.myProfile?.id,
         targetTeacherId: teacherId || this.myProfile?.id,
         preSelectDate: targetDate,
-        targetDate: targetDate
+        targetDate: targetDate,
+        existingRegularizations: this.regularizations
       },
       disableClose: true,
       maxWidth: '92vw',
@@ -3220,6 +3223,13 @@ export class TeacherLeavesComponent implements OnInit {
     ref.afterClosed().subscribe(res => {
       if (res) {
         this.loadRegularizations();
+        const count = typeof res === 'object' && res.count ? res.count : 1;
+        const tName = (typeof res === 'object' && res.teacherName) || 'Faculty Member';
+        this.confirm.alert(
+          'Attendance Regularization Requested',
+          `Successfully submitted ${count} attendance regularization request(s) for ${tName}.\n\nThe request(s) are now sent for Admin review and approval.`,
+          'success'
+        );
       }
     });
   }

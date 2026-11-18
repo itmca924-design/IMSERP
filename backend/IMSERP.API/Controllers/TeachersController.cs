@@ -1948,6 +1948,21 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
         if (teacher == null) return NotFound();
 
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
+        if (!isAdminOrHR && user != null)
+        {
+            var isSelf = teacher.UserId == user.Id ||
+                         (user.Email != null && string.Equals(teacher.Email, user.Email, StringComparison.OrdinalIgnoreCase)) ||
+                         (user.FullName != null && string.Equals(teacher.FullName?.Trim(), user.FullName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (!isSelf)
+            {
+                return Forbid();
+            }
+        }
+
         var rawList = await _db.TeacherAttendances.AsNoTracking()
             .Where(a => a.TeacherId == id && a.AttendanceDate.Month == month && a.AttendanceDate.Year == year)
             .OrderBy(a => a.AttendanceDate)
@@ -2157,10 +2172,25 @@ public class TeachersController : ControllerBase
             return BadRequest(new { message = "Attendance cannot be marked for future dates." });
 
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
 
-        // 2. Teachers cannot directly mark or edit past date attendance (must use Regularization)
-        if (user?.Role == IMSERP.Domain.Enums.UserRole.Teacher && date < today)
-            return BadRequest(new { message = "Faculty cannot directly log or edit past date attendance. Please submit an Attendance Regularization request." });
+        // Non-admin/non-HR staff can ONLY mark attendance for themselves
+        if (!isAdminOrHR && user != null)
+        {
+            var isSelf = teacher.UserId == user.Id || 
+                         (user.Email != null && string.Equals(teacher.Email, user.Email, StringComparison.OrdinalIgnoreCase)) ||
+                         (user.FullName != null && string.Equals(teacher.FullName?.Trim(), user.FullName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (!isSelf)
+            {
+                return Forbid();
+            }
+        }
+
+        // Non-admin/non-HR staff cannot directly mark or edit past date attendance (must use Regularization)
+        if (!isAdminOrHR && date < today)
+            return BadRequest(new { message = "Staff cannot directly log or edit past date attendance. Please submit an Attendance Regularization request." });
 
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
             return Forbid();
@@ -2485,7 +2515,10 @@ public class TeachersController : ControllerBase
     public async Task<IActionResult> DeleteAttendance(Guid attendanceId)
     {
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        if (user?.Role == IMSERP.Domain.Enums.UserRole.Teacher)
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
+        if (!isAdminOrHR)
             return Forbid();
 
         if (!await HasAttendancePermissionAsync("/attendance/permissions/correction", edit: false, delete: true))
@@ -3455,7 +3488,8 @@ public class TeachersController : ControllerBase
         if (teacher == null) return NotFound();
 
         var canManage = await CanManageStaffAsync();
-        bool isSelf = teacher.UserId.HasValue && teacher.UserId.Value == _currentUser.UserId;
+        bool isSelf = (teacher.UserId.HasValue && teacher.UserId.Value == _currentUser.UserId) ||
+                      (teacher.FullName != null && string.Equals(teacher.FullName?.Trim(), _currentUser.Username?.Trim(), StringComparison.OrdinalIgnoreCase));
         if (!canManage && !isSelf) return Forbid();
 
         var entities = await _db.TeacherSalaryPayments.AsNoTracking()
@@ -3708,6 +3742,21 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
         if (teacher == null) return NotFound();
 
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
+        if (!isAdminOrHR && user != null)
+        {
+            var isSelf = teacher.UserId == user.Id ||
+                         (user.Email != null && string.Equals(teacher.Email, user.Email, StringComparison.OrdinalIgnoreCase)) ||
+                         (user.FullName != null && string.Equals(teacher.FullName?.Trim(), user.FullName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (!isSelf)
+            {
+                return Forbid();
+            }
+        }
+
         var list = await _db.TeacherSalaryAdvances.AsNoTracking()
             .Include(a => a.Branch)
             .Where(a => a.TeacherId == id)
@@ -3843,7 +3892,10 @@ public class TeachersController : ControllerBase
         if (user == null) return NotFound();
 
         var teacher = await _db.Teachers.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+            .FirstOrDefaultAsync(t => t.TenantId == tenantId && (
+                t.UserId == user.Id || 
+                (user.Email != null && t.Email == user.Email) ||
+                (user.FullName != null && t.FullName == user.FullName)));
 
         if (teacher == null) return Ok(new { isLinked = false });
 
@@ -3871,19 +3923,24 @@ public class TeachersController : ControllerBase
         var tenantId = _currentUser.TenantId;
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
         
-        var canManageAllLeaves = await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.View);
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
         Teacher? linkedTeacher = null;
         if (user != null)
         {
-            linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+            linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (
+                t.UserId == user.Id || 
+                (user.Email != null && t.Email == user.Email) ||
+                (user.FullName != null && t.FullName == user.FullName)));
         }
 
         var q = _db.TeacherLeaves.AsNoTracking()
             .Include(l => l.Teacher)
             .Where(l => l.TenantId == tenantId && l.Teacher != null && l.Teacher.IsActive);
 
-        // If user is a linked teacher and does not have administrative rights to manage all staff leaves, restrict to their own leaves!
-        if (linkedTeacher != null && !canManageAllLeaves)
+        // If user is not SuperAdmin/InstituteAdmin/HR, restrict to their own leaves!
+        if (!isAdminOrHR && linkedTeacher != null)
         {
             q = q.Where(l => l.TeacherId == linkedTeacher.Id);
         }
@@ -4053,17 +4110,22 @@ public class TeachersController : ControllerBase
         var startOfYear = new DateTime(today.Year, 1, 1);
 
         var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        var canManageAllLeaves = await _menuPermissions.HasPermissionAsync("/teachers/leaves", MenuPermissionOperation.View);
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
         Teacher? linkedTeacher = null;
         if (user != null)
         {
-            linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+            linkedTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (
+                t.UserId == user.Id || 
+                (user.Email != null && t.Email == user.Email) ||
+                (user.FullName != null && t.FullName == user.FullName)));
         }
 
         var q = _db.TeacherLeaves.AsNoTracking()
             .Include(l => l.Teacher)
             .Where(l => l.TenantId == tenantId && l.Teacher != null && l.Teacher.IsActive);
-        if (linkedTeacher != null && !canManageAllLeaves)
+        if (!isAdminOrHR && linkedTeacher != null)
         {
             q = q.Where(l => l.TeacherId == linkedTeacher.Id);
         }
@@ -4101,6 +4163,21 @@ public class TeachersController : ControllerBase
     {
         var teacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
         if (teacher == null) return NotFound();
+
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
+        if (!isAdminOrHR && user != null)
+        {
+            var isSelf = teacher.UserId == user.Id ||
+                         (user.Email != null && string.Equals(teacher.Email, user.Email, StringComparison.OrdinalIgnoreCase)) ||
+                         (user.FullName != null && string.Equals(teacher.FullName?.Trim(), user.FullName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (!isSelf)
+            {
+                return Forbid();
+            }
+        }
 
         var q = _db.TeacherLeaves.AsNoTracking().Where(l => l.TeacherId == id);
 
@@ -4839,6 +4916,21 @@ public class TeachersController : ControllerBase
     public async Task<ActionResult<TeacherLeaveBalancesSummaryDto>> GetTeacherLeaveBalances(Guid id)
     {
         var tenantId = _currentUser.TenantId;
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
+        if (!isAdminOrHR && user != null)
+        {
+            var targetTeacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
+            var isSelf = targetTeacher != null && (
+                targetTeacher.UserId == user.Id ||
+                (user.Email != null && string.Equals(targetTeacher.Email, user.Email, StringComparison.OrdinalIgnoreCase)) ||
+                (user.FullName != null && string.Equals(targetTeacher.FullName?.Trim(), user.FullName.Trim(), StringComparison.OrdinalIgnoreCase))
+            );
+            if (!isSelf) return Forbid();
+        }
+
         var policy = await GetOrCreateLeavePolicyAsync(tenantId);
         var result = await ComputeTeacherLeaveBalancesAsync(id, policy);
         return Ok(result);
@@ -4862,11 +4954,16 @@ public class TeachersController : ControllerBase
             .Include(r => r.Teacher)
             .Where(r => r.TenantId == tenantId && r.Teacher != null && r.Teacher.IsActive);
 
-        // Security scoping: check if caller has permission to view all staff regularizations
-        var canManageAll = await _menuPermissions.HasPermissionAsync("/teachers/attendance", MenuPermissionOperation.View);
-        if (!canManageAll && user != null)
+        // Security scoping: non-admin/non-HR staff can ONLY view their own regularizations
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
+        if (!isAdminOrHR && user != null)
         {
-            var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (t.UserId == user.Id || (user.Email != null && t.Email == user.Email)));
+            var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (
+                t.UserId == user.Id || 
+                (user.Email != null && t.Email == user.Email) ||
+                (user.FullName != null && t.FullName == user.FullName)));
             if (linked != null)
             {
                 query = query.Where(r => r.TeacherId == linked.Id);
@@ -4980,21 +5077,32 @@ public class TeachersController : ControllerBase
             r.AttendanceDate <= monthEnd &&
             r.Status != RegularizationStatus.Rejected);
 
-        if (existingRegCount >= policy.MaxRegularizationPerMonth)
+        var isStaffManagementRole = user != null && (
+            user.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin ||
+            user.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin ||
+            user.Role == IMSERP.Domain.Enums.UserRole.HR ||
+            canApplyForOthers);
+
+        // Only enforce individual monthly regularization quota on regular teachers self-applying
+        if (!isStaffManagementRole && existingRegCount >= policy.MaxRegularizationPerMonth)
         {
             return BadRequest(new { message = $"You have reached the monthly regularization limit of {policy.MaxRegularizationPerMonth} requests for {dto.AttendanceDate:MMMM yyyy}." });
         }
 
-        // Check if pending regularization already exists for this date
-        bool alreadyPending = await _db.TeacherAttendanceRegularizations.AnyAsync(r =>
+        // Check if regularization is already Approved or Pending for this date
+        var existingReg = await _db.TeacherAttendanceRegularizations.AsNoTracking().FirstOrDefaultAsync(r =>
             r.TenantId == tenantId &&
             r.TeacherId == targetTeacherId &&
             r.AttendanceDate.Date == dto.AttendanceDate.Date &&
-            r.Status == RegularizationStatus.Pending);
+            (r.Status == RegularizationStatus.Approved || r.Status == RegularizationStatus.Pending));
 
-        if (alreadyPending)
+        if (existingReg != null)
         {
-            return Conflict(new { message = "A pending regularization request already exists for this date." });
+            if (existingReg.Status == RegularizationStatus.Approved)
+            {
+                return BadRequest(new { message = $"Attendance for {dto.AttendanceDate:dd-MMM-yyyy} is already regularized and Approved. Duplicate request cannot be submitted." });
+            }
+            return Conflict(new { message = $"A regularization request for {dto.AttendanceDate:dd-MMM-yyyy} is already submitted and pending Admin review." });
         }
 
         if (!Enum.TryParse<TeacherAttendanceStatus>(dto.RequestedStatus, true, out var reqStatus))
@@ -6501,7 +6609,30 @@ public class TeachersController : ControllerBase
 
         if (month.HasValue && month.Value > 0) query = query.Where(l => l.Month == month.Value);
         if (year.HasValue && year.Value > 0) query = query.Where(l => l.Year == year.Value);
-        if (teacherId.HasValue && teacherId.Value != Guid.Empty) query = query.Where(l => l.TeacherId == teacherId.Value);
+
+        var user = await _db.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+        var isAdminOrHR = user?.Role == IMSERP.Domain.Enums.UserRole.SuperAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.InstituteAdmin || 
+                          user?.Role == IMSERP.Domain.Enums.UserRole.HR;
+        if (!isAdminOrHR && user != null)
+        {
+            var linked = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == tenantId && (
+                t.UserId == user.Id || 
+                (user.Email != null && t.Email == user.Email) ||
+                (user.FullName != null && t.FullName == user.FullName)));
+            if (linked != null)
+            {
+                query = query.Where(l => l.TeacherId == linked.Id);
+            }
+            else
+            {
+                return Ok(new List<TeacherLeaveAccrualLogDto>());
+            }
+        }
+        else if (teacherId.HasValue && teacherId.Value != Guid.Empty)
+        {
+            query = query.Where(l => l.TeacherId == teacherId.Value);
+        }
 
         var list = await query
             .OrderByDescending(l => l.Year).ThenByDescending(l => l.Month)

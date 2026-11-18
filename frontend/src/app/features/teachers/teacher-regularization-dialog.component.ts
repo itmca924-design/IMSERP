@@ -15,6 +15,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, provideNativeDateAdapter, MAT_DATE_LOCALE } from '@angular/material/core';
 import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import {
   API_BASE,
   TeacherDto,
@@ -175,6 +176,28 @@ import {
                 </div>
               </div>
             }
+
+            <!-- Already Approved Alert Banner -->
+            @if (isAlreadyApproved) {
+              <div class="already-status-banner approved">
+                <mat-icon>check_circle</mat-icon>
+                <div>
+                  <strong>Already Regularized &amp; Approved ({{selectedDateFormatted}}):</strong>
+                  <span>Attendance for this date has already been regularized and approved. Duplicate request cannot be submitted.</span>
+                </div>
+              </div>
+            }
+
+            <!-- Already Pending Alert Banner -->
+            @if (isAlreadyPending) {
+              <div class="already-status-banner pending">
+                <mat-icon>hourglass_top</mat-icon>
+                <div>
+                  <strong>Request Under Review ({{selectedDateFormatted}}):</strong>
+                  <span>A regularization request for this date is already submitted and pending Admin approval.</span>
+                </div>
+              </div>
+            }
           }
 
           <!-- Date & Requested Status Row (Date Range Mode) -->
@@ -210,12 +233,27 @@ import {
                   @if (skippedSundayCount > 0) {
                     <span class="skipped-pill">({{skippedSundayCount}} Sunday{{skippedSundayCount > 1 ? 's' : ''}} excluded)</span>
                   }
+                  @if (skippedApprovedDates.length > 0) {
+                    <span class="skipped-chip approved-chip" [matTooltip]="'Skipped: ' + skippedApprovedDates.join(', ')">
+                      <mat-icon>check_circle</mat-icon> {{skippedApprovedDates.length}} Already Approved
+                    </span>
+                  }
+                  @if (skippedPendingDates.length > 0) {
+                    <span class="skipped-chip pending-chip" [matTooltip]="'Skipped: ' + skippedPendingDates.join(', ')">
+                      <mat-icon>hourglass_top</mat-icon> {{skippedPendingDates.length}} Pending Review
+                    </span>
+                  }
                 </div>
                 <div class="dates-chip-row">
                   @for (d of selectedDatesList; track d) {
                     <span class="date-chip">{{d | date:'dd MMM (EEE)'}}</span>
                   }
                 </div>
+              </div>
+            } @else if (form.get('rangeStart')?.value && form.get('rangeEnd')?.value && (skippedApprovedDates.length > 0 || skippedPendingDates.length > 0)) {
+              <div class="range-all-skipped">
+                <mat-icon>info</mat-icon>
+                <span>All working dates in this selected range are already Approved or Pending Review. No new requests needed.</span>
               </div>
             }
           }
@@ -606,6 +644,82 @@ import {
       font-weight: 600;
       box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
     }
+    .already-status-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-top: -6px;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+    .already-status-banner.approved {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+    }
+    .already-status-banner.approved mat-icon {
+      color: #059669;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+    .already-status-banner.pending {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+    }
+    .already-status-banner.pending mat-icon {
+      color: #d97706;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+    .skipped-chip {
+      font-size: 0.74rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .skipped-chip mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+    .skipped-chip.approved-chip {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+    .skipped-chip.pending-chip {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fcd34d;
+    }
+    .range-all-skipped {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #c2410c;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+    .range-all-skipped mat-icon {
+      color: #ea580c;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
 
     @media (max-width: 600px) {
       .form-row {
@@ -636,6 +750,12 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
   isTeacherSelf = false;
   myProfile: any = null;
 
+  existingRegularizations: TeacherAttendanceRegularizationDto[] = [];
+  isAlreadyApproved = false;
+  isAlreadyPending = false;
+  skippedApprovedDates: string[] = [];
+  skippedPendingDates: string[] = [];
+
   dateMode: 'single' | 'range' = 'single';
   selectedDatesList: Date[] = [];
   skippedSundayCount = 0;
@@ -652,6 +772,8 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
   checkOccurrenceDate(val: any): void {
     if (!val) {
       this.isSundaySelected = false;
+      this.isAlreadyApproved = false;
+      this.isAlreadyPending = false;
       this.selectedDayName = '';
       this.selectedDateFormatted = '';
       return;
@@ -659,14 +781,26 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     const d = val instanceof Date ? val : new Date(val + (typeof val === 'string' && !val.includes('T') ? 'T00:00:00' : ''));
     if (isNaN(d.getTime())) {
       this.isSundaySelected = false;
+      this.isAlreadyApproved = false;
+      this.isAlreadyPending = false;
       return;
     }
+    const dateStr = this.formatDate(d);
     const day = d.getDay(); // 0 is Sunday
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     this.selectedDayName = dayNames[day];
     this.selectedDateFormatted = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
     this.isSundaySelected = (day === 0);
+
+    const existing = this.existingRegularizations.find(r => r.attendanceDate.startsWith(dateStr));
+    if (existing) {
+      this.isAlreadyApproved = (existing.status === 'Approved');
+      this.isAlreadyPending = (existing.status === 'Pending');
+    } else {
+      this.isAlreadyApproved = false;
+      this.isAlreadyPending = false;
+    }
   }
 
   setDateMode(mode: 'single' | 'range'): void {
@@ -694,6 +828,8 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     if (this.dateMode !== 'range') {
       this.selectedDatesList = [];
       this.skippedSundayCount = 0;
+      this.skippedApprovedDates = [];
+      this.skippedPendingDates = [];
       return;
     }
     const startVal = this.form.get('rangeStart')?.value;
@@ -701,6 +837,8 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     if (!startVal || !endVal) {
       this.selectedDatesList = [];
       this.skippedSundayCount = 0;
+      this.skippedApprovedDates = [];
+      this.skippedPendingDates = [];
       return;
     }
     const start = new Date(startVal);
@@ -708,27 +846,41 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
       this.selectedDatesList = [];
       this.skippedSundayCount = 0;
+      this.skippedApprovedDates = [];
+      this.skippedPendingDates = [];
       return;
     }
     const list: Date[] = [];
     let sundayCount = 0;
+    const approvedList: string[] = [];
+    const pendingList: string[] = [];
     const cur = new Date(start);
     while (cur <= end) {
+      const dStr = this.formatDate(cur);
       if (cur.getDay() === 0) {
         sundayCount++;
       } else {
-        list.push(new Date(cur));
+        const existing = this.existingRegularizations.find(r => r.attendanceDate.startsWith(dStr));
+        if (existing?.status === 'Approved') {
+          approvedList.push(dStr);
+        } else if (existing?.status === 'Pending') {
+          pendingList.push(dStr);
+        } else {
+          list.push(new Date(cur));
+        }
       }
       cur.setDate(cur.getDate() + 1);
     }
     this.selectedDatesList = list;
     this.skippedSundayCount = sundayCount;
+    this.skippedApprovedDates = approvedList;
+    this.skippedPendingDates = pendingList;
   }
 
   get isSubmitDisabled(): boolean {
     if (this.saving || this.form.invalid) return true;
     if (this.dateMode === 'single') {
-      return this.isSundaySelected || !this.form.get('attendanceDate')?.value;
+      return this.isSundaySelected || this.isAlreadyApproved || this.isAlreadyPending || !this.form.get('attendanceDate')?.value;
     }
     return this.selectedDatesList.length === 0;
   }
@@ -745,6 +897,7 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     private fb: FormBuilder,
     private http: HttpClient,
     private dialogRef: MatDialogRef<ApplyTeacherRegularizationDialogComponent>,
+    private confirmDialog: ConfirmDialogService,
     @Inject(MAT_DIALOG_DATA) public data: {
       preSelectTeacherId?: string;
       targetTeacherId?: string;
@@ -754,11 +907,33 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
       isTeacher?: boolean;
       myProfile?: any;
       teachers?: TeacherDto[];
+      existingRegularizations?: TeacherAttendanceRegularizationDto[];
     }
   ) {
-    this.isTeacherSelf = this.authService.isTeacher() || !!(data?.isTeacherSelf || data?.isTeacher);
+    this.isTeacherSelf = !this.authService.canManageStaff() || !!(data?.isTeacherSelf || data?.isTeacher);
     this.myProfile = data?.myProfile || null;
     this.teachers = (data?.teachers || []).filter(t => t.isActive !== false && !t.leavingDate);
+    if (data?.existingRegularizations) {
+      this.existingRegularizations = data.existingRegularizations;
+    }
+  }
+
+  loadExistingRegularizations(teacherId: string): void {
+    if (!teacherId) return;
+    this.http.get<TeacherAttendanceRegularizationDto[]>(`${API_BASE}/teachers/regularizations`, {
+      params: { teacherId }
+    }).subscribe({
+      next: list => {
+        this.existingRegularizations = list || [];
+        this.checkOccurrenceDate(this.form.get('attendanceDate')?.value);
+        if (this.dateMode === 'range') {
+          this.recomputeRangeDates();
+        }
+      },
+      error: () => {
+        this.existingRegularizations = [];
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -785,6 +960,13 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     });
     this.form.get('rangeStart')?.valueChanges.subscribe(() => this.recomputeRangeDates());
     this.form.get('rangeEnd')?.valueChanges.subscribe(() => this.recomputeRangeDates());
+    this.form.get('teacherId')?.valueChanges.subscribe(tId => {
+      if (tId) this.loadExistingRegularizations(tId);
+    });
+
+    if (defaultTeacherId) {
+      this.loadExistingRegularizations(defaultTeacherId);
+    }
 
     if (this.isTeacherSelf) {
       if (!this.myProfile?.id) {
@@ -793,12 +975,14 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
             if (p?.isLinked) {
               this.myProfile = p;
               this.form.patchValue({ teacherId: p.id });
+              this.loadExistingRegularizations(p.id);
             }
           },
           error: () => {}
         });
       } else {
         this.form.patchValue({ teacherId: this.myProfile.id });
+        this.loadExistingRegularizations(this.myProfile.id);
       }
     } else {
       // Admin Mode: Load active teachers (excluding F&F settled / inactive)
@@ -808,6 +992,7 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
             this.teachers = list.filter(t => t.isActive !== false && !t.leavingDate);
             if (!this.form.get('teacherId')?.value && this.teachers.length > 0) {
               this.form.patchValue({ teacherId: this.teachers[0].id });
+              this.loadExistingRegularizations(this.teachers[0].id);
             }
           },
           error: () => {}
@@ -873,11 +1058,17 @@ export class ApplyTeacherRegularizationDialogComponent implements OnInit {
     forkJoin(requests).subscribe({
       next: () => {
         this.saving = false;
-        this.dialogRef.close(true);
+        this.dialogRef.close({
+          count: datesToSubmit.length,
+          teacherId: baseVal.teacherId,
+          teacherName: this.teachers.find(t => t.id === baseVal.teacherId)?.fullName || this.myProfile?.fullName || 'Faculty Member'
+        });
       },
       error: err => {
         this.saving = false;
-        this.errorMessage = err.error?.message || 'Failed to submit regularization request(s). Please verify monthly limits.';
+        const msg = err.error?.message || 'Failed to submit regularization request(s). Please verify monthly limits.';
+        this.errorMessage = msg;
+        this.confirmDialog.alert('Regularization Submission Notice', msg, 'warning');
       }
     });
   }

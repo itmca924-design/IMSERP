@@ -422,7 +422,7 @@ export interface AssignmentSlot {
       </div>
     }
     <!-- Teacher Selector (Teaching Faculty only) -->
-    <app-teacher-selector [preSelectId]="preSelectId" [staffTypeFilter]="'Teaching'" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
+    <app-teacher-selector [preSelectId]="preSelectId" [staffTypeFilter]="'Teaching'" [selfOnly]="!canManage" (teacherSelected)="onTeacherSelected($event)"></app-teacher-selector>
     @if (loading) {
       <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }

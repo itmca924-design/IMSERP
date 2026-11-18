@@ -804,6 +804,7 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   @Input() preSelectId: string | null = null;
   @Input() activeOnly: boolean = true;
   @Input() staffTypeFilter: 'All' | 'Teaching' | 'NonTeaching' = 'All';
+  @Input() selfOnly: boolean | null = null;
   @Output() teacherSelected = new EventEmitter<TeacherDto>();
 
   @ViewChild('searchInput') searchInputElement?: ElementRef<HTMLInputElement>;
@@ -814,7 +815,7 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   selected: TeacherDto | null = null;
   searchQuery: string = '';
 
-  /** True when a Teacher-role user is logged in (self-service mode) */
+  /** True when a self-service role (non-admin / non-HR) user is logged in */
   isSelfOnlyMode = false;
   private loggedInUserId: string | null = null;
 
@@ -827,7 +828,9 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
 
   ngOnInit() {
     const user = this.auth.currentUser();
-    this.isSelfOnlyMode = this.auth.isTeacher();
+    this.isSelfOnlyMode = this.selfOnly !== null && this.selfOnly !== undefined
+      ? this.selfOnly
+      : !this.auth.canManageStaff();
     this.loggedInUserId = user?.userId ?? null;
     this.loadTeachers();
   }
@@ -846,11 +849,27 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
             const matchUserId = !!(this.loggedInUserId && t.userId && t.userId.toLowerCase() === this.loggedInUserId.toLowerCase());
             const matchUsername = !!(user?.username && t.username && t.username.toLowerCase() === user.username.toLowerCase());
             const matchName = !!(user?.fullName && t.fullName && t.fullName.trim().toLowerCase() === user.fullName.trim().toLowerCase());
-            return matchUserId || matchUsername || matchName;
+            const uEmail = (user as any)?.email;
+            const matchEmail = !!(uEmail && t.email && t.email.trim().toLowerCase() === uEmail.trim().toLowerCase());
+            return matchUserId || matchUsername || matchName || matchEmail;
           });
 
           if (selfFiltered.length > 0) {
             raw = selfFiltered;
+          } else {
+            // Self-service user profile not found in paged list -> fallback fetch /my-profile
+            this.http.get<any>(`${API_BASE}/teachers/my-profile`).subscribe({
+              next: profile => {
+                if (profile && profile.id) {
+                  this.teachers = [profile];
+                  this.filteredTeachers = [profile];
+                  this.selectedId = profile.id;
+                  this.selected = profile;
+                  this.teacherSelected.emit(profile);
+                }
+              }
+            });
+            return;
           }
         }
 
@@ -863,10 +882,10 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
         this.teachers = raw;
         this.filterTeachers();
 
-        // Auto-select: preSelectId takes priority, then self-only auto-pick
-        if (this.preSelectId) {
+        // Auto-select: preSelectId takes priority (if matches self in self-only mode), then self-only auto-pick
+        if (this.preSelectId && (!this.isSelfOnlyMode || raw.some(t => t.id === this.preSelectId))) {
           this.applyPreSelect();
-        } else if (this.isSelfOnlyMode && raw.length === 1) {
+        } else if (this.isSelfOnlyMode && raw.length >= 1) {
           this.selectedId = raw[0].id;
           this.selected = raw[0];
           this.teacherSelected.emit(raw[0]);
@@ -876,6 +895,13 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
+    if (changes['selfOnly']) {
+      this.isSelfOnlyMode = this.selfOnly !== null && this.selfOnly !== undefined
+        ? this.selfOnly
+        : !this.auth.canManageStaff();
+      this.loadTeachers();
+      return;
+    }
     if ((changes['preSelectId'] || changes['staffTypeFilter']) && this.teachers.length > 0) {
       if (changes['staffTypeFilter']) {
         this.loadTeachers();
@@ -886,6 +912,14 @@ export class TeacherSelectorComponent implements OnInit, OnChanges {
   }
 
   private applyPreSelect() {
+    if (this.isSelfOnlyMode && this.teachers.length > 0) {
+      const selfMatch = this.preSelectId ? this.teachers.find(t => t.id === this.preSelectId) : null;
+      const target = selfMatch || this.teachers[0];
+      this.selectedId = target.id;
+      this.selected = target;
+      this.teacherSelected.emit(target);
+      return;
+    }
     if (!this.preSelectId) return;
     this.selectedId = this.preSelectId;
     this.selected = this.teachers.find(t => t.id === this.preSelectId) || null;
