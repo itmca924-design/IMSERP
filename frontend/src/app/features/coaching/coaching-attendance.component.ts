@@ -45,6 +45,8 @@ export interface AttendanceStudentRow {
   checkInTime?: string;
   checkOutTime?: string;
   remarks?: string;
+  hasPendingRegularization?: boolean;
+  pendingRegularizationReason?: string;
 }
 
 @Component({
@@ -312,12 +314,20 @@ export interface AttendanceStudentRow {
                   <div class="col-resizer" (mousedown)="startResize($event, 'status')"></div>
                 </th>
                 <td mat-cell *matCellDef="let s" class="text-center">
-                  <div class="status-toggle-wrapper">
-                    <button type="button" class="status-btn" [class.active-present]="s.status === 'Present'" (click)="setStatus(s, 'Present')">P</button>
-                    <button type="button" class="status-btn" [class.active-absent]="s.status === 'Absent'" (click)="setStatus(s, 'Absent')">A</button>
-                    <button type="button" class="status-btn" [class.active-late]="s.status === 'Late'" (click)="setStatus(s, 'Late')">L</button>
-                    <button type="button" class="status-btn" [class.active-half]="s.status === 'HalfDay'" (click)="setStatus(s, 'HalfDay')">HD</button>
-                    <button type="button" class="status-btn" [class.active-leave]="s.status === 'Leave'" (click)="setStatus(s, 'Leave')">LV</button>
+                  <div class="status-cell-wrap">
+                    <div class="status-toggle-wrapper">
+                      <button type="button" class="status-btn" [class.active-present]="s.status === 'Present'" (click)="setStatus(s, 'Present')">P</button>
+                      <button type="button" class="status-btn" [class.active-absent]="s.status === 'Absent'" (click)="setStatus(s, 'Absent')">A</button>
+                      <button type="button" class="status-btn" [class.active-late]="s.status === 'Late'" (click)="setStatus(s, 'Late')">L</button>
+                      <button type="button" class="status-btn" [class.active-half]="s.status === 'HalfDay'" (click)="setStatus(s, 'HalfDay')">HD</button>
+                      <button type="button" class="status-btn" [class.active-leave]="s.status === 'Leave'" (click)="setStatus(s, 'Leave')">LV</button>
+                    </div>
+                    @if (s.hasPendingRegularization) {
+                      <div class="status-pending-tag" [matTooltip]="'Regularization Pending Review: ' + (s.pendingRegularizationReason || 'Awaiting Review')">
+                        <mat-icon class="pending-ic">hourglass_top</mat-icon>
+                        <span>Reg. Pending</span>
+                      </div>
+                    }
                   </div>
                 </td>
               </ng-container>
@@ -343,9 +353,16 @@ export interface AttendanceStudentRow {
                     <button type="button" class="row-cal-btn" (click)="openAttendanceCalendar(s.studentId)" matTooltip="View Monthly Google Calendar for {{ s.studentName }}">
                       <mat-icon>calendar_month</mat-icon>
                     </button>
-                    <button type="button" class="row-cal-btn row-reg-btn" (click)="openApplyRegularization(s)" matTooltip="Regularize attendance for {{ s.studentName }}">
-                      <mat-icon>history_toggle_off</mat-icon>
-                    </button>
+                    @if (s.hasPendingRegularization) {
+                      <span class="row-pending-badge" [matTooltip]="'Regularization Pending Review: ' + (s.pendingRegularizationReason || 'Awaiting Review')">
+                        <mat-icon class="badge-ic">hourglass_top</mat-icon>
+                        <span>Pending</span>
+                      </span>
+                    } @else {
+                      <button type="button" class="row-cal-btn row-reg-btn" (click)="openApplyRegularization(s)" matTooltip="Regularize attendance for {{ s.studentName }}">
+                        <mat-icon>history_toggle_off</mat-icon>
+                      </button>
+                    }
                   </div>
                 </td>
               </ng-container>
@@ -962,6 +979,56 @@ export interface AttendanceStudentRow {
       }
     }
 
+    .row-pending-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fcd34d;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1.2;
+      box-shadow: 0 1px 2px rgba(245, 158, 11, 0.15);
+      cursor: default;
+
+      .badge-ic {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+        color: #d97706;
+      }
+    }
+
+    .status-cell-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-pending-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 0.65rem;
+      font-weight: 700;
+
+      .pending-ic {
+        font-size: 11px;
+        width: 11px;
+        height: 11px;
+        color: #d97706;
+      }
+    }
+
     .remarks-input {
       width: 100%;
       border: 1px solid #cbd5e1;
@@ -1299,7 +1366,9 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
           status: (r.status as any) || 'Present',
           checkInTime: r.checkInTime || this.selectedBatch?.startTime || '08:30',
           checkOutTime: r.checkOutTime || this.selectedBatch?.endTime || '12:30',
-          remarks: r.remarks || ''
+          remarks: r.remarks || '',
+          hasPendingRegularization: !!r.hasPendingRegularization,
+          pendingRegularizationReason: r.pendingRegularizationReason
         }));
         this.applyLocalFilters();
         this.loading = false;

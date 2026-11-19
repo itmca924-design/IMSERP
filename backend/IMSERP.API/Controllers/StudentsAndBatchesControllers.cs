@@ -1547,12 +1547,20 @@ public class StudentsController : ControllerBase
                 .ToDictionaryAsync(a => a.StudentId)
             : new Dictionary<Guid, StudentAttendance>();
 
+        var pendingRegs = studentIds.Count > 0
+            ? await _dbContext.StudentAttendanceRegularizations
+                .AsNoTracking()
+                .Where(r => r.TenantId == tenantId && studentIds.Contains(r.StudentId) && r.AttendanceDate == targetDate && r.Status == RegularizationStatus.Pending)
+                .ToDictionaryAsync(r => r.StudentId)
+            : new Dictionary<Guid, StudentAttendanceRegularization>();
+
         var batch = await _dbContext.Batches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batchId);
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
 
         var result = students.Select(s =>
         {
             existingRecords.TryGetValue(s.Id, out var att);
+            pendingRegs.TryGetValue(s.Id, out var pendingReg);
             DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
             DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
             var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, batch?.Shift ?? "coaching", batch?.StartTime, batch?.EndTime).ToString() : "Present";
@@ -1571,7 +1579,9 @@ public class StudentsController : ControllerBase
                 att?.CheckInTime,
                 att?.CheckOutTime,
                 s.CoachingRollNumber,
-                s.AdmissionNumber
+                s.AdmissionNumber,
+                pendingReg != null,
+                pendingReg?.Reason
             );
         }).ToList();
 

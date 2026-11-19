@@ -22,6 +22,8 @@ export interface StudentRegularizationDialogData {
   className?: string;
   sectionName?: string;
   attendanceDate?: string;
+  batchId?: string;
+  scope?: string;
 }
 
 export interface StudentAttendanceRegularizationDto {
@@ -370,7 +372,8 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
       requestedStatus: ['Present', Validators.required],
       reasonCategory: ['OnDuty', Validators.required],
       reason: ['', [Validators.required, Validators.minLength(5)]],
-      attachmentUrl: ['']
+      attachmentUrl: [''],
+      batchId: [this.data?.batchId || null]
     });
 
     if (!this.preselectedStudent) {

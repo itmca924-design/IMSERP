@@ -788,7 +788,9 @@ public record BatchAttendanceStudentRowDto(
     string? CheckInTime = null,
     string? CheckOutTime = null,
     string? CoachingRollNumber = null,
-    string? AdmissionNumber = null
+    string? AdmissionNumber = null,
+    bool HasPendingRegularization = false,
+    string? PendingRegularizationReason = null
 );
 
 public record BulkSchoolAttendanceDto(

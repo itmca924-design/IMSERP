@@ -293,6 +293,7 @@ export interface BatchRegisterRow {
                     [class.is-sunday]="cell?.isSunday"
                     [class.is-today]="cell && isCellToday(cell.day)"
                     [class.has-punch]="cell && (cell.checkInTime || cell.checkOutTime)"
+                    [class.has-pending]="cell?.hasPendingRegularization"
                     [class.status-p]="cell?.status === 'P'"
                     [class.status-a]="cell?.status === 'A'"
                     [class.status-l]="cell?.status === 'L'"
@@ -344,7 +345,12 @@ export interface BatchRegisterRow {
 
                       <!-- Status Event Chip (Google Calendar Event Style) -->
                       <div class="status-event-wrap">
-                        @if (cell.status === 'P') {
+                        @if (cell.hasPendingRegularization) {
+                          <div class="event-chip chip-pending-reg" [matTooltip]="'Regularization Pending Review: ' + (cell.pendingRegularizationReason || 'Awaiting Review')">
+                            <span class="chip-dot-pending"></span>
+                            <span class="chip-text">Reg. Pending</span>
+                          </div>
+                        } @else if (cell.status === 'P') {
                           <div class="event-chip chip-present">
                             <span class="chip-dot"></span>
                             <span class="chip-text">Present</span>
@@ -384,8 +390,13 @@ export interface BatchRegisterRow {
                         }
                       </div>
 
-                      <!-- Interactive Regularize Action for Past Missed/Absent Punch -->
-                      @if (cell.canRegularize) {
+                      <!-- Interactive Regularize Action or Pending Badge -->
+                      @if (cell.hasPendingRegularization) {
+                        <div class="pending-badge-cell" [matTooltip]="'Regularization Pending Review: ' + (cell.pendingRegularizationReason || 'Awaiting Review')" matTooltipPosition="above">
+                          <mat-icon class="pending-badge-ic">hourglass_top</mat-icon>
+                          <span>Pending</span>
+                        </div>
+                      } @else if (cell.canRegularize) {
                         <button type="button" class="reg-btn-cell" (click)="openRegularizeDialog(cell, $event)" matTooltip="Biometric punch missed or marked absent. Click to apply attendance regularization.">
                           <mat-icon class="reg-btn-ic">edit_calendar</mat-icon>
                           <span>Regularize</span>
@@ -1302,6 +1313,50 @@ export interface BatchRegisterRow {
       }
     }
 
+    /* In-Cell Pending Regularization Badge */
+    .pending-badge-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fcd34d;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      cursor: default;
+      margin-top: 2px;
+      width: fit-content;
+      line-height: 1.2;
+      box-shadow: 0 1px 2px rgba(245, 158, 11, 0.12);
+
+      .pending-badge-ic {
+        font-size: 11px;
+        width: 11px;
+        height: 11px;
+        color: #d97706;
+      }
+    }
+
+    .cal-day-cell.has-pending {
+      background: #fffdf5;
+      border-color: #fde68a !important;
+    }
+
+    .event-chip.chip-pending-reg {
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      color: #b45309;
+      .chip-dot-pending {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #f59e0b;
+        display: inline-block;
+      }
+    }
+
     /* Biometric Time Pill Accent */
     .cell-time-pill.bio-time-pill {
       background: #f5f3ff;
@@ -2024,9 +2079,20 @@ export class CoachingAttendanceCalendarDialogComponent implements OnInit {
       }
     }
 
-    const regMap: { [day: number]: any } = {};
+    const regMap: { [key: string]: any } = {};
     for (const reg of this.studentRegularizations) {
       if (reg.attendanceDate) {
+        let dateKey = '';
+        if (typeof reg.attendanceDate === 'string') {
+          dateKey = reg.attendanceDate.split('T')[0];
+        } else {
+          const dt = new Date(reg.attendanceDate);
+          const y = dt.getFullYear();
+          const m = String(dt.getMonth() + 1).padStart(2, '0');
+          const d = String(dt.getDate()).padStart(2, '0');
+          dateKey = `${y}-${m}-${d}`;
+        }
+        regMap[dateKey] = reg;
         const dt = new Date(reg.attendanceDate);
         regMap[dt.getDate()] = reg;
       }
@@ -2130,7 +2196,7 @@ export class CoachingAttendanceCalendarDialogComponent implements OnInit {
         this.totalWorkingDays++;
       }
 
-      const regInfo = regMap[day];
+      const regInfo = regMap[ymd] || regMap[day];
       const isRegPending = regInfo?.status === 'Pending';
       const isRegApproved = regInfo?.status === 'Approved';
       const isRegularized = (captureSource === 'Regularization') || isRegApproved;
@@ -2262,14 +2328,18 @@ export class CoachingAttendanceCalendarDialogComponent implements OnInit {
     if (!this.currentStudent) return;
 
     const dialogRef = this.dialog.open(ApplyStudentRegularizationDialogComponent, {
-      width: '600px',
+      width: '640px',
+      maxWidth: '96vw',
+      panelClass: 'erp-custom-dialog',
       data: {
         studentId: this.currentStudent.studentId,
         studentName: this.currentStudent.studentName,
         rollNumber: this.currentStudent.coachingRollNumber || this.currentStudent.rollNumber,
         className: this.data.className,
         sectionName: this.data.batchName,
-        attendanceDate: cell.dateStr
+        batchId: this.data.batchId,
+        attendanceDate: cell.dateStr,
+        scope: 'coaching'
       }
     });
 

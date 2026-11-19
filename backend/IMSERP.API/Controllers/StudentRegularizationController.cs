@@ -279,7 +279,7 @@ public class StudentRegularizationController : ControllerBase
             StudentId = student.Id,
             ClassId = student.ClassId,
             SectionId = student.SectionId,
-            BatchId = student.BatchId ?? dto.BatchId,
+            BatchId = dto.BatchId ?? student.BatchId,
             AttendanceDate = dto.AttendanceDate.Date,
             RequestedStatus = requestedStatus,
             ReasonCategory = string.IsNullOrWhiteSpace(dto.ReasonCategory) ? "OnDuty" : dto.ReasonCategory.Trim(),
