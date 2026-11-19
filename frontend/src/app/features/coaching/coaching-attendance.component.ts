@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -14,6 +14,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
 import { HttpClient } from '@angular/common/http';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService } from '../../core/services/school.service';
@@ -64,6 +66,8 @@ export interface AttendanceStudentRow {
     MatProgressBarModule,
     MatButtonToggleModule,
     MatDialogModule,
+    MatPaginatorModule,
+    MatSortModule,
     RouterModule
   ],
   template: `
@@ -80,10 +84,6 @@ export interface AttendanceStudentRow {
           </div>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button class="smart-btn regularize-smart-btn" (click)="openApplyRegularization()" matTooltip="Submit or review student attendance regularization / OD request">
-            <mat-icon class="btn-ic">history_toggle_off</mat-icon>
-            <span class="btn-lbl">Regularize</span>
-          </button>
           <button mat-stroked-button class="smart-btn settings-smart-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Policies for Coaching Batches and Faculty">
             <mat-icon class="btn-ic">schedule</mat-icon>
             <span class="btn-lbl">Batch Shift Settings</span>
@@ -91,7 +91,7 @@ export interface AttendanceStudentRow {
         </div>
       </div>
 
-      <!-- Single Prominent Loading Bar -->
+      <!-- Single Prominent Loading Bar (AGENTS.md Strict Single Loader Rule) -->
       @if (loading) {
         <mat-progress-bar mode="indeterminate" class="global-loader"></mat-progress-bar>
       }
@@ -228,24 +228,66 @@ export interface AttendanceStudentRow {
                 <mat-icon>history_toggle_off</mat-icon> Regularize
               </button>
               <button mat-flat-button color="primary" class="save-attendance-btn" [disabled]="saving" (click)="saveAttendance()">
-                <mat-icon>save</mat-icon> Save Attendance
+                <mat-icon>save</mat-icon> Save
               </button>
             </div>
           </div>
 
+          <!-- Searching & Status Filter Bar -->
+          <div class="search-filter-bar">
+            <mat-form-field appearance="outline" class="table-search-field">
+              <mat-label>Search student (Name / Roll / Phone)</mat-label>
+              <mat-icon matPrefix class="search-ic">search</mat-icon>
+              <input matInput [(ngModel)]="searchTerm" (ngModelChange)="applyLocalFilters()" placeholder="Type to filter..." />
+              @if (searchTerm) {
+                <button matSuffix mat-icon-button type="button" (click)="clearSearch()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+            </mat-form-field>
+
+            <div class="status-filter-pills">
+              <button type="button" class="filter-pill" [class.active]="selectedStatusFilter === 'ALL'" (click)="setStatusFilter('ALL')">
+                All ({{ students.length }})
+              </button>
+              <button type="button" class="filter-pill pill-present" [class.active]="selectedStatusFilter === 'Present'" (click)="setStatusFilter('Present')">
+                Present ({{ presentCount }})
+              </button>
+              <button type="button" class="filter-pill pill-absent" [class.active]="selectedStatusFilter === 'Absent'" (click)="setStatusFilter('Absent')">
+                Absent ({{ absentCount }})
+              </button>
+              <button type="button" class="filter-pill pill-late" [class.active]="selectedStatusFilter === 'Late'" (click)="setStatusFilter('Late')">
+                Late ({{ lateCount }})
+              </button>
+              <button type="button" class="filter-pill pill-half" [class.active]="selectedStatusFilter === 'HalfDay'" (click)="setStatusFilter('HalfDay')">
+                Half Day ({{ halfDayCount }})
+              </button>
+              <button type="button" class="filter-pill pill-leave" [class.active]="selectedStatusFilter === 'Leave'" (click)="setStatusFilter('Leave')">
+                Leave ({{ leaveCount }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Resizable Table with Header Sorting -->
           <div class="table-responsive">
-            <table mat-table [dataSource]="students" class="erp-table">
-              <!-- Roll No -->
+            <table mat-table [dataSource]="pagedStudents" matSort (matSortChange)="onSortChange($event)" class="erp-table resizable-table">
+              <!-- Roll No Column -->
               <ng-container matColumnDef="rollNo">
-                <th mat-header-cell *matHeaderCellDef style="width: 100px;">Roll No</th>
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="rollNo" [style.width.px]="colWidths['rollNo']" class="resizable-header">
+                  <div class="header-inner">Roll No</div>
+                  <div class="col-resizer" (mousedown)="startResize($event, 'rollNo')"></div>
+                </th>
                 <td mat-cell *matCellDef="let s">
                   <span class="roll-badge">{{ s.coachingRollNumber || s.rollNumber || '—' }}</span>
                 </td>
               </ng-container>
 
-              <!-- Student Name -->
+              <!-- Student Name Column -->
               <ng-container matColumnDef="studentName">
-                <th mat-header-cell *matHeaderCellDef>Student Name & Contact</th>
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="studentName" [style.width.px]="colWidths['studentName']" class="resizable-header">
+                  <div class="header-inner">Student Name & Contact</div>
+                  <div class="col-resizer" (mousedown)="startResize($event, 'studentName')"></div>
+                </th>
                 <td mat-cell *matCellDef="let s">
                   <div class="student-info-cell">
                     <div class="avatar-box" [style.background]="!s.profilePhoto || s.photoFailed ? getAvatarBg(s.studentName) : '#f1f5f9'">
@@ -263,32 +305,40 @@ export interface AttendanceStudentRow {
                 </td>
               </ng-container>
 
-              <!-- Attendance Status Toggles -->
+              <!-- Attendance Status Toggles Column -->
               <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef style="min-width: 280px; text-align: center;">Attendance Status</th>
-                <td mat-cell *matCellDef="let s" style="text-align: center;">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header="status" [style.width.px]="colWidths['status']" class="resizable-header text-center">
+                  <div class="header-inner">Attendance Status</div>
+                  <div class="col-resizer" (mousedown)="startResize($event, 'status')"></div>
+                </th>
+                <td mat-cell *matCellDef="let s" class="text-center">
                   <div class="status-toggle-wrapper">
-                    <button type="button" class="status-btn" [class.active-present]="s.status === 'Present'" (click)="s.status = 'Present'">P</button>
-                    <button type="button" class="status-btn" [class.active-absent]="s.status === 'Absent'" (click)="s.status = 'Absent'">A</button>
-                    <button type="button" class="status-btn" [class.active-late]="s.status === 'Late'" (click)="s.status = 'Late'">L</button>
-                    <button type="button" class="status-btn" [class.active-half]="s.status === 'HalfDay'" (click)="s.status = 'HalfDay'">HD</button>
-                    <button type="button" class="status-btn" [class.active-leave]="s.status === 'Leave'" (click)="s.status = 'Leave'">LV</button>
+                    <button type="button" class="status-btn" [class.active-present]="s.status === 'Present'" (click)="setStatus(s, 'Present')">P</button>
+                    <button type="button" class="status-btn" [class.active-absent]="s.status === 'Absent'" (click)="setStatus(s, 'Absent')">A</button>
+                    <button type="button" class="status-btn" [class.active-late]="s.status === 'Late'" (click)="setStatus(s, 'Late')">L</button>
+                    <button type="button" class="status-btn" [class.active-half]="s.status === 'HalfDay'" (click)="setStatus(s, 'HalfDay')">HD</button>
+                    <button type="button" class="status-btn" [class.active-leave]="s.status === 'Leave'" (click)="setStatus(s, 'Leave')">LV</button>
                   </div>
                 </td>
               </ng-container>
 
-              <!-- Remarks -->
+              <!-- Remarks Column -->
               <ng-container matColumnDef="remarks">
-                <th mat-header-cell *matHeaderCellDef style="min-width: 200px;">Remarks / Note</th>
+                <th mat-header-cell *matHeaderCellDef [style.width.px]="colWidths['remarks']" class="resizable-header">
+                  <div class="header-inner">Remarks / Note</div>
+                  <div class="col-resizer" (mousedown)="startResize($event, 'remarks')"></div>
+                </th>
                 <td mat-cell *matCellDef="let s">
                   <input type="text" class="remarks-input" placeholder="Optional notes..." [(ngModel)]="s.remarks" />
                 </td>
               </ng-container>
 
-              <!-- Monthly Calendar & Regularize Column -->
+              <!-- Monthly Calendar & Regularize Actions Column -->
               <ng-container matColumnDef="calendar">
-                <th mat-header-cell *matHeaderCellDef style="width: 100px; text-align: center;">Actions</th>
-                <td mat-cell *matCellDef="let s" style="text-align: center;">
+                <th mat-header-cell *matHeaderCellDef [style.width.px]="colWidths['calendar']" class="resizable-header text-center">
+                  <div class="header-inner">Actions</div>
+                </th>
+                <td mat-cell *matCellDef="let s" class="text-center">
                   <div class="row-actions-group">
                     <button type="button" class="row-cal-btn" (click)="openAttendanceCalendar(s.studentId)" matTooltip="View Monthly Google Calendar for {{ s.studentName }}">
                       <mat-icon>calendar_month</mat-icon>
@@ -305,10 +355,21 @@ export interface AttendanceStudentRow {
             </table>
           </div>
 
+          <!-- Paginator -->
+          <mat-paginator
+            [length]="filteredStudents.length"
+            [pageSize]="pageSize"
+            [pageSizeOptions]="[10, 25, 50, 100]"
+            [pageIndex]="pageIndex"
+            (page)="onPageChange($event)"
+            showFirstLastButtons
+            class="erp-paginator">
+          </mat-paginator>
+
           <div class="attendance-footer">
-            <span class="footer-hint">All records will be synchronized in Indian Standard Time (IST).</span>
+            <span class="footer-hint">All records will be synchronized in Indian Standard Time (IST). Showing {{ filteredStudents.length }} of {{ students.length }} students.</span>
             <button mat-flat-button color="primary" class="save-attendance-btn" [disabled]="saving" (click)="saveAttendance()">
-              <mat-icon>save</mat-icon> Save Attendance
+              <mat-icon>save</mat-icon> Save
             </button>
           </div>
         </mat-card>
@@ -349,6 +410,8 @@ export interface AttendanceStudentRow {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
       background: #ffffff;
       padding: 18px 24px;
       border-radius: 12px;
@@ -360,199 +423,6 @@ export interface AttendanceStudentRow {
       display: flex;
       align-items: center;
       gap: 16px;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .smart-btn {
-      display: inline-flex !important;
-      align-items: center !important;
-      gap: 8px !important;
-      height: 42px !important;
-      padding: 0 16px !important;
-      border-radius: 10px !important;
-      font-size: 0.84rem !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.2px !important;
-      cursor: pointer !important;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-      white-space: nowrap !important;
-
-      .btn-ic {
-        font-size: 19px !important;
-        width: 19px !important;
-        height: 19px !important;
-      }
-
-      &:hover {
-        transform: translateY(-1.5px) !important;
-      }
-    }
-
-    .multi-date-smart-btn {
-      background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
-      color: #ffffff !important;
-      border: 1px solid rgba(255, 255, 255, 0.2) !important;
-      box-shadow: 0 4px 10px -1px rgba(5, 150, 105, 0.35) !important;
-
-      .btn-ic {
-        color: #ffffff !important;
-      }
-
-      &:hover {
-        background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
-        box-shadow: 0 6px 14px -2px rgba(5, 150, 105, 0.45) !important;
-      }
-    }
-
-    .calendar-smart-btn {
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-      color: #ffffff !important;
-      border: 1px solid rgba(255, 255, 255, 0.2) !important;
-      box-shadow: 0 4px 10px -1px rgba(37, 99, 235, 0.35) !important;
-
-      .btn-ic {
-        color: #ffffff !important;
-      }
-
-      &:hover {
-        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
-        box-shadow: 0 6px 14px -2px rgba(37, 99, 235, 0.45) !important;
-      }
-    }
-
-    .settings-smart-btn {
-      background: #ffffff !important;
-      color: #1e3a8a !important;
-      border: 1.5px solid #bfdbfe !important;
-      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08) !important;
-
-      .btn-ic {
-        color: #2563eb !important;
-      }
-
-      &:hover {
-        background: #eff6ff !important;
-        border-color: #93c5fd !important;
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.16) !important;
-      }
-    }
-
-    .regularize-smart-btn {
-      background: #faf5ff !important;
-      color: #6b21a8 !important;
-      border: 1.5px solid #e9d5ff !important;
-      box-shadow: 0 2px 6px rgba(124, 58, 237, 0.08) !important;
-
-      .btn-ic {
-        color: #7c3aed !important;
-      }
-
-      &:hover {
-        background: #f3e8ff !important;
-        border-color: #d8b4fe !important;
-        box-shadow: 0 4px 10px rgba(124, 58, 237, 0.16) !important;
-      }
-    }
-
-    .reg-tool-btn {
-      color: #7c3aed !important;
-      border-color: #ddd6fe !important;
-      background: #faf5ff !important;
-      font-weight: 600;
-
-      mat-icon {
-        color: #7c3aed !important;
-      }
-
-      &:hover {
-        background: #f3e8ff !important;
-        border-color: #c4b5fd !important;
-      }
-    }
-
-    .row-actions-group {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .row-reg-btn {
-      border-color: #e9d5ff !important;
-      background: #faf5ff !important;
-      color: #7c3aed !important;
-
-      &:hover {
-        background: #7c3aed !important;
-        color: #ffffff !important;
-        border-color: #7c3aed !important;
-      }
-    }
-
-    .multi-date-tool-btn {
-      color: #059669 !important;
-      border-color: #a7f3d0 !important;
-      background: #ecfdf5 !important;
-      font-weight: 600;
-
-      &:hover {
-        background: #d1fae5 !important;
-      }
-    }
-
-    .leave-tool-btn {
-      color: #0284c7 !important;
-      border-color: #bae6fd !important;
-      background: #f0f9ff !important;
-      font-weight: 600;
-
-      &:hover {
-        background: #e0f2fe !important;
-      }
-    }
-
-    .cal-tool-btn {
-      color: #2563eb !important;
-      border-color: #bfdbfe !important;
-      background: #eff6ff !important;
-      font-weight: 600;
-
-      &:hover {
-        background: #dbeafe !important;
-      }
-    }
-
-    .row-cal-btn {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-      border: 1px solid #bfdbfe;
-      background: #eff6ff;
-      color: #2563eb;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.15s ease;
-
-      &:hover {
-        background: #2563eb;
-        color: #ffffff;
-        border-color: #2563eb;
-        transform: scale(1.05);
-      }
-
-      mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-      }
     }
 
     .header-icon-box {
@@ -581,9 +451,40 @@ export interface AttendanceStudentRow {
       margin: 3px 0 0;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .smart-btn {
+      font-weight: 600;
+      border-radius: 8px;
+      height: 40px !important;
+      padding: 0 14px !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .settings-smart-btn {
+      border: 1px solid #93c5fd;
+      color: #1d4ed8;
+      background: #eff6ff;
+      &:hover { background: #dbeafe; }
+      .btn-ic { color: #2563eb; }
+    }
+
+    .btn-ic {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
     .global-loader {
       border-radius: 4px;
       overflow: hidden;
+      height: 4px;
     }
 
     .filter-card {
@@ -649,150 +550,270 @@ export interface AttendanceStudentRow {
     }
 
     .kpi-card {
+      padding: 16px 18px;
       border-radius: 12px;
-      padding: 14px 18px;
       border: 1px solid #e2e8f0;
       background: #ffffff;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      }
     }
 
     .kpi-content {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
     }
 
     .kpi-info {
       display: flex;
       flex-direction: column;
+      gap: 4px;
     }
 
     .kpi-label {
       font-size: 0.76rem;
       text-transform: uppercase;
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: 0.04em;
       color: #64748b;
-      letter-spacing: 0.03em;
     }
 
     .kpi-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #1e293b;
-      line-height: 1.2;
-      margin-top: 2px;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1;
     }
 
-    .text-green { color: #16a34a; }
-    .text-red { color: #dc2626; }
-    .text-amber { color: #d97706; }
-    .text-blue { color: #2563eb; }
-
     .kpi-icon {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      mat-icon { font-size: 22px; width: 22px; height: 22px; }
-      &.total { background: #f1f5f9; color: #475569; }
-      &.present { background: #dcfce7; color: #16a34a; }
-      &.absent { background: #fee2e2; color: #dc2626; }
-      &.late { background: #fef3c7; color: #d97706; }
-      &.compliance { background: #dbeafe; color: #2563eb; }
+      mat-icon { font-size: 24px; width: 24px; height: 24px; }
+      &.total { background: #eff6ff; color: #2563eb; }
+      &.present { background: #ecfdf5; color: #059669; }
+      &.absent { background: #fef2f2; color: #dc2626; }
+      &.late { background: #fffbeb; color: #d97706; }
+      &.compliance { background: #f0fdf4; color: #16a34a; }
     }
+
+    .text-green { color: #059669 !important; }
+    .text-red { color: #dc2626 !important; }
+    .text-amber { color: #d97706 !important; }
+    .text-blue { color: #2563eb !important; }
 
     .attendance-card {
       border-radius: 12px;
       border: 1px solid #e2e8f0;
       background: #ffffff;
-      padding: 20px;
+      padding: 20px 24px;
     }
 
     .attendance-toolbar {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #e2e8f0;
-      width: 100%;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #f1f5f9;
     }
 
     .quick-btn-group {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap;
-      width: 100%;
     }
 
     .quick-btn {
       font-weight: 600;
-      font-size: 12.5px;
-      height: 36px;
-      padding: 0 11px;
+      font-size: 0.82rem;
       border-radius: 8px;
-      white-space: nowrap;
-      mat-icon { font-size: 17px; width: 17px; height: 17px; margin-right: 4px; }
-      &.mark-present {
-        background: #ecfdf5;
-        color: #065f46;
-        border: 1px solid #a7f3d0;
-      }
-      &.mark-absent {
-        background: #fef2f2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
-      }
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mark-present {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+      &:hover { background: #d1fae5; }
+    }
+
+    .mark-absent {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      &:hover { background: #fee2e2; }
+    }
+
+    .cal-tool-btn, .multi-date-tool-btn, .leave-tool-btn, .reg-tool-btn {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      &:hover { background: #f1f5f9; }
+    }
+
+    .reg-tool-btn {
+      border-color: #ddd6fe;
+      background: #f5f3ff;
+      color: #6d28d9;
+      mat-icon { color: #7c3aed; }
+      &:hover { background: #ede9fe; }
     }
 
     .save-attendance-btn {
       font-weight: 700;
-      font-size: 12.5px;
-      height: 36px;
-      padding: 0 14px;
       border-radius: 8px;
-      white-space: nowrap;
+      height: 38px;
+      padding: 0 18px !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       background: #059669 !important;
       color: #ffffff !important;
-      mat-icon { margin-right: 5px; font-size: 17px; width: 17px; height: 17px; }
+      box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
+      &:hover { background: #047857 !important; }
+    }
+
+    .search-filter-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .table-search-field {
+      flex: 1 1 280px;
+      max-width: 380px;
+      margin-bottom: -18px;
+    }
+
+    .search-ic {
+      color: #64748b;
+      margin-right: 4px;
+    }
+
+    .status-filter-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .filter-pill {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      &:hover { background: #f1f5f9; }
+      &.active {
+        background: #1e3a8a;
+        color: #ffffff;
+        border-color: #1e3a8a;
+      }
+      &.pill-present.active { background: #059669; border-color: #059669; }
+      &.pill-absent.active { background: #dc2626; border-color: #dc2626; }
+      &.pill-late.active { background: #d97706; border-color: #d97706; }
+      &.pill-half.active { background: #7c3aed; border-color: #7c3aed; }
+      &.pill-leave.active { background: #0284c7; border-color: #0284c7; }
     }
 
     .table-responsive {
       overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
       border-radius: 8px;
       border: 1px solid #e2e8f0;
+      background: #ffffff;
     }
 
     .erp-table {
       width: 100%;
-      background: #ffffff;
       border-collapse: collapse;
+      table-layout: fixed;
+    }
 
-      th {
-        background: #f8fafc;
-        color: #475569;
-        font-weight: 600;
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        padding: 12px 16px;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-      }
+    .resizable-table th.mat-header-cell {
+      position: relative;
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+      font-size: 0.80rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 12px 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      user-select: none;
+    }
 
-      td {
-        padding: 12px 16px;
-        border-bottom: 1px solid #f1f5f9;
-        font-size: 0.88rem;
-        color: #1e293b;
-        white-space: nowrap;
-      }
+    .header-inner {
+      display: inline-block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-      tr:hover td {
-        background: #f8fafc;
+    .col-resizer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 6px;
+      height: 100%;
+      cursor: col-resize;
+      user-select: none;
+      z-index: 2;
+      background: transparent;
+      transition: background 0.15s ease;
+      &:hover, &.resizing {
+        background: #2563eb;
       }
+    }
+
+    .erp-table td.mat-cell {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      font-size: 0.88rem;
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .erp-table tr.mat-row:hover {
+      background: #f8fafc;
+    }
+
+    .text-center { text-align: center; }
+
+    .roll-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      border: 1px solid #dbeafe;
     }
 
     .student-info-cell {
@@ -802,102 +823,141 @@ export interface AttendanceStudentRow {
     }
 
     .avatar-box {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: #e2e8f0;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
-      color: #64748b;
       flex-shrink: 0;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-      border: 1.5px solid #ffffff;
+      overflow: hidden;
+    }
 
-      .avatar-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
-      .avatar-initials {
-        font-size: 13px;
-        font-weight: 700;
-        color: #ffffff;
-        letter-spacing: 0.5px;
-        user-select: none;
-        text-transform: uppercase;
-      }
+    .avatar-initials {
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.85rem;
     }
 
     .info-texts {
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
     .name-text {
       font-weight: 600;
       color: #0f172a;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .sub-text {
-      font-size: 0.74rem;
+      font-size: 0.76rem;
       color: #64748b;
-    }
-
-    .roll-badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 6px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      font-weight: 700;
-      font-size: 0.82rem;
-      border: 1px solid #bfdbfe;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .status-toggle-wrapper {
       display: inline-flex;
       border-radius: 8px;
-      overflow: hidden;
       border: 1px solid #cbd5e1;
+      overflow: hidden;
       background: #f8fafc;
     }
 
     .status-btn {
       border: none;
       background: transparent;
-      padding: 6px 14px;
+      padding: 6px 12px;
       font-size: 0.82rem;
       font-weight: 700;
       color: #64748b;
       cursor: pointer;
-      border-right: 1px solid #e2e8f0;
       transition: all 0.15s ease;
+      border-right: 1px solid #e2e8f0;
 
       &:last-child {
         border-right: none;
       }
 
+      &:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+      }
+
       &.active-present {
-        background: #16a34a;
+        background: #059669;
         color: #ffffff;
       }
+
       &.active-absent {
         background: #dc2626;
         color: #ffffff;
       }
+
       &.active-late {
         background: #d97706;
         color: #ffffff;
       }
+
       &.active-half {
-        background: #9333ea;
+        background: #7c3aed;
         color: #ffffff;
       }
+
       &.active-leave {
+        background: #0284c7;
+        color: #ffffff;
+      }
+    }
+
+    .row-actions-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .row-cal-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #3b82f6;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &:hover {
         background: #2563eb;
+        color: #ffffff;
+      }
+    }
+
+    .row-reg-btn {
+      color: #7c3aed;
+      border-color: #ddd6fe;
+      background: #f5f3ff;
+      &:hover {
+        background: #7c3aed;
         color: #ffffff;
       }
     }
@@ -915,6 +975,11 @@ export interface AttendanceStudentRow {
       &:focus {
         border-color: #2563eb;
       }
+    }
+
+    .erp-paginator {
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
     }
 
     .attendance-footer {
@@ -944,156 +1009,10 @@ export interface AttendanceStudentRow {
       h3 { font-size: 1.15rem; color: #1e3a8a; margin: 0 0 6px; font-weight: 700; }
       p { font-size: 0.88rem; max-width: 500px; margin: 0 auto 16px; line-height: 1.5; }
     }
-
-    @media (max-width: 1024px) {
-      .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 14px;
-      }
-      .header-actions {
-        width: 100%;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      .kpi-deck {
-        grid-template-columns: repeat(3, 1fr);
-      }
-      .quick-btn-group {
-        flex-wrap: wrap;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .page-container {
-        padding: 0 0 24px;
-        gap: 14px;
-      }
-      .page-header {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 14px 14px;
-        gap: 12px;
-      }
-      .title-area {
-        gap: 10px;
-      }
-      .header-icon-box {
-        width: 38px;
-        height: 38px;
-        min-width: 38px;
-        border-radius: 10px;
-        mat-icon { font-size: 20px; width: 20px; height: 20px; }
-      }
-      .page-title {
-        font-size: 1.15rem;
-        line-height: 1.25;
-      }
-      .page-subtitle {
-        font-size: 0.76rem;
-      }
-      .header-actions {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        .smart-btn {
-          width: 100%;
-          justify-content: center;
-          height: 38px !important;
-          font-size: 0.8rem !important;
-        }
-      }
-      .filter-card {
-        padding: 12px 14px;
-      }
-      .filter-form {
-        gap: 10px;
-      }
-      .filter-control, .highlight-control, .date-control {
-        flex: 1 1 100%;
-        min-width: 100%;
-      }
-      .batch-meta-strip {
-        gap: 6px;
-        margin-top: 10px;
-        padding-top: 10px;
-      }
-      .meta-pill {
-        font-size: 0.74rem;
-        padding: 4px 8px;
-      }
-      .kpi-deck {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-      }
-      .kpi-card {
-        padding: 10px 12px;
-      }
-      .kpi-label {
-        font-size: 0.68rem;
-      }
-      .kpi-value {
-        font-size: 1.25rem;
-      }
-      .kpi-icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 8px;
-        mat-icon { font-size: 18px; width: 18px; height: 18px; }
-      }
-      .attendance-card {
-        padding: 12px 10px;
-      }
-      .attendance-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-        margin-bottom: 12px;
-        padding-bottom: 12px;
-      }
-      .quick-btn-group {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 6px;
-        width: 100%;
-      }
-      .quick-btn {
-        width: 100%;
-        justify-content: center;
-        font-size: 0.74rem;
-        padding: 0 6px !important;
-        height: 36px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 3px; }
-      }
-      .save-attendance-btn {
-        grid-column: span 2;
-        width: 100%;
-        height: 42px;
-        font-size: 0.88rem;
-        justify-content: center;
-      }
-      .erp-table {
-        min-width: 620px;
-      }
-      .attendance-footer {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-        text-align: center;
-        .save-attendance-btn {
-          width: 100%;
-        }
-      }
-    }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CoachingAttendanceComponent implements OnInit {
+export class CoachingAttendanceComponent implements OnInit, OnDestroy {
   filterForm: FormGroup;
   classes: ClassOption[] = [];
   allBatches: BatchDto[] = [];
@@ -1102,7 +1021,33 @@ export class CoachingAttendanceComponent implements OnInit {
   selectedBatchId: string = '';
 
   students: AttendanceStudentRow[] = [];
+  filteredStudents: AttendanceStudentRow[] = [];
+  pagedStudents: AttendanceStudentRow[] = [];
   columns: string[] = ['rollNo', 'studentName', 'status', 'remarks', 'calendar'];
+
+  // Search & Filter state
+  searchTerm: string = '';
+  selectedStatusFilter: 'ALL' | 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' = 'ALL';
+
+  // Sorting & Pagination state
+  pageIndex: number = 0;
+  pageSize: number = 25;
+  sortBy: string = 'rollNo';
+  sortDesc: boolean = false;
+
+  // Column Resizing state
+  colWidths: Record<string, number> = {
+    rollNo: 120,
+    studentName: 320,
+    status: 290,
+    remarks: 220,
+    calendar: 120
+  };
+  private resizingCol: string | null = null;
+  private startX: number = 0;
+  private startWidth: number = 0;
+  private onMouseMoveBound = this.onMouseMove.bind(this);
+  private onMouseUpBound = this.onMouseUp.bind(this);
 
   loading = false;
   saving = false;
@@ -1128,6 +1073,11 @@ export class CoachingAttendanceComponent implements OnInit {
   ngOnInit(): void {
     this.loadClasses();
     this.loadBatches();
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('mousemove', this.onMouseMoveBound);
+    window.removeEventListener('mouseup', this.onMouseUpBound);
   }
 
   loadClasses(): void {
@@ -1222,12 +1172,89 @@ export class CoachingAttendanceComponent implements OnInit {
     });
   }
 
+  openMultiDateDialog(): void {
+    if (!this.selectedBatchId) {
+      this.confirmDialog.alert('Select Coaching Batch', 'Please select a coaching batch from the filter deck first.', 'info');
+      return;
+    }
+
+    const selectedClass = this.classes.find(c => c.id === this.filterForm.get('classId')?.value);
+
+    const ref = this.dialog.open(CoachingMultiDateDialogComponent, {
+      width: 'min(1280px, 96vw)',
+      maxWidth: '96vw',
+      height: '92vh',
+      maxHeight: '92vh',
+      panelClass: 'coaching-multi-date-dialog-panel',
+      data: {
+        batchId: this.selectedBatchId,
+        batchName: this.selectedBatch?.name || 'Coaching Batch',
+        className: selectedClass?.name,
+        students: this.students.map(s => ({
+          studentId: s.studentId,
+          studentName: s.studentName,
+          coachingRollNumber: s.coachingRollNumber,
+          rollNumber: s.rollNumber,
+          admissionNumber: s.admissionNumber,
+          profilePhoto: s.profilePhoto
+        }))
+      }
+    });
+
+    ref.afterClosed().subscribe(saved => {
+      if (saved) {
+        this.loadAttendance();
+      }
+    });
+  }
+
+  openStudentLeaves(): void {
+    const dialogRef = this.dialog.open(ApplyStudentLeaveDialogComponent, {
+      width: '750px',
+      maxWidth: '96vw',
+      panelClass: 'erp-custom-dialog',
+      data: {
+        batchId: this.selectedBatchId || undefined,
+        scope: 'coaching'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res) {
+        this.loadAttendance();
+      }
+    });
+  }
+
+  openApplyRegularization(student?: AttendanceStudentRow): void {
+    const dialogRef = this.dialog.open(ApplyStudentRegularizationDialogComponent, {
+      width: '780px',
+      maxWidth: '96vw',
+      panelClass: 'erp-custom-dialog',
+      data: {
+        studentId: student?.studentId || undefined,
+        studentName: student?.studentName || undefined,
+        batchId: this.selectedBatchId || undefined,
+        attendanceDate: this.filterForm.get('date')?.value || undefined,
+        scope: 'coaching'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res) {
+        this.loadAttendance();
+      }
+    });
+  }
+
   onClassChange(classId: string): void {
     this.filterBatchesByClass();
     this.filterForm.patchValue({ batchId: '' });
     this.selectedBatchId = '';
     this.selectedBatch = null;
     this.students = [];
+    this.filteredStudents = [];
+    this.pagedStudents = [];
     this.cdr.markForCheck();
   }
 
@@ -1243,10 +1270,13 @@ export class CoachingAttendanceComponent implements OnInit {
   onBatchChange(batchId: string): void {
     this.selectedBatchId = batchId;
     this.selectedBatch = this.allBatches.find(b => b.id === batchId) || null;
+    this.pageIndex = 0;
     if (batchId) {
       this.loadAttendance();
     } else {
       this.students = [];
+      this.filteredStudents = [];
+      this.pagedStudents = [];
     }
     this.cdr.markForCheck();
   }
@@ -1271,6 +1301,7 @@ export class CoachingAttendanceComponent implements OnInit {
           checkOutTime: r.checkOutTime || this.selectedBatch?.endTime || '12:30',
           remarks: r.remarks || ''
         }));
+        this.applyLocalFilters();
         this.loading = false;
         this.cdr.markForCheck();
       },
@@ -1281,8 +1312,119 @@ export class CoachingAttendanceComponent implements OnInit {
     });
   }
 
+  // Searching & Status Filtering
+  clearSearch(): void {
+    this.searchTerm = '';
+    this.applyLocalFilters();
+  }
+
+  onSearchChange(): void {
+    this.pageIndex = 0;
+    this.applyLocalFilters();
+  }
+
+  setStatusFilter(filter: 'ALL' | 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave'): void {
+    this.selectedStatusFilter = filter;
+    this.pageIndex = 0;
+    this.applyLocalFilters();
+  }
+
+  applyLocalFilters(): void {
+    let list = [...this.students];
+
+    // Status filter
+    if (this.selectedStatusFilter !== 'ALL') {
+      list = list.filter(s => s.status === this.selectedStatusFilter);
+    }
+
+    // Search term filter
+    const term = (this.searchTerm || '').trim().toLowerCase();
+    if (term) {
+      list = list.filter(s =>
+        (s.studentName || '').toLowerCase().includes(term) ||
+        (s.rollNumber || '').toLowerCase().includes(term) ||
+        (s.coachingRollNumber || '').toLowerCase().includes(term) ||
+        (s.admissionNumber || '').toLowerCase().includes(term) ||
+        (s.parentWhatsAppPhone || '').toLowerCase().includes(term)
+      );
+    }
+
+    // Sorting
+    list.sort((a, b) => {
+      let valA: string = '';
+      let valB: string = '';
+      if (this.sortBy === 'rollNo') {
+        valA = a.coachingRollNumber || a.rollNumber || '';
+        valB = b.coachingRollNumber || b.rollNumber || '';
+      } else if (this.sortBy === 'studentName') {
+        valA = a.studentName || '';
+        valB = b.studentName || '';
+      } else if (this.sortBy === 'status') {
+        valA = a.status || '';
+        valB = b.status || '';
+      }
+      const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+      return this.sortDesc ? -cmp : cmp;
+    });
+
+    this.filteredStudents = list;
+    this.updatePagedStudents();
+  }
+
+  updatePagedStudents(): void {
+    const start = this.pageIndex * this.pageSize;
+    const end = start + this.pageSize;
+    this.pagedStudents = this.filteredStudents.slice(start, end);
+    this.cdr.markForCheck();
+  }
+
+  onSortChange(sort: Sort): void {
+    this.sortBy = sort.active || 'rollNo';
+    this.sortDesc = sort.direction === 'desc';
+    this.applyLocalFilters();
+  }
+
+  onPageChange(e: PageEvent): void {
+    this.pageIndex = e.pageIndex;
+    this.pageSize = e.pageSize;
+    this.updatePagedStudents();
+  }
+
+  // Column Resizing Logic
+  startResize(event: MouseEvent, column: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.resizingCol = column;
+    this.startX = event.pageX;
+    this.startWidth = this.colWidths[column] || 150;
+
+    window.addEventListener('mousemove', this.onMouseMoveBound);
+    window.addEventListener('mouseup', this.onMouseUpBound);
+  }
+
+  private onMouseMove(event: MouseEvent): void {
+    if (!this.resizingCol) return;
+    const delta = event.pageX - this.startX;
+    const newWidth = Math.max(80, this.startWidth + delta);
+    this.colWidths[this.resizingCol] = newWidth;
+    this.cdr.markForCheck();
+  }
+
+  private onMouseUp(): void {
+    this.resizingCol = null;
+    window.removeEventListener('mousemove', this.onMouseMoveBound);
+    window.removeEventListener('mouseup', this.onMouseUpBound);
+  }
+
+  // Status updates
+  setStatus(s: AttendanceStudentRow, status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave'): void {
+    s.status = status;
+    this.cdr.markForCheck();
+  }
+
   markAll(status: 'Present' | 'Absent'): void {
     this.students.forEach(s => s.status = status);
+    this.applyLocalFilters();
     this.cdr.markForCheck();
   }
 
@@ -1302,105 +1444,14 @@ export class CoachingAttendanceComponent implements OnInit {
     return this.students.filter(s => s.status === 'HalfDay').length;
   }
 
+  get leaveCount(): number {
+    return this.students.filter(s => s.status === 'Leave').length;
+  }
+
   get complianceRate(): number {
-    if (this.students.length === 0) return 0;
-    const presentTotal = this.presentCount + (this.lateCount * 0.8) + (this.halfDayCount * 0.5);
-    return Math.round((presentTotal / this.students.length) * 100);
-  }
-
-  openMultiDateDialog(): void {
-    if (!this.selectedBatchId) {
-      this.confirmDialog.alert('Select Coaching Batch', 'Please select a coaching batch from the filter deck first to mark multi-date attendance.', 'info');
-      return;
-    }
-
-    const selectedClass = this.classes.find(c => c.id === this.filterForm.get('classId')?.value);
-
-    const ref = this.dialog.open(CoachingMultiDateDialogComponent, {
-      width: 'min(1280px, 96vw)',
-      maxWidth: '96vw',
-      maxHeight: '92vh',
-      panelClass: 'coaching-multi-date-dialog-panel',
-      data: {
-        batchId: this.selectedBatchId,
-        batchName: this.selectedBatch?.name || 'Coaching Batch',
-        className: selectedClass?.name,
-        shift: this.selectedBatch?.shift,
-        startTime: this.selectedBatch?.startTime,
-        endTime: this.selectedBatch?.endTime,
-        students: this.students.map(s => ({
-          studentId: s.studentId,
-          studentName: s.studentName,
-          coachingRollNumber: s.coachingRollNumber,
-          rollNumber: s.rollNumber,
-          admissionNumber: s.admissionNumber,
-          profilePhoto: s.profilePhoto,
-          status: s.status,
-          remarks: s.remarks
-        }))
-      }
-    });
-
-    ref.afterClosed().subscribe(res => {
-      if (res?.saved) {
-        this.loadAttendance();
-      }
-    });
-  }
-
-  openStudentLeaves(): void {
-    const classId = this.filterForm.value.classId;
-    const batchId = this.selectedBatchId;
-    if (batchId) {
-      this.router.navigate(['/students/leaves'], {
-        queryParams: {
-          scope: 'Coaching',
-          classId: classId,
-          batchId: batchId
-        }
-      });
-    } else {
-      this.router.navigate(['/students/leaves'], {
-        queryParams: { scope: 'Coaching' }
-      });
-    }
-  }
-
-  applyStudentLeave(student?: any): void {
-    const ref = this.dialog.open(ApplyStudentLeaveDialogComponent, {
-      width: 'min(720px, 94vw)',
-      data: {
-        scope: 'Coaching',
-        classId: this.filterForm.value.classId,
-        batchId: this.selectedBatchId,
-        studentId: student?.studentId
-      }
-    });
-
-    ref.afterClosed().subscribe(res => {
-      if (res) {
-        this.loadAttendance();
-      }
-    });
-  }
-
-  openApplyRegularization(student?: any): void {
-    const dialogRef = this.dialog.open(ApplyStudentRegularizationDialogComponent, {
-      width: '650px',
-      data: {
-        studentId: student?.studentId || student?.id,
-        studentName: student?.studentName,
-        rollNumber: student?.coachingRollNumber || student?.rollNumber,
-        className: this.selectedBatch?.name || student?.className,
-        attendanceDate: this.filterForm.value.date
-      }
-    });
-
-    dialogRef.afterClosed().subscribe((res) => {
-      if (res) {
-        this.loadAttendance();
-      }
-    });
+    if (this.students.length === 0) return 100;
+    const attended = this.presentCount + this.lateCount + (this.halfDayCount * 0.5);
+    return Math.round((attended / this.students.length) * 100);
   }
 
   saveAttendance(): void {
@@ -1410,32 +1461,26 @@ export class CoachingAttendanceComponent implements OnInit {
     const payload = {
       batchId: this.selectedBatchId,
       attendanceDate: date,
-      date: date,
-      sendWhatsAppAlerts: false,
       items: this.students.map(s => ({
         studentId: s.studentId,
         status: s.status,
-        checkInTime: s.status === 'Absent' ? null : s.checkInTime,
-        checkOutTime: s.status === 'Absent' ? null : s.checkOutTime,
-        remarks: s.remarks
+        checkInTime: s.checkInTime || this.selectedBatch?.startTime || '08:30',
+        checkOutTime: s.checkOutTime || this.selectedBatch?.endTime || '12:30',
+        remarks: s.remarks || ''
       }))
     };
 
     this.saving = true;
     this.http.post<any>(`${environment.apiUrl}/students/batch/${this.selectedBatchId}/attendance/bulk`, payload).subscribe({
-      next: () => {
+      next: res => {
         this.saving = false;
-        this.confirmDialog.alert(
-          'Attendance Saved',
-          `Attendance for ${this.students.length} students in batch '${this.selectedBatch?.name}' on ${date} has been successfully recorded.`,
-          'success'
-        );
+        this.confirmDialog.alert('Attendance Saved', `Daily attendance for batch '${this.selectedBatch?.name}' saved successfully.`, 'success');
         this.loadAttendance();
         this.cdr.markForCheck();
       },
       error: err => {
         this.saving = false;
-        this.confirmDialog.alert('Error', err.error?.message || 'Failed to save batch attendance.', 'warning');
+        this.confirmDialog.alert('Save Failed', err.error?.message || 'Failed to save attendance.', 'warning');
         this.cdr.markForCheck();
       }
     });
