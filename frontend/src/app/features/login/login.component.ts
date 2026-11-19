@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../../core/services/auth.service';
 import { TenantService, SubscriptionPricingConfig } from '../../core/services/tenant.service';
+import { LoadingService } from '../../core/services/loading.service';
 import { RegisterTrialDialogComponent } from './register-trial-dialog.component';
 
 @Component({
@@ -1839,6 +1840,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   private dialog = inject(MatDialog, { optional: true });
   private tenantService = inject(TenantService);
+  private loadingService = inject(LoadingService, { optional: true });
 
   readonly pricingConfig = signal<SubscriptionPricingConfig | null>(null);
   readonly trialBtnText = computed(() => {
@@ -1885,6 +1887,11 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Immediately force-hide any active global loading overlay
+    try {
+      this.loadingService?.forceHide();
+    } catch (_) {}
+
     this.updateCampusClock();
     this.clockTimerId = setInterval(() => {
       this.updateCampusClock();

@@ -5521,11 +5521,10 @@ export class StudentsComponent implements OnInit, OnDestroy {
       disableClose: false,
       data: {
         schoolClasses: this.schoolClasses,
-        batches: this.batches,
         selectedClassId: this.selectedClassFilter,
         selectedSectionId: this.selectedSectionFilter,
-        selectedBatchId: this.selectedBatchFilter,
-        initialScope: this.selectedBatchFilter ? 'coaching' : 'school'
+        initialScope: 'school',
+        allowedScopes: ['school']
       }
     });
 

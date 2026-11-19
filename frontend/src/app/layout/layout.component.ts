@@ -3390,6 +3390,7 @@ export class LayoutComponent implements OnInit {
     if (t.includes('hrms') || t.includes('staff') || t.includes('employee') || t.includes('payroll')) return this.materialMenuPalettes[3];
     if (t.includes('faculty') || t.includes('teacher') || t.includes('lecture')) return this.materialMenuPalettes[4];
     if (t.includes('academic') || t.includes('syllabus') || t.includes('exam') || t.includes('test') || t.includes('homework')) return this.materialMenuPalettes[5];
+    if (t.includes('coaching') || t.includes('batch')) return this.materialMenuPalettes[4];
     if (t.includes('finance') || t.includes('fee') || t.includes('account') || t.includes('payment') || t.includes('billing')) return this.materialMenuPalettes[6];
     if (t.includes('admin') || t.includes('setting') || t.includes('config') || t.includes('role')) return this.materialMenuPalettes[7];
     if (t.includes('front') || t.includes('desk') || t.includes('inquiry') || t.includes('visitor')) return this.materialMenuPalettes[8];
@@ -4206,7 +4207,7 @@ export class LayoutComponent implements OnInit {
       if (!hasSchool && (lower.includes('/school/classes') || lower.includes('/school/exams') || lower.includes('/students/promotion') || lower.includes('/school/notices'))) {
         return false;
       }
-      if (!hasCoaching && lower === '/batches') {
+      if (!hasCoaching && (lower === '/batches' || lower.includes('/coaching/'))) {
         return false;
       }
       if (!hasSchool && !hasCoaching && lower === '/tests') {
@@ -4442,19 +4443,35 @@ export class LayoutComponent implements OnInit {
     const isAdmin = this.authService.isAdmin();
     const isAccountant = this.authService.isAccountant();
     const isStudentOrParent = this.authService.isStudentOrParent();
+    const hasCoaching = this.authService.hasCoachingModule();
     const canAccessFinance = isAdmin || isAccountant;
 
     const rawItems: MenuItem[] = [
       { id: '1', title: 'Dashboard', routeUrl: '/dashboard', icon: 'dashboard', sortOrder: 1, module: 'Main', isActive: true, children: [] },
+      ...(hasCoaching && !isStudentOrParent ? [{
+        id: 'COACHING0-0000-0000-0000-000000000001', title: 'Coaching Operations', routeUrl: '', icon: 'model_training', sortOrder: 2, module: 'Coaching', isActive: true,
+        children: [
+          { id: 'c1', title: 'Batches & Courses', routeUrl: '/batches', icon: 'category', sortOrder: 1, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c2', title: 'Student Batch Allocation', routeUrl: '/coaching/batch-allocation', icon: 'group_add', sortOrder: 2, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c3', title: 'Batch Daily Attendance', routeUrl: '/coaching/attendance', icon: 'fact_check', sortOrder: 3, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c3_leaves', title: 'Batch Student Leaves', routeUrl: '/students/leaves', icon: 'beach_access', sortOrder: 3.5, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c4', title: 'Tests & Test Series', routeUrl: '/tests', icon: 'quiz', sortOrder: 4, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c5', title: 'DPP & Study Material', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 5, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c6', title: 'Batch Timetable & Routine', routeUrl: '/coaching/timetable', icon: 'calendar_view_week', sortOrder: 6, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c7', title: 'Coaching Student ID Cards', routeUrl: '/coaching/id-cards', icon: 'badge', sortOrder: 7, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c8', title: 'Batch Fee Vouchers & Dues', routeUrl: '/coaching/fee-vouchers', icon: 'receipt_long', sortOrder: 8, module: 'Coaching', isActive: true, children: [] },
+          { id: 'c9', title: 'Coaching Analytics & Reports', routeUrl: '/coaching/analytics', icon: 'insights', sortOrder: 9, module: 'Coaching', isActive: true, children: [] }
+        ]
+      }] : []),
       {
-        id: '2', title: isStudentOrParent ? 'My Student Center' : 'Master Management', routeUrl: '', icon: 'category', sortOrder: 2, module: 'Master', isActive: true,
+        id: '2', title: isStudentOrParent ? 'My Student Center' : 'Master Management', routeUrl: '', icon: 'category', sortOrder: 3, module: 'Master', isActive: true,
         children: [
           ...(isStudentOrParent ? [
             { id: '24my', title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech', sortOrder: 1, module: 'Master', isActive: true, children: [] },
+            { id: '24my_leaves', title: 'Apply Student Leave', routeUrl: '/students/leaves', icon: 'beach_access', sortOrder: 2, module: 'Master', isActive: true, children: [] },
           ] : [
             { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
             { id: '20pt', title: 'Period & Bell Timings', routeUrl: '/school/period-settings', icon: 'alarm_on', sortOrder: 1.5, module: 'Master', isActive: true, children: [] },
-            { id: '21', title: 'Coaching Batches', routeUrl: '/batches', icon: 'class', sortOrder: 2, module: 'Master', isActive: true, children: [] },
             { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
             { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
             { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },

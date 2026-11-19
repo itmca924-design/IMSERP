@@ -719,7 +719,8 @@ public record MarkStudentAttendanceDto(
     string? Remarks,
     string? CheckInTime = null,
     string? CheckOutTime = null,
-    string? Stream = null
+    string? Stream = null,
+    DateTime? Date = null
 );
 
 public record BulkStudentMultiDatesAttendanceDto(
@@ -761,6 +762,16 @@ public record BulkBatchAttendanceDto(
     DateTime AttendanceDate,
     bool SendWhatsAppAlerts,
     List<BatchStudentAttendanceItemDto> Items
+)
+{
+    public DateTime? Date { get; init; }
+}
+
+public record BulkBatchMultiDatesAttendanceDto(
+    Guid BatchId,
+    List<DateTime> AttendanceDates,
+    List<BatchStudentAttendanceItemDto> Items,
+    bool SendWhatsAppAlerts = false
 );
 
 public record BatchAttendanceStudentRowDto(
@@ -775,7 +786,9 @@ public record BatchAttendanceStudentRowDto(
     DateTime? CapturedAt = null,
     string? CaptureSource = null,
     string? CheckInTime = null,
-    string? CheckOutTime = null
+    string? CheckOutTime = null,
+    string? CoachingRollNumber = null,
+    string? AdmissionNumber = null
 );
 
 public record BulkSchoolAttendanceDto(
@@ -783,7 +796,50 @@ public record BulkSchoolAttendanceDto(
     Guid? SectionId,
     DateTime AttendanceDate,
     bool SendWhatsAppAlerts,
-    List<BatchStudentAttendanceItemDto> Items
+    List<BatchStudentAttendanceItemDto> Items,
+    DateTime? Date = null
+);
+
+public record MonthlyBulkSchoolAttendanceDto(
+    Guid ClassId,
+    Guid? SectionId,
+    int Year,
+    int Month,
+    string Mode = "FillMissingOnly", // "FillMissingOnly" or "Overwrite"
+    string Status = "Present",
+    string? Remarks = "Monthly Bulk Roll Call",
+    string? CheckInTime = "08:00",
+    string? CheckOutTime = "14:00",
+    bool ExcludeSundays = true,
+    bool ExcludeHolidays = true
+);
+
+public record MonthlyAttendancePreviewDayDto(
+    int DayNumber,
+    string DateStr,
+    string DayOfWeek,
+    bool IsSunday,
+    bool IsHoliday,
+    string? HolidayName,
+    bool IsFuture,
+    bool IsPastOrToday,
+    bool IsWorkingDay,
+    int ExistingCount
+);
+
+public record MonthlyAttendancePreviewDto(
+    int Year,
+    int Month,
+    string MonthName,
+    int TotalDaysInMonth,
+    int SundaysCount,
+    int HolidaysCount,
+    int WorkingDaysCount,
+    int FutureDaysCount,
+    int TotalStudents,
+    int ExpectedRecords,
+    int ExistingRecordsCount,
+    List<MonthlyAttendancePreviewDayDto> Days
 );
 
 public record SchoolAttendanceStudentRowDto(
@@ -2483,6 +2539,8 @@ public record StudentAttendanceRegularizationDto(
     string? ClassName,
     Guid? SectionId,
     string? SectionName,
+    Guid? BatchId,
+    string? BatchName,
     DateTime AttendanceDate,
     string RequestedStatus,
     string ReasonCategory,
@@ -2503,7 +2561,8 @@ public record ApplyStudentRegularizationDto(
     string RequestedStatus,
     string ReasonCategory,
     string Reason,
-    string? AttachmentUrl
+    string? AttachmentUrl,
+    Guid? BatchId = null
 );
 
 public record ReviewStudentRegularizationDto(

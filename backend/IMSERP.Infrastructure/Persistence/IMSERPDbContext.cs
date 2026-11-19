@@ -1302,6 +1302,11 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
                         biometricProperty.CurrentValue = null;
                     }
                 }
+
+                if (entry.Entity is StudentAttendance att && !string.IsNullOrEmpty(att.CaptureSource) && att.CaptureSource.Length > 20)
+                {
+                    att.CaptureSource = att.CaptureSource[..20];
+                }
             }
         }
     }

@@ -543,6 +543,48 @@ export interface BulkSchoolAttendanceDto {
   }>;
 }
 
+export interface MonthlyBulkAttendanceDto {
+  classId: string;
+  sectionId?: string | null;
+  year: number;
+  month: number;
+  mode: 'FillMissingOnly' | 'Overwrite';
+  status: string;
+  remarks?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  excludeSundays?: boolean;
+  excludeHolidays?: boolean;
+}
+
+export interface MonthlyAttendancePreviewDayDto {
+  dayNumber: number;
+  dateStr: string;
+  dayOfWeek: string;
+  isSunday: boolean;
+  isHoliday: boolean;
+  holidayName?: string | null;
+  isFuture: boolean;
+  isPastOrToday: boolean;
+  isWorkingDay: boolean;
+  existingCount: number;
+}
+
+export interface MonthlyAttendancePreviewDto {
+  year: number;
+  month: number;
+  monthName: string;
+  totalDaysInMonth: number;
+  sundaysCount: number;
+  holidaysCount: number;
+  workingDaysCount: number;
+  futureDaysCount: number;
+  totalStudents: number;
+  expectedRecords: number;
+  existingRecordsCount: number;
+  days: MonthlyAttendancePreviewDayDto[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -787,8 +829,10 @@ export class SchoolService {
     return this.http.get<StudentMyExamsDto>(`${this.apiUrl}/my-exams`, { params });
   }
 
-  getTeachers(activeOnly: boolean = true): Observable<any[]> {
-    return this.http.get<any[]>(`${API_BASE}/teachers`, { params: { activeOnly } });
+  getTeachers(activeOnly: boolean = true, staffType?: string): Observable<any[]> {
+    let params: any = { activeOnly };
+    if (staffType) params.staffType = staffType;
+    return this.http.get<any[]>(`${API_BASE}/teachers`, { params });
   }
 
   getSchoolAttendance(classId: string, sectionId?: string, date?: string): Observable<SchoolAttendanceStudentRowDto[]> {
@@ -800,6 +844,18 @@ export class SchoolService {
 
   saveBulkSchoolAttendance(payload: BulkSchoolAttendanceDto): Observable<any> {
     return this.http.post<any>(`${API_BASE}/students/school/attendance/bulk`, payload);
+  }
+
+  getMonthlyAttendancePreview(classId: string, sectionId?: string | null, year?: number, month?: number): Observable<MonthlyAttendancePreviewDto> {
+    let params: any = { classId };
+    if (sectionId) params.sectionId = sectionId;
+    if (year) params.year = year;
+    if (month) params.month = month;
+    return this.http.get<MonthlyAttendancePreviewDto>(`${API_BASE}/students/school/attendance/monthly-preview`, { params });
+  }
+
+  saveMonthlyBulkAttendance(payload: MonthlyBulkAttendanceDto): Observable<any> {
+    return this.http.post<any>(`${API_BASE}/students/school/attendance/monthly-bulk`, payload);
   }
 
   getSectionRoutine(sectionId: string): Observable<SectionPeriodRoutineDto[]> {

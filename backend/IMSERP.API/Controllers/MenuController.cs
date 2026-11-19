@@ -26,6 +26,8 @@ public class MenuController : ControllerBase
     [IMSERP.API.Services.SkipMenuPermission]
     public async Task<ActionResult<IEnumerable<MenuItemDto>>> GetMyMenu()
     {
+        await EnsureCoachingMenuItemsSeededAsync(_dbContext);
+
         var userId = _currentUser.UserId;
         var tenantId = _currentUser.TenantId;
 
@@ -85,6 +87,12 @@ public class MenuController : ControllerBase
             if (!tenantModules.HasCoachingModule)
             {
                 disabledRoutes.Add("/batches");
+                disabledRoutes.Add("/coaching/batch-allocation");
+                disabledRoutes.Add("/coaching/attendance");
+                disabledRoutes.Add("/coaching/timetable");
+                disabledRoutes.Add("/coaching/id-cards");
+                disabledRoutes.Add("/coaching/fee-vouchers");
+                disabledRoutes.Add("/coaching/analytics");
             }
             if (!tenantModules.HasSchoolModule && !tenantModules.HasCoachingModule)
             {
@@ -771,6 +779,118 @@ public class MenuController : ControllerBase
             item.IsActive,
             children
         );
+    }
+
+    private static bool _coachingMenuSeeded = false;
+
+    public static async Task EnsureCoachingMenuItemsSeededAsync(IIMSERPDbContext dbContext)
+    {
+        if (_coachingMenuSeeded) return;
+
+        try
+        {
+            var parent = await dbContext.MenuItems.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(m => m.Module == "Coaching" && m.ParentId == null);
+
+            if (parent == null)
+            {
+                parent = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Coaching Operations",
+                    RouteUrl = null,
+                    Icon = "model_training",
+                    SortOrder = 2,
+                    Module = "Coaching",
+                    IsActive = true
+                };
+                dbContext.MenuItems.Add(parent);
+                await dbContext.SaveChangesAsync();
+            }
+
+            var subItems = new (string Title, string Route, string Icon, int SortOrder)[]
+            {
+                ("Batches & Courses", "/batches", "category", 1),
+                ("Student Batch Allocation", "/coaching/batch-allocation", "group_add", 2),
+                ("Batch Daily Attendance", "/coaching/attendance", "fact_check", 3),
+                ("Tests & Test Series", "/tests", "quiz", 4),
+                ("DPP & Study Material", "/study-materials", "auto_stories", 5),
+                ("Batch Timetable & Routine", "/coaching/timetable", "calendar_view_week", 6),
+                ("Coaching Student ID Cards", "/coaching/id-cards", "badge", 7),
+                ("Batch Fee Vouchers & Dues", "/coaching/fee-vouchers", "receipt_long", 8),
+                ("Coaching Analytics & Reports", "/coaching/analytics", "insights", 9)
+            };
+
+            var allRoles = await dbContext.Roles.IgnoreQueryFilters().ToListAsync();
+
+            foreach (var item in subItems)
+            {
+                var existing = await dbContext.MenuItems.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(m => m.RouteUrl == item.Route);
+
+                if (existing == null)
+                {
+                    existing = new IMSERP.Domain.Entities.MenuItem
+                    {
+                        Id = Guid.NewGuid(),
+                        ParentId = parent.Id,
+                        Title = item.Title,
+                        RouteUrl = item.Route,
+                        Icon = item.Icon,
+                        SortOrder = item.SortOrder,
+                        Module = "Coaching",
+                        IsActive = true
+                    };
+                    dbContext.MenuItems.Add(existing);
+                    await dbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    existing.ParentId = parent.Id;
+                    existing.Module = "Coaching";
+                    existing.SortOrder = item.SortOrder;
+                    existing.IsActive = true;
+                    await dbContext.SaveChangesAsync();
+                }
+
+                foreach (var role in allRoles)
+                {
+                    var hasPerm = await dbContext.RolePermissions.IgnoreQueryFilters()
+                        .AnyAsync(rp => rp.RoleId == role.Id && rp.MenuItemId == existing.Id);
+
+                    if (!hasPerm)
+                    {
+                        var rName = (role.Name ?? "").ToLower();
+                        bool isAdmin = rName.Contains("admin") || rName.Contains("principal") || rName.Contains("director") || rName.Contains("owner") || rName.Contains("manager");
+                        bool isTeacher = rName.Contains("teacher") || rName.Contains("faculty");
+                        bool isAccountant = rName.Contains("account") || rName.Contains("cashier");
+
+                        bool canView = isAdmin || isTeacher || (isAccountant && (item.Route == "/batches" || item.Route == "/coaching/fee-vouchers" || item.Route == "/coaching/analytics"));
+                        bool canCreate = isAdmin || isTeacher || (isAccountant && item.Route == "/coaching/fee-vouchers");
+                        bool canEdit = isAdmin || isTeacher || (isAccountant && item.Route == "/coaching/fee-vouchers");
+                        bool canDelete = isAdmin;
+
+                        dbContext.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                        {
+                            Id = Guid.NewGuid(),
+                            RoleId = role.Id,
+                            MenuItemId = existing.Id,
+                            CanView = canView,
+                            CanCreate = canCreate,
+                            CanEdit = canEdit,
+                            CanDelete = canDelete
+                        });
+                    }
+                }
+                await dbContext.SaveChangesAsync();
+            }
+
+            _coachingMenuSeeded = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Menu Warning] Coaching auto-seed notice: {ex.Message}");
+        }
     }
 }
 

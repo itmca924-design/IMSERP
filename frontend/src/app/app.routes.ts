@@ -102,6 +102,31 @@ export const routes: Routes = [
         path: 'batches',
         loadComponent: () => import('./features/batches/batches.component').then(m => m.BatchesComponent)
       },
+      // Coaching Operations
+      {
+        path: 'coaching/batch-allocation',
+        loadComponent: () => import('./features/coaching/coaching-batch-allocation.component').then(m => m.CoachingBatchAllocationComponent)
+      },
+      {
+        path: 'coaching/attendance',
+        loadComponent: () => import('./features/coaching/coaching-attendance.component').then(m => m.CoachingAttendanceComponent)
+      },
+      {
+        path: 'coaching/timetable',
+        loadComponent: () => import('./features/coaching/coaching-timetable.component').then(m => m.CoachingTimetableComponent)
+      },
+      {
+        path: 'coaching/id-cards',
+        loadComponent: () => import('./features/coaching/coaching-id-cards.component').then(m => m.CoachingIdCardsComponent)
+      },
+      {
+        path: 'coaching/fee-vouchers',
+        loadComponent: () => import('./features/coaching/coaching-fee-vouchers.component').then(m => m.CoachingFeeVouchersComponent)
+      },
+      {
+        path: 'coaching/analytics',
+        loadComponent: () => import('./features/coaching/coaching-analytics.component').then(m => m.CoachingAnalyticsComponent)
+      },
       {
         path: 'rooms',
         loadComponent: () => import('./features/rooms/rooms.component').then(m => m.RoomsComponent)

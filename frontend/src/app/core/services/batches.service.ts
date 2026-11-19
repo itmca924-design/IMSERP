@@ -149,4 +149,12 @@ export class BatchesService {
   updateBatchTimingsBulk(items: UpdateBatchTimingDto[]): Observable<any> {
     return this.http.put(`${this.BASE_URL}/timings/bulk`, items);
   }
+
+  allocateStudents(batchId: string, studentIds: string[]): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.BASE_URL}/${batchId}/allocate-students`, studentIds);
+  }
+
+  removeStudent(batchId: string, studentId: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.BASE_URL}/${batchId}/remove-student/${studentId}`, {});
+  }
 }

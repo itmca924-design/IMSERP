@@ -1159,6 +1159,7 @@ public class StudentAttendanceRegularization
     public Guid StudentId { get; set; }
     public Guid? ClassId { get; set; }
     public Guid? SectionId { get; set; }
+    public Guid? BatchId { get; set; }
     public DateTime AttendanceDate { get; set; }
     public TeacherAttendanceStatus RequestedStatus { get; set; } = TeacherAttendanceStatus.Present;
     public string ReasonCategory { get; set; } = "OnDuty";
@@ -1179,6 +1180,8 @@ public class StudentAttendanceRegularization
     public SchoolClass? Class { get; set; }
     [ForeignKey("SectionId")]
     public SchoolSection? Section { get; set; }
+    [ForeignKey("BatchId")]
+    public Batch? Batch { get; set; }
 }
 
 public class LeaveAndAttendancePolicySettings

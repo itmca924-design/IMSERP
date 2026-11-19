@@ -2,7 +2,7 @@ import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -584,9 +584,9 @@ export interface StudentLeaveStatsDto {
     .leaves-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; }
     .leave-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 12px; transition: transform 0.15s, box-shadow 0.15s; }
     .leave-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); border-color: #cbd5e1; }
-    .leave-card.pending { border-left: 4px solid #f59e0b; }
-    .leave-card.approved { border-left: 4px solid #16a34a; }
-    .leave-card.rejected { border-left: 4px solid #dc2626; opacity: 0.9; }
+    .leave-card.pending { }
+    .leave-card.approved { }
+    .leave-card.rejected { opacity: 0.9; }
 
     .card-head { display: flex; align-items: center; gap: 12px; }
     .student-avatar-box { width: 42px; height: 42px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; }
@@ -596,9 +596,9 @@ export interface StudentLeaveStatsDto {
     .student-name:hover { color: #2563eb; text-decoration: underline; }
     .student-sub { font-size: 11.5px; color: #64748b; margin-top: 2px; }
 
-    .leave-card.cancellationrequested { border-left: 4px solid #ea580c; background: #fffaf0; }
-    .leave-card.partiallycancelled { border-left: 4px solid #8b5cf6; }
-    .leave-card.cancelled { border-left: 4px solid #94a3b8; opacity: 0.8; }
+    .leave-card.cancellationrequested { background: #fffaf0; }
+    .leave-card.partiallycancelled { }
+    .leave-card.cancelled { opacity: 0.8; }
 
     .status-pill { font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
     .status-pill.pending { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
@@ -805,6 +805,7 @@ export class StudentLeavesComponent implements OnInit {
     private fb: FormBuilder,
     private dialog: MatDialog,
     private confirmDialog: ConfirmDialogService,
+    private route: ActivatedRoute,
     public authService: AuthService
   ) {
     this.filterForm = this.fb.group({
@@ -853,7 +854,23 @@ export class StudentLeavesComponent implements OnInit {
     this.loadClasses();
     this.loadBatches();
     this.loadStats();
-    this.loadLeaves();
+
+    this.route.queryParams.subscribe(params => {
+      let changed = false;
+      if (params['scope']) {
+        this.filterForm.patchValue({ academicScope: params['scope'] }, { emitEvent: false });
+        changed = true;
+      }
+      if (params['classId']) {
+        this.filterForm.patchValue({ classId: params['classId'] }, { emitEvent: false });
+        changed = true;
+      }
+      if (params['batchId']) {
+        this.filterForm.patchValue({ batchId: params['batchId'] }, { emitEvent: false });
+        changed = true;
+      }
+      this.loadLeaves();
+    });
   }
 
   loadClasses(): void {
@@ -971,10 +988,16 @@ export class StudentLeavesComponent implements OnInit {
   }
 
   openApplyDialog(): void {
+    const val = this.filterForm.value;
     const ref = this.dialog.open(ApplyStudentLeaveDialogComponent, {
-      width: '620px',
-      maxWidth: '95vw',
-      data: { classes: this.classes }
+      width: 'min(760px, 96vw)',
+      maxWidth: '96vw',
+      data: {
+        classes: this.classes,
+        dialogScope: val.academicScope || 'All',
+        classId: val.classId,
+        batchId: val.batchId
+      }
     });
 
     ref.afterClosed().subscribe((res: any) => {
@@ -1193,34 +1216,147 @@ export class StudentLeavesComponent implements OnInit {
           </mat-form-field>
         </div>
     
-        <!-- Date Range with Strict Greater Than / Less Than Validation -->
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>From Date (आरंभ तिथि) *</mat-label>
-            <input matInput type="date" [(ngModel)]="fromDateStr" (change)="validateDates()" required />
-          </mat-form-field>
-    
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>To Date (समाप्ति तिथि) *</mat-label>
-            <input matInput type="date" [(ngModel)]="toDateStr" [min]="fromDateStr" (change)="validateDates()" required />
-          </mat-form-field>
+        <!-- ========================================================================= -->
+        <!-- Visual Interactive Range Calendar with Holidays, Sundays, & Pre-Applied Leaves -->
+        <!-- ========================================================================= -->
+        <div class="range-calendar-card">
+          <!-- Calendar Header Toolbar -->
+          <div class="cal-toolbar">
+            <div class="cal-nav-group">
+              <button type="button" class="cal-nav-btn" (click)="changeMonth(-1)" title="Previous Month">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <span class="cal-month-title">{{currentMonthLabel}}</span>
+              <button type="button" class="cal-nav-btn" (click)="changeMonth(1)" title="Next Month">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+              <button type="button" class="cal-today-btn" (click)="goToToday()">Today</button>
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="cal-presets">
+              <button type="button" class="preset-chip" (click)="selectPreset('today')">Today (1d)</button>
+              <button type="button" class="preset-chip" (click)="selectPreset('tomorrow')">Tomorrow</button>
+              <button type="button" class="preset-chip" (click)="selectPreset('next3')">Next 3 Days</button>
+              <button type="button" class="preset-chip" (click)="selectPreset('week')">7 Days</button>
+            </div>
+          </div>
+
+          <!-- Selection Range Capsule -->
+          <div class="cal-range-summary">
+            <div class="range-info">
+              <mat-icon>date_range</mat-icon>
+              @if (selectedStartDate && selectedEndDate) {
+                <span>Selected Range: <strong>{{formatPrettyDate(selectedStartDate)}}</strong> &rarr; <strong>{{formatPrettyDate(selectedEndDate)}}</strong></span>
+              } @else if (selectedStartDate) {
+                <span>From: <strong>{{formatPrettyDate(selectedStartDate)}}</strong> <em class="click-hint">(Click ending date on calendar)</em></span>
+              } @else {
+                <span class="click-hint">Click a start date and an end date on the calendar</span>
+              }
+            </div>
+            @if (selectedStartDate) {
+              <button type="button" class="cal-reset-btn" (click)="clearSelection()" title="Reset Selected Dates">
+                <mat-icon>restart_alt</mat-icon> Clear
+              </button>
+            }
+          </div>
+
+          <!-- Calendar Matrix (Grid) -->
+          <div class="cal-grid" (mouseleave)="onCalendarMouseLeave()">
+            <!-- Days of Week Header -->
+            <div class="cal-dow-row">
+              <div class="cal-dow-cell sun-head">SUN (OFF)</div>
+              <div class="cal-dow-cell">MON</div>
+              <div class="cal-dow-cell">TUE</div>
+              <div class="cal-dow-cell">WED</div>
+              <div class="cal-dow-cell">THU</div>
+              <div class="cal-dow-cell">FRI</div>
+              <div class="cal-dow-cell">SAT</div>
+            </div>
+
+            <!-- Weeks -->
+            @for (week of calendarWeeks; track $index) {
+              <div class="cal-week-row">
+                @for (cell of week; track cell.dateStr) {
+                  <div class="cal-day-box"
+                       [class.dimmed]="!cell.isCurrentMonth"
+                       [class.is-today]="cell.isToday"
+                       [class.is-sunday]="cell.isSunday"
+                       [class.has-holiday]="!!cell.holiday"
+                       [class.has-leave]="!!cell.existingLeave"
+                       [class.is-start]="cell.isStart"
+                       [class.is-end]="cell.isEnd"
+                       [class.in-range]="cell.isInRange"
+                       [class.in-hover]="cell.isInHover"
+                       (click)="onDayClick(cell)"
+                       (mouseenter)="onDayHover(cell)"
+                       [title]="getCellTooltip(cell)">
+                    
+                    <div class="cell-top">
+                      <span class="day-number">{{cell.dayNum}}</span>
+                      @if (cell.isToday) {
+                        <span class="today-indicator" title="Today"></span>
+                      }
+                    </div>
+
+                    <div class="cell-pill-stack">
+                      @if (cell.isSunday) {
+                        <span class="pill-badge pill-sun">Sunday Off</span>
+                      }
+                      @if (cell.holiday) {
+                        <span class="pill-badge pill-holiday" [title]="cell.holiday.title">🎉 {{cell.holiday.title}}</span>
+                      }
+                      @if (cell.existingLeave) {
+                        <span class="pill-badge pill-leave" [title]="'Pre-applied: ' + cell.existingLeave.leaveCategory + ' (' + cell.existingLeave.status + ')'">
+                          🏖️ {{cell.existingLeave.status}}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Color Legend -->
+          <div class="cal-legend-bar">
+            <span class="legend-unit"><span class="leg-dot dot-range"></span> Selected Range</span>
+            <span class="legend-unit"><span class="leg-dot dot-sunday"></span> Sunday (Weekly Off)</span>
+            <span class="legend-unit"><span class="leg-dot dot-holiday"></span> Public Holiday</span>
+            <span class="legend-unit"><span class="leg-dot dot-preapplied"></span> Pre-Applied Leave</span>
+            <span class="legend-unit"><span class="leg-dot dot-working"></span> Working Day</span>
+          </div>
+
+          <!-- Metrics Breakdown Card -->
+          @if (selectedStartDate) {
+            <div class="cal-metrics-deck">
+              <div class="metric-card">
+                <span class="m-label">Total Span</span>
+                <span class="m-val">{{totalSpanDays}} {{totalSpanDays > 1 ? 'Days' : 'Day'}}</span>
+              </div>
+              <div class="metric-card rose-tint">
+                <span class="m-label">Sundays (Excluded)</span>
+                <span class="m-val">-{{rangeSundaysCount}}</span>
+              </div>
+              <div class="metric-card purple-tint">
+                <span class="m-label">Holidays (Excluded)</span>
+                <span class="m-val">-{{rangeHolidaysCount}}</span>
+              </div>
+              <div class="metric-card highlight-card">
+                <span class="m-label">Net Sanction Days</span>
+                <span class="m-val">{{netWorkingDays}} Working {{netWorkingDays === 1 ? 'Day' : 'Days'}}</span>
+              </div>
+            </div>
+          }
+
+          <!-- Conflict / Date Error Banner -->
+          @if (dateError) {
+            <div class="date-error-banner">
+              <mat-icon>warning</mat-icon>
+              <span>{{ dateError }}</span>
+            </div>
+          }
         </div>
-    
-        <!-- Date Error Banner -->
-        @if (dateError) {
-          <div class="date-error-banner">
-            <mat-icon>error</mat-icon>
-            <span>{{ dateError }}</span>
-          </div>
-        }
-    
-        <!-- Duration Summary -->
-        @if (!dateError && calculatedDays > 0) {
-          <div class="duration-summary">
-            <mat-icon>schedule</mat-icon>
-            <span>Total Sanction Period: <strong>{{calculatedDays}} {{calculatedDays > 1 ? 'Days' : 'Day'}}</strong> (Both dates inclusive)</span>
-          </div>
-        }
     
         <mat-form-field appearance="outline" class="full-field">
           <mat-label>Reason for Leave (छुट्टी का कारण) *</mat-label>
@@ -1243,7 +1379,7 @@ export class StudentLeavesComponent implements OnInit {
       <!-- Footer -->
       <div class="modal-footer">
         <button (click)="dialogRef.close(false)" class="cancel-btn app-button-cancel" matButton="filled">Cancel</button>
-        <button class="save-btn" (click)="submitLeave()" [disabled]="saving || !model.studentId || !model.reason || !fromDateStr || !toDateStr || !!dateError" matButton="filled">
+        <button class="save-btn" (click)="submitLeave()" [disabled]="saving || !model.studentId || !model.reason || !selectedStartDate || !selectedEndDate || !!dateError || netWorkingDays <= 0" matButton="filled">
           <mat-icon>send</mat-icon>
           <span>Submit Application</span>
         </button>
@@ -1261,21 +1397,93 @@ export class StudentLeavesComponent implements OnInit {
     .close-btn { color: #64748b; }
     .close-btn:hover { color: #1e293b; }
 
-    .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; max-height: 72vh; overflow-y: auto; }
+    .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; max-height: 75vh; overflow-y: auto; }
     .form-row { display: flex; gap: 14px; }
     .form-field { flex: 1; }
     .full-field { width: 100%; }
 
-    .dialog-scope-bar { margin-bottom: 4px; }
+    .dialog-scope-bar { margin-bottom: 2px; }
     .dialog-pills { display: inline-flex; background: #f1f5f9; padding: 3px; border-radius: 8px; gap: 4px; }
     .d-pill { border: none; background: transparent; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #64748b; cursor: pointer; transition: all 0.15s ease-in-out; }
     .d-pill.active { background: #fff; color: #1e40af; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
 
-    .date-error-banner { display: flex; align-items: center; gap: 10px; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 8px; padding: 10px 14px; color: #991b1b; font-size: 13px; font-weight: 600; }
-    .date-error-banner mat-icon { font-size: 20px; width: 20px; height: 20px; color: #dc2626; flex-shrink: 0; }
+    /* Interactive Calendar Range Picker Styles */
+    .range-calendar-card { border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; padding: 12px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .cal-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
+    .cal-nav-group { display: flex; align-items: center; gap: 6px; }
+    .cal-nav-btn { width: 30px; height: 30px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #475569; transition: all 0.15s; }
+    .cal-nav-btn:hover { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
+    .cal-nav-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .cal-month-title { font-size: 14px; font-weight: 700; color: #1e3a8a; min-width: 130px; text-align: center; }
+    .cal-today-btn { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e40af; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+    .cal-today-btn:hover { background: #dbeafe; }
 
-    .duration-summary { display: flex; align-items: center; gap: 8px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 12px; color: #1e40af; font-size: 12.5px; }
-    .duration-summary mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+    .cal-presets { display: flex; gap: 5px; flex-wrap: wrap; }
+    .preset-chip { border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+    .preset-chip:hover { background: #e0f2fe; color: #0284c7; border-color: #7dd3fc; }
+
+    .cal-range-summary { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #1e293b; }
+    .range-info { display: flex; align-items: center; gap: 6px; color: #1e40af; }
+    .range-info mat-icon { font-size: 17px; width: 17px; height: 17px; color: #2563eb; }
+    .click-hint { color: #64748b; font-style: italic; font-weight: 400; }
+    .cal-reset-btn { background: transparent; border: none; color: #dc2626; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+    .cal-reset-btn mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+    .cal-grid { display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+    .cal-dow-row { display: grid; grid-template-columns: repeat(7, 1fr); background: #f8fafc; border-bottom: 1px solid #e2e8f0; text-align: center; }
+    .cal-dow-cell { padding: 6px 2px; font-size: 10.5px; font-weight: 700; color: #475569; text-transform: uppercase; }
+    .cal-dow-cell.sun-head { color: #dc2626; background: #fef2f2; }
+
+    .cal-week-row { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid #f1f5f9; }
+    .cal-week-row:last-child { border-bottom: none; }
+    .cal-day-box { min-height: 52px; padding: 4px; border-right: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px; cursor: pointer; transition: background 0.15s, border-color 0.15s; position: relative; background: #ffffff; user-select: none; }
+    .cal-day-box:last-child { border-right: none; }
+    .cal-day-box.dimmed { opacity: 0.35; background: #fafafa; }
+    .cal-day-box.is-sunday { background: #fff8f8; }
+    .cal-day-box.has-holiday { background: #faf5ff; }
+    .cal-day-box.has-leave { background: #fffbeb; }
+    .cal-day-box:hover { background: #f0fdf4; outline: 1.5px solid #22c55e; z-index: 2; }
+
+    .cal-day-box.is-start { background: #2563eb !important; color: #ffffff !important; border-top-left-radius: 8px; border-bottom-left-radius: 8px; z-index: 3; }
+    .cal-day-box.is-end { background: #2563eb !important; color: #ffffff !important; border-top-right-radius: 8px; border-bottom-right-radius: 8px; z-index: 3; }
+    .cal-day-box.is-start.is-end { border-radius: 8px !important; }
+    .cal-day-box.in-range { background: #dbeafe !important; color: #1e40af; border-radius: 0; }
+    .cal-day-box.in-hover { background: #eff6ff; outline: 1px dashed #3b82f6; }
+
+    .cell-top { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; font-weight: 700; }
+    .cal-day-box.is-start .day-number, .cal-day-box.is-end .day-number { color: #ffffff !important; }
+    .cal-day-box.in-range .day-number { color: #1e40af; }
+    .today-indicator { width: 5px; height: 5px; border-radius: 50%; background: #2563eb; }
+    .cal-day-box.is-start .today-indicator, .cal-day-box.is-end .today-indicator { background: #ffffff; }
+
+    .cell-pill-stack { display: flex; flex-direction: column; gap: 2px; margin-top: auto; }
+    .pill-badge { font-size: 9px; font-weight: 700; padding: 1px 3px; border-radius: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; text-align: center; }
+    .pill-sun { background: #fee2e2; color: #991b1b; }
+    .pill-holiday { background: #ede9fe; color: #6b21a8; }
+    .pill-leave { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+
+    .cal-legend-bar { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: #475569; padding: 2px; }
+    .legend-unit { display: inline-flex; align-items: center; gap: 4px; }
+    .leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+    .dot-range { background: #2563eb; }
+    .dot-sunday { background: #fca5a5; }
+    .dot-holiday { background: #d8b4fe; }
+    .dot-preapplied { background: #fcd34d; }
+    .dot-working { background: #cbd5e1; }
+
+    .cal-metrics-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; }
+    @media (max-width: 640px) { .cal-metrics-deck { grid-template-columns: repeat(2, 1fr); } }
+    .metric-card { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; }
+    .m-label { font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; }
+    .m-val { font-size: 13px; font-weight: 700; color: #0f172a; }
+    .rose-tint .m-val { color: #be123c; }
+    .purple-tint .m-val { color: #7e22ce; }
+    .highlight-card { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #bfdbfe; }
+    .highlight-card .m-label { color: #1e40af; }
+    .highlight-card .m-val { color: #1e3a8a; font-size: 14.5px; }
+
+    .date-error-banner { display: flex; align-items: center; gap: 8px; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 8px; padding: 8px 12px; color: #991b1b; font-size: 12px; font-weight: 600; }
+    .date-error-banner mat-icon { font-size: 18px; width: 18px; height: 18px; color: #dc2626; flex-shrink: 0; }
 
     .modal-footer { padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
     .cancel-btn { color: #64748b; }
@@ -1289,11 +1497,35 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
   dialogCoachingClassId = '';
   dialogBatchId = '';
   saving = false;
+  dialogScope: 'All' | 'School' | 'Coaching' = 'All';
+
+  // Range Calendar States
+  holidays: any[] = [];
+  holidayDatesMap: Map<string, any> = new Map<string, any>();
+  studentLeaves: any[] = [];
+  activeStudentLeavesMap: Map<string, any> = new Map<string, any>();
+
+  calYear: number = new Date().getFullYear();
+  calMonth: number = new Date().getMonth();
+  calendarWeeks: any[][] = [];
+
+  selectedStartDate: string = '';
+  selectedEndDate: string = '';
+  hoverDate: string = '';
   fromDateStr = '';
   toDateStr = '';
+
   dateError = '';
-  calculatedDays = 0;
-  dialogScope: 'All' | 'School' | 'Coaching' = 'All';
+  totalSpanDays = 0;
+  rangeSundaysCount = 0;
+  rangeHolidaysCount = 0;
+  netWorkingDays = 0;
+  overlapLeaves: any[] = [];
+
+  monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   model: any = {
     studentId: '',
@@ -1311,6 +1543,10 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
     private confirmDialog: ConfirmDialogService,
     public authService: AuthService
   ) {}
+
+  get currentMonthLabel(): string {
+    return `${this.monthNames[this.calMonth]} ${this.calYear}`;
+  }
 
   get dialogFilteredBatches(): any[] {
     if (!this.dialogCoachingClassId) return this.batches;
@@ -1344,7 +1580,15 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
     } else if (this.dialogScope === 'Coaching') {
       list = list.filter(s => s.isCoachingStudent || s.batchId || s.batchName);
       if (this.dialogCoachingClassId) {
-        list = list.filter(s => (s.classId || '').toLowerCase() === this.dialogCoachingClassId.toLowerCase());
+        const batchIdsForClass = new Set(
+          this.batches
+            .filter(b => (b.classId || '').toLowerCase() === this.dialogCoachingClassId.toLowerCase())
+            .map(b => (b.id || '').toLowerCase())
+        );
+        list = list.filter(s =>
+          ((s.classId || '').toLowerCase() === this.dialogCoachingClassId.toLowerCase()) ||
+          (s.batchId && batchIdsForClass.has(s.batchId.toLowerCase()))
+        );
       }
       if (this.dialogBatchId) {
         list = list.filter(s => (s.batchId || '').toLowerCase() === this.dialogBatchId.toLowerCase());
@@ -1365,17 +1609,28 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    if (this.data?.dialogScope) this.dialogScope = this.data.dialogScope;
+    if (this.data?.scope) this.dialogScope = this.data.scope;
+    if (this.data?.classId) this.dialogCoachingClassId = this.data.classId;
+    if (this.data?.batchId) this.dialogBatchId = this.data.batchId;
+    if (this.data?.studentId) this.model.studentId = this.data.studentId;
+
     const role = this.authService.currentUser()?.role;
     if (role === 'Parent') this.model.appliedBy = 'Parent';
     else if (role === 'Student') this.model.appliedBy = 'Student';
     else if (role === 'Teacher') this.model.appliedBy = 'Class Teacher';
 
-    const pad = (n: number) => n.toString().padStart(2, '0');
     const now = new Date();
-    this.fromDateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    this.toDateStr = this.fromDateStr;
-    this.validateDates();
+    this.calYear = now.getFullYear();
+    this.calMonth = now.getMonth();
+    const todayStr = this.formatDate(now);
+    this.selectedStartDate = todayStr;
+    this.selectedEndDate = todayStr;
+    this.fromDateStr = todayStr;
+    this.toDateStr = todayStr;
+
     this.loadMetadata();
+    this.loadHolidays();
     this.loadStudents();
   }
 
@@ -1390,16 +1645,78 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
     });
   }
 
+  loadHolidays(): void {
+    this.http.get<any[]>(`${API_BASE}/holidays?activeOnly=true`).subscribe({
+      next: res => {
+        this.holidays = res || [];
+        this.holidayDatesMap.clear();
+        for (const h of this.holidays) {
+          if (!h.startDate) continue;
+          const s = this.parseDate(h.startDate.split('T')[0]);
+          const e = h.endDate ? this.parseDate(h.endDate.split('T')[0]) : new Date(s);
+          for (let cur = new Date(s); cur <= e; cur.setDate(cur.getDate() + 1)) {
+            this.holidayDatesMap.set(this.formatDate(cur), h);
+          }
+        }
+        this.recalculateRange();
+        this.buildCalendar();
+      },
+      error: () => {
+        this.holidays = [];
+        this.holidayDatesMap.clear();
+        this.buildCalendar();
+      }
+    });
+  }
+
   loadStudents(): void {
     this.http.get<any[]>(`${API_BASE}/students`).subscribe({
       next: res => {
         this.students = res || [];
-        if (this.students.length > 0) {
-          this.model.studentId = this.students[0].id;
+        if (!this.model.studentId && this.filteredStudents.length > 0) {
+          this.model.studentId = this.filteredStudents[0].id;
+        }
+        if (this.model.studentId) {
           this.onStudentSelect();
         }
       },
       error: () => this.students = []
+    });
+  }
+
+  loadStudentLeaves(): void {
+    if (!this.model.studentId) {
+      this.studentLeaves = [];
+      this.activeStudentLeavesMap.clear();
+      this.recalculateRange();
+      this.buildCalendar();
+      return;
+    }
+
+    this.http.get<any[]>(`${API_BASE}/studentleaves?studentId=${this.model.studentId}`).subscribe({
+      next: res => {
+        this.studentLeaves = res || [];
+        this.activeStudentLeavesMap.clear();
+        for (const l of this.studentLeaves) {
+          if (l.status === 'Rejected' || l.status === 'Cancelled') continue;
+          const sStr = (l.fromDate || '').split('T')[0];
+          const eStr = (l.toDate || '').split('T')[0];
+          if (!sStr || !eStr) continue;
+          const s = this.parseDate(sStr);
+          const e = this.parseDate(eStr);
+          for (let cur = new Date(s.getFullYear(), s.getMonth(), s.getDate()); cur <= e; cur.setDate(cur.getDate() + 1)) {
+            this.activeStudentLeavesMap.set(this.formatDate(cur), l);
+          }
+        }
+        this.recalculateRange();
+        this.buildCalendar();
+      },
+      error: () => {
+        this.studentLeaves = [];
+        this.activeStudentLeavesMap.clear();
+        this.recalculateRange();
+        this.buildCalendar();
+      }
     });
   }
 
@@ -1408,33 +1725,292 @@ export class ApplyStudentLeaveDialogComponent implements OnInit {
     if (s) {
       this.model.parentContactNumber = s.fatherPhone || s.parentWhatsAppPhone || s.emergencyContact || s.parentContactNumber || '';
     }
+    this.loadStudentLeaves();
   }
 
-  validateDates(): void {
-    if (this.fromDateStr && this.toDateStr) {
-      if (this.toDateStr < this.fromDateStr) {
-        this.dateError = 'To Date cannot be earlier than From Date (समाप्ति तिथि, आरंभ तिथि से पहले नहीं हो सकती).';
-        this.calculatedDays = 0;
-        return;
-      }
-      const d1 = new Date(this.fromDateStr);
-      const d2 = new Date(this.toDateStr);
-      const diffTime = d2.getTime() - d1.getTime();
-      this.calculatedDays = Math.round(diffTime / (1000 * 3600 * 24)) + 1;
+  // --- Date and Calendar Helpers ---
+
+  pad(n: number): string {
+    return n.toString().padStart(2, '0');
+  }
+
+  formatDate(d: Date): string {
+    return `${d.getFullYear()}-${this.pad(d.getMonth() + 1)}-${this.pad(d.getDate())}`;
+  }
+
+  parseDate(s: string): Date {
+    const parts = s.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+  formatPrettyDate(str: string): string {
+    if (!str) return '—';
+    const parts = str.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    const day = d.getDate();
+    const m = this.monthNames[d.getMonth()].substring(0, 3);
+    const y = d.getFullYear();
+    return `${day} ${m} ${y}`;
+  }
+
+  changeMonth(delta: number): void {
+    this.calMonth += delta;
+    if (this.calMonth < 0) {
+      this.calMonth = 11;
+      this.calYear--;
+    } else if (this.calMonth > 11) {
+      this.calMonth = 0;
+      this.calYear++;
     }
+    this.buildCalendar();
+  }
+
+  goToToday(): void {
+    const now = new Date();
+    this.calYear = now.getFullYear();
+    this.calMonth = now.getMonth();
+    this.buildCalendar();
+  }
+
+  clearSelection(): void {
+    this.selectedStartDate = '';
+    this.selectedEndDate = '';
+    this.hoverDate = '';
+    this.fromDateStr = '';
+    this.toDateStr = '';
+    this.recalculateRange();
+    this.buildCalendar();
+  }
+
+  selectPreset(preset: 'today' | 'tomorrow' | 'next3' | 'week'): void {
+    const now = new Date();
+    if (preset === 'today') {
+      const s = this.formatDate(now);
+      this.selectedStartDate = s;
+      this.selectedEndDate = s;
+    } else if (preset === 'tomorrow') {
+      const tom = new Date(now);
+      tom.setDate(tom.getDate() + 1);
+      const s = this.formatDate(tom);
+      this.selectedStartDate = s;
+      this.selectedEndDate = s;
+    } else if (preset === 'next3') {
+      const s = this.formatDate(now);
+      const end = new Date(now);
+      end.setDate(end.getDate() + 2);
+      this.selectedStartDate = s;
+      this.selectedEndDate = this.formatDate(end);
+    } else if (preset === 'week') {
+      const s = this.formatDate(now);
+      const end = new Date(now);
+      end.setDate(end.getDate() + 6);
+      this.selectedStartDate = s;
+      this.selectedEndDate = this.formatDate(end);
+    }
+    this.hoverDate = '';
+    this.fromDateStr = this.selectedStartDate;
+    this.toDateStr = this.selectedEndDate;
+
+    const parts = this.selectedStartDate.split('-').map(Number);
+    this.calYear = parts[0];
+    this.calMonth = parts[1] - 1;
+
+    this.recalculateRange();
+    this.buildCalendar();
+  }
+
+  onDayClick(cell: any): void {
+    const clicked = cell.dateStr;
+    if (!this.selectedStartDate || (this.selectedStartDate && this.selectedEndDate)) {
+      this.selectedStartDate = clicked;
+      this.selectedEndDate = '';
+      this.hoverDate = '';
+    } else if (this.selectedStartDate && !this.selectedEndDate) {
+      if (clicked < this.selectedStartDate) {
+        this.selectedEndDate = this.selectedStartDate;
+        this.selectedStartDate = clicked;
+      } else {
+        this.selectedEndDate = clicked;
+      }
+      this.hoverDate = '';
+    }
+
+    this.fromDateStr = this.selectedStartDate;
+    this.toDateStr = this.selectedEndDate || this.selectedStartDate;
+    this.recalculateRange();
+    this.buildCalendar();
+  }
+
+  onDayHover(cell: any): void {
+    if (this.selectedStartDate && !this.selectedEndDate) {
+      this.hoverDate = cell.dateStr;
+      this.buildCalendar();
+    }
+  }
+
+  onCalendarMouseLeave(): void {
+    if (this.selectedStartDate && !this.selectedEndDate) {
+      this.hoverDate = '';
+      this.buildCalendar();
+    }
+  }
+
+  recalculateRange(): void {
+    this.totalSpanDays = 0;
+    this.rangeSundaysCount = 0;
+    this.rangeHolidaysCount = 0;
+    this.netWorkingDays = 0;
+    this.overlapLeaves = [];
     this.dateError = '';
+
+    if (!this.selectedStartDate) return;
+
+    const startStr = this.selectedStartDate;
+    const endStr = this.selectedEndDate || this.selectedStartDate;
+
+    const dStart = this.parseDate(startStr);
+    const dEnd = this.parseDate(endStr);
+
+    const seenOverlapIds = new Set<string>();
+
+    for (let d = new Date(dStart); d <= dEnd; d.setDate(d.getDate() + 1)) {
+      const curStr = this.formatDate(d);
+      this.totalSpanDays++;
+
+      const isSun = d.getDay() === 0;
+      const holiday = this.holidayDatesMap.get(curStr);
+      const existing = this.activeStudentLeavesMap.get(curStr);
+
+      if (existing && !seenOverlapIds.has(existing.id)) {
+        seenOverlapIds.add(existing.id);
+        this.overlapLeaves.push(existing);
+      }
+
+      if (isSun) {
+        this.rangeSundaysCount++;
+      } else if (holiday) {
+        this.rangeHolidaysCount++;
+      } else {
+        this.netWorkingDays++;
+      }
+    }
+
+    if (this.overlapLeaves.length > 0) {
+      const leaveDesc = this.overlapLeaves
+        .map(l => `${l.fromDate.split('T')[0]} to ${l.toDate.split('T')[0]} (${l.status})`)
+        .join(', ');
+      this.dateError = `Selected date range overlaps with existing leave application for this student: ${leaveDesc}. Please select non-overlapping dates.`;
+    } else if (this.netWorkingDays === 0) {
+      this.dateError = 'Selected date range contains only Sundays or declared Public Holidays (no working batch/class days to sanction).';
+    }
+  }
+
+  buildCalendar(): void {
+    const firstDayOfMonth = new Date(this.calYear, this.calMonth, 1);
+    const startDayOfWeek = firstDayOfMonth.getDay();
+    const daysInMonth = new Date(this.calYear, this.calMonth + 1, 0).getDate();
+    const prevMonthDays = new Date(this.calYear, this.calMonth, 0).getDate();
+
+    const todayStr = this.formatDate(new Date());
+
+    const effectiveStart = this.selectedStartDate;
+    const effectiveEnd = this.selectedEndDate;
+    const isSelecting = !!(this.selectedStartDate && !this.selectedEndDate && this.hoverDate);
+    let hoverStart = effectiveStart;
+    let hoverEnd = effectiveEnd;
+
+    if (isSelecting) {
+      if (this.hoverDate < this.selectedStartDate) {
+        hoverStart = this.hoverDate;
+        hoverEnd = this.selectedStartDate;
+      } else {
+        hoverStart = this.selectedStartDate;
+        hoverEnd = this.hoverDate;
+      }
+    }
+
+    const cells: any[] = [];
+
+    // Previous month trailing days
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+      const d = new Date(this.calYear, this.calMonth - 1, prevMonthDays - i);
+      cells.push(this.createCellData(d, false, todayStr, effectiveStart, effectiveEnd, hoverStart, hoverEnd, isSelecting));
+    }
+
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(this.calYear, this.calMonth, day);
+      cells.push(this.createCellData(d, true, todayStr, effectiveStart, effectiveEnd, hoverStart, hoverEnd, isSelecting));
+    }
+
+    // Next month leading days to complete grid
+    const remaining = (7 - (cells.length % 7)) % 7;
+    for (let day = 1; day <= remaining; day++) {
+      const d = new Date(this.calYear, this.calMonth + 1, day);
+      cells.push(this.createCellData(d, false, todayStr, effectiveStart, effectiveEnd, hoverStart, hoverEnd, isSelecting));
+    }
+
+    this.calendarWeeks = [];
+    for (let i = 0; i < cells.length; i += 7) {
+      this.calendarWeeks.push(cells.slice(i, i + 7));
+    }
+  }
+
+  createCellData(
+    d: Date,
+    isCurrentMonth: boolean,
+    todayStr: string,
+    effectiveStart: string,
+    effectiveEnd: string,
+    hoverStart: string,
+    hoverEnd: string,
+    isSelecting: boolean
+  ): any {
+    const dStr = this.formatDate(d);
+    const isSunday = d.getDay() === 0;
+    const holiday = this.holidayDatesMap.get(dStr) || null;
+    const existingLeave = this.activeStudentLeavesMap.get(dStr) || null;
+
+    const isStart = dStr === effectiveStart;
+    const isEnd = dStr === (effectiveEnd || effectiveStart);
+    const isInRange = !!(effectiveStart && effectiveEnd && dStr >= effectiveStart && dStr <= effectiveEnd);
+    const isInHover = !!(isSelecting && dStr >= hoverStart && dStr <= hoverEnd);
+
+    return {
+      date: d,
+      dateStr: dStr,
+      dayNum: d.getDate(),
+      isCurrentMonth,
+      isToday: dStr === todayStr,
+      isSunday,
+      holiday,
+      existingLeave,
+      isStart,
+      isEnd,
+      isInRange,
+      isInHover
+    };
+  }
+
+  getCellTooltip(cell: any): string {
+    const parts: string[] = [this.formatPrettyDate(cell.dateStr)];
+    if (cell.isToday) parts.push('(Today)');
+    if (cell.isSunday) parts.push('Weekly Off (Sunday - not counted in leave)');
+    if (cell.holiday) parts.push(`Public Holiday: ${cell.holiday.title} (not counted in leave)`);
+    if (cell.existingLeave) parts.push(`Pre-applied Leave: ${cell.existingLeave.leaveCategory} [${cell.existingLeave.status}]`);
+    return parts.join(' • ');
   }
 
   submitLeave(): void {
-    this.validateDates();
-    if (this.dateError) return;
+    this.recalculateRange();
+    if (this.dateError || !this.selectedStartDate || !this.selectedEndDate || this.netWorkingDays <= 0) return;
 
     this.saving = true;
     const payload = {
       studentId: this.model.studentId,
       leaveCategory: this.model.leaveCategory,
-      fromDate: `${this.fromDateStr}T00:00:00`,
-      toDate: `${this.toDateStr}T23:59:59`,
+      fromDate: `${this.selectedStartDate}T00:00:00`,
+      toDate: `${this.selectedEndDate}T23:59:59`,
       reason: this.model.reason,
       parentContactNumber: this.model.parentContactNumber,
       attachmentUrl: this.model.attachmentUrl,

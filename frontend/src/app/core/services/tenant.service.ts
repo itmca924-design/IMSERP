@@ -237,7 +237,9 @@ export class TenantService {
   }
 
   getSubscriptionPricingConfig(): Observable<SubscriptionPricingConfig> {
-    return this.http.get<SubscriptionPricingConfig>(`${environment.apiUrl}/subscription/pricing-config`);
+    return this.http.get<SubscriptionPricingConfig>(`${environment.apiUrl}/subscription/pricing-config`, {
+      headers: { 'X-Skip-Loader': 'true' }
+    });
   }
 
   updateSubscriptionPricingConfig(dto: Partial<SubscriptionPricingConfig>): Observable<any> {

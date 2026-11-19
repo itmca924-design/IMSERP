@@ -390,6 +390,15 @@ using (var scope = app.Services.CreateScope())
                             ALTER TABLE TransportAttendances ADD [Remarks] NVARCHAR(255) NULL;
                     END
 
+                    -- StudentAttendances CaptureSource Column Expansion (Avoid Truncation)
+                    IF OBJECT_ID('StudentAttendances') IS NOT NULL
+                    BEGIN
+                        IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('StudentAttendances') AND name = 'CaptureSource' AND max_length < 100)
+                        BEGIN
+                            ALTER TABLE StudentAttendances ALTER COLUMN CaptureSource NVARCHAR(50) NOT NULL;
+                        END
+                    END
+
                     -- UPI Dynamic QR & Online Fee Collection Columns
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Tenants') AND name = 'UpiId')
                         ALTER TABLE Tenants ADD UpiId NVARCHAR(150) NULL;
@@ -1449,6 +1458,12 @@ using (var scope = app.Services.CreateScope())
 
                         CREATE INDEX IX_StudentAttendanceRegularizations_Student_Date ON StudentAttendanceRegularizations (TenantId, StudentId, AttendanceDate);
                         CREATE INDEX IX_StudentAttendanceRegularizations_Status ON StudentAttendanceRegularizations (TenantId, Status);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'BatchId' AND object_id = OBJECT_ID('StudentAttendanceRegularizations'))
+                    BEGIN
+                        ALTER TABLE StudentAttendanceRegularizations ADD BatchId UNIQUEIDENTIFIER NULL;
+                        CREATE INDEX IX_StudentAttendanceRegularizations_Batch ON StudentAttendanceRegularizations (TenantId, BatchId);
                     END
 
                     IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_StudentAttendances_Tenant_Date_Student' AND object_id = OBJECT_ID('StudentAttendances'))

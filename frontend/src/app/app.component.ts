@@ -125,6 +125,7 @@ export class AppComponent {
     ).subscribe((e: NavigationEnd) => {
       const url = e.urlAfterRedirects || e.url || '';
       if (url.includes('/login')) {
+        this.loadingService.forceHide();
         try {
           this.dialog?.closeAll();
         } catch (err) {

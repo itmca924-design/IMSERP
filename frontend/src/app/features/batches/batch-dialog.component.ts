@@ -78,31 +78,70 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
           <div class="form-grid">
             <!-- Batch Structure Scope Toggle Deck -->
             <div class="batch-scope-toggle-deck full-width">
-              <span class="scope-deck-title">Batch Architecture / Scope (बैच का प्रकार):</span>
-              <div class="scope-toggle-pills">
-                <button
-                  type="button"
-                  class="scope-pill-btn"
-                  [class.active]="batchScope === 'single'"
-                  (click)="setBatchScope('single')" matButton="filled">
-                  <mat-icon>school</mat-icon>
-                  <div class="pill-texts">
-                    <span class="pill-main">Single Class Batch (एकल कक्षा)</span>
-                    <span class="pill-sub">बड़े कोचिंग / Specific Class (e.g. Class 5th Special)</span>
+              <div class="scope-deck-header">
+                <span class="scope-deck-title">Batch Architecture / Scope (बैच का प्रकार)</span>
+                <span class="scope-deck-badge">Select Cohort Structure</span>
+              </div>
+              <div class="scope-toggle-cards">
+                <!-- Card 1: Single Class Batch -->
+                <div
+                  class="scope-card-item single-class-card"
+                  [class.selected]="batchScope === 'single'"
+                  (click)="setBatchScope('single')"
+                  role="button"
+                  tabindex="0">
+                  <div class="card-radio-indicator">
+                    <div class="radio-circle">
+                      @if (batchScope === 'single') {
+                        <mat-icon class="check-icon">check</mat-icon>
+                      }
+                    </div>
                   </div>
-                </button>
-    
-                <button
-                  type="button"
-                  class="scope-pill-btn"
-                  [class.active]="batchScope === 'combined'"
-                  (click)="setBatchScope('combined')" matButton="filled">
-                  <mat-icon>layers</mat-icon>
-                  <div class="pill-texts">
-                    <span class="pill-main">Combined / Multi-Class Range (संयुक्त कक्षा)</span>
-                    <span class="pill-sub">छोटे कोचिंग / 1st to 5th Foundation Combined</span>
+                  <div class="card-icon-badge single-badge">
+                    <mat-icon>school</mat-icon>
                   </div>
-                </button>
+                  <div class="card-content-area">
+                    <div class="card-title-row">
+                      <span class="card-title">Single Class Batch (एकल कक्षा)</span>
+                      <span class="type-tag single-tag">Dedicated</span>
+                    </div>
+                    <p class="card-desc">एक विशिष्ट कक्षा के लिए समर्पित बैच (उदा. कक्षा 10th स्पेशल, 12th टारगेट)</p>
+                    <div class="card-meta-features">
+                      <span class="feature-item"><mat-icon>verified</mat-icon> Class ➔ Batch Cascade</span>
+                      <span class="feature-item"><mat-icon>person</mat-icon> Exact Class Cohort</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card 2: Combined / Multi-Class Range -->
+                <div
+                  class="scope-card-item combined-class-card"
+                  [class.selected]="batchScope === 'combined'"
+                  (click)="setBatchScope('combined')"
+                  role="button"
+                  tabindex="0">
+                  <div class="card-radio-indicator">
+                    <div class="radio-circle">
+                      @if (batchScope === 'combined') {
+                        <mat-icon class="check-icon">check</mat-icon>
+                      }
+                    </div>
+                  </div>
+                  <div class="card-icon-badge combined-badge">
+                    <mat-icon>layers</mat-icon>
+                  </div>
+                  <div class="card-content-area">
+                    <div class="card-title-row">
+                      <span class="card-title">Combined / Multi-Class (संयुक्त कक्षा)</span>
+                      <span class="type-tag combined-tag">Foundation</span>
+                    </div>
+                    <p class="card-desc">कई कक्षाओं का संयुक्त बैच (उदा. 1st से 5th फाउंडेशन, 6th से 8th कंबाइंड)</p>
+                    <div class="card-meta-features">
+                      <span class="feature-item"><mat-icon>all_inclusive</mat-icon> Class Range (From ➔ To)</span>
+                      <span class="feature-item"><mat-icon>groups</mat-icon> Multi-Grade Shared Cohort</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
     
@@ -683,89 +722,243 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
       gap: 12px;
     }
     .batch-scope-toggle-deck {
-      background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
-      border: 1px solid #bfdbfe;
-      border-radius: 12px;
-      padding: 10px 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 12px 14px;
       margin-bottom: 2px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
 
-      .scope-deck-title {
-        font-size: 0.74rem;
-        font-weight: 700;
-        color: #1e40af;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-
-      .scope-toggle-pills {
+      .scope-deck-header {
         display: flex;
-        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
 
-        @media (max-width: 600px) {
-          flex-direction: column;
+        .scope-deck-title {
+          font-size: 0.74rem;
+          font-weight: 700;
+          color: #1e40af;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
-        .scope-pill-btn {
-          flex: 1;
+        .scope-deck-badge {
+          font-size: 0.68rem;
+          font-weight: 600;
+          color: #2563eb;
+          background: #eff6ff;
+          padding: 2px 8px;
+          border-radius: 6px;
+          border: 1px solid #dbeafe;
+        }
+      }
+
+      .scope-toggle-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+
+        @media (max-width: 640px) {
+          grid-template-columns: 1fr;
+        }
+
+        .scope-card-item {
+          position: relative;
           display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 12px;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 12px 14px;
           background: #ffffff;
           border: 1.5px solid #cbd5e1;
-          border-radius: 10px;
+          border-radius: 12px;
           cursor: pointer;
           text-align: left;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          user-select: none;
 
-          mat-icon {
-            font-size: 22px;
-            width: 22px;
-            height: 22px;
-            color: #64748b;
+          .card-radio-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+
+            .radio-circle {
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              border: 1.5px solid #cbd5e1;
+              background: #ffffff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              transition: all 0.2s ease;
+
+              .check-icon {
+                font-size: 13px;
+                width: 13px;
+                height: 13px;
+                line-height: 13px;
+                color: #ffffff;
+                font-weight: 700;
+              }
+            }
           }
 
-          .pill-texts {
+          .card-icon-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+
+            mat-icon {
+              font-size: 22px;
+              width: 22px;
+              height: 22px;
+            }
+
+            &.single-badge {
+              background: #eff6ff;
+              color: #2563eb;
+              border: 1px solid #bfdbfe;
+            }
+
+            &.combined-badge {
+              background: #ecfdf5;
+              color: #059669;
+              border: 1px solid #a7f3d0;
+            }
+          }
+
+          .card-content-area {
+            flex: 1;
             display: flex;
             flex-direction: column;
             gap: 2px;
+            padding-right: 22px;
 
-            .pill-main {
-              font-size: 0.82rem;
-              font-weight: 700;
-              color: #334155;
+            .card-title-row {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+
+              .card-title {
+                font-size: 0.84rem;
+                font-weight: 700;
+                color: #1e293b;
+              }
+
+              .type-tag {
+                font-size: 0.65rem;
+                font-weight: 700;
+                padding: 1px 6px;
+                border-radius: 4px;
+                letter-spacing: 0.02em;
+
+                &.single-tag {
+                  background: #dbeafe;
+                  color: #1e40af;
+                }
+
+                &.combined-tag {
+                  background: #d1fae5;
+                  color: #065f46;
+                }
+              }
             }
 
-            .pill-sub {
+            .card-desc {
               font-size: 0.70rem;
               color: #64748b;
-              font-weight: 500;
+              margin: 2px 0 4px;
+              line-height: 1.35;
+            }
+
+            .card-meta-features {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              flex-wrap: wrap;
+
+              .feature-item {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                font-size: 0.67rem;
+                font-weight: 600;
+                color: #64748b;
+
+                mat-icon {
+                  font-size: 13px;
+                  width: 13px;
+                  height: 13px;
+                  color: #94a3b8;
+                }
+              }
             }
           }
 
           &:hover {
-            border-color: #3b82f6;
-            background: #f8fafc;
+            border-color: #93c5fd;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
           }
 
-          &.active {
-            background: #ffffff;
+          &.selected.single-class-card {
             border-color: #2563eb;
-            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15), 0 2px 4px -2px rgba(37, 99, 235, 0.1);
+            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+            box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.18);
 
-            mat-icon {
-              color: #2563eb;
+            .card-radio-indicator .radio-circle {
+              border-color: #2563eb;
+              background: #2563eb;
             }
 
-            .pill-main {
-              color: #1e40af;
+            .card-icon-badge.single-badge {
+              background: #2563eb;
+              color: #ffffff;
+              box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3);
+              border-color: transparent;
             }
 
-            .pill-sub {
-              color: #2563eb;
+            .card-content-area {
+              .card-title {
+                color: #1e40af;
+              }
+              .feature-item mat-icon {
+                color: #2563eb;
+              }
+            }
+          }
+
+          &.selected.combined-class-card {
+            border-color: #059669;
+            background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
+            box-shadow: 0 4px 12px -2px rgba(5, 150, 105, 0.18);
+
+            .card-radio-indicator .radio-circle {
+              border-color: #059669;
+              background: #059669;
+            }
+
+            .card-icon-badge.combined-badge {
+              background: #059669;
+              color: #ffffff;
+              box-shadow: 0 3px 8px rgba(5, 150, 105, 0.3);
+              border-color: transparent;
+            }
+
+            .card-content-area {
+              .card-title {
+                color: #065f46;
+              }
+              .feature-item mat-icon {
+                color: #059669;
+              }
             }
           }
         }
@@ -1432,6 +1625,34 @@ export class BatchDialogComponent implements OnInit {
     );
   }
 
+  filterOnlyTeachingStaff(list: any[]): any[] {
+    if (!list || !Array.isArray(list)) return [];
+    return list.filter((t: any) => {
+      if (t.staffType) {
+        const st = (t.staffType + '').toLowerCase().trim();
+        if (st.includes('non') || st === 'nonteaching' || st === '2') {
+          return false;
+        }
+      }
+      const desig = (t.designation || '').toLowerCase();
+      const dept = (t.department || '').toLowerCase();
+      const name = (t.fullName || t.name || '').toLowerCase();
+      const spec = (t.specialization || '').toLowerCase();
+
+      const nonTeachingKeywords = [
+        'account', 'clerk', 'peon', 'driver', 'conductor', 'guard',
+        'cashier', 'receptionist', 'librarian', 'sweeper', 'security',
+        'gatekeeper', 'warden', 'storekeeper', 'maintenance', 'admin desk', 'accounts desk'
+      ];
+
+      const isNonTeaching = nonTeachingKeywords.some(kw =>
+        desig.includes(kw) || dept.includes(kw) || name.includes(kw) || spec.includes(kw)
+      );
+
+      return !isNonTeaching;
+    });
+  }
+
   getFilteredTeachers(): any[] {
     const term = (this.teacherSearchTerm || '').trim().toLowerCase();
     if (!term) return this.availableTeachers;
@@ -1614,14 +1835,14 @@ export class BatchDialogComponent implements OnInit {
       branches: this.branchService.getBranches().pipe(catchError(() => of([]))),
       rooms: this.roomService.getRooms().pipe(catchError(() => of([]))),
       classes: this.schoolService.getClasses(true, 'Coaching').pipe(catchError(() => of([]))),
-      teachers: this.coachingService.getTeachers().pipe(catchError(() => of([])))
+      teachers: this.coachingService.getTeachers('Teaching').pipe(catchError(() => of([])))
     }).subscribe({
       next: ({ subjects, branches, rooms, classes, teachers }) => {
         this.availableSubjects = subjects;
         this.availableBranches = branches;
         this.availableRooms = rooms;
         this.availableClasses = classes;
-        this.availableTeachers = teachers;
+        this.availableTeachers = this.filterOnlyTeachingStaff(teachers);
         this.initClassRange();
 
         // Ensure any existing subjects from this batch are in availableSubjects

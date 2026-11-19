@@ -60,80 +60,7 @@
     </div>
   }
 
-  <!-- Division Scope Bar (Tri-Modal: Combined vs School vs Coaching) -->
-  @if (!isStudentOrParent && reportType === 'student' && hasStudentAttendancePermission) {
-    <div class="division-scope-deck no-print">
-      <div class="scope-header-strip">
-        <div class="scope-title">
-          <div class="scope-header-icon-box">
-            <mat-icon>hub</mat-icon>
-          </div>
-          <div class="scope-text">
-            <div class="scope-title-line">
-              <strong>Operational Scope / डिवीजन मोड:</strong>
-              <span class="scope-tag">Enterprise Tri-Modal</span>
-            </div>
-            <span class="scope-subtitle">Single Division or Consolidated Hybrid View</span>
-          </div>
-        </div>
-        <div class="scope-badge" [ngClass]="'scope-' + studentFilterMode">
-          <span class="badge-dot"></span>
-          <mat-icon class="badge-icon">{{ studentFilterMode === 'all' ? 'hub' : (studentFilterMode === 'school' ? 'domain' : 'school') }}</mat-icon>
-          <span>{{ studentFilterMode === 'all' ? 'Combined Consolidated' : (studentFilterMode === 'school' ? 'School Division Only' : 'Coaching Division Only') }}</span>
-        </div>
-      </div>
-
-      <div class="scope-pill-group">
-        <button type="button" class="scope-pill-btn scope-all-btn" [class.active]="studentFilterMode === 'all'" (click)="setScopeMode('all')">
-          <div class="pill-icon-box all-ico-box">
-            <mat-icon>hub</mat-icon>
-          </div>
-          <div class="pill-body">
-            <div class="pill-title-row">
-              <span class="pill-title">All / Combined (Hybrid)</span>
-              <span class="pill-chip chip-all">Consolidated</span>
-            </div>
-            <span class="pill-sub">Consolidated School &amp; Coaching Analytics</span>
-          </div>
-          @if (studentFilterMode === 'all') {
-            <mat-icon class="pill-check-indicator">check_circle</mat-icon>
-          }
-        </button>
-
-        <button type="button" class="scope-pill-btn scope-school-btn" [class.active]="studentFilterMode === 'school'" (click)="setScopeMode('school')">
-          <div class="pill-icon-box school-ico-box">
-            <mat-icon>domain</mat-icon>
-          </div>
-          <div class="pill-body">
-            <div class="pill-title-row">
-              <span class="pill-title">School Division (Single)</span>
-              <span class="pill-chip chip-school">School Only</span>
-            </div>
-            <span class="pill-sub">Class &amp; Section Roster</span>
-          </div>
-          @if (studentFilterMode === 'school') {
-            <mat-icon class="pill-check-indicator">check_circle</mat-icon>
-          }
-        </button>
-
-        <button type="button" class="scope-pill-btn scope-coaching-btn" [class.active]="studentFilterMode === 'coaching'" (click)="setScopeMode('coaching')">
-          <div class="pill-icon-box coaching-ico-box">
-            <mat-icon>school</mat-icon>
-          </div>
-          <div class="pill-body">
-            <div class="pill-title-row">
-              <span class="pill-title">Coaching Division (Single)</span>
-              <span class="pill-chip chip-coaching">Coaching Only</span>
-            </div>
-            <span class="pill-sub">Class ➔ Batches Hierarchy</span>
-          </div>
-          @if (studentFilterMode === 'coaching') {
-            <mat-icon class="pill-check-indicator">check_circle</mat-icon>
-          }
-        </button>
-      </div>
-    </div>
-  }
+  <!-- Division Scope Bar Removed: Clean 100% School Attendance Reports (Coaching Reports are in Coaching Operations) -->
 
   <!-- Filter Card -->
   <div class="filter-card no-print">
@@ -198,46 +125,22 @@
             </select>
           </div>
         }
-        @if (studentFilterMode === 'school') {
-          <div class="filter-select-wrap">
-            <label>Class:</label>
-            <select [(ngModel)]="selectedClassId" (change)="onClassFilterChanged()">
-              <option value="">All Classes</option>
-              @for (c of schoolClasses; track c) {
-                <option [value]="c.id">{{ c.name }}</option>
-              }
-            </select>
-          </div>
-        }
-        @if (studentFilterMode === 'school' && selectedClassId) {
+        <div class="filter-select-wrap">
+          <label>Class:</label>
+          <select [(ngModel)]="selectedClassId" (change)="onClassFilterChanged()">
+            <option value="">All Classes</option>
+            @for (c of schoolClasses; track c) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        @if (selectedClassId) {
           <div class="filter-select-wrap">
             <label>Section:</label>
             <select [(ngModel)]="selectedSectionId" (change)="loadReport()">
               <option value="">All Sections</option>
               @for (s of classSections; track s) {
                 <option [value]="s.id">Section {{ s.name }}</option>
-              }
-            </select>
-          </div>
-        }
-        @if (studentFilterMode === 'coaching') {
-          <div class="filter-select-wrap">
-            <label>Class (कक्षा):</label>
-            <select [(ngModel)]="selectedCoachingClassId" (change)="onCoachingClassFilterChanged()">
-              <option value="">All Classes</option>
-              @for (c of schoolClasses; track c) {
-                <option [value]="c.id">{{ c.name }}</option>
-              }
-            </select>
-          </div>
-        }
-        @if (studentFilterMode === 'coaching') {
-          <div class="filter-select-wrap">
-            <label>Batch:</label>
-            <select [(ngModel)]="selectedBatchId" (change)="loadReport()">
-              <option value="">All Batches</option>
-              @for (batch of filteredCoachingBatches; track batch) {
-                <option [value]="batch.id">{{ batch.name }}</option>
               }
             </select>
           </div>

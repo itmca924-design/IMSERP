@@ -250,43 +250,10 @@ import { CoachingService } from '../../core/services/coaching.service';
               </th>
               <td mat-cell *matCellDef="let element" class="text-right action-td-col">
                 <div class="row-actions-group">
-                  <button class="quick-action-btn edit-btn" (click)="openBatchModal(element)" matTooltip="Edit Batch & Timing (बैच विवरण व टाइमिंग बदलें)" mat-icon-button>
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button class="quick-action-btn routine-btn" (click)="openBatchRoutine(element)" matTooltip="Configure Timetable & Lecture Routine (रूटीन व टाइमिंग)" mat-icon-button>
-                    <mat-icon>calendar_view_week</mat-icon>
-                  </button>
-                  <button class="quick-action-btn roll-btn" (click)="openRollSequencer(element)" matTooltip="Sequence Roll Numbers (रोल नंबर क्रमबद्ध करें)" mat-icon-button>
-                    <mat-icon>format_list_numbered</mat-icon>
-                  </button>
-                  <button [matMenuTriggerFor]="batchMenu" class="action-menu-btn" matTooltip="More Actions" mat-icon-button>
-                    <mat-icon>more_vert</mat-icon>
-                  </button>
+                  <button class="quick-action-btn edit-btn" (click)="openBatchModal(element)" matTooltip="Edit Batch & Timing (बैच विवरण व टाइमिंग बदलें)" mat-icon-button><mat-icon>edit</mat-icon></button>
+                  <button class="quick-action-btn routine-btn" (click)="openBatchRoutine(element)" matTooltip="Configure Timetable & Lecture Routine (रूटीन व टाइमिंग)" mat-icon-button><mat-icon>calendar_view_week</mat-icon></button>
+                  <button class="quick-action-btn roll-btn" (click)="openRollSequencer(element)" matTooltip="Sequence Roll Numbers (रोल नंबर क्रमबद्ध करें)" mat-icon-button><mat-icon>format_list_numbered</mat-icon></button>
                 </div>
-    
-                <mat-menu #batchMenu="matMenu" xPosition="before" class="batch-action-menu">
-                  <button mat-menu-item (click)="openBatchRoutine(element)">
-                    <mat-icon color="primary">calendar_view_week</mat-icon>
-                    <span>Batch Timetable & Routine</span>
-                  </button>
-                  <button mat-menu-item (click)="openQuickMentorModal(element)">
-                    <mat-icon color="primary">person</mat-icon>
-                    <span>Assign / Change Mentor</span>
-                  </button>
-                  <button mat-menu-item (click)="openRollSequencer(element)">
-                    <mat-icon color="primary">format_list_numbered</mat-icon>
-                    <span>Sequence Roll Numbers</span>
-                  </button>
-                  <button mat-menu-item (click)="openBatchModal(element)">
-                    <mat-icon color="primary">edit</mat-icon>
-                    <span>Edit Batch</span>
-                  </button>
-                  <mat-divider></mat-divider>
-                  <button mat-menu-item (click)="deleteBatch(element)" class="delete-menu-item">
-                    <mat-icon color="warn">delete</mat-icon>
-                    <span class="text-warn">Delete Batch</span>
-                  </button>
-                </mat-menu>
               </td>
             </ng-container>
     
@@ -432,7 +399,7 @@ import { CoachingService } from '../../core/services/coaching.service';
       width: 100%;
     }
     .batch-directory-table {
-      min-width: 1555px;
+      min-width: 1570px;
       table-layout: fixed;
 
       .mat-column-name { width: 190px; }
@@ -443,7 +410,11 @@ import { CoachingService } from '../../core/services/coaching.service';
       .mat-column-subject { width: 210px; }
       .mat-column-academicYear { width: 150px; }
       .mat-column-studentCount { width: 170px; }
-      .mat-column-actions { width: 155px; }
+      .mat-column-actions {
+        width: 170px !important;
+        min-width: 170px !important;
+        max-width: 170px !important;
+      }
 
       .mat-mdc-cell {
         vertical-align: middle;
@@ -544,21 +515,37 @@ import { CoachingService } from '../../core/services/coaching.service';
       background: #ffffff;
       z-index: 2;
       box-shadow: -3px 0 6px rgba(0, 0, 0, 0.05);
-      min-width: 155px;
-      text-align: right;
-      padding-right: 12px;
+      width: 170px !important;
+      min-width: 170px !important;
+      max-width: 170px !important;
+      text-align: right !important;
+      padding-right: 20px !important;
+      box-sizing: border-box !important;
+      text-overflow: clip !important;
+      overflow: visible !important;
     }
     .mat-mdc-header-cell.action-th-col {
       background: #f8fafc;
       z-index: 3;
       font-weight: 700;
       color: #475569;
+      width: 170px !important;
+      min-width: 170px !important;
+      max-width: 170px !important;
+      padding-right: 20px !important;
+      text-align: right !important;
+      text-overflow: clip !important;
+      overflow: visible !important;
     }
     .row-actions-group {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      justify-content: flex-end;
+      gap: 8px;
       white-space: nowrap;
+      padding-right: 4px;
+      text-overflow: clip !important;
+      overflow: visible !important;
     }
     .quick-action-btn {
       width: 30px;
@@ -881,7 +868,8 @@ export class BatchesComponent implements OnInit {
         batches: this.batches,
         selectedBatchId: batch ? batch.id : undefined,
         selectedClassId: batch ? (batch.classId || undefined) : undefined,
-        initialScope: 'coaching'
+        initialScope: 'coaching',
+        allowedScopes: ['coaching']
       }
     });
 

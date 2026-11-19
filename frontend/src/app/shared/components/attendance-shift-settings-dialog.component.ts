@@ -18,6 +18,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 
 export interface AttendanceShiftSettingsDialogData {
   initialTab?: 'teacher' | 'student' | 'coaching';
+  allowedTabs?: Array<'teacher' | 'student' | 'coaching'>;
+  title?: string;
+  subtitle?: string;
 }
 
 export interface BatchTimingRow {
@@ -54,8 +57,8 @@ export interface BatchTimingRow {
           <mat-icon>schedule</mat-icon>
         </div>
         <div class="header-titles">
-          <h2 mat-dialog-title class="main-title">Attendance Shift & Policy Settings</h2>
-          <p class="subtitle">Configure shift start/end times, grace cutoff, half-day duration, and free late quotas.</p>
+          <h2 mat-dialog-title class="main-title">{{ data?.title || 'Attendance Shift & Policy Settings' }}</h2>
+          <p class="subtitle">{{ data?.subtitle || 'Configure shift start/end times, grace cutoff, half-day duration, and free late quotas.' }}</p>
         </div>
         <button type="button" class="close-btn" (click)="onClose()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
@@ -73,6 +76,7 @@ export interface BatchTimingRow {
         <mat-dialog-content class="dialog-content">
           <mat-tab-group [(selectedIndex)]="activeTabIndex" animationDuration="200ms" class="custom-tab-group">
             <!-- ================= TAB 1: FACULTY / TEACHER SETTINGS ================= -->
+            @if (isTabAllowed('teacher')) {
             <mat-tab>
               <ng-template mat-tab-label>
                 <mat-icon class="tab-icon">school</mat-icon>
@@ -162,7 +166,9 @@ export interface BatchTimingRow {
                 </div>
               </div>
             </mat-tab>
+            }
             <!-- ================= TAB 2: SCHOOL STUDENT SETTINGS ================= -->
+            @if (isTabAllowed('student')) {
             <mat-tab>
               <ng-template mat-tab-label>
                 <mat-icon class="tab-icon">school</mat-icon>
@@ -325,7 +331,9 @@ export interface BatchTimingRow {
                 </div>
               </div>
             </mat-tab>
+            }
             <!-- ================= TAB 3: COACHING BATCHES SHIFT ================= -->
+            @if (isTabAllowed('coaching')) {
             <mat-tab>
               <ng-template mat-tab-label>
                 <mat-icon class="tab-icon">menu_book</mat-icon>
@@ -533,6 +541,7 @@ export interface BatchTimingRow {
                 </div>
               </div>
             </mat-tab>
+            }
           </mat-tab-group>
         </mat-dialog-content>
       }
@@ -1207,22 +1216,37 @@ export class AttendanceShiftSettingsDialogComponent implements OnInit {
     coachingEveningGraceMinutes: 15
   };
 
+  isTabAllowed(tab: 'teacher' | 'student' | 'coaching'): boolean {
+    if (!this.data?.allowedTabs || this.data.allowedTabs.length === 0) {
+      return true;
+    }
+    return this.data.allowedTabs.includes(tab);
+  }
+
+  getAvailableTabs(): Array<'teacher' | 'student' | 'coaching'> {
+    const all: Array<'teacher' | 'student' | 'coaching'> = ['teacher', 'student', 'coaching'];
+    return all.filter(t => this.isTabAllowed(t));
+  }
+
   constructor(
     private http: HttpClient,
     public dialogRef: MatDialogRef<AttendanceShiftSettingsDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: AttendanceShiftSettingsDialogData,
     private confirmDialog: ConfirmDialogService
   ) {
-    if (data?.initialTab === 'student') {
-      this.activeTabIndex = 1;
-    } else if (data?.initialTab === 'coaching') {
-      this.activeTabIndex = 2;
+    const available = this.getAvailableTabs();
+    if (data?.initialTab && available.includes(data.initialTab)) {
+      this.activeTabIndex = available.indexOf(data.initialTab);
+    } else {
+      this.activeTabIndex = 0;
     }
   }
 
   ngOnInit(): void {
     this.loadSettings();
-    this.loadBatches();
+    if (this.isTabAllowed('coaching')) {
+      this.loadBatches();
+    }
   }
 
   batchTimings: BatchTimingRow[] = [];

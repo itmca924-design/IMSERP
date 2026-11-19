@@ -10,6 +10,7 @@ export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
   const isSilent = 
     req.url.includes('/api/auth/refresh-token') ||
     req.url.includes('/api/auth/revoke-token') ||
+    req.url.includes('/subscription/pricing-config') ||
     req.url.includes('/api/chat') ||
     req.headers.has('X-Skip-Loader');
 

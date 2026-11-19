@@ -2208,7 +2208,12 @@ export class TeacherAttendanceComponent implements OnInit {
     const ref = this.dialog.open(AttendanceShiftSettingsDialogComponent, {
       width: '960px',
       maxWidth: '96vw',
-      data: { initialTab: 'teacher' }
+      data: {
+        initialTab: 'teacher',
+        allowedTabs: ['teacher', 'student'],
+        title: 'Staff & Faculty Attendance Shift & Rules',
+        subtitle: 'Configure faculty working hours, late grace cutoff, half-day duration, and weekly off pattern.'
+      }
     });
     ref.afterClosed().subscribe(res => {
       if (res?.saved && res?.settings) {

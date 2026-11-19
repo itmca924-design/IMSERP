@@ -2150,7 +2150,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
     const invNo = inv.invoiceNumber || 'INV';
 
     if (amt === 0 || inv.status === 'Paid') {
-      return `🎙️ *FEE PAYMENT VOICE ACKNOWLEDGEMENT*\n🏛️ *${inst}*\n━━━━━━━━━━━━━━━━━━━━━━\nनमस्ते अभिभावक जी!\n${inst} से सादर प्रणाम।\n\nसंस्थान रिकॉर्ड अनुसार आपके बच्चे *${sName}* (कक्षा: *${cls}* | Roll: *${roll}* | विभाग: *${scope}*) की फीस *₹${paid || total}* (इनवॉइस: #${invNo}) प्राप्त हो चुकी है। वर्तमान में कोई बकाया शेष नहीं है। समय पर भुगतान हेतु हार्दिक धन्यवाद!${this.buildSlipSection(inv)}\n\nसधन्यवाद,\n*Accounts Office, ${inst}*`;
+      return `🎙️ *FEE PAYMENT VOICE ACKNOWLEDGEMENT*\n🏛️ *${inst}*\n━━━━━━━━━━━━━━━━━━━━━━\nनमस्ते अभिभावक जी!\n${inst} से सादर प्रणाम।\n\nसंस्थान रिकॉर्ड अनुसार आपके बच्चे *${sName}* (कक्षा: *${cls}* | Roll: *${roll}* | विभाग: *${scope}*) की फीस *₹${paid || total}* (इनवॉइस: #${invNo}) प्राप्त हो चुकी है। वर्तमान में कोई बकाया शेष नहीं है। समय पर भुगतान हेतु हार्दिक धन्यवाद!${this.buildVoiceSection(inv)}${this.buildSlipSection(inv)}\n\nसधन्यवाद,\n*Accounts Office, ${inst}*`;
     }
 
     const rawDueDate2 = inv.dueDate ? new Date(inv.dueDate) : null;
@@ -2171,7 +2171,16 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
       ? `\n\n🚨 *अत्यावश्यक सूचना:* फीस जमा करने की अंतिम तिथि निकल चुकी है। कृपया अविलंब (तुरंत) फीस जमा कराएं अन्यथा बच्चे की पढ़ाई एवं परीक्षा में बाधा उत्पन्न हो सकती है।`
       : '';
 
-    return `🎙️ *OFFICIAL FEE DUE VOICE REMINDER*\n🏛️ *${inst}*\n━━━━━━━━━━━━━━━━━━━━━━\nनमस्ते अभिभावक जी!\n${inst} से सादर अनुरोध है।\n\nसंस्थान रिकॉर्ड अनुसार आपके बच्चे *${sName}* (कक्षा: *${cls}* | Roll: *${roll}* | विभाग: *${scope}*) की ${feeLine}\n\n${dueDateHindi}${urgencyHindi}\n\nबच्चे की नियमित पढ़ाई एवं परीक्षा की निरंतरता हेतु कृपया शेष फीस समय पर ऑनलाइन UPI या संस्थान काउंटर पर जमा कराएं।${this.buildSlipSection(inv)}\n\nसधन्यवाद,\n*Accounts Office, ${inst}*`;
+    return `🎙️ *OFFICIAL FEE DUE VOICE REMINDER*\n🏛️ *${inst}*\n━━━━━━━━━━━━━━━━━━━━━━\nनमस्ते अभिभावक जी!\n${inst} से सादर अनुरोध है।\n\nसंस्थान रिकॉर्ड अनुसार आपके बच्चे *${sName}* (कक्षा: *${cls}* | Roll: *${roll}* | विभाग: *${scope}*) की ${feeLine}\n\n${dueDateHindi}${urgencyHindi}\n\nबच्चे की नियमित पढ़ाई एवं परीक्षा की निरंतरता हेतु कृपया शेष फीस समय पर ऑनलाइन UPI या संस्थान काउंटर पर जमा कराएं।${this.buildVoiceSection(inv)}${this.buildSlipSection(inv)}\n\nसधन्यवाद,\n*Accounts Office, ${inst}*`;
+  }
+
+  private buildVoiceSection(inv: FeeReminderDispatchItem): string {
+    const targetId = inv.studentId || inv.id;
+    if (!targetId) return '';
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const apiBase = origin.includes(':4200') ? 'http://localhost:5000' : origin;
+    const listenUrl = `${apiBase}/api/finance/fee-recovery-agent/listen/${targetId}?gender=${this.selectedVoiceGender}`;
+    return `\n\n━━━━━━━━━━━━━━━━━━━━━━\n🎙️ *संस्थान का वॉयस संदेश (AI Voice Note) सुनें:*\n🎧 ${listenUrl}\n_(उपरोक्त लिंक पर क्लिक करके आप अपने मोबाइल पर सीधे संस्थान का आधिकारिक ऑडियो संदेश सुन सकते हैं।)_`;
   }
 
   /** Public fee-slip / payment page link for WhatsApp */
@@ -2669,6 +2678,11 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // When Voice Message mode is selected, automatically download the audio MP3 file to attach in WhatsApp chat
+    if (this.messageType === 'voice') {
+      this.downloadVoiceAudio();
+    }
+
     const rawPhone = inv.parentWhatsAppPhone.replace(/\D/g, '');
     const formattedPhone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone;
     const msg = this.activeMessageText || (
@@ -2690,14 +2704,19 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
     inv.alreadyRemindedToday = true;
     this.cdr.markForCheck();
 
-    // Auto-close dialog smoothly after launching WhatsApp
+    // Auto-close dialog smoothly after launching WhatsApp (allow download initiation if voice)
+    const closeDelay = this.messageType === 'voice' ? 900 : 450;
     setTimeout(() => {
       this.dialogRef.close({ dispatched: true });
-    }, 450);
+    }, closeDelay);
   }
 
   sendSingleFromBulk(s: FeeReminderDispatchItem): void {
     if (!s.parentWhatsAppPhone) return;
+
+    if (this.messageType === 'voice') {
+      this.downloadVoiceAudio();
+    }
 
     const msg = this.messageType === 'invoice' ? this.buildInvoiceMessage(s) :
       (this.messageType === 'normal' ? this.buildNormalMessage(s) : this.buildVoiceMessage(s));

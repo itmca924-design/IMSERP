@@ -357,14 +357,28 @@ export interface SectionRoutineDialogData {
                   }
                 </div>
                 <!-- Days Selection -->
-                <div class="form-group">
+                <div class="form-group days-selection-card">
                   <div class="days-label-row">
-                    <label class="field-label">Scheduled Days *</label>
+                    <div class="days-title-left">
+                      <mat-icon class="days-hdr-ic">calendar_month</mat-icon>
+                      <label class="field-label m-0">Scheduled Days (क्लास के दिन) *</label>
+                      <span class="days-selected-badge" [class.has-days]="selectedDays.length > 0">
+                        {{ selectedDays.length }} Day(s) Selected
+                      </span>
+                    </div>
                     <div class="quick-days-btns">
-                      <button type="button" class="q-day-btn" (click)="setAllDays()" matButton="filled">Mon-Sat (All)</button>
-                      <button type="button" class="q-day-btn" (click)="setWeekdays()" matButton="filled">Mon-Fri</button>
-                      <button type="button" class="q-day-btn" (click)="setAltDays()" matButton="filled">Mon, Wed, Fri</button>
-                      <button type="button" class="q-day-btn" (click)="setTtsDays()" matButton="filled">Tue, Thu, Sat</button>
+                      <button type="button" class="q-day-btn" [class.active]="isPresetActive('all')" (click)="setAllDays()">
+                        <mat-icon class="q-mini-ic">done_all</mat-icon> Mon-Sat (All)
+                      </button>
+                      <button type="button" class="q-day-btn" [class.active]="isPresetActive('weekdays')" (click)="setWeekdays()">
+                        Mon-Fri
+                      </button>
+                      <button type="button" class="q-day-btn" [class.active]="isPresetActive('mwf')" (click)="setAltDays()">
+                        Mon, Wed, Fri
+                      </button>
+                      <button type="button" class="q-day-btn" [class.active]="isPresetActive('tts')" (click)="setTtsDays()">
+                        Tue, Thu, Sat
+                      </button>
                     </div>
                   </div>
                   <div class="days-pills">
@@ -372,12 +386,17 @@ export interface SectionRoutineDialogData {
                       <button type="button"
                         class="day-pill"
                         [class.selected]="isDaySelected(day)"
-                        (click)="toggleDay(day)" matButton="filled">
-                        {{ day }}
+                        (click)="toggleDay(day)">
+                        <span class="day-check-bullet">
+                          <mat-icon>{{ isDaySelected(day) ? 'check' : 'add' }}</mat-icon>
+                        </span>
+                        <span class="day-text">{{ day }}</span>
+                        <span class="day-micro-state">{{ isDaySelected(day) ? 'Active' : 'Off' }}</span>
                       </button>
                     }
                   </div>
                 </div>
+
                 <!-- Period / Timing -->
                 <div class="form-group">
                   <label class="field-label">Period / Timing Slot *</label>
@@ -392,42 +411,71 @@ export interface SectionRoutineDialogData {
                             <button type="button"
                               class="c-dur-btn"
                               [class.active]="coachingSelectedDuration === opt.minutes"
-                              (click)="applyCoachingDuration(opt.minutes)" matButton="filled">
+                              (click)="applyCoachingDuration(opt.minutes)">
+                              @if (coachingSelectedDuration === opt.minutes) {
+                                <mat-icon class="btn-chk-ic">check</mat-icon>
+                              }
                               {{ opt.label }}
                             </button>
                           }
                         </div>
                         @if (coachingCalculatedDurationText) {
                           <span class="live-dur-badge">
-                            Duration: <strong>{{ coachingCalculatedDurationText }}</strong>
+                            <mat-icon class="badge-mini-ic">timer</mat-icon> Duration: <strong>{{ coachingCalculatedDurationText }}</strong>
                           </span>
                         }
                       </div>
+
                       <!-- 2. Coaching Shift Preset Pills -->
                       <div class="coaching-presets-row">
-                        <span class="c-label"><mat-icon>access_time</mat-icon> Quick Shifts:</span>
+                        <span class="c-label"><mat-icon>access_time</mat-icon> Quick Shifts (त्वरित समय स्लॉट):</span>
                         <div class="c-presets-wrap">
                           @for (sp of coachingShiftPresets; track sp) {
                             <button type="button"
                               class="c-preset-pill"
-                              [class.active]="selectedTimeSlot === sp.slotString"
-                              (click)="applyCoachingPreset(sp)" matButton="filled">
-                              <span>{{ sp.label }}</span>
-                              <small>({{ sp.duration }})</small>
+                              [class.active]="isShiftPresetActive(sp)"
+                              (click)="applyCoachingPreset(sp)">
+                              <div class="preset-pill-top">
+                                <span>{{ sp.label }}</span>
+                                @if (isShiftPresetActive(sp)) {
+                                  <mat-icon class="pill-check-icon">check_circle</mat-icon>
+                                }
+                              </div>
+                              <small class="preset-dur-sub">({{ sp.duration }})</small>
                             </button>
                           }
                         </div>
                       </div>
+
                       <!-- 3. Dynamic Interactive Start & End Time Native Inputs -->
                       <div class="coaching-native-time-row">
                         <div class="c-time-field">
-                          <label>Lecture Start Time (कक्षा शुरू)</label>
+                          <label><mat-icon class="time-lbl-ic">login</mat-icon> Lecture Start Time (कक्षा शुरू)</label>
                           <input type="time" [(ngModel)]="coachingStartTime" (change)="onCoachingTimeChange()" class="c-native-input" />
                         </div>
-                        <span class="c-to-sep">to</span>
+                        <span class="c-to-sep">TO</span>
                         <div class="c-time-field">
-                          <label>Lecture End Time (कक्षा समाप्ति)</label>
+                          <label><mat-icon class="time-lbl-ic">logout</mat-icon> Lecture End Time (कक्षा समाप्ति)</label>
                           <input type="time" [(ngModel)]="coachingEndTime" (change)="onCoachingTimeChange()" class="c-native-input" />
+                        </div>
+                      </div>
+
+                      <!-- 4. Active Slot Live Banner -->
+                      <div class="active-time-banner">
+                        <div class="at-left">
+                          <mat-icon class="at-ic">alarm_on</mat-icon>
+                          <div class="at-info">
+                            <span class="at-lbl">Currently Selected Time Slot (निर्धारित समय):</span>
+                            <span class="at-slot-val">{{ selectedTimeSlot || 'Not Selected' }}</span>
+                          </div>
+                        </div>
+                        <div class="at-right">
+                          <span class="at-chip dur">
+                            <mat-icon>timelapse</mat-icon> {{ coachingCalculatedDurationText || '2 hrs' }}
+                          </span>
+                          <span class="at-chip days">
+                            <mat-icon>calendar_today</mat-icon> {{ selectedDays.length > 0 ? selectedDays.join(', ') : 'No days chosen' }}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1054,51 +1102,167 @@ export interface SectionRoutineDialogData {
       &:focus { border-color: #2563eb; }
     }
 
+    .days-selection-card {
+      background: #ffffff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
     .days-label-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .days-title-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .days-hdr-ic {
+      color: #2563eb;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .days-selected-badge {
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      &.has-days {
+        background: #ecfdf5;
+        color: #065f46;
+        border-color: #a7f3d0;
+      }
     }
 
     .quick-days-btns {
       display: flex;
       gap: 6px;
+      flex-wrap: wrap;
     }
 
     .q-day-btn {
-      background: transparent;
-      border: none;
-      color: #2563eb;
-      font-size: 0.72rem;
-      font-weight: 700;
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      color: #334155;
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
       cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 4px;
-      &:hover { background: #eff6ff; }
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      &:hover {
+        background: #e2e8f0;
+        border-color: #94a3b8;
+      }
+      &.active {
+        background: #1e40af !important;
+        color: #ffffff !important;
+        border-color: #1e40af !important;
+        font-weight: 700 !important;
+        box-shadow: 0 2px 4px rgba(30, 64, 175, 0.25);
+      }
+    }
+
+    .q-mini-ic {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
     }
 
     .days-pills {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      width: 100%;
+      @media (max-width: 640px) {
+        grid-template-columns: repeat(3, 1fr);
+      }
     }
 
     .day-pill {
       background: #f8fafc;
       border: 1.5px solid #cbd5e1;
       color: #475569;
-      font-size: 0.78rem;
-      font-weight: 700;
-      padding: 6px 12px;
-      border-radius: 8px;
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
       cursor: pointer;
-      transition: all 0.15s;
-      &:hover { background: #f1f5f9; }
-      &.selected {
-        background: #2563eb;
-        color: #ffffff;
-        border-color: #2563eb;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      &:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
       }
+      &.selected {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        border-color: #1e40af !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35) !important;
+        transform: translateY(-1px);
+        .day-check-bullet {
+          background: #ffffff !important;
+          color: #2563eb !important;
+        }
+        .day-text {
+          color: #ffffff !important;
+        }
+        .day-micro-state {
+          color: #dbeafe !important;
+        }
+      }
+    }
+
+    .day-check-bullet {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      mat-icon {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+        font-weight: bold;
+      }
+    }
+
+    .day-text {
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    .day-micro-state {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #94a3b8;
     }
 
     .period-chips {
@@ -1201,14 +1365,15 @@ export interface SectionRoutineDialogData {
 
     /* Dynamic Coaching Timing Card */
     .coaching-timing-card {
-      background: #f8fafc;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      padding: 12px 14px;
+      background: #ffffff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 16px 18px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-bottom: 4px;
+      gap: 14px;
+      margin-bottom: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     }
 
     .coaching-duration-row {
@@ -1223,8 +1388,8 @@ export interface SectionRoutineDialogData {
         color: #1e3a8a;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+        gap: 5px;
+        mat-icon { font-size: 17px; width: 17px; height: 17px; color: #2563eb; }
       }
 
       .c-dur-pills {
@@ -1234,44 +1399,57 @@ export interface SectionRoutineDialogData {
       }
 
       .c-dur-btn {
-        background: #ffffff;
-        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        border: 1.5px solid #cbd5e1;
         border-radius: 20px;
-        padding: 4px 12px;
-        font-size: 0.76rem;
+        padding: 5px 14px;
+        font-size: 0.78rem;
         font-weight: 600;
         color: #334155;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
         transition: all 0.15s ease;
         &:hover {
           background: #eff6ff;
           border-color: #93c5fd;
         }
         &.active {
-          background: #2563eb;
-          color: #ffffff;
-          border-color: #2563eb;
-          box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+          background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+          color: #ffffff !important;
+          border-color: #047857 !important;
+          font-weight: 800 !important;
+          box-shadow: 0 3px 8px rgba(5, 150, 105, 0.3) !important;
         }
+      }
+
+      .btn-chk-ic {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
       }
 
       .live-dur-badge {
         font-size: 0.74rem;
-        color: #166534;
-        background: #dcfce7;
-        border: 1px solid #bbf7d0;
+        color: #065f46;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
         border-radius: 6px;
-        padding: 2px 8px;
-        font-weight: 600;
+        padding: 3px 10px;
+        font-weight: 700;
         margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        .badge-mini-ic { font-size: 14px; width: 14px; height: 14px; color: #059669; }
       }
     }
 
     .coaching-presets-row {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 8px;
 
       .c-label {
         font-size: 0.78rem;
@@ -1279,90 +1457,212 @@ export interface SectionRoutineDialogData {
         color: #1e3a8a;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #2563eb; }
+        gap: 5px;
+        mat-icon { font-size: 17px; width: 17px; height: 17px; color: #2563eb; }
       }
 
       .c-presets-wrap {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: 8px;
+        width: 100%;
       }
 
       .c-preset-pill {
         background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        padding: 5px 10px;
-        font-size: 0.74rem;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 0.78rem;
         font-weight: 600;
         color: #1e293b;
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
         transition: all 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        text-align: left;
 
-        small { color: #64748b; font-weight: 500; }
+        .preset-pill-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+        }
+
+        .pill-check-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #ffffff;
+        }
+
+        .preset-dur-sub {
+          color: #64748b;
+          font-weight: 500;
+          font-size: 0.72rem;
+        }
 
         &:hover {
-          background: #f1f5f9;
-          border-color: #94a3b8;
+          background: #f0fdf4;
+          border-color: #93c5fd;
         }
 
         &.active {
-          background: #eff6ff;
-          border-color: #2563eb;
-          color: #1d4ed8;
-          small { color: #2563eb; }
+          background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%) !important;
+          border: 1.5px solid #1e3a8a !important;
+          color: #ffffff !important;
+          box-shadow: 0 4px 10px rgba(30, 64, 175, 0.35) !important;
+          transform: translateY(-1px);
+
+          .preset-dur-sub {
+            color: #dbeafe !important;
+            font-weight: 700;
+          }
         }
       }
     }
 
     .coaching-native-time-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 12px;
-      background: #ffffff;
-      border: 1px dashed #93c5fd;
-      border-radius: 8px;
-      padding: 10px 14px;
-      flex-wrap: wrap;
+      gap: 14px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 16px;
+
+      @media (max-width: 600px) {
+        grid-template-columns: 1fr;
+        .c-to-sep { display: none; }
+      }
 
       .c-time-field {
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        flex: 1;
-        min-width: 140px;
+        gap: 6px;
 
         label {
-          font-size: 0.72rem;
+          font-size: 0.76rem;
           font-weight: 700;
-          color: #475569;
+          color: #1e3a8a;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .time-lbl-ic {
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          color: #2563eb;
         }
 
         .c-native-input {
-          border: 1px solid #cbd5e1;
-          border-radius: 6px;
-          padding: 6px 10px;
-          font-size: 0.88rem;
-          font-weight: 600;
+          border: 1.5px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-size: 0.95rem;
+          font-weight: 700;
           color: #0f172a;
-          background: #f8fafc;
+          background: #ffffff;
           outline: none;
+          transition: all 0.15s ease;
           &:focus {
             border-color: #2563eb;
-            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
           }
         }
       }
 
       .c-to-sep {
         font-size: 0.82rem;
+        font-weight: 800;
+        color: #2563eb;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        margin-top: 20px;
+      }
+    }
+
+    .active-time-banner {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1.5px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+
+      .at-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .at-ic {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+        color: #2563eb;
+        flex-shrink: 0;
+      }
+
+      .at-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .at-lbl {
+        font-size: 0.74rem;
         font-weight: 700;
-        color: #64748b;
-        margin-top: 18px;
+        color: #3b82f6;
+        text-transform: uppercase;
+      }
+
+      .at-slot-val {
+        font-size: 1.12rem;
+        font-weight: 800;
+        color: #1e3a8a;
+      }
+
+      .at-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .at-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.76rem;
+        font-weight: 700;
+
+        &.dur {
+          background: #dcfce7;
+          color: #166534;
+          border: 1px solid #bbf7d0;
+          mat-icon { font-size: 14px; width: 14px; height: 14px; color: #16a34a; }
+        }
+
+        &.days {
+          background: #ffffff;
+          color: #1e40af;
+          border: 1px solid #bfdbfe;
+          mat-icon { font-size: 14px; width: 14px; height: 14px; color: #2563eb; }
+        }
       }
     }
 
@@ -2757,6 +3057,36 @@ export class SectionRoutineDialogComponent implements OnInit {
 
   setAltDays() {
     this.selectedDays = ['Mon', 'Wed', 'Fri'];
+  }
+
+  isPresetActive(preset: 'all' | 'weekdays' | 'mwf' | 'tts'): boolean {
+    if (!this.selectedDays || this.selectedDays.length === 0) return false;
+    if (preset === 'all') {
+      return this.selectedDays.length === 6 && ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].every(d => this.selectedDays.includes(d));
+    }
+    if (preset === 'weekdays') {
+      return this.selectedDays.length === 5 && ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].every(d => this.selectedDays.includes(d));
+    }
+    if (preset === 'mwf') {
+      return this.selectedDays.length === 3 && ['Mon', 'Wed', 'Fri'].every(d => this.selectedDays.includes(d));
+    }
+    if (preset === 'tts') {
+      return this.selectedDays.length === 3 && ['Tue', 'Thu', 'Sat'].every(d => this.selectedDays.includes(d));
+    }
+    return false;
+  }
+
+  isShiftPresetActive(sp: { start: string; end: string; slotString?: string }): boolean {
+    if (this.coachingStartTime === sp.start && this.coachingEndTime === sp.end) {
+      return true;
+    }
+    if (this.selectedTimeSlot && sp.slotString) {
+      const clean = (s: string) => s.replace(/[\s\u2013\u2014-]+/g, '').toLowerCase();
+      if (clean(this.selectedTimeSlot) === clean(sp.slotString)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   getDaysArray(daysStr?: string): string[] {

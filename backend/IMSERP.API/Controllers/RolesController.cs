@@ -48,6 +48,8 @@ public class RolesController : ControllerBase
                 rolesQuery = _dbContext.Roles.IgnoreQueryFilters().Where(r => r.TenantId == tenantId.Value);
             }
 
+            await MenuController.EnsureCoachingMenuItemsSeededAsync(_dbContext);
+
             var roles = await rolesQuery
                 .AsNoTracking()
                 .Include(r => r.RolePermissions)
@@ -125,6 +127,8 @@ public class RolesController : ControllerBase
             var userCount = await usersQuery
                 .AsNoTracking()
                 .CountAsync(u => u.RoleId == id);
+
+            await MenuController.EnsureCoachingMenuItemsSeededAsync(_dbContext);
 
             var allMenuItems = await _dbContext.MenuItems
                 .AsNoTracking()

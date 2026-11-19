@@ -117,7 +117,7 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
   years = [2024, 2025, 2026, 2027];
   batches: BatchDto[] = [];
   schoolClasses: SchoolClassDto[] = [];
-  studentFilterMode: 'all' | 'school' | 'coaching' = 'all';
+  studentFilterMode: 'all' | 'school' | 'coaching' = 'school';
   selectedClassId = '';
   selectedSectionId = '';
   selectedCoachingClassId = '';

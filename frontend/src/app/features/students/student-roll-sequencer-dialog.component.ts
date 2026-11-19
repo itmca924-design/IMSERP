@@ -23,6 +23,7 @@ export interface RollSequencerDialogData {
   selectedSectionId?: string;
   selectedBatchId?: string;
   initialScope?: 'school' | 'coaching';
+  allowedScopes?: Array<'school' | 'coaching'>;
 }
 
 @Component({
@@ -74,27 +75,41 @@ export interface RollSequencerDialogData {
   }
 
   <div class="modal-body">
-    <!-- Scope Switcher Pill Tabs -->
+    <!-- Dedicated Scope Context Strip (Clean, Focused, Zero Confusion) -->
     <div class="scope-nav-container">
-      <div class="scope-pills">
-        <button
-          type="button"
-          class="scope-pill-btn"
-          [class.active]="targetScope === 'school'"
-          (click)="setScope('school')" matButton="filled">
-          <mat-icon class="pill-icon">account_balance</mat-icon>
-          <span>School Classes (स्कूल कक्षाएं)</span>
-        </button>
+      @if (!isScopeLocked()) {
+        <div class="scope-pills">
+          @if (isScopeAllowed('school')) {
+            <button
+              type="button"
+              class="scope-pill-btn"
+              [class.active]="targetScope === 'school'"
+              (click)="setScope('school')" matButton="filled">
+              <mat-icon class="pill-icon">account_balance</mat-icon>
+              <span>School Classes (स्कूल कक्षाएं)</span>
+            </button>
+          }
 
-        <button
-          type="button"
-          class="scope-pill-btn"
-          [class.active]="targetScope === 'coaching'"
-          (click)="setScope('coaching')" matButton="filled">
-          <mat-icon class="pill-icon">groups</mat-icon>
-          <span>Coaching Batches (कोचिंग बैचेस)</span>
-        </button>
-      </div>
+          @if (isScopeAllowed('coaching')) {
+            <button
+              type="button"
+              class="scope-pill-btn"
+              [class.active]="targetScope === 'coaching'"
+              (click)="setScope('coaching')" matButton="filled">
+              <mat-icon class="pill-icon">groups</mat-icon>
+              <span>Coaching Batches (कोचिंग बैचेस)</span>
+            </button>
+          }
+        </div>
+      } @else {
+        <div class="dedicated-scope-tag" [class.coaching]="targetScope === 'coaching'" [class.school]="targetScope === 'school'">
+          <mat-icon class="scope-tag-icon">{{ targetScope === 'coaching' ? 'groups' : 'account_balance' }}</mat-icon>
+          <div class="scope-tag-texts">
+            <span class="scope-tag-title">{{ targetScope === 'coaching' ? 'Coaching Batches Scope (कोचिंग बैच मोड)' : 'School Classes Scope (स्कूल कक्षा मोड)' }}</span>
+            <span class="scope-tag-sub">{{ targetScope === 'coaching' ? 'Sequence roll numbers specifically for coaching cohorts' : 'Sequence roll numbers specifically for school classes & sections' }}</span>
+          </div>
+        </div>
+      }
 
       <div class="scope-meta-badge">
         <mat-icon>verified_user</mat-icon>
@@ -522,6 +537,52 @@ export interface RollSequencerDialogData {
       padding: 4px;
       border-radius: 10px;
       gap: 4px;
+    }
+
+    .dedicated-scope-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+
+      .scope-tag-icon {
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+      }
+
+      .scope-tag-texts {
+        display: flex;
+        flex-direction: column;
+
+        .scope-tag-title {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: #1e293b;
+        }
+
+        .scope-tag-sub {
+          font-size: 0.70rem;
+          color: #64748b;
+        }
+      }
+
+      &.coaching {
+        background: #f5f3ff;
+        border-color: #ddd6fe;
+        .scope-tag-icon { color: #7c3aed; }
+        .scope-tag-title { color: #5b21b6; }
+      }
+
+      &.school {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        .scope-tag-icon { color: #2563eb; }
+        .scope-tag-title { color: #1e40af; }
+      }
     }
 
     .scope-pill-btn {
@@ -1141,6 +1202,17 @@ export class StudentRollSequencerDialogComponent implements OnInit {
   hasAppliedChanges = false;
   previewResult: ResequenceRollNumbersResultDto | null = null;
 
+  isScopeAllowed(scope: 'school' | 'coaching'): boolean {
+    if (!this.data?.allowedScopes || this.data.allowedScopes.length === 0) {
+      return true;
+    }
+    return this.data.allowedScopes.includes(scope);
+  }
+
+  isScopeLocked(): boolean {
+    return !!(this.data?.allowedScopes && this.data.allowedScopes.length === 1);
+  }
+
   constructor(
     public dialogRef: MatDialogRef<StudentRollSequencerDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: RollSequencerDialogData,
@@ -1153,8 +1225,10 @@ export class StudentRollSequencerDialogComponent implements OnInit {
     this.schoolClasses = this.data?.schoolClasses ? [...this.data.schoolClasses] : [];
     this.batches = this.data?.batches ? [...this.data.batches] : [];
 
-    // Set initial scope if requested
-    if (this.data?.initialScope) {
+    // Set initial scope if requested or locked
+    if (this.data?.allowedScopes && this.data.allowedScopes.length === 1) {
+      this.targetScope = this.data.allowedScopes[0];
+    } else if (this.data?.initialScope) {
       this.targetScope = this.data.initialScope;
     } else if (this.data?.selectedBatchId && !this.data?.selectedClassId) {
       this.targetScope = 'coaching';

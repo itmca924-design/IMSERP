@@ -1522,8 +1522,10 @@ public class AttendanceController : ControllerBase
         matchedDevice.LastSyncAt = DateTime.UtcNow;
         matchedDevice.Status = "Online";
 
+        var tz = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "India Standard Time" : "Asia/Kolkata");
         var indiaTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.SpecifyKind(eventTime, DateTimeKind.Utc), "India Standard Time");
+            DateTime.SpecifyKind(eventTime, DateTimeKind.Utc), OperatingSystem.IsWindows() ? "India Standard Time" : "Asia/Kolkata");
+        var istDate = indiaTime.Date;
 
         var eventLog = new BiometricEventLog
         {
@@ -1553,7 +1555,7 @@ public class AttendanceController : ControllerBase
         {
             eventLog.PersonType = "student";
             var record = await _db.StudentAttendances.IgnoreQueryFilters().FirstOrDefaultAsync(a =>
-                a.TenantId == resolvedTenantId && a.StudentId == student.Id && a.AttendanceDate == eventTime.Date);
+                a.TenantId == resolvedTenantId && a.StudentId == student.Id && a.AttendanceDate == istDate);
 
             if (record == null)
             {
@@ -1562,7 +1564,7 @@ public class AttendanceController : ControllerBase
                     TenantId = resolvedTenantId,
                     BranchId = student.BranchId ?? resolvedBranchId,
                     StudentId = student.Id,
-                    AttendanceDate = eventTime.Date,
+                    AttendanceDate = istDate,
                     CheckInTime = indiaTime.ToString("HH:mm"),
                     Status = TeacherAttendanceStatus.Present,
                     CaptureSource = "Hikvision DS-K1A802AEF",
@@ -1624,7 +1626,7 @@ public class AttendanceController : ControllerBase
         {
             eventLog.PersonType = "teacher";
             var record = await _db.TeacherAttendances.IgnoreQueryFilters().FirstOrDefaultAsync(a =>
-                a.TenantId == resolvedTenantId && a.TeacherId == teacher.Id && a.AttendanceDate == eventTime.Date);
+                a.TenantId == resolvedTenantId && a.TeacherId == teacher.Id && a.AttendanceDate == istDate);
 
             if (record == null)
             {
@@ -1633,7 +1635,7 @@ public class AttendanceController : ControllerBase
                     TenantId = resolvedTenantId,
                     BranchId = teacher.BranchId ?? resolvedBranchId,
                     TeacherId = teacher.Id,
-                    AttendanceDate = eventTime.Date,
+                    AttendanceDate = istDate,
                     CheckInTime = indiaTime.ToString("HH:mm"),
                     Status = TeacherAttendanceStatus.Present,
                     CaptureSource = "Hikvision DS-K1A802AEF",

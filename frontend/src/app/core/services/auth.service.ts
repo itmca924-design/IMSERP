@@ -5,6 +5,7 @@ import { Observable, tap } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { environment } from '../../../environments/environment';
 import { MenuService } from './menu.service';
+import { LoadingService } from './loading.service';
 
 export interface BranchInfo {
   id: string;
@@ -229,6 +230,7 @@ export class AuthService {
 
   private dialog = inject(MatDialog, { optional: true });
   private menuService = inject(MenuService, { optional: true });
+  private loadingService = inject(LoadingService, { optional: true });
 
   constructor(private http: HttpClient, private router: Router) {
     this.syncStorageAuth();
@@ -707,6 +709,11 @@ export class AuthService {
   }
 
   logout(reason?: string): void {
+    // Immediately force-hide any active global loading overlay
+    try {
+      this.loadingService?.forceHide();
+    } catch (_) {}
+
     // Immediately close any open modal dialogs or popups
     try {
       this.dialog?.closeAll();

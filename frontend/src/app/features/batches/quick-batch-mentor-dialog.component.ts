@@ -360,11 +360,39 @@ export class QuickBatchMentorDialogComponent implements OnInit {
     this.loadTeachers();
   }
 
+  filterOnlyTeachingStaff(list: any[]): any[] {
+    if (!list || !Array.isArray(list)) return [];
+    return list.filter((t: any) => {
+      if (t.staffType) {
+        const st = (t.staffType + '').toLowerCase().trim();
+        if (st.includes('non') || st === 'nonteaching' || st === '2') {
+          return false;
+        }
+      }
+      const desig = (t.designation || '').toLowerCase();
+      const dept = (t.department || '').toLowerCase();
+      const name = (t.fullName || t.name || '').toLowerCase();
+      const spec = (t.specialization || '').toLowerCase();
+
+      const nonTeachingKeywords = [
+        'account', 'clerk', 'peon', 'driver', 'conductor', 'guard',
+        'cashier', 'receptionist', 'librarian', 'sweeper', 'security',
+        'gatekeeper', 'warden', 'storekeeper', 'maintenance', 'admin desk', 'accounts desk'
+      ];
+
+      const isNonTeaching = nonTeachingKeywords.some(kw =>
+        desig.includes(kw) || dept.includes(kw) || name.includes(kw) || spec.includes(kw)
+      );
+
+      return !isNonTeaching;
+    });
+  }
+
   loadTeachers(): void {
     this.loading = true;
-    this.coachingService.getTeachers().subscribe({
+    this.coachingService.getTeachers('Teaching').subscribe({
       next: (list) => {
-        this.teachers = list || [];
+        this.teachers = this.filterOnlyTeachingStaff(list || []);
         this.loading = false;
       },
       error: () => {

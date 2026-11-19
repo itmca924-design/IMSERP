@@ -318,6 +318,21 @@ public class TeachersController : ControllerBase
             if (Enum.TryParse<StaffType>(staffType, true, out var parsedStaffType))
             {
                 q = q.Where(t => t.StaffType == parsedStaffType);
+
+                if (parsedStaffType == StaffType.Teaching)
+                {
+                    // Strict protection: exclude any non-teaching staff (Accountant, clerk, peon, driver, etc.)
+                    // even if legacy database record had default StaffType=1
+                    var nonTeachingKeywords = new[] { "account", "clerk", "peon", "driver", "conductor", "guard", "cashier", "receptionist", "librarian", "sweeper", "security", "gatekeeper", "warden" };
+                    foreach (var kw in nonTeachingKeywords)
+                    {
+                        q = q.Where(t =>
+                            (t.Designation == null || !t.Designation.ToLower().Contains(kw)) &&
+                            (t.Department == null || !t.Department.ToLower().Contains(kw)) &&
+                            (t.FullName == null || !t.FullName.ToLower().Contains(kw))
+                        );
+                    }
+                }
             }
         }
 
@@ -394,6 +409,21 @@ public class TeachersController : ControllerBase
             if (Enum.TryParse<StaffType>(staffType, true, out var parsedStaffType))
             {
                 q = q.Where(t => t.StaffType == parsedStaffType);
+
+                if (parsedStaffType == StaffType.Teaching)
+                {
+                    // Strict protection: exclude any non-teaching staff (Accountant, clerk, peon, driver, etc.)
+                    // even if legacy database record had default StaffType=1
+                    var nonTeachingKeywords = new[] { "account", "clerk", "peon", "driver", "conductor", "guard", "cashier", "receptionist", "librarian", "sweeper", "security", "gatekeeper", "warden" };
+                    foreach (var kw in nonTeachingKeywords)
+                    {
+                        q = q.Where(t =>
+                            (t.Designation == null || !t.Designation.ToLower().Contains(kw)) &&
+                            (t.Department == null || !t.Department.ToLower().Contains(kw)) &&
+                            (t.FullName == null || !t.FullName.ToLower().Contains(kw))
+                        );
+                    }
+                }
             }
         }
 

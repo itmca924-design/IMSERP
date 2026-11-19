@@ -33,6 +33,8 @@ public class StudentRegularizationController : ControllerBase
         [FromQuery] Guid? studentId,
         [FromQuery] Guid? classId,
         [FromQuery] Guid? sectionId,
+        [FromQuery] Guid? batchId,
+        [FromQuery] string? academicScope,
         [FromQuery] int? month,
         [FromQuery] int? year,
         [FromQuery] string? search)
@@ -46,6 +48,9 @@ public class StudentRegularizationController : ControllerBase
                 .ThenInclude(s => s!.Class)
             .Include(r => r.Student)
                 .ThenInclude(s => s!.Section)
+            .Include(r => r.Student)
+                .ThenInclude(s => s!.Batch)
+            .Include(r => r.Batch)
             .Where(r => r.TenantId == tenantId);
 
         if (_currentUser.BranchId.HasValue)
@@ -70,9 +75,15 @@ public class StudentRegularizationController : ControllerBase
         }
         else if (scope.Scope == "Teacher")
         {
-            if (scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0)
+            var hasSections = scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0;
+            var hasBatches = scope.AssignedBatchIds != null && scope.AssignedBatchIds.Count > 0;
+
+            if (hasSections || hasBatches)
             {
-                query = query.Where(r => r.Student != null && r.Student.SectionId.HasValue && scope.AssignedSectionIds.Contains(r.Student.SectionId.Value));
+                query = query.Where(r => r.Student != null && (
+                    (hasSections && r.Student.SectionId.HasValue && scope.AssignedSectionIds!.Contains(r.Student.SectionId.Value)) ||
+                    (hasBatches && ((r.BatchId.HasValue && scope.AssignedBatchIds!.Contains(r.BatchId.Value)) || (r.Student.BatchId.HasValue && scope.AssignedBatchIds!.Contains(r.Student.BatchId.Value))))
+                ));
             }
             else
             {
@@ -94,6 +105,17 @@ public class StudentRegularizationController : ControllerBase
 
         if (sectionId.HasValue && sectionId.Value != Guid.Empty)
             query = query.Where(r => r.SectionId == sectionId.Value || (r.Student != null && r.Student.SectionId == sectionId.Value));
+
+        if (batchId.HasValue && batchId.Value != Guid.Empty)
+            query = query.Where(r => r.BatchId == batchId.Value || (r.Student != null && r.Student.BatchId == batchId.Value));
+
+        if (!string.IsNullOrWhiteSpace(academicScope) && academicScope != "All")
+        {
+            if (academicScope.Equals("School", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(r => r.Student != null && (r.Student.IsSchoolStudent || r.Student.ClassId != null));
+            else if (academicScope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(r => r.BatchId != null || (r.Student != null && (r.Student.IsCoachingStudent || r.Student.BatchId != null)));
+        }
 
         if (month.HasValue && month.Value > 0)
             query = query.Where(r => r.AttendanceDate.Month == month.Value);
@@ -123,6 +145,8 @@ public class StudentRegularizationController : ControllerBase
                 r.Student != null && r.Student.Class != null ? r.Student.Class.Name : null,
                 r.SectionId ?? (r.Student != null ? r.Student.SectionId : null),
                 r.Student != null && r.Student.Section != null ? r.Student.Section.Name : null,
+                r.BatchId ?? (r.Student != null ? r.Student.BatchId : null),
+                r.Batch != null ? r.Batch.Name : (r.Student != null && r.Student.Batch != null ? r.Student.Batch.Name : null),
                 r.AttendanceDate,
                 r.RequestedStatus.ToString(),
                 r.ReasonCategory,
@@ -171,9 +195,15 @@ public class StudentRegularizationController : ControllerBase
         }
         else if (scope.Scope == "Teacher")
         {
-            if (scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0)
+            var hasSections = scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0;
+            var hasBatches = scope.AssignedBatchIds != null && scope.AssignedBatchIds.Count > 0;
+
+            if (hasSections || hasBatches)
             {
-                query = query.Where(r => r.Student != null && r.Student.SectionId.HasValue && scope.AssignedSectionIds.Contains(r.Student.SectionId.Value));
+                query = query.Where(r => r.Student != null && (
+                    (hasSections && r.Student.SectionId.HasValue && scope.AssignedSectionIds!.Contains(r.Student.SectionId.Value)) ||
+                    (hasBatches && ((r.BatchId.HasValue && scope.AssignedBatchIds!.Contains(r.BatchId.Value)) || (r.Student.BatchId.HasValue && scope.AssignedBatchIds!.Contains(r.Student.BatchId.Value))))
+                ));
             }
             else
             {
@@ -206,6 +236,7 @@ public class StudentRegularizationController : ControllerBase
         var student = await _db.Students
             .Include(s => s.Class)
             .Include(s => s.Section)
+            .Include(s => s.Batch)
             .FirstOrDefaultAsync(s => s.Id == targetStudentId && s.TenantId == tenantId);
 
         if (student == null) return NotFound(new { message = "Student not found." });
@@ -237,7 +268,7 @@ public class StudentRegularizationController : ControllerBase
         {
             "Student" => "Student",
             "Parent" => "Parent",
-            "Teacher" => "Class Teacher",
+            "Teacher" => (student.IsCoachingStudent || student.BatchId != null) ? "Coaching Batch Mentor" : "Class Teacher",
             _ => "School Admin"
         };
 
@@ -248,6 +279,7 @@ public class StudentRegularizationController : ControllerBase
             StudentId = student.Id,
             ClassId = student.ClassId,
             SectionId = student.SectionId,
+            BatchId = student.BatchId ?? dto.BatchId,
             AttendanceDate = dto.AttendanceDate.Date,
             RequestedStatus = requestedStatus,
             ReasonCategory = string.IsNullOrWhiteSpace(dto.ReasonCategory) ? "OnDuty" : dto.ReasonCategory.Trim(),
@@ -273,6 +305,8 @@ public class StudentRegularizationController : ControllerBase
             student.Class?.Name,
             student.SectionId,
             student.Section?.Name,
+            reg.BatchId,
+            student.Batch?.Name,
             reg.AttendanceDate,
             reg.RequestedStatus.ToString(),
             reg.ReasonCategory,
@@ -311,12 +345,16 @@ public class StudentRegularizationController : ControllerBase
             return Conflict(new { message = $"This request has already been {reg.Status}." });
         }
 
-        // If Teacher, ensure student belongs to their assigned Class/Section
-        if (scope.Scope == "Teacher" && scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0)
+        // If Teacher, ensure student belongs to their assigned Class/Section or mentored Batch
+        if (scope.Scope == "Teacher")
         {
-            if (reg.Student == null || !reg.Student.SectionId.HasValue || !scope.AssignedSectionIds.Contains(reg.Student.SectionId.Value))
+            var allowedSection = scope.AssignedSectionIds != null && reg.Student != null && reg.Student.SectionId.HasValue && scope.AssignedSectionIds.Contains(reg.Student.SectionId.Value);
+            var regBatchId = reg.BatchId ?? reg.Student?.BatchId;
+            var allowedBatch = scope.AssignedBatchIds != null && regBatchId.HasValue && scope.AssignedBatchIds.Contains(regBatchId.Value);
+
+            if (!allowedSection && !allowedBatch)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only review attendance regularizations for students in your assigned Class & Section." });
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only review attendance regularizations for students in your assigned Class & Section or Mentored Coaching Batch." });
             }
         }
 
@@ -415,7 +453,7 @@ public class StudentRegularizationController : ControllerBase
     // =========================================================================
     // PRIVATE ACCESS SCOPE HELPER
     // =========================================================================
-    private async Task<(string Scope, List<Guid>? AssignedSectionIds, Guid? StudentId, string ReviewerName)> GetUserAccessScopeAsync(Guid tenantId)
+    private async Task<(string Scope, List<Guid>? AssignedSectionIds, List<Guid>? AssignedBatchIds, Guid? StudentId, string ReviewerName)> GetUserAccessScopeAsync(Guid tenantId)
     {
         var userId = _currentUser.UserId;
         var user = await _db.Users
@@ -428,14 +466,14 @@ public class StudentRegularizationController : ControllerBase
         var studentRecord = await _db.Students.FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
         if (studentRecord != null)
         {
-            return ("Student", null, studentRecord.Id, user?.FullName ?? "Student");
+            return ("Student", null, null, studentRecord.Id, user?.FullName ?? "Student");
         }
 
         // 2. Check if Parent — via DB link
         var parentStudent = await _db.Students.FirstOrDefaultAsync(s => s.ParentUserId == userId && s.TenantId == tenantId);
         if (parentStudent != null)
         {
-            return ("Parent", null, parentStudent.Id, user?.FullName ?? "Parent");
+            return ("Parent", null, null, parentStudent.Id, user?.FullName ?? "Parent");
         }
 
         // 3. Check if Teacher (linked in Teachers table by UserId, Email, or FullName)
@@ -453,11 +491,16 @@ public class StudentRegularizationController : ControllerBase
                 .Select(sec => sec.Id)
                 .ToListAsync();
 
-            return ("Teacher", sectionIds, null, $"{teacher.FullName} (Class Teacher)");
+            var batchIds = await _db.Batches
+                .Where(b => b.MentorTeacherId == teacher.Id && b.TenantId == tenantId)
+                .Select(b => b.Id)
+                .ToListAsync();
+
+            return ("Teacher", sectionIds, batchIds, null, $"{teacher.FullName} (Faculty)");
         }
 
         // 4. Default: Admin / Principal / SuperAdmin
         var adminName = user?.FullName ?? "Administrator";
-        return ("Admin", null, null, $"{adminName} (Admin)");
+        return ("Admin", null, null, null, $"{adminName} (Admin)");
     }
 }

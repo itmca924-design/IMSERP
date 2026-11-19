@@ -28,6 +28,7 @@ import { AttendanceShiftSettingsDialogComponent } from '../../shared/components/
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { ClassAttendanceReportDialogComponent } from './class-attendance-report-dialog.component';
 import { StudentMonthlySlipDialogComponent } from './student-monthly-slip-dialog.component';
+import { MonthlyBulkAttendanceDialogComponent } from './monthly-bulk-attendance-dialog.component';
 
 interface StudentItem {
   id: string;
@@ -149,7 +150,7 @@ interface CalendarDay {
         }
       </div>
     </div>
-    <p class="page-subtitle">{{ hasSchool && hasCoaching ? 'Mark daily roll call for School Classes or Coaching Batches, or view individual student monthly registers.' : (hasSchool ? 'Mark daily roll call for School Classes and Sections, or view individual student monthly registers.' : 'Mark daily roll call for Coaching Batches, or view individual student monthly registers.') }}</p>
+    <p class="page-subtitle">Mark daily roll call for School Classes and Sections, or view individual student monthly registers.</p>
   </div>
 
   <!-- Mode Tab Switcher (Segmented Action Deck) -->
@@ -165,7 +166,7 @@ interface CalendarDay {
             <span class="active-badge">Active</span>
           }
         </div>
-        <small>{{ hasSchool && hasCoaching ? 'School Classes & Coaching Batches attendance in 1 click' : (hasSchool ? 'School Classes daily roll call in 1 click' : 'Coaching Batches attendance in 1 click') }}</small>
+        <small>School Classes daily roll call in 1 click</small>
       </div>
     </button>
     <button type="button" class="tab-btn" [class.active]="activeTab === 'single'" (click)="setTab('single')">
@@ -206,41 +207,6 @@ interface CalendarDay {
   <!-- ================= TAB 1: ROLL CALL (BULK) ================= -->
   @if (activeTab === 'batch') {
     <div class="batch-view">
-      <!-- Scope Selector: School Class vs Coaching Batch (Only shown if both modules are active) -->
-      @if (hasSchool && hasCoaching) {
-        <div class="roll-call-scope-bar">
-          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'school'" (click)="setRollCallScope('school')">
-            <div class="scope-icon-box">
-              <mat-icon>school</mat-icon>
-            </div>
-            <div class="scope-btn-text">
-              <div class="scope-title-row">
-                <strong>School Class Roll Call</strong>
-                <span class="scope-chip school">School Scope</span>
-              </div>
-              <small>Class & Section daily attendance</small>
-            </div>
-            @if (rollCallScope === 'school') {
-              <mat-icon class="scope-check">check_circle</mat-icon>
-            }
-          </button>
-          <button type="button" class="scope-pill-btn" [class.active]="rollCallScope === 'coaching'" (click)="setRollCallScope('coaching')">
-            <div class="scope-icon-box">
-              <mat-icon>menu_book</mat-icon>
-            </div>
-            <div class="scope-btn-text">
-              <div class="scope-title-row">
-                <strong>Coaching Batch Roll Call</strong>
-                <span class="scope-chip coaching">Coaching Scope</span>
-              </div>
-              <small>Batch & Subject attendance</small>
-            </div>
-            @if (rollCallScope === 'coaching') {
-              <mat-icon class="scope-check">check_circle</mat-icon>
-            }
-          </button>
-        </div>
-      }
       <!-- Controls Card -->
       <mat-card class="batch-controls-card mat-elevation-z1">
         <div class="controls-row">
@@ -441,6 +407,11 @@ interface CalendarDay {
         <button class="btn-bulk-absent" (click)="markAllActiveStatus('Absent')" [disabled]="isBatchPastLocked" matTooltip="Set all students to Absent" matButton="filled">
           <mat-icon>highlight_off</mat-icon> Mark All Absent
         </button>
+        @if (rollCallScope === 'school') {
+          <button class="btn-monthly-bulk" (click)="openMonthlyBulkAttendanceDialog()" [disabled]="!selectedClassId || isBatchPastLocked" matTooltip="Generate full month bulk attendance for this entire class in 1 click" matButton="filled">
+            <mat-icon>auto_mode</mat-icon> <span>Monthly Bulk Attendance</span>
+          </button>
+        }
         <button class="btn-class-report" (click)="openClassAttendanceReport()" [disabled]="activeStudents.length === 0" matTooltip="View &amp; Print Official A4 Class Attendance Report, or Share on WhatsApp" matButton="filled">
           <mat-icon>print</mat-icon> <span>Class Report &amp; WhatsApp</span>
         </button>
@@ -712,64 +683,31 @@ interface CalendarDay {
   <div class="single-view">
     <mat-card class="selector-card mat-elevation-z1">
       <mat-icon color="primary" class="selector-icon">person_search</mat-icon>
-      <!-- Stream Filter Toggle (Only shown when both School & Coaching modules are active) -->
-      @if (hasSchool && hasCoaching) {
-        <div class="stream-pill-toggle">
-          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'all'" (click)="setSingleStreamFilter('all')" matButton="filled">All</button>
-          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'school'" (click)="setSingleStreamFilter('school')" matButton="filled">🏫 School</button>
-          <button type="button" class="stream-pill" [class.active]="singleStreamFilter === 'coaching'" (click)="setSingleStreamFilter('coaching')" matButton="filled">📚 Coaching</button>
-        </div>
-      }
-      <!-- School Class & Section Filter -->
-      @if (singleStreamFilter === 'school') {
-        <mat-form-field appearance="outline" class="single-class-select" subscriptSizing="dynamic" [matTooltip]="isTeacherClassLocked ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
-          <mat-label>Select Class @if (isTeacherClassLocked) {
+      <!-- School Class & Section Filter (100% School Attendance) -->
+      <mat-form-field appearance="outline" class="single-class-select" subscriptSizing="dynamic" [matTooltip]="isTeacherClassLocked ? '🔒 Assigned class for your teaching profile (Locked)' : ''">
+        <mat-label>Select Class @if (isTeacherClassLocked) {
+          <span>🔒</span>
+        }</mat-label>
+        <mat-select [(ngModel)]="singleSelectedClassId" (selectionChange)="onSingleClassChanged()" [disabled]="isTeacherClassLocked">
+          @if (!isTeacherClassLocked) {
+            <mat-option value="">All Classes</mat-option>
+          }
+          @for (c of schoolClasses; track c) {
+            <mat-option [value]="c.id">{{ c.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      @if (singleSelectedClassId && singleClassSections.length > 0) {
+        <mat-form-field appearance="outline" class="single-section-select" subscriptSizing="dynamic" [matTooltip]="isTeacherSectionLocked ? '🔒 Assigned section locked' : ''">
+          <mat-label>Section @if (isTeacherSectionLocked) {
             <span>🔒</span>
           }</mat-label>
-          <mat-select [(ngModel)]="singleSelectedClassId" (selectionChange)="onSingleClassChanged()" [disabled]="isTeacherClassLocked">
-            @if (!isTeacherClassLocked) {
-              <mat-option value="">All Classes</mat-option>
+          <mat-select [(ngModel)]="singleSelectedSectionId" (selectionChange)="onSingleSectionChanged()" [disabled]="isTeacherSectionLocked">
+            @if (!isTeacherSectionLocked) {
+              <mat-option value="">All Sections</mat-option>
             }
-            @for (c of schoolClasses; track c) {
-              <mat-option [value]="c.id">{{ c.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        @if (singleSelectedClassId && singleClassSections.length > 0) {
-          <mat-form-field appearance="outline" class="single-section-select" subscriptSizing="dynamic" [matTooltip]="isTeacherSectionLocked ? '🔒 Assigned section locked' : ''">
-            <mat-label>Section @if (isTeacherSectionLocked) {
-              <span>🔒</span>
-            }</mat-label>
-            <mat-select [(ngModel)]="singleSelectedSectionId" (selectionChange)="onSingleSectionChanged()" [disabled]="isTeacherSectionLocked">
-              @if (!isTeacherSectionLocked) {
-                <mat-option value="">All Sections</mat-option>
-              }
-              @for (sec of singleClassSections; track sec) {
-                <mat-option [value]="sec.id">Section {{ sec.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        }
-      }
-      <!-- Coaching Batch Filter with Academic Class Cascade -->
-      @if (singleStreamFilter === 'coaching') {
-        @if (hasSchool) {
-          <mat-form-field appearance="outline" class="single-class-select" subscriptSizing="dynamic">
-            <mat-label>Academic Class</mat-label>
-            <mat-select [(ngModel)]="singleSelectedCoachingClassId" (selectionChange)="onSingleCoachingClassChanged()">
-              <mat-option value="">All Academic Classes</mat-option>
-              @for (c of schoolClasses; track c) {
-                <mat-option [value]="c.id">{{ c.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        }
-        <mat-form-field appearance="outline" class="single-batch-select" subscriptSizing="dynamic">
-          <mat-label>Select Batch</mat-label>
-          <mat-select [(ngModel)]="singleSelectedBatchId" (selectionChange)="onSingleBatchChanged()">
-            <mat-option value="">All Batches</mat-option>
-            @for (b of filteredSingleCoachingBatches; track b) {
-              <mat-option [value]="b.id">{{ b.name }}</mat-option>
+            @for (sec of singleClassSections; track sec) {
+              <mat-option [value]="sec.id">Section {{ sec.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -1972,6 +1910,26 @@ interface CalendarDay {
       font-weight: 600;
     }
     .btn-bulk-absent:hover { --mat-button-filled-container-color: #fee2e2; }
+
+    .btn-monthly-bulk {
+      --mat-button-filled-container-color: #4f46e5;
+      --mat-button-filled-label-text-color: #ffffff;
+      --mat-button-filled-state-layer-color: #ffffff;
+      --mat-button-filled-ripple-color: rgba(255, 255, 255, 0.2);
+      font-weight: 700;
+      border: 1px solid #4338ca;
+      box-shadow: 0 2px 6px -1px rgba(79, 70, 229, 0.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #fbbf24; }
+      &:hover:not([disabled]) {
+        --mat-button-filled-container-color: #4338ca;
+      }
+      &[disabled] {
+        opacity: 0.55;
+      }
+    }
 
     .btn-class-report {
       --mat-button-filled-container-color: #eff6ff;
@@ -4414,14 +4372,9 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
     if (!this.hasSchool && this.hasCoaching) {
       this.rollCallScope = 'coaching';
       this.singleStreamFilter = 'coaching';
-    } else if (this.hasSchool && !this.hasCoaching) {
-      this.rollCallScope = 'school';
-      this.singleStreamFilter = 'school';
-    } else if (this.isTeacher) {
-      this.rollCallScope = 'school';
-      this.singleStreamFilter = 'school';
     } else {
-      this.singleStreamFilter = 'all';
+      this.rollCallScope = 'school';
+      this.singleStreamFilter = 'school';
     }
 
     this.loadAttendanceSettings();
@@ -5596,7 +5549,7 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
 
   get filteredSingleStudents(): StudentItem[] {
     let list = this.students;
-    if (this.singleStreamFilter === 'school') {
+    if (this.hasSchool) {
       list = list.filter(s => s.isSchoolStudent);
       if (this.singleSelectedClassId) {
         list = list.filter(s => s.classId === this.singleSelectedClassId);
@@ -5604,7 +5557,7 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
       if (this.singleSelectedSectionId) {
         list = list.filter(s => s.sectionId === this.singleSelectedSectionId);
       }
-    } else if (this.singleStreamFilter === 'coaching') {
+    } else {
       list = list.filter(s => s.isCoachingStudent);
       if (this.singleSelectedBatchId) {
         list = list.filter(s => s.batchId === this.singleSelectedBatchId);
@@ -5707,21 +5660,21 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
   }
 
   openShiftSettingsDialog(): void {
-    const isCoaching = this.rollCallScope === 'coaching';
     const ref = this.dialog.open(AttendanceShiftSettingsDialogComponent, {
       width: '960px',
       maxWidth: '96vw',
-      data: { initialTab: isCoaching ? 'coaching' : 'student' }
+      data: {
+        initialTab: 'student',
+        allowedTabs: ['teacher', 'student'],
+        title: 'School Attendance Shift & Policy Settings',
+        subtitle: 'Configure class shifts, assembly timings, absence fines, and faculty rules.'
+      }
     });
     ref.afterClosed().subscribe(res => {
       if (res?.saved && res?.settings) {
         this.attendanceSettings = res.settings;
         this.attendanceMode = res.settings.studentMode;
-        if (this.hasCoaching) {
-          this.loadBatches(true);
-        } else {
-          this.syncScopeDefaultTimings();
-        }
+        this.syncScopeDefaultTimings();
         if (this.selectedStudent) {
           this.loadAttendance();
         }
@@ -6333,6 +6286,41 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
         teacherName: this.isTeacher && this.teacherClassSection?.isClassTeacher
           ? this.authService.currentUser()?.fullName
           : undefined
+      }
+    });
+  }
+
+  openMonthlyBulkAttendanceDialog(): void {
+    if (!this.selectedClassId) {
+      this.confirmDialog.alert('Class Required', 'Please select a school class first.', 'warning');
+      return;
+    }
+
+    const currentClass = this.schoolClasses.find(c => c.id === this.selectedClassId);
+    const className = currentClass?.name || 'Class';
+    const sectionName = this.classSections.find(s => s.id === this.selectedSectionId)?.name;
+
+    const dialogRef = this.dialog.open(MonthlyBulkAttendanceDialogComponent, {
+      width: 'min(1180px, 96vw)',
+      maxWidth: '96vw',
+      height: '88vh',
+      maxHeight: '88vh',
+      panelClass: 'monthly-bulk-dialog-panel',
+      data: {
+        classId: this.selectedClassId,
+        className,
+        sectionId: this.selectedSectionId || undefined,
+        sectionName,
+        schoolClasses: this.schoolClasses,
+        classSections: this.classSections,
+        defaultCheckInTime: this.bulkCheckInTime || '08:00',
+        defaultCheckOutTime: this.bulkCheckOutTime || '14:00'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res?.refreshed) {
+        this.loadActiveScopeAttendance();
       }
     });
   }

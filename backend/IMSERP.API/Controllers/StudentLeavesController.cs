@@ -53,10 +53,10 @@ public class StudentLeavesController : ControllerBase
                 .ThenInclude(s => s!.Batch)
             .Where(l => l.TenantId == tenantId);
 
-        if (_currentUser.BranchId.HasValue)
+        if (_currentUser.BranchId.HasValue && !studentId.HasValue)
         {
             var branchId = _currentUser.BranchId.Value;
-            query = query.Where(l => !l.BranchId.HasValue || l.BranchId == branchId);
+            query = query.Where(l => !l.BranchId.HasValue || l.BranchId == branchId || (l.Student != null && (l.Student.BranchId == branchId || (l.Student.Batch != null && l.Student.Batch.BranchId == branchId))));
         }
 
         // =========================================================================
@@ -86,11 +86,6 @@ public class StudentLeavesController : ControllerBase
                     (hasBatches && l.Student.BatchId.HasValue && scope.AssignedBatchIds!.Contains(l.Student.BatchId.Value))
                 ));
             }
-            else
-            {
-                // Teacher with no assigned sections as Class Teacher or mentored Batches
-                query = query.Where(l => false);
-            }
         }
         // Admin / Institute Admin sees all leaves across the institution/branch
 
@@ -101,7 +96,12 @@ public class StudentLeavesController : ControllerBase
             query = query.Where(l => l.StudentId == studentId.Value);
 
         if (classId.HasValue && classId.Value != Guid.Empty)
-            query = query.Where(l => l.Student != null && l.Student.ClassId == classId.Value);
+        {
+            query = query.Where(l => l.Student != null && (
+                l.Student.ClassId == classId.Value ||
+                (l.Student.Batch != null && l.Student.Batch.ClassId == classId.Value)
+            ));
+        }
 
         if (batchId.HasValue && batchId.Value != Guid.Empty)
             query = query.Where(l => l.Student != null && l.Student.BatchId == batchId.Value);
@@ -185,7 +185,8 @@ public class StudentLeavesController : ControllerBase
     public async Task<ActionResult<StudentLeaveStatsDto>> GetStats(
         [FromQuery] Guid? classId = null,
         [FromQuery] Guid? batchId = null,
-        [FromQuery] string? academicScope = null)
+        [FromQuery] string? academicScope = null,
+        [FromQuery] Guid? studentId = null)
     {
         var tenantId = _currentUser.TenantId;
         var scope = await GetUserAccessScopeAsync(tenantId);
@@ -193,12 +194,13 @@ public class StudentLeavesController : ControllerBase
         var query = _db.StudentLeaves
             .AsNoTracking()
             .Include(l => l.Student)
+                .ThenInclude(s => s!.Batch)
             .Where(l => l.TenantId == tenantId);
 
-        if (_currentUser.BranchId.HasValue)
+        if (_currentUser.BranchId.HasValue && !studentId.HasValue)
         {
             var branchId = _currentUser.BranchId.Value;
-            query = query.Where(l => !l.BranchId.HasValue || l.BranchId == branchId);
+            query = query.Where(l => !l.BranchId.HasValue || l.BranchId == branchId || (l.Student != null && (l.Student.BranchId == branchId || (l.Student.Batch != null && l.Student.Batch.BranchId == branchId))));
         }
 
         if (scope.Scope == "Student" || scope.Scope == "Parent")
@@ -224,14 +226,18 @@ public class StudentLeavesController : ControllerBase
                     (hasBatches && l.Student.BatchId.HasValue && scope.AssignedBatchIds!.Contains(l.Student.BatchId.Value))
                 ));
             }
-            else
-            {
-                return Ok(new StudentLeaveStatsDto(0, 0, 0, 0, 0));
-            }
         }
 
+        if (studentId.HasValue && studentId.Value != Guid.Empty)
+            query = query.Where(l => l.StudentId == studentId.Value);
+
         if (classId.HasValue && classId.Value != Guid.Empty)
-            query = query.Where(l => l.Student != null && l.Student.ClassId == classId.Value);
+        {
+            query = query.Where(l => l.Student != null && (
+                l.Student.ClassId == classId.Value ||
+                (l.Student.Batch != null && l.Student.Batch.ClassId == classId.Value)
+            ));
+        }
 
         if (batchId.HasValue && batchId.Value != Guid.Empty)
             query = query.Where(l => l.Student != null && l.Student.BatchId == batchId.Value);
@@ -360,6 +366,7 @@ public class StudentLeavesController : ControllerBase
             .AnyAsync(l => l.TenantId == tenantId &&
                            l.StudentId == targetStudentId &&
                            l.Status != "Rejected" &&
+                           l.Status != "Cancelled" &&
                            l.FromDate.Date <= dto.ToDate.Date &&
                            l.ToDate.Date >= dto.FromDate.Date);
 
@@ -368,7 +375,22 @@ public class StudentLeavesController : ControllerBase
             return BadRequest(new { message = "An active or pending leave application already exists for this student in the selected date range." });
         }
 
-        var totalDays = Math.Max(1, (int)(dto.ToDate.Date - dto.FromDate.Date).TotalDays + 1);
+        var from = dto.FromDate.Date;
+        var to = dto.ToDate.Date;
+
+        var holidays = await _db.Holidays.AsNoTracking()
+            .Where(h => h.TenantId == tenantId && h.IsActive && h.StartDate.Date <= to && h.EndDate.Date >= from)
+            .ToListAsync();
+
+        var workingDays = 0;
+        for (var cur = from; cur <= to; cur = cur.AddDays(1))
+        {
+            if (cur.DayOfWeek == DayOfWeek.Sunday) continue;
+            if (holidays.Any(h => cur >= h.StartDate.Date && cur <= h.EndDate.Date)) continue;
+            workingDays++;
+        }
+
+        var totalDays = Math.Max(1, workingDays);
 
         string appliedByLabel;
         if (scope.Scope == "Student") appliedByLabel = "Student";
@@ -486,10 +508,18 @@ public class StudentLeavesController : ControllerBase
             var from = leave.FromDate.Date;
             var to = leave.ToDate.Date;
 
+            var holidays = await _db.Holidays
+                .AsNoTracking()
+                .Where(h => h.TenantId == tenantId && h.IsActive && h.StartDate.Date <= to && h.EndDate.Date >= from)
+                .ToListAsync();
+
             for (var cur = from; cur <= to; cur = cur.AddDays(1))
             {
                 // Skip Sundays if not a working day
                 if (cur.DayOfWeek == DayOfWeek.Sunday) continue;
+
+                // Skip Public Holidays
+                if (holidays.Any(h => cur >= h.StartDate.Date && cur <= h.EndDate.Date)) continue;
 
                 var existingAtt = await _db.StudentAttendances
                     .FirstOrDefaultAsync(a => a.StudentId == leave.StudentId && a.AttendanceDate == cur);
@@ -807,6 +837,26 @@ public class StudentLeavesController : ControllerBase
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         var roleName = user?.AssignedRole?.Name ?? _currentUser.UserRole ?? "";
+
+        // 0. SuperAdmin / Admin / InstituteAdmin / Principal / Director always has full administrative scope
+        var role = user?.Role.ToString() ?? "";
+        var isSuperOrAdmin = role.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+                             role.Equals("Admin", StringComparison.OrdinalIgnoreCase) ||
+                             role.Equals("InstituteAdmin", StringComparison.OrdinalIgnoreCase) ||
+                             roleName.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+                             roleName.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+                             roleName.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+                             roleName.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+                             roleName.Contains("Management", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(_currentUser.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(_currentUser.UserRole, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(_currentUser.UserRole, "InstituteAdmin", StringComparison.OrdinalIgnoreCase);
+
+        if (isSuperOrAdmin)
+        {
+            var adminDisplayName = user?.FullName ?? "Administrator";
+            return ("Admin", null, null, null, $"{adminDisplayName} (Admin)");
+        }
 
         // 1. Check if Student — via DB link (UserId matches a Student record)
         var studentRecord = await _db.Students.FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);

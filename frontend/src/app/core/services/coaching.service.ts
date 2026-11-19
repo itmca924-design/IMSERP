@@ -460,8 +460,10 @@ export class CoachingService {
   }
 
   // ── Teachers & Faculty ─────────────────────────────────────
-  getTeachers(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.BASE_URL}/teachers`);
+  getTeachers(staffType: string = 'Teaching'): Observable<any[]> {
+    let params: any = {};
+    if (staffType) params.staffType = staffType;
+    return this.http.get<any[]>(`${this.BASE_URL}/teachers`, { params });
   }
 }
 
