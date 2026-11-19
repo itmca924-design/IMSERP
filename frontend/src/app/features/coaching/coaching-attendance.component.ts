@@ -1228,7 +1228,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
 
   openApplyRegularization(student?: AttendanceStudentRow): void {
     const dialogRef = this.dialog.open(ApplyStudentRegularizationDialogComponent, {
-      width: '780px',
+      width: '640px',
       maxWidth: '96vw',
       panelClass: 'erp-custom-dialog',
       data: {

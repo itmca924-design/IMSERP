@@ -201,9 +201,14 @@ export interface StudentAttendanceRegularizationDto {
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+    }
     .fd-dialog-md {
       width: 100%;
-      max-width: 650px;
+      max-width: 100%;
+      box-sizing: border-box;
       background: #ffffff;
       border-radius: 12px;
       overflow: hidden;
@@ -556,9 +561,14 @@ export class ApplyStudentRegularizationDialogComponent implements OnInit {
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+    }
     .fd-dialog-md {
       width: 100%;
-      max-width: 600px;
+      max-width: 100%;
+      box-sizing: border-box;
       background: #ffffff;
       border-radius: 12px;
       overflow: hidden;
