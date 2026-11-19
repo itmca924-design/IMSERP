@@ -330,10 +330,10 @@ export interface StudentRow {
                     <table mat-table [dataSource]="availableStudents" matSort (matSortChange)="onAvailableSortChange($event)" class="erp-table resizable-table">
                       <!-- Checkbox Column -->
                       <ng-container matColumnDef="select">
-                        <th mat-header-cell *matHeaderCellDef [style.width.px]="availableColWidths['select']" class="resizable-header text-center">
+                        <th mat-header-cell *matHeaderCellDef class="select-col">
                           <mat-checkbox [checked]="isAllAvailableSelected()" [indeterminate]="isSomeAvailableSelected()" (change)="toggleSelectAllAvailable($event.checked)"></mat-checkbox>
                         </th>
-                        <td mat-cell *matCellDef="let s" class="text-center">
+                        <td mat-cell *matCellDef="let s" class="select-col">
                           <mat-checkbox [checked]="selectedStudentIds.has(s.id)" (change)="toggleStudentSelection(s.id, $event.checked)"></mat-checkbox>
                         </td>
                       </ng-container>
@@ -756,6 +756,28 @@ export interface StudentRow {
 
     .text-center {
       text-align: center;
+    }
+
+    th.mat-column-select, td.mat-column-select,
+    .select-col {
+      width: 52px !important;
+      min-width: 52px !important;
+      max-width: 52px !important;
+      padding: 6px 4px !important;
+      text-align: center !important;
+      text-overflow: clip !important;
+      overflow: visible !important;
+      white-space: normal !important;
+    }
+
+    .select-col mat-checkbox,
+    .mat-column-select mat-checkbox {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+      overflow: visible !important;
+      text-overflow: clip !important;
     }
 
     .text-right {
