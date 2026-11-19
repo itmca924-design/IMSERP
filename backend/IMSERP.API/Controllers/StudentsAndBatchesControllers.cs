@@ -2471,7 +2471,9 @@ public class StudentsController : ControllerBase
         [FromQuery] Guid? classId = null,
         [FromQuery] Guid? sectionId = null,
         [FromQuery] string? stream = null, // "school", "coaching", or null for all
-        [FromQuery] string? status = null) // "active", "left" / "inactive", or null / "all"
+        [FromQuery] string? status = null, // "active", "left" / "inactive", or null / "all"
+        [FromQuery] Guid? excludeBatchId = null,
+        [FromQuery] bool? unallocatedBatchOnly = null)
     {
         IQueryable<Student> query;
         if (!string.IsNullOrWhiteSpace(status) && (status.Equals("left", StringComparison.OrdinalIgnoreCase) || status.Equals("inactive", StringComparison.OrdinalIgnoreCase) || status.Equals("all", StringComparison.OrdinalIgnoreCase)))
@@ -2503,6 +2505,14 @@ public class StudentsController : ControllerBase
         if (batchId.HasValue && batchId != Guid.Empty)
         {
             query = query.Where(s => s.BatchId == batchId.Value);
+        }
+        else if (unallocatedBatchOnly == true)
+        {
+            query = query.Where(s => s.BatchId == null);
+        }
+        else if (excludeBatchId.HasValue && excludeBatchId != Guid.Empty)
+        {
+            query = query.Where(s => s.BatchId == null || s.BatchId != excludeBatchId.Value);
         }
 
         if (classId.HasValue && classId != Guid.Empty)
@@ -2560,9 +2570,14 @@ public class StudentsController : ControllerBase
         query = (sortBy?.ToLower()) switch
         {
             "name" or "studentname" => sortDescending ? query.OrderByDescending(s => s.StudentName) : query.OrderBy(s => s.StudentName),
-            "parentname" => sortDescending ? query.OrderByDescending(s => s.ParentName) : query.OrderBy(s => s.ParentName),
+            "parentname" or "fathername" => sortDescending ? query.OrderByDescending(s => s.ParentName) : query.OrderBy(s => s.ParentName),
             "joiningdate" => sortDescending ? query.OrderByDescending(s => s.JoiningDate) : query.OrderBy(s => s.JoiningDate),
-            "rollnumber" => sortDescending ? query.OrderBy(s => s.RollNumber) : query.OrderByDescending(s => s.JoiningDate).ThenByDescending(s => s.RollNumber),
+            "rollno" or "rollnumber" or "coachingrollnumber" => sortDescending 
+                ? query.OrderByDescending(s => s.CoachingRollNumber ?? s.RollNumber) 
+                : query.OrderBy(s => s.CoachingRollNumber ?? s.RollNumber),
+            "phone" or "mobile" or "contact" => sortDescending 
+                ? query.OrderByDescending(s => s.ParentWhatsAppPhone ?? s.EmergencyContactPhone) 
+                : query.OrderBy(s => s.ParentWhatsAppPhone ?? s.EmergencyContactPhone),
             _ => query.OrderByDescending(s => s.JoiningDate).ThenByDescending(s => s.RollNumber)
         };
 
