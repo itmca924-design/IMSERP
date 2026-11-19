@@ -3,6 +3,7 @@
 -- MenuItems and RolePermissions Seed / Migration Script
 -- =============================================================================
 
+USE IMSERP;
 BEGIN TRANSACTION;
 
 -- 1. Ensure Parent 'Coaching Operations' exists with Module = 'Coaching', ParentId = NULL, TenantId = NULL
@@ -53,6 +54,8 @@ INSERT INTO @Children (Title, RouteUrl, Icon, SortOrder, Module) VALUES
 
 -- 3. Upsert children
 DECLARE @Title NVARCHAR(150), @RouteUrl NVARCHAR(250), @Icon NVARCHAR(100), @SortOrder INT, @Module NVARCHAR(100);
+DECLARE @ChildId UNIQUEIDENTIFIER;
+
 DECLARE cur CURSOR LOCAL FAST_FORWARD FOR 
     SELECT Title, RouteUrl, Icon, SortOrder, Module FROM @Children;
 
@@ -61,7 +64,7 @@ FETCH NEXT FROM cur INTO @Title, @RouteUrl, @Icon, @SortOrder, @Module;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    DECLARE @ChildId UNIQUEIDENTIFIER;
+    SET @ChildId = NULL;
     SELECT TOP 1 @ChildId = Id FROM MenuItems WHERE RouteUrl = @RouteUrl;
 
     IF @ChildId IS NULL
@@ -90,18 +93,17 @@ BEGIN
     WHERE (r.Name IN ('SuperAdmin', 'Super Admin', 'Admin', 'Institute Admin', 'InstituteAdmin', 'Principal', 'Director') OR r.Name LIKE '%Admin%')
       AND NOT EXISTS (SELECT 1 FROM RolePermissions rp WHERE rp.RoleId = r.Id AND rp.MenuItemId = @ChildId);
 
-    -- Seed default RolePermissions for Teacher / Faculty
+    -- Seed default RolePermissions for Teacher / Faculty (View + Create + Edit on Attendance & Study Material & Tests; No Fee Vouchers edit)
     INSERT INTO RolePermissions (Id, RoleId, MenuItemId, CanView, CanCreate, CanEdit, CanDelete)
-    SELECT NEWID(), r.Id, @ChildId, 
+    SELECT NEWID(), r.Id, @ChildId, 1, 
            CASE WHEN @RouteUrl = '/coaching/fee-vouchers' THEN 0 ELSE 1 END,
            CASE WHEN @RouteUrl = '/coaching/fee-vouchers' THEN 0 ELSE 1 END,
-           CASE WHEN @RouteUrl = '/coaching/fee-vouchers' THEN 0 ELSE 1 END,
-           0
+           CASE WHEN @RouteUrl = '/coaching/fee-vouchers' THEN 0 ELSE 1 END
     FROM Roles r
-    WHERE (r.Name IN ('Teacher', 'Faculty', 'Teacher / Faculty', 'CoachingTeacher', 'Mentor') OR r.Name LIKE '%Teacher%' OR r.Name LIKE '%Faculty%')
+    WHERE (r.Name LIKE '%Teacher%' OR r.Name LIKE '%Faculty%')
       AND NOT EXISTS (SELECT 1 FROM RolePermissions rp WHERE rp.RoleId = r.Id AND rp.MenuItemId = @ChildId);
 
-    -- Seed default RolePermissions for Accountant
+    -- Seed default RolePermissions for Accountant (CanView + Create/Edit on Fee Vouchers, CanView on Batches & Analytics)
     INSERT INTO RolePermissions (Id, RoleId, MenuItemId, CanView, CanCreate, CanEdit, CanDelete)
     SELECT NEWID(), r.Id, @ChildId, 
            CASE WHEN @RouteUrl IN ('/batches', '/coaching/fee-vouchers', '/coaching/analytics') THEN 1 ELSE 0 END,
@@ -109,10 +111,10 @@ BEGIN
            CASE WHEN @RouteUrl = '/coaching/fee-vouchers' THEN 1 ELSE 0 END,
            0
     FROM Roles r
-    WHERE (r.Name IN ('Accountant', 'Cashier') OR r.Name LIKE '%Account%')
+    WHERE (r.Name LIKE '%Account%')
       AND NOT EXISTS (SELECT 1 FROM RolePermissions rp WHERE rp.RoleId = r.Id AND rp.MenuItemId = @ChildId);
 
-    -- Seed default empty RolePermissions for all other roles so they are immediately visible & configurable in the UI
+    -- Seed default RolePermissions for other roles (hidden / 0)
     INSERT INTO RolePermissions (Id, RoleId, MenuItemId, CanView, CanCreate, CanEdit, CanDelete)
     SELECT NEWID(), r.Id, @ChildId, 0, 0, 0, 0
     FROM Roles r
