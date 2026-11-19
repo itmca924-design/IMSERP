@@ -2197,8 +2197,8 @@ export class CoachingAttendanceCalendarDialogComponent implements OnInit {
       }
 
       const regInfo = regMap[ymd] || regMap[day];
-      const isRegPending = regInfo?.status === 'Pending';
-      const isRegApproved = regInfo?.status === 'Approved';
+      const isRegPending = regInfo?.status === 'Pending' || regInfo?.status === 1 || regInfo?.status === '1';
+      const isRegApproved = regInfo?.status === 'Approved' || regInfo?.status === 2 || regInfo?.status === '2';
       const isRegularized = (captureSource === 'Regularization') || isRegApproved;
       const hasPendingRegularization = isRegPending;
       const pendingRegularizationReason = isRegPending ? regInfo?.reason : undefined;

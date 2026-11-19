@@ -53,7 +53,7 @@ public class StudentRegularizationController : ControllerBase
             .Include(r => r.Batch)
             .Where(r => r.TenantId == tenantId);
 
-        if (_currentUser.BranchId.HasValue)
+        if (_currentUser.BranchId.HasValue && !studentId.HasValue)
         {
             var branchId = _currentUser.BranchId.Value;
             query = query.Where(r => !r.BranchId.HasValue || r.BranchId == branchId);
@@ -78,16 +78,20 @@ public class StudentRegularizationController : ControllerBase
             var hasSections = scope.AssignedSectionIds != null && scope.AssignedSectionIds.Count > 0;
             var hasBatches = scope.AssignedBatchIds != null && scope.AssignedBatchIds.Count > 0;
 
-            if (hasSections || hasBatches)
+            // When a specific studentId is requested (e.g. from attendance calendar dialog), allow fetching that student's records
+            if (!studentId.HasValue)
             {
-                query = query.Where(r => r.Student != null && (
-                    (hasSections && r.Student.SectionId.HasValue && scope.AssignedSectionIds!.Contains(r.Student.SectionId.Value)) ||
-                    (hasBatches && ((r.BatchId.HasValue && scope.AssignedBatchIds!.Contains(r.BatchId.Value)) || (r.Student.BatchId.HasValue && scope.AssignedBatchIds!.Contains(r.Student.BatchId.Value))))
-                ));
-            }
-            else
-            {
-                query = query.Where(r => false);
+                if (hasSections || hasBatches)
+                {
+                    query = query.Where(r => r.Student != null && (
+                        (hasSections && r.Student.SectionId.HasValue && scope.AssignedSectionIds!.Contains(r.Student.SectionId.Value)) ||
+                        (hasBatches && ((r.BatchId.HasValue && scope.AssignedBatchIds!.Contains(r.BatchId.Value)) || (r.Student.BatchId.HasValue && scope.AssignedBatchIds!.Contains(r.Student.BatchId.Value))))
+                    ));
+                }
+                else
+                {
+                    query = query.Where(r => false);
+                }
             }
         }
 
@@ -462,6 +466,18 @@ public class StudentRegularizationController : ControllerBase
 
         var roleName = user?.AssignedRole?.Name ?? _currentUser.UserRole ?? "";
 
+        // 0. Check if Admin / Principal / Director / Manager / SuperAdmin — Always full access
+        if (roleName.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("Director", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("Manager", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+            roleName.Contains("Owner", StringComparison.OrdinalIgnoreCase))
+        {
+            var adminName = user?.FullName ?? "Administrator";
+            return ("Admin", null, null, null, $"{adminName} (Admin)");
+        }
+
         // 1. Check if Student — via DB link
         var studentRecord = await _db.Students.FirstOrDefaultAsync(s => s.UserId == userId && s.TenantId == tenantId);
         if (studentRecord != null)
@@ -500,7 +516,7 @@ public class StudentRegularizationController : ControllerBase
         }
 
         // 4. Default: Admin / Principal / SuperAdmin
-        var adminName = user?.FullName ?? "Administrator";
-        return ("Admin", null, null, null, $"{adminName} (Admin)");
+        var defAdminName = user?.FullName ?? "Administrator";
+        return ("Admin", null, null, null, $"{defAdminName} (Admin)");
     }
 }
