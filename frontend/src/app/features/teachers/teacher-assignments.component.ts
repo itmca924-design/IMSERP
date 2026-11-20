@@ -73,27 +73,44 @@ export interface AssignmentSlot {
   <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers (Hidden if School Module is disabled or user cannot manage staff) -->
   @if (authService.hasSchoolModule() && canManage) {
     <div class="primary-nav-bar mat-elevation-z1">
-      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')" matButton="filled">
-        <mat-icon>calendar_view_week</mat-icon>
+      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
+        <div class="nav-icon-box timetable-box">
+          <mat-icon>calendar_view_week</mat-icon>
+        </div>
         <div class="nav-btn-info">
-          <span class="nav-title">Batch &amp; Subject Timetable</span>
+          <div class="nav-title-row">
+            <span class="nav-title">Batch &amp; Subject Timetable</span>
+            @if (mainTab === 'TIMETABLE') {
+              <span class="active-dot-pill"><span class="pulse-dot"></span> Active View</span>
+            }
+          </div>
           <span class="nav-sub">Teaching periods, weekly routine &amp; clash detection</span>
         </div>
       </button>
-      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')" matButton="filled">
-        <mat-icon>supervisor_account</mat-icon>
+
+      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')">
+        <div class="nav-icon-box teachers-box">
+          <mat-icon>supervisor_account</mat-icon>
+        </div>
         <div class="nav-btn-info">
-          <span class="nav-title">School Class Teachers (कक्षा अध्यापक)</span>
+          <div class="nav-title-row">
+            <span class="nav-title">School Class Teachers (कक्षा अध्यापक)</span>
+            @if (mainTab === 'CLASS_TEACHER') {
+              <span class="active-dot-pill teacher-dot"><span class="pulse-dot"></span> Active View</span>
+            }
+          </div>
           <span class="nav-sub">Section Incharge allocation &amp; roll-call coverage</span>
         </div>
         @if (unassignedClassTeachersCount > 0) {
           <span class="nav-badge alert">
-            {{ unassignedClassTeachersCount }} Unassigned
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ unassignedClassTeachersCount }} Pending</span>
           </span>
         }
         @if (classTeachersMatrix.length > 0 && unassignedClassTeachersCount === 0) {
           <span class="nav-badge success">
-            <mat-icon>check_circle</mat-icon> 100% Assigned
+            <mat-icon>verified</mat-icon>
+            <span>100% Assigned</span>
           </span>
         }
       </button>
@@ -1364,106 +1381,224 @@ export interface AssignmentSlot {
       mat-icon{font-size:1.6rem;width:1.6rem;height:1.6rem;} }
     .page-subtitle { color:#64748b; margin:4px 0 0; font-size:.9rem; }
 
-    /* Top Primary Nav Bar */
+    /* Top Primary Nav Bar - Smart Executive Tab Deck */
     .primary-nav-bar {
       display: flex;
-      gap: 12px;
+      gap: 16px;
       background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 14px;
-      padding: 6px;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 8px;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
       flex-wrap: wrap;
     }
 
     .primary-nav-btn {
       flex: 1;
-      min-width: 260px;
+      min-width: 280px;
       display: flex;
       align-items: center;
-      gap: 14px;
-      padding: 12px 18px;
-      border-radius: 10px;
-      border: 1px solid transparent;
-      background: transparent;
+      gap: 16px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
       cursor: pointer;
       text-align: left;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
-      mat-icon {
-        font-size: 28px;
-        width: 28px;
-        height: 28px;
+      .nav-icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         color: #64748b;
-        transition: color 0.2s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+        flex-shrink: 0;
+        transition: all 0.25s ease;
+
+        mat-icon {
+          font-size: 26px;
+          width: 26px;
+          height: 26px;
+        }
       }
 
       .nav-btn-info {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 3px;
         flex: 1;
+        min-width: 0;
+      }
+
+      .nav-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
       }
 
       .nav-title {
-        font-size: 0.95rem;
+        font-size: 0.98rem;
         font-weight: 700;
         color: #334155;
+        transition: color 0.2s;
+        letter-spacing: -0.01em;
       }
 
       .nav-sub {
         font-size: 0.78rem;
         color: #64748b;
+        line-height: 1.35;
+        transition: color 0.2s;
       }
 
-      &:hover {
-        background: #f8fafc;
-        border-color: #e2e8f0;
+      .active-dot-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        background: #dbeafe;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+
+        .pulse-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #2563eb;
+          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+          animation: pulseDot 2s infinite;
+        }
+
+        &.teacher-dot {
+          background: #e0f2fe;
+          color: #0369a1;
+          border-color: #bae6fd;
+
+          .pulse-dot {
+            background: #0284c7;
+            box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+          }
+        }
+      }
+
+      &:hover:not(.active) {
+        background: #ffffff;
+        border-color: #cbd5e1;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+        .nav-icon-box {
+          border-color: #cbd5e1;
+          color: #334155;
+          transform: scale(1.04);
+        }
+
+        .nav-title {
+          color: #0f172a;
+        }
       }
 
       &.active {
-        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        border-color: #bfdbfe;
-        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+        background: linear-gradient(135deg, #eff6ff 0%, #f0f7ff 50%, #e0edff 100%);
+        border-color: #3b82f6;
+        box-shadow: 0 6px 20px -2px rgba(37, 99, 235, 0.18), 0 2px 6px -1px rgba(37, 99, 235, 0.08);
 
-        mat-icon {
-          color: #2563eb;
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3.5px;
+          background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%);
+          border-radius: 4px 4px 0 0;
+        }
+
+        .nav-icon-box.timetable-box {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          color: #ffffff;
+          border-color: #1e40af;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+        }
+
+        .nav-icon-box.teachers-box {
+          background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+          color: #ffffff;
+          border-color: #075985;
+          box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
         }
 
         .nav-title {
           color: #1e3a8a;
+          font-weight: 800;
         }
 
         .nav-sub {
-          color: #3b82f6;
+          color: #2563eb;
+          font-weight: 500;
         }
+      }
+    }
+
+    @keyframes pulseDot {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.5;
+        transform: scale(1.2);
       }
     }
 
     .nav-badge {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      font-size: 0.75rem;
+      gap: 6px;
+      font-size: 0.78rem;
       font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 20px;
+      padding: 5px 12px;
+      border-radius: 30px;
       margin-left: auto;
+      flex-shrink: 0;
+      letter-spacing: -0.01em;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
 
       &.alert {
-        background: #fef3c7;
+        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
         color: #b45309;
         border: 1px solid #fde68a;
+        box-shadow: 0 2px 8px rgba(217, 119, 6, 0.15);
+
+        mat-icon {
+          color: #d97706;
+        }
       }
 
       &.success {
-        background: #dcfce7;
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
         color: #15803d;
         border: 1px solid #bbf7d0;
+        box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
 
         mat-icon {
-          font-size: 14px;
-          width: 14px;
-          height: 14px;
           color: #16a34a;
         }
       }
