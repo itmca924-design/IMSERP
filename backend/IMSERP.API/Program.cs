@@ -2062,40 +2062,6 @@ using (var scope = app.Services.CreateScope())
                             AdminRemarks NVARCHAR(500) NULL
                         );
                     END
-
-                    -- Auto-migrate SmartBellSettings and Room Speaker columns
-                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Rooms') AND name = 'SpeakerIp')
-                    BEGIN
-                        ALTER TABLE dbo.Rooms ADD SpeakerIp NVARCHAR(100) NULL;
-                    END
-                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Rooms') AND name = 'SpeakerPort')
-                    BEGIN
-                        ALTER TABLE dbo.Rooms ADD SpeakerPort INT NOT NULL CONSTRAINT DF_Rooms_SpeakerPort DEFAULT 80;
-                    END
-                    IF OBJECT_ID('dbo.SmartBellSettings', 'U') IS NULL
-                    BEGIN
-                        CREATE TABLE dbo.SmartBellSettings (
-                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
-                            TenantId UNIQUEIDENTIFIER NOT NULL,
-                            BranchId UNIQUEIDENTIFIER NULL,
-                            IsEnabled BIT NOT NULL DEFAULT 1,
-                            PreBellWarningMinutes INT NOT NULL DEFAULT 2,
-                            VoiceAnnouncementEnabled BIT NOT NULL DEFAULT 1,
-                            VoiceLanguage NVARCHAR(50) NOT NULL DEFAULT 'hi-IN',
-                            BellType NVARCHAR(50) NOT NULL DEFAULT 'ElectricGong',
-                            BellDurationSeconds INT NOT NULL DEFAULT 3,
-                            LunchBellDurationSeconds INT NOT NULL DEFAULT 8,
-                            DismissalBellDurationSeconds INT NOT NULL DEFAULT 12,
-                            Volume INT NOT NULL DEFAULT 100,
-                            BroadcastMode NVARCHAR(50) NOT NULL DEFAULT 'AllCall',
-                            SilentOnHolidays BIT NOT NULL DEFAULT 1,
-                            WarningTemplateHi NVARCHAR(500) NOT NULL DEFAULT N'ध्यान दें: {periodName} समाप्त होने में {remainingMinutes} मिनट शेष हैं। कृपया अपना व्याख्यान समेटें।',
-                            WarningTemplateEn NVARCHAR(500) NOT NULL DEFAULT 'Attention: {periodName} is ending in {remainingMinutes} minutes. Please wrap up the lesson.',
-                            PeriodOverTemplateHi NVARCHAR(500) NOT NULL DEFAULT N'{periodName} का समय समाप्त हो चुका है।',
-                            PeriodOverTemplateEn NVARCHAR(500) NOT NULL DEFAULT '{periodName} has concluded.',
-                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
-                        );
-                    END
                     ELSE IF NOT EXISTS (SELECT 1 FROM dbo.SubscriptionPlanConfigs WHERE IsActive = 1)
                     BEGIN
                         INSERT INTO dbo.SubscriptionPlanConfigs (
@@ -2176,10 +2142,10 @@ using (var scope = app.Services.CreateScope())
                             Volume INT NOT NULL DEFAULT 100,
                             BroadcastMode NVARCHAR(50) NOT NULL DEFAULT 'AllCall',
                             SilentOnHolidays BIT NOT NULL DEFAULT 1,
-                            WarningTemplateHi NVARCHAR(500) NOT NULL DEFAULT N'ध्यान दें: {periodName} समाप्त होने में {remainingMinutes} मिनट शेष हैं। कृपया अपना व्याख्यान समेटें।',
-                            WarningTemplateEn NVARCHAR(500) NOT NULL DEFAULT 'Attention: {periodName} is ending in {remainingMinutes} minutes. Please wrap up the lesson.',
-                            PeriodOverTemplateHi NVARCHAR(500) NOT NULL DEFAULT N'{periodName} का समय समाप्त हो चुका है।',
-                            PeriodOverTemplateEn NVARCHAR(500) NOT NULL DEFAULT '{periodName} has concluded.',
+                            WarningTemplateHi NVARCHAR(500) NOT NULL DEFAULT '',
+                            WarningTemplateEn NVARCHAR(500) NOT NULL DEFAULT '',
+                            PeriodOverTemplateHi NVARCHAR(500) NOT NULL DEFAULT '',
+                            PeriodOverTemplateEn NVARCHAR(500) NOT NULL DEFAULT '',
                             UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                         );
                     END
