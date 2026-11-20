@@ -598,103 +598,130 @@ export interface AssignmentSlot {
                   </div>
                 }
                 <!-- Row 2: Days of Week (Quick Presets + Day Pills) -->
-                <div class="slot-section">
+                <div class="slot-section material-schedule-section">
                   <div class="section-label-bar">
-                    <label class="section-label"><mat-icon>date_range</mat-icon> Routine Days *</label>
+                    <div class="section-title-wrap">
+                      <div class="section-icon-box">
+                        <mat-icon>calendar_month</mat-icon>
+                      </div>
+                      <label class="section-label">Routine Days <span class="required-star">*</span></label>
+                    </div>
                     @if (slot.selectedDays.length > 0) {
-                      <span class="days-preview">
-                        Selected: <strong>{{slot.selectedDays.join(', ')}}</strong> ({{slot.selectedDays.length}} days/wk)
+                      <span class="days-preview-badge">
+                        <mat-icon>event_available</mat-icon>
+                        <span>Selected: <strong>{{slot.selectedDays.join(', ')}}</strong> ({{slot.selectedDays.length}} days/wk)</span>
                       </span>
                     }
                     @if (slot.selectedDays.length === 0) {
-                      <span class="days-preview empty">
-                        No days selected
+                      <span class="days-preview-badge empty">
+                        <mat-icon>event_busy</mat-icon>
+                        <span>No days selected yet</span>
                       </span>
                     }
                   </div>
-                  <!-- 1-Click Coaching Presets -->
+
+                  <!-- Quick Presets -->
                   <div class="presets-row">
-                    <span class="preset-title">⚡ Quick Presets:</span>
+                    <span class="preset-title"><mat-icon>bolt</mat-icon> Quick Presets:</span>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'MWF')"
-                      [class.preset-active]="isPresetActive(slot,'MWF')" matButton="filled">
+                      [class.preset-active]="isPresetActive(slot,'MWF')">
                       MWF (Mon, Wed, Fri)
                     </button>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'TTS')"
-                      [class.preset-active]="isPresetActive(slot,'TTS')" matButton="filled">
+                      [class.preset-active]="isPresetActive(slot,'TTS')">
                       TTS (Tue, Thu, Sat)
                     </button>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'DAILY')"
-                      [class.preset-active]="isPresetActive(slot, 'DAILY')" matButton="filled">
+                      [class.preset-active]="isPresetActive(slot, 'DAILY')">
                       Daily (Mon–Sat)
                     </button>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'WEEKEND')"
-                      [class.preset-active]="isPresetActive(slot, 'WEEKEND')" matButton="filled">
+                      [class.preset-active]="isPresetActive(slot, 'WEEKEND')">
                       Weekend (Sat, Sun)
                     </button>
                     <button type="button" class="preset-pill" (click)="applyDayPreset(slot, 'ALL')"
-                      [class.preset-active]="isPresetActive(slot,'ALL')" matButton="filled">
+                      [class.preset-active]="isPresetActive(slot,'ALL')">
                       All 7 Days
                     </button>
                     @if (slot.selectedDays.length > 0) {
-                      <button type="button" class="preset-pill clear-pill app-button-cancel" (click)="clearDays(slot)" matButton="filled">
-                        Clear
+                      <button type="button" class="preset-pill clear-pill" (click)="clearDays(slot)">
+                        <mat-icon>close</mat-icon> Clear
                       </button>
                     }
                   </div>
+
                   <!-- Interactive Day Pills -->
                   <div class="day-pills-row">
                     @for (day of allDays; track day) {
                       <button type="button"
                         class="day-circle"
                         [class.day-selected]="isDaySelected(slot, day)"
-                        (click)="toggleDay(slot, day)" matButton="filled">
-                        {{day}}
+                        (click)="toggleDay(slot, day)">
+                        <span class="day-text">{{day}}</span>
+                        @if (isDaySelected(slot, day)) {
+                          <mat-icon class="day-check">check</mat-icon>
+                        }
                       </button>
                     }
                   </div>
                 </div>
+
                 <!-- Row 3: Time Slot Selector (Popular Slots + Custom Start/End) -->
-                <div class="slot-section">
+                <div class="slot-section material-schedule-section">
                   <div class="section-label-bar">
-                    <label class="section-label"><mat-icon>schedule</mat-icon> Time Slot *</label>
+                    <div class="section-title-wrap">
+                      <div class="section-icon-box time-icon-box">
+                        <mat-icon>schedule</mat-icon>
+                      </div>
+                      <label class="section-label">Teaching Time Slot <span class="required-star">*</span></label>
+                    </div>
                     <div class="mode-toggles">
                       <button type="button" class="mode-btn"
                         [class.mode-btn-active]="slot.timeSlotMode === 'preset'"
-                        (click)="setTimeSlotMode(slot, 'preset')" matButton="filled">
-                        Standard Presets
+                        (click)="setTimeSlotMode(slot, 'preset')">
+                        <mat-icon>view_module</mat-icon> Standard Presets
                       </button>
                       <button type="button" class="mode-btn"
                         [class.mode-btn-active]="slot.timeSlotMode === 'custom'"
-                        (click)="setTimeSlotMode(slot, 'custom')" matButton="filled">
-                        Custom Time
+                        (click)="setTimeSlotMode(slot, 'custom')">
+                        <mat-icon>tune</mat-icon> Custom Time
                       </button>
                     </div>
                   </div>
-                  <!-- Mode A: Common Coaching Shift Chips -->
+
+                  <!-- Mode A: Common Shift Chips -->
                   @if (slot.timeSlotMode === 'preset') {
                     <div class="preset-slots-grid">
                       @for (ps of popularTimeSlots; track ps) {
                         <button type="button"
                           class="time-chip"
                           [class.time-chip-selected]="slot.presetSlot === ps.value"
-                          (click)="selectPresetSlot(slot, ps.value)" matButton="filled">
-                          <mat-icon class="chip-icon">access_time</mat-icon>
-                          <span class="chip-label">{{ps.value}}</span>
-                          <span class="chip-duration">{{ps.duration}}</span>
+                          (click)="selectPresetSlot(slot, ps.value)">
+                          <div class="chip-icon-wrap">
+                            <mat-icon class="chip-icon">access_time</mat-icon>
+                          </div>
+                          <div class="chip-info">
+                            <span class="chip-label">{{ps.value}}</span>
+                            <span class="chip-duration">{{ps.duration}}</span>
+                          </div>
+                          @if (slot.presetSlot === ps.value) {
+                            <mat-icon class="chip-check">check_circle</mat-icon>
+                          }
                         </button>
                       }
                     </div>
                   }
+
                   <!-- Mode B: Custom Start & End Time Picker -->
                   @if (slot.timeSlotMode === 'custom') {
                     <div class="custom-time-row">
                       <div class="time-input-group">
-                        <label>Start Time</label>
+                        <label>Start Time (शुरुआती समय)</label>
                         <input type="time" class="time-native-input" [(ngModel)]="slot.startTime" (change)="onCustomTimeChange(slot)">
                       </div>
-                      <span class="time-sep">to</span>
+                      <span class="time-sep"><mat-icon>arrow_forward</mat-icon></span>
                       <div class="time-input-group">
-                        <label>End Time</label>
+                        <label>End Time (समाप्ति समय)</label>
                         <input type="time" class="time-native-input" [(ngModel)]="slot.endTime" (change)="onCustomTimeChange(slot)">
                       </div>
                       <div class="duration-badge">
@@ -2945,53 +2972,457 @@ export interface AssignmentSlot {
     .sub-name { font-weight:600; }
     .sub-code { color:#64748b; font-size:.8rem; margin-left:6px; }
 
-    /* Slot Section Styling */
-    .slot-section { display:flex; flex-direction:column; gap:10px; background:#fff; padding:14px; border-radius:10px; border:1px solid #edf2f7; }
-    .section-label-bar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
-    .section-label { font-size:.86rem; font-weight:700; color:#334155; display:flex; align-items:center; gap:6px;
-      mat-icon{font-size:18px;width:18px;height:18px;color:#64748b;} }
-    .days-preview { font-size:.82rem; color:#475569; strong{color:#0f172a;} }
-    .days-preview.empty { color:#94a3b8; font-style:italic; }
+    /* Google Material 3 Schedule Section Card */
+    .slot-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #ffffff;
+      padding: 16px 20px;
+      border-radius: 14px;
+      border: 1.5px solid #e2e8f0;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+      transition: all 0.2s ease;
 
-    /* Presets Row */
-    .presets-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
-    .preset-title { font-size:.78rem; font-weight:700; color:#64748b; margin-right:4px; }
-    .preset-pill { border:1px solid #cbd5e1; background:#f8fafc; color:#334155; font-size:.78rem; font-weight:600; padding:4px 10px; border-radius:14px; cursor:pointer; transition:all .15s; }
-    .preset-pill:hover { background:#f1f5f9; border-color:#94a3b8; }
-    .preset-pill.preset-active { background:#e0f2fe; border-color:#0284c7; color:#0369a1; font-weight:700; }
-    .clear-pill { background:transparent; border-color:#fca5a5; color:#dc2626; }
-    .clear-pill:hover { background:#fee2e2; }
+      &:focus-within {
+        border-color: #bfdbfe;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+      }
+    }
 
-    /* Day Circle Pills */
-    .day-pills-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
-    .day-circle { width:42px; height:36px; border-radius:8px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-size:.82rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
-    .day-circle:hover { border-color:#0284c7; color:#0284c7; }
-    .day-circle.day-selected { background:#1976d2; border-color:#1976d2; color:#fff; box-shadow:0 2px 6px rgba(25,118,210,0.3); }
+    .section-label-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
 
-    /* Time Slot Mode Toggles */
-    .mode-toggles { display:flex; gap:4px; background:#f1f5f9; padding:2px; border-radius:8px; }
-    .mode-btn { border:none; background:transparent; font-size:.76rem; font-weight:600; color:#64748b; padding:4px 10px; border-radius:6px; cursor:pointer; transition:all .15s; }
-    .mode-btn-active { background:#fff; color:#0f172a; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+    .section-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-    /* Preset Slots Grid */
-    .preset-slots-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:8px; }
-    .time-chip { display:flex; align-items:center; gap:6px; padding:7px 10px; border-radius:8px; border:1px solid #e2e8f0; background:#f8fafc; color:#334155; cursor:pointer; font-size:.8rem; font-weight:600; text-align:left; transition:all .15s; }
-    .time-chip:hover { border-color:#94a3b8; background:#f1f5f9; }
-    .time-chip.time-chip-selected { background:#eef2ff; border-color:#6366f1; color:#4338ca; box-shadow:0 2px 6px rgba(99,102,241,0.2); }
-    .chip-icon { font-size:16px; width:16px; height:16px; color:#64748b; }
-    .time-chip-selected .chip-icon { color:#6366f1; }
-    .chip-label { flex:1; white-space:nowrap; }
-    .chip-duration { font-size:.7rem; color:#64748b; background:#fff; padding:1px 5px; border-radius:4px; }
+    .section-icon-box {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &.time-icon-box {
+        background: #f0fdf4;
+        color: #16a34a;
+      }
+    }
+
+    .section-label {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0;
+
+      .required-star {
+        color: #ef4444;
+      }
+    }
+
+    .days-preview-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        color: #2563eb;
+      }
+
+      strong {
+        color: #1e3a8a;
+      }
+
+      &.empty {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #94a3b8;
+
+        mat-icon {
+          color: #94a3b8;
+        }
+      }
+    }
+
+    /* Presets Row - Google Material 3 Chips */
+    .presets-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed #e2e8f0;
+    }
+
+    .preset-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-right: 4px;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #f59e0b;
+      }
+    }
+
+    .preset-pill {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+        color: #0f172a;
+        transform: translateY(-1px);
+      }
+
+      &.preset-active {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-color: #3b82f6;
+        color: #1d4ed8;
+        font-weight: 700;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.16);
+      }
+
+      &.clear-pill {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #dc2626;
+
+        mat-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+        }
+
+        &:hover {
+          background: #fee2e2;
+          border-color: #f87171;
+        }
+      }
+    }
+
+    /* Day Pills Row - Google Material 3 Segmented Days */
+    .day-pills-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .day-circle {
+      min-width: 54px;
+      height: 44px;
+      padding: 0 10px;
+      border-radius: 12px;
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      .day-check {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &:hover:not(.day-selected) {
+        border-color: #3b82f6;
+        color: #1d4ed8;
+        background: #eff6ff;
+        transform: translateY(-2px);
+      }
+
+      &.day-selected {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        border-color: #1e40af;
+        color: #ffffff;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+        transform: translateY(-1px);
+      }
+    }
+
+    /* Time Slot Mode Toggles - Material 3 Segmented Control */
+    .mode-toggles {
+      display: inline-flex;
+      gap: 4px;
+      background: #f1f5f9;
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .mode-btn {
+      border: none;
+      background: transparent;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      &.mode-btn-active {
+        background: #ffffff;
+        color: #1d4ed8;
+        font-weight: 700;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+        mat-icon {
+          color: #2563eb;
+        }
+      }
+    }
+
+    /* Preset Slots Grid - Material 3 Interactive Cards */
+    .preset-slots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .time-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      background: #ffffff;
+      color: #334155;
+      cursor: pointer;
+      text-align: left;
+      position: relative;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      .chip-icon-wrap {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: #64748b;
+        }
+      }
+
+      .chip-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .chip-label {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #1e293b;
+        white-space: nowrap;
+      }
+
+      .chip-duration {
+        font-size: 0.72rem;
+        color: #64748b;
+        font-weight: 500;
+      }
+
+      .chip-check {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+        margin-left: auto;
+      }
+
+      &:hover:not(.time-chip-selected) {
+        border-color: #93c5fd;
+        background: #f8fafc;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+
+        .chip-icon-wrap {
+          background: #eff6ff;
+          mat-icon {
+            color: #2563eb;
+          }
+        }
+      }
+
+      &.time-chip-selected {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-color: #3b82f6;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+
+        .chip-icon-wrap {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          mat-icon {
+            color: #ffffff;
+          }
+        }
+
+        .chip-label {
+          color: #1e3a8a;
+          font-weight: 800;
+        }
+
+        .chip-duration {
+          color: #2563eb;
+          font-weight: 600;
+        }
+      }
+    }
 
     /* Custom Time Row */
-    .custom-time-row { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
-    .time-input-group { display:flex; flex-direction:column; gap:4px;
-      label{font-size:.75rem;font-weight:700;color:#64748b;} }
-    .time-native-input { border:1.5px solid #cbd5e1; border-radius:8px; padding:6px 10px; font-size:.9rem; font-weight:600; color:#1e293b; background:#fff; }
-    .time-native-input:focus { outline:none; border-color:#1976d2; }
-    .time-sep { font-weight:700; color:#94a3b8; font-size:.85rem; margin-top:14px; }
-    .duration-badge { display:flex; align-items:center; gap:6px; background:#f0fdf4; color:#166534; padding:6px 12px; border-radius:8px; font-size:.82rem; border:1px solid #bbf7d0; margin-top:14px;
-      mat-icon{font-size:16px;width:16px;height:16px;color:#16a34a;} }
+    .custom-time-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 18px;
+    }
+
+    .time-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #475569;
+      }
+    }
+
+    .time-native-input {
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #0f172a;
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s;
+
+      &:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+    }
+
+    .time-sep {
+      color: #64748b;
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+    }
+
+    .duration-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      color: #15803d;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      border: 1px solid #bbf7d0;
+      margin-top: 20px;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #16a34a;
+      }
+
+      strong {
+        color: #14532d;
+      }
+    }
 
     /* Clash Alert Box */
     .clash-alert-box { background:#fffbeb; border:1.5px solid #fcd34d; border-radius:10px; padding:12px 16px; display:flex; flex-direction:column; gap:8px; }
