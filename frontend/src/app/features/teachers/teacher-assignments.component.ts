@@ -70,24 +70,9 @@ export interface AssignmentSlot {
     </div>
   </div>
 
-  <!-- Top Primary Hub Navigation: Batch Timetable vs School Class Teachers (Hidden if School Module is disabled or user cannot manage staff) -->
+  <!-- Top Primary Hub Navigation: School Class Teachers vs School Subject Allocation -->
   @if (authService.hasSchoolModule() && canManage) {
     <div class="primary-nav-bar mat-elevation-z1">
-      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
-        <div class="nav-icon-box timetable-box">
-          <mat-icon>calendar_view_week</mat-icon>
-        </div>
-        <div class="nav-btn-info">
-          <div class="nav-title-row">
-            <span class="nav-title">Batch &amp; Subject Timetable</span>
-            @if (mainTab === 'TIMETABLE') {
-              <span class="active-dot-pill"><span class="pulse-dot"></span> Active View</span>
-            }
-          </div>
-          <span class="nav-sub">Teaching periods, weekly routine &amp; clash detection</span>
-        </div>
-      </button>
-
       <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'CLASS_TEACHER'" (click)="setMainTab('CLASS_TEACHER')">
         <div class="nav-icon-box teachers-box">
           <mat-icon>supervisor_account</mat-icon>
@@ -114,37 +99,45 @@ export interface AssignmentSlot {
           </span>
         }
       </button>
+
+      <button type="button" class="primary-nav-btn" [class.active]="mainTab === 'TIMETABLE'" (click)="setMainTab('TIMETABLE')">
+        <div class="nav-icon-box timetable-box">
+          <mat-icon>calendar_view_week</mat-icon>
+        </div>
+        <div class="nav-btn-info">
+          <div class="nav-title-row">
+            <span class="nav-title">School Subject Allocation &amp; Routine</span>
+            @if (mainTab === 'TIMETABLE') {
+              <span class="active-dot-pill"><span class="pulse-dot"></span> Active View</span>
+            }
+          </div>
+          <span class="nav-sub">Class teaching periods, weekly routine &amp; subject teachers</span>
+        </div>
+      </button>
     </div>
   }
 
   @if (mainTab === 'TIMETABLE') {
-    <!-- 3-Way Assignment Scope Bar (School Classes vs Coaching Batches - Only shown if both modules enabled) -->
+    <!-- Division Scope Switcher: School Classes vs Consolidated -->
     @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
       <div class="scope-switcher-card mat-elevation-z1">
         <div class="scope-label">
           <mat-icon>tune</mat-icon>
-          <span>Assignment Scope:</span>
+          <span>Division Filter:</span>
         </div>
         <div class="scope-buttons">
-          <button type="button" class="scope-btn" [class.active]="selectedScope === 'ALL'" (click)="setScope('ALL')" matButton="filled">
-            <mat-icon>dashboard_customize</mat-icon>
-            <span class="btn-main">All (School + Coaching)</span>
-            @if (batchCoverage) {
-              <span class="scope-pill">{{totalScopeCount('ALL')}}</span>
-            }
-          </button>
           <button type="button" class="scope-btn school-btn" [class.active]="selectedScope === 'SCHOOL'" (click)="setScope('SCHOOL')" matButton="filled">
             <mat-icon>account_balance</mat-icon>
-            <span class="btn-main">School Classes (Class 9-A, 10-B, etc.)</span>
+            <span class="btn-main">School Classes Only (कक्षा 1 to 12)</span>
             @if (batchCoverage) {
               <span class="scope-pill">{{totalScopeCount('SCHOOL')}}</span>
             }
           </button>
-          <button type="button" class="scope-btn coaching-btn" [class.active]="selectedScope === 'COACHING'" (click)="setScope('COACHING')" matButton="filled">
-            <mat-icon>biotech</mat-icon>
-            <span class="btn-main">Coaching Batches (NEET, JEE, MTH-09-A, etc.)</span>
+          <button type="button" class="scope-btn" [class.active]="selectedScope === 'ALL'" (click)="setScope('ALL')" matButton="filled">
+            <mat-icon>dashboard_customize</mat-icon>
+            <span class="btn-main">Consolidated (School + Coaching)</span>
             @if (batchCoverage) {
-              <span class="scope-pill">{{totalScopeCount('COACHING')}}</span>
+              <span class="scope-pill">{{totalScopeCount('ALL')}}</span>
             }
           </button>
         </div>
@@ -3174,7 +3167,7 @@ export class TeacherAssignmentsComponent implements OnInit {
   subjects: SubjectDto[] = [];
   batchCoverage: TeacherBatchCoverageReportDto | null = null;
 
-  selectedScope: 'ALL' | 'SCHOOL' | 'COACHING' = 'ALL';
+  selectedScope: 'ALL' | 'SCHOOL' | 'COACHING' = 'SCHOOL';
 
   loading = false;
   saving = false;
@@ -3200,7 +3193,7 @@ export class TeacherAssignmentsComponent implements OnInit {
   allTeachers: TeacherDto[] = [];
 
   // Class Teachers Matrix Hub State
-  mainTab: 'TIMETABLE' | 'CLASS_TEACHER' = 'TIMETABLE';
+  mainTab: 'TIMETABLE' | 'CLASS_TEACHER' = 'CLASS_TEACHER';
   classTeachersMatrix: ClassTeacherMatrixItemDto[] = [];
   filteredMatrix: ClassTeacherMatrixItemDto[] = [];
   groupedMatrixByClass: { classId: string; className: string; sections: ClassTeacherMatrixItemDto[] }[] = [];
@@ -3246,18 +3239,22 @@ export class TeacherAssignmentsComponent implements OnInit {
   }
 
   ngOnInit() {
-    if (!this.canManage || !this.authService.hasSchoolModule()) {
+    if (this.authService.hasSchoolModule() && this.canManage) {
+      this.mainTab = 'CLASS_TEACHER';
+      this.selectedScope = 'SCHOOL';
+    } else if (!this.authService.hasSchoolModule()) {
       this.mainTab = 'TIMETABLE';
-    }
-    if (!this.authService.hasSchoolModule()) {
       this.selectedScope = 'COACHING';
-    } else if (!this.authService.hasCoachingModule()) {
+    } else {
+      this.mainTab = 'TIMETABLE';
       this.selectedScope = 'SCHOOL';
     }
 
     this.route.queryParams.subscribe(p => {
       if (p['teacherId']) this.preSelectId = p['teacherId'];
-      if (p['tab'] === 'class-teachers' && this.authService.hasSchoolModule() && this.canManage) {
+      if (p['tab'] === 'timetable') {
+        this.setMainTab('TIMETABLE');
+      } else if (p['tab'] === 'class-teachers' && this.authService.hasSchoolModule() && this.canManage) {
         this.setMainTab('CLASS_TEACHER');
       }
     });
