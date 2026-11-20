@@ -69,9 +69,9 @@ export class SmartBellService {
     }
   }
 
-  refreshSettings(): void {
-    const branchId = this.authService.selectedBranchId() || null;
-    this.schoolService.getSmartBellSettings(branchId).subscribe({
+  refreshSettings(branchId?: string | null): void {
+    const bId = branchId !== undefined ? (branchId || null) : (this.authService.selectedBranchId() || null);
+    this.schoolService.getSmartBellSettings(bId).subscribe({
       next: (s) => {
         if (s) {
           this.settings.set(s);
@@ -81,9 +81,9 @@ export class SmartBellService {
     });
   }
 
-  refreshPeriodSlots(): void {
-    const branchId = this.authService.selectedBranchId() || undefined;
-    this.schoolService.getPeriodSlots(branchId, true).subscribe({
+  refreshPeriodSlots(branchId?: string | null): void {
+    const bId = branchId !== undefined ? (branchId || undefined) : (this.authService.selectedBranchId() || undefined);
+    this.schoolService.getPeriodSlots(bId, true).subscribe({
       next: (slots) => {
         if (slots) {
           this.periodSlots.set(slots);

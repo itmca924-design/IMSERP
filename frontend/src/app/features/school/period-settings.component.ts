@@ -2547,6 +2547,8 @@ export class PeriodSettingsComponent implements OnInit {
   onBranchChange(): void {
     this.loadActivityTypes();
     this.loadSlots();
+    this.smartBell.refreshSettings(this.effectiveBranchId);
+    this.smartBell.refreshPeriodSlots(this.effectiveBranchId);
   }
 
   loadSlots(): void {
@@ -2570,6 +2572,7 @@ export class PeriodSettingsComponent implements OnInit {
           // Default initial rows if DB is totally empty
           this.applyPreset('standard', false);
         }
+        this.smartBell.refreshPeriodSlots(this.effectiveBranchId);
       },
       error: () => {
         this.loading = false;
@@ -3059,6 +3062,7 @@ export class PeriodSettingsComponent implements OnInit {
           type: 'success'
         });
         this.loadSlots();
+        this.smartBell.refreshPeriodSlots(this.effectiveBranchId);
       },
       error: (err) => {
         this.saving = false;
