@@ -27,6 +27,7 @@ public class MenuController : ControllerBase
     public async Task<ActionResult<IEnumerable<MenuItemDto>>> GetMyMenu()
     {
         await EnsureCoachingMenuItemsSeededAsync(_dbContext);
+        await EnsureAcademicRoutineMenuItemsSeededAsync(_dbContext);
 
         var userId = _currentUser.UserId;
         var tenantId = _currentUser.TenantId;
@@ -890,6 +891,123 @@ public class MenuController : ControllerBase
         catch (Exception ex)
         {
             Console.WriteLine($"[Menu Warning] Coaching auto-seed notice: {ex.Message}");
+        }
+    }
+
+    private static bool _academicRoutineMenuSeeded = false;
+
+    public static async Task EnsureAcademicRoutineMenuItemsSeededAsync(IIMSERPDbContext dbContext)
+    {
+        if (_academicRoutineMenuSeeded) return;
+
+        try
+        {
+            var academicParentId = Guid.Parse("00000000-0000-0000-0000-000000000004");
+            var academicParent = await dbContext.MenuItems.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(m => m.Id == academicParentId);
+
+            if (academicParent == null)
+            {
+                academicParent = await dbContext.MenuItems.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(m => m.Title == "Academic Operations" && m.ParentId == null);
+            }
+
+            if (academicParent == null) return;
+
+            var routineItems = new (string Title, string Route, string Icon, int SortOrder)[]
+            {
+                ("Class Timetable & Routine", "/students/timetable", "calendar_view_week", 3),
+                ("Teacher & Subject Allocation", "/teachers/assignments", "assignment_ind", 4)
+            };
+
+            var allRoles = await dbContext.Roles.IgnoreQueryFilters().ToListAsync();
+
+            foreach (var item in routineItems)
+            {
+                var existing = await dbContext.MenuItems.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(m => m.RouteUrl == item.Route);
+
+                if (existing == null)
+                {
+                    existing = new IMSERP.Domain.Entities.MenuItem
+                    {
+                        Id = Guid.NewGuid(),
+                        ParentId = academicParent.Id,
+                        Title = item.Title,
+                        RouteUrl = item.Route,
+                        Icon = item.Icon,
+                        SortOrder = item.SortOrder,
+                        Module = "Academic",
+                        IsActive = true
+                    };
+                    dbContext.MenuItems.Add(existing);
+                    await dbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    bool changed = false;
+                    if (existing.ParentId != academicParent.Id)
+                    {
+                        existing.ParentId = academicParent.Id;
+                        changed = true;
+                    }
+                    if (existing.Module != "Academic")
+                    {
+                        existing.Module = "Academic";
+                        changed = true;
+                    }
+                    if (existing.Title != item.Title)
+                    {
+                        existing.Title = item.Title;
+                        changed = true;
+                    }
+                    if (!existing.IsActive)
+                    {
+                        existing.IsActive = true;
+                        changed = true;
+                    }
+                    if (changed)
+                    {
+                        await dbContext.SaveChangesAsync();
+                    }
+                }
+
+                foreach (var role in allRoles)
+                {
+                    var hasPerm = await dbContext.RolePermissions.IgnoreQueryFilters()
+                        .AnyAsync(rp => rp.RoleId == role.Id && rp.MenuItemId == existing.Id);
+
+                    if (!hasPerm)
+                    {
+                        var rName = (role.Name ?? "").ToLower();
+                        bool isAdmin = rName.Contains("admin") || rName.Contains("principal") || rName.Contains("director") || rName.Contains("owner") || rName.Contains("manager");
+                        bool isTeacher = rName.Contains("teacher") || rName.Contains("faculty");
+
+                        bool canView = isAdmin || isTeacher;
+                        bool canCreate = isAdmin || isTeacher;
+                        bool canEdit = isAdmin || isTeacher;
+                        bool canDelete = isAdmin;
+
+                        dbContext.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                        {
+                            Id = Guid.NewGuid(),
+                            RoleId = role.Id,
+                            MenuItemId = existing.Id,
+                            CanView = canView,
+                            CanCreate = canCreate,
+                            CanEdit = canEdit,
+                            CanDelete = canDelete
+                        });
+                    }
+                }
+                await dbContext.SaveChangesAsync();
+            }
+
+            _academicRoutineMenuSeeded = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Menu Warning] Academic routine auto-seed notice: {ex.Message}");
         }
     }
 }
