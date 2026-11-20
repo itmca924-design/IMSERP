@@ -422,7 +422,7 @@ export interface AssignmentSlot {
             <h3>{{selectedTeacher.fullName}}'s Schedule</h3>
             @if (assignments.length > 0) {
               <span class="badge-count">
-                {{assignments.length}} {{assignments.length === 1 ? 'Batch' : 'Batches'}} Active
+                {{assignments.length}} {{assignments.length === 1 ? 'Allocation' : 'Allocations'}} Active
               </span>
             }
             @if (assignments.length > 0) {
@@ -436,7 +436,7 @@ export interface AssignmentSlot {
             <div class="view-toggle-bar">
               <button type="button" class="view-toggle-btn" [class.active]="activeView === 'cards'" (click)="activeView = 'cards'" matButton="filled">
                 <mat-icon>grid_view</mat-icon>
-                <span>Batches ({{assignments.length}})</span>
+                <span>Class Allocations ({{assignments.length}})</span>
               </button>
               <button type="button" class="view-toggle-btn" [class.active]="activeView === 'timetable'" (click)="activeView = 'timetable'" matButton="filled">
                 <mat-icon>calendar_view_week</mat-icon>
@@ -733,7 +733,7 @@ export interface AssignmentSlot {
                     </div>
                     @if (canManage) {
                       <button color="warn" class="remove-btn" (click)="removeAssignment(a.id)"
-                        matTooltip="Remove this batch assignment" mat-icon-button>
+                        matTooltip="Remove this class allocation" mat-icon-button>
                         <mat-icon>delete_outline</mat-icon>
                       </button>
                     }

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, ChangeDetectionStrategy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -48,12 +48,20 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
               <div class="breadcrumb-row">
                 <a routerLink="/dashboard" class="bc-link"><mat-icon>home</mat-icon> Dashboard</a>
                 <span class="bc-sep">/</span>
-                <a routerLink="/students/my-profile" class="bc-link">Student 360°</a>
-                <span class="bc-sep">/</span>
-                <span class="bc-current">Live Routine &amp; Timetable</span>
+                @if (targetScope === 'coaching') {
+                  <a routerLink="/batches" class="bc-link">Coaching Operations</a>
+                  <span class="bc-sep">/</span>
+                  <span class="bc-current">Batch Timetable &amp; Routine</span>
+                } @else {
+                  <a routerLink="/students/my-profile" class="bc-link">Academic Operations</a>
+                  <span class="bc-sep">/</span>
+                  <span class="bc-current">Class Timetable &amp; Routine</span>
+                }
               </div>
-              <h1 class="page-title">Live Class Routine &amp; Timetable</h1>
-              <p class="page-subtitle">Real-time daily period sequence, live classroom tracking, faculty directory &amp; substitution updates</p>
+              <h1 class="page-title">{{ targetScope === 'coaching' ? 'Live Batch Routine & Timetable' : 'Live Class Routine & Timetable' }}</h1>
+              <p class="page-subtitle">
+                {{ targetScope === 'coaching' ? 'Real-time daily lecture sequence, coaching batch tracking, faculty directory & routine grid' : 'Real-time daily period sequence, live classroom tracking, faculty directory & substitution updates' }}
+              </p>
             </div>
           </div>
     
@@ -80,39 +88,6 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
             </div>
           }
         </div>
-    
-        <!-- Scope Navigation Pills (School Classes vs Coaching Batches) -->
-        @if (isAdminOrStaff && (hasSchoolModule && hasCoachingModule)) {
-          <div class="scope-nav-container">
-            <div class="scope-pills">
-              <button
-                type="button"
-                class="scope-pill-btn"
-                [class.active]="targetScope === 'school'"
-                (click)="setScope('school')" matButton="filled">
-                <mat-icon class="pill-icon">account_balance</mat-icon>
-                <span>School Classes (स्कूल कक्षाएं)</span>
-              </button>
-              <button
-                type="button"
-                class="scope-pill-btn"
-                [class.active]="targetScope === 'coaching'"
-                (click)="setScope('coaching')" matButton="filled">
-                <mat-icon class="pill-icon">groups</mat-icon>
-                <span>Coaching Batches (कोचिंग बैचेस)</span>
-              </button>
-            </div>
-            <div class="scope-meta-badge">
-              <mat-icon>verified_user</mat-icon>
-              @if (targetScope === 'coaching') {
-                <span>Scope: <strong>Coaching Batch Routine</strong> (बैच रूटीन)</span>
-              }
-              @if (targetScope === 'school') {
-                <span>Scope: <strong>School Section Routine</strong> (कक्षा वर्ग रूटीन)</span>
-              }
-            </div>
-          </div>
-        }
     
         <!-- Academic Class & Section Selector for Staff/Admin (School Mode) -->
         @if (isAdminOrStaff && targetScope === 'school' && classes.length > 0) {
@@ -149,7 +124,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
             </div>
           </div>
         }
-    
+
         <!-- Coaching Batch Selector for Staff/Admin (Coaching Mode) -->
         @if (isAdminOrStaff && targetScope === 'coaching') {
           <div class="admin-selector-bar coaching-bar">
@@ -192,7 +167,6 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
           </div>
         }
     
-    
         <!-- Error State -->
         @if (!loading && errorMessage) {
           <div class="error-state-card">
@@ -214,7 +188,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                 <div class="banner-left">
                   <mat-icon>event_busy</mat-icon>
                   <div>
-                    <strong>No Periods Scheduled Yet for {{ targetScope === 'coaching' ? (timetableData.batchName || 'this Batch') : (timetableData.className + (timetableData.sectionName ? ' - ' + timetableData.sectionName : '')) }}</strong>
+                    <strong>No Periods Scheduled Yet for {{ targetScope === 'coaching' ? (timetableData.batchName || selectedBatch?.name || 'this Batch') : (timetableData.className + (timetableData.sectionName ? ' - ' + timetableData.sectionName : '')) }}</strong>
                     <p>Configure weekly routine, subjects, and period timings for {{ targetScope === 'coaching' ? 'this coaching batch' : 'this section' }}.</p>
                   </div>
                 </div>
@@ -223,28 +197,47 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                 </button>
               </div>
             }
-            <!-- Student & Academic Identity Strip -->
+            <!-- Student / Batch & Academic Identity Strip -->
             <div class="student-identity-bar">
               <div class="student-info-col">
                 <div class="student-avatar-box">
-                  <mat-icon>school</mat-icon>
+                  <mat-icon>{{ targetScope === 'coaching' ? 'groups' : 'school' }}</mat-icon>
                 </div>
                 <div class="student-text">
-                  <h2 class="student-name">{{ timetableData.studentName }}</h2>
+                  <h2 class="student-name">
+                    {{ targetScope === 'coaching' ? (timetableData.batchName || selectedBatch?.name || 'Coaching Batch') : (timetableData.studentName || (timetableData.className + (timetableData.sectionName ? ' - ' + timetableData.sectionName : ''))) }}
+                  </h2>
                   <div class="student-pills">
                     @if (timetableData.className) {
                       <span class="id-pill">
-                        <mat-icon>domain</mat-icon> Class: <strong>{{ timetableData.className }}{{ timetableData.sectionName ? ' - ' + timetableData.sectionName : '' }}</strong>
+                        <mat-icon>domain</mat-icon> Class: <strong>{{ timetableData.className }}</strong>
                       </span>
                     }
-                    @if (timetableData.batchName) {
+                    @if (targetScope === 'school' && timetableData.sectionName) {
                       <span class="id-pill">
-                        <mat-icon>class</mat-icon> Batch: <strong>{{ timetableData.batchName }}</strong>
+                        <mat-icon>meeting_room</mat-icon> Section: <strong>{{ timetableData.sectionName }}</strong>
                       </span>
                     }
-                    <span class="id-pill">
-                      <mat-icon>pin</mat-icon> Roll No: <strong>{{ timetableData.rollNumber }}</strong>
-                    </span>
+                    @if (targetScope === 'coaching') {
+                      <span class="id-pill">
+                        <mat-icon>class</mat-icon> Batch: <strong>{{ timetableData.batchName || selectedBatch?.name }}</strong>
+                      </span>
+                      @if (selectedBatch?.subject) {
+                        <span class="id-pill">
+                          <mat-icon>auto_stories</mat-icon> Subject: <strong>{{ selectedBatch?.subject }}</strong>
+                        </span>
+                      }
+                      @if (selectedBatch?.shift) {
+                        <span class="id-pill">
+                          <mat-icon>schedule</mat-icon> Shift: <strong>{{ selectedBatch?.shift }}</strong>
+                        </span>
+                      }
+                    }
+                    @if (targetScope === 'school' && timetableData.rollNumber) {
+                      <span class="id-pill">
+                        <mat-icon>pin</mat-icon> Roll No: <strong>{{ timetableData.rollNumber }}</strong>
+                      </span>
+                    }
                     @if (timetableData.branchName) {
                       <span class="id-pill">
                         <mat-icon>store</mat-icon> Campus: <strong>{{ timetableData.branchName }}</strong>
@@ -253,14 +246,14 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                   </div>
                 </div>
               </div>
-              @if (timetableData.classTeacherName) {
+              @if (timetableData.classTeacherName || (targetScope === 'coaching' && selectedBatch?.mentorTeacherName)) {
                 <div class="class-teacher-card">
                   <div class="ct-avatar">
                     <mat-icon>supervisor_account</mat-icon>
                   </div>
                   <div class="ct-info">
-                    <span class="ct-role">Class Teacher / Incharge</span>
-                    <strong class="ct-name">{{ timetableData.classTeacherName }}</strong>
+                    <span class="ct-role">{{ targetScope === 'coaching' ? 'Batch Mentor / Incharge' : 'Class Teacher / Incharge' }}</span>
+                    <strong class="ct-name">{{ timetableData.classTeacherName || selectedBatch?.mentorTeacherName }}</strong>
                     @if (timetableData.classTeacherPhone) {
                       <a [href]="'tel:' + timetableData.classTeacherPhone" class="ct-phone">
                         <mat-icon>phone</mat-icon> {{ timetableData.classTeacherPhone }}
@@ -3464,8 +3457,14 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
   hasCoachingModule = true;
   batches: BatchDto[] = [];
   filteredBatches: BatchDto[] = [];
+  @Input() forcedScope?: 'school' | 'coaching';
+
   coachingClassId = '';
   selectedBatchId = '';
+
+  get selectedBatch(): BatchDto | undefined {
+    return this.batches.find(b => b.id === this.selectedBatchId);
+  }
 
   get currentSections(): SchoolSectionDto[] {
     const cls = this.classes.find(c => c.id === this.selectedClassId);
@@ -3498,17 +3497,29 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.startLiveClock();
+    
+    const isCoachingMode = this.forcedScope === 'coaching' || this.router.url.includes('/coaching');
+    if (isCoachingMode) {
+      this.targetScope = 'coaching';
+    } else {
+      this.targetScope = 'school';
+    }
+
     if (this.isAdminOrStaff) {
-      const scopeParam = this.route.snapshot.queryParamMap.get('scope');
-      const batchIdParam = this.route.snapshot.queryParamMap.get('batchId');
-      if (scopeParam === 'coaching' || batchIdParam) {
-        this.targetScope = 'coaching';
+      if (this.targetScope === 'coaching') {
+        const batchIdParam = this.route.snapshot.queryParamMap.get('batchId');
         if (batchIdParam) {
           this.selectedBatchId = batchIdParam;
         }
+        this.schoolService.getClasses(false).subscribe({
+          next: (clsList) => {
+            this.classes = clsList || [];
+          }
+        });
+        this.loadBatches(true);
+      } else {
+        this.loadClassesAndInitialTimetable();
       }
-      this.loadClassesAndInitialTimetable();
-      this.loadBatches(this.targetScope === 'coaching');
     } else {
       this.loadTimetable();
     }
