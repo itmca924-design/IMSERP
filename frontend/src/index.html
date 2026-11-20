@@ -186,6 +186,10 @@
     (function() {
       try {
         var savedLang = localStorage.getItem('imserp_lang');
+        if (!savedLang && document.cookie.indexOf('googtrans=/en/hi') !== -1) {
+          savedLang = 'hi';
+          localStorage.setItem('imserp_lang', 'hi');
+        }
         var hostname = window.location.hostname;
         var parts = hostname.split('.');
         var domains = ['', hostname, '.' + hostname];
@@ -258,6 +262,9 @@
     (function() {
       try {
         var savedLang = localStorage.getItem('imserp_lang');
+        if (!savedLang && document.cookie.indexOf('googtrans=/en/hi') !== -1) {
+          savedLang = 'hi';
+        }
         if (savedLang === 'hi') {
           ensureGoogleTranslateScript();
         } else {

@@ -114,11 +114,11 @@ export interface BreadcrumbItem {
                       (closed)="onPanelClosed(item.id)">
                       <mat-expansion-panel-header
                         class="menu-section-header"
-                        [matTooltip]="item.title"
+                        [matTooltip]="translationService.translate(item.title)"
                         matTooltipPosition="right">
                         <mat-panel-title class="accordion-title">
                           <mat-icon class="menu-item-icon">{{ item.icon || 'category' }}</mat-icon>
-                          <span class="module-title">{{ item.title }}</span>
+                          <span class="module-title">{{ translationService.translate(item.title) }}</span>
                         </mat-panel-title>
                       </mat-expansion-panel-header>
                       <mat-nav-list class="sub-nav-list">
@@ -127,11 +127,11 @@ export interface BreadcrumbItem {
                             mat-list-item
                             [routerLink]="sub.routeUrl"
                             routerLinkActive="active-link"
-                            [matTooltip]="sub.title"
+                            [matTooltip]="translationService.translate(sub.title)"
                             matTooltipPosition="right"
                             (click)="onNavClick(drawer)">
                             <mat-icon matListItemIcon class="menu-item-icon">{{ sub.icon || 'star' }}</mat-icon>
-                            <span matListItemTitle class="menu-label submenu-label">{{ sub.title }}</span>
+                            <span matListItemTitle class="menu-label submenu-label">{{ translationService.translate(sub.title) }}</span>
                           </a>
                         }
                       </mat-nav-list>
@@ -151,12 +151,12 @@ export interface BreadcrumbItem {
                       [routerLink]="item.routeUrl"
                       routerLinkActive="active-link"
                       [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
-                      [matTooltip]="item.title"
+                      [matTooltip]="translationService.translate(item.title)"
                       matTooltipPosition="right"
                       (click)="onNavClick(drawer)">
                       <div class="standalone-item-content">
                         <mat-icon class="menu-item-icon">{{ item.icon || 'space_dashboard' }}</mat-icon>
-                        <span class="menu-label">{{ item.title }}</span>
+                        <span class="menu-label">{{ translationService.translate(item.title) }}</span>
                       </div>
                     </a>
                   }
@@ -180,7 +180,7 @@ export interface BreadcrumbItem {
                     [routerLink]="item.routeUrl"
                     routerLinkActive="rail-active"
                     [routerLinkActiveOptions]="{ exact: item.routeUrl === '/' || item.routeUrl === '/dashboard' }"
-                    [matTooltip]="item.title"
+                    [matTooltip]="translationService.translate(item.title)"
                     matTooltipPosition="right">
                     <div class="rail-icon-box">
                       <mat-icon>{{ item.icon || 'space_dashboard' }}</mat-icon>
@@ -197,7 +197,7 @@ export interface BreadcrumbItem {
                     [style.--menu-active-bg]="getMenuColorTheme(item).activeBg"
                     [class.rail-active]="isParentActive(item)"
                     [matMenuTriggerFor]="railSubMenu"
-                    [matTooltip]="item.title"
+                    [matTooltip]="translationService.translate(item.title)"
                     matTooltipPosition="right" mat-icon-button>
                     <div class="rail-icon-box">
                       <mat-icon>{{ item.icon || 'category' }}</mat-icon>
@@ -210,7 +210,7 @@ export interface BreadcrumbItem {
                         [routerLink]="sub.routeUrl"
                         routerLinkActive="active-rail-sub">
                         <mat-icon>{{ sub.icon || 'star' }}</mat-icon>
-                        <span>{{ sub.title }}</span>
+                        <span>{{ translationService.translate(sub.title) }}</span>
                       </a>
                     }
                   </mat-menu>
@@ -4376,6 +4376,7 @@ export class LayoutComponent implements OnInit {
           }
           this.menuTree.set(filtered);
           this.updateActiveMenuPanel();
+          if (this.translationService.isHindi()) { this.translationService.retranslate(); }
         } else {
           this.fallbackMenu();
           this.updateActiveMenuPanel();
