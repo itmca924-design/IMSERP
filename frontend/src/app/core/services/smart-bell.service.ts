@@ -61,11 +61,34 @@ export class SmartBellService {
     this.refreshPeriodSlots();
     this.refreshRooms();
 
-    // Start 5-second interval loop for zero-touch precision monitoring
+    // Start 1-second interval loop for zero-touch precision countdown & bell monitoring
     if (typeof window !== 'undefined') {
-      this.timerRef = setInterval(() => this.tick(), 5000);
-      // Run first tick after 1s
-      setTimeout(() => this.tick(), 1000);
+      this.timerRef = setInterval(() => this.tick(), 1000);
+      setTimeout(() => this.tick(), 200);
+
+      // Global browser interaction listeners to unlock AudioContext and SpeechSynthesis
+      const unlockAudio = () => {
+        try {
+          if (this.audioCtx && this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+          } else if (!this.audioCtx) {
+            const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioCtxClass) {
+              this.audioCtx = new AudioCtxClass();
+              if (this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+              }
+            }
+          }
+          if ('speechSynthesis' in window && window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+        } catch {}
+      };
+
+      window.addEventListener('click', unlockAudio, { passive: true });
+      window.addEventListener('touchstart', unlockAudio, { passive: true });
+      window.addEventListener('keydown', unlockAudio, { passive: true });
     }
   }
 
@@ -134,13 +157,14 @@ export class SmartBellService {
 
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i];
+      if (!slot.isActive) continue;
       const startMin = this.parseTimeToMinutes(slot.startTime);
       const endMin = this.parseTimeToMinutes(slot.endTime);
 
-      if (startMin <= endMin) {
+      if (startMin < endMin) {
         if (currentIstMinutes >= startMin && currentIstMinutes < endMin) {
           active = slot;
-          secLeft = Math.round((endMin - currentIstMinutes) * 60);
+          secLeft = Math.max(0, Math.round((endMin - currentIstMinutes) * 60));
           next = slots[i + 1] || null;
           break;
         } else if (currentIstMinutes < startMin && !next) {
@@ -149,8 +173,15 @@ export class SmartBellService {
       }
     }
 
-    // Reset warning state if slot changed
+    const previousActive = this.currentSlot();
+
+    // If active slot just changed or current period expired
     if (active?.id !== this.lastAnnouncedSlotId) {
+      // If previous slot was running and its period-end bell had not fired yet, fire it now!
+      if (previousActive && previousActive.id === this.lastAnnouncedSlotId && !this.isBellFired()) {
+        this.isBellFired.set(true);
+        this.triggerPeriodEndBell(previousActive);
+      }
       this.lastAnnouncedSlotId = active ? active.id : null;
       this.isWarningAnnounced.set(false);
       this.isBellFired.set(false);
@@ -171,8 +202,8 @@ export class SmartBellService {
       this.announcePreBellWarning(active, warnMinutes);
     }
 
-    // 2. Period Ending Final Bell
-    if (!this.isBellFired() && secLeft <= 5) {
+    // 2. Period Ending Final Bell (when 2 seconds or less remain)
+    if (!this.isBellFired() && secLeft <= 2) {
       this.isBellFired.set(true);
       this.triggerPeriodEndBell(active);
     }
@@ -215,7 +246,9 @@ export class SmartBellService {
       .replace(/{remainingMinutes}/g, remainingMinutes.toString());
 
     // Play gentle attention chime first, then speak
-    this.playMelodicChime(0.6);
+    this.ensureAudioContext().then(ctx => {
+      if (ctx) this.playMelodicChime(ctx, 0.6);
+    });
     setTimeout(() => {
       this.speakText(message, lang, (s.volume || 100) / 100);
     }, 1200);
@@ -272,20 +305,21 @@ export class SmartBellService {
   /**
    * Realistic Web Audio API Synthesizer (Electric Gong, Brass Bell, Melodic Chime)
    */
-  playBell(bellType: string, durationSeconds: number = 3, volume: number = 1.0): void {
+  async playBell(bellType: string, durationSeconds: number = 3, volume: number = 1.0): Promise<void> {
+    const ctx = await this.ensureAudioContext();
+    if (!ctx) return;
+
     if (bellType === 'BrassBell') {
-      this.playBrassBell(durationSeconds, volume);
+      this.playBrassBell(ctx, durationSeconds, volume);
     } else if (bellType === 'MelodicChime') {
-      this.playMelodicChime(volume);
+      this.playMelodicChime(ctx, volume);
     } else {
-      this.playElectricGong(durationSeconds, volume);
+      this.playElectricGong(ctx, durationSeconds, volume);
     }
   }
 
-  playElectricGong(durationSeconds: number = 3, volume: number = 1.0): void {
+  playElectricGong(ctx: AudioContext, durationSeconds: number = 3, volume: number = 1.0): void {
     try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
       this.isPlayingAudio.set(true);
 
       const strikes = Math.max(1, Math.floor(durationSeconds / 1.5));
@@ -320,10 +354,8 @@ export class SmartBellService {
     }
   }
 
-  playBrassBell(durationSeconds: number = 4, volume: number = 1.0): void {
+  playBrassBell(ctx: AudioContext, durationSeconds: number = 4, volume: number = 1.0): void {
     try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
       this.isPlayingAudio.set(true);
 
       const osc = ctx.createOscillator();
@@ -347,10 +379,8 @@ export class SmartBellService {
     }
   }
 
-  playMelodicChime(volume: number = 1.0): void {
+  playMelodicChime(ctx: AudioContext, volume: number = 1.0): void {
     try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
       this.isPlayingAudio.set(true);
 
       // Westminster style 3-note chime (G4, C5, E5)
@@ -390,6 +420,9 @@ export class SmartBellService {
 
     try {
       window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
       utterance.volume = Math.min(1.0, Math.max(0.0, volume));
@@ -414,7 +447,7 @@ export class SmartBellService {
     }
   }
 
-  private getAudioContext(): AudioContext | null {
+  async ensureAudioContext(): Promise<AudioContext | null> {
     if (typeof window === 'undefined') return null;
     if (!this.audioCtx) {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -423,8 +456,14 @@ export class SmartBellService {
       }
     }
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      try {
+        await this.audioCtx.resume();
+      } catch {}
     }
+    return this.audioCtx;
+  }
+
+  private getAudioContext(): AudioContext | null {
     return this.audioCtx;
   }
 }

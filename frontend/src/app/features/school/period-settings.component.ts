@@ -2568,6 +2568,8 @@ export class PeriodSettingsComponent implements OnInit {
             displayOrder: s.displayOrder || (index + 1),
             isActive: s.isActive
           }));
+          this.smartBell.periodSlots.set(slots);
+          this.smartBell.tick();
         } else {
           // Default initial rows if DB is totally empty
           this.applyPreset('standard', false);
@@ -3022,6 +3024,10 @@ export class PeriodSettingsComponent implements OnInit {
     this.schoolService.bulkSavePeriodSlots(payload).subscribe({
       next: (saved) => {
         this.saving = false;
+        if (saved && saved.length > 0) {
+          this.smartBell.periodSlots.set(saved);
+          this.smartBell.tick();
+        }
         const count = saved?.length || this.rows.length;
         const scope = this.currentScopeText;
         this.confirmDialog.bilingualAlert({
